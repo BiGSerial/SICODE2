@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Http\Livewire\Reports;
+
+use App\Exports\Notesreport;
+use App\Models\Note;
+use Livewire\Component;
+use Livewire\WithPagination;
+use Ramsey\Uuid\Codec\OrderedTimeCodec;
+
+class Advancedsearch extends Component
+{
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
+
+
+    public $search;
+    public $perPage = 50;
+    public $note_type = "";
+    public $group2 = [];
+    public $status = [];
+
+    public function Search()
+    {
+
+    }
+
+    public function mount()
+    {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filtro']['searchAdvanced'])) {
+            $this->group2 = $_SESSION['filtro']['searchAdvanced']['group2'];
+            $this->status = $_SESSION['filtro']['searchAdvanced']['status'];
+        }
+    }
+
+    public function applyFilter()
+    {
+
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $_SESSION['filtro']['searchAdvanced']['group2'] = $this->group2;
+        $_SESSION['filtro']['searchAdvanced']['status'] = $this->status;
+
+    }
+
+    public function removeFilter()
+    {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $this->group2 = [];
+        $this->status = [];
+
+        unset($_SESSION['filtro']['searchAdvanced']);
+    }
+
+    public function exportToExcel()
+    {
+        // return (new ExportDDExcel())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-').'exportDD.xlsx');
+        return (new Notesreport($this->lists->get()))->download(date('YmdHis-').'-NoteReport-Sicode.xlsx');
+    }
+
+    public function getFiltrosProperty()
+    {
+        $query = Note::query();
+
+        $query->Where('nstats', '<', 98);
+
+
+        return $query;
+
+    }
+
+    public function getListsProperty()
+    {
+        return  Note::Where(function ($q) {
+            $q->where('note', 'like', '%'.$this->search.'%')
+                ->orWhere('group1', 'like', '%'.$this->search.'%')
+                ->orWhere('group2', 'like', '%'.$this->search.'%')
+                ->orWhere('group3', 'like', '%'.$this->search.'%')
+                ->orWhere('group4', 'like', '%'.$this->search.'%')
+                ->orWhere('group5', 'like', '%'.$this->search.'%')
+                ->orWhere('lexp', 'like', '%'.$this->search.'%')
+                ->orWhere('rubrica', 'like', '%'.$this->search.'%')
+                ->orWhere('numPedido', 'like', '%'.$this->search.'%')
+                ->orWhere('material', 'like', '%'.$this->search.'%');
+        })->When($this->note_type, function ($q) {
+            return $q->where('type_note', $this->note_type);
+        })
+        ->when($this->status, function ($q) {
+            return $q->whereIn('nstats', $this->status);
+        })
+        ->when($this->group2, function ($q) {
+            return $q->whereIn('group2', $this->group2);
+        })
+        ->Where('nstats', '<', 98)
+        ->OrderBy('type_note', 'DESC')
+        ->OrderBy('days_left');
+
+    }
+
+    public function render()
+    {
+        return view('livewire.reports.advancedsearch', [
+            'lists' => $this->lists->paginate($this->perPage),
+            'filtros' => $this->filtros
+
+        ]);
+    }
+}

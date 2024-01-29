@@ -1,0 +1,39 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+return new class () extends Migration {
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('services', function (Blueprint $table) {
+            $table->string('folder')->after('status')->nullable();
+            $table->uuid('uuid')->after('id')->nullable()->unique();
+        });
+
+        // Preencha os valores existentes com UUIDs
+        $services = DB::table('services')->get();
+
+        foreach ($services as $service) {
+            DB::table('services')
+                ->where('id', $service->id)
+                ->update(['uuid' => Str::uuid()]);
+        }
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('services', function (Blueprint $table) {
+            $table->dropColumn('folder', 'uuid');
+        });
+    }
+};

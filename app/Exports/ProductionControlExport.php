@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Exports;
+
+use Illuminate\Contracts\View\View;
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Concerns\WithProperties;
+
+class ProductionControlExport implements FromView, WithProperties
+{
+    use Exportable;
+
+    public $data;
+
+    public function __construct($data)
+    {
+        $this->data = $data;
+    }
+
+
+    // public function getData()
+    // {
+    //     return $this->data;
+    // }
+
+    public function properties(): array
+    {
+        return [
+            'creator'        => 'SICODE REPORTS',
+            'lastModifiedBy' => 'SICODE REPORTS',
+            'title'          => 'Relatorio Automatico Sicode',
+            'description'    => 'Arquivo gerado automaticamente via SICODE',
+            'subject'        => 'Relatorios',
+            'manager'        => 'Joao Paulo Mantovani',
+            'company'        => 'EDP Energias do Brasil',
+        ];
+    }
+
+    public function view(): View
+    {
+        return view('exports.productionsControl', [
+            'lists' => $this->data
+        ]);
+    }
+}
