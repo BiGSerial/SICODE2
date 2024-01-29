@@ -27,30 +27,68 @@
     </div>
 
     @if ($lists)
-        <div class="card">
-            <h4 class="card-header">
+        <div class="card edp-bg-sprucegreen-70 edp-text-verde-dark">
+            <h4 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">
                 NOTA/OV <STRONG>{{ $lists->note }}</STRONG>
             </h4>
             <div class="card-body">
-                <dl class="row">
-                    <dt class="col-sm-4">RUBRICA</dt>
-                    <dd class="col-sm-8">{{ $lists->rubrica }}</dd>
+                <div class="row">
+                    <div class="col-8">
+                        <dl class="row">
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">RUBRICA</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->rubrica }}</dd>
 
-                    <dt class="col-sm-4">GRUPO 1</dt>
-                    <dd class="col-sm-8">{{ $lists->group1 }}</dd>
+                            @if ($lists->type_note == 2)
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 1</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group1 }}</dd>
 
-                    <dt class="col-sm-4">DESCRICAO</dt>
-                    <dd class="col-sm-8">{{ $lists->numPedido }}</dd>
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 2</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group2 }}</dd>
 
-                    <dt class="col-sm-4">MUNICÍPIO</dt>
-                    <dd class="col-sm-8">{{ $lists->lexp }}</dd>
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 4</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group4 }}</dd>
 
-                    <dt class="col-sm-4">MMGD</dt>
-                    <dd class="col-sm-8">{{ $lists->mmgd ? 'SIM' : 'NÃO' }}</dd>
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 5</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group5 }}</dd>
+                            @endif
 
-                    <dt class="col-sm-4">STATUS ATUAL</dt>
-                    <dd class="col-sm-8">{{ $lists->nstats }}</dd>
-                </dl>
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">DESCRICAO</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->numPedido }}</dd>
+
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">MUNICÍPIO</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->lexp }}</dd>
+
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">MMGD</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->mmgd ? 'SIM' : 'NÃO' }}</dd>
+
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">STATUS ATUAL</dt>
+                            <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->nstats }}</dd>
+
+                            @if ($lists->type_note == 1)
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">CENTRO DE TRABALHO</dt>
+                                <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->centerjob }}</dd>
+                            @endif
+
+
+                        </dl>
+                    </div>
+                    <div class="col-4">
+                        <div class="card">
+                            <h5 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">REGISTRO SICODE</h5>
+                            <div class="card-body">
+                                <dl class="row">
+                                    <dt class="col-6">ENTRADA NO SICODE</dt>
+                                    <dd class="col-6">{{ Carbon::parse($lists->created_at)->format('d/m/Y H:i:s') }}
+                                    </dd>
+
+                                    <dt class="col-6">ULTIMA MOVIMENTACAO</dt>
+                                    <dd class="col-6">{{ Carbon::parse($lists->updated_at)->format('d/m/Y H:i:s') }}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 @if ($lists->Productions->count())
                     <div class="table-responsive">
