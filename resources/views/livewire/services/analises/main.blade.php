@@ -135,9 +135,8 @@
                     <table class="table table-sm table-striped table-condensed">
                         <thead class="table-dark        ">
                             <tr>
-                                @can('management')
-                                    <th scope="col" class="fw-bold">Note</th>
-                                @endcan
+
+                                <th scope="col" class="fw-bold">Note</th>
 
                                 <th scope="col" class="fw-bold">Criado Em</th>
                                 <th scope="col" class="fw-bold">numPedido</th>
@@ -213,11 +212,15 @@
                                     table-danger 
                                     @else
                                     table-primary @endif @endif">
-                                    @can('management')
+
+                                    @if (Auth()->User()->management || ($count->last() !== null && $count->last()->user_id === Auth()->User()->id))
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">
                                             {{ $list->note }}
                                         </td>
-                                    @endcan
+                                    @else
+                                        <td></td>
+                                    @endif
+
 
                                     <td class="fw-light">{{ date('d/m/Y', strToTime($list->dt_created)) }}</td>
                                     <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
