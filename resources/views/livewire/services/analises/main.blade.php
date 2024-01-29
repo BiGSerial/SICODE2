@@ -213,7 +213,9 @@
                                     @else
                                     table-primary @endif @endif">
 
-                                    @if (Auth()->User()->management || ($count->last() !== null && $count->last()->user_id === Auth()->User()->id))
+                                    @if (Auth()->User()->management ||
+                                            Auth()->User()->superadm ||
+                                            ($count->last() !== null && $count->last()->user_id === Auth()->User()->id))
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">
                                             {{ $list->note }}
                                         </td>
