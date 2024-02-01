@@ -461,6 +461,13 @@ class Main extends Component
                       ->orWhereNull('type_note');
             });
         })
+        ->when($this->base, function ($q) {
+            return $q->where(function ($query) {
+                return $query->whereIn('nexp', $this->base)
+                        ->orWhere('nexp', '')
+                        ->orWhere('nexp', null);
+            });
+        })
 
                 ->with('Productions.User')
                 ->orderBy('type_note', 'DESC')
@@ -486,14 +493,38 @@ class Main extends Component
 
     public function getBaseProperty()
     {
-        return City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })
-        ->when($this->district_s, function ($q) {
-            return $q->whereIn('baseConstrucao', $this->district_s);
-        })->when($this->city_s, function ($q) {
-            return $q->whereIn('cidade', $this->city_s);
-        })->orderBy('cidade')->get()->pluck('rdMunicipio')->toArray();
+        try {
+            $query = City::query();
+            $filtersApplied = false;
+
+            if (!empty($this->region_s)) {
+                $query->whereIn('regiao', $this->region_s);
+                $filtersApplied = true;
+            }
+
+            if (!empty($this->district_s)) {
+                $query->whereIn('baseConstrucao', $this->district_s);
+                $filtersApplied = true;
+            }
+
+            if (!empty($this->city_s)) {
+                $query->whereIn('cidade', $this->city_s);
+                $filtersApplied = true;
+            }
+
+            if (!$filtersApplied) {
+                return [];
+            }
+
+            $result = $query->orderBy('cidade')
+                            ->get()
+                            ->pluck('rdMunicipio')
+                            ->toArray();
+
+            return $result;
+        } catch (\Throwable $th) {
+            return [];
+        }
     }
 
 

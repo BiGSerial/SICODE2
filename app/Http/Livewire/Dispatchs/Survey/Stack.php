@@ -964,7 +964,7 @@ class Stack extends Component
     {
         return Production::with(['Note'])
         ->join('notes', 'productions.note_id', '=', 'notes.id')
-        ->where('confirmed', false)
+        // ->where('confirmed', false)
         ->where('service_id', $this->service->uuid)
         ->when($this->search, function ($q) {
             return $q->where(function ($query) {
@@ -1003,6 +1003,7 @@ class Stack extends Component
                 ->orWhereNull('rubrica');
             });
         })
+
         ->when($this->base, function ($q) {
             return $q->whereHas('Note', function ($query) {
                 return $query->whereIn('nexp', $this->base)
@@ -1010,21 +1011,22 @@ class Stack extends Component
                         ->orwhere('nexp', '');
             });
         })
-        ->when($this->multiSearch, function ($q) {
-            return $q->whereHas('Note', function ($query) {
-                return $query->whereIn('note', $this->multiSearch);
-            });
-        })
-        ->when($this->status_s, function ($q) {
-            return $q->whereIn('productions.status', $this->status_s)
-                    ->orWhereNull('productions.status');
-        })
-        ->when($this->note_type, function ($q) {
-            return $q->whereHas('Note', function ($query) {
-                return $query->whereIn('type_note', $this->note_type)
-                        ->orWhereNull('type_note');
-            });
-        })
+
+        // ->when($this->multiSearch, function ($q) {
+        //     return $q->whereHas('Note', function ($query) {
+        //         return $query->whereIn('note', $this->multiSearch);
+        //     });
+        // })
+        // ->when($this->status_s, function ($q) {
+        //     return $q->whereIn('productions.status', $this->status_s)
+        //             ->orWhereNull('productions.status');
+        // })
+        // ->when($this->note_type, function ($q) {
+        //     return $q->whereHas('Note', function ($query) {
+        //         return $query->whereIn('type_note', $this->note_type)
+        //                 ->orWhereNull('type_note');
+        //     });
+        // })
         ->orderBy('priority', 'DESC')
         ->orderBy('notes.type_note', 'DESC')
         ->orderBy('notes.days_left', 'asc')
@@ -1036,6 +1038,7 @@ class Stack extends Component
 
     public function getStatusProperty()
     {
+
         return Production::with(['Note'])
                         ->join('notes', 'productions.note_id', '=', 'notes.id')
                         ->where('confirmed', false)
@@ -1104,16 +1107,38 @@ class Stack extends Component
 
     public function getBaseProperty()
     {
-        return City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })
-        ->when($this->district_s, function ($q) {
-            return $q->whereIn('baseConstrucao', $this->district_s);
-        })->when($this->city_s, function ($q) {
-            return $q->whereIn('cidade', $this->city_s);
-        })->orderBy('cidade')->get()->pluck('rdMunicipio')->toArray();
+        try {
+            $query = City::query();
+            $filtersApplied = false;
 
+            if (!empty($this->region_s)) {
+                $query->whereIn('regiao', $this->region_s);
+                $filtersApplied = true;
+            }
 
+            if (!empty($this->district_s)) {
+                $query->whereIn('baseConstrucao', $this->district_s);
+                $filtersApplied = true;
+            }
+
+            if (!empty($this->city_s)) {
+                $query->whereIn('cidade', $this->city_s);
+                $filtersApplied = true;
+            }
+
+            if (!$filtersApplied) {
+                return [];
+            }
+
+            $result = $query->orderBy('cidade')
+                            ->get()
+                            ->pluck('rdMunicipio')
+                            ->toArray();
+
+            return $result;
+        } catch (\Throwable $th) {
+            return [];
+        }
     }
 
     public function closeall()
