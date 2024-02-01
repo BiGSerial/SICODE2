@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.2",
+    "appver": "1.7.3",
     "historic": [
+        {
+            "version": "1.7.3",
+            "description": "Correcao de BUG nos filtros de munic\u00edpios das lista de controle de despacho",
+            "date": "2024-02-01"
+        },
         {
             "version": "1.7.2",
             "description": "Export Excel Better Info",
