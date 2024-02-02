@@ -964,7 +964,7 @@ class Stack extends Component
     {
         return Production::with(['Note'])
         ->join('notes', 'productions.note_id', '=', 'notes.id')
-        // ->where('confirmed', false)
+        ->where('confirmed', false)
         ->where('service_id', $this->service->uuid)
         ->when($this->search, function ($q) {
             return $q->where(function ($query) {
@@ -1012,11 +1012,12 @@ class Stack extends Component
             });
         })
 
-        // ->when($this->multiSearch, function ($q) {
-        //     return $q->whereHas('Note', function ($query) {
-        //         return $query->whereIn('note', $this->multiSearch);
-        //     });
-        // })
+        ->when($this->multiSearch, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                return $query->whereIn('note', $this->multiSearch);
+            });
+        })
+
         // ->when($this->status_s, function ($q) {
         //     return $q->whereIn('productions.status', $this->status_s)
         //             ->orWhereNull('productions.status');
