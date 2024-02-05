@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.3",
+    "appver": "1.7.4",
     "historic": [
+        {
+            "version": "1.7.4",
+            "description": "Fixed Dispatch LAG Page",
+            "date": "2024-02-05"
+        },
         {
             "version": "1.7.3",
             "description": "Correcao de BUG nos filtros de munic\u00edpios das lista de controle de despacho",
