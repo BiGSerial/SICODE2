@@ -8,14 +8,14 @@ use Livewire\Component;
 
 class Reattribute extends Component
 {
-    public $production;
+    public ?Production $production;
     public $chave;
 
     protected $listeners = [
         'confirm_reatt' => 'confirm_reatt'
     ];
 
-    public function mount(Production $production, $chave)
+    public function mount($production, $chave)
     {
         $this->production = $production;
         $this->chave = $chave;

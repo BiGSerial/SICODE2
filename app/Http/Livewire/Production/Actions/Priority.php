@@ -8,7 +8,7 @@ use Livewire\Component;
 
 class Priority extends Component
 {
-    public $production;
+    public ?Production $production = null;
     public $chave;
 
     public $listeners = [
@@ -17,7 +17,7 @@ class Priority extends Component
     ];
 
 
-    public function mount(Production $production, $chave)
+    public function mount($production, $chave)
     {
         $this->production = $production;
         $this->chave = $chave;

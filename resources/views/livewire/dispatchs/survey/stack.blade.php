@@ -595,10 +595,10 @@
                                                                     class="ri-exchange-line text-primary align-middle"></i>
                                                                 Transferir</a></li> --}}
                                                     @endif
-                                                    @livewire('production.actions.reattribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
-                                                    @livewire('production.actions.priority', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
-                                                    @livewire('production.actions.delete', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
-                                                    @livewire('audits.prodbutton', ['prod' => $list->id, 'service' => $this->service->uuid], key('audit-' . $list->id))
+                                                    @livewire('production.actions.reattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
+                                                    @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
+                                                    @livewire('production.actions.delete', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
+                                                    {{-- @livewire('audits.prodbutton', ['prod' => $list->id, 'service' => $this->service->uuid], key('audit-' . $list->id)) --}}
                                                 </ul>
                                             </div>
                                         @endif
