@@ -1,4 +1,4 @@
-<div wire:poll.5m>
+<div wire:poll.300s>
     @if ($count)
         {{-- <span class="badge text-bg-danger ms-2 ncount">{{ $count }}</span> --}}
         @if ($geral)
