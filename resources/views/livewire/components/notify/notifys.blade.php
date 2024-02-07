@@ -1,7 +1,7 @@
 @php
     use Carbon\Carbon;
 @endphp
-<div wire:poll>
+<div wire:poll.60s>
     <li class="nav-item dropdown mx-3">
 
         <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown">
