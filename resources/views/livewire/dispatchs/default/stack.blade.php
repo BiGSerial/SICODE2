@@ -462,9 +462,9 @@
                                                             Transferir</a></li> --}}
                                                     @endif
                                                     {{-- @livewire('production.actions.attribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('attribute-' . $list->id)) --}}
-                                                    @livewire('production.actions.reattribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
-                                                    @livewire('production.actions.priority', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
-                                                    @livewire('production.actions.delete', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
+                                                    @livewire('production.actions.reattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
+                                                    @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
+                                                    @livewire('production.actions.delete', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
                                                 </ul>
                                             </div>
                                         @endif
