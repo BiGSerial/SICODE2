@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.4",
+    "appver": "1.7.5",
     "historic": [
+        {
+            "version": "1.7.5",
+            "description": "Fix Control Default Service",
+            "date": "2024-02-16"
+        },
         {
             "version": "1.7.4",
             "description": "Fixed Dispatch LAG Page",
