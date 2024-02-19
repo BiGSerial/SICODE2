@@ -1,6 +1,7 @@
 <div>
     <div class="dropdown mx-1">
-        <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
+            data-bs-auto-close="outside" aria-expanded="false">
             {{ $this->filter }}
             @if (count($items))
                 <span class="badge text-bg-light">{{ count($items) }}</span>
