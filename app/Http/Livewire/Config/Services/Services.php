@@ -13,8 +13,13 @@ class Services extends Component
     public $status;
     public $folders;
     public $folder_s;
+    public $icon;
+    public $icon_s;
 
-    public $editName = false;
+
+    public $editName = [];
+    public $chave = "";
+
 
     protected $listeners = [
         'refresh_service_list' => '$refresh'
@@ -29,12 +34,17 @@ class Services extends Component
 
     public function edit_name_service(Service $service)
     {
+        if ($this->chave && isset($this->editName[$this->chave])) {
+            $this->editName[$this->chave] = false;
+        }
+
         $this->update_service = $service;
         $this->service_name = $service->service;
         $this->status = $service->status;
-
+        $this->icon_s = $service->icon;
+        $this->chave = $service->id;
         $this->folder_s = $service->folder;
-        $this->editName = true;
+        $this->editName[$service->id] = true;
     }
 
 
@@ -56,10 +66,12 @@ class Services extends Component
 
     public function update_name()
     {
+
         if ($this->update_service->update([
             'service' => ucwords(mb_strtolower($this->service_name)),
             'status' => $this->status,
-            'folder' => $this->folder_s
+            'folder' => $this->folder_s,
+            'icon' => $this->icon_s,
             ])) {
 
             $this->dispatchBrowserEvent('torrada', [
@@ -67,10 +79,12 @@ class Services extends Component
                 'menssage' => 'Nome do serviço Atualizado com sucesso!',
             ]);
 
-            $this->editName = false;
+            $this->editName[$this->chave] = false;
             $this->service_name = "";
             $this->status = "";
             $this->folder_s = "";
+            $this->icon_s = "";
+            $this->update_service = "";
 
             $this->emit('refresh_service_list');
 
@@ -80,10 +94,12 @@ class Services extends Component
                 'menssage' => 'OOOOPS! Não consegui atualizar o nome... Sorry!',
             ]);
 
-            $this->editName = false;
+            $this->editName[$this->chave] = false;
             $this->service_name = "";
             $this->status = "";
             $this->folder_s = "";
+            $this->icon_s = "";
+            $this->update_service = "";
             $this->emit('refresh_service_list');
         }
     }

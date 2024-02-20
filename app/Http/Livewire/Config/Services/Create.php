@@ -13,6 +13,10 @@ class Create extends Component
     public $folders;
     public $folder_s;
 
+    public $project;
+    public $construction;
+    public $icon;
+
 
     protected $listeners = [
         'save_create_service' => 'create'
@@ -28,18 +32,37 @@ class Create extends Component
     public function create()
     {
         if (!trim($this->service)) {
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'warning',
                 'title' => 'Você precisa informar o nome do serviço a ser incluido',
                 'timer' => 2500,
             ]);
+
+            return;
+        }
+
+        if (!$this->project && !$this->construction) {
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'SEM DEFINIÇÃO DE SERVIÇO',
+                'html' => 'A definição do Serviço <strong>(Projeto/Construção)</strong> precisa ser definido.',
+                'timer' => 2500,
+            ]);
+
+            return;
         }
 
         if (Service::create([
             'service' => ucwords(mb_strtolower($this->service)),
             'status' => $this->status,
-            'folder' => $this->folder_s
+            'folder' => $this->folder_s,
+            'project' => $this->project ? true : false,
+            'construction' => $this->construction ? true : false,
+            'icon' => $this->icon ?? $this->icon,
             ])) {
 
             $this->dispatchBrowserEvent('swal', [

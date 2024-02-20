@@ -22,7 +22,10 @@ class Service extends Model
     protected $fillable = [
         'service',
         'status',
-        'folder'
+        'folder',
+        'project',
+        'construction',
+        'icon',
     ];
 
 

@@ -26,6 +26,22 @@
                 </select>
 
             </div>
+            <div class="mb-3 col-3">
+                <label for="email" class="form-label">Icone</label>
+                <input wire:model.debounce.1s="icon" type="text" class="form-control" name="status" id="icon">
+                @if ($icon)
+                    <i class="{{ $icon }} fw-bold fs-4 align-middle text-primary"></i>
+                @endif
+            </div>
+
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="project" wire:model.defer="project">
+            <label class="form-check-label" for="project">Projeto</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="construction" wire:model.defer="construction">
+            <label class="form-check-label" for="construction">Construção</label>
         </div>
 
     </form>

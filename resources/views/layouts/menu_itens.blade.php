@@ -55,55 +55,114 @@
     </li>
 @endcan
 
-
-<li class="nav-item dropdown mx-2">
-    <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-        data-bs-toggle="dropdown" aria-expanded="false">
-        PROJETO
-    </a>
-    <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
-        style="background-color: #dbd8d8; width: 300px;">
-        @can('operator')
-            @if (isset(Auth()->user()->Employee->Contract->services) &&
-                    Auth()->user()->Employee->Contract->service &&
-                    Auth()->user()->Employee->Contract->services->count())
-                <li style="background-color: #ffffff; color: white;">
-                    <h6 class="dropdown-header">DESPACHOS</h6>
-                </li>
-                @foreach (Auth()->user()->Employee->Contract->services as $service)
-                    @if ($service->pivot->dispatch)
-                        <li><a class="dropdown-item" href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"><i
-                                    class="ri-remote-control-2-line align-middle text-primary"></i>{{ mb_strToUpper($service->service) }}</a>
-                        </li>
-                    @endif
-                @endforeach
-            @endif
-        @endcan
-        @can('user')
-            <li>
-                <hr class="dropdown-divider">
-            </li>
-            @if (isset(Auth()->user()->Employee->Contract->services) &&
-                    Auth()->user()->Employee->Contract->service &&
-                    Auth()->user()->Employee->Contract->services->count())
-                <li style="background-color: #ffffff; color: white;">
-                    <h6 class="dropdown-header">SERVIÇOS</h6>
-                </li>
-                @foreach (Auth()->user()->Employee->Contract->services as $service)
-                    <li><a class="dropdown-item" href="{{ route('services.main', ['service' => $service->uuid]) }}">
-                            <div class="d-flex align-items-center">
-                                <i class="ri-tools-line text-primary"></i>
-                                <span>{{ mb_strtoupper($service->service) }}</span>
-                                @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
-                            </div>
-                        </a>
+@if (isset(Auth()->user()->Employee->Contract) &&
+        Auth()->user()->Employee->Contract->service &&
+        Auth()->user()->Employee->Contract->services->where('project', true)->count())
+    <li class="nav-item dropdown mx-2">
+        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            PROJETO
+        </a>
+        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
+            style="background-color: #dbd8d8; width: 300px;">
+            @can('operator')
+                @if (isset(Auth()->user()->Employee->Contract->services) &&
+                        Auth()->user()->Employee->Contract->service &&
+                        Auth()->user()->Employee->Contract->services->where('project', true)->count())
+                    <li style="background-color: #ffffff; color: white;">
+                        <h6 class="dropdown-header">DESPACHOS</h6>
                     </li>
-                @endforeach
-            @endif
-        @endcan
+                    @foreach (Auth()->user()->Employee->Contract->services->where('project', true) as $service)
+                        @if ($service->pivot->dispatch)
+                            <li><a class="dropdown-item"
+                                    href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"><i
+                                        class="{{ $service->icon }} align-middle text-danger"></i>{{ mb_strToUpper($service->service) }}</a>
+                            </li>
+                        @endif
+                    @endforeach
+                @endif
+            @endcan
+            @can('user')
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
+                @if (isset(Auth()->user()->Employee->Contract->services) &&
+                        Auth()->user()->Employee->Contract->service &&
+                        Auth()->user()->Employee->Contract->services->where('project', true)->count())
+                    <li style="background-color: #ffffff; color: white;">
+                        <h6 class="dropdown-header">SERVIÇOS</h6>
+                    </li>
+                    @foreach (Auth()->user()->Employee->Contract->services->where('project', true) as $service)
+                        <li><a class="dropdown-item" href="{{ route('services.main', ['service' => $service->uuid]) }}">
+                                <div class="d-flex align-items-center">
+                                    <i class="{{ $service->icon }} text-primary"></i>
+                                    <span>{{ mb_strtoupper($service->service) }}</span>
+                                    @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
+                                </div>
+                            </a>
+                        </li>
+                    @endforeach
+                @endif
+            @endcan
 
-    </ul>
-</li>
+        </ul>
+    </li>
+@endif
+
+@if (isset(Auth()->user()->Employee->Contract) &&
+        Auth()->user()->Employee->Contract->construction &&
+        Auth()->user()->Employee->Contract->services->where('construction', true)->count())
+    <li class="nav-item dropdown mx-2">
+        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            CONSTRUCAO
+        </a>
+        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
+            style="background-color: #dbd8d8; width: 300px;">
+            @can('operator')
+                @if (isset(Auth()->user()->Employee->Contract->services) &&
+                        Auth()->user()->Employee->Contract->construction &&
+                        Auth()->user()->Employee->Contract->services->where('construction', true)->count())
+                    <li style="background-color: #ffffff; color: white;">
+                        <h6 class="dropdown-header">DESPACHOS</h6>
+                    </li>
+                    @foreach (Auth()->user()->Employee->Contract->services->where('construction', true) as $service)
+                        @if ($service->pivot->dispatch)
+                            <li><a class="dropdown-item"
+                                    href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"><i
+                                        class="{{ $service->icon }} align-middle text-info"></i>{{ mb_strToUpper($service->service) }}</a>
+                            </li>
+                        @endif
+                    @endforeach
+                @endif
+            @endcan
+            @can('user')
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
+                @if (isset(Auth()->user()->Employee->Contract->services) &&
+                        Auth()->user()->Employee->Contract->construction &&
+                        Auth()->user()->Employee->Contract->services->where('construction', true)->count())
+                    <li style="background-color: #ffffff; color: white;">
+                        <h6 class="dropdown-header">SERVIÇOS</h6>
+                    </li>
+                    @foreach (Auth()->user()->Employee->Contract->services->where('construction', true) as $service)
+                        <li><a class="dropdown-item" href="{{ route('services.main', ['service' => $service->uuid]) }}">
+                                <div class="d-flex align-items-center">
+                                    <i class="{{ $service->icon }} text-primary"></i>
+                                    <span>{{ mb_strtoupper($service->service) }}</span>
+                                    @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
+                                </div>
+                            </a>
+                        </li>
+                    @endforeach
+                @endif
+            @endcan
+
+        </ul>
+    </li>
+@endif
+
 
 
 {{-- @can(['operator'])

@@ -30,15 +30,16 @@
                 <div class="card-header">
                     <div class="row">
                         <div class="col">
-                            @if ($editName && $update_service->id === $service->id)
+                            @if (isset($editName[$service->id]) && $editName[$service->id])
                                 <div class="input-group">
                                     <input type="text" class="col-3 form-control border border-2 border-secondary"
                                         wire:model.defer="service_name" aria-label="Recipient's username"
-                                        aria-describedby="button-addon2">
+                                        aria-describedby="button-addon2" wire:key="item-{{ $service->id }}">
 
 
                                     <select class="form-select border border-2 border-secondary"
-                                        aria-label="Default select example" wire:model.defer="folder_s">
+                                        aria-label="Default select example" wire:model.defer="folder_s"
+                                        wire:key="item-{{ $service->id }}">
                                         <option selected>Selecione Diretório</option>
                                         @if (isset($folders) && count($folders))
                                             @foreach ($folders as $folder)
@@ -47,18 +48,24 @@
                                             @endforeach
                                         @endif
                                     </select>
+
+                                    <input wire:model="icon_s" type="text"
+                                        class="form-control border-1 border-secondary">
+                                    @if ($icon_s)
+                                        <i class="{{ $icon_s }} fw-bold fs-4 align-middle text-primary mx-2"></i>
+                                    @endif
                                     <button class="btn btn-outline-secondary" type="button" id="button-addon2"
-                                        wire:click.prevent="update_name">OK</button>
+                                        wire:click.prevent="update_name" wire:key="item-{{ $service->id }}">OK</button>
                                 </div>
                             @else
-                                <h4>{{ $service->service }}
+                                <h4><i class="{{ $service->icon }} text-primary me-2"></i>{{ $service->service }}
                                     @if ($service->Status->count())
                                         @foreach ($service->Status->where('exclusion', false)->unique('value') as $status)
                                             <span class="fw-bold">({{ $status->value }})
                                             </span>
                                         @endforeach
                                     @endif
-                                    <i class="ri-pencil-fill align-middle btn"
+                                    <i class="ri-pencil-fill align-middle text-danger" style="cursor: pointer;"
                                         wire:click.prevent="edit_name_service({{ $service->id }})"></i>
                                 </h4>
                             @endif
@@ -110,7 +117,7 @@
                                                     <td>{{ $contract->pivot->posts ? 'SIM' : 'NÃO' }}</td>
                                                     <td>{{ $contract->pivot->qtd }}</td>
                                                     <td>{{ $contract->pivot->days }}</td>
-                                                    <td>@livewire('config.services.removerules', ['service' => $service->id, 'contract' => $contract->id, 'action_id' => hash('ripemd160', $service->id . now() . $contract->id)], key(hash('ripemd160', $service->id . now() . $contract->id)))</td>
+                                                    <td>@livewire('config.services.removerules', ['service' => $service->id, 'contract' => $contract->id, 'action_id' => hash('ripemd160', $service->id . now() . $contract->id)], key(hash('ripemd160', 'removeRules' . $service->id . now() . $contract->id)))</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -141,7 +148,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    @livewire('config.services.create', key(hash('ripemd160', now())))
+                    @livewire('config.services.create', key(hash('ripemd160', 'config' . now())))
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -162,7 +169,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" wire:key="addRule">
-                    @livewire('config.services.addrules', key(hash('ripemd160', now())))
+                    @livewire('config.services.addrules', key(hash('ripemd160', 'addRules' . now())))
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -183,7 +190,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" wire:key="addStatus">
-                    @livewire('config.services.addstatus', key('addStatus' . hash('ripemd160', now())))
+                    @livewire('config.services.addstatus', key('addStatus' . hash('ripemd160', 'addStatus' . now())))
 
                 </div>
                 <div class="modal-footer">
