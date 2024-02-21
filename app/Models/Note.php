@@ -67,4 +67,9 @@ class Note extends Model
     {
         return $this->hasMany(Priority::class);
     }
+
+    public function Orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }

@@ -69,9 +69,51 @@
                                 <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->centerjob }}</dd>
                             @endif
 
+                            @if ($lists->Orders->count())
+                                <dl class="row">
+                                    @foreach ($lists->Orders as $order)
+                                        <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">ORDEM</dt>
+                                        <dd class="col-sm-8 text-white text-uppercase">{{ $order->ordem }}</dd>
+                                        @if ($order->Operations->count())
+                                            <div class="table-responsive">
+                                                <table class="table table-condensed table-sm table-striped">
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col">Operação</th>
+                                                            <th scope="col">Status</th>
+                                                            <th scope="col">IniPlan</th>
+                                                            <th scope="col">FimPlan</th>
+                                                            <th scope="col">IniReal</th>
+                                                            <th scope="col">FimReal</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach ($order->Operations->sortBy('operacao') as $operation)
+                                                            <tr>
+                                                                <td>{{ $operation->operacao }}</td>
+                                                                <td>{{ $operation->status }}</td>
+                                                                <td>{{ $operation->inicioPlanejado ? Carbon::parse($operation->inicioPlanejado)->format('d/m/Y') : '-' }}
+                                                                </td>
+                                                                <td>{{ $operation->fimPlanejado ? Carbon::parse($operation->fimPlanejado)->format('d/m/Y') : '-' }}
+                                                                </td>
+                                                                <td>{{ $operation->inicioReal ? Carbon::parse($operation->inicioReal)->format('d/m/Y') : '-' }}
+                                                                </td>
+                                                                <td>{{ $operation->fimReal ? Carbon::parse($operation->fimReal)->format('d/m/Y') : '-' }}
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @endif
+                                    @endforeach
+                                </dl>
+                            @endif
 
                         </dl>
                     </div>
+
+
                     <div class="col-4">
                         <div class="card">
                             <h5 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">REGISTRO SICODE</h5>

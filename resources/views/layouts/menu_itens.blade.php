@@ -69,11 +69,13 @@
                 @if (isset(Auth()->user()->Employee->Contract->services) &&
                         Auth()->user()->Employee->Contract->service &&
                         Auth()->user()->Employee->Contract->services->where('project', true)->count())
-                    <li style="background-color: #ffffff; color: white;">
-                        <h6 class="dropdown-header">DESPACHOS</h6>
-                    </li>
                     @foreach (Auth()->user()->Employee->Contract->services->where('project', true) as $service)
                         @if ($service->pivot->dispatch)
+                            @once
+                                <li style="background-color: #ffffff; color: white;">
+                                    <h6 class="dropdown-header">DESPACHOS</h6>
+                                </li>
+                            @endonce
                             <li><a class="dropdown-item"
                                     href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"><i
                                         class="{{ $service->icon }} align-middle text-danger"></i>{{ mb_strToUpper($service->service) }}</a>
@@ -123,11 +125,13 @@
                 @if (isset(Auth()->user()->Employee->Contract->services) &&
                         Auth()->user()->Employee->Contract->construction &&
                         Auth()->user()->Employee->Contract->services->where('construction', true)->count())
-                    <li style="background-color: #ffffff; color: white;">
-                        <h6 class="dropdown-header">DESPACHOS</h6>
-                    </li>
                     @foreach (Auth()->user()->Employee->Contract->services->where('construction', true) as $service)
                         @if ($service->pivot->dispatch)
+                            @once
+                                <li style="background-color: #ffffff; color: white;">
+                                    <h6 class="dropdown-header">DESPACHOS</h6>
+                                </li>
+                            @endonce
                             <li><a class="dropdown-item"
                                     href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"><i
                                         class="{{ $service->icon }} align-middle text-info"></i>{{ mb_strToUpper($service->service) }}</a>
