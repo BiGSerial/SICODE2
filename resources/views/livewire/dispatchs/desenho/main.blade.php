@@ -306,7 +306,7 @@
 
     </div>
 
-    <dic class="card">
+    <div class="card">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -531,7 +531,7 @@
                 </div>
             </div>
         @endif
-    </dic>
+    </div>
     <div class="row">
         <div class="col-6">
             {{ $lists->links() }}

@@ -7,7 +7,7 @@ use Livewire\Component;
 
 class Statusview extends Component
 {
-    public $status;
+    public int $status;
     public $idstatus;
     public $note_id;
     public $info;

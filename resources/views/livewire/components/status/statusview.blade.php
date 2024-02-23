@@ -5,7 +5,7 @@
 <div>
 
     <span class="badge {{ Notestatus::status($status)->colorbg }}" wire:click.prevent="open_status"
-        style="cursor: pointer;">{{ Notestatus::status($status)->status }}</span>
+        style="cursor: pointer;">{{ Notestatus::status($status)->status }}</span> {{ $status }}
 
     <div wire:ignore.self class="modal fade" id="view_status-{{ $idstatus }}" tabindex="-1"
         aria-labelledby="exampleModalLabel" aria-hidden="true">

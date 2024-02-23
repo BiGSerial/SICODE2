@@ -78,7 +78,7 @@
             <div></div>
             <div></div>
         </div>
-        <span>CARREGANDO...<br> AGUARDE...</span>
+        <span class="placeholder-glow">CARREGANDO...<br> AGUARDE...</span>
         {{-- LOADING PROGRESS --}}
     </div>
 </div>

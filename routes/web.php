@@ -3,6 +3,8 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Config\Config;
 use App\Http\Controllers\Config\ConfigController;
+use App\Http\Controllers\Construction;
+use App\Http\Controllers\ConstructionController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ReportsController;
@@ -55,6 +57,14 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
 });
 
 Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('can:user')->group(function () {
+    Route::get('/', 'main')->name('main');
+    Route::get('/production/{prod}')->name('production');
+    Route::get('/to_accompany', 'accompany')->name('accompany');
+    Route::get('/my_historic', 'historic')->name('historic');
+    Route::get('/waiting_list', 'waiting_list')->name('waiting');
+});
+
+Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->middleware('can:user')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');

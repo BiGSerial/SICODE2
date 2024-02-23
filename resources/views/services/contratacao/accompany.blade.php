@@ -5,7 +5,7 @@
         aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-            <li class="breadcrumb-item">Construção</li>
+            <li class="breadcrumb-item">Serviços</li>
             <li class="breadcrumb-item" aria-current="page">{{ $service->service }}</li>
             <li class="breadcrumb-item active" aria-current="page">Acompanhamento</li>
         </ol>
@@ -18,7 +18,7 @@
 
 @section('content')
     {{-- @livewire(, ['service' => $service->uuid]) --}}
-    {{-- @livewire('services.analises.accompany.main', ['service' => $service->uuid]) --}}
+    @livewire('services.analises.accompany.main', ['service' => $service->uuid])
 @endsection
 
 @push('script')

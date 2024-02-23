@@ -151,7 +151,8 @@
                         <h6 class="dropdown-header">SERVIÇOS</h6>
                     </li>
                     @foreach (Auth()->user()->Employee->Contract->services->where('construction', true) as $service)
-                        <li><a class="dropdown-item" href="{{ route('services.main', ['service' => $service->uuid]) }}">
+                        <li><a class="dropdown-item"
+                                href="{{ route('construction.main', ['service' => $service->uuid]) }}">
                                 <div class="d-flex align-items-center">
                                     <i class="{{ $service->icon }} text-primary"></i>
                                     <span>{{ mb_strtoupper($service->service) }}</span>
