@@ -270,6 +270,7 @@
                             @foreach ($lists as $list)
                                 @php
                                     $block = null;
+                                    $exception = false;
                                     $lastUser = '';
                                     $lastCompany = '';
 
@@ -301,6 +302,10 @@
 
                                         if ($production->dt_note == $list->dt_status || !$production->confirmed) {
                                             $block = true;
+
+                                            if ($list->type_note == 1 && $production->status == 5 && $production->confirmed) {
+                                                $exception = true;
+                                            }
                                         }
                                         $chave = array_search($list->id, $selected);
 
@@ -327,7 +332,7 @@
                                     <td>
                                         <input class="form-check-input border border-1 border-primary" type="checkbox"
                                             value="{{ $list->id }}" wire:model.defer="selected"
-                                            @disabled($block)>
+                                            @disabled($block && !$exception)>
                                     </td>
                                     {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
@@ -382,7 +387,7 @@
 
 
                                     <td class="fw-bold text-center">
-                                        @if (!isset($block))
+                                        @if (!isset($block) || $exception)
                                             <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                                 style="cursor: pointer;"
                                                 wire:click.prevent="get_single_note({{ $list->id }})"
