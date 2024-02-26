@@ -15,9 +15,11 @@ class Main extends Component
 
 
     public $service;
-    public array $selected = [];
     public $advanceSearch;
     public $search;
+    public $selectAll;
+    public $selected = [];
+    public $typeNote;
 
     public $perPage = 50;
 
@@ -26,21 +28,53 @@ class Main extends Component
         $this->service = Service::where('uuid', $service)->first();
     }
 
+    public function updatedSelectAll($value)
+    {
+        if ($value) {
+            // Adicionar os IDs ausentes de $selected
+            foreach ($this->lists->pluck('id')->toArray() as $id) {
+                if (!in_array($id, $this->selected)) {
+                    $this->selected[] = $id;
+                }
+            }
+        } else {
+            // Criar um novo array $selected com os IDs que devem ser mantidos
+            $newSelected = [];
+            foreach ($this->selected as $id) {
+                if (!in_array($id, $this->lists->pluck('id')->toArray())) {
+                    $newSelected[] = $id;
+                }
+            }
+            $this->selected = $newSelected;
+        }
+    }
+
     public function getListsProperty()
     {
-        return Order::whereHas('Operations', function ($query) {
-            $query->where('operacao', '0010')
-                  ->where(function ($query) {
-                      $query->where('status', 'ABER')
-                            ->orWhere('status', 'LIB');
-                  });
-        })
-        ->orderBy('dtEntrada')
-        ->paginate($this->perPage);
+        return Order::Join('notes', 'orders.notes_id', '=', 'notes.id')
+    ->whereHas('note', function ($query) {
+        $query->where(function ($query) {
+            $query->when($this->typeNote, function ($q) {
+                $q->where('type_note', $this->typeNote);
+            })
+            ->whereIn('nstats', [47, 48, 49])
+            ->orWhere('centerjob', 'like', 'CONSTR%');
+        });
+    })
+    ->select('orders.*', 'notes.id as note_id', 'notes.days_left')
+    ->orderBy('notes.days_left')
+    ->paginate($this->perPage);
+
     }
 
     public function render()
     {
+        if (empty(array_diff($this->lists->pluck('id')->toArray(), $this->selected))) {
+            $this->selectAll = true;
+        } else {
+            $this->selectAll = false;
+        }
+
         return view('livewire.construction.hiring.main', [
             'lists' => $this->lists
         ]);

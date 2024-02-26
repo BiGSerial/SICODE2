@@ -2,6 +2,62 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
 @endphp
+@push('css')
+    <style>
+        .dropdown-submenu {
+            position: relative;
+        }
+
+        .dropdown-submenu>.dropdown-menu {
+            top: 0;
+            left: 100%;
+            margin-top: -6px;
+            margin-left: -1px;
+            border-radius: 0 6px 6px 6px;
+        }
+
+        .dropdown-submenu:hover>.dropdown-menu {
+            display: block;
+        }
+
+        .dropdown-submenu>a:after {
+            content: " ";
+            float: right;
+            width: 0;
+            height: 0;
+            border-color: transparent;
+            border-style: solid;
+            border-width: 5px 0 5px 5px;
+            border-left-color: #ccc;
+            margin-top: 5px;
+            margin-right: -10px;
+        }
+
+        .dropdown-submenu:hover>a:after {
+            border-left-color: #fff;
+        }
+
+        .dropdown-submenu.pull-left {
+            float: none;
+        }
+
+        .dropdown-submenu.pull-left>.dropdown-menu {
+            left: -100%;
+            margin-left: 10px;
+            border-radius: 6px 0 6px 6px;
+        }
+
+        /* Adicionando classe para mudar de lado quando próximo ao canto da tela */
+        .dropdown-submenu.change-side>.dropdown-menu {
+            left: auto;
+            right: 100%;
+            margin-left: 0;
+            margin-right: -1px;
+            /* ajuste se necessário */
+            border-radius: 6px 6px 6px 0;
+        }
+    </style>
+@endpush
 
 <div>
     <x-show-loading />
@@ -66,34 +122,89 @@
                         <thead class="table-dark">
                             <tr>
                                 <th>
-                                    <input class="form-check-input" type="checkbox">
+                                    <input class="form-check-input" type="checkbox" wire:model="selectAll">
                                 </th>
-                                <th scope="col" class="fw-bold text-center">Ordem</th>
-                                <th scope="col" class="fw-bold text-center">Nota</th>
-                                <th scope="col" class="fw-bold text-center">Criado Em</th>
-                                <th scope="col" class="fw-bold text-center">denConjunto</th>
-                                <th scope="col" class="fw-bold text-center">Rubrica</th>
-                                <th scope="col" class="fw-bold text-center">Municipio</th>
-                                <th scope="col" class="fw-bold text-center">Status</th>
-                                <th scope="col" class="fw-bold text-center">Prazo Real</th>
-                                <th scope="col" class="fw-bold text-center">Situação</th>
-                                <th scope="col" class="fw-bold text-center"></th>
+                                <th scope="col" class="fw-bold">Ordem</th>
+                                <th scope="col" class="fw-bold">Nota</th>
+                                <th scope="col" class="fw-bold">Criado Em</th>
+                                <th scope="col" class="fw-bold">denConjunto</th>
+                                <th scope="col" class="fw-bold">Rubrica</th>
+                                <th scope="col" class="fw-bold">Municipio</th>
+                                <th scope="col" class="fw-bold">Status</th>
+                                <th scope="col" class="fw-bold">Prazo Real</th>
+                                <th scope="col" class="fw-bold">Situação</th>
+                                <th scope="col" class="fw-bold"></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($lists as $list)
                                 <tr>
-                                    <td><input class="form-check-input" type="checkbox"></td>
+                                    <td><input class="form-check-input" type="checkbox" wire:model.defer="selected"
+                                            value="{{ $list->id }}">
+                                    </td>
                                     <td class="fw-bold">{{ $list->ordem }}</td>
                                     <td>{{ $list->Note->note }}</td>
                                     <td>{{ date('d/m/Y', strToTime($list->dtEntrada)) }}</td>
                                     <td>{{ $list->denConjunto }}</td>
                                     <td>{{ $list->Note->rubrica }}</td>
                                     <td>{{ $list->Note->lexp }}</td>
-                                    <td>{{ $list->Operations()->where('operacao', '0010')->first()->status }}</td>
-                                    <td>{{ $list->days_left - 30 }}</td>
+                                    <td>{{ isset($list->Operations()->where('operacao', '0010')->first()->status) ? $list->Operations()->where('operacao', '0010')->first()->status : '' }}
+                                    </td>
+                                    <td>{{ 30 - $list->Note->days_left }}</td>
                                     <td></td>
-                                    <td></td>
+                                    <td>
+                                        {{-- <div class="dropdown" style="position: inherit">
+                                            <button class="btn btn-danger dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="ri-menu-fill"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#">Action</a></li>
+                                                <li><a class="dropdown-item" href="#">Another action</a></li>
+                                                <li class="dropdown-divider"></li>
+                                                <div x-data="{ isNearRightEdge: false }" @mousemove="checkPosition($event)">
+                                                    <li class="dropdown-submenu"
+                                                        :class="{ 'change-side': isNearRightEdge }">
+                                                        <a class="dropdown-item" tabindex="-1" href="#">Hover me
+                                                            for
+                                                            more options</a>
+                                                        <ul class="dropdown-menu">
+                                                            <li class="dropdown-item"><a tabindex="-1"
+                                                                    href="#">Second level</a></li>
+                                                            <li class="dropdown-submenu">
+                                                                <a class="dropdown-item" href="#">Even More..</a>
+                                                                <ul class="dropdown-menu">
+                                                                    <li class="dropdown-item"><a href="#">3rd
+                                                                            level</a></li>
+                                                                    <li class="dropdown-submenu"><a
+                                                                            class="dropdown-item"
+                                                                            href="#">another
+                                                                            level</a>
+                                                                        <ul class="dropdown-menu">
+                                                                            <li class="dropdown-item"><a
+                                                                                    href="#">4th
+                                                                                    level</a></li>
+                                                                            <li class="dropdown-item"><a
+                                                                                    href="#">4th
+                                                                                    level</a></li>
+                                                                            <li class="dropdown-item"><a
+                                                                                    href="#">4th level</a></li>
+                                                                        </ul>
+                                                                    </li>
+                                                                    <li class="dropdown-item"><a href="#">3rd
+                                                                            level</a></li>
+                                                                </ul>
+                                                            </li>
+                                                        </ul>
+                                                    <li>
+                                                </div>
+                                                <a class="dropdown-item" href="#">Something else
+                                                    here</a>
+                                                </li>
+
+                                            </ul>
+                                        </div> --}}
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -140,4 +251,20 @@
         </div>
 
     </div>
+
+    @push('script')
+        <script>
+            function checkPosition(event) {
+                const submenu = event.target.closest('.dropdown-submenu');
+                const submenuRect = submenu.getBoundingClientRect();
+                const windowWidth = window.innerWidth;
+
+                if (submenuRect.right > windowWidth - 250) {
+                    submenu.classList.add('change-side');
+                } else {
+                    submenu.classList.remove('change-side');
+                }
+            }
+        </script>
+    @endpush
 </div>

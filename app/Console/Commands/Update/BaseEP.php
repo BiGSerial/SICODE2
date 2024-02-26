@@ -46,7 +46,7 @@ class BaseEP extends Command
         // $totalRecords = Edp_depcBaseOV::where('ultimoStatus', 1)->count();
         $progressBar = new ProgressBar($this->output, $totalRecords);
 
-        $progressBar->setFormat('%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
+        $progressBar->setFormat('<bg=blue;fg=white>UPDATE BaseEP: %current%/%max% </><fg=white;options=bold> [%tins%][I: %ins%/U: %upd%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%');
         $progressBar->setMessage('Inserting in bulk');
         $progressBar->start($totalRecords);
 
