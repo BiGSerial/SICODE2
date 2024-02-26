@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.5",
+    "appver": "1.7.6",
     "historic": [
+        {
+            "version": "1.7.6",
+            "description": "Liberacao de despacho para notas, quando ainda no mesmo status devido a inatividade de interacao com a nota.",
+            "date": "2024-02-26"
+        },
         {
             "version": "1.7.5",
             "description": "Fix Control Default Service",
