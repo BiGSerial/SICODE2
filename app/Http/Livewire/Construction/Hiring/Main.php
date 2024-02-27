@@ -23,9 +23,15 @@ class Main extends Component
 
     public $perPage = 50;
 
+    // Filters
+    private $filter_group = "hiring";
+    private $filter;
+
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+
+
     }
 
     public function updatedSelectAll($value)
@@ -51,7 +57,16 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        return Order::Join('notes', 'orders.notes_id', '=', 'notes.id')
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
+
+        return Order::LeftJoin('notes', 'orders.note_id', '=', 'notes.id')
     ->whereHas('note', function ($query) {
         $query->where(function ($query) {
             $query->when($this->typeNote, function ($q) {
@@ -61,8 +76,10 @@ class Main extends Component
             ->orWhere('centerjob', 'like', 'CONSTR%');
         });
     })
-    ->select('orders.*', 'notes.id as note_id', 'notes.days_left')
+    ->select('orders.*', 'notes.id', 'notes.days_left', 'notes.type_note', 'notes.note')
+    ->orderBy('notes.type_note', "DESC")
     ->orderBy('notes.days_left')
+    ->orderBy('notes.note')
     ->paginate($this->perPage);
 
     }

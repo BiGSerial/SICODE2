@@ -7,30 +7,37 @@ use Livewire\Component;
 
 class Filter extends Component
 {
-    public $modelo;
-    public $coluna;
-    public $valores;
+    public $model;
+    public $column;
+    public $values;
     public $direction;
     public $group_filter;
     public $filter;
     public $items = [];
     public $search;
+    public $receiverKey;
+    public $sendFilter;
+    public $receivedValue;
 
-    public function mount($model, $column, $filter, $group_filter, $values, $direction = 'ASC')
+
+
+    public function mount($myKey, $sendFilter, $model, $column, $filter, $group_filter, $values, $direction)
     {
-        $this->modelo = app($model);
-        $this->coluna = $column;
+        $this->model = app($model);
+        $this->column = $column;
         $this->filter = $filter;
         $this->group_filter = $group_filter;
-        $this->valores = $values;
+        $this->values = $values;
         $this->direction = $direction;
+        $this->receiverKey = $myKey;
+        $this->sendFilter = $sendFilter;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
 
-        if (isset($_SESSION['filtro'][$this->group_filter][$this->filter])) {
-            $this->items = $_SESSION['filtro'][$this->group_filter][$this->filter];
+        if (isset($_SESSION['filter'][$this->group_filter][$this->filter])) {
+            $this->items = $_SESSION['filter'][$this->group_filter][$this->filter];
         } else {
             $this->items = [];
         }
@@ -42,7 +49,9 @@ class Filter extends Component
             session_start();
         }
 
-        $_SESSION['filtro'][$this->group_filter][$this->filter] = $this->items;
+        $_SESSION['filter'][$this->group_filter][$this->filter] = $this->items;
+
+        $this->emitUp('$refresh');
     }
 
     public function removeFilter()
@@ -51,21 +60,26 @@ class Filter extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filtro'][$this->group_filter])) {
-            unset($_SESSION['filtro'][$this->group_filter]);
+        if (isset($_SESSION['filter'][$this->group_filter])) {
+            unset($_SESSION['filter'][$this->group_filter]);
             $this->items = [];
         }
     }
 
+    public function senderFilter()
+    {
+
+    }
+
     public function getListFilterProperty()
     {
-        $query = $this->modelo::Query();
+        $query = $this->model::Query();
 
         if ($this->search) {
-            $query->where($this->coluna, 'like', "%".$this->search."%");
+            $query->where($this->column, 'like', "%".$this->search."%");
         }
 
-        return $query->orderBy($this->valores, $this->direction)->get();
+        return $query->orderBy($this->values, $this->direction)->get();
     }
 
     public function render()

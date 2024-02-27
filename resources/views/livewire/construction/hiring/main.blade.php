@@ -64,7 +64,7 @@
     <x-showselected :count="$selected" />
 
 
-    <div class="row mb-3">
+    <div class="row mb-3 justify-content-end">
         <div class="col-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
@@ -76,7 +76,7 @@
             </select>
         </div>
 
-        <div class="mb-3 col-md-2">
+        <div class="col-2">
             <label for="search" class="form-label">Buscar</label>
             <div class="input-group">
                 <input wire:model.bounce.2s="search" type="text"
@@ -86,6 +86,11 @@
             </div>
         </div>
 
+        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
+            <label for="search" class="form-label"> </label>
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring', 'values' => 'regiao', 'direction' => 'ASC'])
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'hiring', 'values' => 'municipio', 'direction' => 'ASC'])
+        </div>
     </div>
 
 
@@ -96,6 +101,17 @@
             </div>
         </div>
     @else
+        <div class="row">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
                 <div class="row">
@@ -126,12 +142,12 @@
                                 </th>
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
-                                <th scope="col" class="fw-bold">Criado Em</th>
+
                                 <th scope="col" class="fw-bold">denConjunto</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
                                 <th scope="col" class="fw-bold">Status</th>
-                                <th scope="col" class="fw-bold">Prazo Real</th>
+                                <th scope="col" class="fw-bold">Prazo Restante</th>
                                 <th scope="col" class="fw-bold">Situação</th>
                                 <th scope="col" class="fw-bold"></th>
                             </tr>
@@ -144,13 +160,31 @@
                                     </td>
                                     <td class="fw-bold">{{ $list->ordem }}</td>
                                     <td>{{ $list->Note->note }}</td>
-                                    <td>{{ date('d/m/Y', strToTime($list->dtEntrada)) }}</td>
+
                                     <td>{{ $list->denConjunto }}</td>
                                     <td>{{ $list->Note->rubrica }}</td>
                                     <td>{{ $list->Note->lexp }}</td>
                                     <td>{{ isset($list->Operations()->where('operacao', '0010')->first()->status) ? $list->Operations()->where('operacao', '0010')->first()->status : '' }}
                                     </td>
-                                    <td>{{ 30 - $list->Note->days_left }}</td>
+                                    <td class="text-center 
+                                    @if ($list->days_left < 0) text-bg-secondary
+                                    @elseif($list->days_left >= 0 && $list->days_left < 6)
+                                    table-danger
+                                    @elseif($list->days_left >= 6 && $list->days_left < 10)
+                                        table-warning
+                                    @else
+                                        table-success @endif
+                                "
+                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                        data-bs-placement="top" data-bs-title="Prazo Restante"
+                                        data-bs-content="
+                            <p>Os prazos contados já foram expurgados os tempos em status não contabilizáveis.</p>
+                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
+                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
+                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
+                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
+                            ">
+                                        {{ $list->Note->days_left }}</td>
                                     <td></td>
                                     <td>
                                         {{-- <div class="dropdown" style="position: inherit">

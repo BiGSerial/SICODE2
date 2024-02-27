@@ -1,5 +1,5 @@
 <div>
-    <div class="dropdown mx-1">
+    <div class="dropdown mx-1" id="{{ $receiverKey }}">
         <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
             data-bs-auto-close="outside" aria-expanded="false">
             {{ $this->filter }}
@@ -18,10 +18,10 @@
                 <!-- Itens filtrados -->
                 @if (isset($filterLists) && $filterLists->count() > 0)
                     @foreach ($filterLists as $item)
-                        @if ($item->{$valores})
+                        @if ($item->{$values})
                             <div class="dropdown-item">
-                                <input type="checkbox" wire:model.defer="items" value="{{ $item->{$valores} }}">
-                                <label for="opcao1">{{ $item->{$valores} }}</label>
+                                <input type="checkbox" wire:model.defer="items" value="{{ $item->{$column} }}">
+                                <label for="opcao1">{{ $item->{$values} }}</label>
                             </div>
                         @endif
                     @endforeach
@@ -30,8 +30,8 @@
 
             <!-- Botões fixos -->
             <div class="dropdown-item">
-                <button wire:click="applyFilter" class="btn btn-primary">Aplicar Filtro</button>
-                <button wire:click="removeFilter" class="btn btn-danger">Limpar</button>
+                <button wire:click="applyFilter" class="btn btn-primary dropdown-toggle">Aplicar Filtro</button>
+                <button wire:click="removeFilter" class="btn btn-danger dropdown-toggle">Limpar</button>
             </div>
 
         </div>
