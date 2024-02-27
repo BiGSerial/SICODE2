@@ -13,6 +13,7 @@
             <th scope="col" class="fw-bold text-center">MMGD</th>
             <th scope="col" class="fw-bold text-center">Grp2</th>
             <th scope="col" class="fw-bold text-center">Rubrica</th>
+            <th scope="col" class="fw-bold text-center">Região</th>
             <th scope="col" class="fw-bold text-center">Municipio</th>
             <th scope="col" class="fw-bold text-center">Zona</th>
             <th scope="col" class="fw-bold text-center">Descrição</th>
@@ -60,11 +61,7 @@
                         }
                     @endphp --}}
                     @if ($list->Wpas->count())
-                        {{ WpaStatus::status(
-                            $list->Wpas()->get()->last()->stats,
-                            $list->Wpas()->get()->last()->stats,
-                            null,
-                        )->info }}
+                        {{ WpaStatus::status($list->Wpas()->get()->last()->stats, $list->Wpas()->get()->last()->stats, null)->info }}
                     @else
                         -----
                     @endif
@@ -79,19 +76,16 @@
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                     {{ $list->Note->rubrica }}</td>
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                    {{ $cities->where('rdMunicipio', $list->Note->nexp)->first() ? $cities->where('rdMunicipio', $list->Note->nexp)->first()->regiao : '----' }}
+                </td>
+                <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                     {{ $list->Note->lexp }}</td>
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                     {{ $list->Note->group1 }}</td>
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                     {{ $list->Note->material }}</td>
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                    @php
-                        $nome = $list->User ? explode(' ', $list->User->name) : '----';
-                        if (is_array($nome)) {
-                            $nome = $nome[0] . ' ' . substr(end($nome), 0, 1);
-                        }
-                    @endphp
-                    {{ $nome }}</td>
+                    {{ $list->User ? $list->User->name : '----' }}</td>
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
 
                     {{ $list->Company ? explode(' ', $list->Company->name)[0] : '-' }}</td>
