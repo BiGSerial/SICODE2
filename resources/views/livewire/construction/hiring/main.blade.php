@@ -88,7 +88,19 @@
 
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring', 'values' => 'regiao', 'direction' => 'ASC'])
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
+                <label class="form-check-label" for="inlineRadio1">Nota</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
+                <label class="form-check-label" for="inlineRadio1">OV</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
+                <label class="form-check-label" for="inlineRadio1">Ambos</label>
+            </div>
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring', 'values' => 'regiao', 'direction' => 'ASC'])
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'hiring', 'values' => 'municipio', 'direction' => 'ASC'])
         </div>
     </div>
@@ -142,11 +154,12 @@
                                 </th>
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
-
-                                <th scope="col" class="fw-bold">denConjunto</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
+                                <th scope="col" class="fw-bold">denConjunto</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Status</th>
+                                <th scope="col" class="fw-bold">Status Ordem</th>
+                                <th scope="col" class="fw-bold">Status OV/NOTA</th>
+                                <th scope="col" class="fw-bold">Status OP10</th>
                                 <th scope="col" class="fw-bold">Prazo Restante</th>
                                 <th scope="col" class="fw-bold">Situação</th>
                                 <th scope="col" class="fw-bold"></th>
@@ -160,17 +173,31 @@
                                     </td>
                                     <td class="fw-bold">{{ $list->ordem }}</td>
                                     <td>{{ $list->Note->note }}</td>
-
-                                    <td>{{ $list->denConjunto }}</td>
                                     <td>{{ $list->Note->rubrica }}</td>
+                                    <td>{{ $list->denConjunto }}</td>
                                     <td>{{ $list->Note->lexp }}</td>
-                                    <td>{{ isset($list->Operations()->where('operacao', '0010')->first()->status) ? $list->Operations()->where('operacao', '0010')->first()->status : '' }}
+                                    <td>{{ $list->statusSist }}
+                                    </td>
+                                    <td>
+                                        @if ($list->Note->type_note == 1)
+                                            {{ $list->Note->centerjob }}
+                                        @elseif($list->Note->type_note == 2)
+                                            {{ $list->Note->nstats }}
+                                        @else
+                                            ---
+                                        @endif
+                                    </td>
+                                    <td>
+                                        {{-- @if ($list->Operations->count())
+                                            @dump($list->Operations->where('operacao', '0010'))
+                                        @endif --}}
+                                        {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->status : '___') : '---' }}
                                     </td>
                                     <td class="text-center 
-                                    @if ($list->days_left < 0) text-bg-secondary
-                                    @elseif($list->days_left >= 0 && $list->days_left < 6)
+                                    @if ($list->Note->days_left < 0) text-bg-secondary
+                                    @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                     table-danger
-                                    @elseif($list->days_left >= 6 && $list->days_left < 10)
+                                    @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
                                         table-warning
                                     @else
                                         table-success @endif

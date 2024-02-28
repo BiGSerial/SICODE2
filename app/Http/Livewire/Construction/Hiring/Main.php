@@ -20,6 +20,8 @@ class Main extends Component
     public $selectAll;
     public $selected = [];
     public $typeNote;
+    public $multiSearch = [];
+    public $page = 1;
 
     public $perPage = 50;
 
@@ -27,11 +29,82 @@ class Main extends Component
     private $filter_group = "hiring";
     private $filter;
 
+    protected $listeners = [
+        'refresh_list' => '$refresh'
+    ];
+
+    protected $queryString = [
+        'search' => ['except' => '', 'as' => 'buscar'],
+        'page' => ['except' => 1, 'as' => 'p'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
+
+        ];
+
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+    }
+
+    public function export_excel()
+    {
+        // if (!count($this->selected)) {
+        //     return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
+        // } else {
+        //     $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
+        //     return (new DispatchDesenhoMain($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
+        // }
+    }
+
+    public function buscarMulti()
+    {
 
 
+        if ($this->advanceSearch) {
+
+            $this->gotoPage(1);
+
+            $this->search = "";
+
+            $this->multiSearch = explode("\n", $this->advanceSearch);
+
+            if(!count($this->multiSearch)) {
+                $this->multiSearch = explode(" ", $this->advanceSearch);
+            }
+
+            if(!count($this->multiSearch)) {
+                $this->multiSearch = explode(",", $this->advanceSearch);
+            }
+
+            if(!count($this->multiSearch)) {
+                $this->multiSearch = explode(";", $this->advanceSearch);
+            }
+
+            $this->multiSearch = array_map('trim', $this->multiSearch);
+        }
+
+        // dd($this->multiSearch);
+
+        if (count($this->multiSearch)) {
+            $this->closeall();
+        }
+    }
+
+    public function closeall()
+    {
+        $this->dispatchBrowserEvent('hideModal');
+
+
+        // $this->company_s = "";
+        $this->selected = [];
+        // $this->user_s = "";
+        // $this->type = "";
+        // $this->additionalData = [];
+        // $this->advanceSearch = "";
+        // $this->search = "";
+        $this->gotoPage(1);
+
+
+        $this->emit('refresh_dispatch');
     }
 
     public function updatedSelectAll($value)
@@ -66,21 +139,73 @@ class Main extends Component
         }
 
 
-        return Order::LeftJoin('notes', 'orders.note_id', '=', 'notes.id')
-    ->whereHas('note', function ($query) {
-        $query->where(function ($query) {
-            $query->when($this->typeNote, function ($q) {
-                $q->where('type_note', $this->typeNote);
-            })
-            ->whereIn('nstats', [47, 48, 49])
-            ->orWhere('centerjob', 'like', 'CONSTR%');
+        $query = Order::Query();
+
+        $query->with('Operations', 'Note')
+
+        ->when($this->search, function ($q) {
+            $this->gotoPage(1);
+            $this->advanceSearch = "";
+
+
+            return $q->where(function ($query) {
+                $query->where('ordem', 'like', '%'.$this->search.'%')
+                    ->orWhereRelation('Note', 'note', 'like', '%'.$this->search.'%');
+            });
         });
-    })
-    ->select('orders.*', 'notes.id', 'notes.days_left', 'notes.type_note', 'notes.note')
-    ->orderBy('notes.type_note', "DESC")
-    ->orderBy('notes.days_left')
-    ->orderBy('notes.note')
-    ->paginate($this->perPage);
+
+        if (count($this->multiSearch)) {
+
+            // $query->whereIn('ordem', $this->multiSearch);
+            $query->where(function ($q) {
+                return $q->WhereRelation('Note', function ($query) {
+                    $query->whereIn('note', $this->multiSearch);
+                })->orWhereIn('ordem', $this->multiSearch);
+            });
+        }
+
+        $query->join('notes', 'orders.note_id', '=', 'notes.id')
+        ->where('statusSist', 'like', 'ABER%');
+        // ->when($this->search, function ($q) {
+        //     $this->gotoPage(1);
+        //     $this->advanceSearch = "";
+        //     $this->multiSearch = [];
+
+        //     return $q->where(function ($query) {
+        //         $query->where('ordem', 'like', '%'.$this->search.'%')
+        //             ->orWhereRelation('Note', 'note', 'like', '%'.$this->search.'%');
+        //     });
+        // });
+
+        // if (count($this->multiSearch)) {
+        //     $query->whereIn('ordem', $this->multiSearch);
+        //     // $query->where(function ($q) {
+        //     //     return $q->WhereRelation('Note', function ($query) {
+        //     //         $query->whereIn('note', $this->multiSearch);
+        //     //     })->orWhereIn('ordem', $this->multiSearch);
+        //     // });
+        // }
+
+        if (isset($_SESSION['filter'][$this->filter_group]['cidade'])) {
+            $query->whereRelation('Note', function ($query) {
+                $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade']);
+            });
+        }
+
+        if ($this->typeNote) {
+            $query->whereRelation('Note', function ($query) {
+                $query->where('type_note', $this->typeNote);
+            });
+        }
+
+
+        $query->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
+        ->orderBy('myTypeNote', "DESC")
+        ->orderBy('myDayLeft')
+        ->orderBy('myNote');
+
+
+        return $query->paginate($this->perPage);
 
     }
 

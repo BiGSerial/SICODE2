@@ -1,37 +1,51 @@
 <div>
-    <div class="dropdown mx-1" id="{{ $receiverKey }}">
-        <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-            data-bs-auto-close="outside" aria-expanded="false">
+    <x-show-loading />
+
+    <div class="mx-1 position-relative" x-data="{ isShow: false }">
+        <button class="btn btn-secondary dropdown-toggle" type="button" aria-expanded="false" @click="isShow = true">
             {{ $this->filter }}
-            @if (count($items))
-                <span class="badge text-bg-light">{{ count($items) }}</span>
-            @endif
+            @if ($isRefreshing)
+                <div class="spinner-border" role="status" style="height: 14px; width: 14px;">
+                    <span class="visually-hidden">Loading...</span>
+                </div @endif
+                @if (count($items))
+                    <span class="badge text-bg-light">{{ count($items) }}</span>
+                @endif
         </button>
 
-        <div wire:ignore.self class="dropdown-menu">
+        <div x-show="isShow" @click.away="isShow = false" style="display: none;"
+            class="card position-absolute top-50 end-0 mt-4 z-3">
 
-            <!-- Barra de busca -->
-            <input type="text" wire:model="search" class="form-control border-1 border-secondary"
-                placeholder="Buscar...">
+            <div class="card-body">
+                <input type="text" wire:model="search" class="form-control border-1 border-secondary mb-3"
+                    placeholder="Buscar...">
 
-            <div style="max-height: 350px; overflow-y: auto;">
-                <!-- Itens filtrados -->
-                @if (isset($filterLists) && $filterLists->count() > 0)
-                    @foreach ($filterLists as $item)
-                        @if ($item->{$values})
-                            <div class="dropdown-item">
-                                <input type="checkbox" wire:model.defer="items" value="{{ $item->{$column} }}">
-                                <label for="opcao1">{{ $item->{$values} }}</label>
-                            </div>
-                        @endif
-                    @endforeach
-                @endif
-            </div>
+                <div style="max-height: 350px; overflow-y: auto; scrollbar-width: thin;">
 
-            <!-- Botões fixos -->
-            <div class="dropdown-item">
-                <button wire:click="applyFilter" class="btn btn-primary dropdown-toggle">Aplicar Filtro</button>
-                <button wire:click="removeFilter" class="btn btn-danger dropdown-toggle">Limpar</button>
+                    @if (isset($filterLists) && $filterLists->count() > 0)
+                        @foreach ($filterLists->unique($column) as $item)
+                            @if ($item->{$values})
+                                <div class="dropdown-item">
+                                    <input type="checkbox" class="form-check-input border border-primary"
+                                        wire:model.defer="items" value="{{ $item->$column }}">
+                                    @php
+                                        $valor = $item->$column;
+                                    @endphp
+                                    <label for="opcao1">{{ $item->$values }}</label>
+                                </div>
+                            @endif
+                        @endforeach
+                    @endif
+                </div>
+
+
+                <div class="dropdown-item mt-3">
+                    <button wire:click="applyFilter" class="btn btn-primary" @click="isShow = false"
+                        data-bs-toggle="dropdown">Aplicar
+                        Filtro</button>
+                    <button wire:click="removeFilter" class="btn btn-danger" @click="isShow = false"
+                        data-bs-toggle="dropdown">Limpar</button>
+                </div>
             </div>
 
         </div>
