@@ -188,7 +188,8 @@ class Main extends Component
 
         if (isset($_SESSION['filter'][$this->filter_group]['cidade'])) {
             $query->whereRelation('Note', function ($query) {
-                $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade']);
+                $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade'])
+                    ->orWhere('lexp', '');
             });
         }
 
