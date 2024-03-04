@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.6",
+    "appver": "1.7.7",
     "historic": [
+        {
+            "version": "1.7.7",
+            "description": "Alter Priority Mass adption",
+            "date": "2024-03-04"
+        },
         {
             "version": "1.7.6",
             "description": "Liberacao de despacho para notas, quando ainda no mesmo status devido a inatividade de interacao com a nota.",
