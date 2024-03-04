@@ -5,11 +5,13 @@ namespace App\Http\Livewire\Construction\Hiring;
 use App\Models\Order;
 use App\Models\Service;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class Main extends Component
 {
     use WithPagination;
+    use WithFileUploads;
     protected $paginationTheme = 'bootstrap';
 
 
@@ -19,9 +21,14 @@ class Main extends Component
     public $search;
     public $selectAll;
     public $selected = [];
-    public $typeNote;
+    public $typeNote = "";
     public $multiSearch = [];
     public $page = 1;
+
+    public $files = [];
+    public $show_files = [];
+
+    public $show_registers = [];
 
     public $perPage = 50;
 
@@ -53,6 +60,113 @@ class Main extends Component
         //     $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
         //     return (new DispatchDesenhoMain($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
         // }
+    }
+
+    public function go_att_mass()
+    {
+
+        if (count($this->selected)) {
+            $orders = Order::with('Note')->find($this->selected);
+
+            if ($orders) {
+                foreach ($orders as $order) {
+                    $this->show_registers[$order->id] = [
+                        'id' => $order->id,
+                        'note_id' => $order->Note->id,
+                        'order' => $order->ordem,
+                        'note' => $order->Note->note,
+                        'file_index' => '',
+                    ];
+                }
+            }
+        }
+
+
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => 'viability_modal'
+        ]);
+
+    }
+
+    public function updatedFiles()
+    {
+
+
+        if (count($this->files)) {
+
+            $this->show_files = [];
+
+            foreach ($this->files as $index => $file) {
+
+                $this->show_files[$index] = [
+                    'id' => $index,
+                    'note_id' => "",
+                    'name' => explode('.', $file->getClientOriginalName())[0],
+                    'ext' => $file->getClientOriginalExtension(),
+                    'chk' => false,
+                    'temp_path' => $file->temporaryUrl()
+                ];
+            }
+
+
+
+            $this->associate_files();
+        }
+
+    }
+
+    public function delete_file($id)
+    {
+        if (isset($this->show_files[$id])) {
+            unset($this->show_files[$id]);
+        }
+    }
+
+    public function delete_note($id)
+    {
+        if (isset($this->show_registers[$id])) {
+            $this->show_files[$this->show_registers[$id]['file_index']] = array_merge($this->show_files[$this->show_registers[$id]['file_index']], [
+                'chk' => false,
+            ]);
+            unset($this->show_registers[$id]);
+        }
+    }
+
+    /**
+     * associate_files function
+     *
+     * This function try join files uploaded associatind a Name Files
+     * with 'note' register in relation 'Notes' of 'Order Model' in
+     * array Var.
+     *
+     * @return void
+     */
+    public function associate_files()
+    {
+        if (count($this->show_files) && count($this->show_registers)) {
+
+            foreach ($this->show_registers as $register) {
+
+                foreach ($this->show_files as $file) {
+
+                    if (strpos($file['name'], $register['note']) !== false) {
+                        $this->show_registers[$register['id']] = array_merge($this->show_registers[$register['id']], [
+                            'file_index' => $file['id'],
+                        ]);
+
+                        $this->show_files[$file['id']] = array_merge($this->show_files[$file['id']], [
+                            'note_id' => $this->show_registers[$register['id']]['note_id'],
+                            'chk' => true,
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+
+    public function saveFile()
+    {
+        dd($this->files);
     }
 
     public function buscarMulti()
@@ -128,6 +242,7 @@ class Main extends Component
         }
     }
 
+
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
@@ -149,8 +264,8 @@ class Main extends Component
 
 
             return $q->where(function ($query) {
-                $query->where('ordem', 'like', '%'.$this->search.'%')
-                    ->orWhereRelation('Note', 'note', 'like', '%'.$this->search.'%');
+                $query->where('ordem', 'like', trim($this->search))
+                    ->orWhereRelation('Note', 'note', 'like', trim($this->search));
             });
         });
 
@@ -177,19 +292,35 @@ class Main extends Component
         //     });
         // });
 
-        // if (count($this->multiSearch)) {
-        //     $query->whereIn('ordem', $this->multiSearch);
-        //     // $query->where(function ($q) {
-        //     //     return $q->WhereRelation('Note', function ($query) {
-        //     //         $query->whereIn('note', $this->multiSearch);
-        //     //     })->orWhereIn('ordem', $this->multiSearch);
-        //     // });
-        // }
+        if (count($this->multiSearch)) {
+            $query->whereIn('ordem', $this->multiSearch);
+            // $query->where(function ($q) {
+            //     return $q->WhereRelation('Note', function ($query) {
+            //         $query->whereIn('note', $this->multiSearch);
+            //     })->orWhereIn('ordem', $this->multiSearch);
+            // });
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group]['cenTrab'])) {
+            $query->whereRelation('Operations', function ($query) {
+                $query->where('operacao', '0010')
+                    ->where('status', 'like', 'ABER%')
+                    ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['cenTrab'])
+                    ->orWhere('cenTrab', '');
+            });
+        }
 
         if (isset($_SESSION['filter'][$this->filter_group]['cidade'])) {
             $query->whereRelation('Note', function ($query) {
                 $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade'])
                     ->orWhere('lexp', '');
+            });
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group]['rubrica'])) {
+            $query->whereRelation('Note', function ($query) {
+                $query->whereIn('rubrica', $_SESSION['filter'][$this->filter_group]['rubrica'])
+                    ->orWhere('rubrica', '');
             });
         }
 

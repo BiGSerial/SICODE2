@@ -7,20 +7,31 @@ use Livewire\Component;
 
 class Search extends Component
 {
-    public $lists;
     public $search;
+
+    protected $queryString = [
+        'search' => ['except' => '', 'as' => 's']
+        ];
 
     public function Search()
     {
 
-        $this->lists = Note::where('note', trim($this->search))->with(['Productions' => function ($query) {
+
+
+
+    }
+
+    public function getBuscarProperty()
+    {
+        return Note::where('note', trim($this->search))->with(['Productions' => function ($query) {
             $query->where('rejected', false);
         }])->first();
-
     }
 
     public function render()
     {
-        return view('livewire.reports.search');
+        return view('livewire.reports.search', [
+            'lists' => $this->buscar
+        ]);
     }
 }

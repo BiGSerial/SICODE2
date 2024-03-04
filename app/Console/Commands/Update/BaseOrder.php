@@ -40,7 +40,7 @@ class BaseOrder extends Command
 
         $progressBar->start();
 
-        $chunkSize = 10000;
+        $chunkSize = 5000;
 
         $count['upd'] = 0;
         $count['ctd'] = 0;

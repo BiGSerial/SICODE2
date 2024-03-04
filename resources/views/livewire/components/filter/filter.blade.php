@@ -7,10 +7,11 @@
             @if ($isRefreshing)
                 <div class="spinner-border" role="status" style="height: 14px; width: 14px;">
                     <span class="visually-hidden">Loading...</span>
-                </div @endif
-                @if (count($items))
-                    <span class="badge text-bg-light">{{ count($items) }}</span>
-                @endif
+                </div>
+            @endif
+            @if (count($items))
+                <span class="badge text-bg-light">{{ count($items) }}</span>
+            @endif
         </button>
 
         <div x-show="isShow" @click.away="isShow = false" style="display: none;"

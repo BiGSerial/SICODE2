@@ -12,18 +12,26 @@
                         <li>
                             <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>ATIVIDADE
+                                <i class="bi bi-circle"></i> <span>LISTA
                                     {{ mb_strToUpper($service->service) }}</span>
                                 @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                             </a>
                         </li>
-
-                        {{-- <li>
-                            <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
+                        <li>
+                            <a href="#" class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span>MEU CONTROLE
+                                    {{ mb_strToUpper($service->service) }}</span>
+                                {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
                             </a>
-                        </li> --}}
+                        </li>
+                        <li>
+                            <a href="#" class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span>RETORNO VIABILIDADE
+                                    {{ mb_strToUpper($service->service) }}</span>
+                                {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
+                            </a>
+                        </li>
+
                         <li>
                             <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">

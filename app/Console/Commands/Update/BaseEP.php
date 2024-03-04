@@ -71,7 +71,19 @@ class BaseEP extends Command
                         $atualizar = true;
                     }
 
-                    if ($atualizar) {
+                    if ($atualizar &&
+                    $existingRecord->created_by === $record->criadoPor &&
+                    $existingRecord->dt_status === $record->dtCriacao &&
+                    $existingRecord->user === $record->notificador &&
+                    $existingRecord->numPedido === $record->descricao &&
+                    $existingRecord->pze === $record->PzE &&
+                    $existingRecord->num_material === $record->conjunto &&
+                    $existingRecord->material === $record->denomConjunto &&
+                    $existingRecord->nstats === $record->statusUsuario &&
+                    $existingRecord->status === $record->status
+                    ) {
+
+                    } else {
 
                         try {
                             $city = Gpm::where('gpm', $record->grpPlan)->first();

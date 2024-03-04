@@ -56,6 +56,19 @@
             /* ajuste se necessário */
             border-radius: 6px 6px 6px 0;
         }
+
+        [x-show.opacity-0] {
+            transition: opacity 0.5s ease-in-out;
+            opacity: 0;
+        }
+
+        [x-show.opacity-0.1] {
+            opacity: 0.1;
+        }
+
+        [x-show] {
+            opacity: 1;
+        }
     </style>
 @endpush
 
@@ -100,9 +113,13 @@
                 <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
                 <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring', 'values' => 'regiao', 'direction' => 'ASC'])
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'hiring', 'values' => 'municipio', 'direction' => 'ASC'])
+            @livewire('components.filter.filter', ['myKey' => 'empreiteira', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'hiring', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => 'operacao = "0010" AND status LIKE "ABER%"'], key('empreiteira'))
+            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'hiring', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'hiring', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'hiring'], key('removeAll'))
         </div>
+
     </div>
 
 
@@ -160,6 +177,7 @@
                                 <th scope="col" class="fw-bold">Status Ordem</th>
                                 <th scope="col" class="fw-bold">Status OV/NOTA</th>
                                 <th scope="col" class="fw-bold">Status OP10</th>
+                                <th scope="col" class="fw-bold">Centro OP10</th>
                                 <th scope="col" class="fw-bold">Prazo Restante</th>
                                 <th scope="col" class="fw-bold">Situação</th>
                                 <th scope="col" class="fw-bold"></th>
@@ -167,9 +185,9 @@
                         </thead>
                         <tbody>
                             @foreach ($lists as $list)
-                                <tr>
-                                    <td><input class="form-check-input" type="checkbox" wire:model.defer="selected"
-                                            value="{{ $list->id }}">
+                                <tr wire:key='{{ $list->id }}'>
+                                    <td><input class="form-check-input border border-secondary" type="checkbox"
+                                            wire:model.defer="selected" value="{{ $list->id }}">
                                     </td>
                                     <td class="fw-bold">{{ $list->ordem }}</td>
                                     <td>{{ $list->Note->note }}</td>
@@ -192,6 +210,8 @@
                                             @dump($list->Operations->where('operacao', '0010'))
                                         @endif --}}
                                         {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->status : '___') : '---' }}
+                                    </td>
+                                    <td> {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->cenTrab : '___') : '---' }}
                                     </td>
                                     <td class="text-center 
                                     @if ($list->Note->days_left < 0) text-bg-secondary
@@ -313,6 +333,158 @@
 
     </div>
 
+    <div wire:ignore.self class="modal fade" id="viability_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog modal-lg">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    <h4 class="my-auto fw-bold">VIABILIDADE</h4>
+                </div>
+
+                <div class="modal-body"> {{-- Inicio Modal Body --}}
+
+                    <div class="card">
+                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
+                            <h4 class="my-auto">Arquivos</h4>
+                            <button class="btn btn-sm btn-primary"
+                                onclick="document.getElementById('file-input').click()">Add</button>
+
+                        </div>
+
+                        <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
+                            x-on:livewire-upload-finish="isUploading = false"
+                            x-on:livewire-upload-error="isUploading = false"
+                            x-on:livewire-upload-progress="progress = $event.detail.progress">
+
+                            <form wire:submit.prevent="saveFile">
+                                <input type="file" id="file-input" multiple wire:model="files" hidden>
+                                {{-- <button type="submit" id="id-submit"></button> --}}
+                            </form>
+
+                            <div x-show="isUploading" class="mb-3">
+                                {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                                    x-bind:style="`width: ${progress}%`">
+                                    <span class="align-middle" x-text="`${progress}%`"></span>
+                                </div> --}}
+                                <div class="progress" role="progressbar" aria-label="Danger example"
+                                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
+                                    style="width: 100%; border-radius: 0;">
+                                    <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
+                                        x-text="`${progress}%`">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body " id="drop-area">
+                            <div class="row g-1 justify-content-between mb-3">
+
+                                @if (count($show_files))
+                                    @foreach ($show_files as $file)
+                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
+                                            <div class="p-1 m-0 border-end border-secondary"><i
+                                                    class="bx bxs-file-{{ $file['ext'] }} @if ($file['chk']) text-success
+                                                    @else text-danger @endif fs-4 align-middle"></i>
+                                            </div>
+                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
+                                            </div>
+                                            <div class="p-1 m-0 border-start border-secondary"><i
+                                                    class="bx bx-trash text-danger fs-4 align-middle"
+                                                    wire:click.prevent="delete_file({{ $file['id'] }})"
+                                                    style="cursor: pointer;"></i>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                @else
+                                    <h4 class="fs-4 fw-bold my-auto text-center">SEM ARQUIVOS</h4>
+                                @endif
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="card">
+
+                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
+                            <h4 class="my-auto">Ordens/Ovs</h4>
+
+
+                        </div>
+
+
+
+
+                        <div class="card-body ">
+                            @if ($show_registers)
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-condensed table-striped">
+                                        <thead class="table-dark">
+                                            <th scope="col">#</th>
+                                            <th scope="col">Ordem</th>
+                                            <th scope="col">Note</th>
+                                            <th scope="col">File</th>
+                                            <th scope="col"></th>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($show_registers as $register)
+                                                <tr>
+                                                    <td>{{ $register['id'] }}</td>
+                                                    <td>{{ $register['order'] }}</td>
+                                                    <td>{{ $register['note'] }}</td>
+                                                    <td class="fw-bold">
+                                                        @if (isset($show_files[$register['file_index']]))
+                                                            <a href="{{ $show_files[$register['file_index']]['temp_path'] }}"
+                                                                target="_blank">{{ $show_files[$register['file_index']]['name'] }}</a>
+                                                        @else
+                                                            Sem Arquivo
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <i class="bx bx-trash text-danger fs-4 align-middle"
+                                                            wire:click.prevent="delete_note({{ $register['id'] }})"
+                                                            style="cursor: pointer;"></i>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                        </div>
+
+                    </div>
+
+
+
+
+
+
+
+
+                    <div class="mb-3">
+                        <label for="search" class="form-label">Observações</label>
+                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"></textarea>
+                    </div>
+
+                </div> {{-- Fim Modal Body --}}
+
+
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
     @push('script')
         <script>
             function checkPosition(event) {
@@ -326,6 +498,71 @@
                     submenu.classList.remove('change-side');
                 }
             }
+
+            const dropzone = document.getElementById('drop-area');
+            const dropitem = document.querySelectorAll('[drop-item]');
+            const fileInput = document.getElementById('file-input');
+
+
+            dropzone.addEventListener('dragenter', (event) => {
+
+                let altura = dropzone.offsetHeight;
+
+
+
+                dropitem.forEach(function(e) {
+
+                    dropzone.style.minHeight = altura;
+                    e.style.display = "none";
+
+                });
+
+                dropzone.style.minHeight = altura + "px";
+                document.getElementById('mensagem').style.display = "block";
+
+
+
+
+            });
+
+            dropzone.addEventListener('dragleave', (event) => {
+
+
+                document.getElementById('mensagem').style.display = "none";
+
+                dropitem.forEach(function(e) {
+                    dropzone.style.minHeight = "";
+                    e.style.display = "block";
+                });
+
+                dropzone.style.minHeight = "";
+
+
+
+            });
+
+            dropzone.addEventListener('dragover', (event) => {
+                event.preventDefault();
+
+
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                event.preventDefault();
+
+                const files = event.dataTransfer.files;
+                // const formData = new FormData();
+
+                // for (const file of files) {
+                //     formData.append('files[]', file);
+                // }
+                // 1. Atribuir os arquivos ao input oculto
+
+                @this.uploadMultiple('files', [files], successCallback, errorCallback, progressCallback)
+
+                console.log('soltou');
+
+            });
         </script>
     @endpush
 </div>

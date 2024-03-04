@@ -19,16 +19,33 @@ class Filter extends Component
     public $sendFilter;
     public $receivedValue = [];
     public $isRefreshing = false;
-
+    public $custom_query;
 
 
     protected $listeners = [
         'refresh_filter' => 'refreshme',
         'refresh_myself' => '$refresh',
+        'refresh_All_Filter' => 'refreshAll',
 
     ];
 
-    public function mount($myKey, $sendFilter, $model, $column, $filter, $group_filter, $values, $direction)
+
+    /**
+     * Undocumented function
+     *
+     * @param [string] $myKey Exclusive name filter of this filter.
+     * @param [string] $sendFilter If has others filters, give a 'myKey' of a filter associate with this filter .
+     * @param [string] $model Model of Filter EX: "/App/Models/User"
+     * @param [string] $column A exclusive value to filter Search
+     * @param [string] $filter A text to show in Button Fiilter
+     * @param [string] $group_filter A Group Filter to $_SESSION['filter']['group_filter_name']
+     * @param [string] $values A value Column to show in Fiter List
+     * @param [string] $direction Order list Filter 'ASC' Ascending (Default) or 'DESC' Descending
+     * @param [string] $query Add a Custom Query EX. "where('column', 'value')->where('column2', 'value2')"
+     *
+     * @return void
+     */
+    public function mount($myKey, $sendFilter, $model, $column, $filter, $group_filter, $values, $direction, $query)
     {
         $this->model = app($model);
         $this->column = $column;
@@ -38,6 +55,7 @@ class Filter extends Component
         $this->direction = $direction;
         $this->receiverKey = $myKey;
         $this->sendFilter = $sendFilter;
+        $this->custom_query = $query;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
@@ -54,6 +72,17 @@ class Filter extends Component
         }
 
 
+    }
+
+    public function refreshAll()
+    {
+        if (isset($_SESSION['filter'][$this->group_filter][$this->column])) {
+            $this->items = $_SESSION['filter'][$this->group_filter][$this->column];
+        } else {
+            $this->items = [];
+        }
+
+        $this->emitSelf('refresh_myself');
     }
 
     public function refreshme($myKey, $values = [])
@@ -128,8 +157,8 @@ class Filter extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->group_filter])) {
-            unset($_SESSION['filter'][$this->group_filter]);
+        if (isset($_SESSION['filter'][$this->group_filter][$this->column])) {
+            unset($_SESSION['filter'][$this->group_filter][$this->column]);
             // unset($_SESSION['filter'][$this->group_filter]['receiver']);
             $this->items = [];
         }
@@ -175,13 +204,27 @@ class Filter extends Component
             $query->where($this->column, 'like', "%".$this->search."%");
         }
 
+        if ($this->custom_query) {
+            $query->whereRaw($this->custom_query);
+        }
+
         if (!empty($this->receivedValue)) {
             foreach ($this->receivedValue as $receivedFilter) {
                 $query->whereIn($receivedFilter['column'], $receivedFilter['values']);
             }
         }
+        $query->orderBy($this->values, $this->direction);
 
-        return $query->orderBy($this->values, $this->direction)->get();
+        if ($this->column != $this->values) {
+            $query->select($this->column, $this->values)
+            ->groupBy($this->column, $this->values);
+        } else {
+            $query->select($this->column)
+            ->groupBy($this->column);
+        }
+
+
+        return $query->get();
     }
 
     public function render()

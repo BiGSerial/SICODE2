@@ -15,6 +15,13 @@
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
+                    <li>
+                        <a href=""
+                            class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-circle"></i> <span>ATIVIDADE {{ mb_strToUpper($service->service) }}</span>
+                            @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
+                        </a>
+                    </li>
 
                     {{-- <li>
                         <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"

@@ -31,7 +31,7 @@ class BaseOperation extends Command
      */
     public function handle()
     {
-        $totalRecords = Edp_depcBaseOperation::count();
+        $totalRecords = Edp_depcBaseOperation::where('operacao', '0010')->count();
         $cities = City::get();
 
         $progressBar = new ProgressBar($this->output, $totalRecords, 0.2);
@@ -42,7 +42,7 @@ class BaseOperation extends Command
 
         $progressBar->start();
 
-        $chunkSize = 10000;
+        $chunkSize = 5000;
 
         $count['upd'] = 0;
         $count['ctd'] = 0;
@@ -50,7 +50,7 @@ class BaseOperation extends Command
         $count['cloop'] = 0;
         $count['nf'] = 0;
 
-        Edp_depcBaseOperation::chunk($chunkSize, function ($origins) use (&$progressBar, &$count, $cities) {
+        Edp_depcBaseOperation::where('operacao', '0010')->chunk($chunkSize, function ($origins) use (&$progressBar, &$count, $cities) {
             $originOrders = $origins->pluck('ordem')->unique();
             $orders = Order::whereIn('ordem', $originOrders)->get();
 

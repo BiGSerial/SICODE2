@@ -72,4 +72,9 @@ class Note extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    public function Files()
+    {
+        return $this->hasMany(File::class);
+    }
 }
