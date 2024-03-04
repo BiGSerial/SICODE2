@@ -392,9 +392,27 @@
                                         <input class="form-check-input border border-1 border-secondary"
                                             type="checkbox" wire:model.defer="forcar">
                                     </a>
+                                </li>
+                                <li tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="left" data-bs-title="Priorizar em Massa"
+                                    data-bs-content="
+                            <p>A priorização em massa permite priorizar um grande números de registros, porém, o texto de motivo será unico para todos eles.</p>
+                                
+                           ">
+                                    <a class="dropdown-item" href="#">
+                                        <i class="ri-alert-fill text-danger align-middle"></i>
+                                        <span wire:click.prevent='go_priority_mass'>Priorizar em Massa</span>
+
+                                    </a>
 
 
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="ri-alert-fill align-middle text-success"></i>
+                                        <span wire:click.prevent='go_des_priority_mass'>Despriorizar em Massa</span>
 
+                                    </a>
                                 </li>
                             </ul>
                         </div>

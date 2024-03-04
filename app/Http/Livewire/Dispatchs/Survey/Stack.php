@@ -84,6 +84,7 @@ class Stack extends Component
         'confirm_mass_dd' => 'confirmed_mass_dd',
         'confirm_des_att_mass' => 'confirm_des_att_mass',
         'filterUser' => 'filterUser',
+        'closeall' => 'closeall',
     ];
 
     public function mount($service)

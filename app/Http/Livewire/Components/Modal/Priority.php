@@ -4,12 +4,13 @@ namespace App\Http\Livewire\Components\Modal;
 
 use App\Models\Priority as ModelsPriority;
 use App\Models\Production;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Priority extends Component
 {
     public $priority;
-    public $production;
+    public $productions = null;
     public $infoPriority;
 
     protected $listeners = [
@@ -20,10 +21,15 @@ class Priority extends Component
         'infoPriority' => 'infoPriority',
     ];
 
-    public function setPriority(Production $production)
+    public function setPriority($production)
     {
+
+        if (!is_array($production)) {
+            $production = array($production);
+        }
+
         if ($production) {
-            $this->production = $production;
+            $this->productions = Production::find($production);
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'priorityModal'
@@ -44,103 +50,170 @@ class Priority extends Component
             return;
         }
 
-        if ($this->production) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Prioridade',
-                'msg' => "Deseja confirmar prioridade para Nota/OV {$this->production->load('Note')->Note->note}",                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Priorize!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirmPriority",
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhum nota/ov foi priorizada.',
+        if ($this->productions) {
 
-            ]);
+            if ($this->productions->count() > 1) {
+                $this->dispatchBrowserEvent('alertar', [
+                    'title' =>  'Confirmar Prioridade',
+                    'msg' => "Deseja confirmar prioridade para as {$this->productions->count()} Notas/OVs?",
+                    'icon' => 'warning',
+                    'btnOktxt' => 'Sim, Priorize!',
+                    'btnCanceltxt' => 'Não, Cancele',
+                    'action' => "confirmPriority",
+                    'cancel_titulo' => 'Cancelado!',
+                    'cancel_msg' => 'Nenhum nota/ov foi priorizada.',
+
+                ]);
+            } else {
+                $this->dispatchBrowserEvent('alertar', [
+                    'title' =>  'Confirmar Prioridade',
+                    'msg' => "Deseja confirmar prioridade para Nota/OV {$this->productions[0]->load('Note')->Note->note}",                'icon' => 'warning',
+                    'btnOktxt' => 'Sim, Priorize!',
+                    'btnCanceltxt' => 'Não, Cancele',
+                    'action' => "confirmPriority",
+                    'cancel_titulo' => 'Cancelado!',
+                    'cancel_msg' => 'Nenhum nota/ov foi priorizada.',
+
+                ]);
+            }
         }
     }
 
     public function confirmPriority()
     {
-        if ($this->production) {
-            $priority = ModelsPriority::Create([
-                'production_id' => $this->production->id,
-                'note_id' => $this->production->note_id,
-                'user_id' => Auth()->User()->id,
-                'service_id' => $this->production->service_id,
-                'prioridade' => $this->priority
-            ]);
+        if ($this->productions) {
 
-            if ($priority) {
-                $this->production->update(['priority' => true]);
+            $erro = false;
 
+
+
+            foreach ($this->productions as $production) {
+
+                DB::beginTransaction();
+
+                $priority = ModelsPriority::Create([
+                    'production_id' => $production->id,
+                    'note_id' => $production->note_id,
+                    'user_id' => Auth()->User()->id,
+                    'service_id' => $production->service_id,
+                    'prioridade' => $this->priority
+                ]);
+
+                if ($priority) {
+                    $production->update(['priority' => true]);
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon' => 'success',
+                        'title' => 'Prioridade adicionada com sucesso.',
+                        'timer' => 2500,
+                    ]);
+
+                    DB::commit();
+
+                } else {
+                    $erro = true;
+                    DB::rollback();
+                }
+            }
+
+            if (!$erro) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon' => 'success',
-                    'title' => 'Prioridade adicionada com sucesso.',
+                    'title' => 'Prioridade(s) adicionada(s) com sucesso.',
                     'timer' => 2500,
                 ]);
-
-                unset($this->production);
-                $this->priority = null;
-
-                $this->dispatchBrowserEvent('hideModal');
-                $this->emit('refresh_list');
-
-
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'danger',
-                    'title' => 'Não foi conseguimos priorizar a note/ov, tente novamente,',
-                    'timer' => 2500,
+                    'icon' => 'warning',
+                    'title' => 'Prioridade(s) adicionada(s) com erros, algumas podem nao ter sido priorizadas, confirme novamente e tente novamente.',
+                    'timer' => 8000,
                 ]);
-
-                unset($this->production);
-                $this->priority = null;
-
-                $this->dispatchBrowserEvent('hideModal');
-                $this->dispatchBrowserEvent('hideModal');
             }
+
+            $this->productions = null;
+            $this->dispatchBrowserEvent('hideModal');
+            $this->emit('closeall');
+            // $this->emit('refresh_list');
+
         }
     }
 
-    public function removePriority(Production $production)
+    public function removePriority($production)
     {
-
+        if (!is_array($production)) {
+            $production = array($production);
+        }
 
         if ($production) {
 
-            $this->production = $production;
+            $this->productions = Production::find($production);
 
-            $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Remover Prioridade',
-                'msg' => "Deseja remover prioridade para Nota/OV {$this->production->load('Note')->Note->note}",                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Remova!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirmRemovePriority",
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhum nota/ov foi removido a prioridade.',
+            if ($this->productions->count() > 1) {
+                $this->dispatchBrowserEvent('alertar', [
+                    'title' =>  'Confirmar Remover Prioridade',
+                    'msg' => "Deseja remover prioridade das {$this->productions->count()} Notas/OVs?",
+                    'icon' => 'warning',
+                    'btnOktxt' => 'Sim, Remova!',
+                    'btnCanceltxt' => 'Não, Cancele',
+                    'action' => "confirmRemovePriority",
+                    'cancel_titulo' => 'Cancelado!',
+                    'cancel_msg' => 'Nenhum nota/ov foi removido a prioridade.',
 
-            ]);
+                ]);
+            } else {
+                $this->dispatchBrowserEvent('alertar', [
+                    'title' =>  'Confirmar Remover Prioridade',
+                    'msg' => "Deseja remover prioridade para Nota/OV {$this->productions[0]->load('Note')->Note->note}",
+                    'icon' => 'warning',
+                    'btnOktxt' => 'Sim, Remova!',
+                    'btnCanceltxt' => 'Não, Cancele',
+                    'action' => "confirmRemovePriority",
+                    'cancel_titulo' => 'Cancelado!',
+                    'cancel_msg' => 'Nenhum nota/ov foi removido a prioridade.',
+
+                ]);
+            }
         }
     }
 
     public function confirmRemovePriority()
     {
-        if ($this->production) {
-            $this->production->update(['priority' => false]);
+        if ($this->productions) {
 
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Prioridade removida com sucesso.',
-                'timer' => 2500,
-            ]);
+            $erro = false;
 
-            unset($this->production);
+            foreach ($this->productions as $production) {
+                if (!$production->update(['priority' => false])) {
+                    $erro = true;
+                };
+            }
+
+
+
+            if (!$erro) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'success',
+                    'title' => 'Prioridade(s) removida(s) com sucesso.',
+                    'timer' => 2500,
+                ]);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Prioridade(s) removida(s) com com erros. Verifique e tente novamente',
+                    'timer' => 8000,
+                ]);
+            }
+
+
             $this->priority = null;
 
-            $this->dispatchBrowserEvent('hideModal');
-            $this->emit('refresh_list');
+            // $this->dispatchBrowserEvent('hideModal');
+
 
         } else {
             $this->dispatchBrowserEvent('swal', [
@@ -149,15 +222,10 @@ class Priority extends Component
                 'title' => 'Não foi conseguimos remover prioridades a note/ov, tente novamente,',
                 'timer' => 2500,
             ]);
-
-            unset($this->production);
-            $this->priority = null;
-
-            $this->dispatchBrowserEvent('hideModal');
-            $this->dispatchBrowserEvent('hideModal');
-            $this->emit('refresh_list');
         }
 
+        $this->emit('closeall');
+        // $this->emit('refresh_list');
 
     }
 

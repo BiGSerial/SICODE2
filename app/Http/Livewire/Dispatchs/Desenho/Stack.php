@@ -84,6 +84,7 @@ class Stack extends Component
         'getCopy' => 'copy',
         'confirm_des_att_mass' => 'confirm_des_att_mass',
         'filterUser' => 'filterUser',
+        'closeall' => 'closeall',
     ];
 
     public function mount($service)
@@ -96,6 +97,8 @@ class Stack extends Component
     {
         $this->user_fs = [$user_id];
     }
+
+
 
     public function updatedSelectall($val)
     {
@@ -131,6 +134,22 @@ class Stack extends Component
             $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
             return (new DispatchDesenhoStack($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
         }
+    }
+
+    public function go_priority_mass()
+    {
+        if (count($this->selected)) {
+            $this->emit('setPriority', $this->selected);
+        }
+
+    }
+
+    public function go_des_priority_mass()
+    {
+        if (count($this->selected)) {
+            $this->emit('removePriority', $this->selected);
+        }
+
     }
 
     public function copy($msg)
@@ -821,7 +840,7 @@ class Stack extends Component
         $this->gotoPage(1);
 
 
-        $this->emit('refresh_dispatch');
+        $this->emitSelf('refresh_list');
     }
 
     public function clean()
