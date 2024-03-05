@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Models\Company;
 use App\Models\Order;
 use App\Models\Service;
 use Livewire\Component;
@@ -32,6 +33,9 @@ class Main extends Component
 
     public $perPage = 50;
 
+    //Selects
+    public $companies = null;
+
     // Filters
     private $filter_group = "hiring";
     private $filter;
@@ -50,6 +54,7 @@ class Main extends Component
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+        $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
     }
 
     public function export_excel()
@@ -104,7 +109,6 @@ class Main extends Component
                     'name' => explode('.', $file->getClientOriginalName())[0],
                     'ext' => $file->getClientOriginalExtension(),
                     'chk' => false,
-                    'temp_path' => $file->temporaryUrl()
                 ];
             }
 

@@ -7,6 +7,9 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
+use function Laravel\Prompts\password;
+use function Laravel\Prompts\text;
+
 class init extends Command
 {
     /**
@@ -84,10 +87,21 @@ class init extends Command
         // }
         // Etapa 2: Criação do usuário administrador
         $this->comment('Step 2: Creating the admin user...');
-        $adminEmail = $this->ask('Enter admin email:');
-        $adminName = $this->ask('Enter admin name:');
-        $adminPassword = $this->secret('Enter admin password:');
-        $adminRePassword = $this->secret('Re-Enter admin password:');
+        $adminEmail = text(
+            label: 'Enter admin email:',
+            required: 'A Email Has Required!',
+        );
+        $adminName = text(
+            label: 'Enter admin name:',
+            default: 'Sicode Sys',
+            required: 'A Email Has Required!',
+        );
+
+        $adminPassword = password(
+            label: 'Enter admin password:',
+            required: 'The password is required.'
+        );
+        $adminRePassword = password('Re-Enter admin password:');
 
         $error = 0;
         while ($adminPassword !== $adminRePassword) {
@@ -107,8 +121,11 @@ class init extends Command
             $error++;
             $this->line('');
             $this->comment("Passwords doesn't match, try again...({$error}/3)");
-            $adminPassword = $this->secret('Enter admin password:');
-            $adminRePassword = $this->secret('Re-Enter admin password:');
+            $adminPassword = password(
+                label: 'Enter admin password:',
+                required: 'The password is required.'
+            );
+            $adminRePassword = password('Re-Enter admin password:');
 
             if ($error >= 3) {
                 $this->info('Exceded Password Attempt, run app:init again.');

@@ -436,8 +436,7 @@
                                                     <td>{{ $register['note'] }}</td>
                                                     <td class="fw-bold">
                                                         @if (isset($show_files[$register['file_index']]))
-                                                            <a href="{{ $show_files[$register['file_index']]['temp_path'] }}"
-                                                                target="_blank">{{ $show_files[$register['file_index']]['name'] }}</a>
+                                                            {{ $show_files[$register['file_index']]['name'] }}
                                                         @else
                                                             Sem Arquivo
                                                         @endif

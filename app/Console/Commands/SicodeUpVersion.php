@@ -6,6 +6,10 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Carbon\Carbon;
 
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\text;
+use function Laravel\Prompts\info;
+
 class SicodeUpVersion extends Command
 {
     /**
@@ -41,7 +45,28 @@ class SicodeUpVersion extends Command
         $versionFile = base_path('appver.json');
         $versionData = json_decode(File::get($versionFile), true);
 
-        $description = $this->ask('Enter description:');
+        // $description = $this->ask('Enter description:');
+
+        $description = text(
+            label: 'Enter a Description:',
+            hint: 'Describe principals Modifies this NewVersion.'
+        );
+
+        info('>> '.$description);
+        $confirm = confirm(
+            label: 'Confirm Informations?:',
+            default: false,
+            yes: 'I accept',
+            no: 'I decline',
+            hint: 'Describe principals Modifies this NewVersion.'
+        );
+
+        if (!$confirm) {
+            info('Exiting! Thanks For Use! Bye!');
+            return;
+        }
+
+
         $currentVersion = $versionData['appver'];
 
         if ($this->option('app')) {

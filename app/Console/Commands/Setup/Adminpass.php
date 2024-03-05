@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 
+use function Laravel\Prompts\select;
+
 class Adminpass extends Command
 {
     protected $adminEmail;
@@ -91,7 +93,17 @@ class Adminpass extends Command
             $this->info($this->adminInfo->email);
             $this->line('');
 
-            $sel = $this->ask('(A).Change Name (E).Change Email (P).Change Password (X).Exit');
+            // $sel = $this->ask('(A).Change Name (E).Change Email (P).Change Password (X).Exit');
+            $sel = select(
+                label: 'Select one Option:',
+                options: [
+                    'A' => 'Change Name',
+                    'E' => 'Change Email',
+                    'P' => 'Change Password',
+                    'X' => 'Exit'
+                ],
+                default: 'A'
+            );
 
             if ($sel != 'x') {
                 $this->selection($sel);
