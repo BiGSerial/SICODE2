@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.7",
+    "appver": "1.7.8",
     "historic": [
+        {
+            "version": "1.7.8",
+            "description": "Fixed Att fail becouse Drawikng Rules",
+            "date": "2024-03-05"
+        },
         {
             "version": "1.7.7",
             "description": "Alter Priority Mass adption",
