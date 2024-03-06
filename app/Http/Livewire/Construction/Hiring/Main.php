@@ -9,14 +9,17 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use ZipArchive;
 
 class Main extends Component
 {
     use WithPagination;
     use WithFileUploads;
+
     protected $paginationTheme = 'bootstrap';
 
 
@@ -264,6 +267,39 @@ class Main extends Component
         }
     }
 
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)->first()) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
+    }
+
+    public function downloadZip()
+    {
+        if (count($this->selected)) {
+            $files = File::WhereIn('note_id', Order::find($this->selected)->pluck('note_id'))->get();
+
+            if ($files) {
+                $zipFile = "Aruivos-Lote-".hash('crc32', time()).".zip";
+                $zip = new ZipArchive();
+                $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+                foreach ($files as $file) {
+                    $content = Storage::get($file->path);
+                    $zip->addFromString($file->file_name.".".$file->ext, $content);
+                }
+
+                $zip->close();
+
+                return response()->download($zipFile)->deleteFileAfterSend(true);
+            }
+        } else {
+
+        }
+    }
 
     public function updatedFiles()
     {
