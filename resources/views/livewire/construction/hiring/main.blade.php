@@ -171,6 +171,7 @@
                                 </th>
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
+                                <th scope="col" class="fw-bold">Files</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">denConjunto</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
@@ -180,17 +181,69 @@
                                 <th scope="col" class="fw-bold">Centro OP10</th>
                                 <th scope="col" class="fw-bold">Prazo Restante</th>
                                 <th scope="col" class="fw-bold">Situação</th>
-                                <th scope="col" class="fw-bold"></th>
+
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($lists as $list)
-                                <tr wire:key='{{ $list->id }}'>
+                                @php
+                                    $block = false;
+                                    $viability = '';
+                                    $status = '';
+
+                                    if ($list->Viabilities->count()) {
+                                        if ($list->Viabilities->Where('completed', false)->count()) {
+                                            $viability = $list->Viabilities->Where('completed', false)->last();
+
+                                            $block = true;
+
+                                            if ($viability->approved) {
+                                                $status = [
+                                                    'info' => 'Aprovado',
+                                                    'color_text' => 'text-bg-succes',
+                                                    'table' => 'table-success',
+                                                ];
+                                            } elseif ($viability->rejected && !$viability->approved) {
+                                                $status = [
+                                                    'info' => 'Rejeitado',
+                                                    'color_text' => 'text-bg-danger',
+                                                    'table' => 'table-danger',
+                                                ];
+                                            } elseif (
+                                                $viability->canceled &&
+                                                !$viability->rejected &&
+                                                !$viability->approved
+                                            ) {
+                                                $status = [
+                                                    'info' => 'Cancelado',
+                                                    'color_text' => 'text-bg-secondary',
+                                                    'table' => 'table-secondary',
+                                                ];
+                                            } else {
+                                                $status = [
+                                                    'info' => 'Em Viabilidade',
+                                                    'color_text' => 'text-bg-primary',
+                                                    'table' => 'table-primary',
+                                                ];
+                                            }
+                                        }
+                                    }
+                                @endphp
+
+                                <tr wire:key='{{ $list->id }}'
+                                    class="
+                                    @if ($block) {{ $status['table'] }} @endif">
                                     <td><input class="form-check-input border border-secondary" type="checkbox"
-                                            wire:model.defer="selected" value="{{ $list->id }}">
+                                            wire:model.defer="selected" value="{{ $list->id }}"
+                                            @disabled($block)>
                                     </td>
                                     <td class="fw-bold">{{ $list->ordem }}</td>
                                     <td>{{ $list->Note->note }}</td>
+                                    <td>
+                                        @if ($list->Note->Files->count())
+                                            <i class="ri-file-3-line text-danger"></i>
+                                        @endif
+                                    </td>
                                     <td>{{ $list->Note->rubrica }}</td>
                                     <td>{{ $list->denConjunto }}</td>
                                     <td>{{ $list->Note->lexp }}</td>
@@ -230,62 +283,16 @@
                             <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                             <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                            ">
+                            "
+                                        style="z-index: 9999;">
                                         {{ $list->Note->days_left }}</td>
-                                    <td></td>
                                     <td>
-                                        {{-- <div class="dropdown" style="position: inherit">
-                                            <button class="btn btn-danger dropdown-toggle" type="button"
-                                                data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="ri-menu-fill"></i>
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item" href="#">Action</a></li>
-                                                <li><a class="dropdown-item" href="#">Another action</a></li>
-                                                <li class="dropdown-divider"></li>
-                                                <div x-data="{ isNearRightEdge: false }" @mousemove="checkPosition($event)">
-                                                    <li class="dropdown-submenu"
-                                                        :class="{ 'change-side': isNearRightEdge }">
-                                                        <a class="dropdown-item" tabindex="-1" href="#">Hover me
-                                                            for
-                                                            more options</a>
-                                                        <ul class="dropdown-menu">
-                                                            <li class="dropdown-item"><a tabindex="-1"
-                                                                    href="#">Second level</a></li>
-                                                            <li class="dropdown-submenu">
-                                                                <a class="dropdown-item" href="#">Even More..</a>
-                                                                <ul class="dropdown-menu">
-                                                                    <li class="dropdown-item"><a href="#">3rd
-                                                                            level</a></li>
-                                                                    <li class="dropdown-submenu"><a
-                                                                            class="dropdown-item"
-                                                                            href="#">another
-                                                                            level</a>
-                                                                        <ul class="dropdown-menu">
-                                                                            <li class="dropdown-item"><a
-                                                                                    href="#">4th
-                                                                                    level</a></li>
-                                                                            <li class="dropdown-item"><a
-                                                                                    href="#">4th
-                                                                                    level</a></li>
-                                                                            <li class="dropdown-item"><a
-                                                                                    href="#">4th level</a></li>
-                                                                        </ul>
-                                                                    </li>
-                                                                    <li class="dropdown-item"><a href="#">3rd
-                                                                            level</a></li>
-                                                                </ul>
-                                                            </li>
-                                                        </ul>
-                                                    <li>
-                                                </div>
-                                                <a class="dropdown-item" href="#">Something else
-                                                    here</a>
-                                                </li>
-
-                                            </ul>
-                                        </div> --}}
+                                        @if ($block)
+                                            <span
+                                                class="badge {{ $status['color_text'] }}">{{ $status['info'] }}</span>
+                                        @endif
                                     </td>
+
                                 </tr>
                             @endforeach
                         </tbody>
@@ -347,6 +354,43 @@
                 <div class="modal-body"> {{-- Inicio Modal Body --}}
 
                     <div class="card">
+                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-start">
+                            <h4 class="my-auto">Dados de Envio</h4>
+                        </div>
+                        <div class="card-body d-flex justify-content-between">
+                            <div class="mb-3 col-5">
+                                <label for="form-label" class="text-secondary">Selecione a Empreiteira</label>
+                                <select class="form-select" wire:model.defer="company_s">
+                                    <option>----</option>
+                                    @if ($companies)
+                                        @foreach ($companies as $company)
+                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                        @endforeach
+                                    @endif
+
+                                </select>
+
+
+                            </div>
+                            <div class="mb-3 col-5">
+                                <label for="form-label" class="text-secondary">Selecione o Engenheiro
+                                    Responsável</label>
+                                <select class="form-select" wire:model.defer="engineer_s">
+                                    @if ($engineers)
+                                        <option>----</option>
+                                        @foreach ($engineers as $engineer)
+                                            <option value="{{ $engineer->id }}">{{ $engineer->name }}</option>
+                                        @endforeach
+                                    @endif
+
+                                </select>
+
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
                         <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
                             <h4 class="my-auto">Arquivos</h4>
                             <button class="btn btn-sm btn-primary"
@@ -381,6 +425,21 @@
 
                         <div class="card-body " id="drop-area">
                             <div class="row g-1 justify-content-between mb-3">
+
+                                @if (count($show_existing_files))
+                                    @foreach ($show_existing_files as $file)
+                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
+                                            <div class="p-1 m-0 border-end border-secondary"><i
+                                                    class="bx bxs-file-{{ $file['ext'] }} text-success fs-4"></i>
+                                            </div>
+                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
+                                            </div>
+                                            <div class="p-1 m-0 border-start border-secondary">
+                                                <i class="ri-file-cloud-line text-succes fs-4"></i>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                @endif
 
                                 @if (count($show_files))
                                     @foreach ($show_files as $file)
@@ -422,7 +481,7 @@
                                 <div class="table-responsive">
                                     <table class="table table-sm table-condensed table-striped">
                                         <thead class="table-dark">
-                                            <th scope="col">#</th>
+
                                             <th scope="col">Ordem</th>
                                             <th scope="col">Note</th>
                                             <th scope="col">File</th>
@@ -431,12 +490,14 @@
                                         <tbody>
                                             @foreach ($show_registers as $register)
                                                 <tr>
-                                                    <td>{{ $register['id'] }}</td>
+
                                                     <td>{{ $register['order'] }}</td>
                                                     <td>{{ $register['note'] }}</td>
                                                     <td class="fw-bold">
-                                                        @if (isset($show_files[$register['file_index']]))
+                                                        @if (isset($show_files[$register['file_index']]) && !$register['file_online'])
                                                             {{ $show_files[$register['file_index']]['name'] }}
+                                                        @elseif ($register['file_online'])
+                                                            Aquivo Existente
                                                         @else
                                                             Sem Arquivo
                                                         @endif
@@ -465,17 +526,17 @@
 
 
 
-                    <div class="mb-3">
+                    {{-- <div class="mb-3">
                         <label for="search" class="form-label">Observações</label>
                         <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"></textarea>
-                    </div>
+                    </div> --}}
 
                 </div> {{-- Fim Modal Body --}}
 
 
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                    <button type="button" class="btn btn-primary" wire:click.prevent="to_viability">Enviar</button>
                 </div>
 
             </div>

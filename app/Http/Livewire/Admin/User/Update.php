@@ -27,6 +27,7 @@ class Update extends Component
     public $companies;
     public $services;
     public $registration;
+    public $engineer;
 
     public $user_update;
     public $reset_user;
@@ -47,6 +48,7 @@ class Update extends Component
         $this->superadm = $this->user_update->superadm;
         $this->admin = $this->user_update->admin;
         $this->management = $this->user_update->management;
+        $this->engineer = $this->user_update->engineer;
         $this->operator = $this->user_update->operator;
         $this->user = $this->user_update->user;
         $this->contract = $this->user_update->contract;
@@ -78,6 +80,7 @@ class Update extends Component
         if (($this->superadm +
             $this->admin +
             $this->management +
+            $this->engineer +
             $this->operator) == 0) {
 
             $this->user = true;
@@ -89,6 +92,7 @@ class Update extends Component
         $this->user_update->superadm = $this->superadm ? true : false;
         $this->user_update->admin = $this->admin ? true : false;
         $this->user_update->management = $this->management ? true : false;
+        $this->user_update->engineer = $this->engineer ? true : false;
         $this->user_update->operator = $this->operator ? true : false;
         $this->user_update->user = $this->user ? true : false;
         $this->user_update->contract = $this->contract ? true : false;
@@ -197,6 +201,7 @@ class Update extends Component
         $this->superadm = false;
         $this->admin = false;
         $this->management = false;
+        $this->engineer = false;
         $this->operator = false;
         $this->user = false;
         $this->bypassprod = false;

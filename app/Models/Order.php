@@ -38,4 +38,9 @@ class Order extends Model
     {
         return $this->hasMany(Operation::class);
     }
+
+    public function Viabilities()
+    {
+        return $this->hasMany(Viability::class);
+    }
 }

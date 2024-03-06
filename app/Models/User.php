@@ -37,6 +37,7 @@ class User extends Authenticatable
         'contract',
         'first_pass',
         'bypassprod',
+        'engineer',
     ];
 
     /**

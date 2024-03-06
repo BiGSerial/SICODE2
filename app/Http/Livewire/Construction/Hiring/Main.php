@@ -3,8 +3,12 @@
 namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Models\Company;
+use App\Models\File;
 use App\Models\Order;
 use App\Models\Service;
+use App\Models\User;
+use App\Models\Viability;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -28,20 +32,24 @@ class Main extends Component
 
     public $files = [];
     public $show_files = [];
-
+    public $show_existing_files = [];
     public $show_registers = [];
 
     public $perPage = 50;
 
     //Selects
     public $companies = null;
+    public $company_s;
+    public $engineers = null;
+    public $engineer_s;
 
     // Filters
     private $filter_group = "hiring";
     private $filter;
 
     protected $listeners = [
-        'refresh_list' => '$refresh'
+        'refresh_list' => '$refresh',
+        'confirm_viability' => 'confirm_viability',
     ];
 
     protected $queryString = [
@@ -55,6 +63,7 @@ class Main extends Component
     {
         $this->service = Service::where('uuid', $service)->first();
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
+        $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
     }
 
     public function export_excel()
@@ -71,27 +80,190 @@ class Main extends Component
     {
 
         if (count($this->selected)) {
-            $orders = Order::with('Note')->find($this->selected);
+            $orders = Order::with('Note.Files')->find($this->selected);
 
             if ($orders) {
                 foreach ($orders as $order) {
+
                     $this->show_registers[$order->id] = [
                         'id' => $order->id,
                         'note_id' => $order->Note->id,
                         'order' => $order->ordem,
                         'note' => $order->Note->note,
                         'file_index' => '',
+                        'file_online' => false,
                     ];
+
+
+                    if ($order->Note->Files->count()) {
+
+                        foreach ($order->Note->Files as $file) {
+                            $this->show_existing_files[$order->id] = [
+                                'id' => $order->id,
+                                'name' => $file->file_name,
+                                'ext' => $file->ext,
+                                'chk' => false,
+                            ];
+                        }
+
+                        $this->show_registers[$order->id] = array_merge($this->show_registers[$order->id], ['file_online' => true]);
+                    }
+                }
+
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Nenhuma nota foi selecionada para Envio.',
+                    'timer' => 5000,
+                ]);
+
+                return;
+            }
+
+
+            $this->dispatchBrowserEvent('showModal', [
+                'id' => 'viability_modal'
+            ]);
+        }
+
+    }
+
+    public function to_viability()
+    {
+
+        if ($this->company_s == '' && $this->engineer_s == '') {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'É necessário selecionar a EMPREITEIRA e o ENGENHEIRO RESPONSÁVEL.',
+                'timer' => 5000,
+            ]);
+
+            return;
+
+        } else {
+            $company = $this->companies->where('id', $this->company_s)->first()->name;
+
+            // dd($this->engineer_s, $this->engineers);
+
+            $engineer = $this->engineers->where('id', $this->engineer_s)->first()->name;
+        }
+
+        if (count($this->show_registers)) {
+
+            $count = count($this->show_registers);
+
+            $text = "
+            <div class='card'>
+                <div class='card-body'>
+                    <p>Você está prestes a enviar <span class='fw-bold'>{$count}</span> ordem(ns) para Viabilidade. Confira as informações:</p>
+                    <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
+                    <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
+                    </p>
+                </div>            
+            </div>            
+            ";
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title' =>  'Confirmar Envio para Viabilidade?',
+                'msg' => $text,
+                'icon' => 'warning',
+                'btnOktxt' => 'Sim, Despache!',
+                'btnCanceltxt' => 'Não, Cancele',
+                'action' => "confirm_viability",
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg' => 'Nenhuma Ordem foi Enviada!',
+
+            ]);
+
+            return;
+        }
+    }
+
+    public function confirm_viability()
+    {
+        DB::beginTransaction();
+
+        $erro = false;
+
+        if (count($this->show_files)) {
+
+            foreach ($this->show_files as $temp_file) {
+
+                $caminho = '';
+
+                if (isset($this->files[$temp_file['id']])) {
+
+                    $caminho = $this->files[$temp_file['id']]->store('/arquivos');
+
+                    if ($caminho) {
+
+                        $file = File::create([
+                                    'note_id' => $temp_file['note_id'],
+                                    'user_id' => Auth()->User()->id,
+                                    'service_id' => $this->service->uuid,
+                                    'file_name' => $temp_file['name'],
+                                    'path' => $caminho,
+                                    'ext' => $temp_file['ext'],
+                                ]);
+
+                        if (!$file) {
+                            $erro = true;
+                        }
+
+                    }
+
+                }
+
+            }
+        }
+
+        if (count($this->show_registers)) {
+
+            foreach ($this->show_registers as $register) {
+
+                $viability = Viability::Create([
+                    'order_id' => $register['id'],
+                    'company_id' => $this->company_s,
+                    'user_id' => Auth()->User()->id,
+                    'engineer_id' => $this->engineer_s,
+                    'sended_at' => date('Y-m-d H:i:s'),
+                ]);
+
+                if (!$viability) {
+                    $erro = true;
+
+
                 }
             }
         }
 
+        if ($erro) {
+            DB::rollback();
 
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'viability_modal'
-        ]);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'TIVEMOS UM ERRO INESPERADO, NENHUM REGISTRO FOI EXECUTADO.',
+                'timer' => 5000,
+            ]);
 
+        } else {
+
+            DB::commit();
+
+            $this->closeall();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'success',
+                'title' => 'Registro Efetuado com Sucesso.',
+                'timer' => 5000,
+            ]);
+        }
     }
+
 
     public function updatedFiles()
     {
@@ -103,16 +275,29 @@ class Main extends Component
 
             foreach ($this->files as $index => $file) {
 
-                $this->show_files[$index] = [
-                    'id' => $index,
-                    'note_id' => "",
-                    'name' => explode('.', $file->getClientOriginalName())[0],
-                    'ext' => $file->getClientOriginalExtension(),
-                    'chk' => false,
-                ];
+                $skip_file = false;
+
+                if (count($this->show_existing_files)) {
+
+                    foreach ($this->show_existing_files as $files_existing) {
+
+                        if ($files_existing['name'] === explode('.', $file->getClientOriginalName())[0]) {
+                            $skip_file = true;
+                        }
+                    }
+                }
+
+
+                if (!$skip_file) {
+                    $this->show_files[$index] = [
+                        'id' => $index,
+                        'note_id' => "",
+                        'name' => explode('.', $file->getClientOriginalName())[0],
+                        'ext' => $file->getClientOriginalExtension(),
+                        'chk' => false,
+                    ];
+                }
             }
-
-
 
             $this->associate_files();
         }
@@ -122,6 +307,7 @@ class Main extends Component
     public function delete_file($id)
     {
         if (isset($this->show_files[$id])) {
+            unset($this->files[$id]);
             unset($this->show_files[$id]);
         }
     }
@@ -212,17 +398,15 @@ class Main extends Component
         $this->dispatchBrowserEvent('hideModal');
 
 
-        // $this->company_s = "";
+        $this->company_s = "";
         $this->selected = [];
-        // $this->user_s = "";
-        // $this->type = "";
-        // $this->additionalData = [];
-        // $this->advanceSearch = "";
-        // $this->search = "";
+        $this->engineer_s = "";
+        $this->show_files = [];
+        $this->show_registers = [];
         $this->gotoPage(1);
 
 
-        $this->emit('refresh_dispatch');
+        $this->emit('refresh_list');
     }
 
     public function updatedSelectAll($value)
@@ -260,7 +444,7 @@ class Main extends Component
 
         $query = Order::Query();
 
-        $query->with('Operations', 'Note')
+        $query->with('Operations', 'Note.Files', 'Viabilities')
 
         ->when($this->search, function ($q) {
             $this->gotoPage(1);

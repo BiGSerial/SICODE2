@@ -31,6 +31,7 @@ class Create extends Component
     public $companies;
     public $services;
     public $registration;
+    public $engineer;
 
     public function save()
     {
@@ -48,6 +49,7 @@ class Create extends Component
         if (($this->superadm +
             $this->admin +
             $this->management +
+            $this->engineer +
             $this->operator) == 0) {
 
             $this->user = true;
@@ -66,6 +68,7 @@ class Create extends Component
             'superadm' => $this->superadm ? true : false,
             'admin' => $this->admin ? true : false,
             'management' => $this->management ? true : false,
+            'engineer' => $this->engineer ? true : false,
             'operator' => $this->operator ? true : false,
             'user' => $this->user ? true : false,
             'contract' => $this->contract ? true : false
@@ -112,6 +115,7 @@ class Create extends Component
         $this->superadm = false;
         $this->admin = false;
         $this->management = false;
+        $this->engineer = false;
         $this->operator = false;
         $this->user = false;
         $this->contract = false;

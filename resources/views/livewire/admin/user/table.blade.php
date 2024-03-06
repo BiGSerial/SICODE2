@@ -81,19 +81,47 @@
                                                 <a href="#"
                                                     class="user-link  @if ($user->trashed()) text-decoration-line-through text-danger @else text-dark @endif">{{ $user->name }}</a>
                                                 @if ($user->superadm)
-                                                    <span class="user-subhead mr-2">SuperAdm</span>
+                                                    <span class="user-subhead me-2" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="left"
+                                                        data-bs-title="ADMINISTRADOR DO SISTEMA"
+                                                        data-bs-content="Administra todo o sistema adicionando novos SUPERADM e Inferiores"><i
+                                                            class="ri-home-gear-fill text-danger fs-5"></i></span>
                                                 @endif
                                                 @if ($user->admin)
-                                                    <span class="user-subhead mr-2">Admin</span>
+                                                    <span class="user-subhead me-2" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="left" data-bs-title="ADMINISTRADOR"
+                                                        data-bs-content="Administra informações da sua empresa adicionando novos ADMIN e Inferiores"><i
+                                                            class="ri-home-gear-line text-primary fs-5"></i></span>
                                                 @endif
                                                 @if ($user->management)
-                                                    <span class="user-subhead mr-2">Gestor</span>
+                                                    <span class="user-subhead me-2" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="left" data-bs-title="GERENTE"
+                                                        data-bs-content="Acesso a informações de Relatórios entre outros."><i
+                                                            class="ri-user-voice-fill text-info fs-5"></i></span>
+                                                @endif
+                                                @if ($user->engineer)
+                                                    <span class="user-subhead me-2" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="left" data-bs-title="ENGENHEIRO"
+                                                        data-bs-content="Tem informações aos serviços que foi colocado como Responsável"><i
+                                                            class="ri-user-2-fill text-info fs-5"></i></span>
                                                 @endif
                                                 @if ($user->operator)
-                                                    <span class="user-subhead mr-2">Operador</span>
+                                                    <span class="user-subhead me-2" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="left" data-bs-title="OPERADOR"
+                                                        data-bs-content="Tem Acesso a área de Controle, atribuindo serviços para outros usuários."><i
+                                                            class="ri-user-voice-line text-primary fs-5"></i></span>
                                                 @endif
                                                 @if ($user->user)
-                                                    <span class="user-subhead mr-2">Usuário</span>
+                                                    <span class="user-subhead me-2" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="left" data-bs-title="USUÁRIO"
+                                                        data-bs-content="Apenas acesso básico ao sistema, e acesso aos serviços a qual foi designado a realizar."><i
+                                                            class="ri-user-line text-secondary fs-5"></i></span>
                                                 @endif
 
                                             </td>

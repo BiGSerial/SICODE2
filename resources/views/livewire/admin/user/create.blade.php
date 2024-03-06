@@ -88,6 +88,10 @@
                 <label class="form-check-label" for="management">Gerente</label>
             </div>
             <div class="form-check form-check-inline">
+                <input wire:model.defer="engineer" class="form-check-input" type="checkbox" id="engineer">
+                <label class="form-check-label" for="management">Engenheiro</label>
+            </div>
+            <div class="form-check form-check-inline">
                 <input wire:model.defer="operator" class="form-check-input" type="checkbox" id="operator">
                 <label class="form-check-label" for="operator">Operador</label>
             </div>

@@ -13,6 +13,7 @@ class File extends Model
         'note_id',
         'user_id',
         'service_id',
+        'file_name',
         'path',
         'ext',
     ];
