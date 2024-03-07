@@ -478,7 +478,7 @@ class Accompany extends Component
         }
 
         $query = Viability::Query();
-        $query->with('Order.Note', 'Company', 'User', 'Engineer');
+        $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
 
 
         return $query->paginate($this->perPage);

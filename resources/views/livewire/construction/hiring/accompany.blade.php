@@ -175,18 +175,63 @@
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
                                 <th scope="col" class="fw-bold">Files</th>
+                                <th scope="col" class="fw-bold">Engenheiro</th>
+                                <th scope="col" class="fw-bold">Empreitaira</th>
+                                <th scope="col" class="fw-bold">Dt Envio</th>
+                                <th scope="col" class="fw-bold">Est Retorno</th>
+                                <th scope="col" class="fw-bold">Real Retorno</th>
+                                <th scope="col" class="fw-bold">Situação</th>
+                                <th scope="col" class="fw-bold"></th>
+
 
 
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                function getClassForDate($daysDifference)
+                                {
+                                    if ($daysDifference < 0) {
+                                        return 'table-secondary'; // data de vencimento no futuro
+                                    } elseif ($daysDifference == 0 || $daysDifference == 1) {
+                                        return 'table-danger'; // um dia ou menos para o vencimento
+                                    } elseif ($daysDifference <= 4) {
+                                        return 'table-warning'; // menos de uma semana para o vencimento
+                                    } else {
+                                        return 'table-success'; // mais de uma semana para o vencimento
+                                    }
+                                }
+                            @endphp
+
                             @foreach ($lists as $list)
+                                @php
+                                    $dueDate = $list->sended_at ? Carbon::parse($list->sended_at)->addDays(7) : null;
+                                    $today = Carbon::now();
+                                    $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
+
+                                @endphp
+
                                 <tr>
                                     <td><input class="form-check-input border border-secondary" type="checkbox"
-                                            wire:model.defer="selected" value="{{ $list->id }}">
-                                    </td>
-                                    <td>{{ $list->Order->ordem }}</td>
+                                            wire:model.defer="selected" value="{{ $list->id }}"></td>
+                                    <td class="fw-bold">{{ $list->Order->ordem }}</td>
                                     <td>{{ $list->Order->Note->note }}</td>
+                                    <td>
+                                        {{-- Componente Blade para Exibir a lista de Arquivos. Precisa do Array de Files --}}
+                                        <x-files.select-download-list :files='$list->Order->Note->Files' />
+                                    </td>
+                                    <td>{{ $list->Engineer->name }}</td>
+                                    <td>{{ $list->Company->name }}</td>
+                                    <td>{{ $list->sended_at ? Carbon::parse($list->sended_at)->format('d/m/Y') : '---' }}
+                                    </td>
+
+                                    <td
+                                        class="text-center fw-bold {{ $dueDate ? getClassForDate($daysDifference) : '---' }}">
+                                        {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }} {{ $daysDifference }}
+                                    </td>
+                                    <td>{{ $list->returned_at ? Carbon::parse($list->returned_at)->format('d/m/Y') : '---' }}
+                                    </td>
+                                    <td></td>
                                     <td></td>
                                 </tr>
                             @endforeach
