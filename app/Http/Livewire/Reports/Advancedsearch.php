@@ -60,6 +60,8 @@ class Advancedsearch extends Component
         $_SESSION['filtro']['searchAdvanced']['status'] = $this->status;
         $_SESSION['filtro']['searchAdvanced']['centerJob'] = $this->centerJob_s;
 
+        $this->search_f = "";
+
     }
 
     public function removeFilter()
@@ -71,6 +73,7 @@ class Advancedsearch extends Component
         $this->group2 = [];
         $this->status = [];
         $this->centerJob_s = [];
+        $this->search_f = "";
 
         unset($_SESSION['filtro']['searchAdvanced']);
     }
