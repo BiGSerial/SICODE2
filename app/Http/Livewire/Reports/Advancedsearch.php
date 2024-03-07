@@ -20,6 +20,14 @@ class Advancedsearch extends Component
     public $note_type = "";
     public $group2 = [];
     public $status = [];
+    public $centerJob_s = [];
+    public $centerJob = '';
+    public $search_f;
+
+    protected $queryString = [
+        'search' => ['except' => '', 'as' => 'find'],
+        'note_type' => ['except' => '', 'as' => 'tipo'],
+    ];
 
     public function Search()
     {
@@ -35,7 +43,10 @@ class Advancedsearch extends Component
         if (isset($_SESSION['filtro']['searchAdvanced'])) {
             $this->group2 = $_SESSION['filtro']['searchAdvanced']['group2'];
             $this->status = $_SESSION['filtro']['searchAdvanced']['status'];
+            $this->centerJob_s = $_SESSION['filtro']['searchAdvanced']['centerJob'];
         }
+
+        // $this->centerJob = Note::select('centerjob')->distinct()->orderBy('centerjob')->get();
     }
 
     public function applyFilter()
@@ -47,6 +58,7 @@ class Advancedsearch extends Component
 
         $_SESSION['filtro']['searchAdvanced']['group2'] = $this->group2;
         $_SESSION['filtro']['searchAdvanced']['status'] = $this->status;
+        $_SESSION['filtro']['searchAdvanced']['centerJob'] = $this->centerJob_s;
 
     }
 
@@ -58,6 +70,7 @@ class Advancedsearch extends Component
 
         $this->group2 = [];
         $this->status = [];
+        $this->centerJob_s = [];
 
         unset($_SESSION['filtro']['searchAdvanced']);
     }
@@ -81,6 +94,13 @@ class Advancedsearch extends Component
 
     public function getListsProperty()
     {
+        $this->centerJob = Note::where('centerjob', 'like', "%{$this->search_f}%")
+                                ->select('centerjob')
+                                ->distinct()
+                                ->orderBy('centerjob')
+                                ->get();
+
+
         return  Note::Where(function ($q) {
             $q->where('note', 'like', '%'.$this->search.'%')
                 ->orWhere('group1', 'like', '%'.$this->search.'%')
@@ -100,6 +120,13 @@ class Advancedsearch extends Component
         })
         ->when($this->group2, function ($q) {
             return $q->whereIn('group2', $this->group2);
+        })
+        ->when($this->centerJob_s, function ($q) {
+            return $q->whereIn('centerjob', $this->centerJob_s)
+                    ->orWhere(function ($q) {
+                        $q->where('type_note', 1)
+                            ->where('centerjob', '');
+                    });
         })
         ->Where('nstats', '<', 98)
         ->OrderBy('type_note', 'DESC')
