@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.8",
+    "appver": "1.7.9",
     "historic": [
+        {
+            "version": "1.7.9",
+            "description": "Addinting Column in Advanced Search",
+            "date": "2024-03-07"
+        },
         {
             "version": "1.7.8",
             "description": "Fixed Att fail becouse Drawikng Rules",
