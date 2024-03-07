@@ -18,7 +18,8 @@
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
+                                class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span>MEU CONTROLE
                                     {{ mb_strToUpper($service->service) }}</span>
                                 {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
