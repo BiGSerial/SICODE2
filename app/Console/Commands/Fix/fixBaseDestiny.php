@@ -5,6 +5,8 @@ namespace App\Console\Commands\Fix;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\Note;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
 class fixBaseDestiny extends Command
 {
@@ -27,43 +29,182 @@ class fixBaseDestiny extends Command
      */
     public function handle()
     {
-        $statusInfo = Note::select('nstats', 'type_note')->where('type_note', 2)->orderBy('nstats')->get()->pluck('nstats')->unique()->toArray();
-        $extraNotes['status'] = [];
+        $output = new ConsoleOutput();
 
-        $this->info('<bg=blue;fg=white> INFO </> INIT COMPARING DBs ORIGIN WITH DESTINY...');
-        foreach ($statusInfo as $status) {
+        $listStatus = BaseOV::select('numStat')
+                    ->orderBy('numStat')
+                    ->distinct()
+                    ->get()
+                    ->pluck('numStat')
+                    ->toArray();
+
+        // dd(count($listStatus));
+        if (count($listStatus)) {
+
+            $progressBar = new ProgressBar($output, count($listStatus));
+            $progressBar->setFormat(" %current%/%max% [%bar%] %percent:3s%% %extra%\n %process% %message%");
+
+            $toFix = [];
+            $noteToFix = [];
 
 
-            $originsCount = BaseOV::where('numStat', $status)->where('ultimoStatus', 1)->count();
-            $destiniesCount = Note::where('nstats', $status)->where('type_note', 2)->count();
+            $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHEKING INTEGRITY DB...</>', 'process');
+            $progressBar->setMessage("<fg=white;options=bold>[0/0]</>", 'extra');
 
-            if ($originsCount < $destiniesCount) {
+            $progressBar->start();
 
-                $this->info('<bg=red;fg=yellow> FAIL </> <fg=yellow;options=underscore;options=bold> INTEGRITY ERROR IN STATUS ' . $status . ' ORIGIN: ' . $originsCount . ' DESTINY: ' . $destiniesCount . ' </>');
+            foreach ($listStatus as $status) {
 
-                $extraNotes['status'][] = $status;
 
-                Note::where('nstats', $status)->where('type_note', 2)->chunk(1000, function ($notes) use (&$extraNotes, &$status) {
-                    $chkOrigins = BaseOV::whereIn('OV', $notes->pluck('note')->toArray())->where('ultimoStatus', 1)->get();
 
-                    if ($chkOrigins->count() < $notes->count()) {
+                $origin = BaseOV::where('numStat', $status)->where('ultimoStatus', 1)->count();
+                $destiny = Note::Where('nstats', $status)->where('type_note', 2)->count();
 
-                        $this->comment('<bg=yellow;fg=black> ANALYSIS </> GETTING DIFFERENCES IN STATUS ' . $status);
+                if ($origin != $destiny) {
+                    $diff = $origin - $destiny;
 
-                        $chkOvs = $chkOrigins->pluck('OV')->toArray();
-                        $chkNotes = $notes->pluck('note')->toArray();
+                    $progressBar->setMessage("<bg=red;fg=white> FAIL </> <fg=white;options=bold>INCOSISTENCY... O: {$origin} => D: {$destiny} | DIFF: {$diff}</>", 'message');
 
-                        $extraNotes['status'][]['notes'][] = array_diff($chkNotes, $chkOvs);
-                    }
-                });
 
-            } else {
-                $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> INTEGRITY OK IN STATUS </> <fg=yellow;options=bold>' . $status . ' </>');
+                    $toFix[] = [
+                        'status' => $status,
+                        'origin' => $origin,
+                        'destiny' => $destiny,
+                        'diff' => $origin - $destiny,
+                        'force' => false,
+                    ];
+                } else {
+                    $progressBar->setMessage('<bg=green;fg=white> DONE </> <fg=white;options=bold>STATUS OK: </>'.$status);
+                }
+
+                $progressBar->advance();
             }
+
+
+
+            if (count($toFix)) {
+
+                $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>LOOKING FOR FIX: </>', 'process');
+
+                $progressBar->start(count($toFix));
+
+                foreach ($toFix as $fix) {
+
+                    $conta_nota = 0;
+                    $total = $fix['diff'] + count($noteToFix);
+
+                    BaseOV::where('numStat', $fix['status'])
+                        ->where('ultimoStatus', 1)
+                        ->chunk(5000, function ($origin) use ($fix, &$noteToFix, &$progressBar, &$conta_nota, $total) {
+
+                            $conta_nota += $origin->count();
+
+                            $progressBar->setMessage("<fg=white;options=bold> STATUS </>".$fix['status'], 'message');
+
+                            $diff = "";
+                            $origin_c = $origin->pluck('OV')->toArray();
+                            $destiny_c = Note::whereIn('note', $origin_c)->get()->pluck('note')->toArray();
+                            $diff = array_diff($origin_c, $destiny_c);
+
+                            if ($diff) {
+
+                                if (is_array($diff)) {
+                                    foreach ($diff as $differ) {
+                                        $noteToFix[] = $differ;
+                                    }
+                                } else {
+                                    $noteToFix[] = $diff;
+                                }
+
+                            } else {
+
+                                $diff = array_diff($destiny_c, $origin_c);
+
+                                if ($diff) {
+                                    if (is_array($diff)) {
+                                        foreach ($diff as $differ) {
+                                            $noteToFix[] = $differ;
+                                        }
+                                    } else {
+                                        $noteToFix[] = $diff;
+                                    }
+                                }
+                            }
+
+
+                            $count = count($noteToFix);
+
+                            $progressBar->setMessage("<fg=white;options=bold>[{$count}/{$total}][Count:{$conta_nota}/{$fix['origin']}]</>", 'extra');
+
+                            $progressBar->display();
+
+                            if (count($noteToFix) >= $total) {
+                                return false;
+                            }
+                        });
+
+                    $progressBar->advance();
+                }
+            }
+
+            print_r($noteToFix);
+
+            if (count($noteToFix)) {
+                $progressBar->setMessage("<bg=red;fg=white> WORKING </><fg=white;options=bold> FIXING DATABASE WAITING FOR...</>", 'extra');
+                $progressBar->setMessage("", 'message');
+                $progressBar->display();
+
+                $origins = BaseOV::WhereIn('OV', $noteToFix)->where('ultimoStatus', 1)->get();
+
+                $progressBar->start(count($noteToFix));
+
+                if ($origins) {
+                    foreach ($origins as $origin) {
+                        $chk = Note::updateOrCreate(
+                            ['note' => $origin->OV],
+                            [
+                            'created_by' => $origin->criadoPor,
+                            'dt_created' =>  "{$origin->dtCriacao} {$origin->hrCriacao}",
+                            'dt_status' => $origin->dhStat,
+                            'user' => $origin->usuario,
+                            'value' => $origin->valorLiq,
+                            'currency' => $origin->moeda,
+                            'eq_venda' => $origin->eqVenda,
+                            'numPedido' => $origin->numPedido,
+                            'client' => $origin->emissorOV,
+                            'group1' => $origin->grpCliente1,
+                            'group2' => $origin->grpCliente2,
+                            'group3' => $origin->grpCliente3,
+                            'group4' => $origin->grpCliente4,
+                            'group5' => $origin->grpCliente5,
+                            'pze' => $origin->PzE,
+                            'num_material' => $origin->numMaterial,
+                            'material' => $origin->material,
+                            'nexp' => $origin->numExp,
+                            'lexp' => $origin->localExp,
+                            'pep' => $origin->PEP,
+                            'nstats' => $origin->numStat,
+                            'status' => $origin->status,
+                            'days' => $origin->dias,
+                            'transaction' => $origin->transicao,
+                            'validar_prazo' => $origin->considerarPrazo,
+                            'rubrica' => $origin->rubrica,
+                            'pze_tratado' => $origin->PzETratado,
+                            'days_stat' => $origin->diasNoStatus,
+                            'pze_parecer' => $origin->parecerPrazo,
+                            'days_left' => $origin->diasPVencimento,
+                            'type_note' => 2,
+                        ]
+                        );
+
+                        $progressBar->advance();
+                    }
+                }
+            }
+
+            $progressBar->finish();
         }
 
-        $this->info('<bg=blue;fg=white> *** FINISHED ***</>  FIX BASE CHECK HAS FINISHED.');
 
-        print_r($extraNotes);
     }
 }
