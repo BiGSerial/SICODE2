@@ -175,8 +175,10 @@
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
                                 <th scope="col" class="fw-bold">Files</th>
-                                <th scope="col" class="fw-bold">Engenheiro</th>
+                                <th scope="col" class="fw-bold">Rubrica</th>
+                                <th scope="col" class="fw-bold">Municipio</th>
                                 <th scope="col" class="fw-bold">Empreitaira</th>
+                                <th scope="col" class="fw-bold">Engenheiro</th>
                                 <th scope="col" class="fw-bold">Dt Envio</th>
                                 <th scope="col" class="fw-bold">Est Retorno</th>
                                 <th scope="col" class="fw-bold">Real Retorno</th>
@@ -201,6 +203,18 @@
                                         return 'table-success'; // mais de uma semana para o vencimento
                                     }
                                 }
+
+                                function getFirstLastName(string $old_name)
+                                {
+                                    $name = explode(' ', $old_name);
+
+                                    if (count($name) > 1) {
+                                        $name = $name[0] . ' ' . end($name);
+                                        return $name;
+                                    } else {
+                                        return $old_name;
+                                    }
+                                }
                             @endphp
 
                             @foreach ($lists as $list)
@@ -220,18 +234,23 @@
                                         {{-- Componente Blade para Exibir a lista de Arquivos. Precisa do Array de Files --}}
                                         <x-files.select-download-list :files='$list->Order->Note->Files' />
                                     </td>
-                                    <td>{{ $list->Engineer->name }}</td>
-                                    <td>{{ $list->Company->name }}</td>
+                                    <td>{{ $list->Order->Note->rubrica }}</td>
+                                    <td>{{ $list->Order->Note->lexp }}</td>
+                                    <td>{{ getFirstLastName($list->Company->name) }}</td>
+                                    <td>{{ getFirstLastName($list->Engineer->name) }}</td>
                                     <td>{{ $list->sended_at ? Carbon::parse($list->sended_at)->format('d/m/Y') : '---' }}
                                     </td>
 
                                     <td
                                         class="text-center fw-bold {{ $dueDate ? getClassForDate($daysDifference) : '---' }}">
-                                        {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }} {{ $daysDifference }}
+                                        {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
                                     </td>
                                     <td>{{ $list->returned_at ? Carbon::parse($list->returned_at)->format('d/m/Y') : '---' }}
                                     </td>
-                                    <td></td>
+                                    <td>
+                                        {{-- Componente Blade para Exibir status baseado nos Booleand. Precisa do Array de Viability --}}
+                                        <x-hiring.status_viability :status="$list" />
+                                    </td>
                                     <td></td>
                                 </tr>
                             @endforeach

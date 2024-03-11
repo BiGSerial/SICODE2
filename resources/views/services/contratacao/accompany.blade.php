@@ -15,7 +15,7 @@
 @endsection
 
 @section('menu')
-    @include('services.menu')
+    @livewire('construction.hiring.menu', ['service' => $service->uuid])
 @endsection
 
 @section('content')
