@@ -87,7 +87,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
     <link href="{{ asset('build/assets/app-3891f6bf.css') }}" rel="stylesheet">
     <script src="{{ asset('build/assets/app-4ed993c7.js') }}"></script>
-    {{-- @vite(['resources/sass/app.scss', 'resources/js/app.js']) --}}
+    @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
 
 
