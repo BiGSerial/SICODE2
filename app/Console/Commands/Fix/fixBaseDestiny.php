@@ -95,7 +95,7 @@ class fixBaseDestiny extends Command
 
                     BaseOV::where('numStat', $fix['status'])
                         ->where('ultimoStatus', 1)
-                        ->chunk(5000, function ($origin) use ($fix, &$noteToFix, &$progressBar, &$conta_nota, $total) {
+                        ->chunk(10000, function ($origin) use ($fix, &$noteToFix, &$progressBar, &$conta_nota, $total) {
 
                             $conta_nota += $origin->count();
 
@@ -103,8 +103,17 @@ class fixBaseDestiny extends Command
 
                             $diff = "";
                             $origin_c = $origin->pluck('OV')->toArray();
-                            $destiny_c = Note::whereIn('note', $origin_c)->get()->pluck('note')->toArray();
-                            $diff = array_diff($origin_c, $destiny_c);
+                            $destiny_c = Note::whereIn('note', $origin_c)->Where('nstats', $fix['status'])->get()->pluck('note')->toArray();
+                            
+                            
+
+                            if ($fix['diff'] < 0) {
+                                $diff = array_diff($destiny_c, $origin_c);
+                            } else {
+                                $diff = array_diff($origin_c, $destiny_c);
+                            }
+
+
 
                             if ($diff) {
 
@@ -116,19 +125,6 @@ class fixBaseDestiny extends Command
                                     $noteToFix[] = $diff;
                                 }
 
-                            } else {
-
-                                $diff = array_diff($destiny_c, $origin_c);
-
-                                if ($diff) {
-                                    if (is_array($diff)) {
-                                        foreach ($diff as $differ) {
-                                            $noteToFix[] = $differ;
-                                        }
-                                    } else {
-                                        $noteToFix[] = $diff;
-                                    }
-                                }
                             }
 
 
@@ -153,6 +149,8 @@ class fixBaseDestiny extends Command
                 $progressBar->setMessage("<bg=red;fg=white> WORKING </><fg=white;options=bold> FIXING DATABASE WAITING FOR...</>", 'extra');
                 $progressBar->setMessage("", 'message');
                 $progressBar->display();
+
+                $noteToFix = array_unique($noteToFix);
 
                 $origins = BaseOV::WhereIn('OV', $noteToFix)->where('ultimoStatus', 1)->get();
 
