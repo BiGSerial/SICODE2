@@ -32,12 +32,14 @@
 
                             @if ($user_list->count())
                                 @foreach ($user_list as $user)
-                                    @php
-                                        $name = explode(' ', $user->name);
-                                        $name = $name[0] . ' ' . end($name);
-                                    @endphp
-                                    <option value="{{ $user->id }}">{{ $name }} -
-                                        {{ explode(' ', $user->Employee->Contract->company->name)[0] }}</option>
+                                    @if (isset($user->Employee->Contract))
+                                        @php
+                                            $name = explode(' ', $user->name);
+                                            $name = $name[0] . ' ' . end($name);
+                                        @endphp
+                                        <option value="{{ $user->id }}">{{ $name }} -
+                                            {{ explode(' ', $user->Employee->Contract->company->name)[0] }}</option>
+                                    @endif
                                 @endforeach
                             @endif
                         </select>
