@@ -1,7 +1,10 @@
+@php
+    use Carbon\Carbon;
+
+@endphp
+
+
 @if ($lists->count())
-
-
-
 
     <table class="table table-sm table-striped table-condensed">
         <thead class="table-dark">
@@ -42,13 +45,12 @@
                     <td class="fw-bold">{{ $list->Order->ordem }}</td>
                     <td>{{ $list->Order->Note->note }}</td>
                     <td>
-                        {{-- Componente Blade para Exibir a lista de Arquivos. Precisa do Array de Files --}}
-                        <x-files.select-download-list :files='$list->Order->Note->Files' />
+                        {{ $list->Order->Note->Files->count() ? 'SIM' : 'NÃO' }}
                     </td>
                     <td>{{ $list->Order->Note->rubrica }}</td>
                     <td>{{ $list->Order->Note->lexp }}</td>
-                    <td>{{ getFirstLastName($list->Company->name) }}</td>
-                    <td>{{ getFirstLastName($list->Engineer->name) }}</td>
+                    <td>{{ $list->Company->name }}</td>
+                    <td>{{ $list->Engineer->name }}</td>
                     <td>{{ $list->sended_at ? Carbon::parse($list->sended_at)->format('d/m/Y') : '---' }}
                     </td>
                     <td>

@@ -37,7 +37,7 @@ class Productions extends Component
             $column = 'att_at';
         }
 
-        $this->lists = $this->reports->load(['User', 'Company', 'Service', 'Note', 'Analise'])
+        $this->lists = $this->reports->load(['User', 'Company', 'Service', 'Note', 'Analise', 'Dispatcher.Employee.Contract.company'])
                 ->when($this->monthYear, function ($q) use ($column) {
                     $startDate = Carbon::parse($this->monthYear)->startOfMonth();
                     $endDate = Carbon::parse($this->monthYear)->endOfMonth();

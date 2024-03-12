@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Exports\HiringAccompanyExport;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\Order;
@@ -64,6 +65,10 @@ class Accompany extends Component
 
     public function mount($service)
     {
+        if ($this->perPage > 500) {
+            $this->perPage = 500;
+        }
+
         $this->service = Service::where('uuid', $service)->first();
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
@@ -71,12 +76,52 @@ class Accompany extends Component
 
     public function export_excel()
     {
-        // if (!count($this->selected)) {
-        //     return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
-        // } else {
-        //     $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
-        //     return (new DispatchDesenhoMain($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
-        // }
+        if (count($this->selected)) {
+
+            $query = Viability::Query();
+
+            $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
+
+            return (new HiringAccompanyExport($query->find($this->selected)))->download(date('YmdHis-').'exportViabilityAccompany.xlsx');
+        } else {
+
+            if (!(session_status() == PHP_SESSION_ACTIVE)) {
+                session_start();
+            }
+
+            if (isset($_SESSION['filter'][$this->filter_group])) {
+                $this->filter = $_SESSION['filter'][$this->filter_group];
+            }
+
+            $query = Viability::Query();
+            $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
+
+            if (isset($this->filter['cidade'])) {
+
+                $query->whereRelation('Order.Note', function ($q) {
+                    $q->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
+                });
+            }
+
+            if (isset($this->filter['empreiteira'])) {
+
+                $query->whereIn('company_id', $this->filter['empreiteira']);
+            }
+
+            if (isset($this->filter['rubrica'])) {
+
+                $query->whereRelation('Order.Note', function ($q) {
+                    $q->whereIn('rubrica', $this->filter['rubrica']);
+                });
+            }
+
+            if ($this->typeNote) {
+                $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
+            }
+
+
+            return (new HiringAccompanyExport($query->get()))->download(date('YmdHis-').'exportViabilityAccompany.xlsx');
+        }
     }
 
     public function go_att_mass()
@@ -480,8 +525,27 @@ class Accompany extends Component
         $query = Viability::Query();
         $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
 
+        if (isset($this->filter['cidade'])) {
+
+            $query->whereRelation('Order.Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
+            });
+        }
+
+        if (isset($this->filter['empreiteira'])) {
+
+            $query->whereIn('company_id', $this->filter['empreiteira']);
+        }
+
+        if (isset($this->filter['rubrica'])) {
+
+            $query->whereRelation('Order.Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+
         if ($this->typeNote) {
-           $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
+            $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
         }
 
 

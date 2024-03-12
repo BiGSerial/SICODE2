@@ -37,8 +37,8 @@
     <tbody>
         @foreach ($exports as $export)
             <tr>
-                <td>{{ isset($export->User->name) ? $export->User->name : 'Desconhecido' }}</td>
-                <td>{{ explode(' ', $export->Company->name)[0] }}</td>
+                <td>{{ isset($export->Dispatcher->name) ? $export->Dispatcher->name : 'Desconhecido' }}</td>
+                <td>{{ explode(' ', $export->Dispatcher->Employee->Contract->company->name)[0] }}</td>
                 <td>{{ isset($export->User->name) ? $export->User->name : 'Desconhecido' }}</td>
                 <td>{{ explode(' ', $export->Company->name)[0] }}</td>
                 <td>{{ $export->Service->service }}</td>

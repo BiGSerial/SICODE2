@@ -45,7 +45,7 @@ class HiringAccompanyExport implements FromView, WithProperties, WithEvents
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:K1')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -57,7 +57,6 @@ class HiringAccompanyExport implements FromView, WithProperties, WithEvents
                 ]);
 
                 $event->sheet->getStyle('A:B')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('L:L')->getNumberFormat()->setFormatCode('@');
                 $event->sheet->autoSize();
             },
         ];

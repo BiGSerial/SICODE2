@@ -20,6 +20,7 @@ class Filter extends Component
     public $receivedValue = [];
     public $isRefreshing = false;
     public $custom_query;
+    public $myKey;
 
 
     protected $listeners = [
@@ -56,13 +57,14 @@ class Filter extends Component
         $this->receiverKey = $myKey;
         $this->sendFilter = $sendFilter;
         $this->custom_query = $query;
+        $this->myKey = $myKey;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->group_filter][$this->column])) {
-            $this->items = $_SESSION['filter'][$this->group_filter][$this->column];
+        if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
+            $this->items = $_SESSION['filter'][$this->group_filter][$this->myKey];
         } else {
             $this->items = [];
         }
@@ -143,7 +145,7 @@ class Filter extends Component
             session_start();
         }
 
-        $_SESSION['filter'][$this->group_filter][$this->column] = $this->items;
+        $_SESSION['filter'][$this->group_filter][$this->myKey] = $this->items;
 
         $this->emitUp('refresh_list');
         $this->emit('refresh_filter', $this->sendFilter, ['column' => $this->column, 'values' => $this->items]);
@@ -157,8 +159,8 @@ class Filter extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->group_filter][$this->column])) {
-            unset($_SESSION['filter'][$this->group_filter][$this->column]);
+        if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
+            unset($_SESSION['filter'][$this->group_filter][$this->myKey]);
             // unset($_SESSION['filter'][$this->group_filter]['receiver']);
             $this->items = [];
         }
