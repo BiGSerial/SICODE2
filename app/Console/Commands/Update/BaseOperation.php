@@ -36,9 +36,11 @@ class BaseOperation extends Command
 
         $progressBar = new ProgressBar($this->output, $totalRecords, 0.2);
 
-        $progressBar->setFormat('<bg=blue;fg=white>UPDATE OPERATION: %current%/%max% </><fg=white;options=bold> [%cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%');
+        $progressBar->setFormat("<bg=blue;fg=white>UPDATE OPERATION: %current%/%max% </><fg=white;options=bold> [%cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </>\n <bg=blue;fg=white>READING: </> %message%");
         // $progressBar->setFormat('%current%/%max% [%cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
+
+        $progressBar->display();
 
         $progressBar->start();
 

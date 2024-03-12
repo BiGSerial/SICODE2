@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Exports\HiringListExport;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\Order;
@@ -58,12 +59,17 @@ class Main extends Component
     protected $queryString = [
         'search' => ['except' => '', 'as' => 'buscar'],
         'page' => ['except' => 1, 'as' => 'p'],
+        'perPage' => ['as' => 'pp'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
 
         ];
 
     public function mount($service)
     {
+        if ($this->perPage > 500) {
+            $this->perPage = 500;
+        }
+
         $this->service = Service::where('uuid', $service)->first();
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
@@ -71,12 +77,116 @@ class Main extends Component
 
     public function export_excel()
     {
-        // if (!count($this->selected)) {
-        //     return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
-        // } else {
-        //     $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
-        //     return (new DispatchDesenhoMain($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
-        // }
+        if (count($this->selected)) {
+
+
+            $query = Order::with('Operations', 'Note.Files', 'Viabilities')
+            ->find($this->selected);
+
+
+
+
+            return (new HiringListExport($query))->download(date('YmdHis-').'exportOrdersList.xlsx');
+
+
+        } else {
+            if (!(session_status() == PHP_SESSION_ACTIVE)) {
+                session_start();
+            }
+
+            if (isset($_SESSION['filter'][$this->filter_group])) {
+                $this->filter = $_SESSION['filter'][$this->filter_group];
+            }
+
+
+            $query = Order::Query();
+
+            $query->with('Operations', 'Note.Files', 'Viabilities')
+
+            ->when($this->search, function ($q) {
+                $this->gotoPage(1);
+                $this->advanceSearch = "";
+
+
+                return $q->where(function ($query) {
+                    $query->where('ordem', 'like', trim($this->search))
+                        ->orWhereRelation('Note', 'note', 'like', trim($this->search));
+                });
+            });
+
+            if (count($this->multiSearch)) {
+
+                // $query->whereIn('ordem', $this->multiSearch);
+                $query->where(function ($q) {
+                    return $q->WhereRelation('Note', function ($query) {
+                        $query->whereIn('note', $this->multiSearch);
+                    })->orWhereIn('ordem', $this->multiSearch);
+                });
+            }
+
+            $query->where('statusSist', 'like', 'ABER%')
+            ->where(function ($q) {
+                return $q->whereRelation('Note', function ($query) {
+                    $query->where(function ($qq) {
+                        $qq->WhereIn('nstats', [46,47,48,49,50])
+                            ->where('type_note', 2);
+                    })->orWhere(function ($qq) {
+                        $qq->Where('centerjob', 'like', 'VIAB%')
+                        ->Where('type_note', 1)
+                        ->orWhere(function ($qq) {
+                            $qq->Where('centerjob', '')
+                            ->Where('type_note', 1);
+                        });
+                    });
+                });
+            });
+
+
+            if (count($this->multiSearch)) {
+                $query->whereIn('ordem', $this->multiSearch);
+                // $query->where(function ($q) {
+                //     return $q->WhereRelation('Note', function ($query) {
+                //         $query->whereIn('note', $this->multiSearch);
+                //     })->orWhereIn('ordem', $this->multiSearch);
+                // });
+            }
+
+            if (isset($_SESSION['filter'][$this->filter_group]['cenTrab'])) {
+                $query->whereRelation('Operations', function ($query) {
+                    $query->where('operacao', '0010')
+                        ->where('status', 'like', 'ABER%')
+                        ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['cenTrab'])
+                        ->orWhere('cenTrab', '');
+                });
+            }
+
+            if (isset($_SESSION['filter'][$this->filter_group]['cidade'])) {
+                $query->whereRelation('Note', function ($query) {
+                    $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade'])
+                        ->orWhere('lexp', '');
+                });
+            }
+
+            if (isset($_SESSION['filter'][$this->filter_group]['rubrica'])) {
+                $query->whereRelation('Note', function ($query) {
+                    $query->whereIn('rubrica', $_SESSION['filter'][$this->filter_group]['rubrica'])
+                        ->orWhere('rubrica', '');
+                });
+            }
+
+            if ($this->typeNote) {
+                $query->whereRelation('Note', function ($query) {
+                    $query->where('type_note', $this->typeNote);
+                });
+            }
+
+
+            $send = $query->get();
+
+
+
+            return (new HiringListExport($send))->download(date('YmdHis-').'exportOrdersList.xlsx');
+        }
     }
 
     public function go_att_mass()
@@ -504,7 +614,22 @@ class Main extends Component
         }
 
         $query->join('notes', 'orders.note_id', '=', 'notes.id')
-        ->where('statusSist', 'like', 'ABER%');
+        ->where('statusSist', 'like', 'ABER%')
+        ->where(function ($q) {
+            return $q->whereRelation('Note', function ($query) {
+                $query->where(function ($qq) {
+                    $qq->WhereIn('nstats', [46,47,48,49,50])
+                        ->where('type_note', 2);
+                })->orWhere(function ($qq) {
+                    $qq->Where('centerjob', 'like', 'VIAB%')
+                    ->Where('type_note', 1)
+                    ->orWhere(function ($qq) {
+                        $qq->Where('centerjob', '')
+                        ->Where('type_note', 1);
+                    });
+                });
+            });
+        });
         // ->when($this->search, function ($q) {
         //     $this->gotoPage(1);
         //     $this->advanceSearch = "";

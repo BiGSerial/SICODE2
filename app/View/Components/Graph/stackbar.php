@@ -1,6 +1,6 @@
 <?php
 
-namespace App\View\Components\graph;
+namespace App\View\Components\Graph;
 
 use Closure;
 use Illuminate\Contracts\View\View;

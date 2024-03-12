@@ -242,6 +242,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                 <br>
                 Centro Integrado de Projetos - Espirito Santo<br>
                 Laravel Framework v{{ app()->version() }}<br>
+                PHP v{{ phpversion() }}<br>
                 @livewire('status.bancosicode')
                 @if (env('APP_QA'))
                     <h3>SICODE - AMBIENTE DE QUALIDADE</h3>

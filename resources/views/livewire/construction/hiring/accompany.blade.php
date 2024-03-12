@@ -1,6 +1,31 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+
+    function getClassForDate($daysDifference)
+    {
+        if ($daysDifference < 0) {
+            return 'table-secondary'; // data de vencimento no futuro
+        } elseif ($daysDifference == 0 || $daysDifference == 1) {
+            return 'table-danger'; // um dia ou menos para o vencimento
+        } elseif ($daysDifference <= 4) {
+            return 'table-warning'; // menos de uma semana para o vencimento
+        } else {
+            return 'table-success'; // mais de uma semana para o vencimento
+        }
+    }
+
+    function getFirstLastName(string $old_name)
+    {
+        $name = explode(' ', $old_name);
+
+        if (count($name) > 1) {
+            $name = $name[0] . ' ' . end($name);
+            return $name;
+        } else {
+            return $old_name;
+        }
+    }
 @endphp
 @push('css')
     <style>
@@ -68,6 +93,29 @@
 
         [x-show] {
             opacity: 1;
+        }
+
+        .progress-cell {
+            padding: 0;
+            height: 100%;
+            border: none;
+            position: relative;
+        }
+
+        .progress-cell .progress-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 0;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+            /* Adicionando uma transição suave */
+        }
+
+        .progress-cell .progress-text {
+            position: relative;
+            z-index: 1;
         }
     </style>
 @endpush
@@ -190,32 +238,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @php
-                                function getClassForDate($daysDifference)
-                                {
-                                    if ($daysDifference < 0) {
-                                        return 'table-secondary'; // data de vencimento no futuro
-                                    } elseif ($daysDifference == 0 || $daysDifference == 1) {
-                                        return 'table-danger'; // um dia ou menos para o vencimento
-                                    } elseif ($daysDifference <= 4) {
-                                        return 'table-warning'; // menos de uma semana para o vencimento
-                                    } else {
-                                        return 'table-success'; // mais de uma semana para o vencimento
-                                    }
-                                }
 
-                                function getFirstLastName(string $old_name)
-                                {
-                                    $name = explode(' ', $old_name);
-
-                                    if (count($name) > 1) {
-                                        $name = $name[0] . ' ' . end($name);
-                                        return $name;
-                                    } else {
-                                        return $old_name;
-                                    }
-                                }
-                            @endphp
 
                             @foreach ($lists as $list)
                                 @php
@@ -223,6 +246,14 @@
                                     $today = Carbon::now();
                                     $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
 
+                                    if ($dueDate) {
+                                        $totalDaysDifference = $dueDate->diffInMinutes($list->sended_at);
+                                        $elapsedDaysDifference = Carbon::parse($list->sended_at)->diffInMinutes($today);
+
+                                        $percentElapsed = ($elapsedDaysDifference / $totalDaysDifference) * 100;
+                                    } else {
+                                        $percentElapsed = 0;
+                                    }
                                 @endphp
 
                                 <tr>
@@ -240,11 +271,25 @@
                                     <td>{{ getFirstLastName($list->Engineer->name) }}</td>
                                     <td>{{ $list->sended_at ? Carbon::parse($list->sended_at)->format('d/m/Y') : '---' }}
                                     </td>
-
-                                    <td
+                                    {{-- <td
                                         class="text-center fw-bold {{ $dueDate ? getClassForDate($daysDifference) : '---' }}">
                                         {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
+                                    </td> --}}
+                                    <td class="progress-cell border-start border-end border-2">
+                                        <div class="progress-bg"
+                                            style="width: {{ $percentElapsed }}%; 
+                                                @if ($percentElapsed > 80.0) background-color: #FBC4C4;
+                                                @elseif($percentElapsed > 70.0 && $percentElapsed <= 80.0)
+                                                    background-color: #FBF8C4;
+                                                @else
+                                                    background-color: #85CAF9; @endif
+                                            ">
+                                        </div>
+                                        <span
+                                            class="progress-text fw-bold">{{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
+                                        </span>
                                     </td>
+
                                     <td>{{ $list->returned_at ? Carbon::parse($list->returned_at)->format('d/m/Y') : '---' }}
                                     </td>
                                     <td>
