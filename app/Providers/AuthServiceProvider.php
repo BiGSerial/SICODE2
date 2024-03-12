@@ -42,6 +42,12 @@ class AuthServiceProvider extends ServiceProvider
                 : Response::deny('Você precisa ser Gerente para acessar');
         });
 
+        Gate::define('engineer', function (User $user) {
+            return ($user->engineer || $user->superadm)
+                ? Response::allow()
+                : Response::deny('Você precisa ser Engenheiro para acessar');
+        });
+
         Gate::define('operator', function (User $user) {
             return ($user->operator || $user->superadm)
                 ? Response::allow()
