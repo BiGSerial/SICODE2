@@ -17,6 +17,8 @@
             <th>Grp2</th>
             <th>Descricao</th>
             <th>Municipio</th>
+            <th>Centro</th>
+            <th>Base</th>
             <th>Despachado em</th>
             <th>Atribuído em</th>
             <th>Finalizado em</th>
@@ -48,6 +50,12 @@
                 <td>{{ $export->Note->group2 }}</td>
                 <td>{{ $export->Note->material }}</td>
                 <td>{{ $export->Note->lexp }}</td>
+                @php
+                    $city = $cities->where('rdMunicipio', $export->Note->nexp)->first();
+                @endphp
+                <td>{{ $city ? $city->centroHana : '' }}</td>
+                <td>{{ $city ? $city->baseConstrucao : '' }}</td>
+
                 <td>{{ date('d/m/Y H:i:s', strToTime($export->dispatch_at)) }}</td>
                 <td>
                     @if ($export->att_at)

@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\Edp_depc\City;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -19,6 +20,16 @@ class ProductionExport implements FromView, WithProperties, WithEvents
 
     public $company_id;
     public $exports;
+    public $cities;
+
+    public function __construct()
+    {
+        try {
+            $this->cities = City::orderBy('cidade')->get();
+        } catch (\Throwable $th) {
+            $this->cities = false;
+        }
+    }
 
     public function company($company_id)
     {
@@ -41,7 +52,8 @@ class ProductionExport implements FromView, WithProperties, WithEvents
     {
 
         return view('exports.productions', [
-            'exports' => $this->exports
+            'exports' => $this->exports,
+            'cities' => $this->cities
         ]);
     }
 
@@ -63,7 +75,7 @@ class ProductionExport implements FromView, WithProperties, WithEvents
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:Z1')->applyFromArray([
+                $event->sheet->getStyle('A1:AB')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)

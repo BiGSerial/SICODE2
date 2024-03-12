@@ -16,6 +16,9 @@ class Productions extends Component
     public $dt_init;
     public $dt_end;
     public $complete = false;
+    public $cities;
+
+
 
 
     public function Export()
