@@ -77,4 +77,9 @@ class Note extends Model
     {
         return $this->hasMany(File::class);
     }
+
+    public function Viabilities()
+    {
+        return $this->hasManyThrough(Viability::class, Order::class);
+    }
 }

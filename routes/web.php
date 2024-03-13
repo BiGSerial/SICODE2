@@ -7,6 +7,7 @@ use App\Http\Controllers\Construction;
 use App\Http\Controllers\ConstructionController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\MonitorController;
+use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\ServicesController;
 use App\Http\Controllers\TesteController;
@@ -97,4 +98,8 @@ Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->mid
     Route::get('/testes', 'productions')->name('productions');
     Route::get('/page', 'page')->name('page');
     Route::get('/pdf', 'pdf')->name('pdf');
+});
+
+Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
+    Route::get('/todo-viability', 'viability')->name('todo.viability');
 });

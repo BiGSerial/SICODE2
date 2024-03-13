@@ -6,7 +6,9 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
             <li class="breadcrumb-item">Construção</li>
-            <li class="breadcrumb-item active" aria-current="page">Parceiro</li>
+            <li class="breadcrumb-item" aria-current="page">Parceiro</li>
+            <li class="breadcrumb-item" aria-current="page">Viabilidade</li>
+            <li class="breadcrumb-item active" aria-current="page">A Fazer</li>
         </ol>
     </nav>
 @endsection
@@ -17,4 +19,5 @@
 @endsection
 
 @section('content')
+    @livewire('partner.todoviability')
 @endsection

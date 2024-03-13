@@ -6,6 +6,7 @@
                 <i class="bi bi-menu-button-wide"></i><span>ACOMPANHAMENTO</span><i
                     class="bi bi-chevron-down ms-auto"></i>
             </a>
+            {{-- Para deixar o Dropdown Aberto, acrescemte 'show' na classe --}}
             <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
