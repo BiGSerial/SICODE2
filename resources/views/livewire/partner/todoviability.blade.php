@@ -1,6 +1,48 @@
 @php
     use Carbon\Carbon;
 @endphp
+
+@push('css')
+    <style>
+        .item {
+            animation: slideIn 0.5s forwards;
+            opacity: 0;
+        }
+
+        .detail-item {
+            opacity: 0;
+            animation: growDown 0.5s forwards;
+            transform-origin: top;
+        }
+
+        @keyframes growDown {
+            from {
+
+                transform: scaleY(0);
+                /* Escala vertical inicial: 0 */
+            }
+
+            to {
+
+                transform: scaleY(1);
+                /* Escala vertical final: 1 (sem mudança de tamanho) */
+            }
+        }
+
+        @keyframes slideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+@endpush
+
 <div>
     <x-show-loading />
     <div class="card mb-3">
@@ -18,7 +60,8 @@
                 </div>
 
                 <div class="col-2">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar">
+                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
+                        wire:model.debounce.2s="search">
                 </div>
 
                 <div class="col-3">
@@ -41,7 +84,7 @@
         <h4 class="card-header">VIABILIDADE A EXECUTAR</h4>
     </div>
 
-    @if (!$lists)
+    @if (!$lists->count())
         <div class="text-center my-5 py-3">
             <h3>NENHUMA ATIVIDADE ENCONTRADA</h3>
         </div>
@@ -57,16 +100,21 @@
                     registros.</span>
             </div>
         </div>
-        @foreach ($lists as $list)
+        @foreach ($lists as $index => $list)
             @php
                 $status = null;
                 $dueDate = $list->Viabilities->count()
                     ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
                     : null;
                 $today = Carbon::now();
+                $daysDifference = 0;
 
                 if ($dueDate) {
                     $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
+
+                    if ($dueDate->isBefore($today)) {
+                        $daysDifference *= -1;
+                    }
 
                     if ($daysDifference < 1) {
                         $status = [
@@ -86,21 +134,21 @@
                     }
                 }
             @endphp
-            <div x-data="{ isShow: false }">
-                <div class="card mb-2" x-show="!isShow">
+            <div x-data="{ isShow: false }" style="overflow: hidden;">
+                <div class="card mb-2 item" x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
                     <div class="card-body my-0 py-1 position-relative">
 
                         <table class="table table-sm my-0">
                             <thead>
-                                <th scope="col-2" class="col-2">Nota/Ov</th>
-                                <th scope="col-2" class="col-2">Ordem</th>
-                                <th scope="col-1" class="col-1">Rubrica</th>
-                                <th scope="col-1" class="col-1">Regiao</th>
-                                <th scope="col-2" class="col-2">Municipio</th>
-                                <th scope="col-1" class="col-1">Recebido Em</th>
-                                <th scope="col-2" class="col-1">Prazo Estimado</th>
-                                <th scope="col-1" class="col-1">Status</th>
-                                <th class="d-flex justify-content-end">
+                                <th scope="col" class="col-2">Nota/Ov</th>
+                                <th scope="col" class="col-2">Ordem</th>
+                                <th scope="col" class="col-1">Rubrica</th>
+                                <th scope="col" class="col-1">Regiao</th>
+                                <th scope="col" class="col-2">Municipio</th>
+                                <th scope="col" class="col-1">Recebido Em</th>
+                                <th scope="col" class="col-1">Prazo Estimado</th>
+                                <th scope="col" class="col-1">Status</th>
+                                <th scope="col" class="d-flex justify-content-end">
                                     <button class=" btn btn-sm btn-primary" @click="isShow=true">
                                         <i class="bx bx-caret-down-circle align-middle fs-5"></i>
                                     </button>
@@ -132,12 +180,14 @@
                                     </td>
                                     <td>
                                         @if ($status)
-                                            <span class="badge {{ $status['color'] }}">{{ $status['info'] }}</span>
+                                            <span class="badge {{ $status['color'] }}">{{ $status['info'] }}
+                                                {{ $daysDifference }}</span>
                                         @endif
                                     </td>
                                     <td class="d-flex justify-content-end">
                                         <i class="bx bx-printer text-primary fs-4 me-2"></i>
-                                        <i class="bx bx-play-circle text-success fs-4 me-2"></i>
+                                        <a href="{{ route('forms.viability') }}"><i
+                                                class="bx bx-play-circle text-success fs-4 me-2"></i></a>
                                     </td>
                                 </tr>
                             </tbody>
@@ -146,7 +196,7 @@
                 </div>
 
                 {{--    Card Expanded --}}
-                <div class="card mb-5 shadow" style="display: none;" x-show="isShow">
+                <div class="card mb-5 shadow" style="display: none;" x-show="isShow" @click.away="isShow=false">
                     <div class="card-body">
                         <table class="table table-sm my-0">
                             <thead>
@@ -157,8 +207,8 @@
                                 <th scope="col">Regiao</th>
                                 <th scope="col">Centro</th>
                                 <th scope="col">Municipio</th>
-                                <th class="d-flex justify-content-end"><button class=" btn btn-sm btn-primary"
-                                        @click="isShow=false">
+                                <th scope="col" class="d-flex justify-content-end"><button
+                                        class=" btn btn-sm btn-primary" @click="isShow=false">
                                         <i class="bx bx-caret-up-circle align-middle fs-5"></i>
                                     </button></th>
 
@@ -271,7 +321,8 @@
                                             @endif
                                         </td>
                                         <td><i class="bx bx-printer text-primary fs-4 me-2"></i>
-                                            <i class="bx bx-play-circle text-success fs-4 me-2"></i>
+                                            <a href="{{ route('forms.viability') }}"><i
+                                                    class="bx bx-play-circle text-success fs-4 me-2"></i></a>
                                         </td>
                                     </tr>
 
@@ -283,18 +334,21 @@
             </div>
         @endforeach
 
+        <div class="row">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
+
+
     @endif
-    <div class="row">
-        <div class="col-6">
-            {{ $lists->links() }}
-        </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
-        </div>
-    </div>
+
 
 
 

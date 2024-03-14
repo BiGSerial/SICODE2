@@ -22,11 +22,19 @@ class Todoviability extends Component
 
     public $search;
 
+    // Filters
+    private $filter_group = "partner";
+    private $filter;
+
     protected $queryString = [
         'search' => ['except' => '', 'as' => 'buscar'],
         'page' => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
         ];
+
+    protected $listeners = [
+        'refresh_list' => '$refresh',
+    ];
 
 
 
@@ -81,6 +89,18 @@ class Todoviability extends Component
 
     public function getListsProperty()
     {
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+
+
+        }
+
+
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
@@ -94,6 +114,18 @@ class Todoviability extends Component
                         ->where('canceled', false)
                         ->with('Order');
             }, 'Files']);
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->Where('note', 'like', "%$this->search%")
+                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+            });
+        }
+
+        if (isset($this->filter['city'])) {
+
+            $query->whereIn('lexp', $this->filter['city']);
+        }
 
 
         return $query->paginate($this->perPage);

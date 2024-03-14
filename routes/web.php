@@ -94,12 +94,17 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/map_info', 'survey_map')->name('mapinfo');
 });
 
-Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->middleware('can:superadm')->group(function () {
-    Route::get('/testes', 'productions')->name('productions');
+Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->group(function () {
+    Route::get('/testes', 'productions')->middleware('can:superadm')->name('productions');
     Route::get('/page', 'page')->name('page');
     Route::get('/pdf', 'pdf')->name('pdf');
 });
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/todo-viability', 'viability')->name('todo.viability');
+    
+});
+
+Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
+    Route::get('/viability', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
 });
