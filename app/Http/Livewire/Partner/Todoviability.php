@@ -5,6 +5,8 @@ namespace App\Http\Livewire\Partner;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -41,6 +43,7 @@ class Todoviability extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+
     }
 
     public function downloadFile($id)
@@ -50,6 +53,14 @@ class Todoviability extends Component
             if (Storage::disk('local')->exists($file->path)) {
                 return Storage::download($file->path, $file->file_name);
             }
+        }
+    }
+
+    public function openForms($id)
+    {
+        if ($id) {
+
+            return redirect()->route('forms.viability', ['id' => Crypt::encrypt($id)]);
         }
     }
 

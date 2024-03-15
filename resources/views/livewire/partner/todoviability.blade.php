@@ -133,6 +133,7 @@
                         ];
                     }
                 }
+
             @endphp
             <div x-data="{ isShow: false }" style="overflow: hidden;">
                 <div class="card mb-2 item" x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
@@ -186,8 +187,8 @@
                                     </td>
                                     <td class="d-flex justify-content-end">
                                         <i class="bx bx-printer text-primary fs-4 me-2"></i>
-                                        <a href="{{ route('forms.viability') }}"><i
-                                                class="bx bx-play-circle text-success fs-4 me-2"></i></a>
+                                        <i class="bx bx-play-circle text-success fs-4 me-2" style="cursor: pointer;"
+                                            wire:click.prevent="openForms({{ $list->id }})"></i>
                                     </td>
                                 </tr>
                             </tbody>
@@ -321,8 +322,9 @@
                                             @endif
                                         </td>
                                         <td><i class="bx bx-printer text-primary fs-4 me-2"></i>
-                                            <a href="{{ route('forms.viability') }}"><i
-                                                    class="bx bx-play-circle text-success fs-4 me-2"></i></a>
+                                            <i class="bx bx-play-circle text-success fs-4 me-2"
+                                                style="cursor: pointer;"
+                                                wire:click.prevent="openForms({{ $list->id }})"></i>
                                         </td>
                                     </tr>
 

@@ -102,9 +102,9 @@ Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->gro
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/todo-viability', 'viability')->name('todo.viability');
-    
+
 });
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
-    Route::get('/viability', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
+    Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
 });
