@@ -105,6 +105,64 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="mb-3">
+                            <div> <button class="btn btn-sm btn-primary"
+                                    onclick="document.getElementById('file-input').click()">Carregar Croqui</button>
+                            </div>
+                            <div class="edp-bg-gray my-1 py-2 rounded ">
+                                <div class="container">
+                                    <div
+                                        class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0 mb-2">
+                                        <div class="p-1 m-0 border-end border-secondary"><i
+                                                class="bx bxs-file-pdf text-success fs-4"></i>
+                                        </div>
+                                        <div class="p-1 m-0 text-center no-wrap">----</i>
+                                        </div>
+                                        <div class="p-1 m-0 border-start border-secondary">
+                                            <i class="ri-file-cloud-line text-succes fs-4"></i>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0">
+                                        <div class="p-1 m-0 border-end border-secondary"><i
+                                                class="bx bxs-file-pdf text-success fs-4"></i>
+                                        </div>
+                                        <div class="p-1 m-0 text-center no-wrap">----</i>
+                                        </div>
+                                        <div class="p-1 m-0 border-start border-secondary">
+                                            <i class="ri-file-cloud-line text-succes fs-4"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
+                            x-on:livewire-upload-finish="isUploading = false"
+                            x-on:livewire-upload-error="isUploading = false"
+                            x-on:livewire-upload-progress="progress = $event.detail.progress">
+
+                            <form wire:submit.prevent="saveFile">
+                                <input type="file" id="file-input" multiple wire:model="files" hidden>
+                                {{-- <button type="submit" id="id-submit"></button> --}}
+                            </form>
+
+                            <div x-show="isUploading" class="mb-3">
+                                {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                                    x-bind:style="`width: ${progress}%`">
+                                    <span class="align-middle" x-text="`${progress}%`"></span>
+                                </div> --}}
+                                <div class="progress" role="progressbar" aria-label="Danger example" aria-valuenow="100"
+                                    aria-valuemin="0" aria-valuemax="100" style="width: 100%; border-radius: 0;">
+                                    <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
+                                        x-text="`${progress}%`">
+                                </div>
+                            </div>
+                        </div>
                     @endif
 
                     @if ($changes)
