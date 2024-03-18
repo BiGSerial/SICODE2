@@ -32,4 +32,9 @@ class File extends Model
     {
         return $this->belongsTo(Service::class, 'service_id', 'uuid');
     }
+
+    public function Forms()
+    {
+        return $this->belongsToMany(Form::class);
+    }
 }

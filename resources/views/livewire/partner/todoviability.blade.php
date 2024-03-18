@@ -138,61 +138,82 @@
             <div x-data="{ isShow: false }" style="overflow: hidden;">
                 <div class="card mb-2 item" x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
                     <div class="card-body my-0 py-1 position-relative">
-
-                        <table class="table table-sm my-0">
-                            <thead>
-                                <th scope="col" class="col-2">Nota/Ov</th>
-                                <th scope="col" class="col-2">Ordem</th>
-                                <th scope="col" class="col-1">Rubrica</th>
-                                <th scope="col" class="col-1">Regiao</th>
-                                <th scope="col" class="col-2">Municipio</th>
-                                <th scope="col" class="col-1">Recebido Em</th>
-                                <th scope="col" class="col-1">Prazo Estimado</th>
-                                <th scope="col" class="col-1">Status</th>
-                                <th scope="col" class="d-flex justify-content-end">
-                                    <button class=" btn btn-sm btn-primary" @click="isShow=true">
-                                        <i class="bx bx-caret-down-circle align-middle fs-5"></i>
-                                    </button>
-                                </th>
-                            </thead>
-                            <tbody class="table-group-divider">
-                                <tr>
-                                    <td class="fw-bold">{{ $list->note }}</td>
-                                    <td class="">
-                                        @if ($list->Viabilities->count())
-                                            <p class="p-0 m-0">{{ $list->Viabilities->first()->Order->ordem }}
-                                                @if ($list->Viabilities->count() > 1)
-                                                    <span
-                                                        class="badge text-bg-primary">+{{ $list->Viabilities->count() - 1 }}</span>
+                        <div class="row align-items-center">
+                            <div class="col" style="max-width: 50px;">
+                                <input class="form-check-input border-border-1 border-secondary" type="checkbox"
+                                    value="" id="flexCheckDefault">
+                            </div>
+                            <div class="col">
+                                <table class="table table-sm my-0">
+                                    <thead>
+                                        <th scope="col" class="col-2">Nota/Ov</th>
+                                        <th scope="col" class="col-2">Ordem</th>
+                                        <th scope="col" class="col-1">Rubrica</th>
+                                        <th scope="col" class="col-1">Regiao</th>
+                                        <th scope="col" class="col-2">Municipio</th>
+                                        <th scope="col" class="col-1">Recebido Em</th>
+                                        <th scope="col" class="col-1">Prazo Estimado</th>
+                                        <th scope="col" class="col-1">Status</th>
+                                        <th scope="col" class="d-flex justify-content-end">
+                                            <button class=" btn btn-sm btn-primary" @click="isShow=true">
+                                                <i class="bx bx-caret-down-circle align-middle fs-5"></i>
+                                            </button>
+                                        </th>
+                                    </thead>
+                                    <tbody class="table-group-divider">
+                                        <tr>
+                                            <td class="fw-bold">{{ $list->note }}</td>
+                                            <td class="">
+                                                @if ($list->Viabilities->count())
+                                                    <p class="p-0 m-0">{{ $list->Viabilities->first()->Order->ordem }}
+                                                        @if ($list->Viabilities->count() > 1)
+                                                            <span
+                                                                class="badge text-bg-primary">+{{ $list->Viabilities->count() - 1 }}</span>
+                                                        @endif
+                                                    </p>
                                                 @endif
-                                            </p>
-                                        @endif
-                                    </td>
-                                    <td class="text-uppercase">{{ $list->rubrica }}</td>
-                                    <td class="text-uppercase">
-                                        {{ $cities->Where('rdMunicipio', $list->nexp)->first() ? $cities->Where('rdMunicipio', $list->nexp)->first()->regiao : '' }}
-                                    </td>
-                                    <td class="text-uppercase">{{ $list->lexp }}</td>
-                                    <td class="fw-bold">
-                                        {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
-                                    </td>
-                                    <td class="fw-bold text-danger">
-                                        {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
-                                    </td>
-                                    <td>
-                                        @if ($status)
-                                            <span class="badge {{ $status['color'] }}">{{ $status['info'] }}
-                                                {{ $daysDifference }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="d-flex justify-content-end">
-                                        <i class="bx bx-printer text-primary fs-4 me-2"></i>
-                                        <i class="bx bx-play-circle text-success fs-4 me-2" style="cursor: pointer;"
-                                            wire:click.prevent="openForms({{ $list->id }})"></i>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                            </td>
+                                            <td class="text-uppercase">{{ $list->rubrica }}</td>
+                                            <td class="text-uppercase">
+                                                {{ $cities->Where('rdMunicipio', $list->nexp)->first() ? $cities->Where('rdMunicipio', $list->nexp)->first()->regiao : '' }}
+                                            </td>
+                                            <td class="text-uppercase">{{ $list->lexp }}</td>
+                                            <td class="fw-bold">
+                                                {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
+                                            </td>
+                                            <td class="fw-bold text-danger">
+                                                {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                            </td>
+                                            <td>
+                                                @if ($status)
+                                                    <span class="badge {{ $status['color'] }}">{{ $status['info'] }}
+                                                        {{ $daysDifference }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="d-flex justify-content-end">
+                                                <i class="bx bx-printer text-primary fs-4 me-2" role="group"
+                                                    aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                                    data-bs-trigger="hover focus" data-bs-placement="right"
+                                                    data-bs-title="Imprimir Checklist (NÃO IMPLMENTADO)"
+                                                    data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
+                                                <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
+                                                    aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                                    data-bs-trigger="hover focus" data-bs-placement="right"
+                                                    data-bs-title="Iniciar Atividadeeeeeee"
+                                                    data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
+                                                <i class="bx bxs-badge-check text-success fs-4 me-2"
+                                                    style="cursor: pointer;"
+                                                    wire:click.prevent="openForms({{ $list->id }})" role="group"
+                                                    aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                                    data-bs-trigger="hover focus" data-bs-placement="right"
+                                                    data-bs-title="Encerrar Atividaede"
+                                                    data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -230,8 +251,9 @@
                                         @if ($list->Files->count())
                                             @foreach ($list->Files as $file)
                                                 <p class="p-0 m-0"><input
-                                                        class="form-check-input border border-secondary" type="checkbox"
-                                                        value="{{ $file->id }}" wire:model.defer="files_selected">
+                                                        class="form-check-input border border-secondary"
+                                                        type="checkbox" value="{{ $file->id }}"
+                                                        wire:model.defer="files_selected">
                                                     <i class="bx bxs-file-{{ $file->ext }} text-danger"></i>
                                                     <span wire:click.prevent="downloadFile({{ $file->id }})"
                                                         style="cursor: pointer;">{{ $file->file_name }}</span>
@@ -321,10 +343,23 @@
                                                     class="badge {{ $status['color'] }}">{{ $status['info'] }}</span>
                                             @endif
                                         </td>
-                                        <td><i class="bx bx-printer text-primary fs-4 me-2"></i>
-                                            <i class="bx bx-play-circle text-success fs-4 me-2"
+                                        <td> <i class="bx bx-printer text-primary fs-4 me-2" role="group"
+                                                aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="right"
+                                                data-bs-title="Imprimir Checklist (NÃO IMPLMENTADO)"
+                                                data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
+                                            <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
+                                                aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="right"
+                                                data-bs-title="Sinaliza início da execução desta atividade."
+                                                data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
+                                            <i class="bx bxs-badge-check text-success fs-4 me-2"
                                                 style="cursor: pointer;"
-                                                wire:click.prevent="openForms({{ $list->id }})"></i>
+                                                wire:click.prevent="openForms({{ $list->id }})" role="group"
+                                                aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="right"
+                                                data-bs-title="Encerrar Atividaede"
+                                                data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
                                         </td>
                                     </tr>
 

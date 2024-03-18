@@ -11,7 +11,7 @@ class Viability extends Component
 {
     public $data;
     public $cities;
-    public $changes;
+    public $changes = 0 ;
     public $result = [];
 
     protected $queryString = [
@@ -34,6 +34,8 @@ class Viability extends Component
             $this->cities = false;
         }
 
+        $this->changes = ['sizechange' => 0];
+
         if ($id) {
             $this->data = Note::With(['Viabilities' => function ($query) {
                 $query->where('approved', false)
@@ -43,6 +45,11 @@ class Viability extends Component
             }])->find(Crypt::decrypt($id));
         }
 
+    }
+
+    public function updatedChanges()
+    {
+        $this->result = [];
     }
 
     public function toCancelForm()

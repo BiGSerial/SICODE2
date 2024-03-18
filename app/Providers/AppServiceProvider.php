@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Form;
 use App\Models\Production;
 use App\Observers\AuditObserver;
+use App\Observers\FormObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,5 +24,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Production::observe(AuditObserver::class);
+        Form::observe(FormObserver::class);
     }
 }

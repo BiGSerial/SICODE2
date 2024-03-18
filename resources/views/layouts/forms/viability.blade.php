@@ -108,9 +108,17 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 <body class="g-sidenav edp-bg-gray toggle-sidebar">
 
-    <nav class="navbar navbar-expand-lg text-bg-success">
+    <nav class="navbar navbar-expand-lg fixed-top text-bg-success">
         <div class="container-fluid">
-            <span class="navbar-brand text-white fw-bold">VIABILIDADE TÉCNICA</span>
+            <span class="navbar-brand text-white fw-bold">
+
+                @hasSection('title')
+                    @yield('title')
+                @else
+                    VIABILIDADE
+                @endif
+
+            </span>
         </div>
     </nav>
 

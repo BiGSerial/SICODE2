@@ -1,6 +1,11 @@
 <div>
     <x-show-loading />
     {{-- @dump($note) --}}
+    @section('title')
+        ENTREGA VIABILIDADE TÉCNICA - {{ $note->note }}
+    @endsection
+
+
     @if ($note)
         <div class="container">
             <div class="card mt-3">
