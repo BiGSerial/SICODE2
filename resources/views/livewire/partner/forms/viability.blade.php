@@ -87,10 +87,18 @@
                     </div>
 
                     @if ($changes === 'SIM')
+                        <div class="col-3 mb-3">
+                            <label class="form-label">Motivo da Alteração:</label>
+                            <select class="form-select border border-secondary fs-4" wire:model="result.reason">
+                                <option value=""> ---- </option>
+                                <option value="ERRO_PROJETO"> ERRO NO PROJETO </option>
+                                <option value="MELHORIA"> PROPOSTA DE MELHORIA </option>
+                            </select>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Detalhe brevemente o motivo da necessidade de alteração:</label>
                             <textarea class="form-control border border-1 border-secondary" cols="30" rows="10"
-                                wire:model.defer="result.reason"></textarea>
+                                wire:model.defer="result.reason_text"></textarea>
                         </div>
                         <div class="mb-3">
 
@@ -107,65 +115,73 @@
                         </div>
 
                         <div class="mb-3">
-                            <div> <button class="btn btn-sm btn-primary"
+                            <div class="my-2"> <button class="btn btn-sm btn-primary"
                                     onclick="document.getElementById('file-input').click()">Carregar Croqui</button>
                             </div>
-                            <div class="edp-bg-gray my-1 py-2 rounded ">
-                                <div class="container">
-                                    <div
-                                        class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0 mb-2">
-                                        <div class="p-1 m-0 border-end border-secondary"><i
-                                                class="bx bxs-file-pdf text-success fs-4"></i>
-                                        </div>
-                                        <div class="p-1 m-0 text-center no-wrap">----</i>
-                                        </div>
-                                        <div class="p-1 m-0 border-start border-secondary">
-                                            <i class="ri-file-cloud-line text-succes fs-4"></i>
-                                        </div>
-                                    </div>
+                            <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
+                                x-on:livewire-upload-finish="isUploading = false"
+                                x-on:livewire-upload-error="isUploading = false"
+                                x-on:livewire-upload-progress="progress = $event.detail.progress">
 
-                                    <div
-                                        class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0">
-                                        <div class="p-1 m-0 border-end border-secondary"><i
-                                                class="bx bxs-file-pdf text-success fs-4"></i>
-                                        </div>
-                                        <div class="p-1 m-0 text-center no-wrap">----</i>
-                                        </div>
-                                        <div class="p-1 m-0 border-start border-secondary">
-                                            <i class="ri-file-cloud-line text-succes fs-4"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                                <form wire:submit.prevent="saveFile">
+                                    <input type="file" id="file-input" multiple wire:model="files" hidden>
+                                    {{-- <button type="submit" id="id-submit"></button> --}}
+                                </form>
 
-
-                        <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-                            x-on:livewire-upload-finish="isUploading = false"
-                            x-on:livewire-upload-error="isUploading = false"
-                            x-on:livewire-upload-progress="progress = $event.detail.progress">
-
-                            <form wire:submit.prevent="saveFile">
-                                <input type="file" id="file-input" multiple wire:model="files" hidden>
-                                {{-- <button type="submit" id="id-submit"></button> --}}
-                            </form>
-
-                            <div x-show="isUploading" class="mb-3">
-                                {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                <div x-show="isUploading" class="mb-3">
+                                    {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
                                     role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
                                     x-bind:style="`width: ${progress}%`">
                                     <span class="align-middle" x-text="`${progress}%`"></span>
                                 </div> --}}
-                                <div class="progress" role="progressbar" aria-label="Danger example" aria-valuenow="100"
-                                    aria-valuemin="0" aria-valuemax="100" style="width: 100%; border-radius: 0;">
-                                    <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
-                                        x-text="`${progress}%`">
+                                    <div class="progress my-0" role="progressbar" aria-label="Danger example"
+                                        aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
+                                        style="width: 100%; border-radius: 0;">
+                                        <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
+                                            x-text="`${progress}%`">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="edp-bg-gray mb-3 py-2 rounded ">
+                                <div class="container">
+
+                                    @if (count($show_files))
+                                        @foreach ($show_files as $show)
+                                            <div
+                                                class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0 mb-2 bg-white">
+                                                <div class="p-1 m-0 border-end border-secondary"><i
+                                                        class="bx bxs-file-{{ $show['ext'] }} text-danger fs-4"></i>
+                                                </div>
+                                                <div class="p-1 m-0 text-center no-wrap">
+                                                    <p class="my-0 py-0">
+                                                        {{ $show['name'] }}
+                                                    </p>
+                                                    <p class="my-0 py-0 text-danger" style="font-size: 12px;">
+                                                        {{ $show['old_name'] }}
+                                                    </p>
+                                                </div>
+                                                <div class="p-1 m-0 border-start border-secondary">
+                                                    <i class="bx bxs-trash text-danger fs-4"
+                                                        wire:click.prevent="delete_file({{ $show['id'] }})"
+                                                        style="cursor: pointer;"></i>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <div class="my-2 py-2 text-center">
+                                            <h4 class="fw-bold">SEM ARQUIVOS</h4>
+                                        </div>
+                                    @endif
+
                                 </div>
                             </div>
                         </div>
+
+
+
                     @endif
 
-                    @if ($changes)
+                    @if ($changes != '')
                         <div class="mb-3 col-3">
                             <label class="form-label">Responsável pelo informe:</label>
                             <input type="text" class="form-control border border-1 border-secondary"
@@ -177,7 +193,7 @@
                                 <select name="" id=""
                                     class="form-select border border-1 border-secondary fs-4"
                                     wire:model="result.viability_id">
-                                    <option selected>---</option>
+                                    <option value="" selected>---</option>
                                     @foreach ($note->Viabilities as $viability)
                                         <option value="{{ $viability->id }}">{{ $viability->Order->ordem }}</option>
                                     @endforeach
@@ -189,7 +205,7 @@
                 </div>
                 <div class="card-footer d-flex justify-content-end">
                     <button class="btn btn-danger m-2" wire:click.prevent="toCancelForm">CANCELAR</button>
-                    <button class="btn btn-primary m-2">SALVAR</button>
+                    <button class="btn btn-primary m-2" @disabled($changes === '' || (!isset($result['viability_id']) || $result['viability_id'] === ''))>SALVAR</button>
                 </div>
             </div>
 

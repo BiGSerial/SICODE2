@@ -6,13 +6,20 @@ use App\Models\Edp_depc\City;
 use App\Models\Note;
 use Illuminate\Support\Facades\Crypt;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Viability extends Component
 {
+    use WithFileUploads;
+
     public $data;
     public $cities;
-    public $changes = 0 ;
+    public $changes = "";
     public $result = [];
+
+    // Files
+    public $files = [];
+    public $show_files = [];
 
     protected $queryString = [
         'changes' => ['except' => '']
@@ -21,6 +28,7 @@ class Viability extends Component
     protected $listeners = [
         'confirm_cancelForm' => 'cancelForm'
     ];
+
 
 
     public function mount($id)
@@ -34,7 +42,7 @@ class Viability extends Component
             $this->cities = false;
         }
 
-        $this->changes = ['sizechange' => 0];
+        $this->result = ['sizechange' => 0];
 
         if ($id) {
             $this->data = Note::With(['Viabilities' => function ($query) {
@@ -45,6 +53,53 @@ class Viability extends Component
             }])->find(Crypt::decrypt($id));
         }
 
+
+    }
+
+    public function updatedFiles()
+    {
+
+
+        if (count($this->files)) {
+
+            $this->show_files = [];
+
+            foreach ($this->files as $index => $file) {
+
+                $skip_file = false;
+
+                if (!$skip_file) {
+
+                    if (count($this->files) > 1) {
+
+                        $name = "CROQUI-{$this->data->note}-F". str_pad($index + 1, 2, '0', STR_PAD_LEFT) ."_".str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
+                    } else {
+                        $name = "CROQUI-{$this->data->note}-F01_01";
+                    }
+
+                    $this->show_files[$index] = [
+                        'id' => $index,
+                        'note_id' => "",
+                        'name' => $name,
+                        'old_name' =>  explode('.', $file->getClientOriginalName())[0],
+                        'ext' => $file->getClientOriginalExtension(),
+                        'chk' => false,
+                    ];
+                }
+            }
+
+
+        }
+    }
+
+    public function delete_file($id)
+    {
+        if (isset($this->show_files[$id])) {
+            unset($this->files[$id]);
+            unset($this->show_files[$id]);
+        }
+
+        $this->updatedFiles();
     }
 
     public function updatedChanges()

@@ -666,7 +666,7 @@ class Main extends Component
             });
         }
 
-        
+
 
         if (isset($_SESSION['filter'][$this->filter_group]['rubrica'])) {
             $query->whereRelation('Note', function ($query) {
