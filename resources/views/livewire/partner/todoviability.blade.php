@@ -134,9 +134,28 @@
                     }
                 }
 
+                $block = [];
+
+                if ($list->Viabilities->count()) {
+                    foreach ($list->Viabilities as $order) {
+                        if ($order->approved) {
+                            $block = [
+                                'color' => 'text-bg-success',
+                            ];
+                        }
+
+                        if ($order->rejected) {
+                            $block = [
+                                'color' => 'text-bg-danger',
+                            ];
+                        }
+                    }
+                }
+
             @endphp
             <div x-data="{ isShow: false }" style="overflow: hidden;">
-                <div class="card mb-2 item" x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
+                <div class="card mb-2 item @if ($block) {{ $block['color'] }} @endif"
+                    x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
                     <div class="card-body my-0 py-1 position-relative">
                         <div class="row align-items-center">
                             <div class="col" style="max-width: 50px;">
@@ -194,20 +213,27 @@
                                                 <i class="bx bx-printer text-primary fs-4 me-2" role="group"
                                                     aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="right"
-                                                    data-bs-title="Imprimir Checklist (NÃO IMPLMENTADO)"
+                                                    data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
                                                     data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
-                                                <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
-                                                    aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="right"
-                                                    data-bs-title="Iniciar Atividadeeeeeee"
-                                                    data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
-                                                <i class="bx bxs-badge-check text-success fs-4 me-2"
-                                                    style="cursor: pointer;"
-                                                    wire:click.prevent="openForms({{ $list->id }})" role="group"
-                                                    aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="right"
-                                                    data-bs-title="Encerrar Atividaede"
-                                                    data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
+
+                                                @if (!$block)
+                                                    <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
+                                                        aria-label="Basic example" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="right"
+                                                        data-bs-title="Iniciar Atividadeeeeeee"
+                                                        data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
+                                                    <i class="bx bxs-badge-check text-success fs-4 me-2"
+                                                        style="cursor: pointer;"
+                                                        wire:click.prevent="openForms({{ $list->id }})"
+                                                        role="group" aria-label="Basic example" tabindex="0"
+                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                        data-bs-placement="right" data-bs-title="Encerrar Atividaede"
+                                                        data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
+                                                @endif
+
+
+
                                             </td>
                                         </tr>
                                     </tbody>
@@ -242,7 +268,14 @@
                                     <td>
                                         @if ($list->Viabilities->count())
                                             @foreach ($list->Viabilities as $order)
-                                                <p class="p-0 m-0">{{ $order->Order->ordem }}</p>
+                                                <p class="p-0 m-0">{{ $order->Order->ordem }}
+                                                    @if ($order->approved && !$order->rejected)
+                                                        <i class="bx bxs-badge-check text-success"></i>
+                                                    @endif
+                                                    @if (!$order->approved && $order->rejected)
+                                                        <i class="bx bxs-badge-check text-danger"></i>
+                                                    @endif
+                                                </p>
                                             @endforeach
                                         @endif
                                     </td>
@@ -346,20 +379,23 @@
                                         <td> <i class="bx bx-printer text-primary fs-4 me-2" role="group"
                                                 aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
                                                 data-bs-trigger="hover focus" data-bs-placement="right"
-                                                data-bs-title="Imprimir Checklist (NÃO IMPLMENTADO)"
+                                                data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
                                                 data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
-                                            <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
-                                                aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="right"
-                                                data-bs-title="Sinaliza início da execução desta atividade."
-                                                data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
-                                            <i class="bx bxs-badge-check text-success fs-4 me-2"
-                                                style="cursor: pointer;"
-                                                wire:click.prevent="openForms({{ $list->id }})" role="group"
-                                                aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="right"
-                                                data-bs-title="Encerrar Atividaede"
-                                                data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
+
+                                            @if (!$block)
+                                                <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
+                                                    aria-label="Basic example" tabindex="0"
+                                                    data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                    data-bs-placement="right" data-bs-title="Iniciar Atividadeeeeeee"
+                                                    data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
+                                                <i class="bx bxs-badge-check text-success fs-4 me-2"
+                                                    style="cursor: pointer;"
+                                                    wire:click.prevent="openForms({{ $list->id }})"
+                                                    role="group" aria-label="Basic example" tabindex="0"
+                                                    data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                    data-bs-placement="right" data-bs-title="Encerrar Atividaede"
+                                                    data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
+                                            @endif
                                         </td>
                                     </tr>
 

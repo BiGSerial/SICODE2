@@ -88,7 +88,8 @@
 
                     @if ($changes === 'SIM')
                         <div class="col-3 mb-3">
-                            <label class="form-label">Motivo da Alteração:</label>
+                            <label class="form-label">Motivo da Alteração: <span
+                                    class="text-danger fw-bold">*</span></label>
                             <select class="form-select border border-secondary fs-4" wire:model="result.reason">
                                 <option value=""> ---- </option>
                                 <option value="ERRO_PROJETO"> ERRO NO PROJETO </option>
@@ -96,13 +97,15 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Detalhe brevemente o motivo da necessidade de alteração:</label>
-                            <textarea class="form-control border border-1 border-secondary" cols="30" rows="10"
+                            <label class="form-label">Detalhe brevemente o motivo da necessidade de alteração: <span
+                                    class="text-danger fw-bold">*</span></label>
+                            <textarea class="form-control border border-1 border-secondary fs-4" cols="30" rows="8"
                                 wire:model.defer="result.reason_text"></textarea>
                         </div>
                         <div class="mb-3">
 
-                            <label for="customRange2" class="form-label">Indique o nível de alteração:</label>
+                            <label for="customRange2" class="form-label">Indique o nível de alteração: <span
+                                    class="text-danger fw-bold">*</span></label>
                             <input type="range" class="form-range border border-1 border-secondary" min="0"
                                 max="10" wire:model="result.sizechange" value="0">
                             <div class="progress" role="progressbar" aria-label="Basic example" aria-valuenow="0"
@@ -116,7 +119,8 @@
 
                         <div class="mb-3">
                             <div class="my-2"> <button class="btn btn-sm btn-primary"
-                                    onclick="document.getElementById('file-input').click()">Carregar Croqui</button>
+                                    onclick="document.getElementById('file-input').click()">CARREGAR CROQUI</button>
+                                <span class="text-danger fw-bold">*</span>
                             </div>
                             <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
                                 x-on:livewire-upload-finish="isUploading = false"
@@ -183,17 +187,22 @@
 
                     @if ($changes != '')
                         <div class="mb-3 col-3">
-                            <label class="form-label">Responsável pelo informe:</label>
+                            <label class="form-label">Responsável pelo informe: <span
+                                    class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control border border-1 border-secondary"
                                 wire:model.defer="result.responsible" />
                         </div>
                         @if ($note->Viabilities->count())
                             <div class="mb-3 col-3">
-                                <label class="form-label">Selecione a Ordem deste Informe:</label>
+                                <label class="form-label">Selecione a Ordem deste Informe: <span
+                                        class="text-danger fw-bold">*</span></label>
                                 <select name="" id=""
                                     class="form-select border border-1 border-secondary fs-4"
                                     wire:model="result.viability_id">
                                     <option value="" selected>---</option>
+                                    @if ($note->Viabilities->count() > 1)
+                                        <option value="0" selected>TODOS</option>
+                                    @endif
                                     @foreach ($note->Viabilities as $viability)
                                         <option value="{{ $viability->id }}">{{ $viability->Order->ordem }}</option>
                                     @endforeach
@@ -205,7 +214,8 @@
                 </div>
                 <div class="card-footer d-flex justify-content-end">
                     <button class="btn btn-danger m-2" wire:click.prevent="toCancelForm">CANCELAR</button>
-                    <button class="btn btn-primary m-2" @disabled($changes === '' || (!isset($result['viability_id']) || $result['viability_id'] === ''))>SALVAR</button>
+                    <button class="btn btn-primary m-2" @disabled($changes === '' || (!isset($result['viability_id']) || $result['viability_id'] === ''))
+                        wire:click.prevent="toSaveForm">SALVAR</button>
                 </div>
             </div>
 

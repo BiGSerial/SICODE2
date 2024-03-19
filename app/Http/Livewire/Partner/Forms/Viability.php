@@ -3,10 +3,16 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\Edp_depc\City;
+use App\Models\File;
+use App\Models\Form;
 use App\Models\Note;
+use App\Models\Viability as ModelsViability;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use PhpParser\Node\Stmt\Foreach_;
 
 class Viability extends Component
 {
@@ -26,7 +32,8 @@ class Viability extends Component
     ];
 
     protected $listeners = [
-        'confirm_cancelForm' => 'cancelForm'
+        'confirm_cancelForm' => 'cancelForm',
+        'confirm_save_form' => 'saveForm',
     ];
 
 
@@ -42,7 +49,7 @@ class Viability extends Component
             $this->cities = false;
         }
 
-        $this->result = ['sizechange' => 0];
+        $this->result['sizechange'] = 0;
 
         if ($id) {
             $this->data = Note::With(['Viabilities' => function ($query) {
@@ -58,6 +65,25 @@ class Viability extends Component
 
     public function updatedFiles()
     {
+
+
+        try {
+            $this->validate([
+                'files.*' => 'mimes:pdf,jpeg,png',
+            ]);
+        } catch (ValidationException $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => "TIPO DE ARQUIVO NÃO PERMITIDO",
+                'html' => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpp ou .png</span> </div></div>',
+
+            ]);
+
+
+
+            return;
+        }
 
 
         if (count($this->files)) {
@@ -119,6 +145,211 @@ class Viability extends Component
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg' => 'O Formulário foi cancelado com sucesso.',
         ]);
+    }
+
+    public function toSaveForm()
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' =>  'ENTREGAR ANALISE DE VIABILIDADE',
+            'msg' => "<p class='fw-bold'>Você deseja entregar esta análise de viabilidade?</p>
+            <p class='text-center my-2'> 
+                A entrega desta analise seguirá para avaliação do corpo responsável, dependendo do resultado deste.
+            </p>
+            ",
+            'icon' => 'question',
+            'btnOktxt' => 'Sim, Entregar Analise',
+            'btnCanceltxt' => 'Não, Desisto',
+            'action' => "confirm_save_form",
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg' => 'Nenhuma analise foi salva.',
+        ]);
+    }
+
+    public function saveForm()
+    {
+        // Verify mandatory fields
+        if ($this->changes) {
+
+            $block = false;
+            $campos = [];
+
+            if ($this->changes === 'SIM') {
+
+                if (!isset($this->result['reason_text']) || strlen(trim($this->result['reason_text'])) < 4) {
+                    $block = true;
+                    $campos[] = 'Texto Detalhamento Vazio ou Insuficiente.';
+                }
+
+                if (!isset($this->result['reason']) || trim($this->result['reason']) == '') {
+                    $block = true;
+                    $campos[] = 'Motivo de Alteração não informado.';
+                }
+
+                if (!count($this->files)) {
+                    $block = true;
+                    $campos[] = 'Sem Croqui Anexado.';
+                }
+
+
+            }
+
+            if (!isset($this->result['responsible']) || $this->result['responsible'] == '') {
+                $block = true;
+                $campos[] = 'Sem Responsável Informado.';
+            }
+
+            if (!isset($this->result['viability_id']) || $this->result['viability_id'] == '') {
+                $block = true;
+                $campos[] = 'Sem Viabilidade Indicada.';
+            }
+
+
+
+            if ($block) {
+
+                $texto = '';
+
+                foreach ($campos as $index => $value) {
+                    $texto .= '<p class="fw-bold text-start my-0 py-0">'.($index + 1).' - '.$value.'</p>';
+                }
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => " Todos os campos obigatórios precisam ser preenchidos.",
+                    'html' => '<div class="card bg-primary text-white"><div class="card-body">'.$texto.'</div></div>',
+
+                ]);
+
+                return;
+
+            } else {
+
+                $formData = [];
+
+                if ($this->result['viability_id'] === '0') {
+                    if ($this->data->Viabilities->count() > 1) {
+                        foreach ($this->data->Viabilities as $vibility) {
+                            $formData[] = [
+                                'viability_id' => $vibility->id,
+                                'user_id' => Auth()->User()->id,
+                                'description' => isset($this->result['reason_text']) ? $this->result['reason_text'] : null,
+                                'changes' => isset($this->result['sizechange']) ? $this->result['sizechange'] : null,
+                                'responsible' => isset($this->result['responsible']) ? $this->result['responsible'] : null,
+                                'rejected' => $this->changes == 'SIM' ? true : false,
+                                'approved' =>  $this->changes == 'NAO' ? true : false,
+                            ];
+                        }
+                    }
+                } else {
+                    $formData[] = [
+                        'viability_id' => isset($this->result['viability_id']) ? $this->result['viability_id'] : null,
+                        'user_id' => Auth()->User()->id,
+                        'description' => isset($this->result['reason_text']) ? $this->result['reason_text'] : null,
+                        'changes' => isset($this->result['sizechange']) ? $this->result['sizechange'] : null,
+                        'responsible' => isset($this->result['responsible']) ? $this->result['responsible'] : null,
+                        'rejected' => $this->changes == 'SIM' ? true : false,
+                        'approved' =>  $this->changes == 'NAO' ? true : false,
+                    ];
+                }
+
+                DB::beginTransaction();
+
+                $erro = false;
+
+                $files_id = [];
+
+                if (count($this->show_files)) {
+
+                    foreach ($this->show_files as $temp_file) {
+
+                        $caminho = '';
+
+                        if (isset($this->files[$temp_file['id']])) {
+
+                            $caminho = $this->files[$temp_file['id']]->store('/arquivos/croqui');
+
+                            if ($caminho) {
+
+                                $file = File::create([
+                                            'note_id' => $this->data->id,
+                                            'user_id' => Auth()->User()->id,
+                                            'file_name' => $temp_file['name'],
+                                            'path' => $caminho,
+                                            'ext' => $temp_file['ext'],
+                                        ]);
+
+                                if (!$file) {
+                                    $erro = true;
+                                } else {
+                                    $files_id[] = $file->id;
+                                }
+
+                            }
+
+                        }
+
+                    }
+                }
+
+                foreach ($formData as $data) {
+                    $chk_form = Form::updateOrCreate(['viability_id' => $data['viability_id']], $data)->Files()->syncWithoutDetaching($files_id);
+
+                    if (!$chk_form) {
+                        $erro = true;
+                    }
+
+                    $chk_viability = ModelsViability::find($data['viability_id'])->update([
+                        'returned_at' => date('Y-m-d H:i:s'),
+                        'approved' => $data['approved'] ? $data['approved'] : false,
+                        'rejected' => $data['rejected'] ? $data['rejected'] : false,
+                    ]);
+
+                    if (!$chk_viability) {
+                        $erro = true;
+                    }
+                }
+
+
+                if (!$erro) {
+                    DB::commit();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon' => 'success',
+                        'title' => 'Viabilidade Entregue com Sucesso.',
+                        'timer' => 2500,
+                    ]);
+
+                    return redirect(route('partner.todo.viability'));
+
+                } else {
+                    DB::rollBack();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon' => 'error',
+                        'title' => 'ERRO AO PROCESSAR.',
+                        'html' => 'Ocorreu algum erro, em alguma parte do processo. Nenhuma Alteração foi realizada, e nenhuma Viabilidade foi concluída.',
+                        'timer' => 5000,
+                    ]);
+                }
+
+
+
+            }
+
+        } else {
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Nenhuma informação de Viabilidade encontrado para finalizar.',
+                'timer' => 2500,
+            ]);
+
+            return;
+        }
     }
 
     public function cancelForm()
