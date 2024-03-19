@@ -19,6 +19,7 @@
             <th>Municipio</th>
             <th>Centro</th>
             <th>Base</th>
+            <th>Data Status (OV)</th>
             <th>Despachado em</th>
             <th>Atribuído em</th>
             <th>Finalizado em</th>
@@ -55,7 +56,13 @@
                 @endphp
                 <td>{{ $city ? $city->centroHana : '' }}</td>
                 <td>{{ $city ? $city->baseConstrucao : '' }}</td>
-
+                <td>
+                    @if ($export->dt_note)
+                        {{ date('d/m/Y H:i:s', strToTime($export->dt_note)) }}
+                    @else
+                        -
+                    @endif
+                </td>
                 <td>{{ date('d/m/Y H:i:s', strToTime($export->dispatch_at)) }}</td>
                 <td>
                     @if ($export->att_at)
