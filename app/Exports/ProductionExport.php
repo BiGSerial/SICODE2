@@ -75,7 +75,7 @@ class ProductionExport implements FromView, WithProperties, WithEvents
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:AB1')->applyFromArray([
+                $event->sheet->getStyle('A1:AC1')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
