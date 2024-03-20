@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 use App\Exports\HiringAccompanyExport;
 use App\Models\Company;
 use App\Models\File;
+use App\Models\Note;
 use App\Models\Order;
 use App\Models\Service;
 use App\Models\User;
@@ -522,31 +523,66 @@ class Accompany extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Viability::Query();
-        $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
+        // $query = Viability::Query();
+        // $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
+
+        // if (isset($this->filter['cidade'])) {
+
+        //     $query->whereRelation('Order.Note', function ($q) {
+        //         $q->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
+        //     });
+        // }
+
+        // if (isset($this->filter['empreiteira'])) {
+
+        //     $query->whereIn('company_id', $this->filter['empreiteira']);
+        // }
+
+        // if (isset($this->filter['rubrica'])) {
+
+        //     $query->whereRelation('Order.Note', function ($q) {
+        //         $q->whereIn('rubrica', $this->filter['rubrica']);
+        //     });
+        // }
+
+        // if ($this->typeNote) {
+        //     $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
+        // }
+
+
+        // return $query->paginate($this->perPage);
+
+
+        $query = Note::Query();
+
+        $query->whereRelation('Viabilities', function ($q) {
+            return $q->where('completed', false);
+        });
+
 
         if (isset($this->filter['cidade'])) {
 
-            $query->whereRelation('Order.Note', function ($q) {
-                $q->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
-            });
+            $query->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
         }
 
         if (isset($this->filter['empreiteira'])) {
 
-            $query->whereIn('company_id', $this->filter['empreiteira']);
+            $query->whereRelation('Viabilities', function ($q) {
+                $q->whereIn('company_id', $this->filter['empreiteira']);
+            });
         }
 
         if (isset($this->filter['rubrica'])) {
 
-            $query->whereRelation('Order.Note', function ($q) {
-                $q->whereIn('rubrica', $this->filter['rubrica']);
-            });
+            $query->whereIn('rubrica', $this->filter['rubrica']);
         }
 
         if ($this->typeNote) {
-            $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
+            $query->where('type_note', $this->typeNote);
         }
+
+
+        $query->with('Viabilities.Company', 'Viabilities.Order', 'Files');
 
 
         return $query->paginate($this->perPage);

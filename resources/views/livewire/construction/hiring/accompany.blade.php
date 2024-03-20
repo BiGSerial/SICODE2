@@ -220,8 +220,8 @@
                                 <th>
                                     <input class="form-check-input" type="checkbox" wire:model="selectAll">
                                 </th>
-                                <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
+                                <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Files</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
@@ -241,16 +241,23 @@
 
 
                             @foreach ($lists as $list)
+                                {{-- @dump($list) --}}
                                 @php
-                                    $dueDate = $list->sended_at ? Carbon::parse($list->sended_at)->addDays(7) : null;
-                                    // $today = Carbon::now();
-                                    // dump(Carbon::now());
-                                    $today = $list->returned_at ? Carbon::parse($list->returned_at) : Carbon::now();
+                                    $dueDate = $list->Viabilities->last()->sended_at
+                                        ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
+                                        : null;
+                                    $today = $list->Viabilities->last()->returned_at
+                                        ? Carbon::parse($list->Viabilities->last()->returned_at)
+                                        : Carbon::now();
                                     $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
 
                                     if ($dueDate) {
-                                        $totalDaysDifference = $dueDate->diffInMinutes($list->sended_at);
-                                        $elapsedDaysDifference = Carbon::parse($list->sended_at)->diffInMinutes($today);
+                                        $totalDaysDifference = $dueDate->diffInMinutes(
+                                            $list->Viabilities->last()->sended_at,
+                                        );
+                                        $elapsedDaysDifference = Carbon::parse(
+                                            $list->Viabilities->last()->sended_at,
+                                        )->diffInMinutes($today);
 
                                         $percentElapsed = ($elapsedDaysDifference / $totalDaysDifference) * 100;
                                     } else {
@@ -258,26 +265,31 @@
                                     }
                                 @endphp
 
-                                <tr>
-                                    <td><input class="form-check-input border border-secondary" type="checkbox"
-                                            wire:model.defer="selected" value="{{ $list->id }}"></td>
-                                    <td class="fw-bold">{{ $list->Order->ordem }}</td>
-                                    <td>{{ $list->Order->Note->note }}</td>
-                                    <td>
-                                        {{-- Componente Blade para Exibir a lista de Arquivos. Precisa do Array de Files --}}
-                                        <x-files.select-download-list :files='$list->Order->Note->Files' />
+                                <tr class="align-items-center">
+                                    <td class="align-middle"> <input class="form-check-input border border-secondary"
+                                            type="checkbox" wire:model.defer="selected" value="{{ $list->id }}">
                                     </td>
-                                    <td>{{ $list->Order->Note->rubrica }}</td>
-                                    <td>{{ $list->Order->Note->lexp }}</td>
-                                    <td>{{ getFirstLastName($list->Company->name) }}</td>
-                                    <td>{{ getFirstLastName($list->Engineer->name) }}</td>
-                                    <td>{{ $list->sended_at ? Carbon::parse($list->sended_at)->format('d/m/Y') : '---' }}
+                                    <td class="fw-bold align-middle">{{ $list->note }}</td>
+                                    <td class="align-middle">
+                                        @if ($list->Viabilities->count())
+                                            @foreach ($list->Viabilities as $viab)
+                                                <p class="my-0 py-0">{{ $viab->Order->ordem }}</p>
+                                            @endforeach
+                                        @endif
                                     </td>
-                                    {{-- <td
-                                        class="text-center fw-bold {{ $dueDate ? getClassForDate($daysDifference) : '---' }}">
-                                        {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
-                                    </td> --}}
-                                    <td class="progress-cell border-start border-end border-2">
+                                    <td class="align-middle">
+                                        <x-files.select-download-list :files='$list->Files' />
+                                    </td>
+                                    <td class="align-middle">{{ $list->rubrica }}</td>
+                                    <td class="align-middle">{{ $list->lexp }}</td>
+                                    <td class="align-middle">
+                                        {{ getFirstLastName($list->Viabilities->last()->Company->name) }}</td>
+                                    <td class="align-middle">
+                                        {{ getFirstLastName($list->Viabilities->last()->Engineer->name) }}</td>
+                                    <td class="align-middle">
+                                        {{ $list->Viabilities->last()->sended_at ? Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') : '---' }}
+                                        </t class="align-middle"d>
+                                    <td class="progress-cell border-start border-end border-2 align-middle">
                                         <div class="progress-bg"
                                             style="width: {{ $percentElapsed }}%; 
                                                 @if ($percentElapsed > 80.0) background-color: #FBC4C4;
@@ -291,15 +303,15 @@
                                             class="progress-text fw-bold">{{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
                                         </span>
                                     </td>
-
-                                    <td>{{ $list->returned_at ? Carbon::parse($list->returned_at)->format('d/m/Y') : '---' }}
-                                    </td>
-                                    <td>
+                                    <td class="align-middle fw-bold">
+                                        {{ $list->Viabilities->last()->returned_at ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y') : '---' }}
+                                        </t class="align-middle"d>
+                                    <td class="align-middle">
                                         {{-- Componente Blade para Exibir status baseado nos Booleand. Precisa do Array de Viability --}}
-                                        <x-hiring.status_viability :status="$list" />
+                                        <x-hiring.status_viability :status="$list->Viabilities->last()" />
                                     </td>
                                     <td></td>
-                                </tr>
+                                </tr class="align-middle">
                             @endforeach
                         </tbody>
                     </table>
