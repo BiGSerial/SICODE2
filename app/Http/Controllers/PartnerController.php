@@ -10,4 +10,9 @@ class PartnerController extends Controller
     {
         return view('partner.viability');
     }
+
+    public function historic_viab()
+    {
+        return view('partner.hist_viability');
+    }
 }

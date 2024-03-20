@@ -102,6 +102,7 @@ Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->gro
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/todo-viability', 'viability')->name('todo.viability');
+    Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
 
 });
 

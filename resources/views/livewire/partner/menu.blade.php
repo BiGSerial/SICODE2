@@ -18,7 +18,7 @@
 
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="" class="nav-item text-white">
+                            <a href="{{ route('partner.hist.viability') }}" class="nav-item text-white">
                                 <i class="ri-history-line fw-light fs-5"></i> <span>Concluídos</span>
                             </a>
                         </li>

@@ -12,7 +12,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use ZipArchive;
 
-class Todoviability extends Component
+class Histviab extends Component
 {
     use WithPagination;
 
@@ -117,14 +117,12 @@ class Todoviability extends Component
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('approved', false)
-                ->where('tacit', false)
-                ->where('canceled', false);
+            $q->where('approved', true)
+                ->orderBy('sended_at')
+                ->orderBy('rejected', 'asc');
         })
             ->with(['Viabilities' => function ($query) {
-                $query->where('approved', false)
-                        ->where('tacit', false)
-                        ->where('canceled', false)
+                $query->where('approved', true)
                         ->orderBy('sended_at')
                         ->orderBy('rejected', 'asc')
                         ->with('Order', 'Form');
@@ -149,7 +147,7 @@ class Todoviability extends Component
 
     public function render()
     {
-        return view('livewire.partner.todoviability', [
+        return view('livewire.partner.histviab', [
             'lists' => $this->lists,
             'cities' => $this->cities
         ]);

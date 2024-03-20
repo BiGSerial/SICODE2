@@ -54,7 +54,7 @@
 
             <div class="row">
                 <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary">
+                    <select wire:model="perPage" class="form-select border border-secondary">
                         <option value="25">25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
@@ -85,7 +85,7 @@
 
 
     <div class="card mb-2 edp-bg-seoweedgreen-100 text-white">
-        <h4 class="card-header">VIABILIDADE A EXECUTAR</h4>
+        <h4 class="card-header">VIABILIDADE EXECUTADAS</h4>
     </div>
 
     @if (!$lists->count())
@@ -111,7 +111,10 @@
                 $dueDate = $list->Viabilities->count()
                     ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
                     : null;
-                $today = Carbon::now();
+                $today =
+                    $list->Viabilities->last()->approved || $list->Viabilities->last()->rejected
+                        ? Carbon::parse($list->Viabilities->last()->approved_at)
+                        : Carbon::now();
                 $daysDifference = 0;
 
                 if ($dueDate) {
@@ -197,7 +200,8 @@
                                         <th scope="col" class="col-1">Regiao</th>
                                         <th scope="col" class="col-2">Municipio</th>
                                         <th scope="col" class="col-1">Recebido Em</th>
-                                        <th scope="col" class="col-1">Prazo Estimado</th>
+                                        <th scope="col" class="col-1">Entregue Em</th>
+                                        <th scope="col" class="col-1">Contratado Em</th>
                                         <th scope="col" class="col-1">Status</th>
                                         <th scope="col" class="d-flex justify-content-end">
                                             <button class=" btn btn-sm btn-primary" @click="isShow=true">
@@ -224,10 +228,13 @@
                                             </td>
                                             <td class="text-uppercase">{{ $list->lexp }}</td>
                                             <td class="fw-bold">
-                                                {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
+                                                {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y H:i:s') }}
                                             </td>
                                             <td class="fw-bold text-danger">
-                                                {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                                {{ $list->Viabilities->last()->returned_at ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y H:i:s') : '---' }}
+                                            </td>
+                                            <td class="fw-bold text-danger">
+                                                {{ $list->Viabilities->last()->completed_at ? Carbon::parse($list->Viabilities->last()->completed_at)->format('d/m/Y H:i:s') : '---' }}
                                             </td>
                                             <td>
                                                 @if ($status)
@@ -425,12 +432,13 @@
                             <table class="table table-sm my-0">
                                 <thead style="font-size: 10px;">
                                     <th scope="col">Recebido Em</th>
-                                    <th scope="col">Prazo Estimado</th>
+                                    <th scope="col">Entregue Em</th>
+                                    <th scope="col">Contratado Em</th>
                                     <th scope="col">Status</th>
                                     <th scope="col">Ação</th>
                                 </thead>
                                 <tbody>
-                                    @php
+                                    {{-- @php
                                         $status = null;
                                         $dueDate = $list->Viabilities->count()
                                             ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
@@ -457,13 +465,16 @@
                                                 ];
                                             }
                                         }
-                                    @endphp
+                                    @endphp --}}
                                     <tr>
                                         <td class="fw-bold">
-                                            {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
+                                            {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y H:i:s') }}
                                         </td>
                                         <td class="fw-bold text-danger">
-                                            {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                            {{ $list->Viabilities->last()->returned_at ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y H:i:s') : '---' }}
+                                        </td>
+                                        <td class="fw-bold text-danger">
+                                            {{ $list->Viabilities->last()->completed_at ? Carbon::parse($list->Viabilities->last()->completed_at)->format('d/m/Y H:i:s') : '---' }}
                                         </td>
                                         <td>
                                             @if ($status)
