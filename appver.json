@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.9",
+    "appver": "1.7.10",
     "historic": [
+        {
+            "version": "1.7.10",
+            "description": "Fixed Services Form Problem",
+            "date": "2024-03-20"
+        },
         {
             "version": "1.7.9",
             "description": "Addinting Column in Advanced Search",
