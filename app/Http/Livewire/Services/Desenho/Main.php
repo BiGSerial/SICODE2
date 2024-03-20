@@ -73,7 +73,7 @@ class Main extends Component
         if ($check) {
 
 
-            $this->emit('open_analise', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+            $this->emit('open_analise_draw', ['productionId' => $check->id, 'noteId' => $check->note_id]);
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form'
@@ -101,7 +101,7 @@ class Main extends Component
 
     public function go_to_analise()
     {
-        $this->emit('open_analise', $this->analise);
+        $this->emit('open_analise_draw', $this->analise);
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'analise_form'
         ]);
@@ -125,7 +125,7 @@ class Main extends Component
 
             ]);
         } else {
-            $this->emit('open_analise', $this->analise);
+            $this->emit('open_analise_draw', $this->analise);
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form'
             ]);
@@ -195,7 +195,7 @@ class Main extends Component
                 return $q->where('user_id', $this->user_s);
             }, function ($q) {
                 return $q->where('user_id', Auth()->user()->id);
-            })        
+            })
             ->where('completed', false)
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {
