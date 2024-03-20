@@ -49,7 +49,7 @@ class Analise extends Component
 
 
     protected $listeners = [
-        'open_analise' => 'openAnalise',
+        'open_analise_analise' => 'openAnalise',
         'analise_clean' => 'clean',
         'confirm_goFinish' => 'goFinish'
 

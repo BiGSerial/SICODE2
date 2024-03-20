@@ -78,7 +78,7 @@ class Main extends Component
         if ($check) {
 
 
-            $this->emit('open_analise', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+            $this->emit('open_analise_lev', ['productionId' => $check->id, 'noteId' => $check->note_id]);
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form'
@@ -106,7 +106,7 @@ class Main extends Component
 
     public function go_to_analise()
     {
-        $this->emit('open_analise', $this->analise);
+        $this->emit('open_analise_lev', $this->analise);
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'analise_form'
         ]);
@@ -130,7 +130,7 @@ class Main extends Component
 
             ]);
         } else {
-            $this->emit('open_analise', $this->analise);
+            $this->emit('open_analise_lev', $this->analise);
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form'
             ]);
