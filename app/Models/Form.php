@@ -24,4 +24,9 @@ class Form extends Model
     {
         return $this->belongsToMany(File::class);
     }
+
+    public function Viability()
+    {
+        return $this->belongsTo(Viability::class);
+    }
 }

@@ -47,4 +47,9 @@ class Viability extends Model
         return $this->belongsTo(User::class, 'engineer_id');
     }
 
+    public function Form()
+    {
+        return $this->hasOne(Form::class);
+    }
+
 }

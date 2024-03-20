@@ -41,6 +41,12 @@ class FormObserver
         ];
 
         $historic = json_decode($form->historic, true) ?? [];
+
+        if (count($historic) >= 10) {
+            // Remover o registro mais antigo (primeiro registro)
+            array_shift($historic);
+        }
+        
         $historic[] = $historicData;
         $form->historic = json_encode($historic);
     }

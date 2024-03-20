@@ -243,7 +243,9 @@
                             @foreach ($lists as $list)
                                 @php
                                     $dueDate = $list->sended_at ? Carbon::parse($list->sended_at)->addDays(7) : null;
-                                    $today = Carbon::now();
+                                    // $today = Carbon::now();
+                                    // dump(Carbon::now());
+                                    $today = $list->returned_at ? Carbon::parse($list->returned_at) : Carbon::now();
                                     $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
 
                                     if ($dueDate) {

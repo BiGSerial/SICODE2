@@ -9,6 +9,10 @@
             opacity: 0;
         }
 
+        .item.hidden {
+            animation: slideOut 0.5s forwards;
+        }
+
         .detail-item {
             opacity: 0;
             animation: growDown 0.5s forwards;
@@ -137,24 +141,42 @@
                 $block = [];
 
                 if ($list->Viabilities->count()) {
+                    $count = 0;
+
                     foreach ($list->Viabilities as $order) {
                         if ($order->approved) {
+                            $count++;
+
                             $block = [
-                                'color' => 'text-bg-success',
+                                'color' => 'success',
+                                'command' => true,
                             ];
                         }
 
                         if ($order->rejected) {
+                            $count++;
                             $block = [
-                                'color' => 'text-bg-danger',
+                                'color' => 'danger',
+                                'command' => true,
                             ];
                         }
+
+                        if (($order->rejected || $order->approved) && !$order->completed) {
+                            $status = [
+                                'color' => 'text-bg-primary',
+                                'info' => 'EM AVALIAÇÂO',
+                            ];
+                        }
+                    }
+
+                    if ($count == $list->Viabilities->count()) {
+                        $block = array_merge($block, ['command' => false]);
                     }
                 }
 
             @endphp
             <div x-data="{ isShow: false }" style="overflow: hidden;">
-                <div class="card mb-2 item @if ($block) {{ $block['color'] }} @endif"
+                <div class="card mb-2 item @if ($block) text-bg-{{ $block['color'] }} @endif"
                     x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
                     <div class="card-body my-0 py-1 position-relative">
                         <div class="row align-items-center">
@@ -163,7 +185,10 @@
                                     value="" id="flexCheckDefault">
                             </div>
                             <div class="col">
-                                <table class="table table-sm my-0">
+                                <table
+                                    class="table table-sm my-0 
+                                @if ($block && $block) table-{{ $block['color'] }} @endif
+                                ">
                                     <thead>
                                         <th scope="col" class="col-2">Nota/Ov</th>
                                         <th scope="col" class="col-2">Ordem</th>
@@ -206,7 +231,7 @@
                                             <td>
                                                 @if ($status)
                                                     <span class="badge {{ $status['color'] }}">{{ $status['info'] }}
-                                                        {{ $daysDifference }}</span>
+                                                    </span>
                                                 @endif
                                             </td>
                                             <td class="d-flex justify-content-end">
@@ -216,7 +241,7 @@
                                                     data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
                                                     data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
 
-                                                @if (!$block)
+                                                @if (!$block || $block['command'])
                                                     <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
                                                         aria-label="Basic example" tabindex="0"
                                                         data-bs-toggle="popover" data-bs-trigger="hover focus"
@@ -324,6 +349,69 @@
                                 </tfoot>
                             @endif
                         </table>
+
+                        @if ($list->Viabilities->count())
+                            <div class="card">
+                                <div class="card-header py-1">
+                                    <h5 class="fw-bold my-0">Viabilidade</h5>
+                                </div>
+                                <div class="card-body">
+                                    @foreach ($list->Viabilities as $viab)
+                                        @if ($viab->Form)
+                                            {{-- @dump(json_decode($viab->Form->historic)[0]->description) --}}
+                                            <div class="card">
+                                                <div
+                                                    class="card-header
+                                                
+                                                @if ($viab->approved && !$viab->rejected) text-bg-success @endif
+                                            @if (!$viab->approved && $viab->rejected) text-bg-danger @endif
+                                                
+                                                ">
+                                                    <h6 class="my-0">{{ $viab->Order->ordem }}</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="mb-3 border border-1 p-2">
+                                                        <p class="my-1 py-0 fw-bold" style="font-size: 12px;">
+                                                            Descrição:</p>
+                                                        <p class="my-0 py-0">{{ $viab->Form->description }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div x-data="{ isVisible: false }">
+                                                @if ($viab->Form->historic)
+                                                    <p class="my-0 py-0 mb-2">
+                                                        <span
+                                                            class="border-bottom border-2 border-secondary fs-6 fw-bold px-2"
+                                                            style="cursor: pointer;" @click="isVisible=!isVisible">
+                                                            Histórico <i
+                                                                class="bx bxs-down-arrow align-middle text-primary"></i>
+                                                        </span>
+                                                    </p>
+
+                                                    <div x-show="isVisible">
+                                                        @foreach (json_decode($viab->Form->historic) as $historic)
+                                                            <div class="mb-3 border border-1 p-2 item">
+                                                                <p class="my-1 py-0 fw-bold" style="font-size: 12px;">
+                                                                    Descrição:</p>
+                                                                <p class="my-0 py-0">{{ $historic->description }}</p>
+                                                                <p class="my-1 py-0 fw-bold" style="font-size: 12px;">
+                                                                    Data:</p>
+                                                                <p class="my-0 py-0">
+                                                                    {{ date('d/m/Y H:i:s', strToTime($historic->updated_at)) }}
+                                                                </p>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    @endforeach
+
+
+                                </div>
+                            </div>
+                        @endif
                     </div>
                     <div class="card-footer d-flex justify-content-end border-top border-2 border-secondary">
                         <div class="col-6">
@@ -382,7 +470,7 @@
                                                 data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
                                                 data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
 
-                                            @if (!$block)
+                                            @if (!$block || $block['command'])
                                                 <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
                                                     aria-label="Basic example" tabindex="0"
                                                     data-bs-toggle="popover" data-bs-trigger="hover focus"

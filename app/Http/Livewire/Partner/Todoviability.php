@@ -125,7 +125,7 @@ class Todoviability extends Component
                 $query->where('approved', false)
                         ->where('tacit', false)
                         ->where('canceled', false)
-                        ->with('Order');
+                        ->with('Order', 'Form');
             }, 'Files']);
 
         if ($this->search) {
