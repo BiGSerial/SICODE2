@@ -555,14 +555,17 @@ class Accompany extends Component
 
         $query = Note::Query();
 
-        $query->whereRelation('Viabilities', function ($q) {
+        $query->with('Viabilities.Company', 'Viabilities.Order', 'Files')
+        ->whereRelation('Viabilities', function ($q) {
             return $q->where('completed', false);
-        });
+        })->leftJoinWhere('orders', 'notes.id', '=', 'orders.note_id')
+            ->leftJoin('viabilities', 'orders.id', '=', 'viabilities.order_id')
+            ->select('notes.*', 'viabilities.rejected as viab_rejected', 'viabilities.sended_at as viab_sended_at');
 
 
         if (isset($this->filter['cidade'])) {
 
-            $query->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
+            $query->whereIn('lexp', $this->filter['cidade']);
         }
 
         if (isset($this->filter['empreiteira'])) {
@@ -582,7 +585,9 @@ class Accompany extends Component
         }
 
 
-        $query->with('Viabilities.Company', 'Viabilities.Order', 'Files');
+        $query
+            ->orderBy('note')
+            ->orderBy('viab_rejected', 'DESC');
 
 
         return $query->paginate($this->perPage);

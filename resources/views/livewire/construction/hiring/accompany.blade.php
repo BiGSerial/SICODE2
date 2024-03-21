@@ -273,7 +273,13 @@
                                     <td class="align-middle">
                                         @if ($list->Viabilities->count())
                                             @foreach ($list->Viabilities as $viab)
-                                                <p class="my-0 py-0">{{ $viab->Order->ordem }}</p>
+                                                <p class="my-0 py-0">{{ $viab->Order->ordem }}
+                                                    @if ($viab->approved && !$viab->rejected)
+                                                        <i class="bx bxs-badge-check text-success"></i>
+                                                    @elseif (!$viab->approved && $viab->rejected)
+                                                        <i class="bx bx-x-circle text-danger"></i>
+                                                    @endif
+                                                </p>
                                             @endforeach
                                         @endif
                                     </td>
@@ -308,7 +314,7 @@
                                         </t class="align-middle"d>
                                     <td class="align-middle">
                                         {{-- Componente Blade para Exibir status baseado nos Booleand. Precisa do Array de Viability --}}
-                                        <x-hiring.status_viability :status="$list->Viabilities->last()" />
+                                        <x-hiring.status_viability :status="$list->Viabilities" />
                                     </td>
                                     <td></td>
                                 </tr class="align-middle">
