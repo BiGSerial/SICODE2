@@ -2,12 +2,8 @@
 
 namespace App\Console\Commands\Update;
 
-use App\Models\Edp_depc\BaseEP;
-use App\Models\Edp_depc\BaseOV;
-use App\Models\Manualconfirm;
-use App\Models\Notify;
+use App\Models\Edp_depc\{BaseEP, BaseOV};
 use App\Models\Production;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
@@ -35,7 +31,7 @@ class ConfirmProd extends Command
     {
 
         $prazo = 20;
-        $this->info("CHECKING PRODS COMPLETEDS FROM BASE ... ");
+        $this->info('CHECKING PRODS COMPLETEDS FROM BASE ... ');
 
         $productions = Production::where('completed', true)->where('noinconsistency', false)->where('conf_manual', false)->with('Note', 'Service', 'User')->get();
 
@@ -46,7 +42,7 @@ class ConfirmProd extends Command
 
             // $progressBar->start($productions->count());
 
-            $this->info("INITIALIZING UPDATE... " . $productions->count());
+            $this->info('INITIALIZING UPDATE... ' . $productions->count());
             // $progressBar->setMessage('Verifing...');
 
             foreach ($productions as $production) {
@@ -59,37 +55,32 @@ class ConfirmProd extends Command
                         $production->update(['noinconsistency' => true]);
                     }
 
-                    $this->info('<bg=blue;fg=white> DONE </> <fg=white;options=bold> NOTE/OV CONFIRMED BY EXPIRATION </> <fg=yellow;options=bold>'.$production->Note->note.' </>');
+                    $this->info('<bg=blue;fg=white> DONE </> <fg=white;options=bold> NOTE/OV CONFIRMED BY EXPIRATION </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
                 } elseif (Carbon::parse($production->completed_at)->diffInDays(Carbon::now()) >= 5) {
                     $production->update(['conf_manual' => true]);
                 }
 
-
                 if ($production->Note->type_note == 2) {
 
                     $verificar = BaseOV::where('OV', $production->Note->note)
-                    ->where(function ($q) use ($production) {
-                        return $q->where('transicao', 'LIKE', $production->status_note.' para%')
-                                ->orWhere('transicao', 'LIKE', $production->Service->status.' para%');
-                    })
-                    ->orderBy('dhStat', 'DESC')
-                    ->get();
-
-
+                        ->where(function ($q) use ($production) {
+                            return $q->where('transicao', 'LIKE', $production->status_note . ' para%')
+                                ->orWhere('transicao', 'LIKE', $production->Service->status . ' para%');
+                        })
+                        ->orderBy('dhStat', 'DESC')
+                        ->get();
 
                     if ($verificar->count()) {
 
                         $ok = false;
 
-                        $this->info('<bg=blue;fg=white> COMPARING </> <fg=yellow;options=bold>'.$verificar->count().' FOUNDERED REGISTERS </>');
-
+                        $this->info('<bg=blue;fg=white> COMPARING </> <fg=yellow;options=bold>' . $verificar->count() . ' FOUNDERED REGISTERS </>');
 
                         foreach ($verificar as $verificando) {
 
-                            $completedAt = Carbon::parse($production->completed_at);
-                            $dhStat = Carbon::parse($verificando->dhStat);
+                            $completedAt     = Carbon::parse($production->completed_at);
+                            $dhStat          = Carbon::parse($verificando->dhStat);
                             $diferencaEmDias = $completedAt->diffInDays($dhStat);
-
 
                             if (($diferencaEmDias >= -2 && $diferencaEmDias <= 2)) {
                                 $ok = true;
@@ -104,9 +95,8 @@ class ConfirmProd extends Command
                             if (!$production->confirmed) {
                                 $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
                             }
-                            $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> OV CONFIRMED </> <fg=yellow;options=bold>'.$production->Note->note.' </>');
+                            $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> OV CONFIRMED </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
                         }
-
 
                     }
 
@@ -123,19 +113,15 @@ class ConfirmProd extends Command
                                 $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
                             }
 
-                            $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> NOTE CONFIRMED </> <fg=yellow;options=bold>'.$production->Note->note.' </>');
+                            $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> NOTE CONFIRMED </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
                         }
                     }
 
-
                 }
-
 
             }
 
-
-
-            $this->info("FINISHED CHECK... ".Production::where('completed', true)->where('confirmed', false)->with('Note', 'Service')->count());
+            $this->info('FINISHED CHECK... ' . Production::where('completed', true)->where('confirmed', false)->with('Note', 'Service')->count());
         }
     }
 }

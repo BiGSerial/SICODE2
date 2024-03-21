@@ -15,13 +15,13 @@ class Info extends Component
 
     public function audit_prod($prod)
     {
-        $this->auditprod = "";
+        $this->auditprod = '';
 
         $this->auditprod = Audit::where('after->id', $prod['production_id'])->where('after->service_id', $prod['service_id'])->with('User')->orderBy('created_at')->get();
 
         if ($this->auditprod) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'audit_info'
+                'id' => 'audit_info',
             ]);
         }
     }

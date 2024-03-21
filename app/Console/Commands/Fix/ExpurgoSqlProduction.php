@@ -5,7 +5,6 @@ namespace App\Console\Commands\Fix;
 use App\Models\Production;
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use Illuminate\Console\Command;
-use SebastianBergmann\Diff\Diff;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class ExpurgoSqlProduction extends Command
@@ -53,14 +52,12 @@ class ExpurgoSqlProduction extends Command
 
             }
 
-
-
             $progress->advance();
         });
 
         $progress->finish();
 
-        $this->info('Total Expurgado: '.$count);
+        $this->info('Total Expurgado: ' . $count);
 
     }
 }

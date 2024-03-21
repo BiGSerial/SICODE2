@@ -36,7 +36,6 @@ class Analise extends Model
         'preresult',
         'doe',
         'postes',
-        'protocol'
+        'protocol',
     ];
-
 }

@@ -14,7 +14,6 @@ class Notifys extends Component
         return Notify::where('user_id', Auth()->User()->id)->where('readed', false)->orderBy('created_at', 'DESC')->get();
     }
 
-
     public function recognize_all()
     {
         $recognize = $this->notify;
@@ -39,7 +38,7 @@ class Notifys extends Component
     public function render()
     {
         return view('livewire.components.notify.notifys', [
-            'notifies' => $this->notify
+            'notifies' => $this->notify,
         ]);
     }
 }

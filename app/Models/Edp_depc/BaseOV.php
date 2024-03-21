@@ -14,6 +14,8 @@ class BaseOV extends Model
 
     // protected $table = 'dbo.tbl_iw28_anexo';
     protected $table = 'tbld_usr_baseOV';
+
     protected $keyType = 'string';
+
     protected $guarded = ['*'];
 }

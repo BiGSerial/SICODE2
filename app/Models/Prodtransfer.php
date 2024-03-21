@@ -17,7 +17,7 @@ class Prodtransfer extends Model
         'info',
         'status',
         'read_to',
-        'read_from'
+        'read_from',
     ];
 
     public function Service()
@@ -39,5 +39,4 @@ class Prodtransfer extends Model
     {
         return $this->belongsTo(User::class, 'to', 'id');
     }
-
 }

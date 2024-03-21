@@ -3,9 +3,7 @@
 namespace App\Exports;
 
 use Illuminate\Contracts\View\View;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithProperties};
 
 class ProductionServiceExport implements FromView, WithProperties
 {
@@ -17,7 +15,6 @@ class ProductionServiceExport implements FromView, WithProperties
     {
         $this->data = $data;
     }
-
 
     // public function getData()
     // {
@@ -40,7 +37,7 @@ class ProductionServiceExport implements FromView, WithProperties
     public function view(): View
     {
         return view('exports.productionsService', [
-            'lists' => $this->data
+            'lists' => $this->data,
         ]);
     }
 }

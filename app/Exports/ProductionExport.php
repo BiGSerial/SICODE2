@@ -4,22 +4,18 @@ namespace App\Exports;
 
 use App\Models\Edp_depc\City;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithEvents, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Maatwebsite\Excel\Sheet;
-use Maatwebsite\Excel\Writer;
 
-class ProductionExport implements FromView, WithProperties, WithEvents
+class ProductionExport implements FromView, WithEvents, WithProperties
 {
     use Exportable;
 
     public $company_id;
+
     public $exports;
+
     public $cities;
 
     public function __construct()
@@ -45,15 +41,12 @@ class ProductionExport implements FromView, WithProperties, WithEvents
         return $this;
     }
 
-
-
-
     public function view(): View
     {
 
         return view('exports.productions', [
             'exports' => $this->exports,
-            'cities' => $this->cities
+            'cities'  => $this->cities,
         ]);
     }
 
@@ -77,11 +70,11 @@ class ProductionExport implements FromView, WithProperties, WithEvents
                 // Define o estilo para a primeira linha
                 $event->sheet->getStyle('A1:AC1')->applyFromArray([
                     'font' => [
-                        'bold' => true,
+                        'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
                     ],
                     'fill' => [
-                        'fillType' => Fill::FILL_SOLID,
+                        'fillType'   => Fill::FILL_SOLID,
                         'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
                     ],
                 ]);

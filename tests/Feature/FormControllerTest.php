@@ -2,10 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Form;
-use App\Models\User;
-use App\Models\Viability;
-use Tests\TestCase;
+use App\Models\{Form, User};
 
 it('creates a form record', function () {
     // Cria um registro de usuário para o teste
@@ -14,15 +11,13 @@ it('creates a form record', function () {
     // Define os dados do formulário
     $formData = [
         'viability_id' => 1,
-        'user_id' => '9b986856-8397-4893-940b-f8b2604a40e7',
-        'description' => 'Test description 12',
-        'changes' => 1,
-        'responsible' => 'Test responsible',
-        'rejected' => false,
-        'approved' => false,
+        'user_id'      => '9b986856-8397-4893-940b-f8b2604a40e7',
+        'description'  => 'Test description 12',
+        'changes'      => 1,
+        'responsible'  => 'Test responsible',
+        'rejected'     => false,
+        'approved'     => false,
     ];
-
-
 
     // Cria o registro do formulário
     $form = Form::updateOrCreate(['viability_id' => $formData['viability_id']], $formData)->Files()->syncWithoutDetaching([1, 2]);

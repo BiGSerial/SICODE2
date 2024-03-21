@@ -5,10 +5,15 @@ namespace App\Custom;
 class RegistroJson
 {
     protected $filePath;
+
     protected $data;
+
     protected $record;
+
     protected $perPage;
+
     protected $currentPage;
+
     protected $limit;
 
     public function __construct($filePath)
@@ -54,11 +59,13 @@ class RegistroJson
     public function find($id)
     {
         $data = $this->all();
+
         foreach ($data as $item) {
             if ($item['id'] == $id) {
                 return $this->model($id);
             }
         }
+
         return null;
     }
 
@@ -68,6 +75,7 @@ class RegistroJson
             if ($item['id'] == $id) {
                 unset($this->data[$key]);
                 $this->save();
+
                 break;
             }
         }
@@ -76,17 +84,20 @@ class RegistroJson
     public function create($newData)
     {
         $newData['id'] = $this->generateId();
-        $this->data[] = $newData;
+        $this->data[]  = $newData;
         $this->save();
+
         return $this->find($newData['id']);
     }
 
     public function model($id)
     {
         $data = $this->find($id);
+
         if ($data) {
             return new RegistroModel($data, $this);
         }
+
         return null;
     }
 
@@ -96,6 +107,7 @@ class RegistroJson
             if ($item['id'] == $id) {
                 $this->data[$key] = array_merge($item, $updatedData);
                 $this->save();
+
                 break;
             }
         }
@@ -104,7 +116,7 @@ class RegistroJson
     public function where($field, $operator, $value = null)
     {
         if (func_num_args() == 2) {
-            $value = $operator;
+            $value    = $operator;
             $operator = '=';
         }
 
@@ -136,6 +148,7 @@ class RegistroJson
     public function first()
     {
         $record = reset($this->data);
+
         return $record ? $this->model($record['id']) : null;
     }
 
@@ -176,32 +189,34 @@ class RegistroJson
 
     public function paginate($perPage = 15)
     {
-        $this->perPage = $perPage;
+        $this->perPage     = $perPage;
         $this->currentPage = 1;
+
         return $this;
     }
 
     public function page($page)
     {
         $this->currentPage = $page;
+
         return $this;
     }
 
     public function paginateData()
     {
         $start = ($this->currentPage - 1) * $this->perPage;
+
         return array_slice($this->data, $start, $this->perPage);
     }
-
-
-
 
     public function get()
     {
         $models = [];
+
         foreach ($this->data as $record) {
             $models[] = $this->model($record['id']);
         }
+
         return $models;
     }
 
@@ -212,7 +227,7 @@ class RegistroJson
         }
 
         $totalPages = ceil(count($this->data) / $this->perPage);
-        $links = [];
+        $links      = [];
 
         for ($i = 1; $i <= $totalPages; $i++) {
             $links[] = "Página {$i}";
@@ -225,29 +240,31 @@ class RegistroJson
     {
         return time();
     }
-
 }
 
 class RegistroModel
 {
     protected $data;
+
     protected $parent;
 
     public function __construct($data, RegistroJson $parent)
     {
-        $this->data = $data;
+        $this->data   = $data;
         $this->parent = $parent;
     }
 
     public function update($updatedData)
     {
         $this->data = array_merge($this->data, $updatedData);
+
         return $this;
     }
 
     public function save()
     {
         $this->parent->update($this->data['id'], $this->data);
+
         return $this;
     }
 

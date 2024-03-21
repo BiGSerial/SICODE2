@@ -4,14 +4,11 @@ namespace App\Exports;
 
 use App\Models\Edp_depc\City;
 use Illuminate\Contracts\View\View;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithEvents, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class ProductionControlExport implements FromView, WithProperties, WithEvents
+class ProductionControlExport implements FromView, WithEvents, WithProperties
 {
     use Exportable;
 
@@ -21,7 +18,6 @@ class ProductionControlExport implements FromView, WithProperties, WithEvents
     {
         $this->data = $data;
     }
-
 
     // public function getData()
     // {
@@ -48,11 +44,11 @@ class ProductionControlExport implements FromView, WithProperties, WithEvents
                 // Define o estilo para a primeira linha
                 $event->sheet->getStyle('A1:P1')->applyFromArray([
                     'font' => [
-                        'bold' => true,
+                        'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
                     ],
                     'fill' => [
-                        'fillType' => Fill::FILL_SOLID,
+                        'fillType'   => Fill::FILL_SOLID,
                         'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
                     ],
                 ]);
@@ -66,8 +62,8 @@ class ProductionControlExport implements FromView, WithProperties, WithEvents
     {
 
         return view('exports.productionsControl', [
-            'lists' => $this->data,
-            'cities' => City::get()
+            'lists'  => $this->data,
+            'cities' => City::get(),
         ]);
     }
 }

@@ -34,5 +34,4 @@ class AddressCad extends Model
     {
         return $this->belongsTo(Production::class);
     }
-
 }

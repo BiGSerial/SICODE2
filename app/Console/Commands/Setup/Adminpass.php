@@ -11,11 +11,14 @@ use function Laravel\Prompts\select;
 class Adminpass extends Command
 {
     protected $adminEmail;
-    protected $adminInfo;
-    protected $adminName;
-    protected $adminPassword;
-    protected $adminRePassword;
 
+    protected $adminInfo;
+
+    protected $adminName;
+
+    protected $adminPassword;
+
+    protected $adminRePassword;
 
     /**
      * The name and signature of the console command.
@@ -75,9 +78,10 @@ class Adminpass extends Command
 
         $this->adminInfo = User::Where('superadm', true)->first();
 
-        if(!$this->adminInfo) {
+        if (!$this->adminInfo) {
             $this->comment('No has Admin user!');
             $this->info('Run: app:init');
+
             return;
         }
         // Etapa 2: Criação do usuário administrador
@@ -100,7 +104,7 @@ class Adminpass extends Command
                     'A' => 'Change Name',
                     'E' => 'Change Email',
                     'P' => 'Change Password',
-                    'X' => 'Exit'
+                    'X' => 'Exit',
                 ],
                 default: 'A'
             );
@@ -110,16 +114,10 @@ class Adminpass extends Command
             }
         }
 
-
-
-
-
-
         $this->line('');
 
         // Etapa 3: Outras configurações iniciais...
         // Adicione aqui outras etapas iniciais, se necessário.
-
 
         $this->info('Setup completed successfully!');
     }
@@ -131,9 +129,11 @@ class Adminpass extends Command
 
             if ($this->adminName) {
                 $this->adminInfo->name = $this->adminName;
-                if($this->adminInfo->save()) {
+
+                if ($this->adminInfo->save()) {
                     $this->info('Name has changed with success.');
                     $this->line('');
+
                     return true;
                 }
             }
@@ -144,33 +144,36 @@ class Adminpass extends Command
 
             if ($this->adminName) {
                 $this->adminInfo->email = $this->adminEmail;
-                if($this->adminInfo->save()) {
+
+                if ($this->adminInfo->save()) {
                     $this->info('Email has changed with success.');
                     $this->line('');
+
                     return true;
                 }
             }
         }
 
         if ($sel == 'P') {
-            $this->adminPassword = $this->secret('Enter New Admin Password:');
+            $this->adminPassword   = $this->secret('Enter New Admin Password:');
             $this->adminRePassword = $this->secret('Re-Enter admin password:');
 
             if ($this->adminPassword === $this->adminPassword) {
                 $this->adminInfo->password = Hash::make($this->adminPassword);
-                if($this->adminInfo->save()) {
+
+                if ($this->adminInfo->save()) {
                     $this->info('Password has changed with success.');
                     $this->line('');
+
                     return true;
                 }
             } else {
                 $this->line('');
                 $this->comment("Passwords doesn't match!");
+
                 return true;
             }
         }
 
-
     }
-
 }

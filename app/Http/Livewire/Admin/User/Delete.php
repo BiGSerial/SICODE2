@@ -9,11 +9,10 @@ class Delete extends Component
 {
     public $delete;
 
-
     protected $listeners = [
-        'delete_user' => 'to_delete',
-        'confirm_user_delete' => 'delete',
-        'undelete_user' => 'to_undelete',
+        'delete_user'           => 'to_delete',
+        'confirm_user_delete'   => 'delete',
+        'undelete_user'         => 'to_undelete',
         'confirm_user_undelete' => 'undelete',
     ];
 
@@ -26,16 +25,16 @@ class Delete extends Component
     {
         $this->delete = $user_id;
 
-        if($this->delete) {
+        if ($this->delete) {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Deletar Usuário',
-                'msg' => "Você deseja remover <strong>{$this->delete->name}</strong>?",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, delete!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_user_delete",
+                'title'         => 'Deletar Usuário',
+                'msg'           => "Você deseja remover <strong>{$this->delete->name}</strong>?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, delete!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_user_delete',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
             ]);
         }
@@ -45,16 +44,16 @@ class Delete extends Component
     {
         $this->delete = User::withTrashed()->find($user_id);
 
-        if($this->delete) {
+        if ($this->delete) {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Restaurar Usuário',
-                'msg' => "Você deseja Restaurar <strong>{$this->delete->name}</strong>?",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, restaure!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_user_undelete",
+                'title'         => 'Restaurar Usuário',
+                'msg'           => "Você deseja Restaurar <strong>{$this->delete->name}</strong>?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, restaure!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_user_undelete',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
             ]);
         }
@@ -62,42 +61,42 @@ class Delete extends Component
 
     public function delete()
     {
-        if($this->delete->delete()) {
+        if ($this->delete->delete()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Usuário removido com sucesso',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Usuário removido com sucesso',
+                'timer'    => 2500,
             ]);
 
             $this->emit('refresh_table_user');
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Ooops! Ocorreu um erro ao remover o usuário.',
-                'timer' => 2500,
+                'icon'     => 'error',
+                'title'    => 'Ooops! Ocorreu um erro ao remover o usuário.',
+                'timer'    => 2500,
             ]);
         }
     }
 
     public function undelete()
     {
-        if($this->delete->restore()) {
+        if ($this->delete->restore()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Usuário restaurado com sucesso',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Usuário restaurado com sucesso',
+                'timer'    => 2500,
             ]);
 
             $this->emit('refresh_table_user');
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Ooops! Ocorreu um erro ao restaurar o usuário.',
-                'timer' => 2500,
+                'icon'     => 'error',
+                'title'    => 'Ooops! Ocorreu um erro ao restaurar o usuário.',
+                'timer'    => 2500,
             ]);
         }
     }

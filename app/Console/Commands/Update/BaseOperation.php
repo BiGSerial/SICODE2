@@ -2,10 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
-use App\Models\Edp_depc\BaseOperation as Edp_depcBaseOperation;
-use App\Models\Edp_depc\BaseOrder;
-use App\Models\Edp_depc\City;
-use App\Models\Operation;
+use App\Models\Edp_depc\{BaseOperation as Edp_depcBaseOperation, City};
 use App\Models\Order;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
@@ -32,7 +29,7 @@ class BaseOperation extends Command
     public function handle()
     {
         $totalRecords = Edp_depcBaseOperation::where('operacao', '0010')->count();
-        $cities = City::get();
+        $cities       = City::get();
 
         $progressBar = new ProgressBar($this->output, $totalRecords, 0.2);
 
@@ -46,15 +43,15 @@ class BaseOperation extends Command
 
         $chunkSize = 5000;
 
-        $count['upd'] = 0;
-        $count['ctd'] = 0;
+        $count['upd']   = 0;
+        $count['ctd']   = 0;
         $count['tloop'] = round($totalRecords / $chunkSize, 0);
         $count['cloop'] = 0;
-        $count['nf'] = 0;
+        $count['nf']    = 0;
 
-        Edp_depcBaseOperation::where('operacao', '0010')->chunk($chunkSize, function ($origins) use (&$progressBar, &$count, $cities) {
+        Edp_depcBaseOperation::where('operacao', '0010')->chunk($chunkSize, function ($origins) use (&$progressBar, &$count) {
             $originOrders = $origins->pluck('ordem')->unique();
-            $orders = Order::whereIn('ordem', $originOrders)->get();
+            $orders       = Order::whereIn('ordem', $originOrders)->get();
 
             if (count($originOrders) > $orders->count()) {
                 $this->info('<bg=yellow;fg=black> INFO </> <fg=white;options=bold> DESTINY`s BASE HAVE NOTES/OV NOT FOUNDED...</>');
@@ -96,18 +93,18 @@ class BaseOperation extends Command
 
                 if ($order) {
                     $operation = $order->Operations()->updateOrCreate(
-                        [ 'operacao' => $origin->operacao],
+                        ['operacao' => $origin->operacao],
                         [
-                            'descOperacao' => $origin->descOperacao,
+                            'descOperacao'    => $origin->descOperacao,
                             'inicioPlanejado' => $origin->inicioPlanejado,
-                            'fimPlanejado' => $origin->fimPlanejado,
-                            'inicioReal' => $origin->inicioReal,
-                            'fimReal' => $origin->fimReal,
-                            'status' => $origin->status,
-                            'notaOv' => $origin->notaOv,
-                            'cenPlan' => $origin->cenPlan,
-                            'cenTrab' => $origin->cenTrab,
-                            'txtCenTrab' => $origin->txtCenTrab,
+                            'fimPlanejado'    => $origin->fimPlanejado,
+                            'inicioReal'      => $origin->inicioReal,
+                            'fimReal'         => $origin->fimReal,
+                            'status'          => $origin->status,
+                            'notaOv'          => $origin->notaOv,
+                            'cenPlan'         => $origin->cenPlan,
+                            'cenTrab'         => $origin->cenTrab,
+                            'txtCenTrab'      => $origin->txtCenTrab,
                         ]
                     );
 

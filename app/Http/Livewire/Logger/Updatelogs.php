@@ -11,12 +11,10 @@ class Updatelogs extends Component
     {
         $json = new RegistroJson(base_path('registroUpdate.json'));
 
-
         return $json->orderBy('date', 'DESC')
-                ->get();
+            ->get();
 
     }
-
 
     public function render()
     {
@@ -24,6 +22,4 @@ class Updatelogs extends Component
             'lists' => $this->lists,
         ]);
     }
-
-
 }

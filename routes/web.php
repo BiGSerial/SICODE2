@@ -1,18 +1,8 @@
 <?php
 
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\Config\Config;
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\Construction;
-use App\Http\Controllers\ConstructionController;
-use App\Http\Controllers\DispatchController;
-use App\Http\Controllers\MonitorController;
-use App\Http\Controllers\PartnerController;
-use App\Http\Controllers\ReportsController;
-use App\Http\Controllers\ServicesController;
-use App\Http\Controllers\TesteController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\{AdminController, ConstructionController, DispatchController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
+use Illuminate\Support\Facades\{Auth, Route};
 
 /*
 |--------------------------------------------------------------------------

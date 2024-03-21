@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Exports\Notesreport;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 

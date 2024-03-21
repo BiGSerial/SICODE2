@@ -48,20 +48,18 @@ class AuditObserver
         $this->logChanges('force_deleted', $model);
     }
 
-
     protected function logChanges($action, Model $model)
     {
         $originalData = $model->getOriginal();
-        $currentData = $model->getAttributes();
-
+        $currentData  = $model->getAttributes();
 
         if (Auth::check()) {
             Audit::create([
-                'user_id' => auth()->id(),
+                'user_id'     => auth()->id(),
                 'model_class' => get_class($model),
-                'action' => $action,
-                'before' => json_encode($originalData),
-                'after' => json_encode($currentData),
+                'action'      => $action,
+                'before'      => json_encode($originalData),
+                'after'       => json_encode($currentData),
             ]);
         }
 

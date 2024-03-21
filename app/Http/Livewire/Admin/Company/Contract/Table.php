@@ -3,18 +3,20 @@
 namespace App\Http\Livewire\Admin\Company\Contract;
 
 use App\Models\Contract;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class Table extends Component
 {
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
     public $users;
+
     public $perPage = 50;
 
     public $contract_id;
+
     public $search;
 
     protected $listeners = [
@@ -32,17 +34,17 @@ class Table extends Component
     public function getContractsProperty()
     {
         return Contract::when($this->search, function ($q, $s) {
-            return $q->where('number', 'like', '%'.$s.'%');
+            return $q->where('number', 'like', '%' . $s . '%');
         })
-        ->with('Company')
-        ->orderBy('number')
-        ->paginate($this->perPage);
+            ->with('Company')
+            ->orderBy('number')
+            ->paginate($this->perPage);
     }
 
     public function render()
     {
         return view('livewire.admin.company.contract.table', [
-            'contracts_l' => $this->contracts
+            'contracts_l' => $this->contracts,
         ]);
     }
 }

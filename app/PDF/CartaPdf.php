@@ -34,7 +34,7 @@ class CartaPdf extends TCPDF
         $this->Ln(1);
         $this->SetFont('helvetica', '', 8);
         // Adicione o texto "Gerado via SICODE V." à esquerda
-        $this->Cell(0, 2, 'Gerado via SICODE v.'.$version->appver, 0, 0, 'L');
+        $this->Cell(0, 2, 'Gerado via SICODE v.' . $version->appver, 0, 0, 'L');
     }
 
     public function AddSignatureBlock($posx, $posy)
@@ -43,7 +43,7 @@ class CartaPdf extends TCPDF
         $imagePath = public_path('img/edp-img/assinatura_joao.png');
 
         // Posição e dimensões do bloco de assinatura
-        $width = ''; // Ajuste a largura conforme necessário
+        $width  = ''; // Ajuste a largura conforme necessário
         $height = 20;
 
         $x = $posx;
@@ -60,5 +60,4 @@ class CartaPdf extends TCPDF
         $this->Ln(); // Quebra de linha
         $this->Cell($width, 5, 'Gestor Operacional', 0, 0, 'L');
     }
-
 }

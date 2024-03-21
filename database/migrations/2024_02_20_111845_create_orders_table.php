@@ -22,8 +22,8 @@ return new class () extends Migration {
             $table->string('statusUser')->nullable();
             $table->string('cenTrab')->nullable();
             $table->string('gpm')->nullable();
-            $table->decimal('custPlanejado', 15,2)->nullable();
-            $table->decimal('custRealizado',15,2)->nullable();
+            $table->decimal('custPlanejado', 15, 2)->nullable();
+            $table->decimal('custRealizado', 15, 2)->nullable();
             $table->string('modifPor')->nullable();
             $table->string('pep')->nullable();
             $table->string('conjunto')->nullable();

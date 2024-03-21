@@ -2,72 +2,102 @@
 
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
-use App\Models\Analise as ModelsAnalise;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
+use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class Analise extends Component
 {
     public $view_form = false; // Ou o valor inicial que desejar
+
     public $ninst;
+
     public $nmedidor;
+
     public $patrimonio;
+
     public $lat;
+
     public $lon;
+
     public $carga_ini;
+
     public $carga_fim;
+
     public $queda;
+
     public $queda_max;
+
     public $queda_cliente;
+
     public $vao;
+
     public $restriction;
+
     public $motivo;
+
     public $conclusion;
+
     public $info;
+
     public $info_save;
+
     public $carta;
+
     public $card;
+
     public $alimentador;
+
     public $comprador;
+
     public $matricula;
+
     public $area;
+
     public $endereco;
+
     public $documento;
 
     public $count = 0;
+
     public $municipio;
+
     public $reserva;
+
     public $service_type;
 
     public $limit_pause = 5000;
+
     public $production;
+
     public $note;
 
     public $analise;
 
     public $postes;
+
     public $postes_c;
+
     public $odi;
+
     public $odd;
+
     public $ods;
+
     public $cadastro;
+
     public $iproject;
+
     public $eo;
+
     public $preresult;
-
-
 
     protected $listeners = [
         'open_analise_draw' => 'openAnalise',
-        'analise_clean' => 'clean',
-        'confirm_goFinish' => 'goFinish'
+        'analise_clean'     => 'clean',
+        'confirm_goFinish'  => 'goFinish',
 
     ];
-
 
     public function openAnalise($data)
     {
@@ -75,31 +105,27 @@ class Analise extends Component
         $this->clean_form();
 
         $productionId = $data['productionId'];
-        $noteId = $data['noteId'];
+        $noteId       = $data['noteId'];
 
         $this->production = Production::find($productionId);
-        $this->note = Note::find($noteId);
-
-
+        $this->note       = Note::find($noteId);
 
         // Verficando a existencia de uma analise ja atriobuida para esta produção
         $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
 
-
-
-        if($this->analise) {
+        if ($this->analise) {
 
             $this->conclusion = $this->analise->conclusion;
-            $this->info = $this->analise->info;
-            $this->postes = $this->production->postes_u ? $this->production->postes_u : "";
-            $this->odi = $this->production->odi;
-            $this->odd = $this->production->odd;
-            $this->ods = $this->production->ods;
-            $this->cadastro = $this->production->cadastro;
-            $this->iproject = $this->production->iproject;
-            $this->eo = $this->production->eo;
-            $this->postes_c = $this->production->postes_c;
-            $this->preresult = $this->analise->preresult;
+            $this->info       = $this->analise->info;
+            $this->postes     = $this->production->postes_u ? $this->production->postes_u : '';
+            $this->odi        = $this->production->odi;
+            $this->odd        = $this->production->odd;
+            $this->ods        = $this->production->ods;
+            $this->cadastro   = $this->production->cadastro;
+            $this->iproject   = $this->production->iproject;
+            $this->eo         = $this->production->eo;
+            $this->postes_c   = $this->production->postes_c;
+            $this->preresult  = $this->analise->preresult;
 
         } else {
             $this->clean_form();
@@ -115,7 +141,7 @@ class Analise extends Component
             if ($this->production->status === 4) {
                 $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
-                if($hist) {
+                if ($hist) {
                     $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
                     $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
                 }
@@ -123,25 +149,23 @@ class Analise extends Component
             }
             // Coloca nota em andamento
             $update = $this->production->update([
-                    'status' => 3,
-                    'stopped' => $this->production->stopped + $time,
-                    ]);
+                'status'  => 3,
+                'stopped' => $this->production->stopped + $time,
+            ]);
 
-            if($update && $this->production->status !== 3) {
+            if ($update && $this->production->status !== 3) {
                 // Registra Movimento Nota
                 $user = Auth()->User()->name;
 
                 Notetimeline::Create([
-                    'note_id' => $this->note->id,
-                    'service_id' => $this->production->service_id,
-                    'user_id' => Auth()->User()->id,
-                    'info' => "Usuário {$user} iniciou a Nota/OV.",
-                    'status' => 3,
+                    'note_id'      => $this->note->id,
+                    'service_id'   => $this->production->service_id,
+                    'user_id'      => Auth()->User()->id,
+                    'info'         => "Usuário {$user} iniciou a Nota/OV.",
+                    'status'       => 3,
                     'productionId' => $this->production->id,
                 ]);
             }
-
-
 
             $this->view_form = true;
         }
@@ -211,51 +235,57 @@ class Analise extends Component
 
         if ($this->preresult !== 'NORMAL' && $this->preresult !== 'REVALIDACAO') {
             $this->iproject = $this->eo = $this->cadastro = false;
-            $this->postes = 1;
-            $this->odi = '';
-            $this->odd = '';
-            $this->ods = '';
+            $this->postes   = 1;
+            $this->odi      = '';
+            $this->odd      = '';
+            $this->ods      = '';
         }
 
         if ($this->conclusion === 'ARQUIVADO' || $this->conclusion === 'RETORNADO LEVANTAMENTO') {
             $this->iproject = $this->eo = $this->cadastro = false;
-            $this->postes = '';
-            $this->odi = '';
-            $this->odd = '';
-            $this->ods = '';
+            $this->postes   = '';
+            $this->odi      = '';
+            $this->odd      = '';
+            $this->ods      = '';
         }
 
+        $this->info = '';
 
-        $this->info = "";
+        if (trim($this->odi) != '') {
+            $this->info .= 'ODI/DR - ' . $this->odi . "\n";
+        }
 
-        if (trim($this->odi) != "") {
-            $this->info .= "ODI/DR - ".$this->odi."\n";
+        if (trim($this->odi) != '') {
+            $this->info .= 'ODD/PEP - ' . $this->odd . "\n";
         }
-        if (trim($this->odi) != "") {
-            $this->info .= "ODD/PEP - ".$this->odd."\n";
+
+        if (trim($this->odi) != '') {
+            $this->info .= 'ODS - ' . $this->ods . "\n";
         }
-        if (trim($this->odi) != "") {
-            $this->info .= "ODS - ".$this->ods."\n";
+
+        if (trim($this->postes) != '') {
+            $this->info .= 'POSTES - ' . $this->postes . "\n";
         }
-        if (trim($this->postes) != "") {
-            $this->info .= "POSTES - ".$this->postes."\n";
-        }
+
         if ($this->eo || $this->iproject || $this->cadastro) {
             $this->info .= "-------------------- \n";
+
             if ($this->eo) {
                 $this->info .= "EO \n";
             }
+
             if ($this->iproject) {
                 $this->info .= "iProject \n";
             }
+
             if ($this->cadastro) {
                 $this->info .= "Acerto Cadastro: \n";
-                $this->info .= "POSTES: ".$this->postes_c."\n";
+                $this->info .= 'POSTES: ' . $this->postes_c . "\n";
             }
         }
         $this->info .= "-------------------- \n";
-        $this->info .= Auth()->User()->Registration. " - " .Auth()->User()->name."\n";
-        $this->info .= date('d/m/Y')."\n";
+        $this->info .= Auth()->User()->Registration . ' - ' . Auth()->User()->name . "\n";
+        $this->info .= date('d/m/Y') . "\n";
 
     }
 
@@ -264,8 +294,8 @@ class Analise extends Component
         $chk = $this->analise->update([
 
             'conclusion' => $this->conclusion,
-            'info' => $this->info,
-            'preresult' => $this->preresult,
+            'info'       => $this->info,
+            'preresult'  => $this->preresult,
         ]);
     }
 
@@ -279,14 +309,14 @@ class Analise extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'LIMITE ATINGIDO',
-                'html' => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
+                'icon'     => 'warning',
+                'title'    => 'LIMITE ATINGIDO',
+                'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
                         adequada. 
                     </p>
-                "
+                ",
             ]);
 
             return;
@@ -295,24 +325,23 @@ class Analise extends Component
         $this->emit('stop_note', ['productionId' => $this->production->id, 'noteId' => $this->production->note_id, 'limit' => $this->limit_pause]);
 
         $this->dispatchBrowserEvent('showModal', [
-            'id' => 'pause_note'
+            'id' => 'pause_note',
         ]);
     }
-
 
     public function to_finish(Production $production)
     {
         $this->save_info();
         $this->production = $production;
-        $this->note = Note::find($this->production->note_id);
+        $this->note       = Note::find($this->production->note_id);
 
-        if ($this->postes == "") {
+        if ($this->postes == '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'QUANTIDADE DE POSTES',
-                'html' => "Você não informou a quantidade de postes levantados.
-                "
+                'icon'     => 'warning',
+                'title'    => 'QUANTIDADE DE POSTES',
+                'html'     => 'Você não informou a quantidade de postes levantados.
+                ',
             ]);
 
             return;
@@ -321,18 +350,18 @@ class Analise extends Component
         if (!$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'CONCLUSÃO NÃO DEFINIDA',
-                'html' => "Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
-                "
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO NÃO DEFINIDA',
+                'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
+                ',
             ]);
 
             return;
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'ENCERRAMENTO DE SERVIÇO',
-            'msg' => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
+            'title' => 'ENCERRAMENTO DE SERVIÇO',
+            'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
@@ -341,12 +370,12 @@ class Analise extends Component
                     </div>
                 </div>
             ",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Continue!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_goFinish",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Continue!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_goFinish',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Ação Cancelada.',
+            'cancel_msg'    => 'Ação Cancelada.',
 
         ]);
     }
@@ -354,32 +383,32 @@ class Analise extends Component
     public function goFinish()
     {
         $chk = $this->production->update([
-            'status' => 5,
+            'status'       => 5,
             'completed_at' => date('Y-m-d H:i:s'),
-            'postes_p' => (int)$this->postes,
-            'odi' => $this->odi ? trim($this->odi) : null,
-            'odd' => $this->odd ? trim($this->odd) : null,
-            'ods' => $this->ods ? trim($this->ods) : null,
-            'postes_u' => $this->postes ? (int)$this->postes : 0,
-            'cadastro' => $this->cadastro ? true : false,
-            'iproject' => $this->iproject ? true : false,
-            'eo' => $this->eo ? true : false,
-            'postes_c' => $this->postes_c ? (int)$this->postes_c : 0,
-            'completed' => true,
-            'confirmed' => false,
-            'priority' => false,
-            'status_note' => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
+            'postes_p'     => (int) $this->postes,
+            'odi'          => $this->odi ? trim($this->odi) : null,
+            'odd'          => $this->odd ? trim($this->odd) : null,
+            'ods'          => $this->ods ? trim($this->ods) : null,
+            'postes_u'     => $this->postes ? (int) $this->postes : 0,
+            'cadastro'     => $this->cadastro ? true : false,
+            'iproject'     => $this->iproject ? true : false,
+            'eo'           => $this->eo ? true : false,
+            'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
+            'completed'    => true,
+            'confirmed'    => false,
+            'priority'     => false,
+            'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
         ]);
 
-        if($chk) {
+        if ($chk) {
             $user = Auth()->User()->name;
 
             Notetimeline::Create([
-                'note_id' => $this->note->id,
+                'note_id'    => $this->note->id,
                 'service_id' => $this->production->service_id,
-                'user_id' => Auth()->User()->id,
-                'info' => "Usuário {$user} encerrou a Nota/OV.",
-                'status' => 5
+                'user_id'    => Auth()->User()->id,
+                'info'       => "Usuário {$user} encerrou a Nota/OV.",
+                'status'     => 5,
             ]);
 
             $this->clean();
@@ -388,55 +417,50 @@ class Analise extends Component
         }
     }
 
-
-
-
-
     public function clean()
     {
-        $this->production = null;
-        $this->note = null;
-        $this->motivo = null;
-        $this->info = null;
+        $this->production  = null;
+        $this->note        = null;
+        $this->motivo      = null;
+        $this->info        = null;
         $this->restriction = null;
-        $this->card = null;
-        $this->view_form = false;
-        $this->postes = "";
-
+        $this->card        = null;
+        $this->view_form   = false;
+        $this->postes      = '';
 
     }
 
     public function clean_form()
     {
-        $this->ninst = "";
-        $this->nmedidor = "";
-        $this->patrimonio = "";
-        $this->lat = "";
-        $this->lon = "";
-        $this->carga_ini = "";
-        $this->carga_fim = "";
-        $this->queda = "";
-        $this->queda_max = "";
-        $this->queda_cliente = "";
-        $this->vao = "";
-        $this->restriction = "";
-        $this->motivo = "";
-        $this->conclusion = "";
-        $this->info = "";
-        $this->card = "";
-        $this->alimentador = "";
-        $this->comprador = "";
-        $this->matricula = "";
-        $this->area = "";
-        $this->endereco = "";
-        $this->postes = "";
-        $this->postes_c = '';
-        $this->odi = '';
-        $this->odd = '';
-        $this->ods = '';
-        $this->cadastro = false;
-        $this->iproject = false;
-        $this->eo = false;
+        $this->ninst         = '';
+        $this->nmedidor      = '';
+        $this->patrimonio    = '';
+        $this->lat           = '';
+        $this->lon           = '';
+        $this->carga_ini     = '';
+        $this->carga_fim     = '';
+        $this->queda         = '';
+        $this->queda_max     = '';
+        $this->queda_cliente = '';
+        $this->vao           = '';
+        $this->restriction   = '';
+        $this->motivo        = '';
+        $this->conclusion    = '';
+        $this->info          = '';
+        $this->card          = '';
+        $this->alimentador   = '';
+        $this->comprador     = '';
+        $this->matricula     = '';
+        $this->area          = '';
+        $this->endereco      = '';
+        $this->postes        = '';
+        $this->postes_c      = '';
+        $this->odi           = '';
+        $this->odd           = '';
+        $this->ods           = '';
+        $this->cadastro      = false;
+        $this->iproject      = false;
+        $this->eo            = false;
 
     }
 

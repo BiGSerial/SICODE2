@@ -4,11 +4,9 @@ namespace App\Console\Commands\Setup;
 
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\{Hash, Schema};
 
-use function Laravel\Prompts\password;
-use function Laravel\Prompts\text;
+use function Laravel\Prompts\{password, text};
 
 class init extends Command
 {
@@ -129,6 +127,7 @@ class init extends Command
 
             if ($error >= 3) {
                 $this->info('Exceded Password Attempt, run app:init again.');
+
                 return;
             }
         }
@@ -139,21 +138,21 @@ class init extends Command
         // Etapa 3: Outras configurações iniciais...
         // Adicione aqui outras etapas iniciais, se necessário.
 
-
         $this->info('Setup completed successfully!');
     }
 
     private function createAdminUser($email, $name, $password)
     {
-        if(!(User::where('superadm', true)->first())) {
+        if (!(User::where('superadm', true)->first())) {
             return User::create([
-                'email' => $email,
-                'name' => $name,
+                'email'    => $email,
+                'name'     => $name,
                 'password' => Hash::make($password),
-                'superadm' => true
+                'superadm' => true,
             ]);
         } else {
             $this->comment('An Administrator already exists, run: app:admin_pass to change the password.');
+
             return true;
         }
     }

@@ -28,16 +28,16 @@ class FormObserver
 
         // Criar um novo array apenas com os campos desejados
         $historicData = [
-            'id' => $original['id'],
+            'id'           => $original['id'],
             'viability_id' => $original['viability_id'],
-            'user_id' => $original['user_id'],
-            'description' => $original['description'],
-            'changes' => $original['changes'],
-            'responsible' => $original['responsible'],
-            'rejected' => $original['rejected'],
-            'approved' => $original['approved'],
-            'created_at' => $original['created_at'],
-            'updated_at' => $original['updated_at'],
+            'user_id'      => $original['user_id'],
+            'description'  => $original['description'],
+            'changes'      => $original['changes'],
+            'responsible'  => $original['responsible'],
+            'rejected'     => $original['rejected'],
+            'approved'     => $original['approved'],
+            'created_at'   => $original['created_at'],
+            'updated_at'   => $original['updated_at'],
         ];
 
         $historic = json_decode($form->historic, true) ?? [];
@@ -46,8 +46,8 @@ class FormObserver
             // Remover o registro mais antigo (primeiro registro)
             array_shift($historic);
         }
-        
-        $historic[] = $historicData;
+
+        $historic[]     = $historicData;
         $form->historic = json_encode($historic);
     }
 

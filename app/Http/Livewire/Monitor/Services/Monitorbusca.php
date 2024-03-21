@@ -8,6 +8,7 @@ use Livewire\Component;
 class Monitorbusca extends Component
 {
     public $user_s;
+
     public $service_s;
 
     public $company_s;
@@ -19,24 +20,24 @@ class Monitorbusca extends Component
         }
 
         return Production::whereNotNull('user_id')
-                ->when($this->company_s, function ($q) {
-                    return $q->where('company_id', $this->company_s);
-                })
-                ->with('User')
-                ->select('user_id')
-                ->groupBy('user_id');
+            ->when($this->company_s, function ($q) {
+                return $q->where('company_id', $this->company_s);
+            })
+            ->with('User')
+            ->select('user_id')
+            ->groupBy('user_id');
     }
 
     public function getCompanyProperty()
     {
         return Production::select('company_id')
-        ->groupBy('company_id');
+            ->groupBy('company_id');
     }
 
     public function getServicesProperty()
     {
         return Production::select('service_id')
-        ->groupBy('service_id');
+            ->groupBy('service_id');
     }
 
     public function Search()
@@ -51,8 +52,8 @@ class Monitorbusca extends Component
     {
         return view('livewire.monitor.services.monitorbusca', [
             'company_l' => $this->company->with('Company')->get(),
-            'user_l' => $this->users->get(),
-            'service_l' => $this->services->with('Service')->get()
+            'user_l'    => $this->users->get(),
+            'service_l' => $this->services->with('Service')->get(),
         ]);
     }
 }

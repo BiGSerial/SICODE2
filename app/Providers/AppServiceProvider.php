@@ -2,10 +2,8 @@
 
 namespace App\Providers;
 
-use App\Models\Form;
-use App\Models\Production;
-use App\Observers\AuditObserver;
-use App\Observers\FormObserver;
+use App\Models\{Form, Production};
+use App\Observers\{AuditObserver, FormObserver};
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider

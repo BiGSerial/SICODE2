@@ -7,9 +7,13 @@ use Livewire\Component;
 class Line extends Component
 {
     public $datas = '';
+
     public $labels = '';
+
     public $title = '';
+
     public $Chartid = '';
+
     public $label = '';
 
     public function render()

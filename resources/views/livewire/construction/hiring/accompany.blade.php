@@ -203,8 +203,8 @@
                         </h4>
                     </div>
                     <div class="col-3 d-flex justify-content-end">
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'><i
-                                class="ri-checkbox-multiple-fill align-middle"></i> Atribuir</button>
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_to_hiring'><i
+                                class="ri-checkbox-multiple-fill align-middle"></i> Contratar</button>
                         <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
                         <button class="btn btn-sm btn-primary me-2" wire:click.prevent='downloadZip'><i
@@ -357,6 +357,77 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    {{-- Modal para Contratação de Obras --}}
+    <div wire:ignore.self class="modal fade" id="hiring_jobs" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog modal-lg">
+
+            <div class="modal-content edp-bg-stategrey-50">
+
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    <h4 class="fw-bold">
+                        CONTRATAÇÃO DE OBRAS
+                    </h4>
+                </div>
+
+                <div class="modal-body">
+                    <div class="table-responsible">
+                        <table class="table table-sm table-striped">
+                            <thead class="table-dark">
+                                <th scope="col" class="text-center"><input class="form-check-input"
+                                        type="checkbox" wire:model="selectAllHirings"></th>
+                                <th scope="col">Obra</th>
+                                <th scope="col">Ordens</th>
+                                <th scope="col">Empreiteira</th>
+                            </thead>
+                            <tbody>
+                                <p class="fs-4 fw-bold mb-3">
+                                    Selecione as Obras Aptas a Contratar
+                                </p>
+
+                                <p class="fs-5 text-bg-danger mb-3 p-2">
+                                    A Contratação de obras aqui no SICODE é apenas para sumarizão de processos.
+                                    Espera-se que tenhas feito todos os procedimentos necessários
+                                    no SAP desta atividade antes de 'CONTRATAR', encerrar atividade, no SICODE.
+                                </p>
+                                @if ($hirings && $hirings->count())
+                                    @foreach ($hirings as $hiring)
+                                        <tr>
+                                            <th scope="row" class="text-center align-middle"><input
+                                                    class="form-check-input border border-1 border-secondary "
+                                                    type="checkbox" wire:model="selectedHiring"></th>
+                                            <td class="fw-bold align-middle">{{ $hiring->note }}</td>
+                                            <td class="align-middle">
+                                                @if ($hiring->Viabilities->count())
+                                                    @foreach ($hiring->Viabilities as $viab)
+                                                        <p class="my-0 py-0">{{ $viab->Order->ordem }}</p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                            <td class="align-middle">
+                                                <p class="my-0 py-0">{{ $hiring->Viabilities->last()->Company->name }}
+                                                </p>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="modal-footer edp-bg-sprucegreen-70">
+                    <button type="button" class="btn btn-danger" wire:click="">CANCELAR</button>
+                    <button type="button" class="btn btn-primary" wire:click="">CONTRATAR</button>
                 </div>
             </div>
 

@@ -11,7 +11,7 @@ class ServicesController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        return view('services.'.$service->folder.'.main', [
+        return view('services.' . $service->folder . '.main', [
             'service' => $service,
         ]);
     }
@@ -20,8 +20,7 @@ class ServicesController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-
-        return view('services.'.$service->folder.'.accompany', [
+        return view('services.' . $service->folder . '.accompany', [
             'service' => $service,
         ]);
     }
@@ -30,7 +29,7 @@ class ServicesController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        return view('services.'.$service->folder.'.historic', [
+        return view('services.' . $service->folder . '.historic', [
             'service' => $service,
         ]);
     }

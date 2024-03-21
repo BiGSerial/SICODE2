@@ -4,16 +4,15 @@ namespace App\Exports;
 
 use App\Models\Note;
 use Illuminate\Contracts\View\View;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Concerns\{Exportable, FromView};
 
 class ExportDDExcel implements FromView
 {
     use Exportable;
 
     public $exports;
-    public $service;
 
+    public $service;
 
     public function exportDD($notes, $service)
     {
@@ -27,7 +26,7 @@ class ExportDDExcel implements FromView
     {
         return view('exports.exportdd', [
             'exports' => $this->exports,
-            'service' => $this->service
+            'service' => $this->service,
         ]);
     }
 }

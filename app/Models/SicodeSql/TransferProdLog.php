@@ -26,6 +26,6 @@ class TransferProdLog extends Model
         'company_to',
         'info',
         'status',
-        'note_status'
+        'note_status',
     ];
 }

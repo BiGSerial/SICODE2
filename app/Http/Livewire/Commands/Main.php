@@ -8,6 +8,7 @@ use Livewire\Component;
 class Main extends Component
 {
     public $output = [];
+
     public $command;
 
     public function executeCommand()
@@ -17,9 +18,6 @@ class Main extends Component
         $this->output = Artisan::call($this->command);
         // dd(Artisan::output());
         $this->output = explode("\n", Artisan::output());
-
-
-
 
     }
 

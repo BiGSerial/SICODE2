@@ -16,6 +16,4 @@ class Bancoupdate extends Model
         'updates',
         'info',
     ];
-
-
 }

@@ -11,7 +11,7 @@ class Transferlist extends Component
 
     protected $listeners = [
         'refreshServiceList' => '$refresh',
-        'searchUser' => 'selUSer'
+        'searchUser'         => 'selUSer',
     ];
 
     public function selUSer($user)
@@ -24,21 +24,21 @@ class Transferlist extends Component
     public function getTransferProperty()
     {
         return Prodtransfer::whereRelation('Production', 'completed', false)
-                        ->when($this->user_s, function ($q) {
-                            return $q->where(function ($sq) {
-                                return $sq->where('to', $this->user_s)
-                                        ->orWhere('from', $this->user_s);
-                            });
-                        })
-                        ->orderBy('updated_at', 'DESC')
-                        ->with('To', 'From', 'Production.Note')
-                        ->get();
+            ->when($this->user_s, function ($q) {
+                return $q->where(function ($sq) {
+                    return $sq->where('to', $this->user_s)
+                        ->orWhere('from', $this->user_s);
+                });
+            })
+            ->orderBy('updated_at', 'DESC')
+            ->with('To', 'From', 'Production.Note')
+            ->get();
     }
 
     public function render()
     {
         return view('livewire.monitor.transfer.transferlist', [
-            'live_transfer' => $this->transfer
+            'live_transfer' => $this->transfer,
         ]);
     }
 }

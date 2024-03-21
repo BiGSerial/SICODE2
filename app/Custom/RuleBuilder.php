@@ -46,26 +46,25 @@ class RuleBuilder
         $args = false;
 
         $columnName = $rule->column_search;
-        $operator = $rule->exclusion ? 'not like' : 'like';
-        $value = $rule->value;
+        $operator   = $rule->exclusion ? 'not like' : 'like';
+        $value      = $rule->value;
 
         $condition = $rule->condition === 'Exatamente' ? $rule->exclusion ? '!=' : '=' : $operator;
 
         if ($rule->column_search2 && $rule->condition2 && $rule->value2) {
             $columnName2 = $rule->column_search2;
-            $operator2 = $rule->exclusion2 ? 'not like' : 'like';
-            $value2 = $rule->value2;
+            $operator2   = $rule->exclusion2 ? 'not like' : 'like';
+            $value2      = $rule->value2;
 
             $condition2 = $rule->condition2 === 'Exatamente' ? $rule->exclusion2 ? '!=' : '=' : $operator2;
 
             $args = true;
         }
 
-
         switch ($rule->condition) {
             case 'Exatamente':
                 if ($args) {
-                    $query->orWhere(function ($q) use ($query, $columnName, $condition, $value, $columnName2, $condition2, $value2) {
+                    $query->orWhere(function ($q) use ($columnName, $condition, $value, $columnName2, $condition2, $value2) {
                         return $q->Where($columnName, $condition, $value)->Where($columnName2, $condition2, $value2);
                     });
                 } else {
@@ -76,44 +75,48 @@ class RuleBuilder
                     }
 
                 }
+
                 break;
             case 'Termina por':
                 if ($args) {
-                    $query->orWhere(function ($q) use ($query, $columnName, $condition, $value, $columnName2, $condition2, $value2) {
-                        return $q->orWhere($columnName, $condition, "%".$value)->Where($columnName2, $condition2, "%".$value2);
+                    $query->orWhere(function ($q) use ($columnName, $condition, $value, $columnName2, $condition2, $value2) {
+                        return $q->orWhere($columnName, $condition, '%' . $value)->Where($columnName2, $condition2, '%' . $value2);
                     });
                 } else {
 
                     if ($rule->exclusion || ($args && $rule->exclusion2)) {
-                        $query->Where($columnName, $condition, "%".$value);
+                        $query->Where($columnName, $condition, '%' . $value);
                     } else {
-                        $query->orWhere($columnName, $condition, "%".$value);
+                        $query->orWhere($columnName, $condition, '%' . $value);
                     }
                 }
+
                 break;
             case 'Inicia por':
                 if ($args) {
-                    $query->orWhere(function ($q) use ($query, $columnName, $condition, $value, $columnName2, $condition2, $value2) {
-                        return $q->Where($columnName, $condition, $value."%")->Where($columnName2, $condition2, $value2."%");
+                    $query->orWhere(function ($q) use ($columnName, $condition, $value, $columnName2, $condition2, $value2) {
+                        return $q->Where($columnName, $condition, $value . '%')->Where($columnName2, $condition2, $value2 . '%');
                     });
                 } else {
 
-                    $query->orWhere($columnName, $condition, $value."%");
+                    $query->orWhere($columnName, $condition, $value . '%');
                 }
+
                 break;
             case 'Contem':
                 if ($args) {
-                    $query->orWhere(function ($q) use ($query, $columnName, $condition, $value, $columnName2, $condition2, $value2) {
-                        return $q->orWhere($columnName, $condition, "%".$value."%")->Where($columnName2, $condition2, "%".$value2."%");
+                    $query->orWhere(function ($q) use ($columnName, $condition, $value, $columnName2, $condition2, $value2) {
+                        return $q->orWhere($columnName, $condition, '%' . $value . '%')->Where($columnName2, $condition2, '%' . $value2 . '%');
                     });
                 } else {
 
                     if ($rule->exclusion || ($args && $rule->exclusion2)) {
-                        $query->Where($columnName, $condition, "%".$value."%");
+                        $query->Where($columnName, $condition, '%' . $value . '%');
                     } else {
-                        $query->orWhere($columnName, $condition, "%".$value."%");
+                        $query->orWhere($columnName, $condition, '%' . $value . '%');
                     }
                 }
+
                 break;
         }
 

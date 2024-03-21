@@ -2,10 +2,8 @@
 
 namespace App\Http\Livewire\Components\Manualnote;
 
-use App\Models\Manualnote;
-use App\Models\Service;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{Manualnote, Service};
+use Livewire\{Component, WithPagination};
 
 class Waitinglist extends Component
 {
@@ -14,11 +12,13 @@ class Waitinglist extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
+
     public $service;
+
     public $production;
 
     protected $listeners = [
-        'refresh_waitinglist' => '$refresh',
+        'refresh_waitinglist'         => '$refresh',
         'confirm_encerramento_manual' => 'go_confirm',
         'confirm_cencelamento_manual' => 'go_cancel',
 
@@ -35,8 +35,8 @@ class Waitinglist extends Component
 
         if ($this->production) {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'ENCERRAMENTO MANUAL',
-                'msg' => "
+                'title' => 'ENCERRAMENTO MANUAL',
+                'msg'   => "
                 Você deseja encerrar a NOTA/OV {$this->production->note}?</br></br>
                 <div class='card card-light'>
                 <div class='card-body'>
@@ -47,12 +47,12 @@ class Waitinglist extends Component
                 </div>
                 </div>  
                 ",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Encerre!',
-                'btnCanceltxt' => 'Não, Cancele!',
-                'action' => "confirm_encerramento_manual",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Encerre!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirm_encerramento_manual',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nota foi confirmada.',
+                'cancel_msg'    => 'Nenhuma nota foi confirmada.',
 
             ]);
         }
@@ -62,24 +62,24 @@ class Waitinglist extends Component
     {
         $chk = $this->production->update([
             'completed' => true,
-            'finish_at' => date('Y-m-d H:i:s')
+            'finish_at' => date('Y-m-d H:i:s'),
         ]);
 
         if ($chk) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'ENCERRAMENTO',
-                'html' => "NOTA ENCERRADA COM SUCESSO!"
+                'icon'     => 'success',
+                'title'    => 'ENCERRAMENTO',
+                'html'     => 'NOTA ENCERRADA COM SUCESSO!',
             ]);
 
             $this->clean();
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'ENCERRAMENTO',
-                'html' => "OOOPS! Por algum motivo ocorreu um erro."
+                'icon'     => 'error',
+                'title'    => 'ENCERRAMENTO',
+                'html'     => 'OOOPS! Por algum motivo ocorreu um erro.',
             ]);
         }
     }
@@ -90,8 +90,8 @@ class Waitinglist extends Component
 
         if ($this->production) {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'CANCELAMENTO MANUAL',
-                'msg' => "
+                'title' => 'CANCELAMENTO MANUAL',
+                'msg'   => "
                 Você deseja marcar para cancelar a NOTA/OV {$this->production->note}?</br></br>
                 <div class='card card-light'>
                 <div class='card-body'>
@@ -100,12 +100,12 @@ class Waitinglist extends Component
                 </div>
                 </div>  
                 ",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Cancele!',
-                'btnCanceltxt' => 'Não!',
-                'action' => "confirm_cencelamento_manual",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Cancele!',
+                'btnCanceltxt'  => 'Não!',
+                'action'        => 'confirm_cencelamento_manual',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nota foi marcada para cancelamento.',
+                'cancel_msg'    => 'Nenhuma nota foi marcada para cancelamento.',
 
             ]);
         }
@@ -114,50 +114,48 @@ class Waitinglist extends Component
     public function go_cancel()
     {
         $chk = $this->production->update([
-            'cancel' => true
+            'cancel' => true,
         ]);
 
         if ($chk) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'CANCELAMENTO',
-                'html' => "NOTA COLOCADA PARA CANCELAMENTO!"
+                'icon'     => 'success',
+                'title'    => 'CANCELAMENTO',
+                'html'     => 'NOTA COLOCADA PARA CANCELAMENTO!',
             ]);
 
             $this->clean();
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'CANCELAMENTO',
-                'html' => "OOOPS! Por algum motivo ocorreu um erro."
+                'icon'     => 'error',
+                'title'    => 'CANCELAMENTO',
+                'html'     => 'OOOPS! Por algum motivo ocorreu um erro.',
             ]);
         }
-
-
 
     }
 
     public function getWaitinglistProperty()
     {
         return Manualnote::where('service_id', $this->service->uuid)
-                ->where('user_id', Auth()->User()->id)
-                ->where('confirmed', false)
-                ->with('Service')
-                ->paginate($this->perPage);
+            ->where('user_id', Auth()->User()->id)
+            ->where('confirmed', false)
+            ->with('Service')
+            ->paginate($this->perPage);
     }
 
     public function clean()
     {
         $this->emit('refresh_waitinglist');
-        $this->production  = "";
+        $this->production = '';
     }
 
     public function render()
     {
         return view('livewire.components.manualnote.waitinglist', [
-            'lists' => $this->waitinglist
+            'lists' => $this->waitinglist,
         ]);
     }
 }

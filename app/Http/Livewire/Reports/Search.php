@@ -10,14 +10,11 @@ class Search extends Component
     public $search;
 
     protected $queryString = [
-        'search' => ['except' => '', 'as' => 's']
-        ];
+        'search' => ['except' => '', 'as' => 's'],
+    ];
 
     public function Search()
     {
-
-
-
 
     }
 
@@ -31,7 +28,7 @@ class Search extends Component
     public function render()
     {
         return view('livewire.reports.search', [
-            'lists' => $this->buscar
+            'lists' => $this->buscar,
         ]);
     }
 }

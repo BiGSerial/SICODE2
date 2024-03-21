@@ -16,6 +16,8 @@ class City extends Model
     protected $table = 'tble_bov_bases';
 
     protected $primaryKey = 'rdMunicipio';
+
     protected $keyType = 'string';
+
     protected $guarded = ['*'];
 }

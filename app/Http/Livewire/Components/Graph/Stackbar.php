@@ -7,14 +7,18 @@ use Livewire\Component;
 class Stackbar extends Component
 {
     public $datasets = '';
+
     public $labels = '';
+
     public $title = '';
+
     public $Chartid = '';
+
     public $label = '';
 
     protected $listeners = [
         'updateSelfGraph' => '$refresh',
-        'updateGraph' => 'updateGraph',
+        'updateGraph'     => 'updateGraph',
     ];
 
     public function updateGraph()

@@ -8,8 +8,11 @@ use Livewire\Component;
 class Statusview extends Component
 {
     public int $status;
+
     public $idstatus;
+
     public $note_id;
+
     public $info;
 
     protected $listeners = [
@@ -29,7 +32,7 @@ class Statusview extends Component
 
         if ($this->info) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'view_status-'.$this->idstatus
+                'id' => 'view_status-' . $this->idstatus,
             ]);
         }
     }

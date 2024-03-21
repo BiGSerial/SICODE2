@@ -5,14 +5,23 @@ namespace App\Custom;
 class GeradorCartas
 {
     protected $buyer;
+
     protected $client;
+
     protected $protocol;
+
     protected $lat;
+
     protected $lon;
+
     protected $restriction;
+
     protected $reason;
+
     protected $city;
+
     protected $reserve;
+
     protected $infra;
 
     /**
@@ -31,22 +40,21 @@ class GeradorCartas
     public function __construct($restriction, $reason = null, $buyer = null, $client = null, $protocol = null, $lat = null, $long = null, $city = null, $infra = null, $reserve = null)
     {
         $this->restriction = $restriction;
-        $this->reason = $reason;
-        $this->buyer = $buyer;
-        $this->client = $client;
-        $this->protocol = $protocol;
-        $this->lat = $lat;
-        $this->lon = $long;
-        $this->city = $city;
-        $this->infra = $infra;
-        $this->reserve = $reserve;
+        $this->reason      = $reason;
+        $this->buyer       = $buyer;
+        $this->client      = $client;
+        $this->protocol    = $protocol;
+        $this->lat         = $lat;
+        $this->lon         = $long;
+        $this->city        = $city;
+        $this->infra       = $infra;
+        $this->reserve     = $reserve;
 
     }
 
-
     public function Carta()
     {
-        $carta['FUNAI']['FUNAI'] = "
+        $carta['FUNAI']['FUNAI'] = '
     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo: 
 O endereço informado se encontra em TERRA INDÍGENA e, conforme Resolução Normativa ANEEL n° 1000/2021, em seu artigo 67:        
 
@@ -59,7 +67,7 @@ Dessa forma, pedimos que nos apresente ofício autorizativo da FUNAI em nome do 
 
 Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes). 
 
-Atenciosamente,";
+Atenciosamente,';
 
         $carta['LOTEAMENTO']['VILLAGE'] = "        
     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo:
@@ -107,7 +115,7 @@ Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (A
 
 Atenciosamente,";
 
-        $carta['SEMMA']['DM'] = "
+        $carta['SEMMA']['DM'] = '
     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado.
 O endereço informado se encontra em Zona de Proteção Ambiental/Unidade de Conservação e, para o serviço solicitado, torna-se necessário que V.Sa. obtenha a autorização prévia junto à Secretaria de Meio Ambiente da Prefeitura Municipal de Domingos Martins
 Conforme Resolução Normativa ANEEL n° 1000/2021, em seu artigo 67:
@@ -118,9 +126,9 @@ Dessa forma, pedimos dirigir-se à citada Secretaria munido dos seguintes docume
 De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
 Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
 
-Atenciosamente,";
+Atenciosamente,';
 
-        $carta['SEMMA']['SERRA'] = "
+        $carta['SEMMA']['SERRA'] = '
     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado.
 O endereço informado se encontra em Zona de Proteção Ambiental/Unidade de Conservação e, para o serviço solicitado, torna-se necessário que V.Sa. obtenha a autorização prévia junto à Secretaria de Meio Ambiente da Prefeitura Municipal da Serra.
 Conforme Resolução Normativa ANEEL n° 1000/2021, em seu artigo 67:
@@ -131,7 +139,7 @@ Dessa forma, pedimos dirigir-se à citada Secretaria munido do documento de iden
 De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
 Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
 
-Atenciosamente,";
+Atenciosamente,';
 
         $carta['LOTEAMENTO']['OUTROS'] = "
     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo:
@@ -144,8 +152,6 @@ De posse da autorização, pedimos retornar a uma das Agências de Atendimento a
 Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
 
 Atenciosamente,";
-
-
 
         $carta['SEMMA']['OUTROS'] = "
     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado.
@@ -205,11 +211,11 @@ Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (A
 Atenciosamente,
             ";
 
-        $carta['DOCUMENTACAO']['CCIR'] = "
+        $carta['DOCUMENTACAO']['CCIR'] = '
 Documentação apresentada está incompleta, necessidade de apresentação do CCIR em nome do solicitante.
 
 Atenciosamente,
-            ";
+            ';
 
         $carta['DOCUMENTACAO']['IPTU'] = "
 Informamos que Vsª encontra-se em área urbana, dessa forma, pedimos que apresente o IPTU junto a Prefeitura Municipal de {$this->city}
@@ -217,11 +223,11 @@ Informamos que Vsª encontra-se em área urbana, dessa forma, pedimos que aprese
 Atenciosamente,
             ";
 
-        $carta['DOCUMENTACAO']['CAR'] = "
+        $carta['DOCUMENTACAO']['CAR'] = '
 Pedimos que Vsª Apresente o CAR (Cadastro Ambiental Rural), sinalizando a área do terreno para revisão da universalização.
 
 Atenciosamente,
-            ";
+            ';
 
         $carta['DOCUMENTACAO']['ESCRITURA'] = "
     Não foi apresentado documento, com data, que comprove a propriedade ou posse do imóvel, tais como: escritura, documento formal de partilha homologado, 
@@ -233,18 +239,16 @@ Caso Vsª esteja localizado em zona urbana, pedimos que apresente o IPTU junto a
             Atenciosamente,
             ";
 
-        $carta['OUTROS']['CLOCALIZADO'] = "
+        $carta['OUTROS']['CLOCALIZADO'] = '
     Não foi localizada a unidade consumidora a ser atendida. Sendo assim, será necessário o fornecimento de melhores referências físicas e/ou elétricas 
 (nº de medidor/instalação vizinha) e outras formas de contato com o solicitante. 
 De posse dessas informações, V. Sa deverá comparecer em uma de nossas agências de atendimento, para abertura de nova solicitação
 
 Atenciosamente,
-            ";
+            ';
 
-        $text = isset($carta[$this->restriction][$this->reason]) ? $carta[$this->restriction][$this->reason] : "NÃO EXISTE CARTA PARA ESSA COMBINAÇÃO.";
+        $text = $carta[$this->restriction][$this->reason] ?? 'NÃO EXISTE CARTA PARA ESSA COMBINAÇÃO.';
 
-        return "Prezado(a) Senhor(a) {$this->client}, \n".$text;
+        return "Prezado(a) Senhor(a) {$this->client}, \n" . $text;
     }
-
-
 }

@@ -2,14 +2,15 @@
 
 namespace App\Http\Livewire\Components\Historic;
 
-use App\Models\Analise;
-use App\Models\Production;
+use App\Models\{Analise, Production};
 use Livewire\Component;
 
 class Analises extends Component
 {
     public $production;
+
     public $conclusion;
+
     public $exibition;
 
     public function mount($production_id)
@@ -63,10 +64,8 @@ class Analises extends Component
                 $this->conclusion = $this->production->Analise['Conclusão'];
             }
 
-
         }
     }
-
 
     public function render()
     {

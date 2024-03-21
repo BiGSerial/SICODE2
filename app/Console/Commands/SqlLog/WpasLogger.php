@@ -4,7 +4,6 @@ namespace App\Console\Commands\SqlLog;
 
 use App\Models\Production;
 use App\Models\SicodeSql\WpasLog;
-use App\Models\Wpa;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
@@ -38,12 +37,9 @@ class WpasLogger extends Command
         $this->info("<bg=green;fg=white> DONE </> <fg=white;options=bold> {$sql} Log Registers. </>");
         $progressBar = new ProgressBar($this->output, $wpas->count());
 
-
-
         if ($wpas->count()) {
 
-
-            $this->info("<bg=yellow;fg=white> RUN  </> <fg=white;options=bold> STARTING... </>");
+            $this->info('<bg=yellow;fg=white> RUN  </> <fg=white;options=bold> STARTING... </>');
 
             $progressBar->start($wpas->count());
             $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
@@ -55,8 +51,8 @@ class WpasLogger extends Command
                     try {
                         $chk->update([
                             'production_id' => $wpa->id,
-                            'note' => $wpa->load('Note')->Note->note,
-                            'dd' => $wpa->Wpas->last()->dd
+                            'note'          => $wpa->load('Note')->Note->note,
+                            'dd'            => $wpa->Wpas->last()->dd,
                         ]);
 
                         // $this->info("<bg=yellow;fg=white> UPDT </> <fg=white;options=bold> {$chk->note} </>");
@@ -68,8 +64,8 @@ class WpasLogger extends Command
                     try {
                         $chk = WpasLog::create([
                             'production_id' => $wpa->id,
-                            'note' => $wpa->load('Note')->Note->note,
-                            'dd' => $wpa->Wpas->last()->dd
+                            'note'          => $wpa->load('Note')->Note->note,
+                            'dd'            => $wpa->Wpas->last()->dd,
                         ]);
                         // $this->info("<bg=green;fg=white> UPDT </> <fg=white;options=bold> {$chk->note} </>");
                     } catch (\Throwable $th) {
@@ -85,6 +81,6 @@ class WpasLogger extends Command
 
         $progressBar->finish();
 
-        $this->info("<bg=green;fg=white> RUN  </> <fg=white;options=bold> COMPLETE. </>");
+        $this->info('<bg=green;fg=white> RUN  </> <fg=white;options=bold> COMPLETE. </>');
     }
 }

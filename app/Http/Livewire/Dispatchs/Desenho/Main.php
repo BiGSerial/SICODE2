@@ -4,19 +4,9 @@ namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
-use App\Exports\ExportDDExcel;
-use App\Models\Bancoupdate;
-use App\Models\Company;
 use App\Models\Edp_depc\City;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Wpa;
-use Livewire\Component;
-use Livewire\WithPagination;
-use PhpParser\Node\Expr\Empty_;
+use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
@@ -25,26 +15,43 @@ class Main extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 100;
+
     public $search;
+
     public $rubrica_s = [];
+
     public $rubrica_l;
+
     public $note;
+
     public $last_update;
+
     public $advanceSearch;
+
     public $multiSearch = [];
 
     public $selectall;
+
     public $selected = [];
+
     public $company_l;
+
     public $company_s;
+
     public $user_l;
+
     public $user_s;
+
     public $type;
+
     public $additionalData = [];
 
     public $notes;
+
     public $enter_dd;
+
     public $filteredLists;
 
     public $search_user;
@@ -53,81 +60,94 @@ class Main extends Component
 
     // Filtros
     public $region_l;
+
     public $region_s = [];
+
     public $district_l;
+
     public $district_s = [];
+
     public $city_l;
+
     public $city_s = [];
+
     public $group1_l;
+
     public $group1_s = [];
+
     public $group2_l;
+
     public $group2_s = [];
+
     public $group5_l;
+
     public $group5_s = [];
 
     public $not_assigned = false;
 
-
     protected $listeners = [
-        'refresh_dispatch' => '$refresh',
-        'getCopy' => 'copy',
+        'refresh_dispatch'  => '$refresh',
+        'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
-        'confirm_dispatch' => 'confirmed_att'
+        'confirm_dispatch'  => 'confirmed_att',
     ];
 
     public function mount($service)
     {
 
-        $this->service = Service::where('uuid', $service)->with('Status')->first();
+        $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
-
 
         $this->group1_l = $this->lists->orderBy('group1')->get()->pluck('group1')->unique();
         $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
         $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
 
         session_start();
+
         if (isset($_SESSION['filtro']['desenho']) && $_SESSION['filtro']['desenho']) {
             if (isset($_SESSION['filtro']['desenho']['rubrica'])) {
                 $this->rubrica_s = $_SESSION['filtro']['desenho']['rubrica'];
             }
+
             if (isset($_SESSION['filtro']['desenho']['city'])) {
                 $this->city_s = $_SESSION['filtro']['desenho']['city'];
             }
+
             if (isset($_SESSION['filtro']['desenho']['district'])) {
                 $this->district_s = $_SESSION['filtro']['desenho']['district'];
             }
+
             if (isset($_SESSION['filtro']['desenho']['region'])) {
                 $this->region_s = $_SESSION['filtro']['desenho']['region'];
             }
+
             if (isset($_SESSION['filtro']['desenho']['group1'])) {
                 $this->group1_s = $_SESSION['filtro']['desenho']['group1'];
             }
+
             if (isset($_SESSION['filtro']['desenho']['group2'])) {
                 $this->group2_s = $_SESSION['filtro']['desenho']['group2'];
             }
+
             if (isset($_SESSION['filtro']['desenho']['group5'])) {
                 $this->group5_s = $_SESSION['filtro']['desenho']['group5'];
             }
         }
     }
 
-
-
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
+            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         } else {
             $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
-            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
+
+            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         }
     }
 
     public function updatedSelectall($val)
     {
-
 
         $idsToKeep = $this->filteredLists->pluck('id')->toArray();
 
@@ -141,6 +161,7 @@ class Main extends Component
         } else {
             // Criar um novo array $selected com os IDs que devem ser mantidos
             $newSelected = [];
+
             foreach ($this->selected as $id) {
                 if (!in_array($id, $idsToKeep)) {
                     $newSelected[] = $id;
@@ -154,7 +175,7 @@ class Main extends Component
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
-            'status' => 'success',
+            'status'   => 'success',
             'menssage' => $msg,
         ]);
     }
@@ -166,13 +187,13 @@ class Main extends Component
         if (!isset($_SESSION)) {
             session_start();
         }
-        $_SESSION['filtro']['desenho']['rubrica'] = $this->rubrica_s;
-        $_SESSION['filtro']['desenho']['city'] = $this->city_s;
+        $_SESSION['filtro']['desenho']['rubrica']  = $this->rubrica_s;
+        $_SESSION['filtro']['desenho']['city']     = $this->city_s;
         $_SESSION['filtro']['desenho']['district'] = $this->district_s;
-        $_SESSION['filtro']['desenho']['region'] = $this->region_s;
-        $_SESSION['filtro']['desenho']['group1'] = $this->group1_s;
-        $_SESSION['filtro']['desenho']['group2'] = $this->group2_s;
-        $_SESSION['filtro']['desenho']['group5'] = $this->group5_s;
+        $_SESSION['filtro']['desenho']['region']   = $this->region_s;
+        $_SESSION['filtro']['desenho']['group1']   = $this->group1_s;
+        $_SESSION['filtro']['desenho']['group2']   = $this->group2_s;
+        $_SESSION['filtro']['desenho']['group5']   = $this->group5_s;
 
         $this->clean();
         $this->emit('refresh_service');
@@ -183,13 +204,13 @@ class Main extends Component
     {
         $this->gotoPage(1);
 
-        $this->rubrica_s = [];
-        $this->city_s = [];
+        $this->rubrica_s  = [];
+        $this->city_s     = [];
         $this->district_s = [];
-        $this->region_s = [];
-        $this->group1_s = [];
-        $this->group2_s = [];
-        $this->group5_s = [];
+        $this->region_s   = [];
+        $this->group1_s   = [];
+        $this->group2_s   = [];
+        $this->group5_s   = [];
 
         $this->multiSearch = [];
 
@@ -219,9 +240,9 @@ class Main extends Component
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -231,36 +252,36 @@ class Main extends Component
 
         if ($this->notes->count()) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes'
+                'id' => 'add_mass_notes',
             ]);
         }
     }
 
     public function confirm_att()
     {
-        if ($this->type === "2") {
+        if ($this->type === '2') {
 
             if (!$this->user_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
             }
 
-            $para = User::find($this->user_s)->name." da ".(Company::find($this->company_s))->name;
+            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
 
         } else {
 
             if (!$this->company_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
@@ -270,14 +291,14 @@ class Main extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'Confirmar Despachar',
-            'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Despache!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_dispatch",
+            'title'         => 'Confirmar Despachar',
+            'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Despache!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_dispatch',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
         ]);
     }
@@ -287,9 +308,9 @@ class Main extends Component
         if (!trim($this->enter_dd)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -297,7 +318,7 @@ class Main extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
 
             foreach ($linhas as $linha) {
 
@@ -327,43 +348,41 @@ class Main extends Component
 
         $erros = [];
 
-        if ($this->type == "2") {
+        if ($this->type == '2') {
 
             foreach ($this->notes as $key => $note) {
 
-
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
                     $production = Production::create([
-                        'note_id' => $note->id,
-                        'service_id' => $this->service->uuid,
-                        'user_id' => $this->user_s,
-                        'company_id' => $this->company_s,
+                        'note_id'     => $note->id,
+                        'service_id'  => $this->service->uuid,
+                        'user_id'     => $this->user_s,
+                        'company_id'  => $this->company_s,
                         'dispatch_by' => Auth()->User()->id,
-                        'att_by' => Auth()->User()->id,
-                        'dt_note' => $note->dt_status,
+                        'att_by'      => Auth()->User()->id,
+                        'dt_note'     => $note->dt_status,
                         'status_note' => $note->nstats,
-                        'centroTrab' => $note->centerjob,
+                        'centroTrab'  => $note->centerjob,
                         'dispatch_at' => date('Y-m-d H:i:s'),
-                        'att_at' => date('Y-m-d H:i:s'),
-                        'status' => 2,
+                        'att_at'      => date('Y-m-d H:i:s'),
+                        'status'      => 2,
                     ]);
-
 
                     $user = Auth()->User()->name;
 
-                    if(trim($this->user_s)) {
-                        $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
+                    if (trim($this->user_s)) {
+                        $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                     } else {
-                        $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
+                        $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
                     }
 
                     if ($production) {
                         Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "Usuário {$user} {$user_info}",
-                            'status' => 2,
+                            'note_id'      => $production->id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "Usuário {$user} {$user_info}",
+                            'status'       => 2,
                             'productionId' => $production->id,
                         ]);
                     }
@@ -376,36 +395,34 @@ class Main extends Component
 
             foreach ($this->notes as $key => $note) {
 
-
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
                     $production = Production::create([
-                        'note_id' => $note->id,
-                        'service_id' => $this->service->uuid,
-                        'company_id' => $this->company_s,
+                        'note_id'     => $note->id,
+                        'service_id'  => $this->service->uuid,
+                        'company_id'  => $this->company_s,
                         'dispatch_by' => Auth()->User()->id,
-                        'dt_note' => $note->dt_status,
+                        'dt_note'     => $note->dt_status,
                         'status_note' => $note->nstats,
-                        'centroTrab' => $note->centerjob,
+                        'centroTrab'  => $note->centerjob,
                         'dispatch_at' => date('Y-m-d H:i:s'),
-                        'status' => 1,
+                        'status'      => 1,
                     ]);
-
 
                     $user = Auth()->User()->name;
 
-                    if(trim($this->user_s)) {
-                        $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
+                    if (trim($this->user_s)) {
+                        $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                     } else {
-                        $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
+                        $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
                     }
 
                     if ($production) {
                         Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "Usuário {$user} {$user_info}",
-                            'status' => 1,
+                            'note_id'      => $production->id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "Usuário {$user} {$user_info}",
+                            'status'       => 1,
                             'productionId' => $production->id,
                         ]);
                     }
@@ -421,46 +438,40 @@ class Main extends Component
             $info = '<br>';
 
             foreach ($erros as $err) {
-                $info .= $err . ' => ' . $err->load('User')->User->name ?? 'Desconhecido'.'\n';
+                $info .= $err . ' => ' . $err->load('User')->User->name ?? 'Desconhecido' . '\n';
             }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Notas Despachadas com sucesso parcial!',
-                'msg' => "Foram Despachadas com sucesso, porém, algumas ja se enconram em controle: {$info}",
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso parcial!',
+                'msg'      => "Foram Despachadas com sucesso, porém, algumas ja se enconram em controle: {$info}",
+                'timer'    => 2500,
             ]);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Notas Despachadas com sucesso!',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso!',
+                'timer'    => 2500,
             ]);
         }
 
-
-
         $this->closeall();
     }
-
-
 
     public function closeall()
     {
         $this->dispatchBrowserEvent('hideModal');
 
-
-        $this->company_s = "";
-        $this->selected = [];
-        $this->user_s = "";
-        $this->type = "";
+        $this->company_s      = '';
+        $this->selected       = [];
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->advanceSearch = "";
-        $this->search = "";
+        $this->advanceSearch  = '';
+        $this->search         = '';
         $this->gotoPage(1);
-
 
         $this->emit('refresh_dispatch');
     }
@@ -468,38 +479,37 @@ class Main extends Component
     public function clean()
     {
 
-        $this->company_s = "";
-        $this->enter_dd = "";
-        $this->user_s = "";
-        $this->type = "";
+        $this->company_s      = '';
+        $this->enter_dd       = '';
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->multiSearch = [];
-        $this->advanceSearch = "";
-        $this->search = "";
+        $this->multiSearch    = [];
+        $this->advanceSearch  = '';
+        $this->search         = '';
     }
 
     public function buscarMulti()
     {
 
-
         if ($this->advanceSearch) {
 
             $this->gotoPage(1);
 
-            $this->search = "";
+            $this->search = '';
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(" ", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(",", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(";", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
             }
 
             $this->multiSearch = array_map('trim', $this->multiSearch);
@@ -520,14 +530,9 @@ class Main extends Component
 
     }
 
-
     public function getListsProperty()
     {
         $query = Note::query();
-
-
-
-
 
         if (count($this->multiSearch)) {
             $query->whereIn('note', $this->multiSearch);
@@ -547,6 +552,7 @@ class Main extends Component
 
             $query->when($this->search, function ($q, $s) {
                 $this->gotoPage(1);
+
                 return $q->where(function ($query) use ($s) {
                     $query->where('note', 'like', '%' . $s . '%')
                         ->orWhere('material', 'like', '%' . $s . '%')
@@ -555,44 +561,43 @@ class Main extends Component
             })->when($this->rubrica_s, function ($q) {
                 return $q->where(function ($query) {
                     $query->whereIn('rubrica', $this->rubrica_s)
-                          ->orWhereNull('rubrica');
+                        ->orWhereNull('rubrica');
                 });
             })
-            ->when($this->note_type, function ($q) {
-                return $q->where(function ($query) {
-                    $query->where('type_note', $this->note_type)
-                          ->orWhereNull('type_note');
-                });
-            })
-            ->when($this->group1_s, function ($q) {
-                return $q->where(function ($query) {
-                    return $query->whereIn('group1', $this->group1_s)
+                ->when($this->note_type, function ($q) {
+                    return $q->where(function ($query) {
+                        $query->where('type_note', $this->note_type)
+                            ->orWhereNull('type_note');
+                    });
+                })
+                ->when($this->group1_s, function ($q) {
+                    return $q->where(function ($query) {
+                        return $query->whereIn('group1', $this->group1_s)
                             ->orWhere('group1', '')
                             ->orWhere('group1', null);
-                });
-            })
-            ->when($this->group2_s, function ($q) {
-                return $q->where(function ($query) {
-                    return $query->whereIn('group2', $this->group2_s)
+                    });
+                })
+                ->when($this->group2_s, function ($q) {
+                    return $q->where(function ($query) {
+                        return $query->whereIn('group2', $this->group2_s)
                             ->orWhere('group2', '')
                             ->orWhere('group2', null);
-                });
-            })
-            ->when($this->group5_s, function ($q) {
-                return $q->where(function ($query) {
-                    return $query->whereIn('group5', $this->group5_s)
+                    });
+                })
+                ->when($this->group5_s, function ($q) {
+                    return $q->where(function ($query) {
+                        return $query->whereIn('group5', $this->group5_s)
                             ->orWhere('group5', '')
                             ->orWhere('group5', null);
-                });
-            })
-
-            ->when($this->base, function ($q) {
-                return $q->where(function ($query) {
-                    return $query->whereIn('nexp', $this->base)
+                    });
+                })
+                ->when($this->base, function ($q) {
+                    return $q->where(function ($query) {
+                        return $query->whereIn('nexp', $this->base)
                             ->orWhere('nexp', '')
                             ->orWhere('nexp', null);
+                    });
                 });
-            });
         }
 
         $query->with('Productions.User')
@@ -606,7 +611,7 @@ class Main extends Component
     public function getBaseProperty()
     {
         try {
-            $query = City::query();
+            $query          = City::query();
             $filtersApplied = false;
 
             if (!empty($this->region_s)) {
@@ -629,9 +634,9 @@ class Main extends Component
             }
 
             $result = $query->orderBy('cidade')
-                            ->get()
-                            ->pluck('rdMunicipio')
-                            ->toArray();
+                ->get()
+                ->pluck('rdMunicipio')
+                ->toArray();
 
             return $result;
         } catch (\Throwable $th) {
@@ -639,15 +644,14 @@ class Main extends Component
         }
     }
 
-
     public function render()
     {
         $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
 
             return !$list->Productions
-                    ->where('status_note', $list->nstats)
-                    ->where('dt_note', $list->dt_status)
-                    ->first();
+                ->where('status_note', $list->nstats)
+                ->where('dt_note', $list->dt_status)
+                ->first();
         });
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
@@ -663,11 +667,8 @@ class Main extends Component
             $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         }
 
-
-
-
         $this->user_l = User::when($this->search_user, function ($q) {
-            return $q->where('name', 'like', "%".$this->search_user. "%");
+            return $q->where('name', 'like', '%' . $this->search_user . '%');
         })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
@@ -684,24 +685,24 @@ class Main extends Component
             $this->city_l = City::when($this->region_s, function ($q) {
                 return $q->whereIn('regiao', $this->region_s);
             })
-            ->when($this->district_s, function ($q) {
-                return $q->whereIn('baseConstrucao', $this->district_s);
-            })
-            ->select('rdMunicipio', 'cidade', 'municipio')
-            ->orderBy('cidade')
-            ->groupBy('rdMunicipio', 'cidade', 'municipio')
-            ->get();
+                ->when($this->district_s, function ($q) {
+                    return $q->whereIn('baseConstrucao', $this->district_s);
+                })
+                ->select('rdMunicipio', 'cidade', 'municipio')
+                ->orderBy('cidade')
+                ->groupBy('rdMunicipio', 'cidade', 'municipio')
+                ->get();
 
         } catch (\Illuminate\Database\QueryException $e) {
 
-            $this->region_l = [];
+            $this->region_l   = [];
             $this->district_l = [];
-            $this->city_l = [];
+            $this->city_l     = [];
         }
 
         return view('livewire.dispatchs.desenho.main', [
-            'lists' => $this->lists->paginate($this->perPage),
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first()
+            'lists'  => $this->lists->paginate($this->perPage),
+            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }
 }

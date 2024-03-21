@@ -2,27 +2,36 @@
 
 namespace App\Http\Livewire\Config\Services;
 
-use App\Models\AuxiliarService;
-use App\Models\Note;
-use App\Models\Service;
+use App\Models\{AuxiliarService, Note, Service};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Addstatus extends Component
 {
     public $showAddstatus = false;
+
     public $service;
+
     public $status_l;
+
     public $status_s;
+
     public $status_list;
+
     public $exclusion;
+
     public $value;
+
     public $condition;
+
     public $column_search;
 
     public $exclusion2;
+
     public $value2;
+
     public $condition2;
+
     public $column_search2;
 
     public $view_and = false;
@@ -35,12 +44,12 @@ class Addstatus extends Component
 
     public function and()
     {
-        if($this->view_and) {
+        if ($this->view_and) {
             $this->view_and = false;
 
-            $this->exclusion2 = false;
-            $this->value2 = '';
-            $this->condition2 = '';
+            $this->exclusion2     = false;
+            $this->value2         = '';
+            $this->condition2     = '';
             $this->column_search2 = '';
         } else {
             $this->view_and = true;
@@ -61,7 +70,7 @@ class Addstatus extends Component
         $this->showAddstatus = true;
 
         $this->dispatchBrowserEvent('showModal', [
-            'id' => 'add_status_modal'
+            'id' => 'add_status_modal',
         ]);
     }
 
@@ -69,17 +78,17 @@ class Addstatus extends Component
     {
         $aux = AuxiliarService::Where('service_id', $this->service->uuid)->where('value', $this->value)->first();
 
-        if(!$aux || ($aux && $this->value2 != $aux->value2)) {
+        if (!$aux || ($aux && $this->value2 != $aux->value2)) {
             AuxiliarService::create([
-                'service_id' => $this->service->uuid,
-                'column_search' => trim($this->column_search),
-                'condition' => $this->condition,
-                'exclusion' => $this->exclusion ? true : false,
-                'value' => $this->value,
+                'service_id'     => $this->service->uuid,
+                'column_search'  => trim($this->column_search),
+                'condition'      => $this->condition,
+                'exclusion'      => $this->exclusion ? true : false,
+                'value'          => $this->value,
                 'column_search2' => trim($this->column_search2),
-                'condition2' => $this->condition2,
-                'exclusion2' => $this->exclusion2 ? true : false,
-                'value2' => $this->value2
+                'condition2'     => $this->condition2,
+                'exclusion2'     => $this->exclusion2 ? true : false,
+                'value2'         => $this->value2,
             ]);
         }
     }

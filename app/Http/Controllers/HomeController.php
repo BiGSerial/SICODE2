@@ -2,11 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Manualnote;
-use App\Models\Production;
-use Carbon\Carbon;
-use Carbon\CarbonImmutable;
-use Illuminate\Http\Request;
+use App\Models\{Manualnote, Production};
+use Carbon\{Carbon, CarbonImmutable};
 use Illuminate\Support\Facades\DB;
 
 class HomeController extends Controller
@@ -20,8 +17,6 @@ class HomeController extends Controller
     {
 
         $this->middleware('auth');
-
-
 
     }
 
@@ -42,8 +37,8 @@ class HomeController extends Controller
             return view('auth.change');
         } else {
 
-            $userId = auth()->user()->id;
-            $currentMonth = Carbon::now()->startOfMonth();
+            $userId         = auth()->user()->id;
+            $currentMonth   = Carbon::now()->startOfMonth();
             $lastDayOfMonth = Carbon::now()->endOfMonth()->endOfDay();
 
             $prod = Production::where('user_id', $userId)
@@ -74,31 +69,31 @@ class HomeController extends Controller
 
             $formattedMes = $mes->map(function ($item) {
                 $monthName = Carbon::createFromDate($item->year, $item->month)->format('F Y');
+
                 return [
-                    'label' => $monthName,
-                    'total' => $item->total,
+                    'label'  => $monthName,
+                    'total'  => $item->total,
                     'postes' => $item->postes,
                 ];
             });
 
-
             $waitingList = Manualnote::where('user_id', $userId)
                         // ->where('completed', true)
                         // ->where('confirmed', false)
-                        ->with('service')
-                        ->get();
+                ->with('service')
+                ->get();
 
             $inconsistencies = Production::where('user_id', $userId)
-                                ->where('confirmed', false)->where('tries', '>=', 2)
-                                ->with('Note', 'service')
-                                ->orderBy('completed_at')
-                                ->get();
+                ->where('confirmed', false)->where('tries', '>=', 2)
+                ->with('Note', 'service')
+                ->orderBy('completed_at')
+                ->get();
 
             $statusCounts = DB::table('productions')
-            ->where('user_id', $userId)
-            ->where('rejected', false)
-            ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
-            ->selectRaw('
+                ->where('user_id', $userId)
+                ->where('rejected', false)
+                ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
+                ->selectRaw('
                                     COUNT(*) as total_notes,
                                     SUM(IFNULL(postes_u, 0) + IFNULL(postes_c, 0)) as total_postes,
                                     SUM(CASE WHEN completed = 1 THEN (IFNULL(postes_u, 0) + IFNULL(postes_c, 0)) ELSE 0 END) as completed_postes,
@@ -108,15 +103,14 @@ class HomeController extends Controller
                                     COUNT(CASE WHEN DATE(completed_at) = ? THEN 1 END) as completed_today_count,
                                     SUM(CASE WHEN DATE(completed_at) = ? THEN IFNULL(postes_u, 0) + IFNULL(postes_c, 0) ELSE 0 END) as postes_today
                                 ', [Carbon::today(), Carbon::today()])
-            ->first();
-
+                ->first();
 
             return view('home', [
-                'prod_dia' => $prod,
-                'prod_mes' => $formattedMes,
-                'waiting_list' => $waitingList,
+                'prod_dia'        => $prod,
+                'prod_mes'        => $formattedMes,
+                'waiting_list'    => $waitingList,
                 'inconsistencies' => $inconsistencies,
-                'status_count' => $statusCounts
+                'status_count'    => $statusCounts,
             ]);
         }
 
@@ -125,8 +119,8 @@ class HomeController extends Controller
     public function company()
     {
 
-        $userId = auth()->user()->id;
-        $currentMonth = Carbon::now()->startOfMonth();
+        $userId         = auth()->user()->id;
+        $currentMonth   = Carbon::now()->startOfMonth();
         $lastDayOfMonth = Carbon::now()->endOfMonth()->endOfDay();
 
         $prod = Production::where('user_id', $userId)
@@ -157,31 +151,31 @@ class HomeController extends Controller
 
         $formattedMes = $mes->map(function ($item) {
             $monthName = Carbon::createFromDate($item->year, $item->month)->format('F Y');
+
             return [
-                'label' => $monthName,
-                'total' => $item->total,
+                'label'  => $monthName,
+                'total'  => $item->total,
                 'postes' => $item->postes,
             ];
         });
 
-
         $waitingList = Manualnote::where('user_id', $userId)
                     // ->where('completed', true)
                     // ->where('confirmed', false)
-                    ->with('service')
-                    ->get();
+            ->with('service')
+            ->get();
 
         $inconsistencies = Production::where('user_id', $userId)
-                            ->where('confirmed', false)->where('tries', '>=', 2)
-                            ->with('Note', 'service')
-                            ->orderBy('completed_at')
-                            ->get();
+            ->where('confirmed', false)->where('tries', '>=', 2)
+            ->with('Note', 'service')
+            ->orderBy('completed_at')
+            ->get();
 
         $statusCounts = DB::table('productions')
-        ->where('user_id', $userId)
-        ->where('rejected', false)
-        ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
-        ->selectRaw('
+            ->where('user_id', $userId)
+            ->where('rejected', false)
+            ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
+            ->selectRaw('
                                     COUNT(*) as total_notes,
                                     SUM(IFNULL(postes_u, 0) + IFNULL(postes_c, 0)) as total_postes,
                                     SUM(CASE WHEN completed = 1 THEN (IFNULL(postes_u, 0) + IFNULL(postes_c, 0)) ELSE 0 END) as completed_postes,
@@ -191,14 +185,14 @@ class HomeController extends Controller
                                     COUNT(CASE WHEN DATE(completed_at) = ? THEN 1 END) as completed_today_count,
                                     SUM(CASE WHEN DATE(completed_at) = ? THEN IFNULL(postes_u, 0) + IFNULL(postes_c, 0) ELSE 0 END) as postes_today
                                 ', [Carbon::today(), Carbon::today()])
-        ->first();
+            ->first();
 
         return view('company', [
-            'prod_dia' => $prod,
-                'prod_mes' => $formattedMes,
-                'waiting_list' => $waitingList,
-                'inconsistencies' => $inconsistencies,
-                'status_count' => $statusCounts
+            'prod_dia'        => $prod,
+            'prod_mes'        => $formattedMes,
+            'waiting_list'    => $waitingList,
+            'inconsistencies' => $inconsistencies,
+            'status_count'    => $statusCounts,
         ]);
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Service;
-use App\Models\Wpa;
 use Illuminate\Http\Request;
 
 class DispatchController extends Controller
@@ -12,15 +11,14 @@ class DispatchController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        if (view()->exists('dispatchs.'.$service->folder.'.main')) {
-
+        if (view()->exists('dispatchs.' . $service->folder . '.main')) {
 
             if (Auth()->User()->contract) {
-                return view('dispatchs.'.$service->folder.'.main', [
+                return view('dispatchs.' . $service->folder . '.main', [
                     'service' => $service,
                 ]);
             } else {
-                return view('dispatchs.'.$service->folder.'.main', [
+                return view('dispatchs.' . $service->folder . '.main', [
                     'service' => $service,
                 ]);
             }
@@ -42,8 +40,8 @@ class DispatchController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        if (view()->exists('dispatchs.'.$service->folder.'.stack')) {
-            return view('dispatchs.'.$service->folder.'.stack', [
+        if (view()->exists('dispatchs.' . $service->folder . '.stack')) {
+            return view('dispatchs.' . $service->folder . '.stack', [
                 'service' => $service,
             ]);
         } else {
@@ -58,8 +56,8 @@ class DispatchController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        if (view()->exists('dispatchs.'.$service->folder.'.transprod')) {
-            return view('dispatchs.'.$service->folder.'.transprod', [
+        if (view()->exists('dispatchs.' . $service->folder . '.transprod')) {
+            return view('dispatchs.' . $service->folder . '.transprod', [
                 'service' => $service,
             ]);
         } else {
@@ -73,8 +71,6 @@ class DispatchController extends Controller
     public function survey_map(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();
-
-        
 
         return view('dispatchs.levantamento.map_info', [
             'service' => $service,

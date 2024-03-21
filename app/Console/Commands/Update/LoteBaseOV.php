@@ -2,13 +2,11 @@
 
 namespace App\Console\Commands\Update;
 
-use App\Models\Bancoupdate;
 use App\Models\Edp_depc\BaseOV;
-use App\Models\HistoricNote;
-use App\Models\Note;
+use App\Models\{Bancoupdate, HistoricNote, Note};
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
-use Carbon\Carbon;
 
 class LoteBaseOV extends Command
 {
@@ -31,8 +29,8 @@ class LoteBaseOV extends Command
      */
     public function handle()
     {
-        $DaysAgo = date('Y-m-d 0:00:00', strtotime('-7 days'));
-        $chunkSize = 500;
+        $DaysAgo      = date('Y-m-d 0:00:00', strtotime('-7 days'));
+        $chunkSize    = 500;
         $totalRecords = BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->count();
         $totalInserts = ceil($totalRecords / $chunkSize);
 
@@ -42,18 +40,14 @@ class LoteBaseOV extends Command
         $progressBar->setMessage('Inserting in bulk');
         $progressBar->start();
 
-
-
-
-
         $count = ['upd' => 0, 'ins' => 0, 'tins' => 0, 'errors' => 0];
 
         $progressBar->setMessage('Inserting in bulk');
 
         BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
 
-            $recordsToInsert = [];
-            $recordsToUpdate = [];
+            $recordsToInsert  = [];
+            $recordsToUpdate  = [];
             $recordsToHistory = [];
 
             $progressBar->setMessage('Inserting in bulk');
@@ -63,15 +57,15 @@ class LoteBaseOV extends Command
                 // $existingRecord = Note::where('note', $record->OV)->first();
                 $existingRecord = $notes->where('note', $record->OV)->first();
 
-                if ($existingRecord && strToTime($existingRecord->dt_status) < strToTime($record->dhStat)) {
+                if ($existingRecord && strtotime($existingRecord->dt_status) < strtotime($record->dhStat)) {
 
                     if ($existingRecord->nstats != $record->numStat) {
                         $recordsToHistory[] = [
-                            'note_id' => $existingRecord->id,
+                            'note_id'  => $existingRecord->id,
                             'old_date' => $existingRecord->dt_status,
                             'old_stat' => $existingRecord->nstats,
                             'new_date' => $record->dhStat,
-                            'new_stat'=> $record->numStat,
+                            'new_stat' => $record->numStat,
                         ];
                         $recordsToUpdate[] = $this->prepareRecordForUpdate($record);
                         $count['upd']++;
@@ -81,7 +75,6 @@ class LoteBaseOV extends Command
                     $recordsToInsert[] = $this->prepareRecordForInsert($record);
                     $count['ins']++;
                 }
-
 
                 $progressBar->setMessage($count['upd'], 'upd');
                 $progressBar->setMessage($count['ins'], 'ins');
@@ -122,7 +115,6 @@ class LoteBaseOV extends Command
                 HistoricNote::insert($recordsToHistory);
             }
 
-
         });
 
         $progressBar->finish();
@@ -130,92 +122,87 @@ class LoteBaseOV extends Command
         // Registra atualizações
         Bancoupdate::Create([
             'last_update' => date('Y-m-d H:i:s'),
-            'error' => $count['errors'],
-            'inserts' => $count['ins'],
-            'updates' => $count['upd']
+            'error'       => $count['errors'],
+            'inserts'     => $count['ins'],
+            'updates'     => $count['upd'],
         ]);
 
         Bancoupdate::whereDate('created_at', '<', Carbon::now()->subDays(30))->delete();
 
-
-
         $this->info('Data transfer completed.');
     }
-
 
     private function prepareRecordForUpdate($record)
     {
         return [
-            'note_id' => $record->id,
-            'created_by' => $record->criadoPor,
-            'dt_created' =>  "{$record->dtCriacao} {$record->hrCriacao}",
-            'dt_status' => $record->dhStat,
-            'user' => $record->usuario,
-            'value' => $record->valorLiq,
-            'currency' => $record->moeda,
-            'eq_venda' => $record->eqVenda,
-            'numPedido' => $record->numPedido,
-            'client' => $record->emissorOV,
-            'group1' => $record->grpCliente1,
-            'group2' => $record->grpCliente2,
-            'group3' => $record->grpCliente3,
-            'group4' => $record->grpCliente4,
-            'group5' => $record->grpCliente5,
-            'pze' => $record->PzE,
-            'num_material' => $record->numMaterial,
-            'material' => $record->material,
-            'nexp' => $record->numExp,
-            'lexp' => $record->localExp,
-            'pep' => $record->PEP,
-            'nstats' => $record->numStat,
-            'status' => $record->status,
-            'days' => $record->dias,
-            'transaction' => $record->transicao,
+            'note_id'       => $record->id,
+            'created_by'    => $record->criadoPor,
+            'dt_created'    => "{$record->dtCriacao} {$record->hrCriacao}",
+            'dt_status'     => $record->dhStat,
+            'user'          => $record->usuario,
+            'value'         => $record->valorLiq,
+            'currency'      => $record->moeda,
+            'eq_venda'      => $record->eqVenda,
+            'numPedido'     => $record->numPedido,
+            'client'        => $record->emissorOV,
+            'group1'        => $record->grpCliente1,
+            'group2'        => $record->grpCliente2,
+            'group3'        => $record->grpCliente3,
+            'group4'        => $record->grpCliente4,
+            'group5'        => $record->grpCliente5,
+            'pze'           => $record->PzE,
+            'num_material'  => $record->numMaterial,
+            'material'      => $record->material,
+            'nexp'          => $record->numExp,
+            'lexp'          => $record->localExp,
+            'pep'           => $record->PEP,
+            'nstats'        => $record->numStat,
+            'status'        => $record->status,
+            'days'          => $record->dias,
+            'transaction'   => $record->transicao,
             'validar_prazo' => $record->considerarPrazo,
-            'rubrica' => $record->rubrica,
-            'pze_tratado' => $record->PzETratado,
-            'days_stat' => $record->diasNoStatus,
-            'pze_parecer' => $record->parecerPrazo,
-            'days_left' => $record->diasPVencimento,
+            'rubrica'       => $record->rubrica,
+            'pze_tratado'   => $record->PzETratado,
+            'days_stat'     => $record->diasNoStatus,
+            'pze_parecer'   => $record->parecerPrazo,
+            'days_left'     => $record->diasPVencimento,
         ];
     }
 
     private function prepareRecordForInsert($record)
     {
         return [
-            'note' => $record->OV,
-            'created_by' => $record->criadoPor,
-            'dt_created' =>  "{$record->dtCriacao} {$record->hrCriacao}",
-            'dt_status' => $record->dhStat,
-            'user' => $record->usuario,
-            'value' => $record->valorLiq,
-            'currency' => $record->moeda,
-            'eq_venda' => $record->eqVenda,
-            'numPedido' => $record->numPedido,
-            'client' => $record->emissorOV,
-            'group1' => $record->grpCliente1,
-            'group2' => $record->grpCliente2,
-            'group3' => $record->grpCliente3,
-            'group4' => $record->grpCliente4,
-            'group5' => $record->grpCliente5,
-            'pze' => $record->PzE,
-            'num_material' => $record->numMaterial,
-            'material' => $record->material,
-            'nexp' => $record->numExp,
-            'lexp' => $record->localExp,
-            'pep' => $record->PEP,
-            'nstats' => $record->numStat,
-            'status' => $record->status,
-            'days' => $record->dias,
-            'transaction' => $record->transicao,
+            'note'          => $record->OV,
+            'created_by'    => $record->criadoPor,
+            'dt_created'    => "{$record->dtCriacao} {$record->hrCriacao}",
+            'dt_status'     => $record->dhStat,
+            'user'          => $record->usuario,
+            'value'         => $record->valorLiq,
+            'currency'      => $record->moeda,
+            'eq_venda'      => $record->eqVenda,
+            'numPedido'     => $record->numPedido,
+            'client'        => $record->emissorOV,
+            'group1'        => $record->grpCliente1,
+            'group2'        => $record->grpCliente2,
+            'group3'        => $record->grpCliente3,
+            'group4'        => $record->grpCliente4,
+            'group5'        => $record->grpCliente5,
+            'pze'           => $record->PzE,
+            'num_material'  => $record->numMaterial,
+            'material'      => $record->material,
+            'nexp'          => $record->numExp,
+            'lexp'          => $record->localExp,
+            'pep'           => $record->PEP,
+            'nstats'        => $record->numStat,
+            'status'        => $record->status,
+            'days'          => $record->dias,
+            'transaction'   => $record->transicao,
             'validar_prazo' => $record->considerarPrazo,
-            'rubrica' => $record->rubrica,
-            'pze_tratado' => $record->PzETratado,
-            'days_stat' => $record->diasNoStatus,
-            'pze_parecer' => $record->parecerPrazo,
-            'days_left' => $record->diasPVencimento,
+            'rubrica'       => $record->rubrica,
+            'pze_tratado'   => $record->PzETratado,
+            'days_stat'     => $record->diasNoStatus,
+            'pze_parecer'   => $record->parecerPrazo,
+            'days_left'     => $record->diasPVencimento,
         ];
     }
-
-
 }

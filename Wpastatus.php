@@ -13,6 +13,7 @@ class Wpastatus extends Model
     protected $connection = 'sqlsrv1';
 
     protected $table = 'tbld_usr_baseDD';
+
     // protected $keyType = 'string';
     protected $guarded = ['*'];
 }

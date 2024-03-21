@@ -9,20 +9,25 @@ use Livewire\Component;
 class Services extends Component
 {
     public $service_name;
+
     public $update_service;
+
     public $status;
+
     public $folders;
+
     public $folder_s;
+
     public $icon;
+
     public $icon_s;
 
-
     public $editName = [];
-    public $chave = "";
 
+    public $chave = '';
 
     protected $listeners = [
-        'refresh_service_list' => '$refresh'
+        'refresh_service_list' => '$refresh',
     ];
 
     public function mount()
@@ -38,15 +43,14 @@ class Services extends Component
             $this->editName[$this->chave] = false;
         }
 
-        $this->update_service = $service;
-        $this->service_name = $service->service;
-        $this->status = $service->status;
-        $this->icon_s = $service->icon;
-        $this->chave = $service->id;
-        $this->folder_s = $service->folder;
+        $this->update_service         = $service;
+        $this->service_name           = $service->service;
+        $this->status                 = $service->status;
+        $this->icon_s                 = $service->icon;
+        $this->chave                  = $service->id;
+        $this->folder_s               = $service->folder;
         $this->editName[$service->id] = true;
     }
-
 
     /**
      * Send Service ID to Addrules
@@ -69,37 +73,37 @@ class Services extends Component
 
         if ($this->update_service->update([
             'service' => ucwords(mb_strtolower($this->service_name)),
-            'status' => $this->status,
-            'folder' => $this->folder_s,
-            'icon' => $this->icon_s,
-            ])) {
+            'status'  => $this->status,
+            'folder'  => $this->folder_s,
+            'icon'    => $this->icon_s,
+        ])) {
 
             $this->dispatchBrowserEvent('torrada', [
-                'status' => 'success',
+                'status'   => 'success',
                 'menssage' => 'Nome do serviço Atualizado com sucesso!',
             ]);
 
             $this->editName[$this->chave] = false;
-            $this->service_name = "";
-            $this->status = "";
-            $this->folder_s = "";
-            $this->icon_s = "";
-            $this->update_service = "";
+            $this->service_name           = '';
+            $this->status                 = '';
+            $this->folder_s               = '';
+            $this->icon_s                 = '';
+            $this->update_service         = '';
 
             $this->emit('refresh_service_list');
 
         } else {
             $this->dispatchBrowserEvent('torrada', [
-                'status' => 'danger',
+                'status'   => 'danger',
                 'menssage' => 'OOOOPS! Não consegui atualizar o nome... Sorry!',
             ]);
 
             $this->editName[$this->chave] = false;
-            $this->service_name = "";
-            $this->status = "";
-            $this->folder_s = "";
-            $this->icon_s = "";
-            $this->update_service = "";
+            $this->service_name           = '';
+            $this->status                 = '';
+            $this->folder_s               = '';
+            $this->icon_s                 = '';
+            $this->update_service         = '';
             $this->emit('refresh_service_list');
         }
     }
@@ -112,7 +116,7 @@ class Services extends Component
     public function render()
     {
         return view('livewire.config.services.services', [
-            'services' => $this->services
+            'services' => $this->services,
         ]);
     }
 }

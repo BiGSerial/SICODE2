@@ -5,12 +5,16 @@ namespace App\PDF\Gerador;
 class SicodePdf
 {
     protected $adress_cliente;
-    protected $name_client;
-    protected $note;
-    protected $ordem = [];
-    protected $obs_text;
-    protected $text;
 
+    protected $name_client;
+
+    protected $note;
+
+    protected $ordem = [];
+
+    protected $obs_text;
+
+    protected $text;
 
     /**
      * Get the value of adress_cliente
@@ -23,7 +27,7 @@ class SicodePdf
     /**
      * Set the value of adress_cliente
      *
-     * @return  self
+     * @return self
      */
     public function setAdress_cliente($adress_cliente)
     {
@@ -43,7 +47,7 @@ class SicodePdf
     /**
      * Set the value of name_client
      *
-     * @return  self
+     * @return self
      */
     public function setName_client($name_client)
     {
@@ -63,7 +67,7 @@ class SicodePdf
     /**
      * Set the value of note
      *
-     * @return  self
+     * @return self
      */
     public function setNote($note)
     {
@@ -83,7 +87,7 @@ class SicodePdf
     /**
      * Set the value of ordem
      *
-     * @return  self
+     * @return self
      */
     public function setOrdem($ordem)
     {
@@ -103,7 +107,7 @@ class SicodePdf
     /**
      * Set the value of obs_text
      *
-     * @return  self
+     * @return self
      */
     public function setObs_text($obs_text)
     {
@@ -123,7 +127,7 @@ class SicodePdf
     /**
      * Set the value of text
      *
-     * @return  self
+     * @return self
      */
     public function setText($text)
     {

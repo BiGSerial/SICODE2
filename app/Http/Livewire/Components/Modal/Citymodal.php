@@ -9,14 +9,18 @@ use Livewire\Component;
 class Citymodal extends Component
 {
     public $note;
+
     public $regiao;
+
     public $regiao_l;
+
     public $municipio;
+
     public $setMunicipio;
 
     protected $listeners = [
         'confirmEditCity' => 'confirmMunicipio',
-        'editMunicipio' => 'getNote',
+        'editMunicipio'   => 'getNote',
 
     ];
 
@@ -31,7 +35,7 @@ class Citymodal extends Component
             $this->note = $note;
 
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'cityModal'
+                'id' => 'cityModal',
             ]);
         }
     }
@@ -41,11 +45,11 @@ class Citymodal extends Component
         try {
 
             return City::Where('rdMunicipio', '!=', '1234')
-                        ->Where('rdMunicipio', '!=', '36744')
-                        ->When($this->regiao, function ($q) {
-                            return $q->where('regiao', $this->regiao);
-                        })
-                        ->orderBy('cidade');
+                ->Where('rdMunicipio', '!=', '36744')
+                ->When($this->regiao, function ($q) {
+                    return $q->where('regiao', $this->regiao);
+                })
+                ->orderBy('cidade');
 
         } catch (\Exception $e) {
 
@@ -53,7 +57,6 @@ class Citymodal extends Component
 
         }
     }
-
 
     public function setMunicipio()
     {
@@ -63,14 +66,14 @@ class Citymodal extends Component
 
             if ($this->note && $this->setMunicipio) {
                 $this->dispatchBrowserEvent('alertar', [
-                    'title' =>  'Confirmar Edição',
-                    'msg' => "Deseja confirmar o município {$this->setMunicipio->municipio} para Nota/OV {$this->note->note}",
-                    'icon' => 'warning',
-                    'btnOktxt' => 'Sim, Confirmar!',
-                    'btnCanceltxt' => 'Não, Cancele',
-                    'action' => "confirmEditCity",
+                    'title'         => 'Confirmar Edição',
+                    'msg'           => "Deseja confirmar o município {$this->setMunicipio->municipio} para Nota/OV {$this->note->note}",
+                    'icon'          => 'warning',
+                    'btnOktxt'      => 'Sim, Confirmar!',
+                    'btnCanceltxt'  => 'Não, Cancele',
+                    'action'        => 'confirmEditCity',
                     'cancel_titulo' => 'Cancelado!',
-                    'cancel_msg' => 'Nenhum nota/ov foi editada com o municipio.',
+                    'cancel_msg'    => 'Nenhum nota/ov foi editada com o municipio.',
 
                 ]);
             }
@@ -79,30 +82,28 @@ class Citymodal extends Component
 
     public function confirmMunicipio()
     {
-        if ($this->note->update(['lexp' => $this->setMunicipio->municipio, 'nexp' => $this->setMunicipio->rdMunicipio ])) {
-
+        if ($this->note->update(['lexp' => $this->setMunicipio->municipio, 'nexp' => $this->setMunicipio->rdMunicipio])) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Municipio adicionado com sucesso.',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Municipio adicionado com sucesso.',
+                'timer'    => 2500,
             ]);
-
 
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Erro ao tentar adicionar o município.',
-                'timer' => 3500,
+                'icon'     => 'error',
+                'title'    => 'Erro ao tentar adicionar o município.',
+                'timer'    => 3500,
             ]);
         }
 
-        $this->note = "";
-        $this->setMunicipio = "";
-        $this->regiao = "";
-        $this->municipio = "";
+        $this->note         = '';
+        $this->setMunicipio = '';
+        $this->regiao       = '';
+        $this->municipio    = '';
 
         $this->dispatchBrowserEvent('hideModal');
         $this->emit('refresh_dispatch');

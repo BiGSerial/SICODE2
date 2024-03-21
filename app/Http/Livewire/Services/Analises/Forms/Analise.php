@@ -3,55 +3,71 @@
 namespace App\Http\Livewire\Services\Analises\Forms;
 
 use App\Custom\GeradorCartas;
-use App\Models\Analise as ModelsAnalise;
 use App\Models\Edp_depc\City;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
+use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class Analise extends Component
 {
     public $view_form = false; // Ou o valor inicial que desejar
+
     public $ninst;
+
     public $nmedidor;
+
     public $patrimonio;
+
     public $lat;
+
     public $lon;
+
     public $carga_ini;
+
     public $carga_fim;
+
     public $queda;
+
     public $queda_max;
+
     public $queda_cliente;
+
     public $vao;
+
     public $restriction;
+
     public $motivo;
+
     public $conclusion;
+
     public $info;
+
     public $carta;
+
     public $card;
 
     public $count = 0;
+
     public $municipio;
+
     public $reserva;
 
     public $limit_pause = 3;
+
     public $production;
+
     public $note;
+
     public $mmgd;
 
     public $analise;
 
     public $cities = false;
 
-
-
     protected $listeners = [
         'open_analise_analise' => 'openAnalise',
-        'analise_clean' => 'clean',
-        'confirm_goFinish' => 'goFinish'
+        'analise_clean'        => 'clean',
+        'confirm_goFinish'     => 'goFinish',
 
     ];
 
@@ -74,39 +90,37 @@ class Analise extends Component
         $this->clean_form();
 
         $productionId = $data['productionId'];
-        $noteId = $data['noteId'];
+        $noteId       = $data['noteId'];
 
         $this->production = Production::find($productionId);
-        $this->note = Note::find($noteId);
-
-
+        $this->note       = Note::find($noteId);
 
         // Verficando a existencia de uma analise ja atriobuida para esta produção
         $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
 
-        if(!$this->analise) {
+        if (!$this->analise) {
             $this->clean_form();
             $this->production->Analise()->create();
             $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
         }
 
-        if($this->analise) {
-            $this->ninst = $this->analise->ninst;
-            $this->nmedidor = $this->analise->nMedidor;
-            $this->patrimonio = $this->analise->patrimonio;
-            $this->lat = $this->analise->lat;
-            $this->lon = $this->analise->lon;
-            $this->carga_ini = $this->analise->carga_ini + 0.00;
-            $this->carga_fim = $this->analise->carga_fim + 0.00;
-            $this->queda = $this->analise->queda + 0.00;
-            $this->queda_max = $this->analise->queda_max + 0.00;
+        if ($this->analise) {
+            $this->ninst         = $this->analise->ninst;
+            $this->nmedidor      = $this->analise->nMedidor;
+            $this->patrimonio    = $this->analise->patrimonio;
+            $this->lat           = $this->analise->lat;
+            $this->lon           = $this->analise->lon;
+            $this->carga_ini     = $this->analise->carga_ini + 0.00;
+            $this->carga_fim     = $this->analise->carga_fim + 0.00;
+            $this->queda         = $this->analise->queda + 0.00;
+            $this->queda_max     = $this->analise->queda_max + 0.00;
             $this->queda_cliente = $this->analise->queda_cliente + 0.00;
-            $this->vao = $this->analise->vao;
-            $this->restriction = $this->analise->restricao;
-            $this->motivo = $this->analise->motivo;
-            $this->conclusion = $this->analise->conclusion;
-            $this->info = $this->analise->info;
-            $this->card = $this->analise->card;
+            $this->vao           = $this->analise->vao;
+            $this->restriction   = $this->analise->restricao;
+            $this->motivo        = $this->analise->motivo;
+            $this->conclusion    = $this->analise->conclusion;
+            $this->info          = $this->analise->info;
+            $this->card          = $this->analise->card;
         }
 
         if ($this->production && $this->note) {
@@ -116,7 +130,7 @@ class Analise extends Component
             if ($this->production->status === 4) {
                 $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
-                if($hist) {
+                if ($hist) {
                     $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
                     $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
                 }
@@ -124,25 +138,23 @@ class Analise extends Component
             }
             // Coloca nota em andamento
             $update = $this->production->update([
-                        'status' => 3,
-                        'stopped' => $this->production->stopped + $time
-                    ]);
+                'status'  => 3,
+                'stopped' => $this->production->stopped + $time,
+            ]);
 
-            if($update && $this->production->status !== 3) {
+            if ($update && $this->production->status !== 3) {
                 // Registra Movimento Nota
                 $user = Auth()->User()->name;
 
                 Notetimeline::Create([
-                    'note_id' => $this->note->id,
-                    'service_id' => $this->production->service_id,
-                    'user_id' => Auth()->User()->id,
-                    'info' => "Usuário {$user} iniciou a Nota/OV.",
-                    'status' => 3,
+                    'note_id'      => $this->note->id,
+                    'service_id'   => $this->production->service_id,
+                    'user_id'      => Auth()->User()->id,
+                    'info'         => "Usuário {$user} iniciou a Nota/OV.",
+                    'status'       => 3,
                     'productionId' => $this->production->id,
                 ]);
             }
-
-
 
             $this->view_form = true;
         }
@@ -151,24 +163,23 @@ class Analise extends Component
     public function save_info()
     {
 
-
         $chk = $this->analise->update([
-            'ninst' => $this->ninst ? $this->ninst : null,
-            'nMedidor' => $this->nmedidor ? $this->nmedidor : null,
-            'patrimonio' => $this->patrimonio,
-            'lat' => $this->lat,
-            'lon' => $this->lon,
-            'carga_ini' => $this->carga_ini ? (float)$this->carga_ini : 0.00,
-            'carga_fim' => $this->carga_fim ? (float)$this->carga_fim : 0.00,
-            'queda' => $this->queda ? (float)$this->queda : 0.00,
-            'queda_max' => $this->queda_max ? (float)$this->queda_max : 0.00,
-            'queda_cliente' => $this->queda_cliente ? (float)$this->queda_cliente : 0.00,
-            'vao' => $this->vao ? $this->vao : 0,
-            'restricao' => $this->restriction,
-            'motivo' => $this->motivo,
-            'conclusion' => $this->conclusion,
-            'info' => $this->info,
-            'card' => $this->card,
+            'ninst'         => $this->ninst ? $this->ninst : null,
+            'nMedidor'      => $this->nmedidor ? $this->nmedidor : null,
+            'patrimonio'    => $this->patrimonio,
+            'lat'           => $this->lat,
+            'lon'           => $this->lon,
+            'carga_ini'     => $this->carga_ini ? (float) $this->carga_ini : 0.00,
+            'carga_fim'     => $this->carga_fim ? (float) $this->carga_fim : 0.00,
+            'queda'         => $this->queda ? (float) $this->queda : 0.00,
+            'queda_max'     => $this->queda_max ? (float) $this->queda_max : 0.00,
+            'queda_cliente' => $this->queda_cliente ? (float) $this->queda_cliente : 0.00,
+            'vao'           => $this->vao ? $this->vao : 0,
+            'restricao'     => $this->restriction,
+            'motivo'        => $this->motivo,
+            'conclusion'    => $this->conclusion,
+            'info'          => $this->info,
+            'card'          => $this->card,
 
         ]);
     }
@@ -183,14 +194,14 @@ class Analise extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'LIMITE ATINGIDO',
-                'html' => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
+                'icon'     => 'warning',
+                'title'    => 'LIMITE ATINGIDO',
+                'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
                         adequada. 
                     </p>
-                "
+                ",
             ]);
 
             return;
@@ -199,25 +210,23 @@ class Analise extends Component
         $this->emit('stop_note', ['productionId' => $this->production->id, 'noteId' => $this->production->note_id, 'limit' => $this->limit_pause]);
 
         $this->dispatchBrowserEvent('showModal', [
-            'id' => 'pause_note'
+            'id' => 'pause_note',
         ]);
     }
-
 
     public function to_finish(Production $production)
     {
         $this->save_info();
         $this->production = $production;
-        $this->note = Note::find($this->production->note_id);
-
+        $this->note       = Note::find($this->production->note_id);
 
         if (!$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'CONCLUSÃO NÃO DEFINIDA',
-                'html' => "Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
-                "
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO NÃO DEFINIDA',
+                'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
+                ',
             ]);
 
             return;
@@ -226,19 +235,18 @@ class Analise extends Component
         if (!$this->mmgd) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'INFORMAÇÃO OBIRGATÓRIA',
-                'html' => "Obrigatório informar MMGD
-                "
+                'icon'     => 'warning',
+                'title'    => 'INFORMAÇÃO OBIRGATÓRIA',
+                'html'     => 'Obrigatório informar MMGD
+                ',
             ]);
 
             return;
         }
 
-
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'ENCERRAMENTO DE SERVIÇO',
-            'msg' => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
+            'title' => 'ENCERRAMENTO DE SERVIÇO',
+            'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
@@ -247,12 +255,12 @@ class Analise extends Component
                     </div>
                 </div>
             ",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Continue!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_goFinish",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Continue!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_goFinish',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Ação Cancelada.',
+            'cancel_msg'    => 'Ação Cancelada.',
 
         ]);
     }
@@ -269,25 +277,25 @@ class Analise extends Component
         }
 
         $chk = $this->production->update([
-            'status' => 5,
+            'status'       => 5,
             'completed_at' => date('Y-m-d H:i:s'),
-            'completed' => true,
-            'confirmed' => false,
-            'mmgd' => $mmgd,
+            'completed'    => true,
+            'confirmed'    => false,
+            'mmgd'         => $mmgd,
 
         ]);
 
-        if($chk) {
+        if ($chk) {
             $user = Auth()->User()->name;
 
             Note::find($this->note->id)->update(['mmgd' => $mmgd]);
 
             Notetimeline::Create([
-                'note_id' => $this->note->id,
-                'service_id' => $this->production->service_id,
-                'user_id' => Auth()->User()->id,
-                'info' => "Usuário {$user} encerrou a Nota/OV.",
-                'status' => 5,
+                'note_id'      => $this->note->id,
+                'service_id'   => $this->production->service_id,
+                'user_id'      => Auth()->User()->id,
+                'info'         => "Usuário {$user} encerrou a Nota/OV.",
+                'status'       => 5,
                 'productionId' => $this->production->id,
             ]);
 
@@ -302,7 +310,6 @@ class Analise extends Component
         $this->card = (new GeradorCartas($this->restriction, $this->motivo, $this->comprador ?? null, $this->note->client ?? null, null, $this->lat ?? null, $this->lon ?? null, $this->municipio ?? $this->note->lexp ?? null, null, $this->reserva ?? null))->carta();
 
     }
-
 
     // public function gerarCarta($res, $sub)
     // {
@@ -382,12 +389,7 @@ class Analise extends Component
 
     //     ;
 
-
-
-
-
     //     $municipio = $this->note->lexp ? $this->note->lexp : $this->municipio;
-
 
     //     $carta['LOTEAMENTO']['OUTROS'] = "
 
@@ -401,8 +403,6 @@ class Analise extends Component
     //     Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
 
     //     Atenciosamente,";
-
-
 
     //     $carta['SEMMA']['OUTROS'] = "
     //     Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado.
@@ -444,13 +444,9 @@ class Analise extends Component
     //     De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
     //     Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
 
-
     //     Atenciosamente,";
 
     //     $carta['AMBIENTE']['ICMBIO'] = "
-
-
-
 
     //         Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo:
     //         O endereço informado se encontra em Unidade de Conservação/Zona de Amortecimento Federal {$this->reserva} e, conforme Resolução Normativa ANEEL n° 1000/2021, em seu artigo 67:
@@ -466,42 +462,40 @@ class Analise extends Component
     //         Atenciosamente,
     //         ";
 
-
     //     $this->card = "Prezado(a) Senhor(a) {$this->note->client}, \n".$carta[$res][$sub];
 
     // }
 
     public function clean()
     {
-        $this->production = null;
-        $this->note = null;
-        $this->motivo = null;
-        $this->info = null;
+        $this->production  = null;
+        $this->note        = null;
+        $this->motivo      = null;
+        $this->info        = null;
         $this->restriction = null;
-        $this->card = null;
-        $this->view_form = false;
-
+        $this->card        = null;
+        $this->view_form   = false;
 
     }
 
     public function clean_form()
     {
-        $this->ninst = "";
-        $this->nmedidor = "";
-        $this->patrimonio = "";
-        $this->lat = "";
-        $this->lon = "";
-        $this->carga_ini = "";
-        $this->carga_fim = "";
-        $this->queda = "";
-        $this->queda_max = "";
-        $this->queda_cliente = "";
-        $this->vao = "";
-        $this->restriction = "";
-        $this->motivo = "";
-        $this->conclusion = "";
-        $this->info = "";
-        $this->card = "";
+        $this->ninst         = '';
+        $this->nmedidor      = '';
+        $this->patrimonio    = '';
+        $this->lat           = '';
+        $this->lon           = '';
+        $this->carga_ini     = '';
+        $this->carga_fim     = '';
+        $this->queda         = '';
+        $this->queda_max     = '';
+        $this->queda_cliente = '';
+        $this->vao           = '';
+        $this->restriction   = '';
+        $this->motivo        = '';
+        $this->conclusion    = '';
+        $this->info          = '';
+        $this->card          = '';
 
     }
 

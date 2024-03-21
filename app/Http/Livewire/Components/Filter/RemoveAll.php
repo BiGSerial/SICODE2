@@ -8,7 +8,6 @@ class RemoveAll extends Component
 {
     public $group_filter;
 
-
     public function mount($group_filter)
     {
         $this->group_filter = $group_filter;
@@ -27,7 +26,6 @@ class RemoveAll extends Component
             $this->emit('refresh_All_Filter');
 
         }
-
 
     }
 

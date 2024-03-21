@@ -2,16 +2,16 @@
 
 namespace App\Http\Livewire\Production\Users;
 
-use App\Models\Company;
-use App\Models\Production;
-use App\Models\Service;
+use App\Models\{Company, Production, Service};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Occupation extends Component
 {
     public $service;
+
     public $company_l;
+
     public $company_s;
 
     public function mount($service_id)
@@ -19,7 +19,6 @@ class Occupation extends Component
         $this->service = Service::where('uuid', $service_id)->first();
 
     }
-
 
     public function getListsProperty()
     {
@@ -43,11 +42,11 @@ class Occupation extends Component
     public function render()
     {
         $this->company_l = Company::whereIn('id', Production::where('confirmed', false)->where('service_id', $this->service->uuid)->get()->pluck('company_id')->unique()->toArray())
-        ->orderBy('name')
-        ->get();
+            ->orderBy('name')
+            ->get();
 
         return view('livewire.production.users.occupation', [
-            'lists' => $this->lists
+            'lists' => $this->lists,
         ]);
     }
 }

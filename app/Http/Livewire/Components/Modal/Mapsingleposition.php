@@ -15,12 +15,12 @@ class Mapsingleposition extends Component
 
     public function show_map_production($production_id)
     {
-        $this->wpa = "";
+        $this->wpa = '';
 
         if ($production_id) {
             if ($this->wpa = Wpa::where('prduction_id')->first()) {
                 $this->dispatchBrowserEvent('showModal', [
-                    'id' => 'singleMapPosition'
+                    'id' => 'singleMapPosition',
                 ]);
             }
         }

@@ -4,8 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\{Model, SoftDeletes};
 
 class Company extends Model
 {
@@ -16,7 +15,7 @@ class Company extends Model
     protected $fillable = [
         'name',
         'email',
-        'telephone'
+        'telephone',
     ];
 
     public function Address()
@@ -28,6 +27,4 @@ class Company extends Model
     {
         return $this->hasMany(Contract::class);
     }
-
-    
 }

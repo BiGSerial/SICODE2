@@ -2,15 +2,10 @@
 
 namespace App\Console\Commands\Update;
 
-use App\Models\Bancoupdate;
 use App\Models\Edp_depc\BaseOV;
-use App\Models\Note;
-use App\Models\Service;
+use App\Models\{Bancoupdate, Note, Service};
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
-use PhpOffice\PhpSpreadsheet\Calculation\LookupRef\Offset;
-use Symfony\Component\Process\Process;
 
 class Integridade extends Command
 {
@@ -34,7 +29,6 @@ class Integridade extends Command
     public function handle()
     {
 
-
         $tries = 0;
 
         retry:
@@ -48,7 +42,6 @@ class Integridade extends Command
            system('clear');
        }
 
-
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHEKING INTEGRITY DB...</>');
 
         // $status = Service::orderBy('status')->get();
@@ -56,11 +49,10 @@ class Integridade extends Command
         $this->info('<bg=blue;fg=white> INFO </>  READING ORIGIN DB...');
 
         $origins = BaseOV::Where('ultimoStatus', 1)
-        ->select('numStat', DB::raw('count(*) as count'))
-        ->groupBy('numStat')
-        ->get();
+            ->select('numStat', DB::raw('count(*) as count'))
+            ->groupBy('numStat')
+            ->get();
         $this->info('<bg=green;fg=white> DONE </> ORIGIN DB DONE...');
-
 
         $error = 0;
 
@@ -70,27 +62,27 @@ class Integridade extends Command
 
             $destiny = Note::Where('nstats', $origin->numStat)->where('type_note', 2)->count();
 
-
             if ($destiny && $origin->count != $destiny) {
-                $this->info('<bg=red;fg=yellow> FAIL </> <fg=yellow;options=underscore;options=bold> INTEGRITY ERROR IN STATUS '.$origin->numStat.' ORIGIN: '. $origin->count .' DESTINY: '.$destiny.' </>');
+                $this->info('<bg=red;fg=yellow> FAIL </> <fg=yellow;options=underscore;options=bold> INTEGRITY ERROR IN STATUS ' . $origin->numStat . ' ORIGIN: ' . $origin->count . ' DESTINY: ' . $destiny . ' </>');
+
                 if ($origin->numStat < 98) {
                     $error++;
                 } elseif ($tries <= 1) {
                     $error++;
                 } elseif ($tries > 1) {
-                    $this->comment('<bg=yellow;fg=black> WARNING </> IGNORING ERROR STATS EXISTS IN '.$origin->numStat);
+                    $this->comment('<bg=yellow;fg=black> WARNING </> IGNORING ERROR STATS EXISTS IN ' . $origin->numStat);
                 }
             } elseif ($destiny && $origin->count == $destiny) {
-                $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> INTEGRITY OK IN STATUS </> <fg=yellow;options=bold>'.$origin->numStat.' </>');
+                $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> INTEGRITY OK IN STATUS </> <fg=yellow;options=bold>' . $origin->numStat . ' </>');
             } else {
                 if ($origin->numStat < 98) {
                     $error++;
                 } elseif ($tries <= 1) {
                     $error++;
                 } elseif ($tries > 1) {
-                    $this->comment('<bg=yellow;fg=black> WRNG </> IGNORING ERROR STATS EXISTS IN '.$origin->numStat);
+                    $this->comment('<bg=yellow;fg=black> WRNG </> IGNORING ERROR STATS EXISTS IN ' . $origin->numStat);
                 } else {
-                    $this->comment('<bg=yellow;fg=black> WRNG </> INTEGRITY ERROR STATS NOT EXISTS IN '.$origin->numStat);
+                    $this->comment('<bg=yellow;fg=black> WRNG </> INTEGRITY ERROR STATS NOT EXISTS IN ' . $origin->numStat);
                 }
 
             }
@@ -123,9 +115,9 @@ class Integridade extends Command
             // Registra atualizações
             Bancoupdate::Create([
                 'last_update' => date('Y-m-d H:i:s'),
-                'error' => 1,
-                'inserts' => -1,
-                'updates' => -1
+                'error'       => 1,
+                'inserts'     => -1,
+                'updates'     => -1,
             ]);
 
         } else {

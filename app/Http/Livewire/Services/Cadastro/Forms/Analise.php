@@ -2,54 +2,59 @@
 
 namespace App\Http\Livewire\Services\Cadastro\Forms;
 
-use App\Models\AddressCad;
-use App\Models\Analise as ModelsAnalise;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
+use App\Models\{AddressCad, Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class Analise extends Component
 {
     public $search;
+
     public $conclusion;
+
     public $address;
+
     public $district;
+
     public $city;
+
     public $cod;
+
     public $info;
+
     public $exist;
 
     public $production;
+
     public $note;
+
     public $analise;
 
     public $cadastrar = false;
+
     public $encontrado = false;
+
     public $addresses;
 
     public $block_time = false;
 
     public $count;
+
     public $limit_pause = 5000;
 
     public $view_form = false;
 
-
-
     protected $listeners = [
         'open_analise_cadastro' => 'openAnalise',
-        'analise_clean' => 'clean',
-        'confirm_goFinish' => 'goFinish'
+        'analise_clean'         => 'clean',
+        'confirm_goFinish'      => 'goFinish',
 
     ];
 
     public function search()
     {
 
-        $this->cadastrar = false;
+        $this->cadastrar  = false;
         $this->encontrado = false;
 
         if (!trim($this->search)) {
@@ -57,10 +62,7 @@ class Analise extends Component
             return;
         }
 
-
         // $searchTerms = explode(' ', $this->search);
-
-
 
         // $this->addresses = AddressCad::where(function ($query) use ($searchTerms) {
         //     foreach ($searchTerms as $term) {
@@ -74,8 +76,6 @@ class Analise extends Component
             $query->where('address', 'like', '%' . $this->search . '%');
         })->get();
 
-
-
         if ($this->addresses->count()) {
             $this->encontrado = true;
         } else {
@@ -87,7 +87,7 @@ class Analise extends Component
     {
         $address = AddressCad::with('Note')->find($id);
 
-        if($address) {
+        if ($address) {
             $user = Auth()->User()->name;
 
             $this->info = "
@@ -121,19 +121,16 @@ Att,
         $this->clean_form();
 
         $productionId = $data['productionId'];
-        $noteId = $data['noteId'];
+        $noteId       = $data['noteId'];
 
         $this->production = Production::find($productionId);
-        $this->note = Note::find($noteId);
-
-
+        $this->note       = Note::find($noteId);
 
         // if (Carbon::now()->isAfter(Carbon::parse($this->production->created_at))) {
         //     $this->block_time = false;
         // } else {
         //     $this->block_time = true;
         // }
-
 
         $address = AddressCad::where('production_id', $this->production->id)->first();
 
@@ -146,16 +143,16 @@ Att,
                 $this->cadastrar = true;
             }
 
-            $this->address = $address->address;
+            $this->address  = $address->address;
             $this->district = $address->district;
-            $this->city = $address->city;
-            $this->cod = $address->cod;
+            $this->city     = $address->city;
+            $this->cod      = $address->cod;
         }
 
         // Verficando a existencia de uma analise ja atriobuida para esta produção
         $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
 
-        if($this->analise) {
+        if ($this->analise) {
             $this->info = $this->analise->info;
         } else {
             $this->clean_form();
@@ -170,7 +167,7 @@ Att,
             if ($this->production->status === 4) {
                 $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
-                if($hist) {
+                if ($hist) {
                     $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
                     $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
                 }
@@ -178,24 +175,22 @@ Att,
             }
             // Coloca nota em andamento
             $update = $this->production->update([
-                        'status' => 3,
-                        'stopped' => $this->production->stopped + $time
-                    ]);
+                'status'  => 3,
+                'stopped' => $this->production->stopped + $time,
+            ]);
 
-            if($update && $this->production->status !== 3) {
+            if ($update && $this->production->status !== 3) {
                 // Registra Movimento Nota
                 $user = Auth()->User()->name;
 
                 Notetimeline::Create([
-                    'note_id' => $this->note->id,
+                    'note_id'    => $this->note->id,
                     'service_id' => $this->production->service_id,
-                    'user_id' => Auth()->User()->id,
-                    'info' => "Usuário {$user} iniciou a Nota/OV.",
-                    'status' => 3
+                    'user_id'    => Auth()->User()->id,
+                    'info'       => "Usuário {$user} iniciou a Nota/OV.",
+                    'status'     => 3,
                 ]);
             }
-
-
 
             $this->view_form = true;
         }
@@ -210,7 +205,6 @@ Att,
         }
 
         $user = Auth()->User()->name;
-
 
         if ($this->cadastrar) {
             $this->info = "
@@ -231,7 +225,7 @@ Att,
         $chk = $this->analise->update([
 
             'conclusion' => $this->conclusion,
-            'info' => $this->info,
+            'info'       => $this->info,
 
         ]);
 
@@ -239,11 +233,12 @@ Att,
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'CAMPOS VAZIOS',
-                'html' => "Todos os campos de cadastramento do endereço, devem obrigatóriamente serem preenchidos.
-                "
+                'icon'     => 'warning',
+                'title'    => 'CAMPOS VAZIOS',
+                'html'     => 'Todos os campos de cadastramento do endereço, devem obrigatóriamente serem preenchidos.
+                ',
             ]);
+
             return;
         }
 
@@ -253,26 +248,26 @@ Att,
 
             if ($chk) {
                 $chk->update([
-                        'note_id' => $this->note->id,
-                        'production_id' => $this->production->id,
-                        'analise_id' => $this->analise->id,
-                        'address' => mb_strtoupper(trim($this->address)),
-                        'district' => mb_strtoupper(trim($this->district)),
-                        'city' => mb_strtoupper(trim($this->city)),
-                        'cod' => $this->cod,
-                        'exist' => $this->exist ? true : false,
+                    'note_id'       => $this->note->id,
+                    'production_id' => $this->production->id,
+                    'analise_id'    => $this->analise->id,
+                    'address'       => mb_strtoupper(trim($this->address)),
+                    'district'      => mb_strtoupper(trim($this->district)),
+                    'city'          => mb_strtoupper(trim($this->city)),
+                    'cod'           => $this->cod,
+                    'exist'         => $this->exist ? true : false,
                 ]);
             } else {
                 AddressCad::create([
-                    'note_id' => $this->note->id,
+                    'note_id'       => $this->note->id,
                     'production_id' => $this->production->id,
-                    'analise_id' => $this->analise->id,
-                    'address' => mb_strtoupper(trim($this->address)),
-                    'district' => mb_strtoupper(trim($this->district)),
-                    'city' => mb_strtoupper(trim($this->city)),
-                    'cod' => $this->cod,
-                    'exist' => $this->exist ? true : false,
-            ]);
+                    'analise_id'    => $this->analise->id,
+                    'address'       => mb_strtoupper(trim($this->address)),
+                    'district'      => mb_strtoupper(trim($this->district)),
+                    'city'          => mb_strtoupper(trim($this->city)),
+                    'cod'           => $this->cod,
+                    'exist'         => $this->exist ? true : false,
+                ]);
             }
         }
     }
@@ -287,14 +282,14 @@ Att,
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'LIMITE ATINGIDO',
-                'html' => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
+                'icon'     => 'warning',
+                'title'    => 'LIMITE ATINGIDO',
+                'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
                         adequada. 
                     </p>
-                "
+                ",
             ]);
 
             return;
@@ -303,10 +298,9 @@ Att,
         $this->emit('stop_note', ['productionId' => $this->production->id, 'noteId' => $this->production->note_id, 'limit' => $this->limit_pause]);
 
         $this->dispatchBrowserEvent('showModal', [
-            'id' => 'pause_note'
+            'id' => 'pause_note',
         ]);
     }
-
 
     public function to_finish(Production $production)
     {
@@ -314,10 +308,10 @@ Att,
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'INFORMAÇÕES INCOMPLETAS',
-                'html' => "Você precisa completar todos os campos do cadastro.
-                "
+                'icon'     => 'warning',
+                'title'    => 'INFORMAÇÕES INCOMPLETAS',
+                'html'     => 'Você precisa completar todos os campos do cadastro.
+                ',
             ]);
 
             return;
@@ -329,35 +323,34 @@ Att,
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'INFORMAÇÃO COMPLEMENTAR OBRIGATÓRIO',
-                'html' => "VOCÊ PRECISA FORNECER INFORMAÇÕES COMPLEMENTARES OBRIGATÓRIOS.
-                "
+                'icon'     => 'warning',
+                'title'    => 'INFORMAÇÃO COMPLEMENTAR OBRIGATÓRIO',
+                'html'     => 'VOCÊ PRECISA FORNECER INFORMAÇÕES COMPLEMENTARES OBRIGATÓRIOS.
+                ',
             ]);
 
             return;
         }
 
-
         $this->save_info();
         $this->production = $production;
-        $this->note = Note::find($this->production->note_id);
+        $this->note       = Note::find($this->production->note_id);
 
         if (!$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'CONCLUSÃO NÃO DEFINIDA',
-                'html' => "Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
-                "
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO NÃO DEFINIDA',
+                'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
+                ',
             ]);
 
             return;
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'ENCERRAMENTO DE SERVIÇO',
-            'msg' => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
+            'title' => 'ENCERRAMENTO DE SERVIÇO',
+            'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
@@ -366,12 +359,12 @@ Att,
                     </div>
                 </div>
             ",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Continue!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_goFinish",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Continue!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_goFinish',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Ação Cancelada.',
+            'cancel_msg'    => 'Ação Cancelada.',
 
         ]);
     }
@@ -379,25 +372,23 @@ Att,
     public function goFinish()
     {
         $chk = $this->production->update([
-            'status' => 5,
+            'status'       => 5,
             'completed_at' => date('Y-m-d H:i:s'),
-            'completed' => true,
-            'confirmed' => false,
+            'completed'    => true,
+            'confirmed'    => false,
 
         ]);
 
-        if($chk) {
+        if ($chk) {
             $user = Auth()->User()->name;
 
             Notetimeline::Create([
-                'note_id' => $this->note->id,
+                'note_id'    => $this->note->id,
                 'service_id' => $this->production->service_id,
-                'user_id' => Auth()->User()->id,
-                'info' => "Usuário {$user} encerrou a Nota/OV.",
-                'status' => 5
+                'user_id'    => Auth()->User()->id,
+                'info'       => "Usuário {$user} encerrou a Nota/OV.",
+                'status'     => 5,
             ]);
-
-
 
             $this->clean();
             $this->dispatchBrowserEvent('hideModal');
@@ -405,43 +396,38 @@ Att,
         }
     }
 
-
-
-
-
     public function clean()
     {
-        $this->search = "";
-        $this->conclusion = "";
-        $this->address = "";
-        $this->district = "";
-        $this->city = "";
-        $this->cod = "";
-        $this->info = "";
-        $this->exist = false;
+        $this->search     = '';
+        $this->conclusion = '';
+        $this->address    = '';
+        $this->district   = '';
+        $this->city       = '';
+        $this->cod        = '';
+        $this->info       = '';
+        $this->exist      = false;
 
-        $this->production = "";
-        $this->note = "";
-        $this->analise = "";
+        $this->production = '';
+        $this->note       = '';
+        $this->analise    = '';
 
-        $this->cadastrar = false;
+        $this->cadastrar  = false;
         $this->encontrado = false;
-        $this->addresses = "";
-        $this->view_form = false;
-
+        $this->addresses  = '';
+        $this->view_form  = false;
 
     }
 
     public function clean_form()
     {
-        $this->search = "";
-        $this->conclusion = "";
-        $this->address = "";
-        $this->district = "";
-        $this->city = "";
-        $this->cod = "";
-        $this->info = "";
-        $this->exist = false;
+        $this->search     = '';
+        $this->conclusion = '';
+        $this->address    = '';
+        $this->district   = '';
+        $this->city       = '';
+        $this->cod        = '';
+        $this->info       = '';
+        $this->exist      = false;
 
     }
 

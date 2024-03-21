@@ -9,8 +9,11 @@ use Illuminate\View\Component;
 class stackbar extends Component
 {
     public $type;
+
     public $labels;
+
     public $data;
+
     public $chartId;
 
     /**
@@ -18,9 +21,9 @@ class stackbar extends Component
      */
     public function __construct($type, $labels, $data, $chartId)
     {
-        $this->type = $type;
-        $this->labels = $labels;
-        $this->data = $data;
+        $this->type    = $type;
+        $this->labels  = $labels;
+        $this->data    = $data;
         $this->chartId = $chartId;
     }
 

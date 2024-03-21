@@ -3,16 +3,9 @@
 namespace App\Http\Livewire\Dispatchs\Default;
 
 use App\Exports\ExportDDExcel;
-use App\Models\Company;
 use App\Models\Edp_depc\City;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Wpa;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{Company, Note, Notetimeline, Production, Service, User, Wpa};
+use Livewire\{Component, WithPagination};
 
 class Stack extends Component
 {
@@ -22,64 +15,92 @@ class Stack extends Component
 
     // VAr System
     public $service;
+
     public $last_update;
+
     public $search;
+
     public $rubrica_s = [];
+
     public $rubrica_l;
+
     public $perPage = 100;
+
     public $advanceSearch;
+
     public $multiSearch = [];
 
     public $note;
+
     public $notes;
 
     public $enter_dd;
+
     public $filteredLists;
 
     public $priority;
 
     public $status_l;
+
     public $status_s = [];
 
     public $selectall;
+
     public $selected = [];
+
     public $company_l;
+
     public $company_s;
+
     public $company_fs = [];
+
     public $user_l;
+
     public $user_s;
+
     public $user_fl;
+
     public $user_fs = [];
-    public $type = "2";
+
+    public $type = '2';
+
     public $additionalData = [];
 
     // Filtros Municípios
     public $region_l;
+
     public $region_s = [];
+
     public $district_l;
+
     public $district_s = [];
+
     public $city_l;
+
     public $city_s = [];
-    public $note_type = "";
+
+    public $note_type = '';
 
     public $force = true;
 
     public $delete;
+
     public $production;
+
     public $productions;
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list'       => '$refresh',
         'confirm_remove_att' => 'remove_att',
-        'confirm_dispatch' => 'confirmed_att',
-        'getCopy' => 'copy',
-        'filterUser' => 'filterUser',
+        'confirm_dispatch'   => 'confirmed_att',
+        'getCopy'            => 'copy',
+        'filterUser'         => 'filterUser',
 
     ];
 
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->with('Status')->first();
+        $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
     }
 
@@ -90,7 +111,6 @@ class Stack extends Component
 
     public function updatedSelectall($val)
     {
-
 
         $idsToKeep = $this->filteredLists->pluck('id')->toArray();
 
@@ -104,6 +124,7 @@ class Stack extends Component
         } else {
             // Criar um novo array $selected com os IDs que devem ser mantidos
             $newSelected = [];
+
             foreach ($this->selected as $id) {
                 if (!in_array($id, $idsToKeep)) {
                     $newSelected[] = $id;
@@ -119,9 +140,9 @@ class Stack extends Component
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para Exportar!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para Exportar!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -131,13 +152,13 @@ class Stack extends Component
             return $query->whereIn('id', $this->selected);
         });
 
-        return (new ExportDDExcel())->exportDD($notes->pluck('id')->toArray(), $this->service->service)->download(date('YmdHis-').'exportProdNote.xlsx');
+        return (new ExportDDExcel())->exportDD($notes->pluck('id')->toArray(), $this->service->service)->download(date('YmdHis-') . 'exportProdNote.xlsx');
     }
 
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
-            'status' => 'success',
+            'status'   => 'success',
             'menssage' => $msg,
         ]);
     }
@@ -150,11 +171,11 @@ class Stack extends Component
             session_start();
         }
 
-        $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
-        $_SESSION['filtro']['city'] = $this->city_s;
+        $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
+        $_SESSION['filtro']['city']     = $this->city_s;
         $_SESSION['filtro']['district'] = $this->district_s;
-        $_SESSION['filtro']['region'] = $this->region_s;
-        $_SESSION['filtro']['users'] = $this->user_fs;
+        $_SESSION['filtro']['region']   = $this->region_s;
+        $_SESSION['filtro']['users']    = $this->user_fs;
 
         $this->emit('refresh_service');
 
@@ -164,17 +185,18 @@ class Stack extends Component
     {
         $this->gotoPage(1);
 
-        $this->rubrica_s = [];
-        $this->city_s = [];
+        $this->rubrica_s  = [];
+        $this->city_s     = [];
         $this->district_s = [];
-        $this->region_s = [];
-        $this->status_s = [];
+        $this->region_s   = [];
+        $this->status_s   = [];
         $this->company_fs = [];
-        $this->user_fs = [];
+        $this->user_fs    = [];
 
         $this->multiSearch = [];
 
         session_start();
+
         if (isset($_SESSION['filtro'])) {
             unset($_SESSION['filtro']);
         }
@@ -198,9 +220,9 @@ class Stack extends Component
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para atribuição!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para atribuição!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -208,45 +230,41 @@ class Stack extends Component
 
         $this->productions = Production::find($this->selected);
 
-
-
         $this->notes = Note::whereHas('Productions', function ($query) {
             return $query->whereIn('id', $this->selected);
         })->get();
 
-
-
         if ($this->notes->count()) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes'
+                'id' => 'add_mass_notes',
             ]);
         }
     }
 
     public function confirm_att()
     {
-        if ($this->type == "2") {
+        if ($this->type == '2') {
 
             if (!$this->user_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
             }
 
-            $para = User::find($this->user_s)->name." da ".(Company::find($this->company_s))->name;
+            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
         } else {
 
             if (!$this->company_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
@@ -256,14 +274,14 @@ class Stack extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'Confirmar Atribuir',
-            'msg' => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Despache!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_dispatch",
+            'title'         => 'Confirmar Atribuir',
+            'msg'           => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Despache!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_dispatch',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
         ]);
     }
@@ -272,10 +290,9 @@ class Stack extends Component
     {
         $this->force = true;
 
-        if ($this->type == "2" || $this->force) {
+        if ($this->type == '2' || $this->force) {
 
             foreach ($this->notes as $key => $note) {
-
 
                 // $production = Production::create([
                 //     'note_id' => $note->id,
@@ -291,11 +308,7 @@ class Stack extends Component
                 //     'status' => 2,
                 // ]);
 
-
-
                 $production = $this->productions->where('note_id', $note->id)->first();
-
-
 
                 if ($production) {
 
@@ -304,30 +317,28 @@ class Stack extends Component
                     // dd($update);
 
                     if ($production->update([
-                        'user_id' => $this->user_s,
+                        'user_id'    => $this->user_s,
                         'company_id' => $this->company_s,
-                        'att_by' => Auth()->User()->id,
-                        'att_at' => date('Y-m-d H:i:s'),
-                        'status' => $this->user_s ? 2 : 1,
-                        'completed' => false,
-                        ])) {
+                        'att_by'     => Auth()->User()->id,
+                        'att_at'     => date('Y-m-d H:i:s'),
+                        'status'     => $this->user_s ? 2 : 1,
+                        'completed'  => false,
+                    ])) {
 
-                        if(trim($this->user_s)) {
-                            $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
+                        if (trim($this->user_s)) {
+                            $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                         } else {
-                            $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
+                            $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
                         }
 
-
                         Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "{$user_info}",
-                            'status' => $this->user_s ? 2 : 1,
+                            'note_id'      => $production->id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "{$user_info}",
+                            'status'       => $this->user_s ? 2 : 1,
                             'productionId' => $production->id,
                         ]);
-
 
                         // Wpa::create([
                         //     'production_id' => $production->id,
@@ -340,44 +351,39 @@ class Stack extends Component
 
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
-                            'icon' => 'error',
-                            'title' => 'Erro ao atribuir as notas!',
-                            'timer' => 2500,
+                            'icon'     => 'error',
+                            'title'    => 'Erro ao atribuir as notas!',
+                            'timer'    => 2500,
                         ]);
 
                         return;
                     }
-
-
 
                 } else {
                     // dd($production, $note->note);
 
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
-                        'icon' => 'error',
-                        'title' => 'Erro ao atribuir as notas!',
-                        'timer' => 2500,
+                        'icon'     => 'error',
+                        'title'    => 'Erro ao atribuir as notas!',
+                        'timer'    => 2500,
                     ]);
 
                     return;
                 }
             }
 
-
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Notas Despachadas com sucesso!',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso!',
+                'timer'    => 2500,
             ]);
 
         }
 
-
         $this->closeall();
     }
-
 
     /**
      * Inserir as DDs ás notas em massa
@@ -389,9 +395,9 @@ class Stack extends Component
         if (!trim($this->enter_dd)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -399,7 +405,7 @@ class Stack extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
 
             foreach ($linhas as $linha) {
 
@@ -424,8 +430,6 @@ class Stack extends Component
         }
     }
 
-
-
     public function to_remove_add($id)
     {
         $this->production = Production::with('User')->find($id);
@@ -433,16 +437,15 @@ class Stack extends Component
         if ($this->production) {
             $name = $this->production->User ? $this->production->User->name : 'Desconhecido';
 
-
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Desatribuição',
-                'msg' => "Você está prestes a Desatribuir a produção para {$name}. Deseja continuar?",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Remova!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_remove_att",
+                'title'         => 'Confirmar Desatribuição',
+                'msg'           => "Você está prestes a Desatribuir a produção para {$name}. Deseja continuar?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Remova!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_remove_att',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
             ]);
         }
@@ -450,13 +453,13 @@ class Stack extends Component
 
     public function remove_att()
     {
-        if ($this->production->update(['user_id' => "", 'status' => 1, 'completed' => false])) {
+        if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Produção foi desatribuída com sucesso',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Produção foi desatribuída com sucesso',
+                'timer'    => 2500,
             ]);
 
             $this->closeall();
@@ -464,9 +467,9 @@ class Stack extends Component
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Ocorreu algum problema ao tentar remover a produção',
-                'timer' => 6000,
+                'icon'     => 'error',
+                'title'    => 'Ocorreu algum problema ao tentar remover a produção',
+                'timer'    => 6000,
             ]);
 
             $this->closeall();
@@ -476,46 +479,46 @@ class Stack extends Component
     public function getListsProperty()
     {
         return Production::with(['Note'])
-                        ->join('notes', 'productions.note_id', '=', 'notes.id')
-                        ->where('service_id', $this->service->uuid)
-                        ->where('confirmed', false)
-                        ->when($this->search, function ($q) {
-                            return $q->whereRelation('Note', 'note', $this->search);
-                        })
-                        ->when(Auth()->User()->contract, function ($q) {
-                            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-                        })
-                        ->when($this->company_fs, function ($q) {
-                            return $q->whereIn('company_id', $this->company_fs);
-                        })
-                        ->when($this->user_fs, function ($q) {
-                            return $q->whereIn('user_id', $this->user_fs);
-                        })
-                        ->when($this->base, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('nexp', $this->base)
-                                    ->orWhere('nexp', '');
-                            });
-                        })
-                        ->when($this->multiSearch, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('note', $this->multiSearch);
-                            });
-                        })
-                        ->when($this->status_s, function ($q) {
-                            return $q->whereIn('productions.status', $this->status_s);
-                        })
-                        ->orderBy('priority', 'DESC')
-                        ->orderBy('notes.type_note', 'DESC')
-                        ->orderBy('notes.days_left', 'ASC')
-                        ->select('productions.*', 'notes.dt_created as note_dt_created') // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
-                        ->paginate($this->perPage);
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->where('service_id', $this->service->uuid)
+            ->where('confirmed', false)
+            ->when($this->search, function ($q) {
+                return $q->whereRelation('Note', 'note', $this->search);
+            })
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->when($this->user_fs, function ($q) {
+                return $q->whereIn('user_id', $this->user_fs);
+            })
+            ->when($this->base, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('nexp', $this->base)
+                        ->orWhere('nexp', '');
+                });
+            })
+            ->when($this->multiSearch, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('note', $this->multiSearch);
+                });
+            })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s);
+            })
+            ->orderBy('priority', 'DESC')
+            ->orderBy('notes.type_note', 'DESC')
+            ->orderBy('notes.days_left', 'ASC')
+            ->select('productions.*', 'notes.dt_created as note_dt_created') // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->paginate($this->perPage);
     }
 
     public function getBaseProperty()
     {
         try {
-            $query = City::query();
+            $query          = City::query();
             $filtersApplied = false;
 
             if (!empty($this->region_s)) {
@@ -538,9 +541,9 @@ class Stack extends Component
             }
 
             $result = $query->orderBy('cidade')
-                            ->get()
-                            ->pluck('rdMunicipio')
-                            ->toArray();
+                ->get()
+                ->pluck('rdMunicipio')
+                ->toArray();
 
             return $result;
         } catch (\Throwable $th) {
@@ -552,15 +555,13 @@ class Stack extends Component
     {
         $this->dispatchBrowserEvent('hideModal');
 
-
-        $this->company_s = "";
-        $this->selected = [];
-        $this->user_s = "";
-        $this->type = "";
+        $this->company_s      = '';
+        $this->selected       = [];
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->advanceSearch = "";
+        $this->advanceSearch  = '';
         $this->gotoPage(1);
-
 
         $this->emit('refresh_dispatch');
     }
@@ -568,35 +569,34 @@ class Stack extends Component
     public function clean()
     {
 
-        $this->company_s = "";
-        $this->enter_dd = "";
-        $this->user_s = "";
-        $this->type = "";
+        $this->company_s      = '';
+        $this->enter_dd       = '';
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->multiSearch = [];
+        $this->multiSearch    = [];
     }
 
     public function buscarMulti()
     {
 
-
         if ($this->advanceSearch) {
 
-            $this->search = "";
+            $this->search = '';
             $this->gotoPage(1);
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(" ", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(",", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(";", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
             }
 
             $this->multiSearch = array_map('trim', $this->multiSearch);
@@ -607,19 +607,14 @@ class Stack extends Component
         }
     }
 
-
-
-
-
-
     public function render()
     {
         $this->filteredLists = $this->lists->filter(function ($list) {
 
             return !$list
-                    ->where('status_note', $list->nstats)
-                    ->where('dt_note', $list->dt_status)
-                    ->first();
+                ->where('status_note', $list->nstats)
+                ->where('dt_note', $list->dt_status)
+                ->first();
         });
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
@@ -628,22 +623,18 @@ class Stack extends Component
             $this->selectall = false;
         }
 
-
-
         if (!Auth()->User()->contract) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();
         } else {
             $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         }
 
-
-
         $this->user_fl = Production::Where('service_id', $this->service->uuid)
-                                    ->when(Auth()->User()->contract, function ($q) {
-                                        return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-                                    })->when($this->company_fs, function ($q) {
-                                        return $q->whereIn('company_id', $this->company_fs);
-                                    })->select('user_id')->with('User')->groupBy('user_id')->get();
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })->select('user_id')->with('User')->groupBy('user_id')->get();
 
         $this->status_l = $this->lists->pluck('status')->unique();
 
@@ -661,16 +652,16 @@ class Stack extends Component
         $this->city_l = City::when($this->region_s, function ($q) {
             return $q->whereIn('regiao', $this->region_s);
         })
-        ->when($this->district_s, function ($q) {
-            return $q->whereIn('baseConstrucao', $this->district_s);
-        })
-        ->select('rdMunicipio', 'cidade', 'municipio')
-        ->orderBy('cidade')
-        ->groupBy('rdMunicipio', 'cidade', 'municipio')
-        ->get();
+            ->when($this->district_s, function ($q) {
+                return $q->whereIn('baseConstrucao', $this->district_s);
+            })
+            ->select('rdMunicipio', 'cidade', 'municipio')
+            ->orderBy('cidade')
+            ->groupBy('rdMunicipio', 'cidade', 'municipio')
+            ->get();
 
         return view('livewire.dispatchs.default.stack', [
-            'lists' => $this->lists
+            'lists' => $this->lists,
         ]);
     }
 }

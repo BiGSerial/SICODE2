@@ -2,25 +2,24 @@
 
 namespace App\Http\Livewire\Production\Actions;
 
-use App\Models\Notetimeline;
-use App\Models\Production;
+use App\Models\{Notetimeline, Production};
 use Livewire\Component;
 
 class Priority extends Component
 {
     public ?Production $production = null;
+
     public $chave;
 
     public $listeners = [
         'give_priority' => 'give_priority',
-        'rem_priority' => 'rem_priority',
+        'rem_priority'  => 'rem_priority',
     ];
-
 
     public function mount($production, $chave)
     {
         $this->production = $production;
-        $this->chave = $chave;
+        $this->chave      = $chave;
     }
 
     // public function ask_priority()
@@ -57,7 +56,6 @@ class Priority extends Component
 
     // public function give_priority($chave)
     // {
-
 
     //     if ($this->chave === $chave) {
     //         if ($this->production->update(['priority' => true])) {
@@ -96,7 +94,6 @@ class Priority extends Component
     // public function rem_priority($chave)
     // {
 
-
     //     if ($this->chave === $chave) {
     //         if ($this->production->update(['priority' => false])) {
     //             $this->emit('refresh_list');
@@ -130,7 +127,6 @@ class Priority extends Component
     //         }
     //     }
     // }
-
 
     public function render()
     {

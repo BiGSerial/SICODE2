@@ -7,7 +7,6 @@ use App\Models\Prodtransfer;
 use App\Models\SicodeSql\TransferProdLog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Monolog\Handler\FirePHPHandler;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class TransferLog extends Command
@@ -42,36 +41,37 @@ class TransferLog extends Command
 
             foreach ($transfers as $transfer) {
                 $check = TransferProdLog::where('prodtrans_id', $transfer->id)->first();
-                $msg = "";
+                $msg   = '';
+
                 if ($check) {
                     $check->update([
-                        'prodtrans_id' => $transfer->id,
+                        'prodtrans_id'  => $transfer->id,
                         'production_id' => $transfer->production_id,
-                        'note' => $transfer->Production->load('Note')->Note->note,
-                        'service' => $transfer->Service->service,
-                        'from' => $transfer->From->name,
-                        'company_from' => $transfer->From->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'to' => $transfer->To->name,
-                        'company_to' => $transfer->To->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'info' => trim($transfer->info),
-                        'status' => Notestatus::status($transfer->status)->status,
-                        'note_status' => $transfer->Production->status_note,
+                        'note'          => $transfer->Production->load('Note')->Note->note,
+                        'service'       => $transfer->Service->service,
+                        'from'          => $transfer->From->name,
+                        'company_from'  => $transfer->From->load('Employee.Contract.company')->Employee->Contract->company->name,
+                        'to'            => $transfer->To->name,
+                        'company_to'    => $transfer->To->load('Employee.Contract.company')->Employee->Contract->company->name,
+                        'info'          => trim($transfer->info),
+                        'status'        => Notestatus::status($transfer->status)->status,
+                        'note_status'   => $transfer->Production->status_note,
                     ]);
 
                     $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> { $check->note } </>";
                 } else {
                     $check = TransferProdLog::create([
-                        'prodtrans_id' => $transfer->id,
+                        'prodtrans_id'  => $transfer->id,
                         'production_id' => $transfer->production_id,
-                        'note' => $transfer->Production->load('Note')->Note->note,
-                        'service' => $transfer->Service->service,
-                        'from' => $transfer->From->name,
-                        'company_from' => $transfer->From->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'to' => $transfer->To->name,
-                        'company_to' => $transfer->To->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'info' => trim($transfer->info),
-                        'status' => Notestatus::status($transfer->status)->status,
-                        'note_status' => $transfer->Production->status_note,
+                        'note'          => $transfer->Production->load('Note')->Note->note,
+                        'service'       => $transfer->Service->service,
+                        'from'          => $transfer->From->name,
+                        'company_from'  => $transfer->From->load('Employee.Contract.company')->Employee->Contract->company->name,
+                        'to'            => $transfer->To->name,
+                        'company_to'    => $transfer->To->load('Employee.Contract.company')->Employee->Contract->company->name,
+                        'info'          => trim($transfer->info),
+                        'status'        => Notestatus::status($transfer->status)->status,
+                        'note_status'   => $transfer->Production->status_note,
                     ]);
 
                     $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> { $check->note } </>";
@@ -84,7 +84,7 @@ class TransferLog extends Command
             $progressBar->finish();
 
         } else {
-            $this->info("<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED");
+            $this->info('<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED');
         }
 
         $this->info('<bg=green;fg=white> DONE </>');

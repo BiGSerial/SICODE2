@@ -12,7 +12,7 @@ class Employee extends Model
     protected $fillable = [
         'contract_id',
         'user_id',
-        'service_id'
+        'service_id',
     ];
 
     public function User()

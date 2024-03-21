@@ -39,5 +39,4 @@ class Notetimeline extends Model
     {
         return $this->belongsTo(Service::class, 'service_id', 'uuid');
     }
-
 }

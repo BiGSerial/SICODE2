@@ -32,7 +32,6 @@ class ProductionLog extends Command
     {
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> Verifing Productions.... </>');
 
-
         $productions = Production::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Note', 'User', 'Company', 'Service')->get();
 
         $progressBar = new ProgressBar($this->output, $productions->count());
@@ -46,51 +45,47 @@ class ProductionLog extends Command
             $progressBar->start();
             $this->info("<bg=blue;fg=white;options=bold> INFO </><fg=white;options=bold> WE HAS FOUNDED {$productions->count()} REGISTER ARENT IN PRODUCTION LOG");
 
-
-
             foreach ($productions as $production) {
 
                 $check = SicodeSqlProduction::where('production_id', $production->id)->first();
-                $msg = "";
+                $msg   = '';
 
                 if ($check) {
 
-
-
                     $check->update([
-                        'production_id' => $production->id,
-                        'user' => $production->user_id ? $production->User->name : 'Desconhecido',
-                        'company' => $production->Company->name,
-                        'dispatch_by' => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
+                        'production_id'    => $production->id,
+                        'user'             => $production->user_id ? $production->User->name : 'Desconhecido',
+                        'company'          => $production->Company->name,
+                        'dispatch_by'      => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
                         'company_dispatch' => $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->Employee->Contract->company->name,
-                        'att_by' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
-                        'company_att' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
-                        'service' => $production->Service->service,
-                        'note' => $production->Note->note,
-                        'status' => Notestatus::status($production->status)->status,
-                        'dispatch_at' => $production->dispatch_at,
-                        'att_at' => $production->att_at,
-                        'completed_at' => $production->completed_at,
-                        'confirmed_at' => $production->confirmed_at,
-                        'completed' => $production->completed,
-                        'confirmed' => $production->confirmed,
-                        'stopped' => $production->stopped,
-                        'note_status' => $production->status_note,
-                        'conclusion' => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : "",
-                        'mmgd' => $production->mmgd,
-                        'transfer' => $production->transferred,
-                        'input_manual' => $production->manual,
-                        'conf_manual' => $production->conf_manual,
-                        'reje_manual' => $production->rejected,
-                        'dhstats' => $production->dt_note,
-                        'type_note' => $production->Note->type_note,
-                        'eo' => $production->eo,
-                        'iproject' => $production->iproject,
-                        'cadastro' => $production->cadastro,
-                        'postes_u' => $production->postes_u,
-                        'postes_c' => $production->postes_c,
-                        'centroTrab' => $production->Note->centerjob,
-                        'noinconsistency' => $production->noinconsistency,
+                        'att_by'           => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
+                        'company_att'      => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
+                        'service'          => $production->Service->service,
+                        'note'             => $production->Note->note,
+                        'status'           => Notestatus::status($production->status)->status,
+                        'dispatch_at'      => $production->dispatch_at,
+                        'att_at'           => $production->att_at,
+                        'completed_at'     => $production->completed_at,
+                        'confirmed_at'     => $production->confirmed_at,
+                        'completed'        => $production->completed,
+                        'confirmed'        => $production->confirmed,
+                        'stopped'          => $production->stopped,
+                        'note_status'      => $production->status_note,
+                        'conclusion'       => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : '',
+                        'mmgd'             => $production->mmgd,
+                        'transfer'         => $production->transferred,
+                        'input_manual'     => $production->manual,
+                        'conf_manual'      => $production->conf_manual,
+                        'reje_manual'      => $production->rejected,
+                        'dhstats'          => $production->dt_note,
+                        'type_note'        => $production->Note->type_note,
+                        'eo'               => $production->eo,
+                        'iproject'         => $production->iproject,
+                        'cadastro'         => $production->cadastro,
+                        'postes_u'         => $production->postes_u,
+                        'postes_c'         => $production->postes_c,
+                        'centroTrab'       => $production->Note->centerjob,
+                        'noinconsistency'  => $production->noinconsistency,
 
                     ]);
 
@@ -98,41 +93,40 @@ class ProductionLog extends Command
                     $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </>";
                 } else {
 
-
                     $check = SicodeSqlProduction::create([
-                        'production_id' => $production->id,
-                        'user' => $production->user_id ? $production->User->name : 'Desconhecido',
-                        'company' => $production->Company->name,
-                        'dispatch_by' => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
+                        'production_id'    => $production->id,
+                        'user'             => $production->user_id ? $production->User->name : 'Desconhecido',
+                        'company'          => $production->Company->name,
+                        'dispatch_by'      => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
                         'company_dispatch' => $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->Employee->Contract->company->name,
-                        'att_by' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
-                        'company_att' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
-                        'service' => $production->Service->service,
-                        'note' => $production->Note->note,
-                        'status' => Notestatus::status($production->status)->status,
-                        'dispatch_at' => $production->dispatch_at,
-                        'att_at' => $production->att_at,
-                        'completed_at' => $production->completed_at,
-                        'confirmed_at' => $production->confirmed_at,
-                        'completed' => $production->completed,
-                        'confirmed' => $production->confirmed,
-                        'stopped' => $production->stopped,
-                        'note_status' => $production->status_note,
-                        'conclusion' => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : "",
-                        'mmgd' => $production->mmgd,
-                        'transfer' => $production->transferred,
-                        'input_manual' => $production->manual,
-                        'conf_manual' => $production->conf_manual,
-                        'reje_manual' => $production->rejected,
-                        'dhstats' => $production->dt_note,
-                        'type_note' => $production->Note->type_note,
-                        'eo' => $production->eo,
-                        'iproject' => $production->iproject,
-                        'cadastro' => $production->cadastro,
-                        'postes_u' => $production->postes_u,
-                        'postes_c' => $production->postes_c,
-                        'centroTrab' => $production->Note->centerjob,
-                        'noinconsistency' => $production->noinconsistency,
+                        'att_by'           => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
+                        'company_att'      => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
+                        'service'          => $production->Service->service,
+                        'note'             => $production->Note->note,
+                        'status'           => Notestatus::status($production->status)->status,
+                        'dispatch_at'      => $production->dispatch_at,
+                        'att_at'           => $production->att_at,
+                        'completed_at'     => $production->completed_at,
+                        'confirmed_at'     => $production->confirmed_at,
+                        'completed'        => $production->completed,
+                        'confirmed'        => $production->confirmed,
+                        'stopped'          => $production->stopped,
+                        'note_status'      => $production->status_note,
+                        'conclusion'       => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : '',
+                        'mmgd'             => $production->mmgd,
+                        'transfer'         => $production->transferred,
+                        'input_manual'     => $production->manual,
+                        'conf_manual'      => $production->conf_manual,
+                        'reje_manual'      => $production->rejected,
+                        'dhstats'          => $production->dt_note,
+                        'type_note'        => $production->Note->type_note,
+                        'eo'               => $production->eo,
+                        'iproject'         => $production->iproject,
+                        'cadastro'         => $production->cadastro,
+                        'postes_u'         => $production->postes_u,
+                        'postes_c'         => $production->postes_c,
+                        'centroTrab'       => $production->Note->centerjob,
+                        'noinconsistency'  => $production->noinconsistency,
                     ]);
 
                     // $this->info("<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </> HAS UPDATED");
@@ -145,11 +139,9 @@ class ProductionLog extends Command
 
             $progressBar->finish();
 
-
         } else {
-            $this->info("<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED");
+            $this->info('<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED');
         }
-
 
         $this->info('<bg=green;fg=white> DONE </>');
     }

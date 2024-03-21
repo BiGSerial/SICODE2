@@ -2,13 +2,11 @@
 
 namespace App\Console\Commands;
 
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Carbon\Carbon;
 
-use function Laravel\Prompts\confirm;
-use function Laravel\Prompts\text;
-use function Laravel\Prompts\info;
+use function Laravel\Prompts\{confirm, info, text};
 
 class SicodeUpVersion extends Command
 {
@@ -52,7 +50,7 @@ class SicodeUpVersion extends Command
             hint: 'Describe principals Modifies this NewVersion.'
         );
 
-        info('>> '.$description);
+        info('>> ' . $description);
         $confirm = confirm(
             label: 'Confirm Informations?:',
             default: false,
@@ -63,9 +61,9 @@ class SicodeUpVersion extends Command
 
         if (!$confirm) {
             info('Exiting! Thanks For Use! Bye!');
+
             return;
         }
-
 
         $currentVersion = $versionData['appver'];
 
@@ -78,9 +76,9 @@ class SicodeUpVersion extends Command
         }
 
         $newHistoryEntry = [
-            'version' => $newVersion,
+            'version'     => $newVersion,
             'description' => $description,
-            'date' => Carbon::now()->toDateString(),
+            'date'        => Carbon::now()->toDateString(),
         ];
 
         array_unshift($versionData['historic'], $newHistoryEntry);
@@ -96,19 +94,16 @@ class SicodeUpVersion extends Command
         $versionParts = explode('.', $currentVersion);
 
         if ($position === 1) {
-            $versionParts[1] = (int)$versionParts[1] + 1;
+            $versionParts[1] = (int) $versionParts[1] + 1;
             $versionParts[2] = 0;
         } elseif ($position === 0) {
-            $versionParts[0] = (int)$versionParts[0] + 1;
+            $versionParts[0] = (int) $versionParts[0] + 1;
             $versionParts[1] = 0;
             $versionParts[2] = 0;
         } else {
-            $versionParts[2] = (int)$versionParts[2] + 1;
+            $versionParts[2] = (int) $versionParts[2] + 1;
         }
 
         return implode('.', $versionParts);
     }
-
-
-
 }

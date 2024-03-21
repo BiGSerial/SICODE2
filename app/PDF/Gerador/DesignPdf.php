@@ -7,13 +7,15 @@ use TCPDF;
 class DesignPdf extends TCPDF
 {
     protected ?SicodePdf $fillcontent = null;
+
     protected $pdf;
+
     protected $version;
 
     public function __construct(SicodePdf $content)
     {
         $this->fillcontent = $content;
-        $this->version = (object) json_decode(file_get_contents(base_path('appver.json')));
+        $this->version     = (object) json_decode(file_get_contents(base_path('appver.json')));
     }
 
     public function Header()
@@ -41,20 +43,18 @@ class DesignPdf extends TCPDF
 
         $this->pdf->setXY(75, 15);
         $this->pdf->SetFont('', 'B', 20);
-        $this->pdf->Cell(115, 0, "CHECKLIST - VIABILIDADE", 0, 2, 'C');
+        $this->pdf->Cell(115, 0, 'CHECKLIST - VIABILIDADE', 0, 2, 'C');
 
         $this->pdf->SetFont('', 'N', 10);
         $this->pdf->Cell(115, 0, "Sistema para Controle de Demandas (SICODE v{$this->version->appver})", 0, 2, 'C');
 
         $this->pdf->setXY(15, 45);
         $this->pdf->SetFont('', 'B', 10);
-        $this->pdf->Cell(22, 0, "OV/NOTA:", 0, 1, 'L');
+        $this->pdf->Cell(22, 0, 'OV/NOTA:', 0, 1, 'L');
 
         $this->pdf->setXY(38, 43);
         $this->pdf->SetFont('', 'B', 16);
         $this->pdf->Cell(60, 0, $this->fillcontent->getOrdem(), 0, 1, 'L');
-
-
 
         $this->pdf->Output('teste.pdf', 'I');
 

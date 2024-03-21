@@ -14,6 +14,8 @@ class BaseEP extends Model
 
     // protected $table = 'dbo.tbl_iw28_anexo';
     protected $table = 'tbld_usr_baseEP';
+
     protected $keyType = 'string';
+
     protected $guarded = ['*'];
 }

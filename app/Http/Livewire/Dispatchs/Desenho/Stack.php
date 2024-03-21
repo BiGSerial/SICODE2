@@ -3,22 +3,9 @@
 namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Exports\DispatchDesenhoStack;
-use App\Exports\ExportDDExcel;
-use App\Models\Analise;
-use App\Models\Company;
 use App\Models\Edp_depc\City;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Wpa;
-use DateInterval;
-use DatePeriod;
-use DateTime;
-use Livewire\Component;
-use Livewire\WithPagination;
-use PhpParser\Node\Stmt\TryCatch;
+use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use Livewire\{Component, WithPagination};
 
 class Stack extends Component
 {
@@ -28,68 +15,97 @@ class Stack extends Component
 
     // VAr System
     public $service;
+
     public $last_update;
+
     public $search;
+
     public $rubrica_s = [];
+
     public $rubrica_l;
+
     public $perPage = 100;
+
     public $advanceSearch;
+
     public $multiSearch = [];
 
     public $note;
+
     public $notes;
 
     public $enter_dd;
+
     public $filteredLists;
 
     public $priority;
 
     public $status_l;
+
     public $status_s = [];
 
     public $selectall;
+
     public $selected = [];
+
     public $company_l;
+
     public $company_s;
+
     public $company_fs = [];
+
     public $user_l;
+
     public $user_s;
+
     public $user_fl;
+
     public $user_fs = [];
-    public $type = "2";
+
+    public $type = '2';
+
     public $additionalData = [];
 
     // Filtros Municípios
     public $region_l;
+
     public $region_s = [];
+
     public $district_l;
+
     public $district_s = [];
+
     public $city_l;
+
     public $city_s = [];
-    public $note_type = "";
+
+    public $note_type = '';
 
     public $force = true;
+
     public $forcar = false;
 
     public $delete;
+
     public $production;
+
     public $productions;
 
     public $audits;
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
-        'confirm_remove_att' => 'remove_att',
-        'confirm_dispatch' => 'confirmed_att',
-        'getCopy' => 'copy',
+        'refresh_list'         => '$refresh',
+        'confirm_remove_att'   => 'remove_att',
+        'confirm_dispatch'     => 'confirmed_att',
+        'getCopy'              => 'copy',
         'confirm_des_att_mass' => 'confirm_des_att_mass',
-        'filterUser' => 'filterUser',
-        'closeall' => 'closeall',
+        'filterUser'           => 'filterUser',
+        'closeall'             => 'closeall',
     ];
 
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->with('Status')->first();
+        $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
     }
 
@@ -98,11 +114,8 @@ class Stack extends Component
         $this->user_fs = [$user_id];
     }
 
-
-
     public function updatedSelectall($val)
     {
-
 
         $idsToKeep = $this->filteredLists->pluck('id')->toArray();
 
@@ -116,6 +129,7 @@ class Stack extends Component
         } else {
             // Criar um novo array $selected com os IDs que devem ser mantidos
             $newSelected = [];
+
             foreach ($this->selected as $id) {
                 if (!in_array($id, $idsToKeep)) {
                     $newSelected[] = $id;
@@ -129,10 +143,11 @@ class Stack extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoStack($this->exports->get()))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
+            return (new DispatchDesenhoStack($this->exports->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         } else {
             $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
-            return (new DispatchDesenhoStack($notes))->download(date('YmdHis-').'exportNotesDesenho.xlsx');
+
+            return (new DispatchDesenhoStack($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         }
     }
 
@@ -155,7 +170,7 @@ class Stack extends Component
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
-            'status' => 'success',
+            'status'   => 'success',
             'menssage' => $msg,
         ]);
     }
@@ -163,16 +178,17 @@ class Stack extends Component
     public function filter_save()
     {
         $this->gotoPage(1);
+
         // session()->put('filtro', $this->rubrica_s);
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
-        $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
-        $_SESSION['filtro']['city'] = $this->city_s;
+        $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
+        $_SESSION['filtro']['city']     = $this->city_s;
         $_SESSION['filtro']['district'] = $this->district_s;
-        $_SESSION['filtro']['region'] = $this->region_s;
-        $_SESSION['filtro']['user'] = $this->user_fs;
-        $_SESSION['filtro']['company'] = $this->company_fs;
+        $_SESSION['filtro']['region']   = $this->region_s;
+        $_SESSION['filtro']['user']     = $this->user_fs;
+        $_SESSION['filtro']['company']  = $this->company_fs;
         $this->emit('refresh_service');
 
     }
@@ -180,19 +196,20 @@ class Stack extends Component
     public function filter_clean()
     {
         $this->gotoPage(1);
-        $this->rubrica_s = [];
-        $this->city_s = [];
+        $this->rubrica_s  = [];
+        $this->city_s     = [];
         $this->district_s = [];
-        $this->region_s = [];
-        $this->status_s = [];
+        $this->region_s   = [];
+        $this->status_s   = [];
         $this->company_fs = [];
-        $this->user_fs = [];
+        $this->user_fs    = [];
 
         $this->multiSearch = [];
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
+
         if (isset($_SESSION['filtro'])) {
             unset($_SESSION['filtro']);
         }
@@ -202,7 +219,7 @@ class Stack extends Component
 
     public function get_single_note($prod, $force = false)
     {
-        $this->force = $force;
+        $this->force    = $force;
         $this->selected = [$prod];
 
         $this->go_att_mass();
@@ -216,9 +233,9 @@ class Stack extends Component
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para atribuição!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para atribuição!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -226,17 +243,13 @@ class Stack extends Component
 
         $this->productions = Production::find($this->selected);
 
-
-
         $this->notes = Note::whereHas('Productions', function ($query) {
             return $query->whereIn('id', $this->selected);
         })->get();
 
-
-
         if ($this->notes->count()) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes'
+                'id' => 'add_mass_notes',
             ]);
         }
     }
@@ -246,9 +259,9 @@ class Stack extends Component
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para desatribuição!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para desatribuição!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -268,26 +281,26 @@ class Stack extends Component
 
         if ($notes_not_valids > 0) {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Desatribuição Parcial',
-                'msg' => "{$notes_not_valids} das Das {$this->productions->count()} selecionadas, não atende(m) o critério para Desatribuição. Deseja continuar?",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Desatribua!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_des_att_mass",
+                'title'         => 'Confirmar Desatribuição Parcial',
+                'msg'           => "{$notes_not_valids} das Das {$this->productions->count()} selecionadas, não atende(m) o critério para Desatribuição. Deseja continuar?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Desatribua!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_des_att_mass',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nota foi Desatribuída.',
+                'cancel_msg'    => 'Nenhuma nota foi Desatribuída.',
 
             ]);
         } else {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Desatribuição em Massa',
-                'msg' => "{$this->productions->count()} NOTAS/OVs estão prontas para serem desatribuídas. Deseja continuar?",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Desatribua!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_des_att_mass",
+                'title'         => 'Confirmar Desatribuição em Massa',
+                'msg'           => "{$this->productions->count()} NOTAS/OVs estão prontas para serem desatribuídas. Deseja continuar?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Desatribua!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_des_att_mass',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nota foi Desatribuída.',
+                'cancel_msg'    => 'Nenhuma nota foi Desatribuída.',
 
             ]);
         }
@@ -322,24 +335,24 @@ class Stack extends Component
             if ($erros) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => "{$erros} de {$total} não foram desatribuídos.",
+                    'icon'     => 'warning',
+                    'title'    => "{$erros} de {$total} não foram desatribuídos.",
                 ]);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'success',
-                    'title' => "{$total} Notas/Ovs Desatribídas com sucesso",
-                    'timer' => 2500,
+                    'icon'     => 'success',
+                    'title'    => "{$total} Notas/Ovs Desatribídas com sucesso",
+                    'timer'    => 2500,
                 ]);
             }
 
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhum registro de desatribuição. Repita o procedimento.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhum registro de desatribuição. Repita o procedimento.',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -348,28 +361,28 @@ class Stack extends Component
 
     public function confirm_att()
     {
-        if ($this->type == "2") {
+        if ($this->type == '2') {
 
             if (!$this->user_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
             }
 
-            $para = User::find($this->user_s)->name." da ".(Company::find($this->company_s))->name;
+            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
         } else {
 
             if (!$this->company_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
@@ -379,14 +392,14 @@ class Stack extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'Confirmar Atribuir',
-            'msg' => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Despache!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_dispatch",
+            'title'         => 'Confirmar Atribuir',
+            'msg'           => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Despache!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_dispatch',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
         ]);
     }
@@ -395,10 +408,9 @@ class Stack extends Component
     {
         $this->force = true;
 
-        if ($this->type == "2" || $this->force) {
+        if ($this->type == '2' || $this->force) {
 
             foreach ($this->notes as $key => $note) {
-
 
                 // $production = Production::create([
                 //     'note_id' => $note->id,
@@ -414,11 +426,7 @@ class Stack extends Component
                 //     'status' => 2,
                 // ]);
 
-
-
                 $production = $this->productions->where('note_id', $note->id)->first();
-
-
 
                 if ($production) {
 
@@ -427,30 +435,28 @@ class Stack extends Component
                     // dd($update);
 
                     if ($production->update([
-                        'user_id' => $this->user_s,
+                        'user_id'    => $this->user_s,
                         'company_id' => $this->company_s,
-                        'att_by' => Auth()->User()->id,
-                        'att_at' => date('Y-m-d H:i:s'),
-                        'status' => $this->user_s ? 2 : 1,
-                        'completed' => false,
-                        ])) {
+                        'att_by'     => Auth()->User()->id,
+                        'att_at'     => date('Y-m-d H:i:s'),
+                        'status'     => $this->user_s ? 2 : 1,
+                        'completed'  => false,
+                    ])) {
 
-                        if(trim($this->user_s)) {
-                            $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
+                        if (trim($this->user_s)) {
+                            $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                         } else {
-                            $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
+                            $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
                         }
 
-
                         Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "{$user_info}",
-                            'status' => $this->user_s ? 2 : 1,
+                            'note_id'      => $production->id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "{$user_info}",
+                            'status'       => $this->user_s ? 2 : 1,
                             'productionId' => $production->id,
                         ]);
-
 
                         // Wpa::create([
                         //     'production_id' => $production->id,
@@ -463,44 +469,39 @@ class Stack extends Component
 
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
-                            'icon' => 'error',
-                            'title' => 'Erro ao atribuir as notas!',
-                            'timer' => 2500,
+                            'icon'     => 'error',
+                            'title'    => 'Erro ao atribuir as notas!',
+                            'timer'    => 2500,
                         ]);
 
                         return;
                     }
-
-
 
                 } else {
                     // dd($production, $note->note);
 
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
-                        'icon' => 'error',
-                        'title' => 'Erro ao atribuir as notas!',
-                        'timer' => 2500,
+                        'icon'     => 'error',
+                        'title'    => 'Erro ao atribuir as notas!',
+                        'timer'    => 2500,
                     ]);
 
                     return;
                 }
             }
 
-
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Notas Despachadas com sucesso!',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso!',
+                'timer'    => 2500,
             ]);
 
         }
 
-
         $this->closeall();
     }
-
 
     /**
      * Inserir as DDs ás notas em massa
@@ -512,9 +513,9 @@ class Stack extends Component
         if (!trim($this->enter_dd)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -522,7 +523,7 @@ class Stack extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
 
             foreach ($linhas as $linha) {
 
@@ -547,8 +548,6 @@ class Stack extends Component
         }
     }
 
-
-
     public function to_remove_add($id)
     {
         $this->production = Production::with('User')->find($id);
@@ -556,16 +555,15 @@ class Stack extends Component
         if ($this->production) {
             $name = $this->production->User ? $this->production->User->name : 'Desconhecido';
 
-
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Desatribuição',
-                'msg' => "Você está prestes a Desatribuir a produção para {$name}. Deseja continuar?",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Remova!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_remove_att",
+                'title'         => 'Confirmar Desatribuição',
+                'msg'           => "Você está prestes a Desatribuir a produção para {$name}. Deseja continuar?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Remova!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_remove_att',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
             ]);
         }
@@ -573,13 +571,13 @@ class Stack extends Component
 
     public function remove_att()
     {
-        if ($this->production->update(['user_id' => "", 'status' => 1, 'completed' => false])) {
+        if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Produção foi desatribuída com sucesso',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Produção foi desatribuída com sucesso',
+                'timer'    => 2500,
             ]);
 
             $this->closeall();
@@ -587,9 +585,9 @@ class Stack extends Component
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Ocorreu algum problema ao tentar remover a produção',
-                'timer' => 6000,
+                'icon'     => 'error',
+                'title'    => 'Ocorreu algum problema ao tentar remover a produção',
+                'timer'    => 6000,
             ]);
 
             $this->closeall();
@@ -599,201 +597,197 @@ class Stack extends Component
     public function getListsProperty()
     {
         return Production::with(['Note'])
-                        ->join('notes', 'productions.note_id', '=', 'notes.id')
-                        ->where('confirmed', false)
-                        ->where('service_id', $this->service->uuid)
-                        ->when($this->search, function ($q) {
-                            return $q->where(function ($query) {
-                                $query->whereHas('Note', function ($subquery) {
-                                    return $subquery->where('note', 'like', "%".$this->search."%")
-                                        ->orWhere('group2', 'like', "%".$this->search."%")
-                                        ->orWhere('group3', 'like', "%".$this->search."%")
-                                        ->orWhere('group4', 'like', "%".$this->search."%")
-                                        ->orWhere('group5', 'like', "%".$this->search."%")
-                                        ->orWhere('numPedido', 'like', "%".$this->search."%")
-                                        ->orWhere('material', 'like', "%".$this->search."%")
-                                        ->orWhere('lexp', 'like', "%".$this->search."%")
-                                        ->orWhere('rubrica', 'like', "%".$this->search."%")
-                                        ->orWhere('centerjob', 'like', "%".$this->search."%");
-                                });
-                            });
-                        })
-                        ->when(Auth()->User()->contract, function ($q) {
-                            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-                        })
-                        ->when($this->company_fs, function ($q) {
-                            return $q->whereIn('company_id', $this->company_fs);
-                        })
-                        ->when($this->user_fs, function ($q) {
-                            return $q->whereIn('user_id', $this->user_fs);
-                        })
-                        ->when($this->rubrica_s, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                $query->whereIn('rubrica', $this->rubrica_s);
-                            });
-                        })
-                        ->when($this->base, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('nexp', $this->base)
-                                        ->orwhere('nexp', null)
-                                        ->orwhere('nexp', '');
-                            });
-                        })
-                        ->when($this->multiSearch, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('note', $this->multiSearch);
-                            });
-                        })
-                        ->when($this->status_s, function ($q) {
-                            return $q->whereIn('productions.status', $this->status_s);
-                        })
-                        ->when($this->note_type, function ($q) {
-                            return $q->whereRelation('Note', 'type_note', $this->note_type);
-                        })
-                        ->orderBy('priority', 'DESC')
-                        ->orderBy('notes.type_note', 'DESC')
-                        ->orderBy('notes.days_left', 'asc')
-                        ->select('productions.*', 'notes.dt_created as note_dt_created')
-                        ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->where('confirmed', false)
+            ->where('service_id', $this->service->uuid)
+            ->when($this->search, function ($q) {
+                return $q->where(function ($query) {
+                    $query->whereHas('Note', function ($subquery) {
+                        return $subquery->where('note', 'like', '%' . $this->search . '%')
+                            ->orWhere('group2', 'like', '%' . $this->search . '%')
+                            ->orWhere('group3', 'like', '%' . $this->search . '%')
+                            ->orWhere('group4', 'like', '%' . $this->search . '%')
+                            ->orWhere('group5', 'like', '%' . $this->search . '%')
+                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                            ->orWhere('material', 'like', '%' . $this->search . '%')
+                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
+                    });
+                });
+            })
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->when($this->user_fs, function ($q) {
+                return $q->whereIn('user_id', $this->user_fs);
+            })
+            ->when($this->rubrica_s, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    $query->whereIn('rubrica', $this->rubrica_s);
+                });
+            })
+            ->when($this->base, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('nexp', $this->base)
+                        ->orwhere('nexp', null)
+                        ->orwhere('nexp', '');
+                });
+            })
+            ->when($this->multiSearch, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('note', $this->multiSearch);
+                });
+            })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s);
+            })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', 'type_note', $this->note_type);
+            })
+            ->orderBy('priority', 'DESC')
+            ->orderBy('notes.type_note', 'DESC')
+            ->orderBy('notes.days_left', 'asc')
+            ->select('productions.*', 'notes.dt_created as note_dt_created')
+            ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
 
     public function getExportsProperty()
     {
         return Production::with(['Note'])
-                        ->join('notes', 'productions.note_id', '=', 'notes.id')
-                        ->where('confirmed', false)
-                        ->where('service_id', $this->service->uuid)
-                        ->when($this->search, function ($q) {
-                            return $q->where(function ($query) {
-                                $query->whereHas('Note', function ($subquery) {
-                                    return $subquery->where('note', 'like', "%".$this->search."%")
-                                        ->orWhere('group2', 'like', "%".$this->search."%")
-                                        ->orWhere('group3', 'like', "%".$this->search."%")
-                                        ->orWhere('group4', 'like', "%".$this->search."%")
-                                        ->orWhere('group5', 'like', "%".$this->search."%")
-                                        ->orWhere('numPedido', 'like', "%".$this->search."%")
-                                        ->orWhere('material', 'like', "%".$this->search."%")
-                                        ->orWhere('lexp', 'like', "%".$this->search."%")
-                                        ->orWhere('rubrica', 'like', "%".$this->search."%")
-                                        ->orWhere('centerjob', 'like', "%".$this->search."%");
-                                });
-                            });
-                        })
-                        ->when(Auth()->User()->contract, function ($q) {
-                            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-                        })
-                        ->when($this->company_fs, function ($q) {
-                            return $q->whereIn('company_id', $this->company_fs);
-                        })
-                        ->when($this->user_fs, function ($q) {
-                            return $q->whereIn('user_id', $this->user_fs);
-                        })
-                        ->when($this->rubrica_s, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                $query->whereIn('rubrica', $this->rubrica_s);
-                            });
-                        })
-                        ->when($this->base, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('nexp', $this->base)
-                                        ->orwhere('nexp', null)
-                                        ->orwhere('nexp', '');
-                            });
-                        })
-                        ->when($this->multiSearch, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('note', $this->multiSearch);
-                            });
-                        })
-                        ->when($this->status_s, function ($q) {
-                            return $q->whereIn('productions.status', $this->status_s);
-                        })
-                        ->when($this->note_type, function ($q) {
-                            return $q->whereRelation('Note', 'type_note', $this->note_type);
-                        })
-                        ->orderBy('priority', 'DESC')
-                        ->orderBy('notes.type_note', 'DESC')
-                        ->orderBy('notes.days_left', 'asc')
-                        ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->where('confirmed', false)
+            ->where('service_id', $this->service->uuid)
+            ->when($this->search, function ($q) {
+                return $q->where(function ($query) {
+                    $query->whereHas('Note', function ($subquery) {
+                        return $subquery->where('note', 'like', '%' . $this->search . '%')
+                            ->orWhere('group2', 'like', '%' . $this->search . '%')
+                            ->orWhere('group3', 'like', '%' . $this->search . '%')
+                            ->orWhere('group4', 'like', '%' . $this->search . '%')
+                            ->orWhere('group5', 'like', '%' . $this->search . '%')
+                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                            ->orWhere('material', 'like', '%' . $this->search . '%')
+                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
+                    });
+                });
+            })
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->when($this->user_fs, function ($q) {
+                return $q->whereIn('user_id', $this->user_fs);
+            })
+            ->when($this->rubrica_s, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    $query->whereIn('rubrica', $this->rubrica_s);
+                });
+            })
+            ->when($this->base, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('nexp', $this->base)
+                        ->orwhere('nexp', null)
+                        ->orwhere('nexp', '');
+                });
+            })
+            ->when($this->multiSearch, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('note', $this->multiSearch);
+                });
+            })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s);
+            })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', 'type_note', $this->note_type);
+            })
+            ->orderBy('priority', 'DESC')
+            ->orderBy('notes.type_note', 'DESC')
+            ->orderBy('notes.days_left', 'asc')
+            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
 
     public function getStatusProperty()
     {
         return Production::with(['Note'])
-                        ->join('notes', 'productions.note_id', '=', 'notes.id')
-                        ->where('confirmed', false)
-                        ->where('service_id', $this->service->uuid)
-                        ->when($this->search, function ($q) {
-                            return $q->where(function ($query) {
-                                $query->whereHas('Note', function ($subquery) {
-                                    return $subquery->where('note', 'like', "%".$this->search."%")
-                                        ->orWhere('group2', 'like', "%".$this->search."%")
-                                        ->orWhere('group3', 'like', "%".$this->search."%")
-                                        ->orWhere('group4', 'like', "%".$this->search."%")
-                                        ->orWhere('group5', 'like', "%".$this->search."%")
-                                        ->orWhere('numPedido', 'like', "%".$this->search."%")
-                                        ->orWhere('material', 'like', "%".$this->search."%")
-                                        ->orWhere('lexp', 'like', "%".$this->search."%")
-                                        ->orWhere('rubrica', 'like', "%".$this->search."%")
-                                        ->orWhere('centerjob', 'like', "%".$this->search."%");
-                                });
-                            });
-                        })
-                        ->when(Auth()->User()->contract, function ($q) {
-                            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-                        })
-                        ->when($this->company_fs, function ($q) {
-                            return $q->whereIn('company_id', $this->company_fs);
-                        })
-                        ->when($this->user_fs, function ($q) {
-                            return $q->whereIn('user_id', $this->user_fs);
-                        })
-                        ->when($this->rubrica_s, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                $query->whereIn('rubrica', $this->rubrica_s)->orWhereNull('rubrica');
-                            });
-                        })
-                        ->when($this->base, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('nexp', $this->base)->orWhereNull('nexp');
-                            });
-                        })
-                        ->when($this->multiSearch, function ($q) {
-                            return $q->whereHas('Note', function ($query) {
-                                return $query->whereIn('note', $this->multiSearch);
-                            });
-                        })
-                        ->when($this->status_s, function ($q) {
-                            return $q->whereIn('productions.status', $this->status_s)->orWhereNull('productions.status');
-                        })
-                        ->when($this->note_type, function ($q) {
-                            return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
-                        })
-                        ->orderBy('priority', 'DESC')
-                        ->orderBy('notes.type_note', 'DESC')
-                        ->orderBy('notes.days_left', 'asc')
-                        ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->where('confirmed', false)
+            ->where('service_id', $this->service->uuid)
+            ->when($this->search, function ($q) {
+                return $q->where(function ($query) {
+                    $query->whereHas('Note', function ($subquery) {
+                        return $subquery->where('note', 'like', '%' . $this->search . '%')
+                            ->orWhere('group2', 'like', '%' . $this->search . '%')
+                            ->orWhere('group3', 'like', '%' . $this->search . '%')
+                            ->orWhere('group4', 'like', '%' . $this->search . '%')
+                            ->orWhere('group5', 'like', '%' . $this->search . '%')
+                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                            ->orWhere('material', 'like', '%' . $this->search . '%')
+                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
+                    });
+                });
+            })
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->when($this->user_fs, function ($q) {
+                return $q->whereIn('user_id', $this->user_fs);
+            })
+            ->when($this->rubrica_s, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    $query->whereIn('rubrica', $this->rubrica_s)->orWhereNull('rubrica');
+                });
+            })
+            ->when($this->base, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('nexp', $this->base)->orWhereNull('nexp');
+                });
+            })
+            ->when($this->multiSearch, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('note', $this->multiSearch);
+                });
+            })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s)->orWhereNull('productions.status');
+            })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
+            })
+            ->orderBy('priority', 'DESC')
+            ->orderBy('notes.type_note', 'DESC')
+            ->orderBy('notes.days_left', 'asc')
+            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
-
 
     public function filterStatus($status)
     {
         if ($status) {
-            $this->status_s = [];
+            $this->status_s   = [];
             $this->status_s[] = $status;
         }
     }
 
-
-
-
     public function getBaseProperty()
     {
         try {
-            $query = City::query();
+            $query          = City::query();
             $filtersApplied = false;
 
             if (!empty($this->region_s)) {
@@ -816,9 +810,9 @@ class Stack extends Component
             }
 
             $result = $query->orderBy('cidade')
-                            ->get()
-                            ->pluck('rdMunicipio')
-                            ->toArray();
+                ->get()
+                ->pluck('rdMunicipio')
+                ->toArray();
 
             return $result;
         } catch (\Throwable $th) {
@@ -830,15 +824,13 @@ class Stack extends Component
     {
         $this->dispatchBrowserEvent('hideModal');
 
-
-        $this->company_s = "";
-        $this->selected = [];
-        $this->user_s = "";
-        $this->type = "";
+        $this->company_s      = '';
+        $this->selected       = [];
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->advanceSearch = "";
+        $this->advanceSearch  = '';
         $this->gotoPage(1);
-
 
         $this->emitSelf('refresh_list');
     }
@@ -846,35 +838,34 @@ class Stack extends Component
     public function clean()
     {
 
-        $this->company_s = "";
-        $this->enter_dd = "";
-        $this->user_s = "";
-        $this->type = "";
+        $this->company_s      = '';
+        $this->enter_dd       = '';
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->multiSearch = [];
+        $this->multiSearch    = [];
     }
 
     public function buscarMulti()
     {
 
-
         if ($this->advanceSearch) {
 
-            $this->search = "";
+            $this->search = '';
             $this->gotoPage(1);
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(" ", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(",", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(";", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
             }
 
             $this->multiSearch = array_map('trim', $this->multiSearch);
@@ -885,19 +876,14 @@ class Stack extends Component
         }
     }
 
-
-
-
-
-
     public function render()
     {
         $this->filteredLists = $this->lists->filter(function ($list) {
 
             return !$list
-                    ->where('status_note', $list->nstats)
-                    ->where('dt_note', $list->dt_status)
-                    ->first();
+                ->where('status_note', $list->nstats)
+                ->where('dt_note', $list->dt_status)
+                ->first();
         });
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
@@ -906,29 +892,23 @@ class Stack extends Component
             $this->selectall = false;
         }
 
-
-
         if (!Auth()->User()->contract) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();
         } else {
             $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         }
 
-
-
         $this->user_fl = Production::where('service_id', $this->service->uuid)
-                    ->when(Auth()->user()->contract, function ($q) {
-                        return $q->where('company_id', Auth()->user()->employee->contract->company_id);
-                    })
-                    ->when($this->company_fs, function ($q) {
-                        return $q->whereIn('company_id', $this->company_fs);
-                    })
-                    ->select('user_id')
-                    ->with('User')
-                    ->groupBy('user_id')
-                    ->get();
-
-
+            ->when(Auth()->user()->contract, function ($q) {
+                return $q->where('company_id', Auth()->user()->employee->contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->select('user_id')
+            ->with('User')
+            ->groupBy('user_id')
+            ->get();
 
         $this->status_l = $this->lists->pluck('status')->unique();
 
@@ -948,25 +928,24 @@ class Stack extends Component
             $this->city_l = City::when($this->region_s, function ($q) {
                 return $q->whereIn('regiao', $this->region_s);
             })
-            ->when($this->district_s, function ($q) {
-                return $q->whereIn('baseConstrucao', $this->district_s);
-            })
-            ->select('rdMunicipio', 'cidade', 'municipio')
-            ->orderBy('cidade')
-            ->groupBy('rdMunicipio', 'cidade', 'municipio')
-            ->get();
+                ->when($this->district_s, function ($q) {
+                    return $q->whereIn('baseConstrucao', $this->district_s);
+                })
+                ->select('rdMunicipio', 'cidade', 'municipio')
+                ->orderBy('cidade')
+                ->groupBy('rdMunicipio', 'cidade', 'municipio')
+                ->get();
 
         } catch (\Illuminate\Database\QueryException $e) {
 
-            $this->region_l = [];
+            $this->region_l   = [];
             $this->district_l = [];
-            $this->city_l = [];
+            $this->city_l     = [];
         }
-
 
         return view('livewire.dispatchs.desenho.stack', [
             'allList' => $this->status->get(),
-            'lists' => $this->lists
+            'lists'   => $this->lists,
         ]);
     }
 }

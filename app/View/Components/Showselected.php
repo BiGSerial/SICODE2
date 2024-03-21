@@ -16,6 +16,7 @@ use Illuminate\View\Component;
 class Showselected extends Component
 {
     public $count;
+
     /**
      * Create a new component instance.
      */
@@ -24,7 +25,7 @@ class Showselected extends Component
         if (is_array($count)) {
             $this->count = count($count);
         } else {
-            $this->count = (int)$count;
+            $this->count = (int) $count;
         }
     }
 

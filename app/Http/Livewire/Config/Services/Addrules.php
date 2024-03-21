@@ -2,31 +2,35 @@
 
 namespace App\Http\Livewire\Config\Services;
 
-use App\Models\Company;
-use App\Models\Contract;
-use App\Models\Service;
+use App\Models\{Company, Contract, Service};
 use Livewire\Component;
 
 class Addrules extends Component
 {
     public $showAddRules = false;
+
     public $service;
+
     public $companies;
+
     public $contracts;
+
     public $company_s;
+
     public $contract_s;
 
     public $posts = false;
+
     public $qtd;
+
     public $days;
+
     public $dispatch;
 
     protected $listeners = [
         'open_add_rules' => 'open_add_rules',
-        'save_add_rules' => 'add_rules'
+        'save_add_rules' => 'add_rules',
     ];
-
-
 
     public function open_add_rules(Service $service)
     {
@@ -35,7 +39,7 @@ class Addrules extends Component
         $this->showAddRules = true;
 
         $this->dispatchBrowserEvent('showModal', [
-            'id' => 'add_rules_modal'
+            'id' => 'add_rules_modal',
         ]);
     }
 
@@ -45,7 +49,7 @@ class Addrules extends Component
 
         if ($this->service->contracts()->where('contract_id', $this->contract_s)->exists()) {
             $this->dispatchBrowserEvent('torrada', [
-                'status' => 'warning',
+                'status'   => 'warning',
                 'menssage' => 'Regra ja existente para esse contrato neste serviço.',
             ]);
 
@@ -56,17 +60,17 @@ class Addrules extends Component
 
         try {
             $this->service->contracts()->attach($contract, [
-                'posts' => $this->posts ? true : false,
-                'qtd' => (int)$this->qtd < 0 ? (int)$this->qtd * -1 : (int)$this->qtd,
-                'days' => (int)$this->days < 0 ? (int)$this->days * -1 : (int)$this->days,
-                'dispatch' => $this->dispatch ? true : false
+                'posts'    => $this->posts ? true : false,
+                'qtd'      => (int) $this->qtd < 0 ? (int) $this->qtd * -1 : (int) $this->qtd,
+                'days'     => (int) $this->days < 0 ? (int) $this->days * -1 : (int) $this->days,
+                'dispatch' => $this->dispatch ? true : false,
             ]);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Regra Adicionada com com Sucesso!',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Regra Adicionada com com Sucesso!',
+                'timer'    => 2500,
             ]);
 
             $this->clean_all();
@@ -74,14 +78,14 @@ class Addrules extends Component
         } catch (\Throwable $th) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Oooops! ocorreu algum erro ao tentar adicionar a regra!',
-                'timer' => 2500,
+                'icon'     => 'error',
+                'title'    => 'Oooops! ocorreu algum erro ao tentar adicionar a regra!',
+                'timer'    => 2500,
             ]);
 
             if (env('APP_DEBUG')) {
                 $this->dispatchBrowserEvent('torrada', [
-                    'status' => 'warning',
+                    'status'   => 'warning',
                     'menssage' => $th->getMessage(),
                 ]);
             }
@@ -91,15 +95,15 @@ class Addrules extends Component
     public function clean_all()
     {
         $this->showAddRules = false;
-        $this->service = "";
-        $this->companies = "";
-        $this->contracts = "";
-        $this->company_s = "";
-        $this->contract_s = "";
+        $this->service      = '';
+        $this->companies    = '';
+        $this->contracts    = '';
+        $this->company_s    = '';
+        $this->contract_s   = '';
 
         $this->posts = false;
-        $this->qtd = 0;
-        $this->days = 0;
+        $this->qtd   = 0;
+        $this->days  = 0;
 
         $this->emit('refresh_service_list');
 

@@ -39,12 +39,12 @@ class Wpaupd extends Command
         foreach ($wpas as $wpa) {
             if ($prod_wpa = Wpa::where('production_id', $wpa->production_id)->get()->last()) {
                 $prod_wpa->update([
-                    'sector' => $wpa->SectorId,
-                    'stats' =>  $wpa->statusNota,
-                    'execstats' =>  $wpa->statusExec,
-                    'lat' => $wpa->Latitude,
-                    'long' =>  $wpa->Longitude,
-                    'issue_at' => $wpa->IssueDate,
+                    'sector'       => $wpa->SectorId,
+                    'stats'        => $wpa->statusNota,
+                    'execstats'    => $wpa->statusExec,
+                    'lat'          => $wpa->Latitude,
+                    'long'         => $wpa->Longitude,
+                    'issue_at'     => $wpa->IssueDate,
                     'completed_at' => $wpa->ConclusionDate,
                 ]);
             }

@@ -3,66 +3,75 @@
 namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringAccompanyExport;
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Viability;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use Livewire\WithPagination;
+use App\Models\{Company, File, Note, Order, Service, User, Viability};
+use Illuminate\Support\Facades\{DB, Storage};
+use Livewire\{Component, WithFileUploads, WithPagination};
 use ZipArchive;
 
 class Accompany extends Component
 {
-    use WithPagination;
     use WithFileUploads;
+    use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
-
-
     public $service;
+
     public $advanceSearch;
+
     public $search;
+
     public $selectAll;
+
     public $selected = [];
-    public $typeNote = "";
+
+    public $typeNote = '';
+
     public $multiSearch = [];
+
     public $page = 1;
 
     public $files = [];
+
     public $show_files = [];
+
     public $show_existing_files = [];
+
     public $show_registers = [];
 
     public $perPage = 50;
 
+    public $hirings;
+
+    public $selectAllHirings;
+
+    public $hiringSelected = [];
+
     //Selects
     public $companies = null;
+
     public $company_s;
+
     public $engineers = null;
+
     public $engineer_s;
 
     // Filters
-    private $filter_group = "hiring";
+    private $filter_group = 'hiring';
+
     private $filter;
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list'      => '$refresh',
         'confirm_viability' => 'confirm_viability',
     ];
 
     protected $queryString = [
-        'search' => ['except' => '', 'as' => 'buscar'],
-        'page' => ['except' => 1, 'as' => 'p'],
+        'search'   => ['except' => '', 'as' => 'buscar'],
+        'page'     => ['except' => 1, 'as' => 'p'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
 
-        ];
+    ];
 
     public function mount($service)
     {
@@ -70,7 +79,7 @@ class Accompany extends Component
             $this->perPage = 500;
         }
 
-        $this->service = Service::where('uuid', $service)->first();
+        $this->service   = Service::where('uuid', $service)->first();
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
     }
@@ -79,49 +88,34 @@ class Accompany extends Component
     {
         if (count($this->selected)) {
 
-            $query = Viability::Query();
+            $export = $this->notes->find($this->selected);
 
-            $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
-
-            return (new HiringAccompanyExport($query->find($this->selected)))->download(date('YmdHis-').'exportViabilityAccompany.xlsx');
         } else {
 
-            if (!(session_status() == PHP_SESSION_ACTIVE)) {
-                session_start();
-            }
+            $export = $this->notes->get();
+        }
 
-            if (isset($_SESSION['filter'][$this->filter_group])) {
-                $this->filter = $_SESSION['filter'][$this->filter_group];
-            }
+        return (new HiringAccompanyExport($export))->download(date('YmdHis-') . 'exportViabilityAccompany.xlsx');
+    }
 
-            $query = Viability::Query();
-            $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
+    public function go_to_hiring()
+    {
+        $this->hirings = $this->myhirings;
 
-            if (isset($this->filter['cidade'])) {
+        if($this->hirings) {
+            $this->dispatchBrowserEvent('showModal', [
+                'id' => 'hiring_jobs',
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma Obra Disponível para Contratação.',
+                'html'     => 'Nas condições atuais, não foram encontradas Obras aptas a serem contratadas. Verifique a existência de filtros ativados, e se essas condições atendem os critérios desejados',
+                'timer'    => 5000,
+            ]);
 
-                $query->whereRelation('Order.Note', function ($q) {
-                    $q->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
-                });
-            }
-
-            if (isset($this->filter['empreiteira'])) {
-
-                $query->whereIn('company_id', $this->filter['empreiteira']);
-            }
-
-            if (isset($this->filter['rubrica'])) {
-
-                $query->whereRelation('Order.Note', function ($q) {
-                    $q->whereIn('rubrica', $this->filter['rubrica']);
-                });
-            }
-
-            if ($this->typeNote) {
-                $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
-            }
-
-
-            return (new HiringAccompanyExport($query->get()))->download(date('YmdHis-').'exportViabilityAccompany.xlsx');
+            return;
         }
     }
 
@@ -135,23 +129,22 @@ class Accompany extends Component
                 foreach ($orders as $order) {
 
                     $this->show_registers[$order->id] = [
-                        'id' => $order->id,
-                        'note_id' => $order->Note->id,
-                        'order' => $order->ordem,
-                        'note' => $order->Note->note,
-                        'file_index' => '',
+                        'id'          => $order->id,
+                        'note_id'     => $order->Note->id,
+                        'order'       => $order->ordem,
+                        'note'        => $order->Note->note,
+                        'file_index'  => '',
                         'file_online' => false,
                     ];
-
 
                     if ($order->Note->Files->count()) {
 
                         foreach ($order->Note->Files as $file) {
                             $this->show_existing_files[$order->id] = [
-                                'id' => $order->id,
+                                'id'   => $order->id,
                                 'name' => $file->file_name,
-                                'ext' => $file->ext,
-                                'chk' => false,
+                                'ext'  => $file->ext,
+                                'chk'  => false,
                             ];
                         }
 
@@ -162,17 +155,16 @@ class Accompany extends Component
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma nota foi selecionada para Envio.',
-                    'timer' => 5000,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhuma nota foi selecionada para Envio.',
+                    'timer'    => 5000,
                 ]);
 
                 return;
             }
 
-
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'viability_modal'
+                'id' => 'viability_modal',
             ]);
         }
 
@@ -184,9 +176,9 @@ class Accompany extends Component
         if ($this->company_s == '' && $this->engineer_s == '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'É necessário selecionar a EMPREITEIRA e o ENGENHEIRO RESPONSÁVEL.',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'É necessário selecionar a EMPREITEIRA e o ENGENHEIRO RESPONSÁVEL.',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -215,14 +207,14 @@ class Accompany extends Component
             ";
 
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Envio para Viabilidade?',
-                'msg' => $text,
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Despache!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_viability",
+                'title'         => 'Confirmar Envio para Viabilidade?',
+                'msg'           => $text,
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Despache!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_viability',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma Ordem foi Enviada!',
+                'cancel_msg'    => 'Nenhuma Ordem foi Enviada!',
 
             ]);
 
@@ -249,13 +241,13 @@ class Accompany extends Component
                     if ($caminho) {
 
                         $file = File::create([
-                                    'note_id' => $temp_file['note_id'],
-                                    'user_id' => Auth()->User()->id,
-                                    'service_id' => $this->service->uuid,
-                                    'file_name' => $temp_file['name'],
-                                    'path' => $caminho,
-                                    'ext' => $temp_file['ext'],
-                                ]);
+                            'note_id'    => $temp_file['note_id'],
+                            'user_id'    => Auth()->User()->id,
+                            'service_id' => $this->service->uuid,
+                            'file_name'  => $temp_file['name'],
+                            'path'       => $caminho,
+                            'ext'        => $temp_file['ext'],
+                        ]);
 
                         if (!$file) {
                             $erro = true;
@@ -273,16 +265,15 @@ class Accompany extends Component
             foreach ($this->show_registers as $register) {
 
                 $viability = Viability::Create([
-                    'order_id' => $register['id'],
-                    'company_id' => $this->company_s,
-                    'user_id' => Auth()->User()->id,
+                    'order_id'    => $register['id'],
+                    'company_id'  => $this->company_s,
+                    'user_id'     => Auth()->User()->id,
                     'engineer_id' => $this->engineer_s,
-                    'sended_at' => date('Y-m-d H:i:s'),
+                    'sended_at'   => date('Y-m-d H:i:s'),
                 ]);
 
                 if (!$viability) {
                     $erro = true;
-
 
                 }
             }
@@ -293,9 +284,9 @@ class Accompany extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'TIVEMOS UM ERRO INESPERADO, NENHUM REGISTRO FOI EXECUTADO.',
-                'timer' => 5000,
+                'icon'     => 'error',
+                'title'    => 'TIVEMOS UM ERRO INESPERADO, NENHUM REGISTRO FOI EXECUTADO.',
+                'timer'    => 5000,
             ]);
 
         } else {
@@ -306,9 +297,9 @@ class Accompany extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Registro Efetuado com Sucesso.',
-                'timer' => 5000,
+                'icon'     => 'success',
+                'title'    => 'Registro Efetuado com Sucesso.',
+                'timer'    => 5000,
             ]);
         }
     }
@@ -329,13 +320,13 @@ class Accompany extends Component
             $files = File::WhereIn('note_id', Order::find($this->selected)->pluck('note_id'))->get();
 
             if ($files) {
-                $zipFile = "Aruivos-Lote-".hash('crc32', time()).".zip";
-                $zip = new ZipArchive();
+                $zipFile = 'Aruivos-Lote-' . hash('crc32', time()) . '.zip';
+                $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
                 foreach ($files as $file) {
                     $content = Storage::get($file->path);
-                    $zip->addFromString($file->file_name.".".$file->ext, $content);
+                    $zip->addFromString($file->file_name . '.' . $file->ext, $content);
                 }
 
                 $zip->close();
@@ -349,7 +340,6 @@ class Accompany extends Component
 
     public function updatedFiles()
     {
-
 
         if (count($this->files)) {
 
@@ -369,14 +359,13 @@ class Accompany extends Component
                     }
                 }
 
-
                 if (!$skip_file) {
                     $this->show_files[$index] = [
-                        'id' => $index,
-                        'note_id' => "",
-                        'name' => explode('.', $file->getClientOriginalName())[0],
-                        'ext' => $file->getClientOriginalExtension(),
-                        'chk' => false,
+                        'id'      => $index,
+                        'note_id' => '',
+                        'name'    => explode('.', $file->getClientOriginalName())[0],
+                        'ext'     => $file->getClientOriginalExtension(),
+                        'chk'     => false,
                     ];
                 }
             }
@@ -428,7 +417,7 @@ class Accompany extends Component
 
                         $this->show_files[$file['id']] = array_merge($this->show_files[$file['id']], [
                             'note_id' => $this->show_registers[$register['id']]['note_id'],
-                            'chk' => true,
+                            'chk'     => true,
                         ]);
                     }
                 }
@@ -444,25 +433,24 @@ class Accompany extends Component
     public function buscarMulti()
     {
 
-
         if ($this->advanceSearch) {
 
             $this->gotoPage(1);
 
-            $this->search = "";
+            $this->search = '';
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(" ", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(",", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
-                $this->multiSearch = explode(";", $this->advanceSearch);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
             }
 
             $this->multiSearch = array_map('trim', $this->multiSearch);
@@ -479,14 +467,12 @@ class Accompany extends Component
     {
         $this->dispatchBrowserEvent('hideModal');
 
-
-        $this->company_s = "";
-        $this->selected = [];
-        $this->engineer_s = "";
-        $this->show_files = [];
+        $this->company_s      = '';
+        $this->selected       = [];
+        $this->engineer_s     = '';
+        $this->show_files     = [];
         $this->show_registers = [];
         $this->gotoPage(1);
-
 
         $this->emit('refresh_list');
     }
@@ -503,6 +489,7 @@ class Accompany extends Component
         } else {
             // Criar um novo array $selected com os IDs que devem ser mantidos
             $newSelected = [];
+
             foreach ($this->selected as $id) {
                 if (!in_array($id, $this->lists->pluck('id')->toArray())) {
                     $newSelected[] = $id;
@@ -512,8 +499,7 @@ class Accompany extends Component
         }
     }
 
-
-    public function getListsProperty()
+    public function getNotesProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
@@ -523,43 +509,12 @@ class Accompany extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        // $query = Viability::Query();
-        // $query->with('Order.Note.Files', 'Company', 'User', 'Engineer');
-
-        // if (isset($this->filter['cidade'])) {
-
-        //     $query->whereRelation('Order.Note', function ($q) {
-        //         $q->whereIn('lexp', $this->filter['cidade'])->orderBy('lexp');
-        //     });
-        // }
-
-        // if (isset($this->filter['empreiteira'])) {
-
-        //     $query->whereIn('company_id', $this->filter['empreiteira']);
-        // }
-
-        // if (isset($this->filter['rubrica'])) {
-
-        //     $query->whereRelation('Order.Note', function ($q) {
-        //         $q->whereIn('rubrica', $this->filter['rubrica']);
-        //     });
-        // }
-
-        // if ($this->typeNote) {
-        //     $query->whereRelation('Order.Note', 'type_note', '=', $this->typeNote);
-        // }
-
-
-        // return $query->paginate($this->perPage);
-
-
         $query = Note::Query();
 
         $query->with('Viabilities.Company', 'Viabilities.Order', 'Files')
-        ->whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', false);
-        });
-
+            ->whereRelation('Viabilities', function ($q) {
+                return $q->where('completed', false);
+            });
 
         if (isset($this->filter['cidade'])) {
 
@@ -582,11 +537,37 @@ class Accompany extends Component
             $query->where('type_note', $this->typeNote);
         }
 
-
         $query->orderBy('note');
 
+        return $query;
 
-        return $query->paginate($this->perPage);
+    }
+
+    public function getMyhiringsProperty()
+    {
+
+        return Note::whereDoesntHave('viabilities', function ($query) {
+            $query->where(function ($subQuery) {
+                $subQuery->where('completed', true)
+                         ->orWhere('approved', false);
+            });
+        })
+            ->whereHas('viabilities', function ($query) {
+                $query->where('approved', true)
+                    ->where('completed', false);
+            })->with('Viabilities.Company')
+            ->find($this->notes->get()->pluck('id'));
+
+    }
+
+
+
+    public function getListsProperty()
+    {
+
+        $lists = $this->notes;
+
+        return $lists->paginate($this->perPage);
 
     }
 
@@ -599,7 +580,7 @@ class Accompany extends Component
         // }
 
         return view('livewire.construction.hiring.accompany', [
-            'lists' => $this->lists
+            'lists' => $this->lists,
         ]);
     }
 }

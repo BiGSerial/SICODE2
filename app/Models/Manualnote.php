@@ -19,7 +19,7 @@ class Manualnote extends Model
         'finish_at',
         'confirmed',
         'completed',
-        'cancel'
+        'cancel',
     ];
 
     public function Service()

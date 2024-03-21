@@ -26,7 +26,6 @@ class Viability extends Model
         'approved',
     ];
 
-
     public function Order()
     {
         return $this->belongsTo(Order::class);
@@ -51,5 +50,4 @@ class Viability extends Model
     {
         return $this->hasOne(Form::class);
     }
-
 }

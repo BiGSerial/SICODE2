@@ -14,7 +14,7 @@ class Contract extends Model
         'number',
         'service',
         'construction',
-        'date_end'
+        'date_end',
     ];
 
     public function company()
@@ -25,8 +25,8 @@ class Contract extends Model
     public function services()
     {
         return $this->belongsToMany(Service::class, 'service_contract_rules')
-                    ->withPivot(['posts', 'qtd', 'days', 'dispatch'])
-                    ->withTimestamps()
-                    ->orderBy('service');
+            ->withPivot(['posts', 'qtd', 'days', 'dispatch'])
+            ->withTimestamps()
+            ->orderBy('service');
     }
 }

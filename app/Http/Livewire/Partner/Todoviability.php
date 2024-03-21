@@ -3,13 +3,9 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Models\Edp_depc\City;
-use App\Models\File;
-use App\Models\Note;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Request;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Note};
+use Illuminate\Support\Facades\{Crypt, Storage};
+use Livewire\{Component, WithPagination};
 use ZipArchive;
 
 class Todoviability extends Component
@@ -19,26 +15,27 @@ class Todoviability extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
+
     public $cities;
+
     public $files_selected = [];
 
     public $search;
 
     // Filters
-    private $filter_group = "partner";
+    private $filter_group = 'partner';
+
     private $filter;
 
     protected $queryString = [
-        'search' => ['except' => '', 'as' => 'buscar'],
-        'page' => ['except' => 1, 'as' => 'p'],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
-        ];
+    ];
 
     protected $listeners = [
         'refresh_list' => '$refresh',
     ];
-
-
 
     public function mount()
     {
@@ -70,17 +67,16 @@ class Todoviability extends Component
             $files = File::find($this->files_selected);
 
             if ($files) {
-                $zipFile = "Arquivos-Lote-".hash('crc32', time()).".zip";
-                $zip = new ZipArchive();
+                $zipFile = 'Arquivos-Lote-' . hash('crc32', time()) . '.zip';
+                $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
                 foreach ($files as $file) {
                     $content = Storage::get($file->path);
-                    $zip->addFromString($file->file_name.".".$file->ext, $content);
+                    $zip->addFromString($file->file_name . '.' . $file->ext, $content);
                 }
 
                 $zip->close();
-
 
                 $this->files_selected = [];
 
@@ -89,16 +85,14 @@ class Todoviability extends Component
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhum Arquivo foi selecionado para Download',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Nenhum Arquivo foi selecionado para Download',
+                'timer'    => 5000,
             ]);
 
             return;
         }
     }
-
-
 
     public function getListsProperty()
     {
@@ -110,9 +104,7 @@ class Todoviability extends Component
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
 
-
         }
-
 
         $query = Note::Query();
 
@@ -123,11 +115,11 @@ class Todoviability extends Component
         })
             ->with(['Viabilities' => function ($query) {
                 $query->where('approved', false)
-                        ->where('tacit', false)
-                        ->where('canceled', false)
-                        ->orderBy('sended_at')
-                        ->orderBy('rejected', 'asc')
-                        ->with('Order', 'Form');
+                    ->where('tacit', false)
+                    ->where('canceled', false)
+                    ->orderBy('sended_at')
+                    ->orderBy('rejected', 'asc')
+                    ->with('Order', 'Form');
             }, 'Files']);
 
         if ($this->search) {
@@ -142,16 +134,14 @@ class Todoviability extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-
         return $query->paginate($this->perPage);
     }
-
 
     public function render()
     {
         return view('livewire.partner.todoviability', [
-            'lists' => $this->lists,
-            'cities' => $this->cities
+            'lists'  => $this->lists,
+            'cities' => $this->cities,
         ]);
     }
 }

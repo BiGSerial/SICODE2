@@ -51,7 +51,6 @@ class Production extends Model
         'noinconsistency',
     ];
 
-
     public function Note()
     {
         return $this->belongsTo(Note::class);

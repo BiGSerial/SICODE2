@@ -28,13 +28,11 @@ class Service extends Model
         'icon',
     ];
 
-
-
     public function Contracts()
     {
         return $this->belongsToMany(Contract::class, 'service_contract_rules')
-                    ->withPivot(['posts', 'qtd', 'days', 'dispatch'])
-                    ->withTimestamps();
+            ->withPivot(['posts', 'qtd', 'days', 'dispatch'])
+            ->withTimestamps();
     }
 
     public function Status()

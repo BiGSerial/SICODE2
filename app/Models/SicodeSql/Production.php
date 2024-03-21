@@ -52,10 +52,8 @@ class Production extends Model
         'confirmed_at',
     ];
 
-
     public function Productions()
     {
         return $this->belongsTo(ModelsProduction::class);
     }
-
 }

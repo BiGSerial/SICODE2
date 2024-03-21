@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-
 class AdminController extends Controller
 {
     public function user_list()
@@ -21,6 +18,4 @@ class AdminController extends Controller
     {
         return view('admin.Company.contract_list');
     }
-
-    
 }

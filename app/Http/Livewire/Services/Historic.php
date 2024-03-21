@@ -2,11 +2,8 @@
 
 namespace App\Http\Livewire\Services;
 
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{Production, Service, User};
+use Livewire\{Component, WithPagination};
 
 class Historic extends Component
 {
@@ -15,9 +12,13 @@ class Historic extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 100;
+
     public $search;
+
     public $rubrica_s = [];
+
     public $rubrica_l;
 
     public $limit_pause = 3;
@@ -25,31 +26,33 @@ class Historic extends Component
     public $analise;
 
     public $production;
+
     public $note;
 
     public $user_l;
+
     public $user_s;
+
     public $user_search;
 
-
     public $date_prod_l;
+
     public $date_prod_s;
 
     public $meses = [
-        1 => 'Janeiro',
-        2 => 'Fevereiro',
-        3 => 'Março',
-        4 => 'Abril',
-        5 => 'Maio',
-        6 => 'Junho',
-        7 => 'Julho',
-        8 => 'Agosto',
-        9 => 'Setembro',
+        1  => 'Janeiro',
+        2  => 'Fevereiro',
+        3  => 'Março',
+        4  => 'Abril',
+        5  => 'Maio',
+        6  => 'Junho',
+        7  => 'Julho',
+        8  => 'Agosto',
+        9  => 'Setembro',
         10 => 'Outubro',
         11 => 'Novembro',
         12 => 'Dezembro',
     ];
-
 
     protected $listeners = [
         'getCopy' => 'copy',
@@ -72,7 +75,7 @@ class Historic extends Component
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
-            'status' => 'success',
+            'status'   => 'success',
             'menssage' => $msg,
         ]);
     }
@@ -85,48 +88,48 @@ class Historic extends Component
     public function getListsProperty()
     {
         $this->date_prod_l = Production::Where('service_id', $this->service->uuid)
-                            ->when($this->user_s, function ($q) {
-                                return $q->where('user_id', $this->user_s);
-                            }, function ($q) {
-                                return $q->where('user_id', Auth()->user()->id);
-                            })
-                            ->where('completed', true)
-                            ->where('rejected', false)
-                            ->selectRaw('DATE_FORMAT(completed_at, "%Y-%m") as mes_ano, COUNT(*) as total')
-                            ->groupBy('mes_ano')
-                            ->orderBy('mes_ano')
-                            ->get();
+            ->when($this->user_s, function ($q) {
+                return $q->where('user_id', $this->user_s);
+            }, function ($q) {
+                return $q->where('user_id', Auth()->user()->id);
+            })
+            ->where('completed', true)
+            ->where('rejected', false)
+            ->selectRaw('DATE_FORMAT(completed_at, "%Y-%m") as mes_ano, COUNT(*) as total')
+            ->groupBy('mes_ano')
+            ->orderBy('mes_ano')
+            ->get();
 
         $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%'.$this->user_search.'%');
+            return $q->where('name', 'like', '%' . $this->user_search . '%');
         })->orderBy('name')->get();
 
         return Production::Where('service_id', $this->service->uuid)
-        ->when($this->user_s, function ($q) {
-            return $q->where('user_id', $this->user_s);
-        }, function ($q) {
-            return $q->where('user_id', Auth()->user()->id);
-        })
-                        ->where('completed', true)
-                        ->where('rejected', false)
-                        ->when($this->search, function ($q, $s) {
-                            return $q->whereRelation('Note', 'note', 'like', '%'.$s.'%')
-                            ->orwhereRelation('Note', 'material', 'like', '%'.$s.'%');
-                        })
-                        ->when($this->date_prod_s, function ($q) {
-                            $q->whereRaw('DATE_FORMAT(completed_at, "%Y-%m") = ?', [$this->date_prod_s]);
-                        })
-                        ->with(['Note' => function ($query) {
-                            $query->orderBy('dt_status', 'asc');
-                        }], 'Analise')
-                        ->orderBy('completed_at', 'DESC')
-                        ->paginate($this->perPage);
+            ->when($this->user_s, function ($q) {
+                return $q->where('user_id', $this->user_s);
+            }, function ($q) {
+                return $q->where('user_id', Auth()->user()->id);
+            })
+            ->where('completed', true)
+            ->where('rejected', false)
+            ->when($this->search, function ($q, $s) {
+                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
+                    ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+            })
+            ->when($this->date_prod_s, function ($q) {
+                $q->whereRaw('DATE_FORMAT(completed_at, "%Y-%m") = ?', [$this->date_prod_s]);
+            })
+            ->with(['Note' => function ($query) {
+                $query->orderBy('dt_status', 'asc');
+            }], 'Analise')
+            ->orderBy('completed_at', 'DESC')
+            ->paginate($this->perPage);
     }
 
     public function render()
     {
         return view('livewire.services.historic', [
-            'lists' => $this->lists
+            'lists' => $this->lists,
         ]);
     }
 }

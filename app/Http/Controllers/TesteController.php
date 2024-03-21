@@ -2,15 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\PDF\Gerador\DesignPdf;
-use App\PDF\Gerador\SicodePdf;
+use App\PDF\Gerador\{DesignPdf, SicodePdf};
 
 class TesteController extends Controller
 {
     public function pdf()
     {
-
 
         $teste = new SicodePdf();
         $teste->setName_client('Alexandre');
@@ -19,10 +16,6 @@ class TesteController extends Controller
         $pdf = new DesignPdf($teste);
 
         $pdf->useEmpreiteira();
-
-
-
-
 
     }
 
@@ -35,6 +28,4 @@ class TesteController extends Controller
     {
         return view('testes.page');
     }
-
-
 }

@@ -28,7 +28,7 @@ class version extends Command
         $appverData = json_decode(file_get_contents(base_path('appver.json')));
 
         if ($appverData && isset($appverData->appver)) {
-            $date = date('d/m/Y', strToTime($appverData->historic[0]->date));
+            $date = date('d/m/Y', strtotime($appverData->historic[0]->date));
 
             $art = "
             _____  _____   _____   ____   _____   ______
@@ -40,7 +40,6 @@ class version extends Command
           Ver: {$appverData->appver} 
           Date: {$date}
            ";
-
 
             $this->info($art);
         } else {

@@ -15,7 +15,7 @@ class Bancosicode extends Component
     public function render()
     {
         return view('livewire.status.bancosicode', [
-            'bdupdate' => $this->log
+            'bdupdate' => $this->log,
         ]);
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Models\SicodeSql;
 
-use App\Models\Production as ModelsProduction;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -23,5 +22,4 @@ class WpasLog extends Model
         'created_at',
         'updated_at',
     ];
-
 }

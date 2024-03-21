@@ -21,7 +21,7 @@ class Operation extends Model
         'notaOv',
         'cenPlan',
         'cenTrab',
-        'txtCenTrab'
+        'txtCenTrab',
     ];
 
     public function Order()

@@ -9,9 +9,13 @@ use Illuminate\View\Component;
 class ShowStatus extends Component
 {
     public $status;
+
     public $idstatus;
+
     public $note_id;
+
     public $info;
+
     /**
      * Create a new component instance.
      */

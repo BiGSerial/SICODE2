@@ -12,6 +12,8 @@ class BaseOperation extends Model
     protected $connection = 'sqlsrv1';
 
     protected $table = 'tbld_usr_baseOperacoes';
+
     protected $keyType = 'string';
+
     protected $guarded = ['*'];
 }

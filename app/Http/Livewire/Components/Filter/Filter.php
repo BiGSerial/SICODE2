@@ -8,28 +8,39 @@ use Livewire\Component;
 class Filter extends Component
 {
     public $model;
+
     public $column;
+
     public $values;
+
     public $direction;
+
     public $group_filter;
+
     public $filter;
+
     public $items = [];
+
     public $search;
+
     public $receiverKey;
+
     public $sendFilter;
+
     public $receivedValue = [];
+
     public $isRefreshing = false;
+
     public $custom_query;
+
     public $myKey;
 
-
     protected $listeners = [
-        'refresh_filter' => 'refreshme',
-        'refresh_myself' => '$refresh',
+        'refresh_filter'     => 'refreshme',
+        'refresh_myself'     => '$refresh',
         'refresh_All_Filter' => 'refreshAll',
 
     ];
-
 
     /**
      * Undocumented function
@@ -43,21 +54,20 @@ class Filter extends Component
      * @param [string] $values A value Column to show in Fiter List
      * @param [string] $direction Order list Filter 'ASC' Ascending (Default) or 'DESC' Descending
      * @param [string] $query Add a Custom Query EX. "where('column', 'value')->where('column2', 'value2')"
-     *
      * @return void
      */
     public function mount($myKey, $sendFilter, $model, $column, $filter, $group_filter, $values, $direction, $query)
     {
-        $this->model = app($model);
-        $this->column = $column;
-        $this->filter = $filter;
+        $this->model        = app($model);
+        $this->column       = $column;
+        $this->filter       = $filter;
         $this->group_filter = $group_filter;
-        $this->values = $values;
-        $this->direction = $direction;
-        $this->receiverKey = $myKey;
-        $this->sendFilter = $sendFilter;
+        $this->values       = $values;
+        $this->direction    = $direction;
+        $this->receiverKey  = $myKey;
+        $this->sendFilter   = $sendFilter;
         $this->custom_query = $query;
-        $this->myKey = $myKey;
+        $this->myKey        = $myKey;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
@@ -72,7 +82,6 @@ class Filter extends Component
         if ($this->sendFilter && (!isset($_SESSION['filter'][$this->group_filter]['receiver'][$this->sendFilter]) || !in_array($this->column, $_SESSION['filter'][$this->group_filter]['receiver'][$sendFilter]))) {
             $_SESSION['filter'][$this->group_filter]['receiver'][$sendFilter][] = $this->column;
         }
-
 
     }
 
@@ -90,23 +99,22 @@ class Filter extends Component
     public function refreshme($myKey, $values = [])
     {
 
-
         if ($this->receiverKey === $myKey) {
 
             $this->isRefreshing = true;
 
             if (!empty($values)) {
 
-
                 $columnExists = false;
-                $newValue = $values;
+                $newValue     = $values;
 
                 // Verificar se já existe um registro com a mesma chave "column"
                 foreach ($this->receivedValue as $key => $received) {
                     if ($received['column'] === $newValue['column']) {
                         // Substituir os valores do registro existente
                         $this->receivedValue[$key] = $newValue;
-                        $columnExists = true;
+                        $columnExists              = true;
+
                         break;
                     }
                 }
@@ -121,14 +129,13 @@ class Filter extends Component
 
             } else {
                 $this->receivedValue = [];
-                $this->items = [];
+                $this->items         = [];
             }
 
             $this->emitSelf('refresh_myself');
 
             $this->isRefreshing = false;
         }
-
 
     }
 
@@ -151,8 +158,6 @@ class Filter extends Component
         $this->emit('refresh_filter', $this->sendFilter, ['column' => $this->column, 'values' => $this->items]);
     }
 
-
-
     public function removeFilter()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
@@ -169,7 +174,6 @@ class Filter extends Component
         $this->emit('refresh_filter', $this->sendFilter);
     }
 
-
     public function getListFilterProperty()
     {
         if (isset($_SESSION['filter'][$this->group_filter]['receiver'][$this->receiverKey])) {
@@ -177,9 +181,9 @@ class Filter extends Component
             foreach ($_SESSION['filter'][$this->group_filter]['receiver'][$this->receiverKey] as $filter) {
                 if (isset($_SESSION['filter'][$this->group_filter][$filter])) {
                     $columnExists = false;
-                    $newValue = [
+                    $newValue     = [
                         'column' => $filter,
-                        'values' => $_SESSION['filter'][$this->group_filter][$filter]
+                        'values' => $_SESSION['filter'][$this->group_filter][$filter],
                     ];
 
                     // Verificar se já existe um registro com a mesma chave "column"
@@ -187,7 +191,8 @@ class Filter extends Component
                         if ($received['column'] === $filter) {
                             // Substituir os valores do registro existente
                             $this->receivedValue[$key] = $newValue;
-                            $columnExists = true;
+                            $columnExists              = true;
+
                             break;
                         }
                     }
@@ -203,7 +208,7 @@ class Filter extends Component
         $query = $this->model::Query();
 
         if ($this->search) {
-            $query->where($this->column, 'like', "%".$this->search."%");
+            $query->where($this->column, 'like', '%' . $this->search . '%');
         }
 
         if ($this->custom_query) {
@@ -219,12 +224,11 @@ class Filter extends Component
 
         if ($this->column != $this->values) {
             $query->select($this->column, $this->values)
-            ->groupBy($this->column, $this->values);
+                ->groupBy($this->column, $this->values);
         } else {
             $query->select($this->column)
-            ->groupBy($this->column);
+                ->groupBy($this->column);
         }
-
 
         return $query->get();
     }
@@ -232,7 +236,7 @@ class Filter extends Component
     public function render()
     {
         return view('livewire.components.filter.filter', [
-            'filterLists' => $this->listFilter
+            'filterLists' => $this->listFilter,
         ]);
     }
 }

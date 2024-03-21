@@ -3,40 +3,36 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\Edp_depc\City;
-use App\Models\File;
-use App\Models\Form;
-use App\Models\Note;
-use App\Models\Viability as ModelsViability;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\DB;
+use App\Models\{File, Form, Note, Viability as ModelsViability};
+use Illuminate\Support\Facades\{Crypt, DB};
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use PhpParser\Node\Stmt\Foreach_;
+use Livewire\{Component, WithFileUploads};
 
 class Viability extends Component
 {
     use WithFileUploads;
 
     public $data;
+
     public $cities;
-    public $changes = "";
+
+    public $changes = '';
+
     public $result = [];
 
     // Files
     public $files = [];
+
     public $show_files = [];
 
     protected $queryString = [
-        'changes' => ['except' => '']
+        'changes' => ['except' => ''],
     ];
 
     protected $listeners = [
         'confirm_cancelForm' => 'cancelForm',
-        'confirm_save_form' => 'saveForm',
+        'confirm_save_form'  => 'saveForm',
     ];
-
-
 
     public function mount($id)
     {
@@ -54,18 +50,16 @@ class Viability extends Component
         if ($id) {
             $this->data = Note::With(['Viabilities' => function ($query) {
                 $query->where('approved', false)
-                        ->where('tacit', false)
-                        ->where('canceled', false)
-                        ->with('Order');
+                    ->where('tacit', false)
+                    ->where('canceled', false)
+                    ->with('Order');
             }])->find(Crypt::decrypt($id));
         }
-
 
     }
 
     public function updatedFiles()
     {
-
 
         try {
             $this->validate([
@@ -74,17 +68,14 @@ class Viability extends Component
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => "TIPO DE ARQUIVO NÃO PERMITIDO",
-                'html' => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpp ou .png</span> </div></div>',
+                'icon'     => 'warning',
+                'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
+                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpp ou .png</span> </div></div>',
 
             ]);
 
-
-
             return;
         }
-
 
         if (count($this->files)) {
 
@@ -98,22 +89,21 @@ class Viability extends Component
 
                     if (count($this->files) > 1) {
 
-                        $name = "CROQUI-{$this->data->note}-F". str_pad($index + 1, 2, '0', STR_PAD_LEFT) ."_".str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
+                        $name = "CROQUI-{$this->data->note}-F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT) . '_' . str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
                     } else {
                         $name = "CROQUI-{$this->data->note}-F01_01";
                     }
 
                     $this->show_files[$index] = [
-                        'id' => $index,
-                        'note_id' => "",
-                        'name' => $name,
-                        'old_name' =>  explode('.', $file->getClientOriginalName())[0],
-                        'ext' => $file->getClientOriginalExtension(),
-                        'chk' => false,
+                        'id'       => $index,
+                        'note_id'  => '',
+                        'name'     => $name,
+                        'old_name' => explode('.', $file->getClientOriginalName())[0],
+                        'ext'      => $file->getClientOriginalExtension(),
+                        'chk'      => false,
                     ];
                 }
             }
-
 
         }
     }
@@ -136,32 +126,32 @@ class Viability extends Component
     public function toCancelForm()
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'CANCELAR FORMULÁRIO',
-            'msg' => "Você deseja cancelar este formulário e voltar para a listagem de viabilidade?",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Cancele e volte!',
-            'btnCanceltxt' => 'Não, Desisto',
-            'action' => "confirm_cancelForm",
+            'title'         => 'CANCELAR FORMULÁRIO',
+            'msg'           => 'Você deseja cancelar este formulário e voltar para a listagem de viabilidade?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Cancele e volte!',
+            'btnCanceltxt'  => 'Não, Desisto',
+            'action'        => 'confirm_cancelForm',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'O Formulário foi cancelado com sucesso.',
+            'cancel_msg'    => 'O Formulário foi cancelado com sucesso.',
         ]);
     }
 
     public function toSaveForm()
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'ENTREGAR ANALISE DE VIABILIDADE',
-            'msg' => "<p class='fw-bold'>Você deseja entregar esta análise de viabilidade?</p>
+            'title' => 'ENTREGAR ANALISE DE VIABILIDADE',
+            'msg'   => "<p class='fw-bold'>Você deseja entregar esta análise de viabilidade?</p>
             <p class='text-center my-2'> 
                 A entrega desta analise seguirá para avaliação do corpo responsável, dependendo do resultado deste.
             </p>
             ",
-            'icon' => 'question',
-            'btnOktxt' => 'Sim, Entregar Analise',
-            'btnCanceltxt' => 'Não, Desisto',
-            'action' => "confirm_save_form",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Entregar Analise',
+            'btnCanceltxt'  => 'Não, Desisto',
+            'action'        => 'confirm_save_form',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Nenhuma analise foi salva.',
+            'cancel_msg'    => 'Nenhuma analise foi salva.',
         ]);
     }
 
@@ -170,54 +160,51 @@ class Viability extends Component
         // Verify mandatory fields
         if ($this->changes) {
 
-            $block = false;
+            $block  = false;
             $campos = [];
 
             if ($this->changes === 'SIM') {
 
                 if (!isset($this->result['reason_text']) || strlen(trim($this->result['reason_text'])) < 4) {
-                    $block = true;
+                    $block    = true;
                     $campos[] = 'Texto Detalhamento Vazio ou Insuficiente.';
                 }
 
                 if (!isset($this->result['reason']) || trim($this->result['reason']) == '') {
-                    $block = true;
+                    $block    = true;
                     $campos[] = 'Motivo de Alteração não informado.';
                 }
 
                 if (!count($this->files)) {
-                    $block = true;
+                    $block    = true;
                     $campos[] = 'Sem Croqui Anexado.';
                 }
-
 
             }
 
             if (!isset($this->result['responsible']) || $this->result['responsible'] == '') {
-                $block = true;
+                $block    = true;
                 $campos[] = 'Sem Responsável Informado.';
             }
 
             if (!isset($this->result['viability_id']) || $this->result['viability_id'] == '') {
-                $block = true;
+                $block    = true;
                 $campos[] = 'Sem Viabilidade Indicada.';
             }
-
-
 
             if ($block) {
 
                 $texto = '';
 
                 foreach ($campos as $index => $value) {
-                    $texto .= '<p class="fw-bold text-start my-0 py-0">'.($index + 1).' - '.$value.'</p>';
+                    $texto .= '<p class="fw-bold text-start my-0 py-0">' . ($index + 1) . ' - ' . $value . '</p>';
                 }
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => " Todos os campos obigatórios precisam ser preenchidos.",
-                    'html' => '<div class="card bg-primary text-white"><div class="card-body">'.$texto.'</div></div>',
+                    'icon'     => 'warning',
+                    'title'    => ' Todos os campos obigatórios precisam ser preenchidos.',
+                    'html'     => '<div class="card bg-primary text-white"><div class="card-body">' . $texto . '</div></div>',
 
                 ]);
 
@@ -232,24 +219,24 @@ class Viability extends Component
                         foreach ($this->data->Viabilities as $vibility) {
                             $formData[] = [
                                 'viability_id' => $vibility->id,
-                                'user_id' => Auth()->User()->id,
-                                'description' => isset($this->result['reason_text']) ? $this->result['reason_text'] : null,
-                                'changes' => isset($this->result['sizechange']) ? $this->result['sizechange'] : null,
-                                'responsible' => isset($this->result['responsible']) ? $this->result['responsible'] : null,
-                                'rejected' => $this->changes == 'SIM' ? true : false,
-                                'approved' =>  $this->changes == 'NAO' ? true : false,
+                                'user_id'      => Auth()->User()->id,
+                                'description'  => $this->result['reason_text'] ?? null,
+                                'changes'      => $this->result['sizechange'] ?? null,
+                                'responsible'  => $this->result['responsible'] ?? null,
+                                'rejected'     => $this->changes == 'SIM' ? true : false,
+                                'approved'     => $this->changes == 'NAO' ? true : false,
                             ];
                         }
                     }
                 } else {
                     $formData[] = [
-                        'viability_id' => isset($this->result['viability_id']) ? $this->result['viability_id'] : null,
-                        'user_id' => Auth()->User()->id,
-                        'description' => isset($this->result['reason_text']) ? $this->result['reason_text'] : null,
-                        'changes' => isset($this->result['sizechange']) ? $this->result['sizechange'] : null,
-                        'responsible' => isset($this->result['responsible']) ? $this->result['responsible'] : null,
-                        'rejected' => $this->changes == 'SIM' ? true : false,
-                        'approved' =>  $this->changes == 'NAO' ? true : false,
+                        'viability_id' => $this->result['viability_id'] ?? null,
+                        'user_id'      => Auth()->User()->id,
+                        'description'  => $this->result['reason_text'] ?? null,
+                        'changes'      => $this->result['sizechange'] ?? null,
+                        'responsible'  => $this->result['responsible'] ?? null,
+                        'rejected'     => $this->changes == 'SIM' ? true : false,
+                        'approved'     => $this->changes == 'NAO' ? true : false,
                     ];
                 }
 
@@ -272,12 +259,12 @@ class Viability extends Component
                             if ($caminho) {
 
                                 $file = File::create([
-                                            'note_id' => $this->data->id,
-                                            'user_id' => Auth()->User()->id,
-                                            'file_name' => $temp_file['name'],
-                                            'path' => $caminho,
-                                            'ext' => $temp_file['ext'],
-                                        ]);
+                                    'note_id'   => $this->data->id,
+                                    'user_id'   => Auth()->User()->id,
+                                    'file_name' => $temp_file['name'],
+                                    'path'      => $caminho,
+                                    'ext'       => $temp_file['ext'],
+                                ]);
 
                                 if (!$file) {
                                     $erro = true;
@@ -301,8 +288,8 @@ class Viability extends Component
 
                     $chk_viability = ModelsViability::find($data['viability_id'])->update([
                         'returned_at' => date('Y-m-d H:i:s'),
-                        'approved' => $data['approved'] ? $data['approved'] : false,
-                        'rejected' => $data['rejected'] ? $data['rejected'] : false,
+                        'approved'    => $data['approved'] ? $data['approved'] : false,
+                        'rejected'    => $data['rejected'] ? $data['rejected'] : false,
                     ]);
 
                     if (!$chk_viability) {
@@ -310,15 +297,14 @@ class Viability extends Component
                     }
                 }
 
-
                 if (!$erro) {
                     DB::commit();
 
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
-                        'icon' => 'success',
-                        'title' => 'Viabilidade Entregue com Sucesso.',
-                        'timer' => 2500,
+                        'icon'     => 'success',
+                        'title'    => 'Viabilidade Entregue com Sucesso.',
+                        'timer'    => 2500,
                     ]);
 
                     return redirect(route('partner.todo.viability'));
@@ -328,14 +314,12 @@ class Viability extends Component
 
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
-                        'icon' => 'error',
-                        'title' => 'ERRO AO PROCESSAR.',
-                        'html' => 'Ocorreu algum erro, em alguma parte do processo. Nenhuma Alteração foi realizada, e nenhuma Viabilidade foi concluída.',
-                        'timer' => 5000,
+                        'icon'     => 'error',
+                        'title'    => 'ERRO AO PROCESSAR.',
+                        'html'     => 'Ocorreu algum erro, em alguma parte do processo. Nenhuma Alteração foi realizada, e nenhuma Viabilidade foi concluída.',
+                        'timer'    => 5000,
                     ]);
                 }
-
-
 
             }
 
@@ -343,9 +327,9 @@ class Viability extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma informação de Viabilidade encontrado para finalizar.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma informação de Viabilidade encontrado para finalizar.',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -360,10 +344,8 @@ class Viability extends Component
     public function render()
     {
 
-
-
         return view('livewire.partner.forms.viability', [
-            'note' => $this->data
+            'note' => $this->data,
         ])->layout('layouts.forms.viability');
 
     }
