@@ -421,7 +421,7 @@ class Main extends Component
             $info = '<br>';
 
             foreach ($erros as $err) {
-                $info .= $err . ' => ' . $err->load('User')->User->name ?? 'Desconhecido'.'\n';
+                $info .= $err . ' => ' . isset($err->load('User')->User->name) ? $err->load('User')->User->name : 'Desconhecido'.'\n';
             }
 
             $this->dispatchBrowserEvent('swal', [
