@@ -38,7 +38,6 @@ class fixBaseDestiny extends Command
             ->pluck('numStat')
             ->toArray();
 
-        // dd(count($listStatus));
         if (count($listStatus)) {
 
             $progressBar = new ProgressBar($output, count($listStatus));
@@ -47,20 +46,19 @@ class fixBaseDestiny extends Command
             $toFix     = [];
             $noteToFix = [];
 
-            $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHEKING INTEGRITY DB...</>', 'process');
-            $progressBar->setMessage('<fg=white;options=bold>[0/0]</>', 'extra');
+            $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHECKING INTEGRITY DB...</>', 'process');
+            $progressBar->setMessage("<fg=white;options=bold>[0/0]</>", 'extra');
 
             $progressBar->start();
 
             foreach ($listStatus as $status) {
-
-                $origin  = BaseOV::where('numStat', $status)->where('ultimoStatus', 1)->count();
-                $destiny = Note::Where('nstats', $status)->where('type_note', 2)->count();
+                $origin = BaseOV::where('numStat', $status)->where('ultimoStatus', 1)->count();
+                $destiny = Note::where('nstats', $status)->where('type_note', 2)->count();
 
                 if ($origin != $destiny) {
                     $diff = $origin - $destiny;
 
-                    $progressBar->setMessage("<bg=red;fg=white> FAIL </> <fg=white;options=bold>INCOSISTENCY... O: {$origin} => D: {$destiny} | DIFF: {$diff}</>", 'message');
+                    $progressBar->setMessage("<bg=red;fg=white> FAIL </> <fg=white;options=bold>INCONSISTENCY... O: {$origin} => D: {$destiny} | DIFF: {$diff}</>", 'message');
 
                     $toFix[] = [
                         'status'  => $status,
@@ -77,53 +75,53 @@ class fixBaseDestiny extends Command
             }
 
             if (count($toFix)) {
-
                 $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>LOOKING FOR FIX: </>', 'process');
-
                 $progressBar->start(count($toFix));
 
                 foreach ($toFix as $fix) {
-
                     $conta_nota = 0;
                     $total      = $fix['diff'] + count($noteToFix);
 
                     BaseOV::where('numStat', $fix['status'])
                         ->where('ultimoStatus', 1)
                         ->chunk(10000, function ($origin) use ($fix, &$noteToFix, &$progressBar, &$conta_nota, $total) {
-
                             $conta_nota += $origin->count();
+                            $progressBar->setMessage("<fg=white;options=bold>STATUS </>".$fix['status'], 'message');
 
-                            $progressBar->setMessage('<fg=white;options=bold> STATUS </>' . $fix['status'], 'message');
+                            $diff = "";
+                            $origin_c = $origin->pluck('OV')->toArray();
+                            $destiny_c = Note::whereIn('note', $origin_c)->where('nstats', $fix['status'])->get()->pluck('note')->toArray();
 
-                            $diff      = '';
-                            $origin_c  = $origin->pluck('OV')->toArray();
-                            $destiny_c = Note::whereIn('note', $origin_c)->Where('nstats', $fix['status'])->get()->pluck('note')->toArray();
+                            if (count($origin_c) != count($destiny_c)) {
 
-                            if ($fix['diff'] < 0) {
-                                $diff = array_diff($destiny_c, $origin_c);
-                            } else {
-                                $diff = array_diff($origin_c, $destiny_c);
+                                if (count($origin_c) > count($destiny_c)) {
+                                    $diff = array_diff($destiny_c, $origin_c);
+                                } else {
+                                    $diff = array_diff($origin_c, $destiny_c);
+                                }
+
                             }
 
                             if ($diff) {
 
                                 if (is_array($diff)) {
+
                                     foreach ($diff as $differ) {
                                         $noteToFix[] = $differ;
                                     }
-                                } else {
-                                    $noteToFix[] = $diff;
-                                }
 
+                                } else {
+
+                                    $noteToFix[] = $diff;
+
+                                }
                             }
 
                             $count = count($noteToFix);
-
                             $progressBar->setMessage("<fg=white;options=bold>[{$count}/{$total}][Count:{$conta_nota}/{$fix['origin']}]</>", 'extra');
-
                             $progressBar->display();
 
-                            if (count($noteToFix) >= $total) {
+                            if ($count >= $total) {
                                 return false;
                             }
                         });
@@ -132,8 +130,6 @@ class fixBaseDestiny extends Command
                 }
             }
 
-            print_r($noteToFix);
-
             if (count($noteToFix)) {
                 $progressBar->setMessage('<bg=red;fg=white> WORKING </><fg=white;options=bold> FIXING DATABASE WAITING FOR...</>', 'extra');
                 $progressBar->setMessage('', 'message');
@@ -141,7 +137,7 @@ class fixBaseDestiny extends Command
 
                 $noteToFix = array_unique($noteToFix);
 
-                $origins = BaseOV::WhereIn('OV', $noteToFix)->where('ultimoStatus', 1)->get();
+                $origins = BaseOV::whereIn('OV', $noteToFix)->where('ultimoStatus', 1)->get();
 
                 $progressBar->start(count($noteToFix));
 
@@ -150,37 +146,37 @@ class fixBaseDestiny extends Command
                         $chk = Note::updateOrCreate(
                             ['note' => $origin->OV],
                             [
-                                'created_by'    => $origin->criadoPor,
-                                'dt_created'    => "{$origin->dtCriacao} {$origin->hrCriacao}",
-                                'dt_status'     => $origin->dhStat,
-                                'user'          => $origin->usuario,
-                                'value'         => $origin->valorLiq,
-                                'currency'      => $origin->moeda,
-                                'eq_venda'      => $origin->eqVenda,
-                                'numPedido'     => $origin->numPedido,
-                                'client'        => $origin->emissorOV,
-                                'group1'        => $origin->grpCliente1,
-                                'group2'        => $origin->grpCliente2,
-                                'group3'        => $origin->grpCliente3,
-                                'group4'        => $origin->grpCliente4,
-                                'group5'        => $origin->grpCliente5,
-                                'pze'           => $origin->PzE,
-                                'num_material'  => $origin->numMaterial,
-                                'material'      => $origin->material,
-                                'nexp'          => $origin->numExp,
-                                'lexp'          => $origin->localExp,
-                                'pep'           => $origin->PEP,
-                                'nstats'        => $origin->numStat,
-                                'status'        => $origin->status,
-                                'days'          => $origin->dias,
-                                'transaction'   => $origin->transicao,
+                                'created_by' => $origin->criadoPor,
+                                'dt_created' => "{$origin->dtCriacao} {$origin->hrCriacao}",
+                                'dt_status' => $origin->dhStat,
+                                'user' => $origin->usuario,
+                                'value' => $origin->valorLiq,
+                                'currency' => $origin->moeda,
+                                'eq_venda' => $origin->eqVenda,
+                                'numPedido' => $origin->numPedido,
+                                'client' => $origin->emissorOV,
+                                'group1' => $origin->grpCliente1,
+                                'group2' => $origin->grpCliente2,
+                                'group3' => $origin->grpCliente3,
+                                'group4' => $origin->grpCliente4,
+                                'group5' => $origin->grpCliente5,
+                                'pze' => $origin->PzE,
+                                'num_material' => $origin->numMaterial,
+                                'material' => $origin->material,
+                                'nexp' => $origin->numExp,
+                                'lexp' => $origin->localExp,
+                                'pep' => $origin->PEP,
+                                'nstats' => $origin->numStat,
+                                'status' => $origin->status,
+                                'days' => $origin->dias,
+                                'transaction' => $origin->transicao,
                                 'validar_prazo' => $origin->considerarPrazo,
-                                'rubrica'       => $origin->rubrica,
-                                'pze_tratado'   => $origin->PzETratado,
-                                'days_stat'     => $origin->diasNoStatus,
-                                'pze_parecer'   => $origin->parecerPrazo,
-                                'days_left'     => $origin->diasPVencimento,
-                                'type_note'     => 2,
+                                'rubrica' => $origin->rubrica,
+                                'pze_tratado' => $origin->PzETratado,
+                                'days_stat' => $origin->diasNoStatus,
+                                'pze_parecer' => $origin->parecerPrazo,
+                                'days_left' => $origin->diasPVencimento,
+                                'type_note' => 2,
                             ]
                         );
 
@@ -191,6 +187,6 @@ class fixBaseDestiny extends Command
 
             $progressBar->finish();
         }
-
     }
+
 }

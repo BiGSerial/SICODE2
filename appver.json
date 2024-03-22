@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.10",
+    "appver": "1.7.11",
     "historic": [
+        {
+            "version": "1.7.11",
+            "description": "FIxed Draw Attribuition",
+            "date": "2024-03-22"
+        },
         {
             "version": "1.7.10",
             "description": "Fixed Services Form Problem",

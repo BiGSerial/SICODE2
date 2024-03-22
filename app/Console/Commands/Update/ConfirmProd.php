@@ -33,7 +33,7 @@ class ConfirmProd extends Command
         $prazo = 20;
         $this->info('CHECKING PRODS COMPLETEDS FROM BASE ... ');
 
-        $productions = Production::where('completed', true)->where('noinconsistency', false)->where('conf_manual', false)->with('Note', 'Service', 'User')->get();
+        $productions = Production::where('completed', true)->where('noinconsistency', false)->where('confirmed', false)->with('Note', 'Service', 'User')->get();
 
         // $progressBar = new ProgressBar($this->output);
 
