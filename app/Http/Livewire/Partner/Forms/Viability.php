@@ -220,6 +220,7 @@ class Viability extends Component
                             $formData[] = [
                                 'viability_id' => $vibility->id,
                                 'user_id'      => Auth()->User()->id,
+                                'reason'       => $this->result['reason'] ?? null,
                                 'description'  => $this->result['reason_text'] ?? null,
                                 'changes'      => $this->result['sizechange'] ?? null,
                                 'responsible'  => $this->result['responsible'] ?? null,
@@ -232,6 +233,7 @@ class Viability extends Component
                     $formData[] = [
                         'viability_id' => $this->result['viability_id'] ?? null,
                         'user_id'      => Auth()->User()->id,
+                        'reason'       => $this->result['reason'] ?? null,
                         'description'  => $this->result['reason_text'] ?? null,
                         'changes'      => $this->result['sizechange'] ?? null,
                         'responsible'  => $this->result['responsible'] ?? null,

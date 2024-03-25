@@ -12,6 +12,7 @@ class Form extends Model
     protected $fillable = [
         'viability_id',
         'user_id',
+        'reason',
         'description',
         'changes',
         'responsible',

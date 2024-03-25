@@ -26,6 +26,8 @@ return new class () extends Migration {
             $table->boolean('canceled')->default(false);
             $table->boolean('rejected')->default(false);
             $table->boolean('approved')->default(false);
+            $table->boolean('engineer')->default(false);
+            $table->dateTime('engineer_at')->nullable();
             $table->timestamps();
         });
     }

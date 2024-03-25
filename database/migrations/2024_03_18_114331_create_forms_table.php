@@ -14,6 +14,7 @@ return new class () extends Migration {
             $table->id();
             $table->foreignId('viability_id')->constrained('viabilities')->cascadeOnDelete();
             $table->foreignUuid('user_id')->constrained('users');
+            $table->string('reason')->nullable();
             $table->text('description')->nullable();
             $table->integer('changes')->nullable();
             $table->string('responsible')->nullable();
