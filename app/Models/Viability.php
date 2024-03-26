@@ -52,4 +52,9 @@ class Viability extends Model
     {
         return $this->hasOne(Form::class);
     }
+
+    public function Comments()
+    {
+        return $this->belongsToMany(Comment::class);
+    }
 }

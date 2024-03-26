@@ -7,6 +7,10 @@ use Livewire\Component;
 
 class Main extends Component
 {
+    protected $listeners = [
+        'update_list' => '$refresh'
+    ];
+
     public function getListsProperty()
     {
         return Note::whereRelation('Viabilities', function ($q) {
@@ -14,6 +18,7 @@ class Main extends Component
                 ->where('tacit', false)
                 ->where('canceled', false)
                 ->where('rejected', true)
+                ->where('engineer', false)
                 ->where('completed', false);
         })
             ->with(['Viabilities' => function ($query) {
@@ -21,6 +26,7 @@ class Main extends Component
                 ->where('tacit', false)
                 ->where('canceled', false)
                 ->where('rejected', true)
+                ->where('engineer', false)
                 ->where('completed', false)
                 ->with('Company', 'User', 'Form');
             }, 'Files'])->paginate(50);

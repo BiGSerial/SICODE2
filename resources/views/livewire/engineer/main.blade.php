@@ -1,17 +1,17 @@
 <div>
-    @push('css')
-    @endpush
+
     <div class="row justify-content-between">
         <div class="col-8">
 
             <div class="card">
-                <div class="card-header">
+                <div class="card-header  edp-bg-sprucegreen-100 edp-text-verde-dark">
                     <h4 class="fs-4">Aguardando Aprovação Viabilidade</h4>
                 </div>
-                <div class="card-body">
+                <div class="card-body edp-bg-gray">
                     @if ($lists->count())
                         @foreach ($lists as $list)
-                            <div class="card my-2" x-data="{ isVisible: false }" @click.away="isVisible = false">
+                            <div class="card my-2" x-data="{ isVisible: false }" @click.away="isVisible = false"
+                                wire:key='list-{{ $list->id }}'>
                                 <div class="card-body my-0 py-0">
                                     <div class="table-responsive">
                                         <table class="table table-condensed table-sm">
@@ -62,6 +62,17 @@
                                                 <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->reason : '---' }}
                                                 </p>
+                                                <p class="fw-bold fs-6 my-0 py-0">Percentual de Modificação:</p>
+                                                <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded fw-bold
+                                                @if ($list->Viabilities->count() && $list->Viabilities->first()->Form->changes > 1) text-white @endif"
+                                                    style="
+                                                    
+                                                    background: linear-gradient(90deg, rgba(231,12,38,1) 0%, rgba(9,9,121,0) {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->changes * 10 . '%' : '' }});
+                                                    ">
+
+                                                    {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->changes * 10 . '%' : '' }}
+                                                </p>
+
                                                 <p class="fw-bold fs-6 my-0 py-0">Resultado Viabilidade:</p>
                                                 <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->description : '' }}
@@ -83,16 +94,10 @@
                                                 @endif
 
 
-                                                <p class="fw-bold fs-6 my-0 py-0">Resultado:</p>
-                                                <p class="mb-2 mb-0 py-0">
-                                                    <textarea class="form-control border border-secondary" cols="30" rows="6"></textarea>
-                                                </p>
+                                                @livewire('engineer.actions.approveaction', ['list' => $list], key('aproveactions-{{ $list->id }}'))
                                             </div>
                                         </div>
-                                        <div class="d-flex justify-content-end">
-                                            <button class="btn btn-sm btn-danger mx-2">IMPROCEDENTE</button>
-                                            <button class="btn btn-sm btn-primary mx-2">PROCEDENTE</button>
-                                        </div>
+
                                     </div>
                                 </div>
                             </div>
