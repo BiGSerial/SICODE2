@@ -1,3 +1,7 @@
+@php
+    use Carbon\Carbon;
+@endphp
+
 <div>
 
     {{-- Carrega o Loading da página --}}
@@ -68,7 +72,7 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($users_l as $user)
-                                        <tr>
+                                        <tr wire:key='{{ $user->id }}'>
                                             <td>
                                                 {{-- @php
                                                     $name = explode(' ', auth()->user()->name);
@@ -137,13 +141,32 @@
                                             <td>
                                                 {{ date('d/m/Y', strToTime($user->created_at)) }}
                                             </td>
+                                            @php
+                                                $active = false;
+
+                                                if (isset($user->Watchdog->watchdog) && $user->Watchdog->watchdog) {
+                                                    $active = true;
+                                                }
+
+                                            @endphp
                                             <td class="text-center">
-                                                @if ($user->trashed())
-                                                    <span
-                                                        class="label label-default badge text-bg-danger">Deletado</span>
+
+                                                @if ($active)
+                                                    <span class="badge fs-6 text-bg-success">
+                                                        online
+                                                    </span>
                                                 @else
-                                                    <span class="label label-default badge text-bg-success">Ativo</span>
+                                                    <span class="align-middle my-auto">
+                                                        <span class="badge fs-6 text-bg-danger">
+                                                            ofline
+                                                        </span>
+                                                        <p class="mt-1 py-0"><span class="fw-bold">Visto em:</span>
+                                                            {{ isset($user->Watchdog->updated_at) ? Carbon::parse($user->Watchdog->updated_at)->diffForHumans(Carbon::now()) : 'Nunca Entrou' }}
+                                                        </p>
+                                                    </span>
                                                 @endif
+
+
                                             </td>
                                             <td>
                                                 <a href="#" class="text-dark">{{ $user->email }}</a>

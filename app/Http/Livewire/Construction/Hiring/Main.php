@@ -359,22 +359,45 @@ class Main extends Component
 
         if (count($this->show_registers)) {
 
-            foreach ($this->show_registers as $register) {
+            if ($this->action = 1) {
+                foreach ($this->show_registers as $register) {
 
-                $viability = Viability::Create([
-                    'order_id'    => $register['id'],
-                    'company_id'  => $this->company_s,
-                    'user_id'     => Auth()->User()->id,
-                    'engineer_id' => $this->engineer_s,
-                    'sended_at'   => date('Y-m-d H:i:s'),
-                    'hired'       => $this->action == 2 ? true : false,
-                    'hired_at'    => $this->action == 2 ? date('Y-m-d H:i:s') : false,
-                    'status'      => $this->action == 2 ? 9 : 1,
-                ]);
+                    $viability = Viability::Create([
+                        'order_id'    => $register['id'],
+                        'company_id'  => $this->company_s,
+                        'user_id'     => Auth()->User()->id,
+                        'engineer_id' => $this->engineer_s,
+                        'sended_at'   => date('Y-m-d H:i:s'),
+                        'status'      => 1,
+                    ]);
 
-                if (!$viability) {
-                    $erro = true;
+                    if (!$viability) {
+                        $erro = true;
+                    }
 
+                }
+            } elseif ($this->action = 2) {
+                // TO Direct hiring, this will direct to completed job.
+                foreach ($this->show_registers as $register) {
+
+                    $viability = Viability::Create([
+                        'order_id'    => $register['id'],
+                        'company_id'  => $this->company_s,
+                        'user_id'     => Auth()->User()->id,
+                        'engineer_id' => $this->engineer_s,
+                        'sended_at'   => date('Y-m-d H:i:s'),
+                        'status'      => 9,
+                        'hired'       => true,
+                        'hired_at'    => date('Y-m-d H:i:s'),
+                        'completed'   => true,
+                        'completed_at'=> date('Y-m-d H:i:s'),
+                        
+                    ]);
+
+                    if (!$viability) {
+                        $erro = true;
+
+                    }
                 }
             }
         }

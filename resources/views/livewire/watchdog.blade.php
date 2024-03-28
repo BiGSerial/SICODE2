@@ -1,3 +1,3 @@
-<div wire:poll.keep-alive="watchdog" wire:poll="300">
+<div wire:poll.60s="watchdog">
     {{-- Stop trying to control. --}}
 </div>

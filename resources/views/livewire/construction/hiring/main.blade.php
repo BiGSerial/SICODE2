@@ -1,6 +1,8 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Custom\Viabilitiesstatus;
+
 @endphp
 @push('css')
     <style>
@@ -68,6 +70,31 @@
 
         [x-show] {
             opacity: 1;
+        }
+
+        .progress-cell {
+            padding: 0;
+            height: 100%;
+            border: none;
+            position: relative;
+        }
+
+        .progress-cell .progress-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 0;
+            background-color: #007bff;
+            justify-content: center;
+            transition: width 0.3s ease;
+            /* Adicionando uma transição suave */
+        }
+
+        .progress-cell .progress-text {
+            position: relative;
+            justify-content: center;
+            z-index: 1;
         }
     </style>
 @endpush
@@ -191,6 +218,7 @@
                                 <th scope="col" class="fw-bold">Status OP10</th>
                                 <th scope="col" class="fw-bold">Centro OP10</th>
                                 <th scope="col" class="fw-bold">Prazo Restante</th>
+                                <th scope="col" class="fw-bold">Dias Viab</th>
                                 <th scope="col" class="fw-bold">Situação</th>
 
                             </tr>
@@ -239,27 +267,28 @@
                                             }
                                         }
                                     }
+
                                 @endphp
 
                                 <tr wire:key='{{ $list->id }}'
                                     class="
                                     @if ($block) {{ $status['table'] }} @endif">
-                                    <td><input class="form-check-input border border-secondary" type="checkbox"
-                                            wire:model.defer="selected" value="{{ $list->id }}"
+                                    <td class="align-middle"><input class="form-check-input border border-secondary"
+                                            type="checkbox" wire:model.defer="selected" value="{{ $list->id }}"
                                             @disabled($block)>
                                     </td>
-                                    <td class="fw-bold">{{ $list->ordem }}</td>
-                                    <td>{{ $list->Note->note }}</td>
-                                    <td>
+                                    <td class="fw-bold align-middle">{{ $list->ordem }}</td>
+                                    <td class="align-middle">{{ $list->Note->note }}</td>
+                                    <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                         <x-files.select-download-list :files='$list->Note->Files' />
+                                    </td class="align-middle">
+                                    <td class="align-middle">{{ $list->Note->rubrica }}</td>
+                                    <td class="align-middle">{{ $list->denConjunto }}</td>
+                                    <td class="align-middle">{{ $list->Note->lexp }}</td>
+                                    <td class="align-middle">{{ $list->statusSist }}
                                     </td>
-                                    <td>{{ $list->Note->rubrica }}</td>
-                                    <td>{{ $list->denConjunto }}</td>
-                                    <td>{{ $list->Note->lexp }}</td>
-                                    <td>{{ $list->statusSist }}
-                                    </td>
-                                    <td>
+                                    <td class="align-middle">
                                         @if ($list->Note->type_note == 1)
                                             {{ $list->Note->centerjob }}
                                         @elseif($list->Note->type_note == 2)
@@ -268,15 +297,16 @@
                                             ---
                                         @endif
                                     </td>
-                                    <td>
+                                    <td class="align-middle">
                                         {{-- @if ($list->Operations->count())
                                             @dump($list->Operations->where('operacao', '0010'))
                                         @endif --}}
                                         {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->status : '___') : '---' }}
                                     </td>
-                                    <td> {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->cenTrab : '___') : '---' }}
+                                    <td class="align-middle">
+                                        {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->cenTrab : '___') : '---' }}
                                     </td>
-                                    <td class="text-center 
+                                    <td class="text-center align-middle
                                     @if ($list->Note->days_left < 0) text-bg-secondary
                                     @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                     table-danger
@@ -296,10 +326,45 @@
                             "
                                         style="z-index: 9999;">
                                         {{ $list->Note->days_left }}</td>
-                                    <td>
+                                    {{-- <td class="align-middle text-center">
+                                        @if ($block)
+                                            {{ Carbon::parse($list->Viabilities->first()->sended_at)->diffInDays(Carbon::now()) }}
+                                        @endif
+
+
+                                    </td> --}}
+                                    @php
+
+                                        $days = '';
+                                        $percent = '';
+
+                                        if ($block) {
+                                            $days = Carbon::parse($list->Viabilities->first()->sended_at)->diffInDays(
+                                                Carbon::now(),
+                                            );
+                                            $percent = round(($days / 7) * 100, 1);
+                                        }
+
+                                    @endphp
+                                    <td
+                                        class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center">
+                                        <div class="progress-bg text-center"
+                                            style="width: {{ $percent }}%; 
+                                                @if ($percent > 80.0) background-color: #FBC4C4;
+                                                @elseif($percent > 70.0 && $percent <= 80.0)
+                                                    background-color: #FBF8C4;
+                                                @else
+                                                    background-color: #85CAF9; @endif
+                                            ">
+                                        </div>
+                                        <span class="text-center progress-text fw-bold">{{ $days }}
+                                        </span>
+                                    </td>
+                                    <td class="text-break align-middle text-center">
                                         @if ($block)
                                             <span
-                                                class="badge {{ $status['color_text'] }}">{{ $status['info'] }}</span>
+                                                class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}"
+                                                style="width: 6rem;">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
                                         @endif
                                     </td>
 

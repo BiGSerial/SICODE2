@@ -13,7 +13,7 @@ class Statusview extends Component
 
     public $note_id;
 
-    public $info;
+    public $info2;
 
     protected $listeners = [
         'refresh_list' => '$refresh',
@@ -28,7 +28,7 @@ class Statusview extends Component
 
     public function open_status()
     {
-        $this->info = Notetimeline::where('note_id', $this->note_id)->where('status', $this->status)->orderBy('created_at', 'DESC')->with('User')->first();
+        $this->info2 = Notetimeline::where('note_id', $this->note_id)->where('status', $this->status)->orderBy('created_at', 'DESC')->with('User')->first();
 
         if ($this->info) {
             $this->dispatchBrowserEvent('showModal', [
@@ -44,6 +44,8 @@ class Statusview extends Component
 
     public function render()
     {
-        return view('livewire.components.status.statusview');
+        return view('livewire.components.status.statusview', [
+            'info' => $this->info2,
+        ]);
     }
 }

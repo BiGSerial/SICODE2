@@ -452,7 +452,7 @@
                         </thead>
                         <tbody>
                             @foreach ($lists as $list)
-                                <tr
+                                <tr wire:key="line-{{ $list->id }}"
                                     class="align-middle 
                                     @if ($list->block) table-primary @endif 
                                     
@@ -556,6 +556,8 @@
                                         {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id, key($list->id)]) --}}
                                         <livewire:components.status.statusview :status="$list->status" :idstatus="$list->id"
                                             :note_id="$list->note_id" :wire:key="'status-view-' . $list->id" />
+
+                                        {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key('statusView-{{ $list->id }}')) --}}
                                     </td>
                                     <td class="fw-bold fs-5">
 

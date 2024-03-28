@@ -8,6 +8,11 @@ use Livewire\Component;
 
 class Watchdog extends Component
 {
+    public function mount()
+    {
+        $this->watchdog();
+    }
+
     public function watchdog()
     {
         Activeuser::updateOrCreate(
@@ -18,7 +23,7 @@ class Watchdog extends Component
             ]
         );
 
-        Activeuser::where('updated_at', '<', Carbon::now()->subMinutes(6))
+        Activeuser::where('updated_at', '<', Carbon::now()->subMinutes(3))
             ->where('watchdog', true)
             ->update(
                 [

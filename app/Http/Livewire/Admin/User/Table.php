@@ -59,7 +59,7 @@ class Table extends Component
             ->when($this->company_s, function ($q, $s) {
                 return $q->whererelation('Employee.Contract', 'company_id', $s);
             })
-            ->with('Employee.Contract.Company')
+            ->with('Employee.Contract.Company', 'Watchdog')
             ->orderBy('name')
             ->paginate($this->perPage);
     }
