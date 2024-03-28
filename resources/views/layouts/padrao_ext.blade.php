@@ -250,6 +250,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     </main><!-- End #main -->
 
     @livewire('components.modal.priority');
+    @livewire('watchdog');
 
     @livewireScripts
 

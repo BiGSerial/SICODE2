@@ -521,7 +521,9 @@ class Accompany extends Component
 
         $query->with('Viabilities.Company', 'Viabilities.Order', 'Files')
             ->whereRelation('Viabilities', function ($q) {
-                return $q->where('completed', false);
+                return $q->where('completed', false)
+                        ->where('hired', false)
+                        ->where('user_id', Auth()->User()->id);
             });
 
         if ($this->search) {

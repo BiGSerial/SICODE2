@@ -37,7 +37,7 @@
                         <li>
                             <a href="{{ route('construction.historic', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
+                                <i class="bi bi-circle"></i> <span>OBRAS CONTRATADAS</span>
                             </a>
                         </li>
 

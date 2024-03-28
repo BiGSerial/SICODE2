@@ -13,9 +13,10 @@
 @endsection
 
 @section('menu')
-    @include('services.desenho.menu')
+    @livewire('construction.hiring.menu', ['service' => $service->uuid])
 @endsection
 
 @section('content')
-    @livewire('services.historic', ['service' => $service->uuid])
+    {{-- @livewire('services.historic', ['service' => $service->uuid]) --}}
+    @livewire('construction.hiring.histhiring')
 @endsection

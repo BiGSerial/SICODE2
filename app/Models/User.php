@@ -69,4 +69,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Priority::class);
     }
+
+    public function Watchdog()
+    {
+        return $this->hasOne(Activeuser::class);
+    }
 }

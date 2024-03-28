@@ -77,6 +77,12 @@ class Main extends Component
             $this->perPage = 500;
         }
 
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+
+
         $this->service   = Service::where('uuid', $service)->first();
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
@@ -149,6 +155,7 @@ class Main extends Component
                 // });
             }
 
+
             if (isset($_SESSION['filter'][$this->filter_group]['cenTrab'])) {
                 $query->whereRelation('Operations', function ($query) {
                     $query->where('operacao', '0010')
@@ -158,9 +165,9 @@ class Main extends Component
                 });
             }
 
-            if (isset($_SESSION['filter'][$this->filter_group]['cidade'])) {
+            if (isset($_SESSION['filter'][$this->filter_group]['city'])) {
                 $query->whereRelation('Note', function ($query) {
-                    $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade'])
+                    $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['city'])
                         ->orWhere('lexp', '');
                 });
             }
@@ -187,7 +194,7 @@ class Main extends Component
     public function go_att_mass()
     {
 
-        
+
 
         if (count($this->selected)) {
             $orders = Order::with('Note.Files')->find($this->selected);
@@ -674,9 +681,9 @@ class Main extends Component
             });
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group]['cidade'])) {
+        if (isset($_SESSION['filter'][$this->filter_group]['city'])) {
             $query->whereRelation('Note', function ($query) {
-                $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['cidade'])
+                $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['city'])
                     ->orWhere('lexp', '');
             });
         }
@@ -710,6 +717,8 @@ class Main extends Component
         // } else {
         //     $this->selectAll = false;
         // }
+
+
 
         return view('livewire.construction.hiring.main', [
             'lists' => $this->lists,
