@@ -61,7 +61,7 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
-    Route::get('/waiting_list', 'waiting_list')->name('waiting');
+    Route::get('/viab_returned', 'returned')->name('returned');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {

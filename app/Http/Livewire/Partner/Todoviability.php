@@ -111,7 +111,8 @@ class Todoviability extends Component
         $query->whereRelation('Viabilities', function ($q) {
             $q->where('approved', false)
                 ->where('tacit', false)
-                ->where('canceled', false);
+                ->where('canceled', false)
+                ->where('hired', false);
         })
             ->with(['Viabilities' => function ($query) {
                 $query->where('approved', false)
@@ -119,7 +120,7 @@ class Todoviability extends Component
                     ->where('canceled', false)
                     ->orderBy('sended_at')
                     ->orderBy('rejected', 'asc')
-                    ->with('Order', 'Form');
+                    ->with('Order', 'Form', 'Comments.User');
             }, 'Files']);
 
         if ($this->search) {

@@ -4,9 +4,11 @@ namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringAccompanyExport;
 use App\Models\{Company, File, Note, Order, Service, User, Viability};
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
 use ZipArchive;
+use PhpOffice\PhpSpreadsheet\Writer\Pdf\Dompdf as PDF;
 
 class Accompany extends Component
 {
@@ -295,12 +297,15 @@ class Accompany extends Component
 
             $this->closeall();
 
-            $this->dispatchBrowserEvent('swal', [
+            $this->dispatchBrowserEvent(
+                'swal',
+                [
                 'position' => 'center',
                 'icon'     => 'success',
                 'title'    => 'Registro Efetuado com Sucesso.',
                 'timer'    => 5000,
-            ]);
+            ]
+            );
         }
     }
 
@@ -309,7 +314,10 @@ class Accompany extends Component
         if ($file = File::find($id)->first()) {
 
             if (Storage::disk('local')->exists($file->path)) {
+
+
                 return Storage::download($file->path, $file->file_name);
+
             }
         }
     }
@@ -515,6 +523,10 @@ class Accompany extends Component
             ->whereRelation('Viabilities', function ($q) {
                 return $q->where('completed', false);
             });
+
+        if ($this->search) {
+            $query->where('note', $this->search);
+        }
 
         if (isset($this->filter['cidade'])) {
 

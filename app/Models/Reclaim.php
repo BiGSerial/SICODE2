@@ -16,4 +16,9 @@ class Reclaim extends Model
         'completed',
         'completed_at',
     ];
+
+    public function Comments()
+    {
+        return $this->belongsToMany(Comment::class);
+    }
 }

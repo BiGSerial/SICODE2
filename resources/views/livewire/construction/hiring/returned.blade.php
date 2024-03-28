@@ -16,43 +16,46 @@
                                 <table class="table table-condensed table-sm">
                                     <thead>
                                         <tr>
-                                            <th scope="col">Note/Ov</th>
-                                            <th scope="col">Order</th>
-                                            <th scope="col">Rubrica</th>
-                                            <th scope="col">Municipio</th>
-                                            <th scope="col">Empreiteira</th>
-                                            <th scope="col">Data Envio</th>
-                                            <th scope="col">Data Viabilidade</th>
-                                            <th scope="col">Resultado</th>
-                                            <th scope="col"></th>
+                                            <th scope="col" style="max-width: 10%">Note/Ov</th>
+                                            <th scope="col" style="max-width: 10%">Order</th>
+                                            <th scope="col" style="max-width: 10%">Rubrica</th>
+                                            <th scope="col" style="max-width: 15%">Municipio</th>
+                                            <th scope="col" style="max-width: 10%">Empreiteira</th>
+                                            <th scope="col" style="max-width: 10%">Data Envio</th>
+                                            <th scope="col" style="max-width: 10%">Data Viabilidade</th>
+                                            <th scope="col" style="max-width: 10%">Resultado</th>
+                                            <th scope="col" style="max-width: 5%"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr>
-                                            <td>{{ $list->note }}</td>
-                                            <td>
+                                            <td class="text-truncate">{{ $list->note }}</td>
+                                            <td class="text-truncate">
                                                 @if ($list->Orders->count())
                                                     @foreach ($list->Orders as $order)
                                                         <p class="py-0 my-0">{{ $order->ordem }}</p>
                                                     @endforeach
                                                 @endif
                                             </td>
-                                            <td>{{ $list->rubrica }}</td>
-                                            <td>{{ $list->lexp }}</td>
-                                            <td>{{ $list->Viabilities->count() ? $list->Viabilities->first()->Company->name : '' }}
+                                            <td class="text-truncate">{{ $list->rubrica }}</td>
+                                            <td class="text-truncate">{{ $list->lexp }}</td>
+                                            <td class="text-truncate">
+                                                {{ $list->Viabilities->count() ? $list->Viabilities->first()->Company->name : '' }}
                                             </td>
-                                            <td>{{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->sended_at)) : '' }}
+                                            <td class="text-truncate">
+                                                {{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->sended_at)) : '' }}
                                             </td>
-                                            <td>{{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
+                                            <td class="text-truncate">
+                                                {{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
                                             </td>
-                                            <td>
+                                            <td class="text-truncate">
                                                 @if ($list->Viabilities->count() && $list->Viabilities->first()->approved)
                                                     <span class="badge text-bg-primary">A Contratar</span>
                                                 @else
                                                     <span class="badge text-bg-danger">Procedente</span>
                                                 @endif
                                             </td>
-                                            <td><i @click="isVisible = !isVisible"
+                                            <td class="text-truncate"><i @click="isVisible = !isVisible"
                                                     class="bx bxs-plus-square text-danger fs-4"
                                                     style="cursor: pointer;"></i></td>
                                         </tr>
@@ -87,58 +90,32 @@
                                             {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->responsible : '' }}
                                         </p>
 
-                                        @if ($list->Viabilities->last()->Comments->count())
-                                            <div class="card mt-3">
-                                                <h5 class="card-header my-0 py-2">Comentários</h5>
-                                                <div class="card-body">
-                                                    <div class="clearfix">
-
-
-                                                        @foreach ($list->Viabilities->last()->Comments as $comment)
-                                                            @if ($comment->User->id !== auth()->User()->id)
-                                                                <div class="d-flex justify-content-start">
-                                                                    <div>
-
-                                                                        <div
-                                                                            class="rounded text-bg-primary p-2 text-justify">
-                                                                            {{ $comment->message }}</div>
-                                                                        <p class="text-start mt-2"><span
-                                                                                class="fw-bold">Por:</span>
-                                                                            {{ $comment->User->name }}
-                                                                            <span class="fw-bold">as</span>
-                                                                            {{ date('d/m/Y H:i:s') }}
-
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            @endif
-                                                            @if ($comment->User->id === auth()->User()->id)
-                                                                <div class="d-flex justify-content-end">
-                                                                    <div>
-
-                                                                        <div
-                                                                            class="rounded text-bg-primary p-2 text-justify">
-                                                                            {{ $comment->message }}</div>
-                                                                        <p class="text-end mt-2"><span
-                                                                                class="fw-bold">Por:</span>
-                                                                            {{ $comment->User->name }}
-                                                                            <span class="fw-bold">as</span>
-                                                                            {{ date('d/m/Y H:i:s') }}
-
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            @endif
-                                                        @endforeach
-
-
-
-
-                                                    </div>
+                                        <div class="my-3">
+                                            @if ($list->Viabilities->count() && $list->Viabilities->first()->Comments->count())
+                                                <div class="card mb-1">
+                                                    <h5 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark"">
+                                                        FEEDBACK</h5>
                                                 </div>
-                                            </div>
-                                        @endif
-
+                                                @foreach ($list->Viabilities->first()->Comments as $comment)
+                                                    <div class="card my-1">
+                                                        <div class="card-body">
+                                                            <p>
+                                                                {{ $comment->message }}
+                                                            </p>
+                                                        </div>
+                                                        <div class="card-footer">
+                                                            <span class="fw-bold fs-5 align-middle"><i
+                                                                    class="bx bxs-user-voice text-danger"></i></span>
+                                                            <span class="">{{ $comment->User->name }}</span>
+                                                            <span class="fw-bold fs-5 align-middle"><i
+                                                                    class="bx bx-time-five"></i></span>
+                                                            <span
+                                                                class="">{{ Carbon\Carbon::parse($comment->created_at)->format('d/m/Y H:i:s') }}</span>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="col-4">
                                         <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
@@ -151,8 +128,11 @@
                                             @endforeach
                                         @endif
 
+                                        @if ($list->Viabilities->count() && !$list->Viabilities->first()->approved)
+                                            @livewire('construction.hiring.actions.hiring', ['list' => $list], key('returne-{{ $list->id }}'))
+                                        @else
+                                        @endif
 
-                                        {{-- @livewire('engineer.actions.approveaction', ['list' => $list], key('aproveactions-{{ $list->id }}')) --}}
                                     </div>
                                 </div>
 

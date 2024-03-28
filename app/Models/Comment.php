@@ -37,4 +37,9 @@ class Comment extends Model
     {
         return $this->belongsToMany(Viability::class);
     }
+
+    public function Reclaims()
+    {
+        return $this->belongsToMany(Reclaim::class);
+    }
 }

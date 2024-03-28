@@ -1,6 +1,6 @@
 @php
     use Carbon\Carbon;
-    use App\Custom\Notestatus;
+    use App\Custom\Viabilitiesstatus;
 
     function getClassForDate($daysDifference)
     {
@@ -265,7 +265,7 @@
                                     }
                                 @endphp
 
-                                <tr class="align-items-center">
+                                <tr class="align-items-center" wire:key='list-{{ $list->id }}'>
                                     <td class="align-middle"> <input class="form-check-input border border-secondary"
                                             type="checkbox" wire:model.defer="selected" value="{{ $list->id }}">
                                     </td>
@@ -314,7 +314,11 @@
                                         </t class="align-middle"d>
                                     <td class="align-middle">
                                         {{-- Componente Blade para Exibir status baseado nos Booleand. Precisa do Array de Viability --}}
-                                        <x-hiring.status_viability :status="$list->Viabilities" />
+                                        {{-- <x-hiring.status_viability :status="$list->Viabilities" /> --}}
+
+                                        <span
+                                            class="badge {{ $list->Viabilities->last() ? ($list->Viabilities->last()->status ? Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg : Viabilitiesstatus::status(0)->colorbg) : '' }}">{{ $list->Viabilities->last() ? ($list->Viabilities->last()->status ? Viabilitiesstatus::status($list->Viabilities->last()->status)->status : Viabilitiesstatus::status(0)->status) : '' }}</span>
+                                        {{ $list->Viabilities->last()->status }}
                                     </td>
                                     <td></td>
                                 </tr class="align-middle">

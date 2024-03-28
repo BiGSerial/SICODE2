@@ -105,4 +105,9 @@ class Production extends Model
     {
         return $this->hasMany(Priority::class);
     }
+
+    public function Files()
+    {
+        return $this->belongsToMany(File::class);
+    }
 }

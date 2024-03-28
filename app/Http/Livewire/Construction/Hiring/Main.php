@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringListExport;
 use App\Models\{Company, File, Order, Service, User, Viability};
+use Carbon\Carbon;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
 use ZipArchive;
@@ -49,6 +50,8 @@ class Main extends Component
     public $engineers = null;
 
     public $engineer_s;
+
+    public $action;
 
     // Filters
     private $filter_group = 'hiring';
@@ -184,6 +187,8 @@ class Main extends Component
     public function go_att_mass()
     {
 
+        
+
         if (count($this->selected)) {
             $orders = Order::with('Note.Files')->find($this->selected);
 
@@ -214,21 +219,22 @@ class Main extends Component
                     }
                 }
 
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhuma nota foi selecionada para Envio.',
-                    'timer'    => 5000,
-                ]);
-
-                return;
             }
-
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'viability_modal',
             ]);
+        } else {
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para Envio.',
+                'timer'    => 5000,
+            ]);
+
+            return;
         }
+
 
     }
 
@@ -245,15 +251,37 @@ class Main extends Component
 
             return;
 
-        } else {
-            $company = $this->companies->where('id', $this->company_s)->first()->name;
-
-            // dd($this->engineer_s, $this->engineers);
-
-            $engineer = $this->engineers->where('id', $this->engineer_s)->first()->name;
         }
 
+
+
+        $company = $this->companies->where('id', $this->company_s)->first()->name;
+
+        $engineer = $this->engineers->where('id', $this->engineer_s)->first()->name;
+
+
+
+
         if (count($this->show_registers)) {
+
+            $has_nofile = false;
+
+            foreach ($this->show_registers as $register) {
+                if ($register['file_index'] == '') {
+                    $has_nofile = true;
+                }
+            }
+
+            if ($has_nofile) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Existem Ordens sem arquivo anexado, verique e tente novamente.',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
 
             $count = count($this->show_registers);
 
@@ -332,6 +360,9 @@ class Main extends Component
                     'user_id'     => Auth()->User()->id,
                     'engineer_id' => $this->engineer_s,
                     'sended_at'   => date('Y-m-d H:i:s'),
+                    'hired'       => $this->action == 2 ? true : false,
+                    'hired_at'    => $this->action == 2 ? date('Y-m-d H:i:s') : false,
+                    'status'      => $this->action == 2 ? 9 : 1,
                 ]);
 
                 if (!$viability) {
@@ -545,7 +576,10 @@ class Main extends Component
             // Adicionar os IDs ausentes de $selected
             foreach ($this->lists->pluck('id')->toArray() as $id) {
                 if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
+                    // dd();
+                    if (!($this->lists->where('id', $id)->first())->Viabilities->where('hired', false)->count()) {
+                        $this->selected[] = $id;
+                    }
                 }
             }
         } else {
@@ -671,11 +705,11 @@ class Main extends Component
 
     public function render()
     {
-        if (empty(array_diff($this->lists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectAll = true;
-        } else {
-            $this->selectAll = false;
-        }
+        // if (empty(array_diff($this->lists->pluck('id')->toArray(), $this->selected))) {
+        //     $this->selectAll = true;
+        // } else {
+        //     $this->selectAll = false;
+        // }
 
         return view('livewire.construction.hiring.main', [
             'lists' => $this->lists,

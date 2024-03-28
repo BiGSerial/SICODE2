@@ -25,7 +25,10 @@ class Viability extends Model
         'rejected',
         'approved',
         'engineer',
-        'engineer_at'
+        'engineer_at',
+        'hired',
+        'hired_at',
+        'status',
     ];
 
     public function Order()

@@ -350,76 +350,74 @@
                                 </tfoot>
                             @endif
                         </table>
+                    </div>
+                    @if ($list->Viabilities->last()->Comments->count())
+                        <div class="container-fluid">
+                            <div class="row g-3">
+                                <div class="col-8">
+                                    <div class="card">
+                                        <h4 class="card-header">Comentários</h4>
+                                        <div class="card-body">
+                                            <div class="clearfix">
 
-                        @if ($list->Viabilities->where('rejected', true) || $list->Viabilities->Where('rejected', true))
-                            <div class="card">
-                                <div class="card-header py-1">
-                                    <h5 class="fw-bold my-0">Viabilidade</h5>
-                                </div>
-                                <div class="card-body">
-                                    @foreach ($list->Viabilities as $viab)
-                                        @if ($viab->Form)
-                                            {{-- @dump(json_decode($viab->Form->historic)[0]->description) --}}
-                                            <div class="card">
-                                                <div
-                                                    class="card-header
-                                                
-                                                @if ($viab->approved && !$viab->rejected) text-bg-success @endif
-                                            @if (!$viab->approved && $viab->rejected) text-bg-danger @endif
-                                                
-                                                ">
-                                                    <h6 class="my-0">{{ $viab->Order->ordem }}</h6>
-                                                </div>
-                                                <div class="card-body">
-                                                    <div class="mb-3 border border-1 p-2">
-                                                        <p class="my-1 py-0 fw-bold" style="font-size: 12px;">
-                                                            Descrição:</p>
-                                                        <p class="my-0 py-0">{{ $viab->Form->description }}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
 
-                                            <div x-data="{ isVisible: false, isRotating: false }">
-                                                @if ($viab->Form->historic)
-                                                    <p class="my-0 py-0 mb-2">
-                                                        <span
-                                                            class="border-bottom border-2 border-secondary fs-6 fw-bold px-2"
-                                                            style="cursor: pointer;" @click="isVisible=!isVisible">
-                                                            Histórico <i
-                                                                :class="{
-                                                                    'bxs-down-arrow': isVisible,
-                                                                    'bxs-right-arrow': !
-                                                                        isVisible
-                                                                }"
-                                                                class="bx bxs-down-arrow align-middle text-primary"></i>
-                                                        </span>
-                                                    </p>
+                                                @foreach ($list->Viabilities->last()->Comments as $comment)
+                                                    @if ($comment->User->id !== auth()->User()->id)
+                                                        <div class="d-flex justify-content-start">
+                                                            <div>
 
-                                                    <div x-show="isVisible">
-                                                        @foreach (json_decode($viab->Form->historic) as $index => $historic)
-                                                            <div class="mb-3 border border-1 p-2 item"
-                                                                style="animation-delay: {{ $index * 0.03 }}s">
-                                                                <p class="my-1 py-0 fw-bold" style="font-size: 12px;">
-                                                                    Descrição:</p>
-                                                                <p class="my-0 py-0">{{ $historic->description }}</p>
-                                                                <p class="my-1 py-0 fw-bold" style="font-size: 12px;">
-                                                                    Data:</p>
-                                                                <p class="my-0 py-0">
-                                                                    {{ date('d/m/Y H:i:s', strToTime($historic->updated_at)) }}
+                                                                <div class="rounded text-bg-primary p-2 text-justify">
+                                                                    {{ $comment->message }}</div>
+                                                                <p class="text-start mt-2"><span
+                                                                        class="fw-bold">Por:</span>
+                                                                    {{ $comment->User->name }}
+                                                                    <span class="fw-bold">as</span>
+                                                                    {{ date('d/m/Y H:i:s') }}
+
                                                                 </p>
                                                             </div>
-                                                        @endforeach
-                                                    </div>
-                                                @endif
+                                                        </div>
+                                                    @endif
+                                                    @if ($comment->User->id === auth()->User()->id)
+                                                        <div class="d-flex justify-content-end">
+                                                            <div>
+
+                                                                <div class="rounded text-bg-primary p-2 text-justify">
+                                                                    {{ $comment->message }}</div>
+                                                                <p class="text-end mt-2"><span
+                                                                        class="fw-bold">Por:</span>
+                                                                    {{ $comment->User->name }}
+                                                                    <span class="fw-bold">as</span>
+                                                                    {{ date('d/m/Y H:i:s') }}
+
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                @endforeach
+
+
+
+
                                             </div>
-                                        @endif
-                                    @endforeach
-
-
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="exampleFormControlTextarea1" class="form-label">Inserir
+                                                    Comentário:</label>
+                                                <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"></textarea>
+                                            </div>
+                                            <button class="btn btn-primary">Enviar</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
                     <div class="card-footer d-flex justify-content-end border-top border-2 border-secondary">
                         <div class="col-6">
                             <table class="table table-sm my-0">
@@ -433,7 +431,7 @@
                                     @php
                                         $status = null;
                                         $dueDate = $list->Viabilities->count()
-                                            ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
+                                            ? Carbon::parse($list->Viabilities->first()->sended_at)->addDays(7)
                                             : null;
                                         $today = Carbon::now();
 
@@ -460,10 +458,10 @@
                                     @endphp
                                     <tr>
                                         <td class="fw-bold">
-                                            {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
+                                            {{ Carbon::parse($list->Viabilities->first()->sended_at)->format('d/m/Y') }}
                                         </td>
                                         <td class="fw-bold text-danger">
-                                            {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                            {{ Carbon::parse($list->Viabilities->first()->sended_at)->addDays(7)->format('d/m/Y') }}
                                         </td>
                                         <td>
                                             @if ($status)

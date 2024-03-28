@@ -37,4 +37,9 @@ class File extends Model
     {
         return $this->belongsToMany(Form::class);
     }
+
+    public function Productions()
+    {
+        return $this->belongsToMany(Production::class);
+    }
 }

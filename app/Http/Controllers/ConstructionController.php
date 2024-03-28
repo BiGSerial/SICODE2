@@ -25,6 +25,15 @@ class ConstructionController extends Controller
         ]);
     }
 
+    public function returned(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.returned', [
+            'service' => $service,
+        ]);
+    }
+
     public function historic(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();

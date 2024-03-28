@@ -117,7 +117,7 @@ class Histviab extends Component
                 $query->where('approved', true)
                     ->orderBy('sended_at')
                     ->orderBy('rejected', 'asc')
-                    ->with('Order', 'Form');
+                    ->with('Order', 'Form', 'Comments.User');
             }, 'Files']);
 
         if ($this->search) {

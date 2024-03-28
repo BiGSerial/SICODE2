@@ -143,7 +143,7 @@
         </div>
         <div class="card">
             <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                <div class="row">
+                <div class="row justify-content-end">
                     <div class="col">
                         <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
                             @if ($service->Status->count())
@@ -153,13 +153,22 @@
                             @endif
                         </h4>
                     </div>
-                    <div class="col-3 d-flex justify-content-end">
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'><i
-                                class="ri-checkbox-multiple-fill align-middle"></i> Atribuir</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='downloadZip'><i
-                                class="ri-file-zip-line align-middle"></i> DownloadFiles</button>
+                    <div class="col">
+                        <div class="row">
+                            <select class="form-select my-0 py-0 me-2 col" wire:model="action">
+                                <option value="" selected>Selecionar Ação</option>
+                                <option value="">Pausar</option>
+                                <option value="1">Viabilizar</option>
+                                <option value="2">Contratar</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary me-2 col-1" wire:click.prevent='go_att_mass'
+                                @disabled(!$action)><i class="ri-checkbox-multiple-fill align-middle"></i>
+                                OK</button>
+                            <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='export_excel'><i
+                                    class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                            <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='downloadZip'><i
+                                    class="ri-file-zip-line align-middle"></i> DownloadFiles</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -349,7 +358,18 @@
 
             <div class="modal-content edp-bg-stategrey-50">
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h4 class="my-auto fw-bold">VIABILIDADE</h4>
+                    <h4 class="my-auto fw-bold">
+                        @if ($action == 1)
+                            VIABILIDADE
+                        @elseif ($action == 2)
+                            CONTRATAÇÃO
+                        @elseif ($action == 3)
+                            INTERROMPER
+                        @else
+                            AÇÃO DESCONHECIDA
+                        @endif
+
+                    </h4>
                 </div>
 
                 <div class="modal-body"> {{-- Inicio Modal Body --}}
@@ -548,6 +568,8 @@
 
     @push('script')
         <script>
+          
+
             function checkPosition(event) {
                 const submenu = event.target.closest('.dropdown-submenu');
                 const submenuRect = submenu.getBoundingClientRect();

@@ -226,6 +226,7 @@ class Viability extends Component
                                 'responsible'  => $this->result['responsible'] ?? null,
                                 'rejected'     => $this->changes == 'SIM' ? true : false,
                                 'approved'     => $this->changes == 'NAO' ? true : false,
+                                'status'       => $this->changes == 'SIM' ? 4 : 6,
                             ];
                         }
                     }
@@ -239,6 +240,7 @@ class Viability extends Component
                         'responsible'  => $this->result['responsible'] ?? null,
                         'rejected'     => $this->changes == 'SIM' ? true : false,
                         'approved'     => $this->changes == 'NAO' ? true : false,
+                        'status'       => $this->changes == 'SIM' ? 4 : 6,
                     ];
                 }
 

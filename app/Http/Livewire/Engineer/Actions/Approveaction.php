@@ -45,6 +45,7 @@ class Approveaction extends Component
                         'approved' => true,
                         'engineer' => true,
                         'engineer_at' => now(),
+                        'status' => 5,
                     ]);
 
                     // Crie um novo comentário e associe-o à viabilidade
@@ -60,7 +61,7 @@ class Approveaction extends Component
                         'position' => 'center',
                         'icon'     => 'success',
                         'title'    => 'Confirmação Improcedente',
-                        'html'      => 'A Viabilidade Técnica foi dada como Improcedente com sucesso.',
+                        'html'      => 'A Inviabilidade Técnica foi dada como Improcedente com sucesso.',
                         'timer'    => 5000,
                     ]);
 
@@ -73,7 +74,7 @@ class Approveaction extends Component
                         'position' => 'center',
                         'icon'     => 'danger',
                         'title'    => 'Confirmação Improcedente',
-                        'html'      => 'A Viabilidade Técnica como Improcedente, nao foi executada por algum problema. Nenhuma alteração foi realiazada..',
+                        'html'      => 'A Inviabilidade Técnica como Improcedente, nao foi executada por algum problema. Nenhuma alteração foi realiazada..',
                         'timer'    => 5000,
                     ]);
 
@@ -108,12 +109,13 @@ class Approveaction extends Component
                         'approved' => false,
                         'engineer' => true,
                         'engineer_at' => now(),
+                        'status' => 10,
                     ]);
 
                     // Crie um novo comentário e associe-o à viabilidade
                     $viability->Comments()->create([
                         'user_id' => auth()->user()->id,
-                        'message' => $this->comment ?: null,
+                        'message' => $this->comment ?? null,
                         'restrict' => $this->restrict ? true : false,
                     ]);
 
@@ -123,7 +125,7 @@ class Approveaction extends Component
                         'position' => 'center',
                         'icon'     => 'success',
                         'title'    => 'Confirmação Procedente',
-                        'html'      => 'A Viabilidade Técnica foi dada como Procedente.',
+                        'html'      => 'A Inviabilidade Técnica foi dada como Procedente.',
                         'timer'    => 5000,
                     ]);
 
@@ -136,7 +138,7 @@ class Approveaction extends Component
                         'position' => 'center',
                         'icon'     => 'danger',
                         'title'    => 'Confirmação Procedente',
-                        'html'      => 'A Viabilidade Técnica como Procedente, nao foi executada por algum problema. Nenhuma alteração foi realiazada..',
+                        'html'      => 'A Inviabilidade Técnica como Procedente, nao foi executada por algum problema no sistema. Nenhuma alteração foi realiazada..',
                         'timer'    => 5000,
                     ]);
 
