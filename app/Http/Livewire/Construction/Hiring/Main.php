@@ -274,7 +274,7 @@ class Main extends Component
             $has_nofile = false;
 
             foreach ($this->show_registers as $register) {
-                if ($register['file_index'] == '') {
+                if ($register['file_index'] == '' && !$register['file_online']) {
                     $has_nofile = true;
                 }
             }
@@ -292,7 +292,13 @@ class Main extends Component
 
             $count = count($this->show_registers);
 
-            $text = "
+            $title = '';
+
+            if ($this->action == 1) {
+
+                $title = 'Viabilidade';
+
+                $text = "
             <div class='card'>
                 <div class='card-body'>
                     <p>Você está prestes a enviar <span class='fw-bold'>{$count}</span> ordem(ns) para Viabilidade. Confira as informações:</p>
@@ -302,9 +308,26 @@ class Main extends Component
                 </div>            
             </div>            
             ";
+            }
+
+            if ($this->action == 2) {
+
+                $title = 'Contratação';
+
+                $text = "
+            <div class='card'>
+                <div class='card-body'>
+                    <p>Você está prestes a enviar <span class='fw-bold'>{$count}</span> ordem(ns) para Contratação. Confira as informações, pois não será possível alterar posteriormente:</p>
+                    <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
+                    <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
+                    </p>
+                </div>            
+            </div>            
+            ";
+            }
 
             $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'Confirmar Envio para Viabilidade?',
+                'title'         => "Confirmar Envio para {$title}?",
                 'msg'           => $text,
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Despache!',
@@ -359,7 +382,7 @@ class Main extends Component
 
         if (count($this->show_registers)) {
 
-            if ($this->action = 1) {
+            if ($this->action == 1) {
                 foreach ($this->show_registers as $register) {
 
                     $viability = Viability::Create([
@@ -376,7 +399,7 @@ class Main extends Component
                     }
 
                 }
-            } elseif ($this->action = 2) {
+            } elseif ($this->action == 2) {
                 // TO Direct hiring, this will direct to completed job.
                 foreach ($this->show_registers as $register) {
 
@@ -390,8 +413,8 @@ class Main extends Component
                         'hired'       => true,
                         'hired_at'    => date('Y-m-d H:i:s'),
                         'completed'   => true,
-                        'completed_at'=> date('Y-m-d H:i:s'),
-                        
+                        'completed_at' => date('Y-m-d H:i:s'),
+
                     ]);
 
                     if (!$viability) {

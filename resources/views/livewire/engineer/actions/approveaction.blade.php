@@ -4,12 +4,12 @@
     <p class="mb-2 mb-0 py-0">
         <textarea class="form-control border border-secondary" cols="30" rows="6" wire:model.defer="comment"></textarea>
     </p>
-    <div class="form-check">
+    {{-- <div class="form-check">
         <input class="form-check-input border-1 border-secondary" type="checkbox" wire:model.defer="restrict">
         <label class="form-check-label" for="flexCheckDefault">
             Restrito
         </label>
-    </div>
+    </div> --}}
     <div class="d-flex justify-content-end mb-3" x-show="show1 = false && show2 = false">
         <button class="btn btn-sm btn-danger mx-2"
             @click="show1 = true, show2 = false, text = 'Deseja comfirmar Improcedente?'">IMPROCEDENTE</button>

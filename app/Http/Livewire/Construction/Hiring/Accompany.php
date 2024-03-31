@@ -66,6 +66,7 @@ class Accompany extends Component
     protected $listeners = [
         'refresh_list'      => '$refresh',
         'confirm_viability' => 'confirm_viability',
+        'confirm_contract' => 'confirm_contract',
     ];
 
     protected $queryString = [
@@ -86,6 +87,120 @@ class Accompany extends Component
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
     }
 
+    public function to_contract()
+    {
+        if (!count($this->hiringSelected)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma Obra Selecionada',
+                'html'     => 'Nenhuma obra selecionada para contratação. Gentileza selecionar as ordens que deseja encerrar.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        } else {
+            $count = count($this->hiringSelected);
+            $text = "
+            <div class='card'>
+            <div class='card-body'>
+                <p>Você está prestes a contratar <span class='fw-bold'>{$count}</span> obras.</p>
+                <p class='text-justify fs-6'>
+                    É válido lembrar que a contratação pelo SICODE é apenas para controle e não substitui o SAP. Espera-se que todas as etapas referentes às obras tenham sido realizadas no SAP.
+                </p>
+            </div>            
+        </div>        
+        ";
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'Confirmar Contratação?',
+                'msg'           => $text,
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Contrate!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_contract',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma Obra Contratada!',
+
+            ]);
+
+            return;
+        }
+
+
+    }
+
+    public function confirm_contract()
+    {
+        if (count($this->hiringSelected)) {
+            $hirings = Viability::whereRelation('Order.Note', function ($query) {
+                return $query->whereIn('id', $this->hiringSelected);
+            })->get();
+
+            if ($hirings->count()) {
+
+                DB::beginTransaction();
+
+                $erro = false;
+
+                foreach ($hirings as $hiring) {
+
+                    try {
+
+                        $register = $hiring->update([
+                            'completed' => true,
+                            'completed_at' => date('Y-m-d H:i:s'),
+                            'hired' => true,
+                            'hired_at' => date('Y-m-d H:i:s'),
+                            'status' => 9
+                        ]);
+
+                        if ($register) {
+                            $hiring->Comments()->create([
+                                'user_id' => Auth()->User()->id,
+                                'message' => "Contratado em " . date('d/m/Y') ." as " .  date('H:i:s') . ". Por confirmação manual, pós viabilidade."
+                            ]);
+                        }
+
+                    } catch (\Throwable $th) {
+                        $erro = true;
+                    }
+
+
+                }
+
+                if ($erro) {
+
+                    DB::rollBack();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'error',
+                        'title'    => 'Erro ao Contratar',
+                        'html'     => 'Ocorreram erro(s) ao tentar Contratar a Obra, verifique e tente novamente.',
+                        'timer'    => 5000,
+                ]);
+
+                    return;
+
+                } else {
+
+                    DB::commit();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'success',
+                        'title'    => 'Contratada(s) com Sucesso!',
+                        'timer'    => 2500,
+                    ]);
+
+                    $this->closeall();
+                }
+
+            }
+        }
+    }
+
     public function export_excel()
     {
         if (count($this->selected)) {
@@ -98,6 +213,49 @@ class Accompany extends Component
         }
 
         return (new HiringAccompanyExport($export))->download(date('YmdHis-') . 'exportViabilityAccompany.xlsx');
+    }
+
+    public function export_excel_hiring()
+    {
+        if (count($this->hiringSelected)) {
+
+            $export = Viability::whereRelation('Order.Note', function ($query) {
+                return $query->whereIn('id', $this->hiringSelected);
+            })->with('Order.Note');
+
+        } else {
+
+
+            $export = Viability::whereRelation('Order.Note', function ($query) {
+                return $query->whereIn('id', $this->myhirings->pluck('id')->toArray());
+            })->with('Order.Note');
+        }
+
+        return (new HiringAccompanyExport($export))->download(date('YmdHis-') . 'exportViabilityAccompany.xlsx');
+    }
+
+    public function updatedSelectAllHirings($value)
+    {
+        // dd($this->myhirings->pluck('id')->toArray());
+        if ($value) {
+            // Adicionar os IDs ausentes de $selected
+            foreach ($this->myhirings->pluck('id')->toArray() as $id) {
+                if (!in_array($id, $this->hiringSelected)) {
+                    // dd();
+                    $this->hiringSelected[] = $id;
+                }
+            }
+        } else {
+            // Criar um novo array $selected com os IDs que devem ser mantidos
+            $newSelected = [];
+
+            foreach ($this->hiringSelected as $id) {
+                if (!in_array($id, $this->myhirings->pluck('id')->toArray())) {
+                    $newSelected[] = $id;
+                }
+            }
+            $this->hiringSelected = $newSelected;
+        }
     }
 
     public function go_to_hiring()
@@ -480,6 +638,8 @@ class Accompany extends Component
         $this->engineer_s     = '';
         $this->show_files     = [];
         $this->show_registers = [];
+        $this->hiringSelected = [];
+
         $this->gotoPage(1);
 
         $this->emit('refresh_list');

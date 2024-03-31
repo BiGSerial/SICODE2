@@ -60,7 +60,19 @@
                     </td>
                     <td>
                         {{-- Componente Blade para Exibir status baseado nos Booleand. Precisa do Array de Viability --}}
-                        <x-hiring.status_viability :status="$list" />
+                        {{-- <x-hiring.status_viability :status="$list" /> --}}
+
+                        @if ($list->completed)
+                            <span class="badge text-bg-success">Contratado</span>
+                        @elseif ($list->approved && !$list->tacit)
+                            <span class="badge text-bg-success">Aprovado</span>
+                        @elseif ($list->approved && $list->tacit)
+                            <span class="badge text-bg-warning">Aprovação Tácita</span>
+                        @elseif ($list->rejected && !$list->canceled)
+                            <span class="badge text-bg-danger">Rejeitado</span>
+                        @elseif ($list->canceled)
+                            <span class="badge text-bg-secondary">Cancelado</span>
+                        @endif
                     </td>
                 </tr>
             @endforeach

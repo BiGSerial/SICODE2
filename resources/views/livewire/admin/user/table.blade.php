@@ -80,8 +80,9 @@
                                                 @endphp --}}
                                                 {{-- <img src="https://bootdey.com/img/Content/avatar/avatar8.png"
                                                     alt=""> --}}
-                                                <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed={{ Auth()->User()->email }}"
+                                                <img src="https://api.dicebear.com/8.x/pixel-art/svg?seed={{ $user->email }}"
                                                     alt="">
+
                                                 <a href="#"
                                                     class="user-link  @if ($user->trashed()) text-decoration-line-through text-danger @else text-dark @endif">{{ $user->name }}</a>
                                                 @if ($user->superadm)

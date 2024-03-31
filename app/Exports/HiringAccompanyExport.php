@@ -20,7 +20,7 @@ class HiringAccompanyExport implements FromView, WithEvents, WithProperties
 
     public function getData()
     {
-        return $this->data;
+        return $this->data->get()->sortBy('Order.Note.note');
     }
 
     public function properties(): array

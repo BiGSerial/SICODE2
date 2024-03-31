@@ -1,6 +1,7 @@
+@php
+    use App\Custom\Viabilitiesstatus;
+@endphp
 <div>
-
-
 
     <div class="card">
         <div class="card-header  edp-bg-sprucegreen-100 edp-text-verde-dark">
@@ -24,6 +25,7 @@
                                             <th scope="col" style="max-width: 10%">Data Envio</th>
                                             <th scope="col" style="max-width: 10%">Data Viabilidade</th>
                                             <th scope="col" style="max-width: 10%">Resultado</th>
+                                            <th scope="col" style="max-width: 10%">Status</th>
                                             <th scope="col" style="max-width: 5%"></th>
                                         </tr>
                                     </thead>
@@ -54,6 +56,20 @@
                                                 @else
                                                     <span class="badge text-bg-danger">Procedente</span>
                                                 @endif
+                                            </td>
+                                            <td class="text-truncate">
+
+                                                @php
+                                                    if (
+                                                        $list->Viabilities->count() &&
+                                                        $list->Viabilities->first()->status
+                                                    ) {
+                                                        $status = $list->Viabilities->first()->status;
+                                                    } else {
+                                                        $status = 0;
+                                                    }
+                                                @endphp
+                                                <x-hiring.status :badge="$status" />
                                             </td>
                                             <td class="text-truncate"><i @click="isVisible = !isVisible"
                                                     class="bx bxs-plus-square text-danger fs-4"

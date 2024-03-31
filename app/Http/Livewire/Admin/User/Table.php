@@ -13,7 +13,7 @@ class Table extends Component
 
     public $users;
 
-    public $perPage = 50;
+    public $perPage = 30;
 
     public $show_update = false;
 

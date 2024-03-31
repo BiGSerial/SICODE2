@@ -62,7 +62,9 @@
         }
     @endphp
 
-    @if ($approved && !$tacit)
+    @if ($completed)
+        <span class="badge text-bg-success">Contratado</span>
+    @elseif ($approved && !$tacit)
         <span class="badge text-bg-success">Aprovado</span>
     @elseif ($approved && $tacit)
         <span class="badge text-bg-warning">Aprovação Tácita</span>
@@ -70,8 +72,6 @@
         <span class="badge text-bg-danger">Rejeitado</span>
     @elseif ($canceled)
         <span class="badge text-bg-secondary">Cancelado</span>
-    @else
-        <span class="badge text-bg-primary">Em Viabilidade</span>
     @endif
 
 

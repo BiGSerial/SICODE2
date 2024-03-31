@@ -5,7 +5,7 @@
 
             <div class="card">
                 <div class="card-header  edp-bg-sprucegreen-100 edp-text-verde-dark">
-                    <h4 class="fs-4">Aguardando Aprovação Viabilidade</h4>
+                    <h4 class="fs-4">Aguardando Avaliação Viabilidade</h4>
                 </div>
                 <div class="card-body edp-bg-gray">
                     @if ($lists->count())

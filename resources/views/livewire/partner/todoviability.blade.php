@@ -356,7 +356,7 @@
                             <div class="row g-3">
                                 <div class="col-8">
                                     <div class="card">
-                                        <h4 class="card-header">Comentários</h4>
+                                        <h4 class="card-header edp-bg-seoweedgreen-100 text-white">Comentários</h4>
                                         <div class="card-body">
                                             <div class="clearfix">
 
@@ -364,9 +364,9 @@
                                                 @foreach ($list->Viabilities->last()->Comments as $comment)
                                                     @if ($comment->User->id !== auth()->User()->id)
                                                         <div class="d-flex justify-content-start">
-                                                            <div>
+                                                            <div class="border border-2 border-secondary rounded mb-3">
 
-                                                                <div class="rounded text-bg-primary p-2 text-justify">
+                                                                <div class="text-bg-secondary p-2 text-justify">
                                                                     {{ $comment->message }}</div>
                                                                 <p class="text-start mt-2"><span
                                                                         class="fw-bold">Por:</span>
@@ -380,9 +380,9 @@
                                                     @endif
                                                     @if ($comment->User->id === auth()->User()->id)
                                                         <div class="d-flex justify-content-end">
-                                                            <div>
+                                                            <div class="border border-2 border-primary rounded mb-3">
 
-                                                                <div class="rounded text-bg-primary p-2 text-justify">
+                                                                <div class="text-bg-primary p-2 text-justify">
                                                                     {{ $comment->message }}</div>
                                                                 <p class="text-end mt-2"><span
                                                                         class="fw-bold">Por:</span>

@@ -230,7 +230,8 @@
                                 <th scope="col" class="fw-bold">Dt Envio</th>
                                 <th scope="col" class="fw-bold">Est Retorno</th>
                                 <th scope="col" class="fw-bold">Real Retorno</th>
-                                <th scope="col" class="fw-bold">Situação</th>
+                                <th scope="col" class="fw-bold">Resultado</th>
+                                <th scope="col" class="fw-bold">Status</th>
                                 <th scope="col" class="fw-bold"></th>
 
 
@@ -311,14 +312,16 @@
                                     </td>
                                     <td class="align-middle fw-bold">
                                         {{ $list->Viabilities->last()->returned_at ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y') : '---' }}
-                                        </t class="align-middle"d>
+                                    </td>
+                                    <td class="align-midd">
+                                        <x-hiring.status_viability :status="$list->Viabilities" />
+                                    </td>
                                     <td class="align-middle">
-                                        {{-- Componente Blade para Exibir status baseado nos Booleand. Precisa do Array de Viability --}}
-                                        {{-- <x-hiring.status_viability :status="$list->Viabilities" /> --}}
 
-                                        <span
-                                            class="badge {{ $list->Viabilities->last() ? ($list->Viabilities->last()->status ? Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg : Viabilitiesstatus::status(0)->colorbg) : '' }}">{{ $list->Viabilities->last() ? ($list->Viabilities->last()->status ? Viabilitiesstatus::status($list->Viabilities->last()->status)->status : Viabilitiesstatus::status(0)->status) : '' }}</span>
-                                        {{ $list->Viabilities->last()->status }}
+                                        <x-hiring.status :badge="isset($list->Viabilities->last()->status)
+                                            ? $list->Viabilities->last()->status
+                                            : 0" />
+
                                     </td>
                                     <td></td>
                                 </tr class="align-middle">
@@ -394,21 +397,27 @@
                                 <th scope="col">Empreiteira</th>
                             </thead>
                             <tbody>
+
+
+                                <div class="text-bg-light rounded p-2 mb-3 shadown shadown-sm">
+                                    <p class="text-center fs-4 fw-bold">LEMBRETE</p>
+                                    <p class="fs-5">
+
+                                        "A contratação de obras no SICODE é apenas para a sumarização de processos.
+                                        Espera-se que tenha realizado todos os procedimentos necessários no SAP desta
+                                        atividade antes de 'contratar' ou 'encerrar' a atividade no SICODE."
+                                    </p>
+                                </div>
                                 <p class="fs-4 fw-bold mb-3">
                                     Selecione as Obras Aptas a Contratar
-                                </p>
-
-                                <p class="fs-5 text-bg-danger mb-3 p-2">
-                                    A Contratação de obras aqui no SICODE é apenas para sumarizão de processos.
-                                    Espera-se que tenhas feito todos os procedimentos necessários
-                                    no SAP desta atividade antes de 'CONTRATAR', encerrar atividade, no SICODE.
                                 </p>
                                 @if ($hirings && $hirings->count())
                                     @foreach ($hirings as $hiring)
                                         <tr>
                                             <th scope="row" class="text-center align-middle"><input
                                                     class="form-check-input border border-1 border-secondary "
-                                                    type="checkbox" wire:model="selectedHiring"></th>
+                                                    type="checkbox" wire:model.defer="hiringSelected"
+                                                    value="{{ $hiring->id }}"></th>
                                             <td class="fw-bold align-middle">{{ $hiring->note }}</td>
                                             <td class="align-middle">
                                                 @if ($hiring->Viabilities->count())
@@ -430,8 +439,11 @@
                 </div>
 
                 <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button type="button" class="btn btn-danger" wire:click="">CANCELAR</button>
-                    <button type="button" class="btn btn-primary" wire:click="">CONTRATAR</button>
+                    <button type="button" class="btn btn-danger" wire:click.prevent="">CANCELAR</button>
+                    <button type="button" class="btn btn-info" wire:click.prenvet="export_excel_hiring">EXPORTAR
+                        LISTA</button>
+                    <button type="button" class="btn btn-primary"
+                        wire:click.prenvet="to_contract">CONTRATAR</button>
                 </div>
             </div>
 
