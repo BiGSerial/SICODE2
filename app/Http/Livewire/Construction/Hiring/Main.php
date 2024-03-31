@@ -660,7 +660,7 @@ class Main extends Component
 
         $query = Order::Query();
 
-        $query->with('Operations', 'Note.Files', 'Viabilities')
+        $query->with('Operations', 'Note.Files', 'Note.Orders', 'Viabilities')
             ->when($this->search, function ($q) {
                 $this->gotoPage(1);
                 $this->advanceSearch = '';

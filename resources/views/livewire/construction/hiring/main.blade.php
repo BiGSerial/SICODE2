@@ -278,7 +278,9 @@
                                             @disabled($block)>
                                     </td>
                                     <td class="fw-bold align-middle">{{ $list->ordem }}</td>
-                                    <td class="align-middle">{{ $list->Note->note }}</td>
+                                    <td
+                                        class="align-middle @if ($list->Note->type_note == 2 && $list->Note->Orders->count() > 1) text-danger fw-bold @endif">
+                                        {{ $list->Note->note }}</td>
                                     <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                         <x-files.select-download-list :files='$list->Note->Files' />
@@ -339,18 +341,28 @@
                                         $percent = '';
 
                                         if ($block) {
-                                            $days = Carbon::parse($list->Viabilities->first()->sended_at)->diffInDays(
-                                                Carbon::now(),
-                                            );
+                                            if (
+                                                isset($list->Viabilities->first()->returned_at) &&
+                                                $list->Viabilities->first()->returned_at
+                                            ) {
+                                                $days = Carbon::parse(
+                                                    $list->Viabilities->first()->sended_at,
+                                                )->diffInDays(Carbon::parse($list->Viabilities->first()->returned_at));
+                                            } else {
+                                                $days = Carbon::parse(
+                                                    $list->Viabilities->first()->sended_at,
+                                                )->diffInDays(Carbon::now());
+                                            }
                                             $percent = round(($days / 7) * 100, 1);
                                         }
 
                                     @endphp
                                     <td
-                                        class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center">
+                                        class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center overflow-hidden">
                                         <div class="progress-bg text-center"
                                             style="width: {{ $percent }}%; 
-                                                @if ($percent > 80.0) background-color: #FBC4C4;
+                                                 @if ($percent > 100.0) background-color: #969595;
+                                                 @elseif ($percent > 80.0 && $percent <= 100.0) background-color: #FBC4C4;
                                                 @elseif($percent > 70.0 && $percent <= 80.0)
                                                     background-color: #FBF8C4;
                                                 @else
