@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.11",
+    "appver": "1.7.12",
     "historic": [
+        {
+            "version": "1.7.12",
+            "description": "FIxed Bug on Dreaw Block legend, and Input Actuality name in List View",
+            "date": "2024-04-01"
+        },
         {
             "version": "1.7.11",
             "description": "FIxed Draw Attribuition",
