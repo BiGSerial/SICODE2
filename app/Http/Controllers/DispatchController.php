@@ -68,6 +68,15 @@ class DispatchController extends Controller
         }
     }
 
+    public function returnD5(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('dispatchs.returned', [
+            'service' => $service,
+        ]);
+    }
+
     public function survey_map(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();

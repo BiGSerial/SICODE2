@@ -81,6 +81,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/main', 'survey_main')->name('main');
     Route::get('/stack', 'survey_stack')->name('stack');
     Route::get('/transfer', 'survey_transfer')->name('transprod');
+    Route::get('/returns_d5', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');
 });
 

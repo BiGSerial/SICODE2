@@ -469,7 +469,7 @@ class Accompany extends Component
 
     public function downloadFile($id)
     {
-        if ($file = File::find($id)->first()) {
+        if ($file = File::find($id)) {
 
             if (Storage::disk('local')->exists($file->path)) {
 

@@ -1,6 +1,6 @@
 <div>
 
-
+    <x-show-loading />
 
     <div class="card">
         <div class="card-header  edp-bg-sprucegreen-100 edp-text-verde-dark">
@@ -164,7 +164,8 @@
                                             <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
                                             @if ($list->Files->count())
                                                 @foreach ($list->Files as $file)
-                                                    <p class="mb-2 mb-0 py-0" style="cursor: pointer;">
+                                                    <p class="mb-2 mb-0 py-0" style="cursor: pointer;"
+                                                        wire:click.prevent="downloadFile({{ $file->id }})">
                                                         <i class="bx bxs-file-{{ $file->ext }} text-danger"></i>
                                                         <span>{{ $file->file_name }}</span>
                                                     </p>

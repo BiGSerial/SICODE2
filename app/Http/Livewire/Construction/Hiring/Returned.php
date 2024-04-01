@@ -2,14 +2,32 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Models\File;
 use App\Models\Note;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Returned extends Component
 {
+    use WithFileUploads;
+    
     protected $listeners = [
         'update_list' => '$refresh'
     ];
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+
+
+                return Storage::download($file->path, $file->file_name);
+
+            }
+        }
+    }
 
     public function getListsProperty()
     {

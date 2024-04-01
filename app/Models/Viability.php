@@ -60,4 +60,9 @@ class Viability extends Model
     {
         return $this->belongsToMany(Comment::class);
     }
+
+    public function Reclaims()
+    {
+        return $this->belongsToMany(Reclaim::class);
+    }
 }

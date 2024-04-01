@@ -17,8 +17,28 @@ class Reclaim extends Model
         'completed_at',
     ];
 
+    public function Note()
+    {
+        return $this->belongsTo(Note::class);
+    }
+
+    public function Service()
+    {
+        return $this->belongsTo(Service::class, 'service_id', 'uuid');
+    }
+
+    public function Production()
+    {
+        return $this->belongsTo(Production::class);
+    }
+
     public function Comments()
     {
         return $this->belongsToMany(Comment::class);
+    }
+
+    public function Viabilities()
+    {
+        return $this->belongsToMany(Viability::class);
     }
 }

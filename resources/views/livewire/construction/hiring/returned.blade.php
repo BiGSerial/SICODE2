@@ -2,7 +2,7 @@
     use App\Custom\Viabilitiesstatus;
 @endphp
 <div>
-
+    <x-show-loading />
     <div class="card">
         <div class="card-header  edp-bg-sprucegreen-100 edp-text-verde-dark">
             <h4 class="fs-4">Retorno de Viabilidade</h4>
@@ -137,7 +137,9 @@
                                         <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
                                         @if ($list->Files->count())
                                             @foreach ($list->Files as $file)
-                                                <p class="mb-2 mb-0 py-0" style="cursor: pointer;">
+                                                <p class="mb-2 mb-0 py-0" style="cursor: pointer;"
+                                                    wire:click.prevent="downloadFile({{ $file->id }})"
+                                                    wire:key='files-{{ $file->id }}'>
                                                     <i class="bx bxs-file-{{ $file->ext }} text-danger"></i>
                                                     <span>{{ $file->file_name }}</span>
                                                 </p>
@@ -145,7 +147,7 @@
                                         @endif
 
                                         @if ($list->Viabilities->count() && !$list->Viabilities->first()->approved)
-                                            @livewire('construction.hiring.actions.hiring', ['list' => $list], key('returne-{{ $list->id }}'))
+                                            @livewire('construction.hiring.actions.return-d5', ['list' => $list], key('returnD5-{{ $list->id }}'))
                                         @else
                                         @endif
 
