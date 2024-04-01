@@ -440,6 +440,7 @@
                                                 ->where('confirmed', true)
                                                 ->where('dt_note', $list->dt_status)
                                                 ->where('noinconsistency', false)
+                                                ->where('type_note', 2)
                                                 ->count()
                                         ) {
                                             $block = 3;
@@ -449,6 +450,7 @@
                                                 ->where('confirmed', true)
                                                 ->where('dt_note', $list->dt_status)
                                                 ->where('noinconsistency', false)
+                                                ->where('type_note', 2)
                                                 ->last();
 
                                             $lastName = $lastProduction->User->name ?? 'Desconhecido';
@@ -499,7 +501,7 @@
 
                                 <tr
                                     class="align-middle
-                                    @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-info
+                                    @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-primary
                                     @elseif($block == 1 && $user['lastUser'] == 'Desconhecido')
                                         table-warning
                                     @elseif($block == 2)      
