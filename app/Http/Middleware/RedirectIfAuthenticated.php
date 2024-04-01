@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Providers\RouteServiceProvider;
 use Closure;
 use Illuminate\Http\Request;
@@ -19,8 +20,29 @@ class RedirectIfAuthenticated
     {
         $guards = empty($guards) ? [null] : $guards;
 
+        $partnerViewOnly = false;
+
+        if (Auth::check()) {
+
+            dd(Auth()->User());
+
+            $user = User::with('Employee.Contract')->find(Auth()->User()->id);
+
+            if ($user->Employee->Contract->construction && !$user->Employee->Contract->service) {
+                $partnerViewOnly = true;
+            }
+        }
+
+
+
         if (Auth::guard($guards[0])->check()) {
-            return redirect(RouteServiceProvider::HOME);
+
+            if ($partnerViewOnly) {
+                return redirect(RouteServiceProvider::COMPANY);
+            } else {
+                return redirect(RouteServiceProvider::HOME);
+            }
+
         }
 
         return $next($request);
