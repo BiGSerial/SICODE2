@@ -64,7 +64,11 @@
                         </div>
 
                         @php
-                            if (($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') || $this->conclusion === 'ARQUIVADO' || $this->conclusion === 'RETORNADO LEVANTAMENTO') {
+                            if (
+                                ($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') ||
+                                $this->conclusion === 'ARQUIVADO' ||
+                                $this->conclusion === 'RETORNADO LEVANTAMENTO'
+                            ) {
                                 $this->postes = 1;
                                 $this->odi = '';
                                 $this->odd = '';
@@ -155,6 +159,69 @@
                             </select>
                         </div>
 
+                        <div class="mb-3">
+                            <div class="my-2"> <button class="btn btn-sm btn-primary"
+                                    onclick="document.getElementById('file-input').click()">CARREGAR CROQUI</button>
+                                <span class="text-danger fw-bold">*</span>
+                            </div>
+                            <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
+                                x-on:livewire-upload-finish="isUploading = false"
+                                x-on:livewire-upload-error="isUploading = false"
+                                x-on:livewire-upload-progress="progress = $event.detail.progress">
+
+                                <form wire:submit.prevent="saveFile">
+                                    <input type="file" id="file-input" multiple wire:model="files" hidden>
+                                    {{-- <button type="submit" id="id-submit"></button> --}}
+                                </form>
+
+                                <div x-show="isUploading" class="mb-3">
+                                    {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                                    x-bind:style="`width: ${progress}%`">
+                                    <span class="align-middle" x-text="`${progress}%`"></span>
+                                </div> --}}
+                                    <div class="progress my-0" role="progressbar" aria-label="Danger example"
+                                        aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
+                                        style="width: 100%; border-radius: 0;">
+                                        <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
+                                            x-text="`${progress}%`">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="edp-bg-gray mb-3 py-2 rounded ">
+                                <div class="container">
+
+                                    @if (count($show_files))
+                                        @foreach ($show_files as $show)
+                                            <div
+                                                class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0 mb-2 bg-white">
+                                                <div class="p-1 m-0 border-end border-secondary"><i
+                                                        class="bx bxs-file-{{ $show['ext'] }} text-danger fs-4"></i>
+                                                </div>
+                                                <div class="p-1 m-0 text-center no-wrap">
+                                                    <p class="my-0 py-0">
+                                                        {{ $show['name'] }}
+                                                    </p>
+                                                    <p class="my-0 py-0 text-danger" style="font-size: 12px;">
+                                                        {{ $show['old_name'] }}
+                                                    </p>
+                                                </div>
+                                                <div class="p-1 m-0 border-start border-secondary">
+                                                    <i class="bx bxs-trash text-danger fs-4"
+                                                        wire:click.prevent="delete_file({{ $show['id'] }})"
+                                                        style="cursor: pointer;"></i>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <div class="my-2 py-2 text-center">
+                                            <h4 class="fw-bold">SEM ARQUIVOS</h4>
+                                        </div>
+                                    @endif
+
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="mb-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Informações: <span

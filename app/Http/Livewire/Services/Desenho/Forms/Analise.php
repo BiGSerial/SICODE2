@@ -5,9 +5,13 @@ namespace App\Http\Livewire\Services\Desenho\Forms;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Analise extends Component
 {
+
+    use WithFileUploads;
+
     public $view_form = false; // Ou o valor inicial que desejar
 
     public $ninst;
@@ -91,6 +95,12 @@ class Analise extends Component
     public $eo;
 
     public $preresult;
+
+
+    // Files
+    public $files = [];
+
+    public $show_files = [];
 
     protected $listeners = [
         'open_analise_draw' => 'openAnalise',
