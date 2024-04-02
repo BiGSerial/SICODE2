@@ -12,7 +12,7 @@
 
         <div class="card-body edp-bg-gray">
             @if ($lists->count())
-                @dump($lists)
+
                 @foreach ($lists as $list)
                     <div class="card my-2" x-data="{ isVisible: false, confirm: false }" @click.away="isVisible = false"
                         wire:key='list-{{ $list->id }}'>
@@ -40,6 +40,8 @@
                                                 @if ($list->Production->count())
                                                     <span
                                                         class="badge {{ Notestatus::status($list->Production->status)->colorbg }}">{{ Notestatus::status($list->Production->status)->status }}</span>
+                                                @else
+                                                    <span class="badge text-bg-secodary">Não Criado</span>
                                                 @endif
                                             </td>
 

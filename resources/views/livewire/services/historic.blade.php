@@ -166,6 +166,9 @@
                         ">
                                     <td class="fw-bold">
                                         {{ $list->Note->note }}
+                                        @if ($list->d5)
+                                            <span class="badge text-bg-primary">D5</span>
+                                        @endif
                                         <span class="copy-text" data-value="{{ $list->Note->note }}"
                                             style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
                                     </td>

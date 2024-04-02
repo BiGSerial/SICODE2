@@ -462,9 +462,17 @@
                                             value="{{ $list->id }}" wire:model.defer="selected">
                                     </td>
                                     <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->Note->note }}
-                                        <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                            style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
+
+                                        @if ($list->d5)
+                                            <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
+                                                (D5)
+                                            </span>
+                                        @else
+                                            {{ $list->Note->note }}
+                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                                style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
+                                        @endif
+
 
                                         @if ($list->priority)
                                             <i class="ri-alert-fill text-danger align-middle"

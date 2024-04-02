@@ -168,6 +168,9 @@
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                                 {{ $list->Note->note }}
+                                                @if ($list->d5)
+                                                    <span class="badge text-bg-primary">D5</span>
+                                                @endif
                                                 <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
