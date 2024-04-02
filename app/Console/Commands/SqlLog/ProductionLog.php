@@ -32,7 +32,7 @@ class ProductionLog extends Command
     {
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> Verifing Productions.... </>');
 
-        $productions = Production::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Note', 'User', 'Company', 'Service')->get();
+        $productions = Production::where('d5', false)->whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Note', 'User', 'Company', 'Service')->get();
 
         $progressBar = new ProgressBar($this->output, $productions->count());
 

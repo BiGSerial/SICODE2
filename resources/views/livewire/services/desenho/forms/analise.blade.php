@@ -160,9 +160,11 @@
                         </div>
 
                         <div class="mb-3">
+
+
+
                             <div class="my-2"> <button class="btn btn-sm btn-primary"
-                                    onclick="document.getElementById('file-input').click()">CARREGAR CROQUI</button>
-                                <span class="text-danger fw-bold">*</span>
+                                    onclick="document.getElementById('file-input').click()">CARREGAR PROJETO</button>
                             </div>
                             <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
                                 x-on:livewire-upload-finish="isUploading = false"
@@ -170,7 +172,9 @@
                                 x-on:livewire-upload-progress="progress = $event.detail.progress">
 
                                 <form wire:submit.prevent="saveFile">
-                                    <input type="file" id="file-input" multiple wire:model="files" hidden>
+                                    <input type="file" id="file-input" multiple wire:model="files"
+                                        value="{{ $this->production->Note->note }}" accept=".pdf,.gif,.jpg,.png"
+                                        hidden>
                                     {{-- <button type="submit" id="id-submit"></button> --}}
                                 </form>
 
@@ -221,6 +225,17 @@
 
                                 </div>
                             </div>
+
+                            @if ($nota_divergente)
+                                <div class="card">
+                                    <div class="card-body">
+                                        <p class="fs-5 text-danger fw-bold text-center">O arquivo carregado parece
+                                            estar divergente da nota/ordem de venda trabalhada neste formulário.
+                                            Certifique-se de que o arquivo corresponda ao projeto desta nota/ordem de
+                                            venda. </p>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         <div class="mb-3">

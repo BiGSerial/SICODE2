@@ -2,14 +2,15 @@
 
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
-use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
+use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production, Reclaim};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 class Analise extends Component
 {
-
     use WithFileUploads;
 
     public $view_form = false; // Ou o valor inicial que desejar
@@ -102,6 +103,8 @@ class Analise extends Component
 
     public $show_files = [];
 
+    public $nota_divergente;
+
     protected $listeners = [
         'open_analise_draw' => 'openAnalise',
         'analise_clean'     => 'clean',
@@ -180,6 +183,69 @@ class Analise extends Component
             $this->view_form = true;
         }
     }
+
+    // OPERAÇÕES COM ARQUIVOS
+    public function updatedFiles()
+    {
+
+        try {
+            $this->validate([
+                'files.*' => 'mimes:pdf,jpeg,png',
+            ]);
+        } catch (ValidationException $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
+                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpp ou .png</span> </div></div>',
+
+            ]);
+
+            return;
+        }
+
+        if (count($this->files)) {
+
+            $this->show_files = [];
+
+            foreach ($this->files as $index => $file) {
+
+                $skip_file = false;
+
+                if (!$skip_file) {
+
+
+                    if (strpos($this->production->Note->note, explode('.', $file->getClientOriginalName())[0]) !== false) {
+                        $this->nota_divergente = false;
+                    } else {
+                        $this->nota_divergente = true;
+                    }
+
+                    $this->show_files[$index] = [
+                        'id'       => $index,
+                        'note_id'  => '',
+                        'name'     => explode('.', $file->getClientOriginalName())[0],
+                        'old_name' => explode('.', $file->getClientOriginalName())[0],
+                        'ext'      => $file->getClientOriginalExtension(),
+                        'chk'      => false,
+                    ];
+                }
+            }
+
+        }
+    }
+
+    public function delete_file($id)
+    {
+        if (isset($this->show_files[$id])) {
+            unset($this->files[$id]);
+            unset($this->show_files[$id]);
+        }
+
+        $this->updatedFiles();
+    }
+
+
 
     //     public function updatedConclusion($value)
     //     {
@@ -392,38 +458,98 @@ class Analise extends Component
 
     public function goFinish()
     {
-        $chk = $this->production->update([
-            'status'       => 5,
-            'completed_at' => date('Y-m-d H:i:s'),
-            'postes_p'     => (int) $this->postes,
-            'odi'          => $this->odi ? trim($this->odi) : null,
-            'odd'          => $this->odd ? trim($this->odd) : null,
-            'ods'          => $this->ods ? trim($this->ods) : null,
-            'postes_u'     => $this->postes ? (int) $this->postes : 0,
-            'cadastro'     => $this->cadastro ? true : false,
-            'iproject'     => $this->iproject ? true : false,
-            'eo'           => $this->eo ? true : false,
-            'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
-            'completed'    => true,
-            'confirmed'    => false,
-            'priority'     => false,
-            'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
-        ]);
+        DB::beginTransaction();
 
-        if ($chk) {
-            $user = Auth()->User()->name;
-
-            Notetimeline::Create([
-                'note_id'    => $this->note->id,
-                'service_id' => $this->production->service_id,
-                'user_id'    => Auth()->User()->id,
-                'info'       => "Usuário {$user} encerrou a Nota/OV.",
-                'status'     => 5,
+        try {
+            $chk = $this->production->update([
+                'status'       => 5,
+                'completed_at' => date('Y-m-d H:i:s'),
+                'postes_p'     => (int) $this->postes,
+                'odi'          => $this->odi ? trim($this->odi) : null,
+                'odd'          => $this->odd ? trim($this->odd) : null,
+                'ods'          => $this->ods ? trim($this->ods) : null,
+                'postes_u'     => $this->postes ? (int) $this->postes : 0,
+                'cadastro'     => $this->cadastro ? true : false,
+                'iproject'     => $this->iproject ? true : false,
+                'eo'           => $this->eo ? true : false,
+                'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
+                'completed'    => true,
+                'confirmed'    => false,
+                'priority'     => false,
+                'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
             ]);
 
-            $this->clean();
-            $this->dispatchBrowserEvent('hideModal');
-            $this->emit('refresh_accomany');
+            if ($chk) {
+                $user = Auth()->User()->name;
+
+                Notetimeline::Create([
+                    'note_id'    => $this->note->id,
+                    'service_id' => $this->production->service_id,
+                    'user_id'    => Auth()->User()->id,
+                    'info'       => "Usuário {$user} encerrou a Nota/OV.",
+                    'status'     => 5,
+                ]);
+
+                //Encerrar D5 Caso existir
+                if ($this->production->d5) {
+                    $d5 = Reclaim::where('production_id', $this->production->id)->first();
+
+                    if ($d5) {
+                        $d5->update([
+                         'completed' => true,
+                         'completed_at' => date('Y-m-d H:i:s'),
+                        ]);
+                    }
+                }
+
+                if (count($this->show_files)) {
+
+                    if (count($this->show_files)) {
+
+                        foreach ($this->show_files as $temp_file) {
+
+                            $caminho = '';
+
+                            if (isset($this->files[$temp_file['id']])) {
+
+                                $caminho = $this->files[$temp_file['id']]->store('/arquivos/projeto');
+
+                                if ($caminho) {
+
+                                    $this->production->Files()->create([
+                                        'note_id'   => $this->note->id,
+                                        'user_id'   => Auth()->User()->id,
+                                        'file_name' => $temp_file['name'],
+                                        'path'      => $caminho,
+                                        'ext'       => $temp_file['ext'],
+                                    ]);
+
+                                }
+
+                            }
+
+                        }
+                    }
+                }
+
+                DB::commit();
+
+                $this->clean();
+                $this->dispatchBrowserEvent('hideModal');
+                $this->emit('refresh_accomany');
+            }
+
+        } catch (\Throwable $th) {
+            DB::rollback();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'NÃO FINALIZADO',
+                'html'     => 'Não COnseguimos encerrar a atividade, tente novamente.<br>'.$th->getMessage(),
+            ]);
+
+            return;
         }
     }
 

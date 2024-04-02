@@ -2,7 +2,8 @@
 
 namespace App\Http\Livewire\Services;
 
-use App\Models\{Production, Service, User};
+use App\Models\{File, Production, Service, User};
+use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
 class Historic extends Component
@@ -83,6 +84,16 @@ class Historic extends Component
     public function visualizar()
     {
 
+    }
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
     }
 
     public function getListsProperty()

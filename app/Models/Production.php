@@ -49,6 +49,7 @@ class Production extends Model
         'centroTrab',
         'block_wpa',
         'noinconsistency',
+        'd5',
     ];
 
     public function Note()

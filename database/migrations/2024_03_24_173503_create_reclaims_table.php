@@ -14,7 +14,7 @@ return new class () extends Migration {
             $table->id();
             $table->foreignId('note_id')->constrained('notes')->onDelete('cascade');
             $table->uuid('service_id')->nullable();
-            $table->unsignedBigInteger('productions_id')->nullable();
+            $table->unsignedBigInteger('production_id')->nullable();
             $table->boolean('completed')->default(false);
             $table->dateTime('completed_at')->nullable();
             $table->timestamps();

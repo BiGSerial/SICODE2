@@ -139,6 +139,7 @@
                                 <th scope="col" class="fw-bold">Note</th>
                                 <th scope="col" class="fw-bold"></th>
                                 <th scope="col" class="fw-bold"></th>
+                                <th scope="col" class="fw-bold">Files</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
                                 <th scope="col" class="fw-bold">Grupo</th>
@@ -195,6 +196,9 @@
                                             </span>
                                         @endif
                                     </td>
+                                    <td class="align-middle">
+                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                        <x-files.select-download-list :files='$list->Note->Files' />
                                     <td class="fw-light">{{ $list->Note->rubrica }}</td>
                                     <td class="fw-light">{{ $list->Note->lexp }}</td>
                                     <td class="fw-light">{{ $list->Note->group1 }}</td>

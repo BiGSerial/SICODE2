@@ -35,7 +35,7 @@
                 <h4 class="text-center fw-bold mb-3">Deseja realmente retornar {{ $list->note }}?</h4>
                 <p class="text-justify p-2 border border-1 rounded shadow">
                     Antes de enviar, verifique se o seviço para retorno, está devidamente selecionado, e se o texto de
-                    comentáriko condiz para informação do receptor.
+                    comentário condiz para informação do receptor.
                 </p>
                 <div class="clear-fix">
                     <div class="center-text mt-2 d-flex justify-content-center">

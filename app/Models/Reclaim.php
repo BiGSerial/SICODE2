@@ -12,7 +12,7 @@ class Reclaim extends Model
     protected $fillable = [
         'note_id',
         'service_id',
-        'productions_id',
+        'production_id',
         'completed',
         'completed_at',
     ];
