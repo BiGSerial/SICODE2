@@ -459,9 +459,11 @@
 
                                             $count = $production->count();
 
+                                            // Get First and Last name from User Name,
                                             $lastName = explode(' ', $lastName);
                                             $lastName = $lastName[0] . ' ' . end($lastName);
 
+                                            // Get just first Company name.
                                             $company = explode(' ', $company)[0];
 
                                             $user = [

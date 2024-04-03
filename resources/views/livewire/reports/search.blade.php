@@ -136,6 +136,7 @@
                     <div class="table-responsive">
                         <table class="table table-sm table-condensed table-striped border border-1">
                             <thead class="table-dark">
+                                <th scope="col">#</th>
                                 <th scope="col">Serviço</th>
                                 <th scope="col">Status</th>
                                 <th scope="col">Usuário</th>
@@ -152,6 +153,11 @@
                             <tbody>
                                 @foreach ($lists->Productions as $list)
                                     <tr>
+                                        <td>
+                                            @if ($list->d5)
+                                                <span class="badge text-bg-primary align-middle">D5</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $list->load('Service')->Service ? $list->load('Service')->Service->service : 'Desconhecido' }}
                                         </td>
                                         <td>{{ $list->status_note }}</td>

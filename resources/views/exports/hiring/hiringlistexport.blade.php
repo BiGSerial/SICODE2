@@ -9,6 +9,7 @@
 
                 <th scope="col" class="fw-bold">Ordem</th>
                 <th scope="col" class="fw-bold">Nota</th>
+                <th scope="col" class="fw-bold">PEP</th>
                 <th scope="col" class="fw-bold">Tipo</th>
                 <th scope="col" class="fw-bold">Files</th>
                 <th scope="col" class="fw-bold">Rubrica</th>

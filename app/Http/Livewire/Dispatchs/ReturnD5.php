@@ -49,12 +49,20 @@ class ReturnD5 extends Component
                 'status_note' => $note->nstats,
                 'centroTrab'  => $note->centerjob,
                 'dispatch_at' => date('Y-m-d H:i:s'),
-                'status'      => 1,
+                'status'      => 2,
                 'd5'          => true,
             ]);
 
             if ($production) {
                 $retorno->update(['production_id' => $production->id]);
+
+                if ($retorno->Viabilities->count()) {
+                    foreach ($retorno->Viabilities as $viab) {
+                        $viab->update([
+                            'status' => 12
+                        ]);
+                    }
+                }
             }
 
             DB::commit();

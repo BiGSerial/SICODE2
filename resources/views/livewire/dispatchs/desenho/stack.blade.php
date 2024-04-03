@@ -465,7 +465,7 @@
 
                                         @if ($list->d5)
                                             <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
-                                                (D5)
+                                                (RI)
                                             </span>
                                         @else
                                             {{ $list->Note->note }}

@@ -87,6 +87,27 @@ class Viabilitiesstatus
                 'colorbg' => 'text-bg-warning',
                 'color'   => 'warning',
             ],
+            // 11
+            [
+                'status'  => 'Criado RI',
+                'icon'    => 'bx bxs-badge-dollar',
+                'colorbg' => 'text-bg-primary',
+                'color'   => 'warning',
+            ],
+            // 12
+            [
+                'status'  => 'Em Resolução RI',
+                'icon'    => 'bx bxs-badge-dollar',
+                'colorbg' => 'text-bg-primary',
+                'color'   => 'warning',
+            ],
+            // 13
+            [
+                'status'  => 'Concluído RI',
+                'icon'    => 'bx bxs-badge-dollar',
+                'colorbg' => 'text-bg-primary',
+                'color'   => 'warning',
+            ],
 
         ];
 

@@ -29,8 +29,8 @@
                     <li>
                         <a href="{{ route('dispatch.d5', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>RETORNO(D5) DE
-                                {{ mb_strtoupper($service->service) }}</span>
+                            <i class="bi bi-circle"></i><span>RETORNO INTERNO (RI) DE
+                                {{ mb_strtoupper($service->service) }}</span> @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
                         </a>
                     </li>
                 </div>

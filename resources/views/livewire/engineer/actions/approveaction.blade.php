@@ -12,9 +12,9 @@
     </div> --}}
     <div class="d-flex justify-content-end mb-3" x-show="show1 = false && show2 = false">
         <button class="btn btn-sm btn-danger mx-2"
-            @click="show1 = true, show2 = false, text = 'Deseja comfirmar Improcedente?'">IMPROCEDENTE</button>
+            @click="show1 = true, show2 = false, text = 'Discordar da Análise de Viabilidade?'">DISCORDAR</button>
         <button class="btn btn-sm btn-primary mx-2"
-            @click="show1 = false, show2 = true, text = 'Deseja comfirmar Procedente?'">PROCEDENTE</button>
+            @click="show1 = false, show2 = true, text = 'Discordar da Análise de Viabilidade?'">CONCORDAR</button>
     </div>
 
 
@@ -23,8 +23,8 @@
             <p class="fs-4 fw-bold text-center mb-3" x-text="text"></p>
             <div class="d-flex justify-content-center">
 
-                <button class="btn btn-sm btn-primary mx-2" wire:click.prevent="approved" x-show="show1">SIM</button>
-                <button class="btn btn-sm btn-primary mx-2" wire:click.prevent="desapproved" x-show="show2">SIM</button>
+                <button class="btn btn-sm btn-primary mx-2" wire:click.prevent="agree" x-show="show1">SIM</button>
+                <button class="btn btn-sm btn-primary mx-2" wire:click.prevent="desagree" x-show="show2">SIM</button>
                 <button class="btn btn-sm btn-danger mx-2" @click="show1 = show2 = false">CANCELAR</button>
             </div>
         </div>

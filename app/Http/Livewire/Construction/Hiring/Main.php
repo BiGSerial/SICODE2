@@ -53,6 +53,10 @@ class Main extends Component
 
     public $action;
 
+    // Clipboard
+    public $clipboardData = [];
+
+
     // Filters
     private $filter_group = 'hiring';
 
@@ -252,7 +256,7 @@ class Main extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
-                'title'    => 'É necessário selecionar a EMPREITEIRA e o ENGENHEIRO RESPONSÁVEL.',
+                'title'    => 'É necessário selecionar a EMPREITEIRA e o RESPONSÁVEL PELO PROJETO.',
                 'timer'    => 5000,
             ]);
 
@@ -532,9 +536,12 @@ class Main extends Component
     public function delete_note($id)
     {
         if (isset($this->show_registers[$id])) {
-            $this->show_files[$this->show_registers[$id]['file_index']] = array_merge($this->show_files[$this->show_registers[$id]['file_index']], [
-                'chk' => false,
-            ]);
+            if (isset($this->show_files[$this->show_registers[$id]['file_index']])) {
+                $this->show_files[$this->show_registers[$id]['file_index']] = array_merge($this->show_files[$this->show_registers[$id]['file_index']], [
+                    'chk' => false,
+                ]);
+            }
+
             unset($this->show_registers[$id]);
         }
     }
@@ -754,6 +761,28 @@ class Main extends Component
 
         return $query->paginate($this->perPage);
 
+    }
+
+    public function copyClipboard()
+    {
+        if (count($this->selected)) {
+            $orders = Order::with('Operations', 'Note.Files')
+            ->find($this->selected);
+
+            if ($orders) {
+                foreach ($orders as $order) {
+                    
+                    $this->clipboardData[] = [
+                        $order->ordem,
+                        $order->Note->note,
+                        $order->pep
+                    ];
+                }
+
+                $this->dispatchBrowserEvent('copyToBoard', $this->clipboardData);
+
+            }
+        }
     }
 
     public function render()

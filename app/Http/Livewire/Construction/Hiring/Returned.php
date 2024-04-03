@@ -11,7 +11,7 @@ use Livewire\WithFileUploads;
 class Returned extends Component
 {
     use WithFileUploads;
-    
+
     protected $listeners = [
         'update_list' => '$refresh'
     ];
@@ -38,7 +38,7 @@ class Returned extends Component
             ->with(['Viabilities' => function ($query) {
                 $query->where('engineer', true)
                 ->where('completed', false)
-                ->with('Company', 'User', 'Form', 'Comments.User');
+                ->with('Company', 'User', 'Form', 'Comments.User', 'Reclaims.production');
             }, 'Files'])->paginate(50);
     }
 

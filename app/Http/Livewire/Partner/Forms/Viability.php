@@ -187,10 +187,10 @@ class Viability extends Component
                 $campos[] = 'Sem Responsável Informado.';
             }
 
-            if (!isset($this->result['viability_id']) || $this->result['viability_id'] == '') {
-                $block    = true;
-                $campos[] = 'Sem Viabilidade Indicada.';
-            }
+            // if (!isset($this->result['viability_id']) || $this->result['viability_id'] == '') {
+            //     $block    = true;
+            //     $campos[] = 'Sem Viabilidade Indicada.';
+            // }
 
             if ($block) {
 
@@ -214,34 +214,20 @@ class Viability extends Component
 
                 $formData = [];
 
-                if ($this->result['viability_id'] === '0') {
-                    if ($this->data->Viabilities->count() > 1) {
-                        foreach ($this->data->Viabilities as $vibility) {
-                            $formData[] = [
-                                'viability_id' => $vibility->id,
-                                'user_id'      => Auth()->User()->id,
-                                'reason'       => $this->result['reason'] ?? null,
-                                'description'  => $this->result['reason_text'] ?? null,
-                                'changes'      => $this->result['sizechange'] ?? null,
-                                'responsible'  => $this->result['responsible'] ?? null,
-                                'rejected'     => $this->changes == 'SIM' ? true : false,
-                                'approved'     => $this->changes == 'NAO' ? true : false,
-                                'status'       => $this->changes == 'SIM' ? 4 : 6,
-                            ];
-                        }
+                if ($this->data->Viabilities->count() > 0) {
+                    foreach ($this->data->Viabilities as $vibility) {
+                        $formData[] = [
+                            'viability_id' => $vibility->id,
+                            'user_id'      => Auth()->User()->id,
+                            'reason'       => $this->result['reason'] ?? null,
+                            'description'  => $this->result['reason_text'] ?? null,
+                            'changes'      => $this->result['sizechange'] ?? null,
+                            'responsible'  => $this->result['responsible'] ?? null,
+                            'rejected'     => $this->changes == 'SIM' ? true : false,
+                            'approved'     => $this->changes == 'NAO' ? true : false,
+                            'status'       => $this->changes == 'SIM' ? 4 : 6,
+                        ];
                     }
-                } else {
-                    $formData[] = [
-                        'viability_id' => $this->result['viability_id'] ?? null,
-                        'user_id'      => Auth()->User()->id,
-                        'reason'       => $this->result['reason'] ?? null,
-                        'description'  => $this->result['reason_text'] ?? null,
-                        'changes'      => $this->result['sizechange'] ?? null,
-                        'responsible'  => $this->result['responsible'] ?? null,
-                        'rejected'     => $this->changes == 'SIM' ? true : false,
-                        'approved'     => $this->changes == 'NAO' ? true : false,
-                        'status'       => $this->changes == 'SIM' ? 4 : 6,
-                    ];
                 }
 
                 DB::beginTransaction();

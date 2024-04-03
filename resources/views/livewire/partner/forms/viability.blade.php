@@ -92,8 +92,9 @@
                                     class="text-danger fw-bold">*</span></label>
                             <select class="form-select border border-secondary fs-4" wire:model="result.reason">
                                 <option value=""> ---- </option>
-                                <option value="ERRO_PROJETO"> ERRO NO PROJETO </option>
-                                <option value="MELHORIA"> PROPOSTA DE MELHORIA </option>
+                                <option value="AJUSTE MATERIAL"> AJUSTE DE MATERIAL </option>
+                                <option value="AJUSTE DE PROJETO"> AJUSTE DE PROJETO </option>
+                                <option value="PROPOSTA MELHORIA"> PROPOSTA DE MELHORIA </option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -192,7 +193,7 @@
                             <input type="text" class="form-control border border-1 border-secondary"
                                 wire:model.defer="result.responsible" />
                         </div>
-                        @if ($note->Viabilities->count())
+                        {{-- @if ($note->Viabilities->count())
                             <div class="mb-3 col-3">
                                 <label class="form-label">Selecione a Ordem deste Informe: <span
                                         class="text-danger fw-bold">*</span></label>
@@ -208,13 +209,12 @@
                                     @endforeach
                                 </select>
                             </div>
-                        @endif
-
+                        @endif --}}
                     @endif
                 </div>
                 <div class="card-footer d-flex justify-content-end">
                     <button class="btn btn-danger m-2" wire:click.prevent="toCancelForm">CANCELAR</button>
-                    <button class="btn btn-primary m-2" @disabled($changes === '' || (!isset($result['viability_id']) || $result['viability_id'] === ''))
+                    <button class="btn btn-primary m-2" @disabled($changes === '')
                         wire:click.prevent="toSaveForm">SALVAR</button>
                 </div>
             </div>

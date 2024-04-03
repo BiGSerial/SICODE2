@@ -64,7 +64,7 @@ class ReturnD5 extends Component
                 foreach ($this->list->Viabilities as $viab) {
                     // dd($viab);
                     $viab->update([
-                        'status' => 10
+                        'status' => 11
                     ]);
 
                     $viab->Reclaims()->attach($return->id);

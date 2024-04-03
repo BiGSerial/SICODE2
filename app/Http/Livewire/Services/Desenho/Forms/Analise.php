@@ -215,7 +215,7 @@ class Analise extends Component
                 if (!$skip_file) {
 
 
-                    if (strpos($this->production->Note->note, explode('.', $file->getClientOriginalName())[0]) !== false) {
+                    if (strpos(explode('.', $file->getClientOriginalName())[0], $this->production->Note->note) !== false) {
                         $this->nota_divergente = false;
                     } else {
                         $this->nota_divergente = true;
@@ -240,6 +240,10 @@ class Analise extends Component
         if (isset($this->show_files[$id])) {
             unset($this->files[$id]);
             unset($this->show_files[$id]);
+        }
+
+        if (!count($this->show_files)) {
+            $this->reset('files');
         }
 
         $this->updatedFiles();
@@ -490,47 +494,56 @@ class Analise extends Component
                     'status'     => 5,
                 ]);
 
-                //Encerrar D5 Caso existir
-                if ($this->production->d5) {
+                //Encerrar RI Caso existir
+                if ($this->production->RI) {
                     $d5 = Reclaim::where('production_id', $this->production->id)->first();
 
                     if ($d5) {
                         $d5->update([
-                         'completed' => true,
-                         'completed_at' => date('Y-m-d H:i:s'),
+                            'completed' => true,
+                            'completed_at' => date('Y-m-d H:i:s'),
                         ]);
+
+                        if ($d5->Viabilities->count()) {
+                            foreach ($d5->Viabilities as $viab) {
+                                $viab->update([
+                                    'status' => 13
+                                ]);
+                            }
+                        }
                     }
                 }
 
+
+
                 if (count($this->show_files)) {
 
-                    if (count($this->show_files)) {
+                    foreach ($this->show_files as $temp_file) {
 
-                        foreach ($this->show_files as $temp_file) {
+                        $caminho = '';
 
-                            $caminho = '';
+                        if (isset($this->files[$temp_file['id']])) {
 
-                            if (isset($this->files[$temp_file['id']])) {
+                            $caminho = $this->files[$temp_file['id']]->store('/arquivos/projeto');
 
-                                $caminho = $this->files[$temp_file['id']]->store('/arquivos/projeto');
+                            if ($caminho) {
 
-                                if ($caminho) {
-
-                                    $this->production->Files()->create([
-                                        'note_id'   => $this->note->id,
-                                        'user_id'   => Auth()->User()->id,
-                                        'file_name' => $temp_file['name'],
-                                        'path'      => $caminho,
-                                        'ext'       => $temp_file['ext'],
-                                    ]);
-
-                                }
+                                $this->production->Files()->create([
+                                    'note_id'   => $this->production->note_id,
+                                    'user_id'   => Auth()->User()->id,
+                                    'service_id'   => $this->production->service_id,
+                                    'file_name' => $temp_file['name'],
+                                    'path'      => $caminho,
+                                    'ext'       => $temp_file['ext'],
+                                ]);
 
                             }
 
                         }
+
                     }
                 }
+
 
                 DB::commit();
 

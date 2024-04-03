@@ -1,5 +1,6 @@
 @php
     use App\Custom\Viabilitiesstatus;
+    use App\Custom\Notestatus;
 @endphp
 <div>
     <x-show-loading />
@@ -81,7 +82,7 @@
 
                             <div x-show="isVisible" style="display: none;">
                                 <div class="row">
-                                    <div class="col-8">
+                                    <div class="col-7">
                                         <p class="fw-bold fs-6 my-0 py-0">Motivo</p>
                                         <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
                                             {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->reason : '---' }}
@@ -133,9 +134,10 @@
                                             @endif
                                         </div>
                                     </div>
-                                    <div class="col-4">
-                                        <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
+                                    <div class="col-5">
+
                                         @if ($list->Files->count())
+                                            <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
                                             @foreach ($list->Files as $file)
                                                 <p class="mb-2 mb-0 py-0" style="cursor: pointer;"
                                                     wire:click.prevent="downloadFile({{ $file->id }})"
@@ -145,6 +147,52 @@
                                                 </p>
                                             @endforeach
                                         @endif
+
+                                        @if ($list->Viabilities->count())
+                                            <p class="fw-bold fs-6 my-0 py-0">Retorno RI:</p>
+                                            <table class="table table-condensed table-stripped">
+                                                <thead>
+                                                    <th>Data</th>
+                                                    <th>Completado</th>
+                                                    <th>Produção</th>
+                                                    <th>Status</th>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($list->Viabilities as $viab)
+                                                        @if ($viab->Reclaims->count())
+                                                            @foreach ($viab->Reclaims as $reclaim)
+                                                                {{-- @dump($reclaim->Note) --}}
+                                                                <tr>
+                                                                    <td>{{ date('d/m/Y H:i:s', strToTime($reclaim->created_at)) }}
+                                                                    </td>
+                                                                    <td>{{ $reclaim->completed_at ? date('d/m/Y H:i:s', strToTime($reclaim->completed_at)) : '---' }}
+                                                                    </td>
+                                                                    <td>
+                                                                        @if (isset($reclaim->Production) && $reclaim->Production->count())
+                                                                            <span
+                                                                                class="badge {{ Notestatus::status($reclaim->Production->status)->colorbg }}">{{ Notestatus::status($reclaim->Production->status)->status }}</span>
+                                                                        @else
+                                                                            <span class="badge text-bg-secondary">Não
+                                                                                Despachado</span>
+                                                                        @endif
+                                                                    </td>
+                                                                    <td>
+                                                                        @if ($reclaim->completed)
+                                                                            <span
+                                                                                class="badge text-bg-success">Finalizado</span>
+                                                                        @else
+                                                                            <span
+                                                                                class="badge text-bg-primary">Criado</span>
+                                                                        @endif
+                                                                    </td>
+                                                                </tr>
+                                                            @endforeach
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        @endif
+
 
                                         @if ($list->Viabilities->count() && !$list->Viabilities->first()->approved)
                                             @livewire('construction.hiring.actions.return-d5', ['list' => $list], key('returnD5-{{ $list->id }}'))

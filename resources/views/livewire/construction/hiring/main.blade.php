@@ -195,6 +195,8 @@
                                     class="ri-file-excel-2-line align-middle"></i> Exportar</button>
                             <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='downloadZip'><i
                                     class="ri-file-zip-line align-middle"></i> DownloadFiles</button>
+                            <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='copyClipboard'><i
+                                    class="ri-file-zip-line align-middle"></i> Copiar</button>
                         </div>
                     </div>
                 </div>
@@ -555,7 +557,7 @@
                                             </div>
                                         </div>
                                     @endforeach
-                                @else
+                                @elseif (!count($show_files) && !count($show_existing_files))
                                     <h4 class="fs-4 fw-bold my-auto text-center">SEM ARQUIVOS</h4>
                                 @endif
                             </div>
@@ -603,7 +605,8 @@
                                                     <td>
                                                         <i class="bx bx-trash text-danger fs-4 align-middle"
                                                             wire:click.prevent="delete_note({{ $register['id'] }})"
-                                                            style="cursor: pointer;"></i>
+                                                            style="cursor: pointer;" wire:loading.attr="disabled"
+                                                            wire:target='delete_note({{ $register['id'] }})'></i>
                                                     </td>
                                                 </tr>
                                             @endforeach
@@ -642,6 +645,16 @@
         </div>
 
     </div>
+
+    <!-- Exibir os dados do clipboard com formatação para Excel -->
+    @if (count($clipboardData))
+        <textarea id="clipboard-data" style="display: none;">
+    @foreach ($clipboardData as $row)
+{{ implode("\t", $row) }}
+        \n <!-- Quebra de linha entre as linhas para Excel -->
+@endforeach
+</textarea>
+    @endif
 
     @push('script')
         <script>
@@ -721,6 +734,24 @@
                 console.log('soltou');
 
             });
+        </script>
+
+        <script>
+            window.addEventListener('copyToBoard', function(e) {
+                console.log(e);
+            });
+
+
+
+            function copyToClipboard() {
+                const textToCopy = document.getElementById('clipboard-data').innerText;
+                const textarea = document.createElement('textarea');
+                textarea.textContent = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
         </script>
     @endpush
 </div>

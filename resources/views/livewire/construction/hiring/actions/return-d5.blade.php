@@ -11,7 +11,7 @@
         </label>
     </div> --}}
 
-    <p class="fw-bold fs-6 my-0 py-0">Selecione o Serviço para Devolução (D5):</p>
+    <p class="fw-bold fs-6 my-0 py-0">Selecione o Serviço para Devolução (RI):</p>
     <p class="mb-2 mb-3 py-0">
         <select class="form-select border border-primary" aria-label="Default select example"
             wire:model.defer="service_s">
