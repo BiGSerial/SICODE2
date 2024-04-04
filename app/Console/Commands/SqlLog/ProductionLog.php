@@ -32,125 +32,75 @@ class ProductionLog extends Command
     {
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> Verifing Productions.... </>');
 
+        $days = $this->option('days');
 
-        $productions = Production::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Note', 'User', 'Company', 'Service')->get();
-
-        $progressBar = new ProgressBar($this->output, $productions->count());
-
+        $progressBar = new ProgressBar($this->output, Production::whereDate('updated_at', '>=', Carbon::now()->subDays($days))->count());
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
-        $progressBar->start();
-
-        if ($productions->count()) {
-
-            $progressBar->start();
-            $this->info("<bg=blue;fg=white;options=bold> INFO </><fg=white;options=bold> WE HAS FOUNDED {$productions->count()} REGISTER ARENT IN PRODUCTION LOG");
 
 
+        $productions = Production::whereDate('updated_at', '>=', Carbon::now()->subDays($days))
+            ->with('Note', 'User', 'Company', 'Service')
+            ->chunk(1000, function ($chunk) use ($progressBar) {
+                foreach ($chunk as $production) {
+                    $check = SicodeSqlProduction::updateOrCreate(
+                        ['production_id' => $production->id],
+                        [
+                            'user' => $production->user_id ? $production->User->name : 'Desconhecido',
+                            'company' => $production->Company->name,
+                            'dispatch_by' => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
+                            'company_dispatch' => $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->Employee->Contract->company->name,
+                            'att_by' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
+                            'company_att' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
+                            'service' => $production->Service->service,
+                            'note' => $production->Note->note,
+                            'status' => Notestatus::status($production->status)->status,
+                            'dispatch_at' => $production->dispatch_at,
+                            'att_at' => $production->att_at,
+                            'completed_at' => $production->completed_at,
+                            'confirmed_at' => $production->confirmed_at,
+                            'completed' => $production->completed,
+                            'confirmed' => $production->confirmed,
+                            'stopped' => $production->stopped,
+                            'note_status' => $production->status_note,
+                            'conclusion' => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : "",
+                            'mmgd' => $production->mmgd,
+                            'transfer' => $production->transferred,
+                            'input_manual' => $production->manual,
+                            'conf_manual' => $production->conf_manual,
+                            'reje_manual' => $production->rejected,
+                            'dhstats' => $production->dt_note,
+                            'type_note' => $production->Note->type_note,
+                            'eo' => $production->eo,
+                            'iproject' => $production->iproject,
+                            'cadastro' => $production->cadastro,
+                            'postes_u' => $production->postes_u,
+                            'postes_c' => $production->postes_c,
+                            'centroTrab' => $production->centroTrab,
+                            'noinconsistency' => $production->noinconsistency,
+                        ]
+                    );
 
-            foreach ($productions as $production) {
+                    if ($check->wasRecentlyCreated) {
+                        $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </>";
+                    } else {
+                        $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </>";
+                    }
 
-                $check = SicodeSqlProduction::where('production_id', $production->id)->first();
-                $msg = "";
-
-                if ($check) {
-
-
-
-                    $check->update([
-                        'production_id' => $production->id,
-                        'user' => $production->user_id ? $production->User->name : 'Desconhecido',
-                        'company' => $production->Company->name,
-                        'dispatch_by' => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
-                        'company_dispatch' => $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->Employee->Contract->company->name,
-                        'att_by' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
-                        'company_att' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
-                        'service' => $production->Service->service,
-                        'note' => $production->Note->note,
-                        'status' => Notestatus::status($production->status)->status,
-                        'dispatch_at' => $production->dispatch_at,
-                        'att_at' => $production->att_at,
-                        'completed_at' => $production->completed_at,
-                        'confirmed_at' => $production->confirmed_at,
-                        'completed' => $production->completed,
-                        'confirmed' => $production->confirmed,
-                        'stopped' => $production->stopped,
-                        'note_status' => $production->status_note,
-                        'conclusion' => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : "",
-                        'mmgd' => $production->mmgd,
-                        'transfer' => $production->transferred,
-                        'input_manual' => $production->manual,
-                        'conf_manual' => $production->conf_manual,
-                        'reje_manual' => $production->rejected,
-                        'dhstats' => $production->dt_note,
-                        'type_note' => $production->Note->type_note,
-                        'eo' => $production->eo,
-                        'iproject' => $production->iproject,
-                        'cadastro' => $production->cadastro,
-                        'postes_u' => $production->postes_u,
-                        'postes_c' => $production->postes_c,
-                        'centroTrab' => $production->centroTrab,
-                        'noinconsistency' => $production->noinconsistency,
-
-                    ]);
-
-                    // $this->info("<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </> HAS UPDATED");
-                    $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </>";
-                } else {
-
-
-                    $check = SicodeSqlProduction::create([
-                        'production_id' => $production->id,
-                        'user' => $production->user_id ? $production->User->name : 'Desconhecido',
-                        'company' => $production->Company->name,
-                        'dispatch_by' => $production->dispatch_by ? $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->name : 'Desconhecido',
-                        'company_dispatch' => $production->load('Dispatcher.Employee.Contract.company')->Dispatcher->Employee->Contract->company->name,
-                        'att_by' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
-                        'company_att' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
-                        'service' => $production->Service->service,
-                        'note' => $production->Note->note,
-                        'status' => Notestatus::status($production->status)->status,
-                        'dispatch_at' => $production->dispatch_at,
-                        'att_at' => $production->att_at,
-                        'completed_at' => $production->completed_at,
-                        'confirmed_at' => $production->confirmed_at,
-                        'completed' => $production->completed,
-                        'confirmed' => $production->confirmed,
-                        'stopped' => $production->stopped,
-                        'note_status' => $production->status_note,
-                        'conclusion' => $production->load('Analise')->Analise ? $production->load('Analise')->Analise->conclusion : "",
-                        'mmgd' => $production->mmgd,
-                        'transfer' => $production->transferred,
-                        'input_manual' => $production->manual,
-                        'conf_manual' => $production->conf_manual,
-                        'reje_manual' => $production->rejected,
-                        'dhstats' => $production->dt_note,
-                        'type_note' => $production->Note->type_note,
-                        'eo' => $production->eo,
-                        'iproject' => $production->iproject,
-                        'cadastro' => $production->cadastro,
-                        'postes_u' => $production->postes_u,
-                        'postes_c' => $production->postes_c,
-                        'centroTrab' => $production->centroTrab,
-                        'noinconsistency' => $production->noinconsistency,
-                    ]);
-
-                    // $this->info("<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </> HAS UPDATED");
-                    $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> {$production->Note->note} </>";
+                    $progressBar->setMessage($msg);
+                    $progressBar->advance();
                 }
+            });
 
-                $progressBar->setMessage($msg);
-                $progressBar->advance();
-            }
+        $progressBar->finish();
 
-            $progressBar->finish();
-
-
-        } else {
+        if ($productions->isEmpty()) {
             $this->info("<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED");
+        } else {
+            $this->info("<bg=blue;fg=white;options=bold> INFO </><fg=white;options=bold> WE HAVE FOUND {$productions->count()} REGISTERS AREN'T IN PRODUCTION LOG");
         }
-
 
         $this->info('<bg=green;fg=white> DONE </>');
     }
+
 }
