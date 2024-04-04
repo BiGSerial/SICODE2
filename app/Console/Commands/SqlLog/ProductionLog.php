@@ -84,7 +84,7 @@ class ProductionLog extends Command
                         'cadastro'         => $production->cadastro,
                         'postes_u'         => $production->postes_u,
                         'postes_c'         => $production->postes_c,
-                        'centroTrab'       => $production->Note->centerjob,
+                        'centroTrab'       => $production->centroTrab,
                         'noinconsistency'  => $production->noinconsistency,
 
                     ]);
