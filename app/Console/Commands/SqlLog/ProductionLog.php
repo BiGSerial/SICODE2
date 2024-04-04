@@ -34,12 +34,12 @@ class ProductionLog extends Command
 
         $days = $this->option('days');
 
-        $progressBar = new ProgressBar($this->output, Production::whereDate('updated_at', '>=', Carbon::now()->subDays($days))->count());
+        $progressBar = new ProgressBar($this->output, Production::where('d5', false)->whereDate('updated_at', '>=', Carbon::now()->subDays($days))->count());
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
 
 
-        $productions = Production::whereDate('updated_at', '>=', Carbon::now()->subDays($days))
+        $productions = Production::where('d5', false)->whereDate('updated_at', '>=', Carbon::now()->subDays($days))
             ->with('Note', 'User', 'Company', 'Service')
             ->chunk(1000, function ($chunk) use ($progressBar) {
                 foreach ($chunk as $production) {
