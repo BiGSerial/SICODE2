@@ -194,7 +194,7 @@
                                         @endif
 
 
-                                        @if ($list->Viabilities->count() && !$list->Viabilities->first()->approved)
+                                        @if ($list->Viabilities->count() && !$list->Viabilities->first()->production_id)
                                             @livewire('construction.hiring.actions.return-d5', ['list' => $list], key('returnD5-{{ $list->id }}'))
                                         @else
                                         @endif

@@ -90,10 +90,17 @@ class Approveaction extends Component
                             foreach ($this->list->Viabilities as $viab) {
                                 // dd($viab);
                                 $viab->update([
-                                    'status' => 12
+                                    'status' => 12,
+                                    'engineer' => true,
+                                    'engineer_at' => date('Y-m-d H:i:s'),
                                 ]);
 
                                 $viab->Reclaims()->attach($return->id);
+                                $viab->Comments()->create([
+                                    'user_id' => auth()->user()->id,
+                                    'message' => 'Responsável informou em conformidade com a viabilidade.',
+
+                                ]);
                             }
                         } else {
                             DB::rollback();
@@ -243,7 +250,8 @@ class Approveaction extends Component
                         'approved' => false,
                         'engineer' => true,
                         'engineer_at' => now(),
-                        'status' => 10,
+                        'replica' => true,
+                        'status' => 5,
                     ]);
 
                     // Crie um novo comentário e associe-o à viabilidade
@@ -258,8 +266,8 @@ class Approveaction extends Component
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'success',
-                        'title'    => 'Confirmação Procedente',
-                        'html'      => 'A Inviabilidade Técnica foi dada como Procedente.',
+                        'title'    => 'Contestação Rejeitado',
+                        'html'      => 'Foi Contestado junto a pareceira o parecer da viabilidade.',
                         'timer'    => 5000,
                     ]);
 
@@ -271,8 +279,8 @@ class Approveaction extends Component
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'danger',
-                        'title'    => 'Confirmação Procedente',
-                        'html'      => 'A Inviabilidade Técnica como Procedente, nao foi executada por algum problema no sistema. Nenhuma alteração foi realiazada..',
+                        'title'    => 'Erro',
+                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
                         'timer'    => 5000,
                     ]);
 

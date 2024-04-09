@@ -243,12 +243,6 @@
                                                     data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
 
                                                 @if (!$block || $block['command'])
-                                                    <i class="bx bx-play-circle text-danger fs-4 me-2" role="group"
-                                                        aria-label="Basic example" tabindex="0"
-                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                        data-bs-placement="right"
-                                                        data-bs-title="Iniciar Atividadeeeeeee"
-                                                        data-bs-content="<p>Sinaliza inicio desta atividade para acompanhamento da gestão.</p>"></i>
                                                     <i class="bx bxs-badge-check text-success fs-4 me-2"
                                                         style="cursor: pointer;"
                                                         wire:click.prevent="openForms({{ $list->id }})"
