@@ -23,7 +23,7 @@
                                             <th scope="col" style="max-width: 10%">Empreiteira</th>
                                             <th scope="col" style="max-width: 10%">Data Envio</th>
                                             <th scope="col" style="max-width: 10%">Data Viabilidade</th>
-                                            <th scope="col" style="max-width: 10%">Resultado</th>
+                                            {{-- <th scope="col" style="max-width: 10%">Resultado</th> --}}
                                             <th scope="col" style="max-width: 10%">Status</th>
                                             <th scope="col" style="max-width: 5%"></th>
                                         </tr>
@@ -49,13 +49,13 @@
                                             <td class="text-truncate">
                                                 {{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
                                             </td>
-                                            <td class="text-truncate">
+                                            {{-- <td class="text-truncate">
                                                 @if ($list->Viabilities->count() && $list->Viabilities->first()->approved)
                                                     <span class="badge text-bg-primary">A Contratar</span>
                                                 @else
                                                     <span class="badge text-bg-danger">Procedente</span>
                                                 @endif
-                                            </td>
+                                            </td> --}}
                                             <td class="text-truncate">
                                                 <x-hiring.status :badge="$list->Viabilities->count()
                                                     ? $list->Viabilities->first()->status
@@ -101,30 +101,6 @@
 
                                             <div class="my-3">
                                                 @if ($list->Viabilities->count() && $list->Viabilities->first()->Comments->count())
-                                                    {{-- <div class="card mb-1">
-                                                        <h5
-                                                            class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark"">
-                                                            FEEDBACK</h5>
-                                                    </div>
-                                                    @foreach ($list->Viabilities->first()->Comments as $comment)
-                                                        <div class="card my-1">
-                                                            <div class="card-body">
-                                                                <p>
-                                                                    {{ $comment->message }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="card-footer">
-                                                                <span class="fw-bold fs-5 align-middle"><i
-                                                                        class="bx bxs-user-voice text-danger"></i></span>
-                                                                <span class="">{{ $comment->User->name }}</span>
-                                                                <span class="fw-bold fs-5 align-middle"><i
-                                                                        class="bx bx-time-five"></i></span>
-                                                                <span
-                                                                    class="">{{ Carbon\Carbon::parse($comment->created_at)->format('d/m/Y H:i:s') }}</span>
-                                                            </div>
-                                                        </div>
-                                                    @endforeach --}}
-
                                                     <div class="card">
                                                         <h4 class="card-header edp-bg-seoweedgreen-100 text-white">
                                                             Comentários</h4>

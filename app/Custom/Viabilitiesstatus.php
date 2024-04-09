@@ -108,6 +108,13 @@ class Viabilitiesstatus
                 'colorbg' => 'text-bg-primary',
                 'color'   => 'warning',
             ],
+            // 14
+            [
+                'status'  => 'Liberado Contratação',
+                'icon'    => 'bx bxs-badge-dollar',
+                'colorbg' => 'text-bg-primary',
+                'color'   => 'warning',
+            ],
 
         ];
 

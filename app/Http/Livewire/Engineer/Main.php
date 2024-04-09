@@ -18,7 +18,6 @@ class Main extends Component
                 ->where('tacit', false)
                 ->where('canceled', false)
                 ->where('rejected', true)
-                ->where('engineer', false)
                 ->where('completed', false);
         })
             ->with(['Viabilities' => function ($query) {
@@ -26,7 +25,6 @@ class Main extends Component
                 ->where('tacit', false)
                 ->where('canceled', false)
                 ->where('rejected', true)
-                ->where('engineer', false)
                 ->where('completed', false)
                 ->with('Company', 'User', 'Form');
             }, 'Files'])->paginate(50);

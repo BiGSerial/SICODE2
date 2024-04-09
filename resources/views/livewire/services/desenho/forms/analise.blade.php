@@ -54,12 +54,16 @@
                             <label for="inputPassword" class="col-sm-12 col-form-label">Finalidade:</label>
                             <select class="form-select border border-secondary" aria-label="Default select example"
                                 wire:model="preresult">
-                                <option value="" selected>Selecione</option>
-                                <option value="ANALISE">ANALISE</option>
-                                <option value="NORMAL">NORMAL</option>
-                                <option value="REVALIDACAO">REVALIDAÇÃO</option>
-                                <option value="CUSTO MODULAR">CUSTO MODULAR</option>
-                                <option value="PROPOSTA MELHORAMENTO">PROPOSTA MELHORAMENTO</option>
+                                @if ($production->d5)
+                                    <option value="RESOLUCAO INTERNA" selected>RESOLUÇÃO INTERNA (RI)</option>
+                                @else
+                                    <option value="" selected>Selecione</option>
+                                    <option value="ANALISE">ANALISE</option>
+                                    <option value="NORMAL">NORMAL</option>
+                                    <option value="REVALIDACAO">REVALIDAÇÃO</option>
+                                    <option value="CUSTO MODULAR">CUSTO MODULAR</option>
+                                    <option value="PROPOSTA MELHORAMENTO">PROPOSTA MELHORAMENTO</option>
+                                @endif
                             </select>
                         </div>
 
@@ -111,7 +115,7 @@
                         </div>
 
 
-                        @if ($preresult === 'NORMAL' || $preresult === 'REVALIDACAO')
+                        @if (($preresult === 'NORMAL' || $preresult === 'REVALIDACAO') && !$production->d5)
                             <div class="col-12">
                                 <div class="form-check form-check-inline col-2">
                                     <input class="form-check-input border border-1 border-secondary" type="checkbox"
@@ -146,15 +150,23 @@
                                 wire:model="conclusion">
                                 <option value="" selected>Selecione</option>
                                 {{-- <option value="ENVIADO PARA ATENDIMENTO">01 - ENVIADO PARA ATENDIMENTO</option> --}}
-                                <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
-                                <option value="DEPENDE DE ORGAO EXTERNO">20 - DEPENDE DE ORGÃO EXTERNO</option>
-                                <option value="RETORNADO LEVANTAMENTO">27 - RETORNADO LEVANTAMENTO</option>
-                                <option value="EXECUCAO DE OBRAS DA EMPRESA">47 - EXECUÇÃO DE OBRAS DA EMPRESA</option>
-                                <option value="EXECUCAO DE OBRAS CUSTO EMPRESA">50 - EXECUÇÃO DE OBRAS CUSTO EMPRESA
-                                </option>
-                                <option value="ORÇAMENTO ESTIMADO">68 - ORÇAMENTO ESTIMADO</option>
-                                <option value="ORÇAMENTO PRÉVIO">70 - ORÇAMENTO PRÉVIO</option>
-                                <option value="ARQUIVADO">99 - ARQUIVADO</option>
+                                @if ($production->d5)
+                                    <option value="COLOCAR ANEXO DO PROJETO">(RI) COLOCAR ANEXO DO PROJETO</option>
+                                    <option value="ALTERAÇÃO DO PROJETO">(RI) ALTERAÇÃO DO PROJETO</option>
+                                @else
+                                    <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
+                                    <option value="DEPENDE DE ORGAO EXTERNO">20 - DEPENDE DE ORGÃO EXTERNO</option>
+                                    <option value="RETORNADO LEVANTAMENTO">27 - RETORNADO LEVANTAMENTO</option>
+                                    <option value="EXECUCAO DE OBRAS DA EMPRESA">47 - EXECUÇÃO DE OBRAS DA EMPRESA
+                                    </option>
+                                    <option value="EXECUCAO DE OBRAS CUSTO EMPRESA">50 - EXECUÇÃO DE OBRAS CUSTO
+                                        EMPRESA
+                                    </option>
+                                    <option value="ORÇAMENTO ESTIMADO">68 - ORÇAMENTO ESTIMADO</option>
+                                    <option value="ORÇAMENTO PRÉVIO">70 - ORÇAMENTO PRÉVIO</option>
+                                    <option value="ARQUIVADO">99 - ARQUIVADO</option>
+                                @endif
+
 
                             </select>
                         </div>

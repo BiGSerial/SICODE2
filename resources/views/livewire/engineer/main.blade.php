@@ -1,7 +1,12 @@
+@php
+    use App\Custom\Viabilitiesstatus;
+    use App\Custom\Notestatus;
+@endphp
+
 <div>
 
     <div class="row justify-content-between">
-        <div class="col-8">
+        <div class="col-12">
 
             <div class="card">
                 <div class="card-header  edp-bg-sprucegreen-100 edp-text-verde-dark">
@@ -57,7 +62,7 @@
 
                                     <div x-show="isVisible" style="display: none;">
                                         <div class="row">
-                                            <div class="col-8">
+                                            <div class="col-7">
                                                 <p class="fw-bold fs-6 my-0 py-0">Motivo</p>
                                                 <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->reason : '---' }}
@@ -82,19 +87,75 @@
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->responsible : '' }}
                                                 </p>
                                             </div>
-                                            <div class="col-4">
-                                                <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
-                                                @if ($list->Files->count())
-                                                    @foreach ($list->Files as $file)
-                                                        <p class="mb-2 mb-0 py-0" style="cursor: pointer;">
-                                                            <i class="bx bxs-file-{{ $file->ext }} text-danger"></i>
-                                                            <span>{{ $file->file_name }}</span>
-                                                        </p>
-                                                    @endforeach
+                                            <div class="col-5">
+                                                <div class="mb-3">
+                                                    <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
+                                                    @if ($list->Files->count())
+                                                        @foreach ($list->Files as $file)
+                                                            <p class="mb-2 mb-0 py-0" style="cursor: pointer;">
+                                                                <i
+                                                                    class="bx bxs-file-{{ $file->ext }} text-danger"></i>
+                                                                <span>{{ $file->file_name }}</span>
+                                                            </p>
+                                                        @endforeach
+                                                    @endif
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    @if ($list->Viabilities->count())
+                                                        <p class="fw-bold fs-6 my-0 py-0">Retorno Interno:</p>
+                                                        <div class="border-2 rounded border-secondary shadow">
+                                                            <table class="table table-condensed table-stripped">
+                                                                <thead>
+                                                                    <th>Data</th>
+                                                                    <th>Completado</th>
+                                                                    <th>Produção</th>
+                                                                    <th>Status</th>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach ($list->Viabilities as $viab)
+                                                                        @if ($viab->Reclaims->count())
+                                                                            @foreach ($viab->Reclaims as $reclaim)
+                                                                                {{-- @dump($reclaim->Note) --}}
+                                                                                <tr>
+                                                                                    <td>{{ date('d/m/Y H:i:s', strToTime($reclaim->created_at)) }}
+                                                                                    </td>
+                                                                                    <td>{{ $reclaim->completed_at ? date('d/m/Y H:i:s', strToTime($reclaim->completed_at)) : '---' }}
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        @if (isset($reclaim->Production) && $reclaim->Production->count())
+                                                                                            <span
+                                                                                                class="badge {{ Notestatus::status($reclaim->Production->status)->colorbg }}">{{ Notestatus::status($reclaim->Production->status)->status }}</span>
+                                                                                        @else
+                                                                                            <span
+                                                                                                class="badge text-bg-secondary">Não
+                                                                                                Despachado</span>
+                                                                                        @endif
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        @if ($reclaim->completed)
+                                                                                            <span
+                                                                                                class="badge text-bg-success">Finalizado</span>
+                                                                                        @else
+                                                                                            <span
+                                                                                                class="badge text-bg-primary">Criado</span>
+                                                                                        @endif
+                                                                                    </td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        @endif
+                                                                    @endforeach
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    @endif
+                                                </div>
+
+                                                @if (isset($list->Viabilities) &&
+                                                        ($list->Viabilities->where('replica', false)->count() || $list->Viabilities->where('status', 4)->count()))
+                                                    @livewire('engineer.actions.approveaction', ['list' => $list], key('aproveactions-{{ $list->id }}'))
                                                 @endif
 
-
-                                                @livewire('engineer.actions.approveaction', ['list' => $list], key('aproveactions-{{ $list->id }}'))
                                             </div>
                                         </div>
 

@@ -766,23 +766,39 @@ class Main extends Component
     public function copyClipboard()
     {
         if (count($this->selected)) {
-            $orders = Order::with('Operations', 'Note.Files')
+            $orders = Order::join('notes', 'orders.note_id', '=', 'notes.id')->with('Operations', 'Note.Files')
+            ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
+            ->orderBy('myTypeNote', 'DESC')
+            ->orderBy('myDayLeft')
+            ->orderBy('myNote')
             ->find($this->selected);
 
             if ($orders) {
                 foreach ($orders as $order) {
-                    
+
                     $this->clipboardData[] = [
                         $order->ordem,
                         $order->Note->note,
-                        $order->pep
+                        $order->pep ?? ''
                     ];
                 }
 
                 $this->dispatchBrowserEvent('copyToBoard', $this->clipboardData);
 
+                $this->dispatchBrowserEvent('torrada', [
+                    'status'   => 'success',
+                    'menssage' => "Copiado para a área de transferência",
+                ]);
             }
         }
+    }
+
+    public function copy($msg)
+    {
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => $msg,
+        ]);
     }
 
     public function render()

@@ -362,7 +362,16 @@ class Analise extends Component
                 $this->info .= "Acerto Cadastro: \n";
                 $this->info .= 'POSTES: ' . $this->postes_c . "\n";
             }
+
+
         }
+
+        if ($this->production->d5) {
+            $this->info .= "\n";
+            $this->info .= "Resolução Interna (RI): \n";
+            $this->info .= $this->conclusion ."\n";
+        }
+
         $this->info .= "-------------------- \n";
         $this->info .= Auth()->User()->Registration . ' - ' . Auth()->User()->name . "\n";
         $this->info .= date('d/m/Y') . "\n";
@@ -394,7 +403,7 @@ class Analise extends Component
                 'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
+                                   adequada. 
                     </p>
                 ",
             ]);
@@ -495,7 +504,7 @@ class Analise extends Component
                 ]);
 
                 //Encerrar RI Caso existir
-                if ($this->production->RI) {
+                if ($this->production->d5) {
                     $d5 = Reclaim::where('production_id', $this->production->id)->first();
 
                     if ($d5) {

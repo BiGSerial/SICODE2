@@ -258,7 +258,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
-    <div aria-live="polite" aria-atomic="true" class="position-fixed" style="margin-right: 10%; z-index: 1060;">
+    <div aria-live="polite" aria-atomic="true" class="position-fixed" style="margin-right: 10%; z-index: 9999;">
         <div class="toast-container position-fixed end-0 bottom-0 p-3" style="margin-right: 40px; margin-bottom: 20px;">
             <div id="torrada" class="toast align-items-center border-0" role="alert" aria-live="assertive"
                 aria-atomic="true">

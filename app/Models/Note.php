@@ -46,6 +46,7 @@ class Note extends Model
         'centerjob',
         'doe',
         'postes',
+        'mesalization'
     ];
 
     public function Productions()

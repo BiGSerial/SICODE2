@@ -85,8 +85,8 @@ class BaseEP extends Command
 
                             $chk = $existingRecord->update([
                                 'created_by' => $record->criadoPor,
-                                'dt_created' => "{$record->dtCriacao} 0:00:00",
-                                'dt_status'  => $record->dtCriacao,
+                                'dt_created' => "{$record->dtNota} 0:00:00",
+                                'dt_status'  => $record->dtNota,
                                 'user'       => $record->notificador,
                                 // 'value' => $record->valorLiq,
                                 // 'currency' => $record->moeda,
@@ -116,6 +116,7 @@ class BaseEP extends Command
                                 // 'days_left' => $record->diasPVencimento,
                                 'centerjob' => $record->cenTrabResp,
                                 'type_note' => 1,
+                                'mesalization' => $record->mensalizacao,
                             ]);
 
                             if ($chk) {
@@ -137,8 +138,8 @@ class BaseEP extends Command
                         $chk = Note::create([
                             'note'       => $record->nota,
                             'created_by' => $record->criadoPor,
-                            'dt_created' => "{$record->dtCriacao} 0:00:00",
-                            'dt_status'  => $record->dtCriacao,
+                            'dt_created' => "{$record->dtNota} 0:00:00",
+                            'dt_status'  => $record->dtNota,
                             'user'       => $record->notificador,
                             // 'value' => $record->valorLiq,
                             // 'currency' => $record->moeda,
@@ -168,6 +169,7 @@ class BaseEP extends Command
                             // 'days_left' => $record->diasPVencimento,
                             'centerjob' => $record->cenTrabResp,
                             'type_note' => 1,
+                            'mesalization' => $record->mensalizacao,
                         ]);
 
                         if ($chk) {
@@ -188,6 +190,17 @@ class BaseEP extends Command
 
             $count['tins']++;
         });
+
+        $limiteTempo = Carbon::now()->subHours(2);
+
+        $cancelNotes = Note::where('type_note', 1)->where('updated_at', '<', $limiteTempo)->update(['centerjob' => 'cancelado']);
+        $this->info('NOTAS CANCELADAS: '.$cancelNotes);
+
+
+
+
+
+
 
         $filePath = base_path('registroUpdate.json');
 

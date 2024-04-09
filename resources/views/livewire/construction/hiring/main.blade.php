@@ -172,7 +172,7 @@
             <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
                 <div class="row justify-content-end">
                     <div class="col">
-                        <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
+                        <h4 class="my-0 align-middle">LISTA PARA {{ mb_strtoupper($service->service) }}
                             @if ($service->Status->count())
                                 @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                                     ({{ $sts->value }})
@@ -189,14 +189,47 @@
                                 <option value="2">Contratar</option>
                             </select>
                             <button class="btn btn-sm btn-primary me-2 col-1" wire:click.prevent='go_att_mass'
-                                @disabled(!$action)><i class="ri-checkbox-multiple-fill align-middle"></i>
-                                OK</button>
-                            <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='export_excel'><i
-                                    class="ri-file-excel-2-line align-middle"></i> Exportar</button>
-                            <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='downloadZip'><i
-                                    class="ri-file-zip-line align-middle"></i> DownloadFiles</button>
-                            <button class="btn btn-sm btn-primary me-2 col-2" wire:click.prevent='copyClipboard'><i
-                                    class="ri-file-zip-line align-middle"></i> Copiar</button>
+                                @disabled(!$action) wire:target="go_att_mass" wire:loading.attr="disabled"
+                                data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Executar"><i
+                                    class="bx bx-send fs-4 m-0 align-middle" wire:target="go_att_mass"
+                                    wire:loading.remove></i>
+                                <div class="spinner-border spinner-border-sm" role="status" wire:target="go_att_mass"
+                                    wire:loading>
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:click.prevent='export_excel'
+                                wire:target="export_excel" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                                data-bs-placement="top" data-bs-title="Exportar para o Excel">
+                                <i class="ri-file-excel-2-line fs-4 m-0 align-middle" wire:target="export_excel"
+                                    wire:loading.remove>
+                                </i>
+                                <div class="spinner-border spinner-border-sm" role="status" wire:target="export_excel"
+                                    wire:loading>
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:target="downloadZip"
+                                wire:loading.attr="disabled" wire:click.prevent='downloadZip' data-bs-toggle="tooltip"
+                                data-bs-placement="top" data-bs-title="Fazer Download dos Arquivos ZIP"><i
+                                    class="bx bx-cloud-download fs-3 m-0 align-middle" wire:target="downloadZip"
+                                    wire:loading.remove></i>
+                                <div class="spinner-border spinner-border-sm" role="status"
+                                    wire:target="downloadZip" wire:loading>
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:click.prevent='copyClipboard'
+                                wire:target="copyClipboard" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                                data-bs-placement="top"
+                                data-bs-title="Copiar Selecionados para área de Transferência"><i
+                                    class="bx bxs-copy-alt fs-4 m-0 align-middle" wire:target="copyClipboard"
+                                    wire:loading.remove></i>
+                                <div class="spinner-border spinner-border-sm" role="status"
+                                    wire:target="copyClipboard" wire:loading>
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -231,6 +264,44 @@
                                     $block = false;
                                     $viability = '';
                                     $status = '';
+                                    $days_left = 0;
+
+                                    // Dias Restantes
+                                    if ($list->Note->type_note == 1) {
+
+                                        if ($list->Note->mesalization && $list->Note->mesalization != 'erro') {
+                                            preg_match('/\d+\/\d+/', $list->Note->mesalization, $matches);
+
+                                            if (!empty($matches)) {
+                                                [$mes, $ano] = explode('/', $matches[0]);
+
+                                                if ($mes >= 1) {
+                                                    $data = "{$ano}-{$mes}-28 23:59:59";
+
+                                                    $hoje = Carbon::now();
+
+                                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+
+                                                } else {
+
+                                                    $data = "{$ano}-12-28 23:59:59";
+
+                                                    $hoje = Carbon::now();
+
+                                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                                    
+                                                    
+                                                }
+                                            } 
+                                        }
+                                        
+                                    } elseif ($list->Note->type_note == 2) {
+                                        $days_left = $list->Note->days_left;
+                                    } 
 
                                     if ($list->Viabilities->count()) {
                                         if ($list->Viabilities->Where('completed', false)->count()) {
@@ -311,10 +382,10 @@
                                         {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->cenTrab : '___') : '---' }}
                                     </td>
                                     <td class="text-center align-middle
-                                    @if ($list->Note->days_left < 0) text-bg-secondary
-                                    @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
+                                    @if ($days_left < 0) text-bg-secondary
+                                    @elseif($days_left >= 0 && $days_left < 6)
                                     table-danger
-                                    @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
+                                    @elseif($days_left >= 6 && $days_left < 10)
                                         table-warning
                                     @else
                                         table-success @endif
@@ -329,7 +400,7 @@
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                             "
                                         style="z-index: 9999;">
-                                        {{ $list->Note->days_left }}</td>
+                                        {{ $days_left }}</td>
                                     {{-- <td class="align-middle text-center">
                                         @if ($block)
                                             {{ Carbon::parse($list->Viabilities->first()->sended_at)->diffInDays(Carbon::now()) }}
@@ -647,14 +718,15 @@
     </div>
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->
+    <textarea id="clipboard-data" style="display: none;">
     @if (count($clipboardData))
-        <textarea id="clipboard-data" style="display: none;">
-    @foreach ($clipboardData as $row)
+@foreach ($clipboardData as $row)
 {{ implode("\t", $row) }}
-        \n <!-- Quebra de linha entre as linhas para Excel -->
 @endforeach
+@else
+SEM DADOS
+@endif
 </textarea>
-    @endif
 
     @push('script')
         <script>
@@ -738,7 +810,7 @@
 
         <script>
             window.addEventListener('copyToBoard', function(e) {
-                console.log(e);
+                copyToClipboard();
             });
 
 
@@ -751,6 +823,8 @@
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
+
+
             }
         </script>
     @endpush

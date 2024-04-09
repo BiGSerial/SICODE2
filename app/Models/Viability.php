@@ -29,6 +29,8 @@ class Viability extends Model
         'hired',
         'hired_at',
         'status',
+        'replica',
+        'treplica',
     ];
 
     public function Order()

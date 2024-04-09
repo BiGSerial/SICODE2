@@ -936,7 +936,7 @@ class Main extends Component
 
         $query = Note::query();
         RuleBuilder::applyRules($query, $this->service->Status);
-
+        $query->whereNot('centerjob', 'cancelado');
         if (strlen($this->search)) {
             $this->gotoPage(1);
             $this->multiSearch = [];
