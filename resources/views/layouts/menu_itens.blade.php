@@ -55,9 +55,24 @@
     </li>
 @endcan
 
-@if (isset(Auth()->user()->Employee->Contract) &&
-        Auth()->user()->Employee->Contract->service &&
-        Auth()->user()->Employee->Contract->services->where('project', true)->count())
+@php
+
+    $projeto = false;
+    $construction = false;
+    $projetos = Auth()->user()->Employee->Contract->services->where('project', true);
+    $constructions = Auth()->user()->Employee->Contract->services->where('construction', true);
+
+    if (isset(Auth()->user()->Employee->Contract) && Auth()->user()->Employee->Contract->service) {
+        $projeto = true;
+    }
+
+    if (isset(Auth()->user()->Employee->Contract) && Auth()->user()->Employee->Contract->construction) {
+        $construction = true;
+    }
+
+@endphp
+
+@if ($projeto)
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
@@ -66,10 +81,8 @@
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
             style="background-color: #dbd8d8; width: 300px;">
             @can('operator')
-                @if (isset(Auth()->user()->Employee->Contract->services) &&
-                        Auth()->user()->Employee->Contract->service &&
-                        Auth()->user()->Employee->Contract->services->where('project', true)->count())
-                    @foreach (Auth()->user()->Employee->Contract->services->where('project', true) as $service)
+                @if ($projetos->count())
+                    @foreach ($projetos->sortBy('service') as $service)
                         @if ($service->pivot->dispatch)
                             @once
                                 <li style="background-color: #ffffff; color: white;">
@@ -88,13 +101,11 @@
                 <li>
                     <hr class="dropdown-divider">
                 </li>
-                @if (isset(Auth()->user()->Employee->Contract->services) &&
-                        Auth()->user()->Employee->Contract->service &&
-                        Auth()->user()->Employee->Contract->services->where('project', true)->count())
+                @if ($projetos->count())
                     <li style="background-color: #ffffff; color: white;">
                         <h6 class="dropdown-header">SERVIÇOS</h6>
                     </li>
-                    @foreach (Auth()->user()->Employee->Contract->services->where('project', true) as $service)
+                    @foreach ($projetos as $service)
                         <li><a class="dropdown-item" href="{{ route('services.main', ['service' => $service->uuid]) }}">
                                 <div class="d-flex align-items-center">
                                     <i class="{{ $service->icon }} text-primary"></i>
@@ -111,9 +122,7 @@
     </li>
 @endif
 
-@if (isset(Auth()->user()->Employee->Contract) &&
-        Auth()->user()->Employee->Contract->construction &&
-        Auth()->user()->Employee->Contract->services->where('construction', true)->count())
+@if ($construction)
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
@@ -122,10 +131,8 @@
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
             style="background-color: #dbd8d8; width: 300px;">
             @can('operator')
-                @if (isset(Auth()->user()->Employee->Contract->services) &&
-                        Auth()->user()->Employee->Contract->construction &&
-                        Auth()->user()->Employee->Contract->services->where('construction', true)->count())
-                    @foreach (Auth()->user()->Employee->Contract->services->where('construction', true) as $service)
+                @if ($constructions->count())
+                    @foreach ($constructions as $service)
                         @if ($service->pivot->dispatch)
                             @once
                                 <li style="background-color: #ffffff; color: white;">
@@ -144,13 +151,11 @@
                 <li>
                     <hr class="dropdown-divider">
                 </li>
-                @if (isset(Auth()->user()->Employee->Contract->services) &&
-                        Auth()->user()->Employee->Contract->construction &&
-                        Auth()->user()->Employee->Contract->services->where('construction', true)->count())
+                @if ($constructions->count())
                     <li style="background-color: #ffffff; color: white;">
                         <h6 class="dropdown-header">SERVIÇOS</h6>
                     </li>
-                    @foreach (Auth()->user()->Employee->Contract->services->where('construction', true) as $service)
+                    @foreach ($constructions as $service)
                         <li><a class="dropdown-item"
                                 href="{{ route('construction.main', ['service' => $service->uuid]) }}">
                                 <div class="d-flex align-items-center">

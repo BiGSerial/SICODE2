@@ -3,6 +3,28 @@
     use App\Custom\Notestatus;
 @endphp
 
+@push('css')
+    <style>
+        @keyframes blink {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .blink {
+            animation: blink 2s infinite;
+        }
+    </style>
+@endpush
+
 <div>
 
     <div class="row justify-content-between">
@@ -30,6 +52,7 @@
                                                     <th scope="col">Data Envio</th>
                                                     <th scope="col">Data Viabilidade</th>
                                                     <th scope="col">Resultado</th>
+                                                    <th scope="col">Ação</th>
                                                     <th scope="col"></th>
                                                 </tr>
                                             </thead>
@@ -51,7 +74,14 @@
                                                     </td>
                                                     <td>{{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
                                                     </td>
-                                                    <td>Rejeitado</td>
+                                                    <td><span
+                                                            class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
+                                                    </td>
+                                                    <td>
+                                                        @if ($list->Viabilities->last()->status == 4)
+                                                            <span class="badge text-bg-danger blink">Requer Ação</span>
+                                                        @endif
+                                                    </td>
                                                     <td><i @click="isVisible = !isVisible"
                                                             class="bx bxs-plus-square text-danger fs-4"
                                                             style="cursor: pointer;"></i></td>
@@ -151,9 +181,44 @@
                                                     @endif
                                                 </div>
 
-                                                @if (isset($list->Viabilities) &&
-                                                        ($list->Viabilities->where('replica', false)->count() || $list->Viabilities->where('status', 4)->count()))
-                                                    @livewire('engineer.actions.approveaction', ['list' => $list], key('aproveactions-{{ $list->id }}'))
+                                                @php
+                                                    $block = false;
+                                                    $blkResponse = false;
+
+                                                    if (
+                                                        $list->Viabilities->count() &&
+                                                        $list->Viabilities->where('completed', false)->last()->status ==
+                                                            4
+                                                    ) {
+                                                        $block = false;
+                                                    }
+
+                                                    if (
+                                                        $list->Viabilities->count() &&
+                                                        $list->Viabilities
+                                                            ->where('completed', false)
+                                                            ->last()
+                                                            ->Reclaims->count() &&
+                                                        $list->Viabilities
+                                                            ->where('completed', false)
+                                                            ->last()
+                                                            ->Reclaims->where('completed', false)
+                                                            ->count()
+                                                    ) {
+                                                        $block = true;
+                                                    }
+
+                                                    if (
+                                                        $list->Viabilities->count() &&
+                                                        $list->Viabilities->where('completed', false)->last()->treplica
+                                                    ) {
+                                                        $blkResponse = true;
+                                                    }
+
+                                                @endphp
+
+                                                @if (!$block)
+                                                    @livewire('engineer.actions.approveaction', ['list' => $list, 'blkResponse' => $blkResponse], key('aproveactions-{{ $list->id }}'))
                                                 @endif
 
                                             </div>

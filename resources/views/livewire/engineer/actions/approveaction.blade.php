@@ -13,7 +13,7 @@
 
     <div class="clear-fix" x-show="show1==false && show2==false">
         <div class="d-flex justify-content-end mb-3">
-            @if ($list->Viabilities->count() && !$list->Viabilities->last()->treplica)
+            @if (!$blkResponse)
                 <button class="btn btn-sm btn-danger mx-2"
                     @click="show1 = true, show2 = false, text = 'Discordar da Análise de Viabilidade?'">DISCORDAR</button>
             @endif

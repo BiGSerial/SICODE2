@@ -26,7 +26,7 @@ class Main extends Component
                 ->where('canceled', false)
                 ->where('rejected', true)
                 ->where('completed', false)
-                ->with('Company', 'User', 'Form');
+                ->with('Company', 'User', 'Form', 'Reclaims');
             }, 'Files'])->paginate(50);
     }
 

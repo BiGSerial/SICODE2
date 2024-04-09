@@ -268,7 +268,6 @@
 
                                     // Dias Restantes
                                     if ($list->Note->type_note == 1) {
-
                                         if ($list->Note->mesalization && $list->Note->mesalization != 'erro') {
                                             preg_match('/\d+\/\d+/', $list->Note->mesalization, $matches);
 
@@ -283,9 +282,7 @@
                                                     $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
 
                                                     $days_left = $hoje->diffInDays($dataCarbon, false);
-
                                                 } else {
-
                                                     $data = "{$ano}-12-28 23:59:59";
 
                                                     $hoje = Carbon::now();
@@ -293,15 +290,12 @@
                                                     $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
 
                                                     $days_left = $hoje->diffInDays($dataCarbon, false);
-                                                    
-                                                    
                                                 }
-                                            } 
+                                            }
                                         }
-                                        
                                     } elseif ($list->Note->type_note == 2) {
                                         $days_left = $list->Note->days_left;
-                                    } 
+                                    }
 
                                     if ($list->Viabilities->count()) {
                                         if ($list->Viabilities->Where('completed', false)->count()) {

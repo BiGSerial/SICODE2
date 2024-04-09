@@ -112,16 +112,24 @@ class Main extends Component
 
             $query = Order::Query();
 
-            $query->with('Operations', 'Note.Files', 'Viabilities')
-                ->when($this->search, function ($q) {
-                    $this->gotoPage(1);
-                    $this->advanceSearch = '';
+            $query->with('Operations', 'Note.Files', 'Viabilities');
 
-                    return $q->where(function ($query) {
-                        $query->where('ordem', 'like', trim($this->search))
-                            ->orWhereRelation('Note', 'note', 'like', trim($this->search));
-                    });
+            if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
+                $query->whereRelation('Operations', function ($query) {
+                    $query->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['empreiteira'])
+                        ->orWhere('cenTrab', '');
                 });
+            }
+
+            $query->when($this->search, function ($q) {
+                $this->gotoPage(1);
+                $this->advanceSearch = '';
+
+                return $q->where(function ($query) {
+                    $query->where('ordem', 'like', trim($this->search))
+                        ->orWhereRelation('Note', 'note', 'like', trim($this->search));
+                });
+            });
 
             if (count($this->multiSearch)) {
 
@@ -160,14 +168,7 @@ class Main extends Component
             }
 
 
-            if (isset($_SESSION['filter'][$this->filter_group]['cenTrab'])) {
-                $query->whereRelation('Operations', function ($query) {
-                    $query->where('operacao', '0010')
-                        ->where('status', 'like', 'ABER%')
-                        ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['cenTrab'])
-                        ->orWhere('cenTrab', '');
-                });
-            }
+
 
             if (isset($_SESSION['filter'][$this->filter_group]['city'])) {
                 $query->whereRelation('Note', function ($query) {
@@ -725,11 +726,11 @@ class Main extends Component
             // });
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group]['cenTrab'])) {
+        if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
             $query->whereRelation('Operations', function ($query) {
                 $query->where('operacao', '0010')
                     ->where('status', 'like', 'ABER%')
-                    ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['cenTrab'])
+                    ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['empreiteira'])
                     ->orWhere('cenTrab', '');
             });
         }
@@ -754,8 +755,9 @@ class Main extends Component
             });
         }
 
-        $query->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
-            ->orderBy('myTypeNote', 'DESC')
+        $query->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote', 'notes.mesalization as mesalization')
+            ->orderBy('mesalization', 'ASC')
+            ->orderBy('myTypeNote', 'ASC')
             ->orderBy('myDayLeft')
             ->orderBy('myNote');
 

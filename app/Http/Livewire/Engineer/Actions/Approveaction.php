@@ -19,6 +19,7 @@ class Approveaction extends Component
     public $services;
     public $service_s;
     public $lastUser;
+    public $blkResponse;
 
 
     public function mount()
