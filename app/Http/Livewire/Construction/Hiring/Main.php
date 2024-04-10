@@ -748,24 +748,11 @@ class Main extends Component
                     });
                 });
             });
-        // ->when($this->search, function ($q) {
-        //     $this->gotoPage(1);
-        //     $this->advanceSearch = "";
-        //     $this->multiSearch = [];
 
-        //     return $q->where(function ($query) {
-        //         $query->where('ordem', 'like', '%'.$this->search.'%')
-        //             ->orWhereRelation('Note', 'note', 'like', '%'.$this->search.'%');
-        //     });
-        // });
 
         if (count($this->multiSearch)) {
             $query->whereIn('ordem', $this->multiSearch);
-            // $query->where(function ($q) {
-            //     return $q->WhereRelation('Note', function ($query) {
-            //         $query->whereIn('note', $this->multiSearch);
-            //     })->orWhereIn('ordem', $this->multiSearch);
-            // });
+
         }
 
         if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
@@ -835,6 +822,11 @@ class Main extends Component
                 ]);
             }
         }
+    }
+
+    public function go_return()
+    {
+
     }
 
     public function copy($msg)

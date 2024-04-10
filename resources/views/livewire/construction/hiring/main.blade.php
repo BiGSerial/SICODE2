@@ -713,16 +713,17 @@
 
     <div wire:ignore.self class="modal fade" id="return_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg ">
             <div class="modal-content bg-light">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
                     <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA SERVIÇOS</h5>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body  edp-bg-stategrey-50">
 
                     <div class="row mb-3">
                         <div class="col">
-                            <label for="category" class="form-label">Selecione o Motivo</label>
+                            <label for="category" class="form-label">Selecione o Motivo <span
+                                    class="text-danger fw-bold">*</span></label>
                             <select class="form-select" id="category" wire:model.defer='category'>
                                 <option value="" selected>Selecione...</option>
                                 <option value="ANEXO PDF">ANEXAR PDF</option>
@@ -730,7 +731,8 @@
                             </select>
                         </div>
                         <div class="col">
-                            <label for="service_s" class="form-label">Selecione o Serviço</label>
+                            <label for="service_s" class="form-label">Selecione o Serviço <span
+                                    class="text-danger fw-bold">*</span></label>
                             <select class="form-select" id="service_s" wire:model.debounce.500ms="service_s">
                                 <option value="" selected>Selecione...</option>
                                 @if ($this->services)
@@ -745,14 +747,15 @@
                     <div class="row mb-3">
                         <div class="col">
                             <div class="mb-3">
-                                <label for="comment" class="form-label">Mensagem</label>
+                                <label for="comment" class="form-label">Mensagem <span
+                                        class="text-danger fw-bold">*</span></label>
                                 <textarea name="message" class="form-control shadow" id="" cols="30" rows="5"
                                     wire:model.defer="comment" placeholder="Informe os Detalhes do retorno..."></textarea>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row text-bg-success py-1">
+                    <div class="row edp-bg-sprucegreen-70 text-edp-verde py-1">
                         <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA SERVIÇOS
                             ({{ $show_registers ? $show_registers->count() : '' }})</h5>
                     </div>
@@ -801,8 +804,8 @@
 
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-danger">Cancelar</button>
+                <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
+                    <button class="btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
                     <button class="btn btn-primary">Enviar</button>
                 </div>
             </div>
