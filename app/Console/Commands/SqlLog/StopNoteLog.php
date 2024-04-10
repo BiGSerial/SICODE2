@@ -29,6 +29,10 @@ class StopNoteLog extends Command
      */
     public function handle()
     {
+        if (env('APP_QA') || env('APP_ENV') == 'local') {
+            $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> NOT IS PRODUCTION SERVER, ABORTING PROPAGATION LOG</>');
+        }
+        
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> PREPARING STOP NOTES INFORMATION </>');
         $stops = Notetimeline::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->where('status', 4)->get();
         $this->info("<bg=green;fg=white> DONE </> <fg=white;options=bold> {$stops->count()} FOUNDED. </>");

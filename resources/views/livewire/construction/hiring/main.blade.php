@@ -187,6 +187,7 @@
                                 <option value="">Pausar</option>
                                 <option value="1">Viabilizar</option>
                                 <option value="2">Contratar</option>
+                                <option value="3">Retorno Interno</option>
                             </select>
                             <button class="btn btn-sm btn-primary me-2 col-1" wire:click.prevent='go_att_mass'
                                 @disabled(!$action) wire:target="go_att_mass" wire:loading.attr="disabled"
@@ -210,8 +211,9 @@
                                 </div>
                             </button>
                             <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:target="downloadZip"
-                                wire:loading.attr="disabled" wire:click.prevent='downloadZip' data-bs-toggle="tooltip"
-                                data-bs-placement="top" data-bs-title="Fazer Download dos Arquivos ZIP"><i
+                                wire:loading.attr="disabled" wire:click.prevent='downloadZip'
+                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                data-bs-title="Fazer Download dos Arquivos ZIP"><i
                                     class="bx bx-cloud-download fs-3 m-0 align-middle" wire:target="downloadZip"
                                     wire:loading.remove></i>
                                 <div class="spinner-border spinner-border-sm" role="status"
@@ -675,8 +677,6 @@
                                                     </td>
                                                 </tr>
                                             @endforeach
-
-
                                         </tbody>
                                     </table>
                                 </div>
@@ -710,6 +710,111 @@
         </div>
 
     </div>
+
+    <div wire:ignore.self class="modal fade" id="return_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-light">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA SERVIÇOS</h5>
+                </div>
+                <div class="modal-body">
+
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="category" class="form-label">Selecione o Motivo</label>
+                            <select class="form-select" id="category" wire:model.defer='category'>
+                                <option value="" selected>Selecione...</option>
+                                <option value="ANEXO PDF">ANEXAR PDF</option>
+                                <option value="LIBERACO EO">LIBERAR EO</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="service_s" class="form-label">Selecione o Serviço</label>
+                            <select class="form-select" id="service_s" wire:model.debounce.500ms="service_s">
+                                <option value="" selected>Selecione...</option>
+                                @if ($this->services)
+                                    @foreach ($this->services as $serv)
+                                        <option value="{{ $serv->uuid }}">{{ $serv->service }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col">
+                            <div class="mb-3">
+                                <label for="comment" class="form-label">Mensagem</label>
+                                <textarea name="message" class="form-control shadow" id="" cols="30" rows="5"
+                                    wire:model.defer="comment" placeholder="Informe os Detalhes do retorno..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row text-bg-success py-1">
+                        <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA SERVIÇOS
+                            ({{ $show_registers ? $show_registers->count() : '' }})</h5>
+                    </div>
+                    <div class="mx-0 px-0 border-botton border-2 border-secondary rounded mb-3"
+                        style="
+                        overflow: auto;
+                        max-height: 200px;
+            
+                        scrollbar-width: thin; /* para Firefox */
+                        scrollbar-color: rgb(16, 16, 16) rgb(161, 161, 160); /* para Firefox */
+                        ">
+                        <table class="table bordered table-sm table-condensed table-striped-columns mx-0 px-0">
+                            <thead class="sticky-top table-success">
+                                <tr class="text-center">
+                                    <th>Note</th>
+                                    <th>Rubrica</th>
+                                    <th>Localidade</th>
+                                    <th>Ultimo Usuario</th>
+                                    <th>Data Conclusao</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @if ($show_registers && $show_registers->count())
+                                    @foreach ($show_registers as $register)
+                                        <tr class="text-center">
+                                            <td>{{ $register->note }}</td>
+                                            <td>{{ $register->rubrica }}</td>
+                                            <td>{{ $register->lexp }}</td>
+                                            @if ($service_s && $register->Productions->Where('completed', true)->Where('service_id', $service_s)->last())
+                                                <td>{{ $register->Productions->Where('completed', true)->Where('service_id', $service_s)->last()->User->name }}
+                                                </td>
+                                                <td>{{ date('d/m/Y', strToTime($register->Productions->Where('completed', true)->Where('service_id', $service_s)->last()->completed_at)) }}
+                                                </td>
+                                            @else
+                                                <td>-</td>
+                                                <td>-</td>
+                                            @endif
+
+                                        </tr>
+                                    @endforeach
+                                @endif
+                            </tbody>
+
+                        </table>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger">Cancelar</button>
+                    <button class="btn btn-primary">Enviar</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+
+
+
+
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->
     <textarea id="clipboard-data" style="display: none;">

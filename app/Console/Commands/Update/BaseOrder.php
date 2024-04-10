@@ -73,7 +73,7 @@ class BaseOrder extends Command
                         // Nota não encontrada, cria-se um uma nova numeração caso o tamanho da numeração seja menor que 4 digitos.
                         $count['nf']++;
 
-                        if (strlen((string) intval($origin->ovNota)) < 4) {
+                        if (strlen((string) intval($origin->ovNota)) > 4) {
                             $rangeNum = 90000000;
                             $newNote  = 'C' . (string) ($rangeNum + Note::Where('note', 'like', 'C9%')->count());
                         } else {

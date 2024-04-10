@@ -29,6 +29,10 @@ class WpasLogger extends Command
      */
     public function handle()
     {
+        if (env('APP_QA') || env('APP_ENV') == 'local') {
+            $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> NOT IS PRODUCTION SERVER, ABORTING PROPAGATION LOG</>');
+        }
+
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> PREPARING WPAS NOTES INFORMATION </>');
         $wpas = Production::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->whereHas('Wpas')->With('Wpas')->get();
         $this->info("<bg=green;fg=white> DONE </> <fg=white;options=bold> {$wpas->count()} FOUNDED. </>");

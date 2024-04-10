@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.12",
+    "appver": "1.8.0",
     "historic": [
+        {
+            "version": "1.8.0",
+            "description": "Construction testes developments Public Tests",
+            "date": "2024-04-09"
+        },
         {
             "version": "1.7.12",
             "description": "FIxed Bug on Dreaw Block legend, and Input Actuality name in List View",

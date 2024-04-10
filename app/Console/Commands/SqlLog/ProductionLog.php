@@ -30,6 +30,11 @@ class ProductionLog extends Command
      */
     public function handle()
     {
+
+        if (env('APP_QA') || env('APP_ENV') == 'local') {
+            $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> NOT IS PRODUCTION SERVER, ABORTING PROPAGATION LOG</>');
+        }
+
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> Verifing Productions.... </>');
 
         $days = $this->option('days');

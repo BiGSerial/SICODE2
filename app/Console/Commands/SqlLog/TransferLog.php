@@ -30,6 +30,10 @@ class TransferLog extends Command
      */
     public function handle()
     {
+        if (env('APP_QA') || env('APP_ENV') == 'local') {
+            $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> NOT IS PRODUCTION SERVER, ABORTING PROPAGATION LOG</>');
+        }
+        
         $transfers = Prodtransfer::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Production', 'From', 'To', 'Service')->get();
 
         $progressBar = new ProgressBar($this->output, $transfers->count());

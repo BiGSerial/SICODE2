@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringListExport;
-use App\Models\{Company, File, Order, Service, User, Viability};
+use App\Models\{Company, File, Note, Order, Service, User, Viability};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
@@ -51,7 +51,15 @@ class Main extends Component
 
     public $engineer_s;
 
+    public $services;
+
+    public $service_s;
+
+    public $category;
+
     public $action;
+
+    public $comment;
 
     // Clipboard
     public $clipboardData = [];
@@ -90,6 +98,12 @@ class Main extends Component
         $this->service   = Service::where('uuid', $service)->first();
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
+        $this->services  = Service::orderBy('service')->get();
+    }
+
+    public function updatedTypeNote()
+    {
+        $this->gotoPage(0);
     }
 
     public function export_excel()
@@ -199,12 +213,24 @@ class Main extends Component
     public function go_att_mass()
     {
 
+        // Bloqueia Caso Nenhuma Nota/Ov Tiver sido selecionada
+        if (!count($this->selected)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para Envio.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
 
 
-        if (count($this->selected)) {
+        if ($this->action != 3) {
             $orders = Order::with('Note.Files')->find($this->selected);
 
             if ($orders) {
+
                 foreach ($orders as $order) {
 
                     $this->show_registers[$order->id] = [
@@ -230,24 +256,24 @@ class Main extends Component
                         $this->show_registers[$order->id] = array_merge($this->show_registers[$order->id], ['file_online' => true]);
                     }
                 }
-
+                $this->dispatchBrowserEvent('showModal', [
+                    'id' => 'viability_modal',
+                ]);
             }
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'viability_modal',
-            ]);
-        } else {
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nenhuma nota foi selecionada para Envio.',
-                'timer'    => 5000,
-            ]);
-
-            return;
         }
 
+        // Se Ação for Retornar para Serviços
+        if ($this->action == 3) {
+            $this->show_registers = Note::whereRelation('Orders', function ($q) {
+                $q->whereIn('id', $this->selected);
+            })->with('Productions.User')->get();
 
+
+
+            $this->dispatchBrowserEvent('showModal', [
+                'id' => 'return_modal',
+            ]);
+        }
     }
 
     public function to_viability()
@@ -277,6 +303,22 @@ class Main extends Component
         if (count($this->show_registers)) {
 
             $has_nofile = false;
+
+            foreach ($this->show_registers as $register) {
+                $check = Viability::where('order_id', $register['id'])->where('completed', false)->count();
+
+                if ($check) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'NOTAS EXISTENTES EM VIABILIDADE.',
+                        'html'     => 'Alguém ja pode ter colocado essas notas em atividade de viabilidade, atualize a págna e tente novamente.',
+                        'timer'    => 5000,
+                    ]);
+
+                    return;
+                }
+            }
 
             foreach ($this->show_registers as $register) {
                 if ($register['file_index'] == '' && !$register['file_online']) {
