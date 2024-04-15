@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringListExport;
-use App\Models\{Company, File, Note, Order, Service, User, Viability};
+use App\Models\{Company, File, HiringWaiting, Note, Order, Production, Reclaim, Service, User, Viability};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
@@ -40,6 +40,8 @@ class Main extends Component
 
     public $show_registers = [];
 
+    public $show_returns;
+
     public $perPage = 50;
 
     //Selects
@@ -73,6 +75,7 @@ class Main extends Component
     protected $listeners = [
         'refresh_list'      => '$refresh',
         'confirm_viability' => 'confirm_viability',
+        'confirm_return' => 'confirm_return',
     ];
 
     protected $queryString = [
@@ -668,6 +671,7 @@ class Main extends Component
         $this->engineer_s     = '';
         $this->show_files     = [];
         $this->show_registers = [];
+        $this->show_registers = [];
         $this->gotoPage(1);
 
         $this->emit('refresh_list');
@@ -826,6 +830,155 @@ class Main extends Component
 
     public function go_return()
     {
+        // Checka a seleção dos retornos
+        if (!$this->service_s || !$this->category || strlen(trim($this->comment)) < 10) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CAMPOS OBRIGATÓRIOS',
+                'html'     => 'Existem campos obirgatórios não atendidos. Verifique e tente novamente',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => "DESEJA RETORNAR AS NOTAS SELECIONADAS?",
+                'msg'           => "Você está preste a retornar as NOTAS/OVs para o serviço selecionado. Tem certeza que deseja realmente retornar?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Retorne!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_return',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma Ordem foi Enviada!',
+
+            ]);
+
+            return;
+        }
+
+    }
+
+    public function confirm_return()
+    {
+        if (!count($this->show_registers)) {
+            return;
+        }
+
+        DB::beginTransaction();
+
+        $error = 0;
+        $debug = [];
+
+
+        foreach ($this->show_registers as $register) {
+            try {
+                if ($register->Productions->Where('completed', true)->Where('service_id', $this->service_s)->last()) {
+                    $last_user = $register->Productions->Where('completed', true)->Where('service_id', $this->service_s)->last()->User;
+                    $last_user_company_id = $last_user->Employee->Contract->company->id ?? null;
+
+                    // Criar HiringWaiting
+                    $hiringWaiting = HiringWaiting::create([
+                        'note_id' => $register->id,
+                        'user_id' => Auth()->user()->id,
+                        'category' => $this->category,
+                    ]);
+
+                    // Criar Reclaim associado ao HiringWaiting
+                    $reclaim = Reclaim::create([
+                        'note_id' => $register->id,
+                        'service_id' => $this->service_s,
+                    ]);
+
+                    $comment = $reclaim->Comments()->create([
+                        'user_id' => Auth()->user()->id,
+                        'message' => $this->comment
+                    ]);
+
+                    // Criar Production associado ao Reclaim
+                    $production = Production::create([
+                        'note_id' => $register->id,
+                        'service_id' => $this->service_s,
+                        'user_id' => $last_user->id,
+                        'company_id' => $last_user_company_id,
+                        'dispatch_by' => Auth()->user()->id,
+                        'att_by' => Auth()->user()->id,
+                        'dt_note' => $register->dt_status,
+                        'status_note' => $register->nstats,
+                        'dispatch_at' => now(),
+                        'att_at' => now(),
+                        'returned' => true,
+                        'priority' => false,
+                        'status' => 2,
+                        'dhstats' => $register->dt_status,
+                        'centroTrab' => $register->centerjob,
+                        'd5' => true,
+                    ]);
+
+                    $hiringWaiting->Reclaim()->associate($reclaim);
+                    $reclaim->Production()->associate($production);
+
+                    $hiringWaiting->save();
+                    $reclaim->save();
+
+                } else {
+
+                    // Criar HiringWaiting
+                    $hiringWaiting = HiringWaiting::create([
+                        'note_id' => $register->id,
+                        'user_id' => Auth()->user()->id,
+                        'category' => $this->category,
+                    ]);
+
+                    // Criar Reclaim associado ao HiringWaiting
+                    $reclaim = Reclaim::create([
+                        'note_id' => $register->id,
+                        'service_id' => $this->service_s,
+                    ]);
+
+                    $comment = $reclaim->Comments()->create([
+                        'user_id' => Auth()->user()->id,
+                        'message' => $this->comment
+                    ]);
+
+
+
+                    $hiringWaiting->Reclaim()->associate($reclaim);
+                    $hiringWaiting->save();
+
+                }
+
+            } catch (\Throwable $th) {
+                $error++;
+                $debug[] = $th->getMessage();
+            }
+
+        }
+
+        if (!$error) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'RETORNO INTERNO CRIADO COM SUCESSO',
+                'timer'    => 2500,
+            ]);
+
+            DB::commit();
+
+            $this->closeall();
+
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO AO CRIAR O RETORNO INTERNO',
+                'html'    => "Por algum motivo ocorreu ({$error}) erro(s) ao retornar as notas/ovs para serviços. Tente Novamente.",
+                'timer'    => 2500,
+            ]);
+
+            DB::rollback();
+
+        }
 
     }
 

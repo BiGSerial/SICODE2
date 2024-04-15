@@ -41,4 +41,9 @@ class Reclaim extends Model
     {
         return $this->belongsToMany(Viability::class);
     }
+
+    public function Waiting()
+    {
+        return $this->hasOne(HiringWaiting::class);
+    }
 }

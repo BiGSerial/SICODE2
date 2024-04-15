@@ -42,4 +42,13 @@ class ConstructionController extends Controller
             'service' => $service,
         ]);
     }
+
+    public function waiting(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.waitinglist', [
+            'service' => $service,
+        ]);
+    }
 }

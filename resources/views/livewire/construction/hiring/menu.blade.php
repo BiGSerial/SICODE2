@@ -35,6 +35,15 @@
                         </li>
 
                         <li>
+                            <a href="{{ route('construction.waiting', ['service' => $service->uuid]) }}"
+                                class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span>EM ESPERA
+                                    {{ mb_strToUpper($service->service) }}</span>
+                                {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
+                            </a>
+                        </li>
+
+                        <li>
                             <a href="{{ route('construction.historic', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span>OBRAS CONTRATADAS</span>

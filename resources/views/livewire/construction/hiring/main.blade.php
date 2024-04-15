@@ -340,7 +340,7 @@
                                 @endphp
 
                                 <tr wire:key='{{ $list->id }}'
-                                    class="
+                                    class=" fade-in
                                     @if ($block) {{ $status['table'] }} @endif">
                                     <td class="align-middle"><input class="form-check-input border border-secondary"
                                             type="checkbox" wire:model.defer="selected" value="{{ $list->id }}"
@@ -756,7 +756,8 @@
                     </div>
 
                     <div class="row edp-bg-sprucegreen-70 text-edp-verde py-1">
-                        <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA SERVIÇOS
+                        <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA
+                            {{ $this->services->where('uuid', $service_s)->first() ? mb_strToUpper($this->services->where('uuid', $service_s)->first()->service) : 'SERVIÇOS' }}
                             ({{ $show_registers ? $show_registers->count() : '' }})</h5>
                     </div>
                     <div class="mx-0 px-0 border-botton border-2 border-secondary rounded mb-3"
@@ -806,7 +807,7 @@
                 </div>
                 <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
                     <button class="btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn btn-primary">Enviar</button>
+                    <button class="btn btn-primary" wire:click.prevent="go_return">Enviar</button>
                 </div>
             </div>
         </div>
@@ -821,14 +822,15 @@
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->
     <textarea id="clipboard-data" style="display: none;">
-    @if (count($clipboardData))
-@foreach ($clipboardData as $row)
+            @if (count($clipboardData))
+    @foreach ($clipboardData as $row)
 {{ implode("\t", $row) }}
 @endforeach
 @else
 SEM DADOS
-@endif
-</textarea>
+    @endif
+        </textarea>
+        
 
     @push('script')
         <script>
@@ -908,26 +910,6 @@ SEM DADOS
                 console.log('soltou');
 
             });
-        </script>
-
-        <script>
-            window.addEventListener('copyToBoard', function(e) {
-                copyToClipboard();
-            });
-
-
-
-            function copyToClipboard() {
-                const textToCopy = document.getElementById('clipboard-data').innerText;
-                const textarea = document.createElement('textarea');
-                textarea.textContent = textToCopy;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-
-
-            }
         </script>
     @endpush
 </div>

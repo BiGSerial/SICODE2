@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Config\ConfigController;
 use App\Http\Controllers\{AdminController, ConstructionController, DispatchController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
 /*
@@ -62,6 +63,7 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/viab_returned', 'returned')->name('returned');
+    Route::get('/waiting_list', 'waiting')->name('waiting');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {
@@ -89,6 +91,9 @@ Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->gro
     Route::get('/testes', 'productions')->middleware('can:superadm')->name('productions');
     Route::get('/page', 'page')->name('page');
     Route::get('/pdf', 'pdf')->name('pdf');
+    Route::get('/design', function () {
+        return View('desingtestview');
+    });
 });
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {

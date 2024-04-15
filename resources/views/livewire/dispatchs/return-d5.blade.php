@@ -18,41 +18,41 @@
                         wire:key='list-{{ $list->id }}'>
 
                         <div class="card-body my-0 py-0">
-                            <div class="table-responsive">
-                                <table class="table table-condensed table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col">Note/Ov</th>
-                                            <th scope="col">Rubrica</th>
-                                            <th scope="col">Municipio</th>
-                                            <th scope="col">Data</th>
-                                            <th scope="col">Status</th>
-                                            <th scope="col"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="table-group-divider">
-                                        <tr>
-                                            <td>{{ $list->Note->note }}</td>
-                                            <td>{{ $list->Note->rubrica }}</td>
-                                            <td>{{ $list->Note->lexp }}</td>
-                                            <td>{{ date('d/m/Y H:i:s', strToTime($list->created_at)) }}</td>
-                                            <td>
 
-                                                @if ($list->Production)
-                                                    <span
-                                                        class="badge {{ Notestatus::status($list->Production->status)->colorbg }}">{{ Notestatus::status($list->Production->status)->status }}</span>
-                                                @else
-                                                    <span class="badge text-bg-secondary">Não Despachado</span>
-                                                @endif
-                                            </td>
+                            <table class="table table-condensed table-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="col-2">Note/Ov</th>
+                                        <th class="col-2">Rubrica</th>
+                                        <th class="col-3">Municipio</th>
+                                        <th class="col-2">Data</th>
+                                        <th class="col-2">Status</th>
+                                        <th class="col-1"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="table-group-divider">
+                                    <tr>
+                                        <td>{{ $list->Note->note }}</td>
+                                        <td>{{ $list->Note->rubrica }}</td>
+                                        <td>{{ $list->Note->lexp }}</td>
+                                        <td>{{ date('d/m/Y H:i:s', strToTime($list->created_at)) }}</td>
+                                        <td>
 
-                                            <td class="text-truncate"><i @click="isVisible = !isVisible"
-                                                    class="bx bxs-plus-square text-danger fs-4"
-                                                    style="cursor: pointer;"></i></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                                            @if ($list->Production)
+                                                <span
+                                                    class="badge {{ Notestatus::status($list->Production->status)->colorbg }}">{{ Notestatus::status($list->Production->status)->status }}</span>
+                                            @else
+                                                <span class="badge text-bg-secondary">Não Despachado</span>
+                                            @endif
+                                        </td>
+
+                                        <td class="text-truncate"><i @click="isVisible = !isVisible"
+                                                class="bx bxs-plus-square text-danger fs-4"
+                                                style="cursor: pointer;"></i></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
 
 
                             <div x-show="isVisible" class="table-group-divider py-3" style="display: none;">
@@ -225,6 +225,8 @@
 
                     </div>
                 @endforeach
+            @elseif ($list->Production)
+                    
             @endif
         </div>
 
