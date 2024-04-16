@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Http\Livewire\Construction\Hiring\Actions\Hiring;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -82,5 +83,10 @@ class Note extends Model
     public function Viabilities()
     {
         return $this->hasManyThrough(Viability::class, Order::class);
+    }
+
+    public function Waitings()
+    {
+        return $this->hasMany(HiringWaiting::class);
     }
 }

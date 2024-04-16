@@ -267,6 +267,7 @@
                                     $viability = '';
                                     $status = '';
                                     $days_left = 0;
+                                    $waiting = false;
 
                                     // Dias Restantes
                                     if ($list->Note->type_note == 1) {
@@ -337,11 +338,21 @@
                                         }
                                     }
 
+                                    if (
+                                        $list->Note->Waitings->count() &&
+                                        $list->Note->Waitings->where('complete', false)->count()
+                                    ) {
+                                        $block = true;
+                                        $waiting = true;
+                                    }
+
                                 @endphp
 
                                 <tr wire:key='{{ $list->id }}'
                                     class=" fade-in
-                                    @if ($block) {{ $status['table'] }} @endif">
+                                    @if ($block && !$waiting) {{ $status['table'] }} @endif
+                                    @if ($block && $waiting) table-secondary @endif
+                                    ">
                                     <td class="align-middle"><input class="form-check-input border border-secondary"
                                             type="checkbox" wire:model.defer="selected" value="{{ $list->id }}"
                                             @disabled($block)>
@@ -409,7 +420,7 @@
                                         $days = '';
                                         $percent = '';
 
-                                        if ($block) {
+                                        if ($block && !$waiting) {
                                             if (
                                                 isset($list->Viabilities->first()->returned_at) &&
                                                 $list->Viabilities->first()->returned_at
@@ -443,9 +454,15 @@
                                     </td>
                                     <td class="text-break align-middle text-center">
                                         @if ($block)
-                                            <span
-                                                class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}"
-                                                style="width: 6rem;">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
+                                            @if (!$waiting)
+                                                <span
+                                                    class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}"
+                                                    style="width: 6rem;">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
+                                            @elseif ($waiting)
+                                                <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
+                                            @else
+                                                DESCONHECIDO
+                                            @endif
                                         @endif
                                     </td>
 
@@ -823,14 +840,14 @@
     <!-- Exibir os dados do clipboard com formatação para Excel -->
     <textarea id="clipboard-data" style="display: none;">
             @if (count($clipboardData))
-    @foreach ($clipboardData as $row)
+@foreach ($clipboardData as $row)
 {{ implode("\t", $row) }}
 @endforeach
 @else
 SEM DADOS
-    @endif
+@endif
         </textarea>
-        
+
 
     @push('script')
         <script>

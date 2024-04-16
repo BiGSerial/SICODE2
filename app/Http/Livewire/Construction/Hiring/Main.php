@@ -684,7 +684,7 @@ class Main extends Component
             foreach ($this->lists->pluck('id')->toArray() as $id) {
                 if (!in_array($id, $this->selected)) {
                     // dd();
-                    if (!($this->lists->where('id', $id)->first())->Viabilities->where('hired', false)->count()) {
+                    if (!($this->lists->where('id', $id)->first())->Viabilities->where('hired', false)->count() && !($this->lists->where('id', $id)->first())->Note->Waitings->where('complete', false)->count()) {
                         $this->selected[] = $id;
                     }
                 }
