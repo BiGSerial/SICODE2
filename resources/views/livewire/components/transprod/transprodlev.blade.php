@@ -37,7 +37,7 @@
                                         $name = $name[0] . ' ' . end($name);
                                     @endphp
                                     <option value="{{ $user->id }}">{{ $name }} -
-                                        {{ explode(' ', $user->Employee->Contract->company->name)[0] }}</option>
+                                        {{ isset($user->Employee->Contract) ? explode(' ', $user->Employee->Contract->company->name)[0] : 'DESCONHECIDO' }}
                                 @endforeach
                             @endif
                         </select>
