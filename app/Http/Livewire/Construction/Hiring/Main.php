@@ -267,7 +267,7 @@ class Main extends Component
 
         // Se Ação for Retornar para Serviços
         if ($this->action == 3) {
-            $this->show_registers = Note::whereRelation('Orders', function ($q) {
+            $this->show_returns = Note::whereRelation('Orders', function ($q) {
                 $q->whereIn('id', $this->selected);
             })->with('Productions.User')->get();
 
@@ -861,7 +861,7 @@ class Main extends Component
 
     public function confirm_return()
     {
-        if (!count($this->show_registers)) {
+        if (!($this->show_returns && $this->show_returns->count())) {
             return;
         }
 
@@ -871,7 +871,7 @@ class Main extends Component
         $debug = [];
 
 
-        foreach ($this->show_registers as $register) {
+        foreach ($this->show_returns as $register) {
             try {
                 if ($register->Productions->Where('completed', true)->Where('service_id', $this->service_s)->last()) {
                     $last_user = $register->Productions->Where('completed', true)->Where('service_id', $this->service_s)->last()->User;

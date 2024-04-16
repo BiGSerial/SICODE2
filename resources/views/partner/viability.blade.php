@@ -21,3 +21,6 @@
 @section('content')
     @livewire('partner.todoviability')
 @endsection
+
+@push('script')
+@endpush

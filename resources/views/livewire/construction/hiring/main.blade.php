@@ -775,7 +775,7 @@
                     <div class="row edp-bg-sprucegreen-70 text-edp-verde py-1">
                         <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA
                             {{ $this->services->where('uuid', $service_s)->first() ? mb_strToUpper($this->services->where('uuid', $service_s)->first()->service) : 'SERVIÇOS' }}
-                            ({{ $show_registers ? $show_registers->count() : '' }})</h5>
+                            ({{ $show_returns ? $show_returns->count() : '' }})</h5>
                     </div>
                     <div class="mx-0 px-0 border-botton border-2 border-secondary rounded mb-3"
                         style="
@@ -797,8 +797,8 @@
                             </thead>
 
                             <tbody>
-                                @if ($show_registers && $show_registers->count())
-                                    @foreach ($show_registers as $register)
+                                @if ($show_returns && $show_returns->count())
+                                    @foreach ($show_returns as $register)
                                         <tr class="text-center">
                                             <td>{{ $register->note }}</td>
                                             <td>{{ $register->rubrica }}</td>

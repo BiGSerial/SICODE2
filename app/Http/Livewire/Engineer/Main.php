@@ -11,6 +11,9 @@ class Main extends Component
         'update_list' => '$refresh'
     ];
 
+
+    
+
     public function getListsProperty()
     {
         return Note::whereRelation('Viabilities', function ($q) {

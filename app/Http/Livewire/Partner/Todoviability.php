@@ -43,6 +43,8 @@ class Todoviability extends Component
 
     }
 
+
+
     public function downloadFile($id)
     {
         if ($file = File::find($id)->first()) {

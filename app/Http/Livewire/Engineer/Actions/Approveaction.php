@@ -225,7 +225,7 @@ class Approveaction extends Component
         }
     }
 
-    public function desapproved()
+    public function desagree()
     {
         if (strlen(trim($this->comment)) <= 5) {
 
