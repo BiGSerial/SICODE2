@@ -116,6 +116,91 @@
                                                 <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->responsible : '' }}
                                                 </p>
+
+                                                @if ($list->Viabilities->last()->Comments->count())
+                                                    <div class="card">
+                                                        <h4 class="card-header edp-bg-seoweedgreen-100 text-white">
+                                                            Comentários
+                                                        </h4>
+                                                        <div class="card-body">
+
+                                                            <div class="clearfix">
+
+
+                                                                @foreach ($list->Viabilities->last()->Comments as $comment)
+                                                                    @if ($comment->User->id !== auth()->User()->id)
+                                                                        {{-- <div class="d-flex justify-content-start">
+                                                                                    <div
+                                                                                        class="border border-2 border-secondary rounded mb-3">
+                    
+                                                                                        <div class="text-bg-secondary p-2 text-justify">
+                                                                                            {{ $comment->message }}</div>
+                                                                                        <p class="text-start mt-2"><span
+                                                                                                class="fw-bold">Por:</span>
+                                                                                            {{ $comment->User->name }}
+                                                                                            <span class="fw-bold">as</span>
+                                                                                            {{ date('d/m/Y H:i:s') }}
+                    
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div> --}}
+                                                                        <div
+                                                                            class="border-start border-5 mb-3 border-primary">
+                                                                            <p
+                                                                                class="text-start border-2 border-bottom px-2 border-primary">
+                                                                                <span class="fw-bold">Por:</span>
+                                                                                {{ $comment->User->name }}
+                                                                                <span class="fw-bold">as</span>
+                                                                                {{ date('d/m/Y H:i:s') }}
+
+                                                                            </p>
+                                                                            <p class="text-start p-2">
+                                                                                {{ $comment->message }}
+                                                                            </p>
+                                                                        </div>
+                                                                    @endif
+
+                                                                    @if ($comment->User->id === auth()->User()->id)
+                                                                        {{-- <div class="d-flex justify-content-end">
+                                                                                    <div
+                                                                                        class="border border-2 border-primary rounded mb-3">
+                    
+                                                                                        <div class="text-bg-primary p-3 text-justify">
+                                                                                            {{ $comment->message }}</div>
+                                                                                        <p class="text-end"><span
+                                                                                                class="fw-bold">Por:</span>
+                                                                                            {{ $comment->User->name }}
+                                                                                            <span class="fw-bold">as</span>
+                                                                                            {{ date('d/m/Y H:i:s') }}
+                    
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div> --}}
+
+                                                                        <div
+                                                                            class="border-start border-5 mb-3 border-secondary">
+                                                                            <p
+                                                                                class="text-start border-2 border-bottom border-secondary px-2">
+                                                                                <span class="fw-bold">Por:</span>
+                                                                                {{ $comment->User->name }}
+                                                                                <span class="fw-bold">as</span>
+                                                                                {{ date('d/m/Y H:i:s') }}
+
+                                                                            </p>
+                                                                            <p class="text-start p-2">
+                                                                                {{ $comment->message }}
+                                                                            </p>
+                                                                        </div>
+                                                                    @endif
+                                                                @endforeach
+
+
+
+
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
                                             </div>
                                             <div class="col-5">
                                                 <div class="mb-3">

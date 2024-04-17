@@ -434,9 +434,9 @@
                                                                 </div>
                                                             </div> --}}
 
-                                                            <div class="border-end border-5 mb-3 border-primary">
+                                                            <div class="border-start border-5 mb-3 border-secondary">
                                                                 <p
-                                                                    class="text-end border-2 border-bottom border-primary px-2">
+                                                                    class="text-start border-2 border-bottom border-secondary px-2">
                                                                     <span class="fw-bold">Por:</span>
                                                                     {{ $comment->User->name }}
                                                                     <span class="fw-bold">as</span>
@@ -462,7 +462,6 @@
 
                                         @if ($list->Viabilities->last()->status == 5 && $list->Viabilities->last()->replica)
                                             @livewire('partner.actions.approveaction', ['list' => $list], key('aproveactions-{{ $list->id }}'))
-                                            
                                         @endif
 
 
