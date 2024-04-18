@@ -11,46 +11,57 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
     <link rel="shortcut icon" href="{{ asset('img/favicon.ico') }}" type="image/x-icon">
 
-    <link href="{{ asset('assets/vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/quill/quill.snow.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/quill/quill.bubble.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/remixicon/remixicon.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/simple-datatables/style.css') }}" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/css/sweetalert2.min.css') }}">
+    {{-- <link href="{{ basset('assets/vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/bootstrap/css/bootstrap.min.css')
+    {{-- <link href="{{ asset('assets/vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/bootstrap-icons/bootstrap-icons.css')
+    {{-- <link href="{{ asset('assets/vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/boxicons/css/boxicons.min.css')
+    {{-- <link href="{{ asset('assets/vendor/quill/quill.snow.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/quill/quill.snow.css')
+    {{-- <link href="{{ asset('assets/vendor/quill/quill.bubble.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/quill/quill.bubble.css')
+    {{-- <link href="{{ asset('assets/vendor/remixicon/remixicon.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/remixicon/remixicon.css')
+    {{-- <link href="{{ asset('assets/vendor/simple-datatables/style.css') }}" rel="stylesheet"> --}}
+    @basset('assets/vendor/simple-datatables/style.css')
+    {{-- <link rel="stylesheet" href="{{ asset('assets/css/sweetalert2.min.css') }}"> --}}
+    @basset('assets/css/sweetalert2.min.css')
 
     <!-- Template Main CSS File -->
-    <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet">
+    {{-- <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet"> --}}
+    @basset('assets/css/style.css')
 
     @stack('css')
 
-    <style>
-        .popover {
-            background-color: #143f47;
-            color: #28FF52;
-        }
+    @bassetBlock('assets/css/popover')
+        <style>
+            .popover {
+                background-color: #143f47;
+                color: #28FF52;
+            }
 
-        .popover .popover-header {
-            background-color: #365960;
-            color: #28FF52;
-            font-weight: bold;
-        }
+            .popover .popover-header {
+                background-color: #365960;
+                color: #28FF52;
+                font-weight: bold;
+            }
 
-        .popover .popover-body {
-            background-color: #143f47;
-            color: #fff;
-        }
+            .popover .popover-body {
+                background-color: #143f47;
+                color: #fff;
+            }
 
-        .popover.bs-popover-top>.arrow::after,
-        .popover.bs-popover-bottom>.arrow::after,
-        .popover.bs-popover-left>.arrow::after,
-        .popover.bs-popover-right>.arrow::after {
-            background-color: #143f47;
-            border-color: #143f47;
+            .popover.bs-popover-top>.arrow::after,
+            .popover.bs-popover-bottom>.arrow::after,
+            .popover.bs-popover-left>.arrow::after,
+            .popover.bs-popover-right>.arrow::after {
+                background-color: #143f47;
+                border-color: #143f47;
 
-        }
-    </style>
+            }
+        </style>
+    @endBassetBlock
 
     {{-- @if ($_SERVER['SERVER_NAME'] != 'localhost')
         @php
@@ -84,8 +95,10 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
         <script src="{{ asset('build/assets') . '/' . $ajs }}"></script>
     @endif --}}
 
-    <link href="{{ asset('build/assets/app-3891f6bf.css') }}" rel="stylesheet">
-    <script src="{{ asset('build/assets/app-4ed993c7.js') }}"></script>
+    {{-- <link href="{{ asset('build/assets/app-3891f6bf.css') }}" rel="stylesheet"> --}}
+    @basset('build/assets/app-3891f6bf.css')
+    {{-- <script src="{{ asset('build/assets/app-4ed993c7.js') }}"></script> --}}
+    @basset('build/assets/app-4ed993c7.js')
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
 
@@ -274,27 +287,40 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
             class="bi bi-arrow-up-short"></i></a>
 
-    <!-- Vendor JS Files -->
+    {{-- <!-- Vendor JS Files -->
     <script src="{{ asset('assets/vendor/apexcharts/apexcharts.min.js') }}"></script>
     <script src="https://unpkg.com/@popperjs/core@2"></script>
     <script src="{{ asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('assets/vendor/chart.js/chart.min.js') }}"></script>
 
     {{-- <script src="{{ asset('assets/vendor/echarts/echarts.min.js') }}"></script> --}}
-    <script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
+    {{-- <script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
     <script src="{{ asset('assets/vendor/simple-datatables/simple-datatables.js') }}"></script>
     <script src="{{ asset('assets/vendor/tinymce/tinymce.min.js') }}"></script>
-    <script src="{{ asset('assets/vendor/php-email-form/validate.js') }}"></script>
+    <script src="{{ asset('assets/vendor/php-email-form/validate.js') }}"></script> --}}
 
     <!-- Template Main JS File -->
-    <script src="{{ asset('assets/js/main.js') }}"></script>
-    <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
+    {{-- <script src="{{ asset('assets/js/main.js') }}"></script>
+    <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script> --}}
 
     <!-- Alpine v3 -->
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {{-- <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script> --}}
 
     <!-- Focus plugin -->
-    <script defer src="https://unpkg.com/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
+    {{-- <script defer src="https://unpkg.com/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script> --}}
+
+    @basset('assets/vendor/apexcharts/apexcharts.min.js')
+    @basset('https://unpkg.com/@popperjs/core@2')
+    @basset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js')
+    @basset('assets/vendor/chart.js/chart.min.js')
+    @basset('assets/vendor/quill/quill.min.js')
+    @basset('assets/vendor/simple-datatables/simple-datatables.js')
+    @basset('assets/vendor/tinymce/tinymce.min.js')
+    @basset('assets/vendor/php-email-form/validate.js')
+    @basset('assets/js/main.js')
+    @basset('assets/js/sweetalert2.min.js')
+    @basset('https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js')
+    @basset('https://unpkg.com/@alpinejs/focus@3.x.x/dist/cdn.min.js')
 
 
 
