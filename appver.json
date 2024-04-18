@@ -1,6 +1,11 @@
 {
-    "appver": "1.7.12",
+    "appver": "1.7.13",
     "historic": [
+        {
+            "version": "1.7.13",
+            "description": "Fixed blankscreen on REPORTS PRODUCTIONS VIEW",
+            "date": "2024-04-18"
+        },
         {
             "version": "1.7.12",
             "description": "FIxed Bug on Dreaw Block legend, and Input Actuality name in List View",

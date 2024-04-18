@@ -52,7 +52,7 @@
                     <div class="mb-3 col-2">
                         <label for="exampleFormControlInput1" class="form-label">Empresa</label>
                         <select class="form-select form-select-sm" aria-label="Small select example"
-                            wire:model.defer="company">
+                            wire:model="company">
                             <option value="" selected>Selecione a Empresa</option>
                             @if ($company_list)
                                 @foreach ($company_list as $company)
@@ -66,30 +66,36 @@
                 @endif
                 <div class="mb-3 col-1">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" wire:model.defer="complete">
+                        <input class="form-check-input" type="checkbox" wire:model="complete">
                         <label class="form-check-label" for="flexCheckDefault">
                             Incluir em Aberto
                         </label>
                     </div>
                 </div>
-                <div class="mb-3 col-1">
+                {{-- <div class="mb-3 col-1">
                     <label for=""></label>
                     <button class="btn btn-sm btn-primary form-control mt-2" wire:click.prevent="Search">Gerar</button>
-                </div>
+                </div> --}}
             </div>
         </div>
     </div>
 
     @if ($lists)
         <div class="row">
-            <div class="col-6">
+            <div class="col-1">
                 <button class="btn btn-sm btn-primary mb-3" wire:click.prevent='Export'>Exportar</button>
             </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->count() }}
-                    registros.
-                </span>
+
+            <div class="col-6">
+                {{ $lists->links() }}
             </div>
+            <div class="col-5 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+
         </div>
         <div class="card">
             <div class="card-body">
@@ -166,5 +172,19 @@
                 </div>
             </div>
         </div>
+
+        <div class="row">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
+
     @endif
+
 </div>
