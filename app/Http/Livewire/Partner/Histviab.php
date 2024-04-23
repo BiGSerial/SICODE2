@@ -109,14 +109,12 @@ class Histviab extends Component
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('approved', true)
-                ->orderBy('sended_at')
-                ->orderBy('rejected', 'asc');
+            $q->where('hired', true)
+                ->orderBy('sended_at');
         })
             ->with(['Viabilities' => function ($query) {
-                $query->where('approved', true)
+                $query->where('hired', true)
                     ->orderBy('sended_at')
-                    ->orderBy('rejected', 'asc')
                     ->with('Order', 'Form', 'Comments.User');
             }, 'Files']);
 

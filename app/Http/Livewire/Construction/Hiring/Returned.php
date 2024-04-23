@@ -33,11 +33,17 @@ class Returned extends Component
     {
         return Note::whereRelation('Viabilities', function ($q) {
             $q->where('engineer', true)
-                ->where('completed', false);
+                ->where(function ($q) {
+                    $q->orwhere('rejected', true)
+                    ->orwhere('approved', true);
+                })->where('hired', false);
         })
             ->with(['Viabilities' => function ($query) {
                 $query->where('engineer', true)
-                ->where('completed', false)
+                ->where(function ($q) {
+                    $q->orwhere('rejected', true)
+                    ->orwhere('approved', true);
+                })->where('hired', false)
                 ->with('Company', 'User', 'Form', 'Comments.User', 'Reclaims.production');
             }, 'Files'])->paginate(50);
     }

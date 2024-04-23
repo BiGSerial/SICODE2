@@ -385,7 +385,7 @@
                                                 <div class="clearfix">
 
 
-                                                    @foreach ($list->Viabilities->last()->Comments as $comment)
+                                                    @foreach ($list->Viabilities->last()->Comments->sortByDesc('created_at') as $comment)
                                                         @if ($comment->User->id !== auth()->User()->id)
                                                             {{-- <div class="d-flex justify-content-start">
                                                                 <div
@@ -408,7 +408,7 @@
                                                                     <span class="fw-bold">Por:</span>
                                                                     {{ $comment->User->name }}
                                                                     <span class="fw-bold">as</span>
-                                                                    {{ date('d/m/Y H:i:s') }}
+                                                                    {{ date('d/m/Y H:i:s', strToTime($comment->created_at)) }}
 
                                                                 </p>
                                                                 <p class="text-start p-2">
@@ -440,7 +440,7 @@
                                                                     <span class="fw-bold">Por:</span>
                                                                     {{ $comment->User->name }}
                                                                     <span class="fw-bold">as</span>
-                                                                    {{ date('d/m/Y H:i:s') }}
+                                                                    {{ date('d/m/Y H:i:s', strToTime($comment->created_at)) }}
 
                                                                 </p>
                                                                 <p class="text-start p-2">

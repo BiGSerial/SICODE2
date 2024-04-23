@@ -108,8 +108,8 @@ class Accompany extends Component
                 <p class='text-justify fs-6'>
                     É válido lembrar que a contratação pelo SICODE é apenas para controle e não substitui o SAP. Espera-se que todas as etapas referentes às obras tenham sido realizadas no SAP.
                 </p>
-            </div>            
-        </div>        
+            </div>
+        </div>
         ";
 
             $this->dispatchBrowserEvent('alertar', [
@@ -362,8 +362,8 @@ class Accompany extends Component
                     <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
                     <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
                     </p>
-                </div>            
-            </div>            
+                </div>
+            </div>
             ";
 
             $this->dispatchBrowserEvent('alertar', [
@@ -483,10 +483,12 @@ class Accompany extends Component
     public function downloadZip()
     {
         if (count($this->selected)) {
-            $files = File::WhereIn('note_id', Order::find($this->selected)->pluck('note_id'))->get();
+            $files = File::WhereIn('note_id', Note::find($this->selected)->pluck('id'))->get();
 
-            if ($files) {
-                $zipFile = 'Aruivos-Lote-' . hash('crc32', time()) . '.zip';
+
+
+            if ($files->count()) {
+                $zipFile = 'Arquivos-Lote-' . hash('crc32', time()) . '.zip';
                 $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
@@ -499,8 +501,18 @@ class Accompany extends Component
 
                 return response()->download($zipFile)->deleteFileAfterSend(true);
             }
-        } else {
 
+
+        } else {
+            $this->dispatchBrowserEvent(
+                'swal',
+                [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Nenhum Arquivo Selecionados para Download.',
+                'timer'    => 5000,
+            ]
+            );
         }
     }
 

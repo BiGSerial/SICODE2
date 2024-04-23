@@ -301,8 +301,8 @@
                                     }
 
                                     if ($list->Viabilities->count()) {
-                                        if ($list->Viabilities->Where('completed', false)->count()) {
-                                            $viability = $list->Viabilities->Where('completed', false)->last();
+                                        if ($list->Viabilities->count()) {
+                                            $viability = $list->Viabilities->last();
 
                                             $block = true;
 
@@ -440,7 +440,7 @@
                                     <td
                                         class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center overflow-hidden">
                                         <div class="progress-bg text-center"
-                                            style="width: {{ $percent }}%; 
+                                            style="width: {{ $percent }}%;
                                                  @if ($percent > 100.0) background-color: #969595;
                                                  @elseif ($percent > 80.0 && $percent <= 100.0) background-color: #FBC4C4;
                                                 @elseif($percent > 70.0 && $percent <= 80.0)
@@ -457,7 +457,7 @@
                                             @if (!$waiting)
                                                 <span
                                                     class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}"
-                                                    style="width: 6rem;">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
+                                                    style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($list->Viabilities->first()->status)->status) }}</span>
                                             @elseif ($waiting)
                                                 <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
                                             @else
@@ -781,7 +781,7 @@
                         style="
                         overflow: auto;
                         max-height: 200px;
-            
+
                         scrollbar-width: thin; /* para Firefox */
                         scrollbar-color: rgb(16, 16, 16) rgb(161, 161, 160); /* para Firefox */
                         ">

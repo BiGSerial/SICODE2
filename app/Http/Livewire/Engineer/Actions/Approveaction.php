@@ -20,6 +20,9 @@ class Approveaction extends Component
     public $service_s;
     public $lastUser;
     public $blkResponse;
+    public $blkReturn;
+    public $newReturn = false;
+
 
 
     public function mount()
@@ -30,7 +33,11 @@ class Approveaction extends Component
     public function updatedServiceS()
     {
         $this->lastUser = Production::Where('service_id', $this->service_s)->where('note_id', $this->list->id)->where('completed', true)->with('Service')->get()->last();
+    }
 
+    public function newReturn($value)
+    {
+        $this->newReturn = $value;
     }
 
     public function agree()
@@ -88,6 +95,7 @@ class Approveaction extends Component
                         ]);
 
                         if ($return && $this->list->Viabilities->count()) {
+                            $block = false;
                             foreach ($this->list->Viabilities as $viab) {
                                 // dd($viab);
                                 $viab->update([
@@ -96,12 +104,18 @@ class Approveaction extends Component
                                     'engineer_at' => date('Y-m-d H:i:s'),
                                 ]);
 
-                                $viab->Reclaims()->attach($return->id);
-                                $viab->Comments()->create([
-                                    'user_id' => auth()->user()->id,
-                                    'message' => 'Responsável informou em conformidade com a viabilidade.',
+                                if (!$block) {
+                                    $viab->Reclaims()->attach($return->id);
+                                    $viab->Comments()->create([
+                                        'user_id' => auth()->user()->id,
+                                        'message' => 'Responsável informou em conformidade com a viabilidade.',
 
-                                ]);
+                                    ]);
+
+                                    $block = true;
+                                }
+
+
                             }
                         } else {
                             DB::rollback();
@@ -159,6 +173,9 @@ class Approveaction extends Component
                 }
 
                 DB::commit();
+
+                // Send refresh command to 'main' page to update..
+                $this->emitUp('update_list');
 
             } catch (\Throwable $th) {
                 DB::rollback();

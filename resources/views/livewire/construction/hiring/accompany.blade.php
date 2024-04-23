@@ -298,7 +298,7 @@
                                         </t class="align-middle"d>
                                     <td class="progress-cell border-start border-end border-2 align-middle">
                                         <div class="progress-bg"
-                                            style="width: {{ $percentElapsed }}%; 
+                                            style="width: {{ $percentElapsed }}%;
                                                 @if ($percentElapsed > 80.0) background-color: #FBC4C4;
                                                 @elseif($percentElapsed > 70.0 && $percentElapsed <= 80.0)
                                                     background-color: #FBF8C4;
@@ -439,7 +439,7 @@
                 </div>
 
                 <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button type="button" class="btn btn-danger" wire:click.prevent="">CANCELAR</button>
+                    <button type="button" class="btn btn-danger" wire:click.prevent="closeall">CANCELAR</button>
                     <button type="button" class="btn btn-info" wire:click.prenvet="export_excel_hiring">EXPORTAR
                         LISTA</button>
                     <button type="button" class="btn btn-primary"

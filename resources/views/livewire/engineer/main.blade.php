@@ -94,14 +94,19 @@
                                         <div class="row">
                                             <div class="col-7">
                                                 <p class="fw-bold fs-6 my-0 py-0">Motivo</p>
-                                                <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
+                                                <p class="mb-2 mb-0 py-0 text-justify p-3"
+                                                    style="
+                                                        border-left: 5px solid #143f47;
+                                                        border-bottom: 1px solid #143f47;
+                                                        ">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->reason : '---' }}
                                                 </p>
                                                 <p class="fw-bold fs-6 my-0 py-0">Percentual de Modificação:</p>
-                                                <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded fw-bold
+                                                <p class="mb-2 mb-0 py-0 text-justify p-3 fw-bold
                                                 @if ($list->Viabilities->count() && $list->Viabilities->first()->Form->changes > 1) text-white @endif"
                                                     style="
-                                                    
+                                                    border-left: 5px solid #143f47;
+                                                    border-bottom: 1px solid #143f47;
                                                     background: linear-gradient(90deg, rgba(231,12,38,1) 0%, rgba(9,9,121,0) {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->changes * 10 . '%' : '' }});
                                                     ">
 
@@ -109,11 +114,19 @@
                                                 </p>
 
                                                 <p class="fw-bold fs-6 my-0 py-0">Resultado Viabilidade:</p>
-                                                <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
+                                                <p class="mb-2 mb-0 py-0 text-justify p-3"
+                                                    style="
+                                                border-left: 5px solid #143f47;
+                                                border-bottom: 1px solid #143f47;
+                                                ">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->description : '' }}
                                                 </p>
                                                 <p class="fw-bold fs-6 my-0 py-0">Responsável pelo Informe:</p>
-                                                <p class="mb-2 mb-0 py-0 text-justify p-3 border border-rounded">
+                                                <p class="mb-2 mb-0 py-0 text-justify p-3"
+                                                    style="
+                                                border-left: 5px solid #143f47;
+                                                border-bottom: 1px solid #143f47;
+                                                ">
                                                     {{ $list->Viabilities->count() ? $list->Viabilities->first()->Form->responsible : '' }}
                                                 </p>
 
@@ -132,7 +145,7 @@
                                                                         {{-- <div class="d-flex justify-content-start">
                                                                                     <div
                                                                                         class="border border-2 border-secondary rounded mb-3">
-                    
+
                                                                                         <div class="text-bg-secondary p-2 text-justify">
                                                                                             {{ $comment->message }}</div>
                                                                                         <p class="text-start mt-2"><span
@@ -140,7 +153,7 @@
                                                                                             {{ $comment->User->name }}
                                                                                             <span class="fw-bold">as</span>
                                                                                             {{ date('d/m/Y H:i:s') }}
-                    
+
                                                                                         </p>
                                                                                     </div>
                                                                                 </div> --}}
@@ -164,7 +177,7 @@
                                                                         {{-- <div class="d-flex justify-content-end">
                                                                                     <div
                                                                                         class="border border-2 border-primary rounded mb-3">
-                    
+
                                                                                         <div class="text-bg-primary p-3 text-justify">
                                                                                             {{ $comment->message }}</div>
                                                                                         <p class="text-end"><span
@@ -172,7 +185,7 @@
                                                                                             {{ $comment->User->name }}
                                                                                             <span class="fw-bold">as</span>
                                                                                             {{ date('d/m/Y H:i:s') }}
-                    
+
                                                                                         </p>
                                                                                     </div>
                                                                                 </div> --}}
@@ -206,13 +219,19 @@
                                                 <div class="mb-3">
                                                     <p class="fw-bold fs-6 my-0 py-0">Arquivos:</p>
                                                     @if ($list->Files->count())
-                                                        @foreach ($list->Files as $file)
-                                                            <p class="mb-2 mb-0 py-0" style="cursor: pointer;">
-                                                                <i
-                                                                    class="bx bxs-file-{{ $file->ext }} text-danger"></i>
-                                                                <span>{{ $file->file_name }}</span>
-                                                            </p>
-                                                        @endforeach
+                                                        <div class="pe-3 py-0 m-0"
+                                                            style="
+                                                        border-left: 5px solid #143f47;
+                                                        border-bottom: 1px solid #143f47;
+                                                        ">
+                                                            @foreach ($list->Files as $file)
+                                                                <p class="mb-2 mb-0 py-0" style="cursor: pointer;">
+                                                                    <i
+                                                                        class="bx bxs-file-{{ $file->ext }} text-danger"></i>
+                                                                    <span>{{ $file->file_name }}</span>
+                                                                </p>
+                                                            @endforeach
+                                                        </div>
                                                     @endif
                                                 </div>
 
@@ -223,6 +242,7 @@
                                                             <table class="table table-condensed table-stripped">
                                                                 <thead>
                                                                     <th>Data</th>
+                                                                    <th>Serviço</th>
                                                                     <th>Completado</th>
                                                                     <th>Produção</th>
                                                                     <th>Status</th>
@@ -234,6 +254,8 @@
                                                                                 {{-- @dump($reclaim->Note) --}}
                                                                                 <tr>
                                                                                     <td>{{ date('d/m/Y H:i:s', strToTime($reclaim->created_at)) }}
+                                                                                    </td>
+                                                                                    <td>{{ $reclaim->Service->service }}
                                                                                     </td>
                                                                                     <td>{{ $reclaim->completed_at ? date('d/m/Y H:i:s', strToTime($reclaim->completed_at)) : '---' }}
                                                                                     </td>
@@ -269,6 +291,7 @@
                                                 @php
                                                     $block = false;
                                                     $blkResponse = false;
+                                                    $blkReturn = false;
 
                                                     if (
                                                         $list->Viabilities->count() &&
@@ -300,10 +323,18 @@
                                                         $blkResponse = true;
                                                     }
 
+                                                    if ($list->Viabilities->count()) {
+                                                        foreach ($list->Viabilities as $viab) {
+                                                            if (isset($viab->Reclaims) && $viab->Reclaims->count()) {
+                                                                $blkReturn = true;
+                                                            }
+                                                        }
+                                                    }
+
                                                 @endphp
 
                                                 @if (!$block)
-                                                    @livewire('engineer.actions.approveaction', ['list' => $list, 'blkResponse' => $blkResponse], key('aproveactions-{{ $list->id }}'))
+                                                    @livewire('engineer.actions.approveaction', ['list' => $list, 'blkResponse' => $blkResponse, 'blkReturn' => $blkReturn], key('aproveactions-{{ $list->id }}'))
                                                 @endif
 
                                             </div>

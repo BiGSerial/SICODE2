@@ -146,10 +146,21 @@
                                             {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
                                         </td>
                                         <td>
-                                            @if ($status)
-                                                <span class="badge {{ $status['color'] }}">{{ $status['info'] }}
-                                                </span>
-                                            @endif
+                                            @php
+                                                $goFinish = false;
+
+                                                if ($list->Viabilities->count() && $list->Viabilities->last()->status) {
+                                                    $status1 = $list->Viabilities->last()->status;
+
+                                                    if ($status == 13) {
+                                                        $goFinish = true;
+                                                    }
+                                                } else {
+                                                    $status1 = 0;
+                                                }
+
+                                            @endphp
+                                            <x-hiring.status :badge="$status1" />
                                         </td>
                                         <td class="d-flex justify-content-end">
                                             <i class="bx bx-printer text-primary fs-4 me-2" role="group"
@@ -264,39 +275,36 @@
                                                 <div class="clearfix">
 
 
-                                                    @foreach ($list->Viabilities->last()->Comments as $comment)
+                                                    @foreach ($list->Viabilities->last()->Comments->sortByDesc('created_at') as $comment)
                                                         @if ($comment->User->id !== auth()->User()->id)
-                                                            <div class="d-flex justify-content-start">
-                                                                <div
-                                                                    class="border border-2 border-secondary rounded mb-3">
+                                                            <div class="border-start border-5 mb-3 border-primary">
+                                                                <p
+                                                                    class="text-start border-2 border-bottom px-2 border-primary">
+                                                                    <span class="fw-bold">Por:</span>
+                                                                    {{ $comment->User->name }}
+                                                                    <span class="fw-bold">as</span>
+                                                                    {{ date('d/m/Y H:i:s', strToTime($comment->created_at)) }}
 
-                                                                    <div class="text-bg-secondary p-2 text-justify">
-                                                                        {{ $comment->message }}</div>
-                                                                    <p class="text-start mt-2"><span
-                                                                            class="fw-bold">Por:</span>
-                                                                        {{ $comment->User->name }}
-                                                                        <span class="fw-bold">as</span>
-                                                                        {{ date('d/m/Y H:i:s') }}
-
-                                                                    </p>
-                                                                </div>
+                                                                </p>
+                                                                <p class="text-start p-2">
+                                                                    {{ $comment->message }}
+                                                                </p>
                                                             </div>
                                                         @endif
+
                                                         @if ($comment->User->id === auth()->User()->id)
-                                                            <div class="d-flex justify-content-end">
-                                                                <div
-                                                                    class="border border-2 border-primary rounded mb-3">
+                                                            <div class="border-start border-5 mb-3 border-secondary">
+                                                                <p
+                                                                    class="text-start border-2 border-bottom border-secondary px-2">
+                                                                    <span class="fw-bold">Por:</span>
+                                                                    {{ $comment->User->name }}
+                                                                    <span class="fw-bold">as</span>
+                                                                    {{ date('d/m/Y H:i:s', strToTime($comment->created_at)) }}
 
-                                                                    <div class="text-bg-primary p-2 text-justify">
-                                                                        {{ $comment->message }}</div>
-                                                                    <p class="text-end mt-2"><span
-                                                                            class="fw-bold">Por:</span>
-                                                                        {{ $comment->User->name }}
-                                                                        <span class="fw-bold">as</span>
-                                                                        {{ date('d/m/Y H:i:s') }}
-
-                                                                    </p>
-                                                                </div>
+                                                                </p>
+                                                                <p class="text-start p-2">
+                                                                    {{ $comment->message }}
+                                                                </p>
                                                             </div>
                                                         @endif
                                                     @endforeach
@@ -308,19 +316,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-4">
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <div class="mb-3">
-                                                    <label for="exampleFormControlTextarea1"
-                                                        class="form-label">Inserir
-                                                        Comentário:</label>
-                                                    <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"></textarea>
-                                                </div>
-                                                <button class="btn btn-primary">Enviar</button>
-                                            </div>
-                                        </div>
-                                    </div>
+
                                 </div>
                             </div>
                         @endif
