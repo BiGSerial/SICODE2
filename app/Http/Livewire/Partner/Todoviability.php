@@ -111,18 +111,26 @@ class Todoviability extends Component
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('approved', false)
-                ->where('tacit', false)
+            $q->where('tacit', false)
                 ->where('canceled', false)
-                ->where('hired', false);
+                ->where('hired', false)
+                ->where('completed', false);
+
+            if (!Auth()->User()->superadm) {
+
+                if (isset(Auth()->User()->Employee->Contract->Company->id)) {
+                    $q->where('company_id', Auth()->User()->Employee->Contract->Company->id);
+                } else {
+                    $q->where('company_id', null);
+                }
+            }
+
         })
             ->with(['Viabilities' => function ($query) {
-                $query->where('approved', false)
-                    ->where('tacit', false)
-                    ->where('canceled', false)
-                    ->orderBy('sended_at')
-                    ->orderBy('rejected', 'asc')
-                    ->with('Order', 'Form', 'Comments.User');
+                $query->where('tacit', false)
+                ->where('canceled', false)
+                ->where('hired', false)
+                ->where('completed', false);
             }, 'Files']);
 
         if ($this->search) {
@@ -130,6 +138,11 @@ class Todoviability extends Component
                 $q->Where('note', 'like', "%$this->search%")
                     ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
             });
+        }
+
+        if (isset($this->filter['rubrica'])) {
+
+            $query->whereIn('rubrica', $this->filter['rubrica']);
         }
 
         if (isset($this->filter['city'])) {

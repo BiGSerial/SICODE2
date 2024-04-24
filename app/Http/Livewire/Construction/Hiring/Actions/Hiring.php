@@ -165,15 +165,17 @@ class Hiring extends Component
 
         DB::commit();
 
+        $this->closeAll();
+
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
             'title'    => 'SUCESSO',
-            'html'      => "A Solicitação foi realizada com sucess.",
+            'html'      => "A Solicitação foi realizada com sucesso.",
             'timer'    => 5000,
         ]);
 
-        $this->closeAll();
+        return;
 
     }
 

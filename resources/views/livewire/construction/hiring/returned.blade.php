@@ -1,6 +1,7 @@
 @php
     use App\Custom\Viabilitiesstatus;
     use App\Custom\Notestatus;
+    use Carbon\Carbon;
 @endphp
 <div>
     <x-show-loading />
@@ -138,21 +139,6 @@
 
                                                         @foreach ($list->Viabilities->last()->Comments as $comment)
                                                             @if ($comment->User->id !== auth()->User()->id)
-                                                                {{-- <div class="d-flex justify-content-start">
-                                                                            <div
-                                                                                class="border border-2 border-secondary rounded mb-3">
-
-                                                                                <div class="text-bg-secondary p-2 text-justify">
-                                                                                    {{ $comment->message }}</div>
-                                                                                <p class="text-start mt-2"><span
-                                                                                        class="fw-bold">Por:</span>
-                                                                                    {{ $comment->User->name }}
-                                                                                    <span class="fw-bold">as</span>
-                                                                                    {{ date('d/m/Y H:i:s') }}
-
-                                                                                </p>
-                                                                            </div>
-                                                                        </div> --}}
                                                                 <div class="border-start border-5 mb-3 border-primary">
                                                                     <p
                                                                         class="text-start border-2 border-bottom px-2 border-primary">
@@ -169,22 +155,6 @@
                                                             @endif
 
                                                             @if ($comment->User->id === auth()->User()->id)
-                                                                {{-- <div class="d-flex justify-content-end">
-                                                                            <div
-                                                                                class="border border-2 border-primary rounded mb-3">
-
-                                                                                <div class="text-bg-primary p-3 text-justify">
-                                                                                    {{ $comment->message }}</div>
-                                                                                <p class="text-end"><span
-                                                                                        class="fw-bold">Por:</span>
-                                                                                    {{ $comment->User->name }}
-                                                                                    <span class="fw-bold">as</span>
-                                                                                    {{ date('d/m/Y H:i:s') }}
-
-                                                                                </p>
-                                                                            </div>
-                                                                        </div> --}}
-
                                                                 <div
                                                                     class="border-start border-5 mb-3 border-secondary">
                                                                     <p
@@ -240,6 +210,8 @@
                                                 <table class="table table-condensed table-stripped">
                                                     <thead>
                                                         <th>Data</th>
+                                                        <th>Tempo</th>
+                                                        <th>Serviço</th>
                                                         <th>Completado</th>
                                                         <th>Produção</th>
                                                         <th>Status</th>
@@ -247,10 +219,22 @@
                                                     <tbody>
                                                         @foreach ($list->Viabilities as $viab)
                                                             @if ($viab->Reclaims->count())
+                                                                @php
+                                                                    $blockAction = false;
+                                                                @endphp
                                                                 @foreach ($viab->Reclaims as $reclaim)
-                                                                    {{-- @dump($reclaim->Note) --}}
+                                                                    @php
+                                                                        if (!$reclaim->completed) {
+                                                                            $blockAction = true;
+                                                                        }
+                                                                    @endphp
                                                                     <tr>
                                                                         <td>{{ date('d/m/Y H:i:s', strToTime($reclaim->created_at)) }}
+                                                                        </td>
+                                                                        <td class="fw-bold">
+                                                                            {{ $reclaim->completed_at ? Carbon::parse($reclaim->created_at)->diffForHumans(Carbon::parse($reclaim->completed_at)) : Carbon::parse($reclaim->created_at)->diffForHumans() }}
+                                                                        </td>
+                                                                        <td>{{ $reclaim->Service->service }}
                                                                         </td>
                                                                         <td>{{ $reclaim->completed_at ? date('d/m/Y H:i:s', strToTime($reclaim->completed_at)) : '---' }}
                                                                         </td>
@@ -283,7 +267,7 @@
                                         @endif
 
 
-                                        @if ($list->Viabilities->count() && !$list->Viabilities->first()->production_id)
+                                        @if (!$blockAction)
                                             @livewire('construction.hiring.actions.hiring', ['list' => $list], key('returnD5-{{ $list->id }}'))
                                         @endif
 

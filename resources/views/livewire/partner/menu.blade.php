@@ -11,7 +11,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.todo.viability') }}" class="nav-item text-white">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>A Fazer</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>À Viabilizar</span>
                             </a>
                         </li>
                     </div>
@@ -19,7 +19,15 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.hist.viability') }}" class="nav-item text-white">
-                                <i class="ri-history-line fw-light fs-5"></i> <span>Concluídos</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Contratadas à Viabilizar</span>
+                            </a>
+                        </li>
+                    </div>
+
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('partner.hist.viability') }}" class="nav-item text-white">
+                                <i class="ri-history-line fw-light fs-5"></i> <span>Histórico</span>
                             </a>
                         </li>
                     </div>

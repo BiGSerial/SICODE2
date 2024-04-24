@@ -96,6 +96,7 @@ class Approveaction extends Component
 
                         if ($return && $this->list->Viabilities->count()) {
                             $block = false;
+                            $commentId = "";
                             foreach ($this->list->Viabilities as $viab) {
                                 // dd($viab);
                                 $viab->update([
@@ -106,13 +107,16 @@ class Approveaction extends Component
 
                                 if (!$block) {
                                     $viab->Reclaims()->attach($return->id);
-                                    $viab->Comments()->create([
+                                    $commentId = $viab->Comments()->create([
                                         'user_id' => auth()->user()->id,
-                                        'message' => 'Responsável informou em conformidade com a viabilidade.',
+                                        'message' => '>> Responsável informou em conformidade com a viabilidade. <<',
 
                                     ]);
 
                                     $block = true;
+                                } else {
+                                    $viab->Reclaims()->attach($return->id);
+                                    $viab->Comments()->attach($commentId);
                                 }
 
 
@@ -143,22 +147,42 @@ class Approveaction extends Component
                     ]);
 
 
-
                     $return->Comments()->create([
                         'user_id' => Auth()->User()->id,
                         'message' => $this->comment
                     ]);
 
+
                     if ($return && $this->list->Viabilities->count()) {
+
+                        $block = false;
+                        $commentId = "";
+
                         foreach ($this->list->Viabilities as $viab) {
                             // dd($viab);
                             $viab->update([
-                                'status' => 11
+                                'status' => 11,
+                                'engineer' => true,
+                                'engineer_at' => date('Y-m-d H:i:s'),
                             ]);
 
-                            $viab->Reclaims()->attach($return->id);
+                            if (!$block) {
+                                $viab->Reclaims()->attach($return->id);
+                                $commentId = $viab->Comments()->create([
+                                    'user_id' => auth()->user()->id,
+                                    'message' => '>> Responsável informou em conformidade com a viabilidade. <<',
+
+                                ]);
+
+                                $block = true;
+                            } else {
+                                $viab->Reclaims()->attach($return->id);
+                                $viab->Comments()->attach($commentId);
+                            }
                         }
+
                     } else {
+
                         DB::rollback();
 
                         $this->dispatchBrowserEvent('swal', [
@@ -190,55 +214,6 @@ class Approveaction extends Component
                 return;
             }
 
-
-
-
-
-
-            // foreach ($this->list->Viabilities as $viability) {
-
-
-            //     try {
-            //         // Atualize a viabilidade
-            //         $viability->update([
-            //             'engineer_at' => now(),
-            //             'status' => 10,
-            //         ]);
-
-            //         // Crie um novo comentário e associe-o à viabilidade
-            //         $viability->Comments()->create([
-            //             'user_id' => auth()->user()->id,
-            //             'message' => $this->comment ?? null,
-            //             'restrict' => $this->restrict ? true : false,
-            //         ]);
-
-
-
-            //         DB::commit();
-
-            //         $this->dispatchBrowserEvent('swal', [
-            //             'position' => 'center',
-            //             'icon'     => 'success',
-            //             'title'    => 'Confirmação Improcedente',
-            //             'html'      => 'A Inviabilidade Técnica foi dada como Improcedente com sucesso.',
-            //             'timer'    => 5000,
-            //         ]);
-
-            //         $this->emitUp('update_list');
-
-            //     } catch (\Throwable $th) {
-            //         DB::rollback();
-
-            //         $this->dispatchBrowserEvent('swal', [
-            //             'position' => 'center',
-            //             'icon'     => 'danger',
-            //             'title'    => 'Confirmação Improcedente',
-            //             'html'      => 'A Inviabilidade Técnica como Improcedente, nao foi executada por algum problema. Nenhuma alteração foi realiazada..',
-            //             'timer'    => 5000,
-            //         ]);
-
-            //     }
-            // }
         }
     }
 
@@ -259,12 +234,18 @@ class Approveaction extends Component
         }
 
         if ($this->list->Viabilities->count()) {
-            foreach ($this->list->Viabilities as $viability) {
-                DB::beginTransaction();
 
-                try {
+            DB::beginTransaction();
+
+            try {
+
+                $block = false;
+                $commentId = "";
+
+                foreach ($this->list->Viabilities as $viab) {
+
                     // Atualize a viabilidade
-                    $viability->update([
+                    $viab->update([
                         'approved' => false,
                         'engineer' => true,
                         'engineer_at' => now(),
@@ -272,37 +253,49 @@ class Approveaction extends Component
                         'status' => 5,
                     ]);
 
-                    // Crie um novo comentário e associe-o à viabilidade
-                    $viability->Comments()->create([
+
+
+                    if (!$block) {
+
+                        // Crie um novo comentário e associe-o à viabilidade
+                        $commentId = $viab->Comments()->create([
                         'user_id' => auth()->user()->id,
                         'message' => $this->comment ?? null,
                         'restrict' => $this->restrict ? true : false,
                     ]);
 
-                    DB::commit();
+                        $block = true;
+                    } else {
 
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'success',
-                        'title'    => 'Contestação Rejeitado',
-                        'html'      => 'Foi Contestado junto a pareceira o parecer da viabilidade.',
-                        'timer'    => 5000,
-                    ]);
-
-                    $this->emitUp('update_list');
-
-                } catch (\Throwable $th) {
-                    DB::rollback();
-
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'danger',
-                        'title'    => 'Erro',
-                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
-                        'timer'    => 5000,
-                    ]);
+                        $viab->Comments()->attach($commentId);
+                    }
 
                 }
+
+                DB::commit();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'Contestação Rejeitado',
+                    'html'      => 'Foi Contestado junto a pareceira o parecer da viabilidade.',
+                    'timer'    => 5000,
+                ]);
+
+                $this->emitUp('update_list');
+
+            } catch (\Throwable $th) {
+
+                DB::rollback();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'danger',
+                    'title'    => 'Erro',
+                    'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
+                    'timer'    => 5000,
+                ]);
+
             }
         }
     }
