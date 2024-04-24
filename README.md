@@ -4,7 +4,8 @@
            \___ \   | |  | |     | |  | || |  | ||  __|
            ____) | _| |_ | |____ | |__| || |__| || |____
           |_____/ |_____| \_____| \____/ |_____/ |______|TM
-
+           Version:
+           
 # SICODE - Sistema de Controle de Demandas
 
 SICODE é um sistema web para controle de demandas, projetado para ajudar equipes a gerenciar tarefas, atribuir responsabilidades e acompanhar o progresso de projetos de forma eficiente.
