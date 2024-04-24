@@ -1,26 +1,28 @@
-name: Update Tag in README
+name: Update Readme with Version
 
 on:
   push:
-    branches:
-      - main  # ajuste conforme o nome da sua branch principal
+    branches: [ main ]
 
 jobs:
   update-readme:
-    runs-on: sicode-latest
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get latest tag
-        run: echo "::set-output name=tag::$(git describe --tags --abbrev=0)"
-
-      - name: Update README with latest tag
+        id: get-tag
         run: |
-          sed -i "s/Version: .*/Version: ${{ steps.update-readme.outputs.tag }}/g" README.md
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git describe --tags > tag.txt
+
+      - name: Update Readme
+        run: |
+          version=$(cat tag.txt)
+          sed -i "s/Version: .*$/Version: $version/" README.md
+
+      - name: Commit changes
+        run: |
           git add README.md
-          git commit -m "Update README with latest tag [skip ci]"
+          git commit -m "Update Readme with version $version"
           git push
