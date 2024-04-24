@@ -9,12 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
       - name: Get latest tag
         id: get-tag
         run: |
-          git describe --tags > tag.txt
+          git describe --tags --abbrev=0 > tag.txt
 
       - name: Update Readme
         run: |
