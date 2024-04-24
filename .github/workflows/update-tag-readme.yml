@@ -18,7 +18,7 @@ jobs:
 
       - name: Update README with latest tag
         run: |
-          sed -i "s/Versão: .*/Versão: ${{ steps.update-readme.outputs.tag }}/g" README.md
+          sed -i "s/Version: .*/Version: ${{ steps.update-readme.outputs.tag }}/g" README.md
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add README.md
