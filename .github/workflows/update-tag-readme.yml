@@ -3,7 +3,7 @@ name: Update Tag in README
 on:
   push:
     branches:
-      - main 
+      - main
 jobs:
   update-readme:
     runs-on: ubuntu-latest
@@ -13,11 +13,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Get latest tag
-        run: echo "::set-output name=tag::$(git describe --tags --abbrev=0)"
+        run: latest_tag=$(git describe --tags --abbrev=0)
 
       - name: Update README with latest tag
         run: |
-          sed -i "s/Version: .*/Version: ${{ steps.update-readme.outputs.tag }}/g" README.md
+          sed -i "s/Version: .*/Version: $latest_tag/g" README.md
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add .
