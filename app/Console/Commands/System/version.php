@@ -44,7 +44,6 @@ class version extends Command
 
             $this->info($art);
         } else {
-
             $this->error('Version file Not found.');
         }
     }
