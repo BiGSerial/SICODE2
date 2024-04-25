@@ -30,7 +30,7 @@ class Statusview extends Component
     {
         $this->info2 = Notetimeline::where('note_id', $this->note_id)->where('status', $this->status)->orderBy('created_at', 'DESC')->with('User')->first();
 
-        if ($this->info) {
+        if ($this->info2) {
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'view_status-' . $this->idstatus,
             ]);
