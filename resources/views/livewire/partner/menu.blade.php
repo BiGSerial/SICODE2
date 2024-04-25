@@ -4,7 +4,8 @@
         <ul class="sidebar-nav" id="sidebar-nav">
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#viability-nav" data-bs-toggle="collapse" href="#">
-                    <i class="ri-eye-line"></i><span>Viabilidade</span><i class="bi bi-chevron-down ms-auto"></i>
+                    <i class="ri-eye-line"></i><span>Viabilidade</span>@livewire('partner.count.sumviability', key('sum-viability'))
+                    <i class="bi bi-chevron-down ms-auto"></i>
                 </a>
                 {{-- Para deixar o Dropdown Aberto, acrescemte 'show' na classe --}}
                 <ul id="viability-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
@@ -12,14 +13,16 @@
                         <li>
                             <a href="{{ route('partner.todo.viability') }}" class="nav-item text-white">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span>À Viabilizar</span>
+                                @livewire('partner.count.todoviabilitycount', key('count-viab'))
                             </a>
                         </li>
                     </div>
 
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="{{ route('partner.hist.viability') }}" class="nav-item text-white">
+                            <a href="{{ route('partner.hired.viability') }}" class="nav-item text-white">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span>Contratadas à Viabilizar</span>
+                                @livewire('partner.count.hiredviability', key('count-hired-viab'))
                             </a>
                         </li>
                     </div>

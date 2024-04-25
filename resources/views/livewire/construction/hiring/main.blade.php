@@ -557,9 +557,10 @@
 
                             </div>
                             <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione o Engenheiro
+                                <label for="form-label" class="text-secondary">Selecione o Responsável
                                     Responsável</label>
                                 <select class="form-select" wire:model.defer="engineer_s">
+
                                     @if ($engineers)
                                         <option>----</option>
                                         @foreach ($engineers as $engineer)
@@ -718,7 +719,16 @@
 
 
 
-                <div class="modal-footer">
+                <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
+                    @if ($action == 1)
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="true"
+                                id="flexCheckIndeterminate" wire:model.defer="hiring">
+                            <label class="form-check-label" for="flexCheckIndeterminate">
+                                CONTRATADO
+                            </label>
+                        </div>
+                    @endif
                     <button type="button" class="btn btn-primary" wire:click.prevent="to_viability">Enviar</button>
                 </div>
 

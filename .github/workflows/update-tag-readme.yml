@@ -1,0 +1,25 @@
+name: Update Tag in README
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest tag
+        run: latest_tag=$(git describe --tags --abbrev=0)
+
+      - name: Update README with latest tag
+        run: |
+          sed -i "s/Version: .*/Version: $latest_tag/g" README.md
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Update README with latest tag [skip ci]"
+          git push

@@ -61,6 +61,9 @@ class Main extends Component
 
     public $action;
 
+    // Indicate Hiring Note when send to Viability
+    public $hiring = false;
+
     public $comment;
 
     // Clipboard
@@ -355,8 +358,8 @@ class Main extends Component
                     <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
                     <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
                     </p>
-                </div>            
-            </div>            
+                </div>
+            </div>
             ";
             }
 
@@ -371,8 +374,8 @@ class Main extends Component
                     <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
                     <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
                     </p>
-                </div>            
-            </div>            
+                </div>
+            </div>
             ";
             }
 
@@ -433,6 +436,8 @@ class Main extends Component
         if (count($this->show_registers)) {
 
             if ($this->action == 1) {
+
+                // To Viability, but has possibiliti send with hired
                 foreach ($this->show_registers as $register) {
 
                     $viability = Viability::Create([
@@ -441,6 +446,8 @@ class Main extends Component
                         'user_id'     => Auth()->User()->id,
                         'engineer_id' => $this->engineer_s,
                         'sended_at'   => date('Y-m-d H:i:s'),
+                        'hired'       => $this->hiring ? true : false,
+                        'hired_at'    => $this->hiring ? date('Y-m-d H:i:s') : null,
                         'status'      => 1,
                     ]);
 
@@ -684,7 +691,7 @@ class Main extends Component
             foreach ($this->lists->pluck('id')->toArray() as $id) {
                 if (!in_array($id, $this->selected)) {
                     // dd();
-                    if (!($this->lists->where('id', $id)->first())->Viabilities->where('hired', false)->count() && !($this->lists->where('id', $id)->first())->Note->Waitings->where('complete', false)->count()) {
+                    if (!($this->lists->where('id', $id)->first())->Viabilities->count() && !($this->lists->where('id', $id)->first())->Note->Waitings->where('complete', false)->count()) {
                         $this->selected[] = $id;
                     }
                 }

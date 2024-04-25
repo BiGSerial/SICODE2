@@ -37,7 +37,7 @@ class version extends Command
            \___ \   | |  | |     | |  | || |  | ||  __|
            ____) | _| |_ | |____ | |__| || |__| || |____
           |_____/ |_____| \_____| \____/ |_____/ |______|TM
-          Ver: {$appverData->appver} 
+          Ver: {$appverData->appver}
           Date: {$date}
            ";
 

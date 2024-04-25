@@ -55,42 +55,12 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     </style>
 
 
-    {{-- @if ($_SERVER['SERVER_NAME'] != 'localhost')
-        @php
-            $path = $_SERVER['CONTEXT_DOCUMENT_ROOT'] . '/build/assets';
-
-            $files = scandir($path);
-
-            $acss = '';
-            $ajs = '';
-
-            foreach ($files as $file) {
-                if ($file != '.' && $file != '..') {
-                    $arquivo = explode('.', $file);
-
-                    if ($arquivo[2] == 'css') {
-                        $acss = $file;
-                    }
-
-                    if ($arquivo[2] == 'js') {
-                        $ajs = $file;
-                    }
-                }
-            }
-
-            // dd($acss, $ajs);
-
-        @endphp
 
 
-        <link href="{{ asset('build/assets') . '/' . $acss }}" rel="stylesheet">
-        <script src="{{ asset('build/assets') . '/' . $ajs }}"></script>
-    @endif --}}
+    <link href="{{ asset('build/assets/app-3891f6bf.css') }}" rel="stylesheet">
 
-    {{-- <link href="{{ asset('build/assets/app-3891f6bf.css') }}" rel="stylesheet"> --}}
-    @basset('build/assets/app-3891f6bf.css')
-    {{-- <script src="{{ asset('build/assets/app-4ed993c7.js') }}"></script> --}}
-    @basset('build/assets/app-4ed993c7.js')
+    <script src="{{ asset('build/assets/app-4ed993c7.js') }}"></script>
+
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
 
@@ -98,11 +68,6 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     @livewireStyles
 
 
-
-    {{-- <link rel="stylesheet" href="{{ asset('/build/assets/app-*.css') }}" />
-
-
-    @vite(['resources/css/app.css', 'resources/js/app.js']) --}}
 
 </head>
 
@@ -147,13 +112,6 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                         </a>
                     </div><!-- End Logo -->
                 @else
-                    {{-- <li class="nav-item mx-2">
-                        <a href="" class="logo d-flex mx-0">
-                            <span
-                                class="d-none d-lg-block text-white">{{ isset(Auth()->user()->Employee->Contract->company->name) ? mb_strtolower(explode(' ', Auth()->user()->Employee->Contract->company->name)[0]) : '' }}</span>
-                            <span class="d-none d-lg-block text-edp-verde">sicode</span>
-                        </a>
-                    </li> --}}
                     <div class="d-flex align-items-end justify-content-between mx-2">
                         <a href="{{ route('home') }}" class="d-flex align-items-end">
                             <span
@@ -175,8 +133,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                                     $name = explode(' ', Auth()->User()->name);
                                     $name = end($name) . $name[0];
                                 @endphp
-                                {{-- <img src="https://ui-avatars.com/api/?background=random&name={{ $name[0] }}+{{ end($name) }}"
-                                    alt="Profile" class="rounded-circle"> --}}
+
                                 <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed={{ Auth()->User()->email }}"
                                     alt="" style="height: 100px">
                             @endif
@@ -254,7 +211,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
             </div>
 
         </footer>
-     
+
 
 
 

@@ -7,7 +7,7 @@
             <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
             <li class="breadcrumb-item">Construção</li>
             <li class="breadcrumb-item" aria-current="page">Parceiro</li>
-            <li class="breadcrumb-item" aria-current="page">Viabilidade</li>
+            <li class="breadcrumb-item" aria-current="page">Viabilidade Contratadas</li>
             <li class="breadcrumb-item active" aria-current="page">A Fazer</li>
         </ol>
     </nav>
@@ -15,15 +15,13 @@
 
 
 @section('menu')
-    @livewire('partner.menu')
+    @livewire('partner.menu', key('partner-menu'))
 @endsection
 
 @section('content')
-    @livewire('partner.todoviability')
+    @livewire('partner.hiredviability', key('partner-content'))
 @endsection
 
 @push('script')
-    <script>
-        joaozinho = 0
-    </script>
+   
 @endpush
