@@ -1,3 +1,3 @@
 <div wire:poll.60s="watchdog">
-    {{-- Stop trying to control. --}}
+    <span> Usuarios Online: {{ $online }}</span>
 </div>

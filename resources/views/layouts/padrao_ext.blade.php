@@ -57,28 +57,28 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     {{-- @if ($_SERVER['SERVER_NAME'] != 'localhost')
         @php
             $path = $_SERVER['CONTEXT_DOCUMENT_ROOT'] . '/build/assets';
-            
+
             $files = scandir($path);
-            
+
             $acss = '';
             $ajs = '';
-            
+
             foreach ($files as $file) {
                 if ($file != '.' && $file != '..') {
                     $arquivo = explode('.', $file);
-            
+
                     if ($arquivo[2] == 'css') {
                         $acss = $file;
                     }
-            
+
                     if ($arquivo[2] == 'js') {
                         $ajs = $file;
                     }
                 }
             }
-            
+
             // dd($acss, $ajs);
-            
+
         @endphp
 
 
@@ -244,13 +244,14 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                 @if (env('APP_QA'))
                     <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
                 @endif
+                @livewire('watchdog')
             </div>
 
         </footer>
     </main><!-- End #main -->
 
-    @livewire('components.modal.priority');
-    @livewire('watchdog');
+    @livewire('components.modal.priority')
+   
 
     @livewireScripts
 

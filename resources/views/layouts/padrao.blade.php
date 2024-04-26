@@ -208,6 +208,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                 @if (env('APP_QA'))
                     <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
                 @endif
+                @livewire('watchdog')
             </div>
 
         </footer>
@@ -217,8 +218,8 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
     </main><!-- End #main -->
 
-    @livewire('components.modal.priority');
-    @livewire('watchdog');
+    @livewire('components.modal.priority')
+
 
     @livewireScripts
 

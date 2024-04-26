@@ -72,7 +72,7 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($users_l as $user)
-                                        <tr wire:key='{{ $user->id }}'>
+                                        <tr wire:key='line-user-{{ $user->id }}'>
                                             <td>
                                                 {{-- @php
                                                     $name = explode(' ', auth()->user()->name);
@@ -154,12 +154,12 @@
 
                                                 @if ($active)
                                                     <span class="badge fs-6 text-bg-success">
-                                                        online
+                                                        ONLINE
                                                     </span>
                                                 @else
                                                     <span class="align-middle my-auto">
                                                         <span class="badge fs-6 text-bg-danger">
-                                                            ofline
+                                                            OFFLINE
                                                         </span>
                                                         <p class="mt-1 py-0"><span class="fw-bold">Visto em:</span>
                                                             {{ isset($user->Watchdog->updated_at) ? Carbon::parse($user->Watchdog->updated_at)->diffForHumans(Carbon::now()) : 'Nunca Entrou' }}

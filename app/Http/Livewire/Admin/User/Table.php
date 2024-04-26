@@ -30,6 +30,11 @@ class Table extends Component
 
     ];
 
+    protected $queryString = [
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'pag'],
+    ];
+
     public function update_user($id)
     {
 
@@ -39,6 +44,11 @@ class Table extends Component
             'id' => 'update_modal',
         ]);
 
+    }
+
+    public function updatedSearch()
+    {
+        $this->gotoPage(1);
     }
 
     public function getUserProperty()

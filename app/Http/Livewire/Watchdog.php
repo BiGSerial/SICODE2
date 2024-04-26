@@ -32,9 +32,16 @@ class Watchdog extends Component
             );
     }
 
+    public function getOnlineProperty()
+    {
+        return Activeuser::where('watchdog', true)->count();
+    }
+
 
     public function render()
     {
-        return view('livewire.watchdog');
+        return view('livewire.watchdog', [
+            'online' => $this->online
+        ]);
     }
 }

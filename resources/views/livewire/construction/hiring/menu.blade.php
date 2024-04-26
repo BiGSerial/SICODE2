@@ -22,7 +22,7 @@
                                 class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span>MEU CONTROLE
                                     {{ mb_strToUpper($service->service) }}</span>
-                                {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
+                                @livewire('construction.hiring.counts.countmycontrol', key('count-control'))
                             </a>
                         </li>
                         <li>
@@ -30,7 +30,7 @@
                                 class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span>RETORNO VIABILIDADE
                                     {{ mb_strToUpper($service->service) }}</span>
-                                {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
+                                @livewire('construction.hiring.counts.returnviab', key('count-return'))
                             </a>
                         </li>
 
