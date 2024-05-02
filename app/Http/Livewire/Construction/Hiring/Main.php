@@ -643,7 +643,7 @@ class Main extends Component
 
             $this->gotoPage(1);
 
-            $this->search = '';
+
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
@@ -662,9 +662,24 @@ class Main extends Component
             $this->multiSearch = array_map('trim', $this->multiSearch);
         }
 
-        // dd($this->multiSearch);
+
+
+
+
+
 
         if (count($this->multiSearch)) {
+
+            $limpar = [];
+
+            foreach ($this->multiSearch as $value) {
+                if ($value) {
+                    $limpar[] = $value;
+                }
+            }
+
+            $this->multiSearch = $limpar;
+            $this->search = '';
             $this->closeall();
         }
     }
@@ -732,15 +747,7 @@ class Main extends Component
                 });
             });
 
-        if (count($this->multiSearch)) {
 
-            // $query->whereIn('ordem', $this->multiSearch);
-            $query->where(function ($q) {
-                return $q->WhereRelation('Note', function ($query) {
-                    $query->whereIn('note', $this->multiSearch);
-                })->orWhereIn('ordem', $this->multiSearch);
-            });
-        }
 
         $query->join('notes', 'orders.note_id', '=', 'notes.id')
             ->where('statusSist', 'like', 'ABER%')
@@ -761,9 +768,20 @@ class Main extends Component
             });
 
 
-        if (count($this->multiSearch)) {
-            $query->whereIn('ordem', $this->multiSearch);
+        // if (count($this->multiSearch)) {
+        //     $query->whereIn('ordem', $this->multiSearch);
 
+        // }
+
+        if ($this->multiSearch) {
+
+
+            // $query->whereIn('ordem', $this->multiSearch);
+            $query->where(function ($q) {
+                return $q->WhereRelation('Note', function ($query) {
+                    $query->whereIn('note', $this->multiSearch);
+                })->orWhereIn('ordem', $this->multiSearch);
+            });
         }
 
         if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {

@@ -167,6 +167,38 @@
 
                     $block = null;
                     $color = 'grey';
+                    $days_left = 0;
+
+                    // Dias Restantes
+                    if ($list->type_note == 1) {
+                        if ($list->mesalization && $list->mesalization != 'erro') {
+                            preg_match('/\d+\/\d+/', $list->mesalization, $matches);
+
+                            if (!empty($matches)) {
+                                [$mes, $ano] = explode('/', $matches[0]);
+
+                                if ($mes >= 1) {
+                                    $data = "{$ano}-{$mes}-28 23:59:59";
+
+                                    $hoje = Carbon::now();
+
+                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                } else {
+                                    $data = "{$ano}-12-28 23:59:59";
+
+                                    $hoje = Carbon::now();
+
+                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                }
+                            }
+                        }
+                    } elseif ($list->type_note == 2) {
+                        $days_left = $list->days_left;
+                    }
 
                     if ($list->Viabilities->count()) {
                         $count = 0;
@@ -212,17 +244,18 @@
                     <div class="align-items-center mb-2" x-show="!isShow" style="animation-delay: {{ $index * 0.03 }}s">
 
                         <div class="clear-fix" style="border-left: 15px solid {{ $color }}">
-                            <table class="table table-sm my-0">
+                            <table class="table table-sm my-0 table-striped-columns">
                                 <thead>
-                                    <th scope="col" class="col-2">Nota/Ov</th>
-                                    <th scope="col" class="col-2">Ordem</th>
-                                    <th scope="col" class="col-1">Rubrica</th>
-                                    <th scope="col" class="col-1">Regiao</th>
-                                    <th scope="col" class="col-2">Municipio</th>
-                                    <th scope="col" class="col-1">Recebido Em</th>
-                                    <th scope="col" class="col-1">Prazo Estimado</th>
-                                    <th scope="col" class="col-1">Status</th>
-                                    <th scope="col" class="col-1">Ação</th>
+                                    <th scope="col" class="col-2 text-center">Nota/Ov</th>
+                                    <th scope="col" class="col-2 text-center">Ordem</th>
+                                    <th scope="col" class="col-1 text-center">Rubrica</th>
+                                    <th scope="col" class="col-1 text-center">Regiao</th>
+                                    <th scope="col" class="col-2 text-center">Municipio</th>
+                                    <th scope="col" class="col-1 text-center">Recebido Em</th>
+                                    <th scope="col" class="col-1 text-center">Prazo Estimado</th>
+                                    <th scope="col" class="col-1 text-center">Pze Restante</th>
+                                    <th scope="col" class="col-1 text-center">Status</th>
+                                    <th scope="col" class="col-1 text-center">Ação</th>
                                     <th scope="col" class="d-flex justify-content-end">
                                         <button class=" btn btn-sm btn-primary" @click="isShow=true">
                                             <i class="bx bx-caret-down-circle align-middle fs-5"></i>
@@ -231,8 +264,8 @@
                                 </thead>
                                 <tbody class="">
                                     <tr>
-                                        <td class="fw-bold">{{ $list->note }}</td>
-                                        <td class="">
+                                        <td class="fw-bold text-center">{{ $list->note }}</td>
+                                        <td class=" text-center">
                                             @if ($list->Viabilities->count())
                                                 <p class="p-0 m-0">
                                                     {{ $list->Viabilities->first()->Order->ordem }}
@@ -243,21 +276,25 @@
                                                 </p>
                                             @endif
                                         </td>
-                                        <td class="text-uppercase">{{ $list->rubrica }}</td>
-                                        <td class="text-uppercase">
+                                        <td class="text-uppercase text-center">{{ $list->rubrica }}</td>
+                                        <td class="text-uppercase text-center">
                                             {{ $cities->Where('rdMunicipio', $list->nexp)->first() ? $cities->Where('rdMunicipio', $list->nexp)->first()->regiao : '' }}
                                         </td>
-                                        <td class="text-uppercase">{{ $list->lexp }}</td>
-                                        <td class="fw-bold">
+                                        <td class="text-uppercase text-center">{{ $list->lexp }}</td>
+                                        <td class="fw-bold text-center">
                                             {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
                                         </td>
-                                        <td class="fw-bold text-danger">
+                                        <td class="fw-bold text-danger text-center">
                                             {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
                                         </td>
-                                        <td><span
+                                        <td class=" text-center">
+                                            {{ $days_left }}
+                                        </td>
+                                        <td class=" text-center"><span
                                                 class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
                                         </td>
-                                        <td>
+
+                                        <td class=" text-center">
                                             @if ($list->Viabilities->last()->status == 5)
                                                 <span class="badge text-bg-danger blink">Requer Ação</span>
                                             @endif
@@ -292,7 +329,7 @@
                     {{-- CARD EXTENDED --}}
                     <div class="card mb-5 shadow" style="display: none;" x-show="isShow" @click.away="isShow=false">
                         <div class="card-body">
-                            <table class="table table-sm my-0">
+                            <table class="table table-sm my-0 table-striped-columns">
                                 <thead>
                                     <th scope="col">Nota/Ov</th>
                                     <th scope="col">Ordem</th>
