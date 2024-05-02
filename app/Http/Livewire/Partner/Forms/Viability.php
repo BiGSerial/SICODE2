@@ -142,7 +142,7 @@ class Viability extends Component
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENTREGAR ANALISE DE VIABILIDADE',
             'msg'   => "<p class='fw-bold'>Você deseja entregar esta análise de viabilidade?</p>
-            <p class='text-center my-2'> 
+            <p class='text-center my-2'>
                 A entrega desta analise seguirá para avaliação do corpo responsável, dependendo do resultado deste.
             </p>
             ",
@@ -280,6 +280,7 @@ class Viability extends Component
                         'returned_at' => date('Y-m-d H:i:s'),
                         'approved'    => $data['approved'] ? $data['approved'] : false,
                         'rejected'    => $data['rejected'] ? $data['rejected'] : false,
+                        'status'    => $data['status'] ? $data['status'] : null,
                     ]);
 
                     if (!$chk_viability) {

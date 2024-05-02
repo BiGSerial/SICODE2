@@ -74,8 +74,9 @@
                                                     </td>
                                                     <td>{{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
                                                     </td>
+
                                                     <td><span
-                                                            class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
+                                                            class="badge {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
                                                     </td>
                                                     <td>
                                                         @if ($list->Viabilities->last()->status == 4)

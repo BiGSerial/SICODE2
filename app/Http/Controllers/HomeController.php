@@ -34,7 +34,13 @@ class HomeController extends Controller
     {
 
         if (Auth()->user()->first_pass) {
+
             return view('auth.change');
+
+        } elseif (Auth()->User()->onlyparner) {
+
+            return redirect()->route('partner.main.viability');
+            
         } else {
 
             $userId         = auth()->user()->id;

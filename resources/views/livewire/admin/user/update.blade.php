@@ -103,6 +103,7 @@
                 <input wire:model.defer="user" class="form-check-input" type="checkbox" id="user">
                 <label class="form-check-label" for="user">Usuário</label>
             </div>
+
             @can('superadm')
                 <div class="card">
                     <n5 class="card-header edp-bg-sprucegreen-20 text-white">ESPECIAL</n5>
@@ -111,6 +112,11 @@
                 <div class="form-check form-check-inline">
                     <input wire:model.defer="bypasspro" class="form-check-input" type="checkbox" id="bypassprod">
                     <label class="form-check-label" for="superadmin">Auto Aprovar Produção</label>
+                </div>
+
+                <div class="form-check form-check-inline">
+                    <input wire:model.defer="onlyparner" class="form-check-input" type="checkbox" id="user">
+                    <label class="form-check-label" for="user">Empreitera</label>
                 </div>
             @endcan
 

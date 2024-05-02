@@ -46,6 +46,8 @@ class Update extends Component
 
     public $bypassprod;
 
+    public $onlyparner;
+
     protected $listeners = [
         'save_update_user'  => 'update',
         'toResetPass'       => 'to_reset_password',
@@ -67,6 +69,7 @@ class Update extends Component
         $this->contract     = $this->user_update->contract;
         $this->registration = $this->user_update->Registration;
         $this->bypassprod   = $this->user_update->bypassprod;
+        $this->onlyparner   = $this->user_update->onlyparner;
 
         if (isset($this->user_update->Employee)) {
             $this->company_s  = $this->user_update->Employee->Contract->company_id;
@@ -89,14 +92,14 @@ class Update extends Component
             return;
         }
 
-        if (($this->superadm +
-            $this->admin +
-            $this->management +
-            $this->engineer +
-            $this->operator) == 0) {
+        // if (($this->superadm +
+        //     $this->admin +
+        //     $this->management +
+        //     $this->engineer +
+        //     $this->operator) == 0) {
 
-            $this->user = true;
-        }
+        //     $this->user = true;
+        // }
 
         $this->user_update->name         = ucwords(strtolower($this->name));
         $this->user_update->email        = $this->email;
@@ -109,6 +112,7 @@ class Update extends Component
         $this->user_update->user         = $this->user ? true : false;
         $this->user_update->contract     = $this->contract ? true : false;
         $this->user_update->bypassprod   = $this->bypassprod ? true : false;
+        $this->user_update->onlyparner   = $this->onlyparner ? true : false;
 
         if (Auth()->User()->Contract) {
             $this->user_update->contract = true;
@@ -224,6 +228,7 @@ class Update extends Component
         $this->companies    = '';
         $this->services     = '';
         $this->registration = '';
+        $this->onlyparner   = false;
 
         $this->dispatchBrowserEvent('hideModal');
     }

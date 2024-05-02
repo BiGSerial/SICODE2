@@ -44,6 +44,8 @@ class Create extends Component
 
     public $engineer;
 
+    public $onlyparner;
+
     public function save()
     {
         if (!$this->email || !trim($this->name)) {
@@ -57,14 +59,14 @@ class Create extends Component
             return;
         }
 
-        if (($this->superadm +
-            $this->admin +
-            $this->management +
-            $this->engineer +
-            $this->operator) == 0) {
+        // if (($this->superadm +
+        //     $this->admin +
+        //     $this->management +
+        //     $this->engineer +
+        //     $this->operator) == 0) {
 
-            $this->user = true;
-        }
+        //     $this->user = true;
+        // }
 
         if (Auth()->User()->Contract) {
             $this->contract = true;
@@ -82,6 +84,7 @@ class Create extends Component
             'operator'     => $this->operator ? true : false,
             'user'         => $this->user ? true : false,
             'contract'     => $this->contract ? true : false,
+            'onlyparner'   => $this->onlyparner ? true : false,
         ]);
 
         if ($user) {
@@ -134,6 +137,7 @@ class Create extends Component
         $this->companies    = '';
         $this->services     = '';
         $this->registration = '';
+        $this->onlyparner = false;
 
         $this->dispatchBrowserEvent('hideModal');
     }

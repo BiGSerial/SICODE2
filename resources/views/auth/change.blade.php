@@ -1,10 +1,14 @@
-@extends('layouts.login')
+@extends('layouts.login_new')
 
 
 
 @push('css')
     <link rel="stylesheet" href="{{ asset('assets/css/sweetalert2.min.css') }}">
 @endpush
+
+@section('content')
+    @livewire('password.change')
+@endsection
 
 @push('script')
     <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
@@ -50,7 +54,3 @@
         });
     </script>
 @endpush
-
-@section('content')
-    @livewire('password.change')
-@endsection

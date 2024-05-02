@@ -13,7 +13,6 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <link rel="shortcut icon" href="{{ asset('img/favicon.ico') }}" type="image/x-icon">
 
     <link href="{{ asset('assets/vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/vendor/quill/quill.snow.css') }}" rel="stylesheet">
@@ -251,7 +250,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     </main><!-- End #main -->
 
     @livewire('components.modal.priority')
-   
+
 
     @livewireScripts
 

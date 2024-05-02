@@ -167,10 +167,9 @@
                                         <tr class="align-middle @if ($list->priority) table-danger @endif">
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                                {{ $list->Note->note }}
-                                                @if ($list->d5)
-                                                    <span class="badge text-bg-primary">RI</span>
-                                                @endif
+
+                                                @livewire('services.desenho.modals.retornointerno', ['list' => $list], key('ri-' . $list->id))
+
                                                 <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
@@ -202,7 +201,7 @@
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                             </td>
                                             <td scope="col"
-                                                class="text-center 
+                                                class="text-center
                                         @if ($list->Note->days_left < 0) text-bg-secondary
                                         @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                         table-danger

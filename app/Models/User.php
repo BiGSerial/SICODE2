@@ -38,6 +38,7 @@ class User extends Authenticatable
         'first_pass',
         'bypassprod',
         'engineer',
+        'onlyparner',
     ];
 
     /**

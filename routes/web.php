@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, ConstructionController, DispatchController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -19,7 +19,13 @@ use Illuminate\Support\Facades\{Auth, Route};
 Route::get('/', function () {
 
     if (Auth::check()) {
-        return redirect('home');
+
+        if (Auth()->User()->onlyparner) {
+            return redirect()->route('partner.main.viability');
+        } else {
+            return redirect('home');
+        }
+
     }
 
     return view('auth.login');
@@ -27,7 +33,18 @@ Route::get('/', function () {
 
 Auth::routes();
 
+// Route::prefix('/login')->controller(CustomAuthController::class)->name('login.')->group(function () {
+//     Route::post('/', 'login')->name('login');
+//     Route::get('/logout', 'logout')->name('logout');
+//     Route::get('/change_pass', 'showChangePass')->name('show.change');
+
+
+// });
+
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->middleware('auth')->name('home');
+
+
+
 Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])->middleware('auth')->name('company');
 
 Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->middleware('auth')->group(function () {

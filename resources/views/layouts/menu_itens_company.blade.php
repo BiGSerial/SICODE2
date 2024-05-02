@@ -1,4 +1,4 @@
-<li class="nav-item dropdown mx-2">
+{{-- <li class="nav-item dropdown mx-2">
     <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
         aria-expanded="false">
         ADMINISTRAÇÃO
@@ -18,4 +18,4 @@
         @endcan
 
     </ul>
-</li>
+</li> --}}

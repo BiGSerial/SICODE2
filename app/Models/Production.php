@@ -111,4 +111,9 @@ class Production extends Model
     {
         return $this->belongsToMany(File::class);
     }
+
+    public function Reclaim()
+    {
+        return $this->hasOne(Reclaim::class);
+    }
 }
