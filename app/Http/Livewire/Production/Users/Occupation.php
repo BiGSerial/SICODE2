@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Production\Users;
 
-use App\Models\{Company, Production, Service};
+use App\Models\{Company, Production, Service, User};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -22,21 +22,43 @@ class Occupation extends Component
 
     public function getListsProperty()
     {
-        return DB::table('users')
-            ->join('productions', 'users.id', '=', 'productions.user_id')
-            ->join('employees', 'users.id', '=', 'employees.user_id')
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->where('productions.service_id', '=', $this->service->uuid)
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('productions.company_id', '=', Auth()->User()->Employee->Contract->company_id);
-            })
-            ->when($this->company_s, function ($q) {
-                return $q->where('productions.company_id', $this->company_s);
-            })
-            ->where('productions.completed', '=', false)
-            ->select('users.id', 'users.name', DB::raw('count(productions.id) as registros'), DB::raw('SUM(CASE WHEN notes.type_note = 2 THEN 1 ELSE 0 END) as ov'), DB::raw('SUM(CASE WHEN notes.type_note = 1 THEN 1 ELSE 0 END) as notes'))
-            ->groupBy('users.id', 'users.name')
-            ->get();
+        // return DB::table('users')
+        //     ->join('productions', 'users.id', '=', 'productions.user_id')
+        //     ->join('employees', 'users.id', '=', 'employees.user_id')
+        //     ->join('notes', 'productions.note_id', '=', 'notes.id')
+        //     ->where('productions.service_id', '=', $this->service->uuid)
+        //     ->when(Auth()->User()->contract, function ($q) {
+        //         return $q->where('productions.company_id', '=', Auth()->User()->Employee->Contract->company_id);
+        //     })
+        //     ->when($this->company_s, function ($q) {
+        //         return $q->where('productions.company_id', $this->company_s);
+        //     })
+        //     ->where('productions.completed', '=', false)
+        //     ->select('users.id', 'users.name', DB::raw('count(productions.id) as registros'), DB::raw('SUM(CASE WHEN notes.type_note = 2 THEN 1 ELSE 0 END) as ov'), DB::raw('SUM(CASE WHEN notes.type_note = 1 THEN 1 ELSE 0 END) as notes'))
+        //     ->groupBy('users.id', 'users.name')
+        //     ->get();
+
+        $users = User::with(['Productions', 'Employee.contract'])
+        ->join('productions', 'users.id', '=', 'productions.user_id')
+        ->join('employees', 'users.id', '=', 'employees.user_id')
+        ->join('notes', 'productions.note_id', '=', 'notes.id')
+        ->where('productions.service_id', $this->service->uuid)
+        ->when(Auth()->user()->contract, function ($q) {
+            return $q->where('productions.company_id', Auth()->user()->employee->contract->company_id);
+        })
+        ->when($this->company_s, function ($q) {
+            return $q->where('productions.company_id', $this->company_s);
+        })
+        ->where('productions.completed', false)
+        ->select('users.id', 'users.name')
+        ->selectRaw('count(productions.id) as registros')
+        ->selectRaw('SUM(CASE WHEN notes.type_note = 2 THEN 1 ELSE 0 END) as ov')
+        ->selectRaw('SUM(CASE WHEN notes.type_note = 1 THEN 1 ELSE 0 END) as notes')
+        ->groupBy('users.id', 'users.name')
+        ->get();
+
+        return $users;
+
     }
 
     public function render()

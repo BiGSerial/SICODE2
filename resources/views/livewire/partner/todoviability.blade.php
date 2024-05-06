@@ -254,7 +254,7 @@
                                     <th scope="col" class="col-1 text-center">Recebido Em</th>
                                     <th scope="col" class="col-1 text-center">Prazo Estimado</th>
                                     <th scope="col" class="col-1 text-center">Pze Restante</th>
-                                    <th scope="col" class="col-1 text-center">Status</th>
+                                    <th scope="col" class="col-1 text-center text-wrap">Status</th>
                                     <th scope="col" class="col-1 text-center">Ação</th>
                                     <th scope="col" class="d-flex justify-content-end">
                                         <button class=" btn btn-sm btn-primary" @click="isShow=true">
@@ -291,7 +291,7 @@
                                             {{ $days_left }}
                                         </td>
                                         <td class=" text-center"><span
-                                                class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
+                                                class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
                                         </td>
 
                                         <td class=" text-center">

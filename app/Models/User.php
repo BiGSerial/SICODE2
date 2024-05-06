@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->hasMany(Priority::class);
     }
 
+    public function Productions()
+    {
+        return $this->hasMany(Production::class);
+    }
+
     public function Watchdog()
     {
         return $this->hasOne(Activeuser::class);

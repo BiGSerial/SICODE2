@@ -109,6 +109,7 @@ class Analise extends Component
         'open_analise_draw' => 'openAnalise',
         'analise_clean'     => 'clean',
         'confirm_goFinish'  => 'goFinish',
+        'clean' => 'clean',
 
     ];
 
@@ -403,7 +404,7 @@ class Analise extends Component
                 'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                                   adequada. 
+                                   adequada.
                     </p>
                 ",
             ]);
@@ -415,6 +416,14 @@ class Analise extends Component
 
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'pause_note',
+        ]);
+    }
+
+    public function cancel(Production $production)
+    {
+        $this->emit('cancel_files');
+        $production->update([
+            
         ]);
     }
 
@@ -454,7 +463,7 @@ class Analise extends Component
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                        Uma vez encerrado, essa operação nao poderá ser desfeita. 
+                        Uma vez encerrado, essa operação nao poderá ser desfeita.
                         <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                     </div>
                 </div>
@@ -525,40 +534,39 @@ class Analise extends Component
 
 
 
-                if (count($this->show_files)) {
+                // if (count($this->show_files)) {
 
-                    foreach ($this->show_files as $temp_file) {
+                //     foreach ($this->show_files as $temp_file) {
 
-                        $caminho = '';
+                //         $caminho = '';
 
-                        if (isset($this->files[$temp_file['id']])) {
+                //         if (isset($this->files[$temp_file['id']])) {
 
-                            $caminho = $this->files[$temp_file['id']]->store('/arquivos/projeto');
+                //             $caminho = $this->files[$temp_file['id']]->store('/arquivos/projeto');
 
-                            if ($caminho) {
+                //             if ($caminho) {
 
-                                $this->production->Files()->create([
-                                    'note_id'   => $this->production->note_id,
-                                    'user_id'   => Auth()->User()->id,
-                                    'service_id'   => $this->production->service_id,
-                                    'file_name' => $temp_file['name'],
-                                    'path'      => $caminho,
-                                    'ext'       => $temp_file['ext'],
-                                ]);
+                //                 $this->production->Files()->create([
+                //                     'note_id'   => $this->production->note_id,
+                //                     'user_id'   => Auth()->User()->id,
+                //                     'service_id'   => $this->production->service_id,
+                //                     'file_name' => $temp_file['name'],
+                //                     'path'      => $caminho,
+                //                     'ext'       => $temp_file['ext'],
+                //                 ]);
 
-                            }
+                //             }
 
-                        }
+                //         }
 
-                    }
-                }
+                //     }
+                // }
 
 
                 DB::commit();
+                $this->emit('save_files');
 
-                $this->clean();
-                $this->dispatchBrowserEvent('hideModal');
-                $this->emit('refresh_accomany');
+
             }
 
         } catch (\Throwable $th) {

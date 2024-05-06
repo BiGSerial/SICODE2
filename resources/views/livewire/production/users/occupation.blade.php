@@ -21,7 +21,7 @@
                 </div>
 
 
-                <table class="table table-sm table-condensed table-hover table-striped">
+                <table class="table table-sm table-condensed table-hover table-striped ">
 
                     <thead>
                         <tr>
@@ -38,8 +38,33 @@
                                 $name = $name[0] . ' ' . end($name);
                             @endphp
                             <tr role="button" wire:click.defer="$emit('filterUser', '{{ $list->id }}')">
-                                <td class="fw-bold text-center">{{ $indice + 1 }}</td>
-                                <td class="text-center">{{ $name }}</td>
+                                <td class="fw-bold text-center align-middle">
+                                    {{ $indice + 1 }}
+
+                                </td>
+                                <td class="text-center position-relative align-middle">
+
+                                    {{ $name }}
+
+                                    @if (isset($list->Watchdog) && $list->Watchdog->watchdog)
+                                        <span
+                                            class="position-absolute top-50 spinner-grow me-2 start-100 translate-middle p-1
+                                    border border-light rounded-circle"
+                                            style="background-color: #28FF52; width: 10px; height: 10px">
+                                            <span class="visually-hidden">New
+                                                alerts</span>
+                                        </span>
+                                    @else
+                                        <span
+                                            class="position-absolute top-50 me-2 start-100 translate-middle p-1
+                            border border-light rounded-circle"
+                                            style="background-color: #ef2727; width: 10px; height: 10px">
+                                            <span class="visually-hidden">New
+                                                alerts</span>
+                                        </span>
+                                    @endif
+
+                                </td>
                                 <td class="text-center">
                                     <p class="my-0 py-0">{{ $list->registros }} - <span
                                             style="">{{ round(($list->registros / $lists->sum('registros')) * 100, 2) }}%</span>

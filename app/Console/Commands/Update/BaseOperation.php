@@ -63,33 +63,33 @@ class BaseOperation extends Command
 
                 $order = $orders->where('ordem', $origin->ordem)->first();
 
-                if (!$order) {
+                // if (!$order) {
 
-                    $order = Order::whereRelation('Operations', 'ordem', $origin->ordem)->whereRelation('Operations', 'operacao', $origin->operacao)->first();
+                //     $order = Order::whereRelation('Operations', 'ordem', $origin->ordem)->whereRelation('Operations', 'operacao', $origin->operacao)->first();
 
-                    // if (!$order) {
-                    //     // Nota não encontrada, cria-se um uma nova numeração caso o tamanho da numeração seja menor que 4 digitos.
-                    //     $count['nf']++;
+                //     if (!$order) {
+                //         // Nota não encontrada, cria-se um uma nova numeração caso o tamanho da numeração seja menor que 4 digitos.
+                //         $count['nf']++;
 
-                    //     if (strlen((string)(int)$origin->ovNota) < 4) {
-                    //         $rangeNum = 90000000;
-                    //         $newNote = 'C'.(string)($rangeNum + Note::Where('note', 'like', 'C9%')->count());
-                    //     } else {
-                    //         $newNote = (string)(int)$origin->ovNota;
-                    //     }
+                //         if (strlen((string)(int)$origin->ovNota) < 4) {
+                //             $rangeNum = 90000000;
+                //             $newNote = 'C'.(string)($rangeNum + Note::Where('note', 'like', 'C9%')->count());
+                //         } else {
+                //             $newNote = (string)(int)$origin->ovNota;
+                //         }
 
-                    //     $note = new Note();
-                    //     $note->note = $newNote;
-                    //     $note->created_by = 'SICODE';
-                    //     $note->numPedido = $origin->descricao;
-                    //     $note->centerjob = $origin->cenTrab;
-                    //     $note->nexp = $cities->where('gpm', $origin->gpm)->first() ? $cities->where('gpm', $origin->gpm)->first()->rdMunicipio : null;
-                    //     $note->lexp = $cities->where('gpm', $origin->gpm)->first() ? $cities->where('gpm', $origin->gpm)->first()->municipio : null;
-                    //     $note->nstats = '101';
-                    //     $note->save();
+                //         $note = new Note();
+                //         $note->note = $newNote;
+                //         $note->created_by = 'SICODE';
+                //         $note->numPedido = $origin->descricao;
+                //         $note->centerjob = $origin->cenTrab;
+                //         $note->nexp = $cities->where('gpm', $origin->gpm)->first() ? $cities->where('gpm', $origin->gpm)->first()->rdMunicipio : null;
+                //         $note->lexp = $cities->where('gpm', $origin->gpm)->first() ? $cities->where('gpm', $origin->gpm)->first()->municipio : null;
+                //         $note->nstats = '101';
+                //         $note->save();
 
-                    // }
-                }
+                //     }
+                // }
 
                 if ($order) {
                     $operation = $order->Operations()->updateOrCreate(

@@ -89,7 +89,7 @@ class SicodePdf
      *
      * @return self
      */
-    public function setOrdem($ordem)
+    public function setOrdem(array $ordem)
     {
         $this->ordem = $ordem;
 
@@ -135,4 +135,6 @@ class SicodePdf
 
         return $this;
     }
+
+
 }

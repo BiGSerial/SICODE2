@@ -48,13 +48,37 @@ class DesignPdf extends TCPDF
         $this->pdf->SetFont('', 'N', 10);
         $this->pdf->Cell(115, 0, "Sistema para Controle de Demandas (SICODE v{$this->version->appver})", 0, 2, 'C');
 
-        $this->pdf->setXY(15, 45);
+        // Label
+        $this->pdf->setXY(10, 40);
         $this->pdf->SetFont('', 'B', 10);
-        $this->pdf->Cell(22, 0, 'OV/NOTA:', 0, 1, 'L');
-
-        $this->pdf->setXY(38, 43);
+        $this->pdf->Cell(20, 0, 'OV/NOTA:', 0, 1, 'R');
+        // Text
+        $this->pdf->setXY(32, 38);
         $this->pdf->SetFont('', 'B', 16);
-        $this->pdf->Cell(60, 0, $this->fillcontent->getOrdem(), 0, 1, 'L');
+        $this->pdf->Cell(40, 0, $this->fillcontent->getNote(), 1, 1, 'L');
+
+        // Label
+        $this->pdf->setXY(110, 40);
+        $this->pdf->SetFont('', 'B', 10);
+        $this->pdf->Cell(20, 0, 'OV/NOTA:', 0, 1, 'R');
+        // Text
+        $this->pdf->setXY(132, 38);
+        $this->pdf->SetFont('', 'B', 12);
+        if (is_array($this->fillcontent->getOrdem()) && count($this->fillcontent->getOrdem()) > 0) {
+            foreach ($this->fillcontent->getOrdem() as $value) {
+                $this->pdf->Cell(40, 1, $value, 1, 3, 'L');
+            }
+
+        }
+
+        // Label
+        $this->pdf->setXY(10, 48);
+        $this->pdf->SetFont('', 'B', 10);
+        $this->pdf->Cell(20, 0, 'CLIENTE:', 0, 1, 'R');
+        // Text
+        $this->pdf->setXY(32, 48);
+        $this->pdf->SetFont('', 'B', 12);
+        $this->pdf->Cell(80, 0, $this->fillcontent->getName_client(), 1, 1, 'L');
 
         $this->pdf->Output('teste.pdf', 'I');
 

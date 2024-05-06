@@ -19,25 +19,15 @@
     }
 </style>
 
-<body>
-    {{-- <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Adidas_logo.png/1200px-Adidas_logo.png" /> --}}
-    {{-- <img src="{{ asset('img\edp_documento.png') }}" /> --}}
-    <div class="container-fluid border border-1">
-        <div class="row">
-            <div class="col-4">
-                <h3>TESTE DE FILA</h3>
-            </div>
-            <div class="col-8">
-                <h3>Segunda etapa</h3>
-            </div>
-        </div>
-        @foreach ($users as $user)
-            <h4>{{ $user->name }}</h4>
-        @endforeach
-    </div>
+@livewireStyles
 
+<body>
+
+    @livewire('files.fileservices')
 
 </body>
+
+@livewireScripts
 
 <script src="{{ asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 <!-- Template Main JS File -->

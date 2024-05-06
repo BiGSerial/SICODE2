@@ -11,7 +11,9 @@ class TesteController extends Controller
 
         $teste = new SicodePdf();
         $teste->setName_client('Alexandre');
-        $teste->setOrdem('40012020202');
+        $teste->setNote('40012020202');
+        $teste->setOrdem(['20023221234']);
+
 
         $pdf = new DesignPdf($teste);
 

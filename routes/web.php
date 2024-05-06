@@ -104,14 +104,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/map_info', 'survey_map')->name('mapinfo');
 });
 
-Route::prefix('/tests')->controller(TesteController::class)->name('tests.')->group(function () {
-    Route::get('/testes', 'productions')->middleware('can:superadm')->name('productions');
-    Route::get('/page', 'page')->name('page');
-    Route::get('/pdf', 'pdf')->name('pdf');
-    Route::get('/design', function () {
-        return View('desingtestview');
-    });
-});
+
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/', 'viability')->name('main.viability');
@@ -123,4 +116,14 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
     Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
+});
+
+
+Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->group(function () {
+    Route::get('/testes', 'productions')->middleware('can:superadm')->name('productions');
+    Route::get('/page', 'page')->name('page');
+    Route::get('/pdf', 'pdf')->name('pdf');
+    Route::get('/design', function () {
+        return View('desingtestview');
+    });
 });

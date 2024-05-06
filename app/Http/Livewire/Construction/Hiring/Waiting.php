@@ -12,11 +12,13 @@ use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class Waiting extends Component
 {
     use WithPagination;
+    use WithFileUploads;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -267,8 +269,8 @@ class Waiting extends Component
                     <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
                     <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
                     </p>
-                </div>            
-            </div>            
+                </div>
+            </div>
             ";
             }
 
@@ -283,8 +285,8 @@ class Waiting extends Component
                     <p class='text-uppercase text-start fs-5'><span class='fw-bold'>Empreiteira:</span> {$company}<br>
                     <span class='fw-bold'>Eng. Responsável:</span> {$engineer}
                     </p>
-                </div>            
-            </div>            
+                </div>
+            </div>
             ";
             }
 

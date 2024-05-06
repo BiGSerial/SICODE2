@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
@@ -51,6 +52,11 @@ class TacitLogic extends Command
                     'tacit_at' => Carbon::now(),
                     'completed' => true,
                     'approved' => true,
+                ]);
+
+                $viability->Comments()->create([
+                    'user_id' => User::first()->id,
+                    'message' => '>> OBRA LIBERADA PARA CONTRATAÇÃO TÁCITA DEVIDO EXPIRAÇÃO DO PRAZO ESTIPULADO DE RETORNO DA PARCEIRA. (Systema) <<',
                 ]);
 
                 $progressBar->advance();

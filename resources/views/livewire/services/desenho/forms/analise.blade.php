@@ -175,7 +175,7 @@
 
 
 
-                            <div class="my-2"> <button class="btn btn-sm btn-primary"
+                            {{-- <div class="my-2"> <button class="btn btn-sm btn-primary"
                                     onclick="document.getElementById('file-input').click()">CARREGAR PROJETO</button>
                             </div>
                             <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
@@ -187,15 +187,11 @@
                                     <input type="file" id="file-input" multiple wire:model="files"
                                         value="{{ $this->production->Note->note }}" accept=".pdf,.gif,.jpg,.png"
                                         hidden>
-                                    {{-- <button type="submit" id="id-submit"></button> --}}
+
                                 </form>
 
                                 <div x-show="isUploading" class="mb-3">
-                                    {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                    x-bind:style="`width: ${progress}%`">
-                                    <span class="align-middle" x-text="`${progress}%`"></span>
-                                </div> --}}
+
                                     <div class="progress my-0" role="progressbar" aria-label="Danger example"
                                         aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
                                         style="width: 100%; border-radius: 0;">
@@ -203,11 +199,11 @@
                                             x-text="`${progress}%`">
                                     </div>
                                 </div>
-                            </div>
+                            </div> --}}
                             <div class="edp-bg-gray mb-3 py-2 rounded ">
                                 <div class="container">
 
-                                    @if (count($show_files))
+                                    {{-- @if (count($show_files))
                                         @foreach ($show_files as $show)
                                             <div
                                                 class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0 mb-2 bg-white">
@@ -233,7 +229,10 @@
                                         <div class="my-2 py-2 text-center">
                                             <h4 class="fw-bold">SEM ARQUIVOS</h4>
                                         </div>
-                                    @endif
+                                    @endif --}}
+
+                                    {{-- @livewire('files.fileservices') --}}
+                                    @livewire('files.fileservices', ['note' => $note, 'production' => $production])
 
                                 </div>
                             </div>
