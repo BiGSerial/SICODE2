@@ -30,7 +30,7 @@ class Fileservices extends Component
         $this->production = $production;
     }
 
-    public function updatedUploadsfiles()
+    public function updatedUploadsFiles()
     {
 
         try {

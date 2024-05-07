@@ -313,7 +313,7 @@
                                     <td class="align-middle fw-bold">
                                         {{ $list->Viabilities->last()->returned_at ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y') : '---' }}
                                     </td>
-                                    <td class="align-midd">
+                                    <td class="align-middle">
                                         <x-hiring.status_viability :status="$list->Viabilities" />
                                     </td>
                                     <td class="align-middle">
@@ -323,8 +323,25 @@
                                             : 0" />
 
                                     </td>
-                                    <td></td>
-                                </tr class="align-middle">
+                                    <td class="align-middle">
+                                        <div class="dropdown" style="position: inherit">
+                                            <button class="btn btn-danger btn-sm dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="ri-menu-fill"></i>
+                                            </button>
+                                            <ul class="dropdown-menu  edp-bg-gray">
+                                                <li>
+                                                    <a class="dropdown-item" href="#"
+                                                        wire:click.prevent="edit({{ $list }})">
+                                                        <i class="ri-edit-2-line text-primary align-middle"></i>
+                                                        Editar
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+
+                                </tr>
                             @endforeach
                         </tbody>
                     </table>
@@ -629,14 +646,6 @@
                         </div>
 
                     </div>
-
-
-
-
-
-
-
-
                     {{-- <div class="mb-3">
                         <label for="search" class="form-label">Observações</label>
                         <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"></textarea>
@@ -652,7 +661,10 @@
 
             </div>
 
+
         </div>
+
+        @livewire('construction.hiring.actions.edit')
 
     </div>
 

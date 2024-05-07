@@ -233,6 +233,10 @@ class Main extends Component
 
 
         if ($this->action != 3) {
+
+            $this->emit('go_viability', $this->selected);
+
+            return;
             $orders = Order::with('Note.Files')->find($this->selected);
 
             if ($orders) {
@@ -245,6 +249,7 @@ class Main extends Component
                         'order'       => $order->ordem,
                         'note'        => $order->Note->note,
                         'file_index'  => '',
+                        'files'       => [],
                         'file_online' => false,
                     ];
 

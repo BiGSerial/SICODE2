@@ -330,6 +330,12 @@ class Accompany extends Component
 
     }
 
+    public function edit($note)
+    {
+       
+        $this->emit('edit_hiring', $note);
+    }
+
     public function to_viability()
     {
 

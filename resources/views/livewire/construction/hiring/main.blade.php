@@ -186,7 +186,7 @@
                                 <option value="" selected>Selecionar Ação</option>
                                 <option value="">Pausar</option>
                                 <option value="1">Viabilizar</option>
-                                <option value="2">Contratar</option>
+                                {{-- <option value="2">Contratar</option> --}}
                                 <option value="3">Retorno Interno</option>
                             </select>
                             <button class="btn btn-sm btn-primary me-2 col-1" wire:click.prevent='go_att_mass'
@@ -211,9 +211,8 @@
                                 </div>
                             </button>
                             <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:target="downloadZip"
-                                wire:loading.attr="disabled" wire:click.prevent='downloadZip'
-                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                data-bs-title="Fazer Download dos Arquivos ZIP"><i
+                                wire:loading.attr="disabled" wire:click.prevent='downloadZip' data-bs-toggle="tooltip"
+                                data-bs-placement="top" data-bs-title="Fazer Download dos Arquivos ZIP"><i
                                     class="bx bx-cloud-download fs-3 m-0 align-middle" wire:target="downloadZip"
                                     wire:loading.remove></i>
                                 <div class="spinner-border spinner-border-sm" role="status"
@@ -843,7 +842,7 @@
 
 
 
-
+    @livewire('construction.hiring.actions.viability', key('Viability-modal'))
 
 
 
