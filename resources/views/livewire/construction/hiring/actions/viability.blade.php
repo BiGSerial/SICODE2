@@ -1,4 +1,5 @@
 <div>
+    <x-show-loading />
     <div wire:ignore.self class="modal fade" id="modal_viability" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -144,6 +145,12 @@
 
                 </div>
                 <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
+                    <div class="me-3 align-middle" wire:target='updatedUploadsfiles()' wire:loading>
+                        <div class="spinner-border text-light" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        Aguarde.
+                    </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" value="true" id="flexCheckIndeterminate"
                             wire:model.defer="hiring">
@@ -151,7 +158,8 @@
                             CONTRATADO
                         </label>
                     </div>
-                    <button class="btn btn-primary btn-sm" wire:click.prevent="goViability()">ENVIAR</button>
+                    <button class="btn btn-primary btn-sm" wire:click.prevent="goViability()"
+                        wire:loading.attr='disabled'>ENVIAR</button>
                 </div>
             </div>
         </div>

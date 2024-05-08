@@ -42,4 +42,9 @@ class File extends Model
     {
         return $this->belongsToMany(Production::class);
     }
+
+    public function Viabilities()
+    {
+        return $this->belongsToMany(Viability::class);
+    }
 }

@@ -67,4 +67,9 @@ class Viability extends Model
     {
         return $this->belongsToMany(Reclaim::class);
     }
+
+    public function Files()
+    {
+        return $this->belongsToMany(File::class);
+    }
 }
