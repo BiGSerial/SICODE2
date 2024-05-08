@@ -110,6 +110,8 @@
                                                                             wire:click.prevent="deleteFile({{ $index }},{{ $index2 }})"
                                                                             style="cursor: pointer;"></i></p>
                                                                 @endforeach
+                                                            @elseif($viability['hasFiles'])
+                                                                ARQUIVO HERDADO
                                                             @else
                                                                 SEM ARQUIVOS
                                                             @endif
@@ -160,6 +162,8 @@
                     </div>
                     <button class="btn btn-primary btn-sm" wire:click.prevent="goViability()"
                         wire:loading.attr='disabled'>ENVIAR</button>
+                    <button class="btn btn-danger btn-sm" wire:click.prevent="cancelarViab()"
+                        wire:loading.attr='disabled'>CANCELAR</button>
                 </div>
             </div>
         </div>

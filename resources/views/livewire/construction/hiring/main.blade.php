@@ -151,6 +151,7 @@
 
 
     @if (!$lists->count())
+
         <div class="card">
             <div class="card-body">
                 <h3 class="text-center">NENHUM REGISTRO ENCONTRADO</h3>
@@ -168,6 +169,7 @@
                     registros.</span>
             </div>
         </div>
+
         <div class="card">
             <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
                 <div class="row justify-content-end">
@@ -504,6 +506,13 @@
                         wire:model.defer="advanceSearch"></textarea>
                 </div>
                 <div class="modal-footer">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="true" id="flexCheckIndeterminate"
+                            wire:model.defer="allCenters">
+                        <label class="form-check-label" for="flexCheckIndeterminate">
+                            EXIBIR EM TODOS OS CENTROS
+                        </label>
+                    </div>
                     <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
                 </div>
             </div>

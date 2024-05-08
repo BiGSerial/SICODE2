@@ -58,59 +58,116 @@ class Viability extends Component
 
     public function updatedUploadsfiles()
     {
-
-
         if (count($this->uploadsfiles) && count($this->toViabilities)) {
+
             foreach ($this->uploadsfiles as $file) {
+
                 $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $existingRelation = false;
+                $hasOrdered = false;
+                $hasRelation = false;
 
-                // Verifica se o arquivo já está relacionado a alguma viabilidade existente
                 foreach ($this->toViabilities as $index => $viability) {
-                    foreach ($viability['files'] as $existingFile) {
-                        $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
 
-                        if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
-                            $existingRelation = true;
-                            break 2; // Sai dos dois loops
+                    if (strpos($fileNameWithoutExtension, $viability['order']['note']['note']) !== false) {
+
+                        $hasRelation = true;
+
+                        if (empty($viability['files']) && !$hasOrdered) {
+                            $this->toViabilities[$index]['files'][] = $file;
+                            $hasOrdered = true;
+                        } elseif (empty($viability['files']) && $hasOrdered) {
+                            $this->toViabilities[$index]['hasFiles'] = true;
+                        } else {
+
+                            $fileExisting = false;
+
+                            foreach ($viability['files'] as $index2 => $existingFile) {
+                                $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
+                                if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
+                                    $fileExisting = true;
+                                    break;
+                                }
+                            }
+
+                            if (!$fileExisting) {
+                                $this->toViabilities[$index]['files'][] = $file;
+                                $hasOrdered = true;
+                            }
                         }
                     }
                 }
 
-                // Se não houver relação existente, adiciona o arquivo à viabilidade
-                if (!$existingRelation) {
+                if (!$hasRelation) {
 
-                    $noRelation = true;
-
-                    foreach ($this->toViabilities as $index => $viability) {
-                        if (strpos($fileNameWithoutExtension, $viability['order']['note']['note']) !== false) {
-                            $noRelation = false;
-                            $this->toViabilities[$index]['files'][] = $file;
-                            break; // Sai do loop de viabilidades
-                        }
-                    }
-
-                    if ($noRelation) {
-                        // Remove o arquivo do temp caso exista.
-                        $tempPath = $file->getRealPath();
-                        if ($tempPath && file_exists($tempPath)) {
-                            unlink($tempPath);
-                        }
-                    }
-
-                } else {
-                    // Remove o arquivo do temp caso exista.
                     $tempPath = $file->getRealPath();
+
                     if ($tempPath && file_exists($tempPath)) {
                         unlink($tempPath);
                     }
                 }
             }
+
+            // foreach ($this->uploadsfiles as $file) {
+            //     $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            //     $existingRelation = false;
+
+            //     // Verifica se o arquivo já está relacionado a alguma viabilidade existente
+            //     foreach ($this->toViabilities as $index => $viability) {
+            //         foreach ($viability['files'] as $existingFile) {
+            //             $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
+
+            //             if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
+            //                 $existingRelation = true;
+
+            //                 break 2; // Sai do loop de arquivos e viabilidades
+            //             }
+            //         }
+            //     }
+
+            //     if (!$existingRelation) {
+            //         // Verifica se o arquivo está relacionado a alguma ordem existente
+            //         $relatedToOrder = false;
+            //         foreach ($this->toViabilities as $index => $viability) {
+            //             if (strpos($fileNameWithoutExtension, $viability['order']['note']['note']) !== false) {
+            //                 // Verifica se já existe um arquivo com o mesmo nome relacionado a esta ordem
+            //                 $fileExistsInOrder = false;
+            //                 foreach ($viability['files'] as $existingFile) {
+            //                     $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
+            //                     if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
+            //                         $fileExistsInOrder = true;
+            //                         $this->toViabilities[$index]['hasFiles'] = true;
+            //                         break;
+            //                     }
+            //                 }
+
+            //                 if (!$fileExistsInOrder) {
+            //                     $relatedToOrder = true;
+            //                     $this->toViabilities[$index]['files'][] = $file;
+            //                     break; // Sai do loop de viabilidades
+            //                 }
+            //             }
+            //         }
+
+            //         if (!$relatedToOrder) {
+            //             // Remove o arquivo do temp caso não esteja relacionado a nenhuma ordem
+            //             $tempPath = $file->getRealPath();
+            //             if ($tempPath && file_exists($tempPath)) {
+            //                 unlink($tempPath);
+            //             }
+            //         }
+            //     } else {
+            //         // Remove o arquivo do temp caso exista relação existente
+            //         $tempPath = $file->getRealPath();
+            //         if ($tempPath && file_exists($tempPath)) {
+            //             unlink($tempPath);
+            //         }
+            //     }
+            // }
         }
 
-
-
+        // dd($this->toViabilities);
     }
+
 
 
     public function cancel()
@@ -183,24 +240,20 @@ class Viability extends Component
     {
 
         if (!$this->user || !$this->company) {
-            foreach ($this->toViabilities as $viability) {
-                if (isset($viability['files']) && !count($viability['files']) || !count($viability['files']) && !$viability['hasFiles']) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'SEM ORIENTAÇÃO DE DESTINO',
-                        'html'     => 'É obrigatório a indicação da empreiteira e o responsável pela obra antes de enviar para viabilidade.',
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SEM ORIENTAÇÃO DE DESTINO',
+                'html'     => 'É obrigatório a indicação da empreiteira e o responsável pela obra antes de enviar para viabilidade.',
 
-                    ]);
+            ]);
 
-                    return;
-                }
-            }
+            return;
         }
 
         if (count($this->toViabilities) > 0) {
             foreach ($this->toViabilities as $viability) {
-                if (isset($viability['files']) && !count($viability['files']) || !count($viability['files']) && !$viability['hasFiles']) {
+                if (isset($viability['files']) && !count($viability['files']) && !$viability['hasFiles']) {
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'warning',
@@ -358,6 +411,8 @@ class Viability extends Component
 
         $this->cleanAll();
         $this->dispatchBrowserEvent('hideModal');
+
+        $this->emitUp('goClean');
         $this->emitUp('refresh_list');
 
     }
@@ -366,6 +421,15 @@ class Viability extends Component
     {
         $this->company = "";
         $this->user = "";
+    }
+
+    public function cancelarViab()
+    {
+        $this->cancel();
+        $this->cleanAll();
+        $this->toViabilities = [];
+        $this->emitUp('goClean');
+        $this->emitUp('refresh_list');
     }
 
     public function render()

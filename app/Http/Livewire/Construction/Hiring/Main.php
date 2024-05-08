@@ -44,6 +44,8 @@ class Main extends Component
 
     public $perPage = 50;
 
+    public $allCenters = false;
+
     //Selects
     public $companies = null;
 
@@ -77,6 +79,7 @@ class Main extends Component
 
     protected $listeners = [
         'refresh_list'      => '$refresh',
+        'goClean'           => 'closeall',
         'confirm_viability' => 'confirm_viability',
         'confirm_return' => 'confirm_return',
     ];
@@ -86,7 +89,6 @@ class Main extends Component
         'page'     => ['except' => 1, 'as' => 'p'],
         'perPage'  => ['as' => 'pp'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
-
     ];
 
     public function mount($service)
@@ -153,6 +155,7 @@ class Main extends Component
 
             if (count($this->multiSearch)) {
 
+
                 // $query->whereIn('ordem', $this->multiSearch);
                 $query->where(function ($q) {
                     return $q->WhereRelation('Note', function ($query) {
@@ -178,14 +181,14 @@ class Main extends Component
                     });
                 });
 
-            if (count($this->multiSearch)) {
-                $query->whereIn('ordem', $this->multiSearch);
-                // $query->where(function ($q) {
-                //     return $q->WhereRelation('Note', function ($query) {
-                //         $query->whereIn('note', $this->multiSearch);
-                //     })->orWhereIn('ordem', $this->multiSearch);
-                // });
-            }
+            // if (count($this->multiSearch)) {
+            //     $query->whereIn('ordem', $this->multiSearch);
+            //     // $query->where(function ($q) {
+            //     //     return $q->WhereRelation('Note', function ($query) {
+            //     //         $query->whereIn('note', $this->multiSearch);
+            //     //     })->orWhereIn('ordem', $this->multiSearch);
+            //     // });
+            // }
 
 
 
@@ -646,6 +649,7 @@ class Main extends Component
 
         if ($this->advanceSearch) {
 
+
             $this->gotoPage(1);
 
 
@@ -743,8 +747,10 @@ class Main extends Component
 
         $query->with('Operations', 'Note.Files', 'Note.Orders', 'Viabilities')
             ->when($this->search, function ($q) {
-                $this->gotoPage(1);
                 $this->advanceSearch = '';
+                $this->advanceSearch = '';
+                $this->gotoPage(1);
+
 
                 return $q->where(function ($query) {
                     $query->where('ordem', 'like', trim($this->search))
@@ -754,23 +760,32 @@ class Main extends Component
 
 
 
-        $query->join('notes', 'orders.note_id', '=', 'notes.id')
-            ->where('statusSist', 'like', 'ABER%')
-            ->where(function ($q) {
-                return $q->whereRelation('Note', function ($query) {
-                    $query->where(function ($qq) {
-                        $qq->WhereIn('nstats', [46, 47, 48, 49, 50])
-                            ->where('type_note', 2);
-                    })->orWhere(function ($qq) {
-                        $qq->Where('centerjob', 'like', 'VIAB%')
-                            ->Where('type_note', 1)
-                            ->orWhere(function ($qq) {
-                                $qq->Where('centerjob', '')
-                                    ->Where('type_note', 1);
-                            });
-                    });
+        $query->join('notes', 'orders.note_id', '=', 'notes.id');
+
+
+        if (!$this->allCenters) {
+            $query->where('statusSist', 'like', 'ABER%');
+        }
+
+        $query->where(function ($q) {
+            return $q->whereRelation('Note', function ($query) {
+                $query->where(function ($qq) {
+                    $qq->WhereIn('nstats', [46, 47, 48, 49, 50])
+                        ->where('type_note', 2);
+                })->orWhere(function ($qq) {
+                    $qq->Where('type_note', 1)
+
+                        ->when(!$this->allCenters, function ($q) {
+                            return $q->where('centerjob', 'like', 'VIAB%');
+                        })
+
+                        ->orWhere(function ($qq) {
+                            $qq->Where('centerjob', '')
+                                ->Where('type_note', 1);
+                        });
                 });
             });
+        });
 
 
         // if (count($this->multiSearch)) {
