@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.0",
+    "appver": "1.8.1",
     "historic": [
+        {
+            "version": "1.8.1",
+            "description": "Fix Files Send viability",
+            "date": "2024-05-08"
+        },
         {
             "version": "1.8.0",
             "description": "Construction testes developments Public Tests",
