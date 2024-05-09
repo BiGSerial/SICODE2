@@ -361,11 +361,13 @@
                                     <td class="fw-bold align-middle">{{ $list->ordem }}</td>
                                     <td
                                         class="align-middle @if ($list->Note->type_note == 2 && $list->Note->Orders->count() > 1) text-danger fw-bold @endif">
-                                        {{ $list->Note->note }}</td>
+                                        {{ $list->Note->note }}
+                                    </td>
                                     <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                         <x-files.select-download-list :files='$list->Note->Files' />
-                                    </td class="align-middle">
+
+                                    </td>
                                     <td class="align-middle">{{ $list->Note->rubrica }}</td>
                                     <td class="align-middle">{{ $list->denConjunto }}</td>
                                     <td class="align-middle">{{ $list->Note->lexp }}</td>

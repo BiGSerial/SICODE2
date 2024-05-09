@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Files;
 
+use App\Models\File;
 use App\Models\Note;
 use App\Models\Production;
 use Illuminate\Validation\ValidationException;
@@ -149,11 +150,27 @@ class Fileservices extends Component
 
         if (count($this->files)) {
 
-            foreach ($this->files as $file) {
+            foreach ($this->files as $index => $file) {
 
                 $tempPath = $file->getRealPath();
 
                 if ($tempPath && file_exists($tempPath)) {
+
+
+
+                    $folhas = count($this->files);
+
+                    $newName = "PROJETO_".$this->note->note."_F"
+                            .str_pad(++$index, 2, '0', STR_PAD_LEFT)."-"
+                            .str_pad($folhas, 2, '0', STR_PAD_LEFT);
+
+                    $version = File::where('file_name', 'like', "%".$newName."%")->count();
+
+                    $newName = $newName."_rev".$version.".".$file->getClientOriginalExtension();
+
+                    $caminho = "";
+
+                    // dd($newName);
 
                     $caminho = $file->store('/arquivos/projeto');
 
@@ -163,7 +180,7 @@ class Fileservices extends Component
                             'note_id'   => $this->production->note_id,
                             'user_id'   => Auth()->User()->id,
                             'service_id'   => $this->production->service_id,
-                            'file_name' => $file->getClientOriginalName(),
+                            'file_name' => $newName,
                             'path'      => $caminho,
                             'ext'       => $file->getClientOriginalExtension(),
                         ]);

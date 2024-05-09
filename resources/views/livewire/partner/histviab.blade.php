@@ -23,6 +23,7 @@
         @if ($lists && $lists->count())
             @foreach ($lists as $index => $list)
                 {{-- Start Line Item --}}
+                {{-- Start Line Item --}}
                 @php
                     $status = null;
 
@@ -59,6 +60,38 @@
 
                     $block = null;
                     $color = 'grey';
+                    $days_left = 0;
+
+                    // Dias Restantes
+                    if ($list->type_note == 1) {
+                        if ($list->mesalization && $list->mesalization != 'erro') {
+                            preg_match('/\d+\/\d+/', $list->mesalization, $matches);
+
+                            if (!empty($matches)) {
+                                [$mes, $ano] = explode('/', $matches[0]);
+
+                                if ($mes >= 1) {
+                                    $data = "{$ano}-{$mes}-28 23:59:59";
+
+                                    $hoje = Carbon::now();
+
+                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                } else {
+                                    $data = "{$ano}-12-28 23:59:59";
+
+                                    $hoje = Carbon::now();
+
+                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                }
+                            }
+                        }
+                    } elseif ($list->type_note == 2) {
+                        $days_left = $list->days_left;
+                    }
 
                     if ($list->Viabilities->count()) {
                         $count = 0;
@@ -113,6 +146,7 @@
                                     <th scope="col" class="col-2">Municipio</th>
                                     <th scope="col" class="col-1">Recebido Em</th>
                                     <th scope="col" class="col-1">Prazo Estimado</th>
+                                    <th scope="col" class="col-1">Pze Restante</th>
                                     <th scope="col" class="col-1">Status</th>
                                     <th scope="col" class="d-flex justify-content-end">
                                         <button class=" btn btn-sm btn-primary" @click="isShow=true">
@@ -144,6 +178,9 @@
                                         </td>
                                         <td class="fw-bold text-danger">
                                             {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                        </td>
+                                        <td class=" text-center">
+                                            {{ $days_left }}
                                         </td>
                                         <td>
                                             @php
@@ -326,6 +363,7 @@
                                     <thead style="font-size: 10px;">
                                         <th scope="col">Recebido Em</th>
                                         <th scope="col">Prazo Estimado</th>
+                                        <th scope="col">PZE Restante</th>
                                         <th scope="col">Status</th>
                                         <th scope="col">Ação</th>
                                     </thead>
@@ -364,6 +402,9 @@
                                             </td>
                                             <td class="fw-bold text-danger">
                                                 {{ Carbon::parse($list->Viabilities->first()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                            </td>
+                                            <td class="">
+                                                {{ $days_left }}
                                             </td>
                                             <td>
                                                 @if ($status)

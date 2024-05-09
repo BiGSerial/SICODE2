@@ -11,11 +11,19 @@
         </div>
         <div class="card-body py-0 mt-3">
             <div class="mb-3 d-flex justify-content-end">
-                <select name="" id="" class="form-select form-select-sm" style="max-width: 200px;"
+                <select name="" id="" class="form-select form-select-sm ms-2 me-2" style="max-width: 200px;"
+                    wire:model="cjobes">
+                    <option value="" selected>Centro Trabalho</option>
+                    @if ($centerJobs)
+                        @foreach ($centerJobs as $cjob)
+                            <option value="{{ $cjob->cenTrab }}">{{ $cjob->cenTrab }}</option>
+                        @endforeach
+                    @endif
+                </select>
+                <select name="" id="" class="form-select form-select-sm ms-5" style="max-width: 200px;"
                     wire:model="action">
                     <option value="" selected>Selecione uma Ação</option>
                     <option value="1">Viabilizar</option>
-                    <option value="2">Contratar</option>
                 </select>
                 <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='go_att_mass'
                     @disabled(!$action) wire:target="go_att_mass" wire:loading.attr="disabled"
@@ -31,10 +39,12 @@
             <thead>
                 <th class="text-center"><input type="checkbox" class="form-checkbox" wire:model="selectAll"></th>
                 <th scope="col" class="text-center">Nota</th>
+                <th scope="col" class="text-center">Files</th>
                 <th scope="col" class="text-center">Rubrica</th>
                 <th scope="col" class="text-center">Municipio</th>
                 <th scope="col" class="text-center">Categoria</th>
                 <th scope="col" class="text-center">Serviço</th>
+                <th scope="col" class="text-center">CentroTrab</th>
                 <th scope="col" class="text-center">Data Envio</th>
                 <th scope="col" class="text-center">Em Atividade</th>
                 <th scope="col" class="text-center">Status</th>
@@ -55,10 +65,22 @@
 
                             </td>
                             <td class="text-center aling-middle fw-bold">{{ $list->Note->note }}</td>
+                            <td class="text-center align-middle">
+                                {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                <x-files.select-download-list :files='$list->Note->Files' />
+
+                            </td>
                             <td class="text-center aling-middle">{{ $list->Note->rubrica }}</td>
                             <td class="text-center aling-middle">{{ $list->Note->lexp }}</td>
                             <td class="text-center aling-middle">{{ $list->category }}</td>
                             <td class="text-center aling-middle">{{ $list->Reclaim->Service->service }}</td>
+                            <td class="text-center aling-middle">
+                                @if (isset($list->Note->Orders->first()->Operations->first()->cenTrab))
+                                    {{ $list->Note->Orders->first()->Operations->first()->cenTrab }}
+                                @else
+                                    ---
+                                @endif
+                            </td>
                             <td class="text-center aling-middle">
                                 {{ Carbon::parse($list->created_at)->format('d/m/Y H:i') }}
                             </td>
@@ -308,4 +330,6 @@
     </div>
 
     {{-- Fim Modals --}}
+
+    @livewire('construction.hiring.actions.waitinghiring')
 </div>

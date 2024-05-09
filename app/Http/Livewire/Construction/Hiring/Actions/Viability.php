@@ -72,10 +72,10 @@ class Viability extends Component
 
                         $hasRelation = true;
 
-                        if (empty($viability['files']) && !$hasOrdered) {
+                        if (empty($viability['files']) && !$hasOrdered && !$this->toViabilities[$index]['hasFiles']) {
                             $this->toViabilities[$index]['files'][] = $file;
                             $hasOrdered = true;
-                        } elseif (empty($viability['files']) && $hasOrdered) {
+                        } elseif (empty($viability['files']) && $hasOrdered && !$this->toViabilities[$index]['hasFiles']) {
                             $this->toViabilities[$index]['hasFiles'] = true;
                         } else {
 
@@ -107,65 +107,8 @@ class Viability extends Component
                 }
             }
 
-            // foreach ($this->uploadsfiles as $file) {
-            //     $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            //     $existingRelation = false;
-
-            //     // Verifica se o arquivo já está relacionado a alguma viabilidade existente
-            //     foreach ($this->toViabilities as $index => $viability) {
-            //         foreach ($viability['files'] as $existingFile) {
-            //             $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
-
-            //             if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
-            //                 $existingRelation = true;
-
-            //                 break 2; // Sai do loop de arquivos e viabilidades
-            //             }
-            //         }
-            //     }
-
-            //     if (!$existingRelation) {
-            //         // Verifica se o arquivo está relacionado a alguma ordem existente
-            //         $relatedToOrder = false;
-            //         foreach ($this->toViabilities as $index => $viability) {
-            //             if (strpos($fileNameWithoutExtension, $viability['order']['note']['note']) !== false) {
-            //                 // Verifica se já existe um arquivo com o mesmo nome relacionado a esta ordem
-            //                 $fileExistsInOrder = false;
-            //                 foreach ($viability['files'] as $existingFile) {
-            //                     $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
-            //                     if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
-            //                         $fileExistsInOrder = true;
-            //                         $this->toViabilities[$index]['hasFiles'] = true;
-            //                         break;
-            //                     }
-            //                 }
-
-            //                 if (!$fileExistsInOrder) {
-            //                     $relatedToOrder = true;
-            //                     $this->toViabilities[$index]['files'][] = $file;
-            //                     break; // Sai do loop de viabilidades
-            //                 }
-            //             }
-            //         }
-
-            //         if (!$relatedToOrder) {
-            //             // Remove o arquivo do temp caso não esteja relacionado a nenhuma ordem
-            //             $tempPath = $file->getRealPath();
-            //             if ($tempPath && file_exists($tempPath)) {
-            //                 unlink($tempPath);
-            //             }
-            //         }
-            //     } else {
-            //         // Remove o arquivo do temp caso exista relação existente
-            //         $tempPath = $file->getRealPath();
-            //         if ($tempPath && file_exists($tempPath)) {
-            //             unlink($tempPath);
-            //         }
-            //     }
-            // }
         }
 
-        // dd($this->toViabilities);
     }
 
 
