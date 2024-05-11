@@ -22,6 +22,7 @@ class Approveaction extends Component
     public $blkResponse;
     public $blkReturn;
     public $newReturn = false;
+    public $category;
 
 
 
@@ -49,6 +50,20 @@ class Approveaction extends Component
                 'icon'     => 'warning',
                 'title'    => 'Comentário Necessário',
                 'html'      => 'As informações adicionais são necessárias para uma conclusão mais apurada e futuras referências.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+
+        }
+
+        if (!$this->service_s || !$this->category) {
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Informações Faltantes',
+                'html'      => 'O SERVIÇO para RETORNO e a CATEGORIA (Motivo) precisam ser selecionadas. Revise e tente novamente.',
                 'timer'    => 5000,
             ]);
 
@@ -87,6 +102,7 @@ class Approveaction extends Component
                             'note_id' => $this->list->id,
                             'service_id' => $this->service_s,
                             'production_id' => $production->id,
+                            'category' => $this->category,
                         ]);
 
                         $return->Comments()->create([

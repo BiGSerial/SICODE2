@@ -1,3 +1,7 @@
+@php
+    use App\Helpers\SelectOptions;
+
+@endphp
 <div>
 
     {{-- Carrega o Loading da página --}}
@@ -151,8 +155,12 @@
                                 <option value="" selected>Selecione</option>
                                 {{-- <option value="ENVIADO PARA ATENDIMENTO">01 - ENVIADO PARA ATENDIMENTO</option> --}}
                                 @if ($production->d5)
+                                    {{-- <option value="ALTERAÇÃO DO PROJETO">(RI) ALTERAÇÃO DO PROJETO</option>
                                     <option value="COLOCAR ANEXO DO PROJETO">(RI) COLOCAR ANEXO DO PROJETO</option>
-                                    <option value="ALTERAÇÃO DO PROJETO">(RI) ALTERAÇÃO DO PROJETO</option>
+                                    <option value="ALTERAÇÃO DO PROJETO">(RI) LIBERAÇAO DO PROJETO NO EO</option> --}}
+                                    @foreach (SelectOptions::getReclaimsOptions() as $option)
+                                        <option value="{{ $option->value }}">{{ $option->info }}</option>
+                                    @endforeach
                                 @else
                                     <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
                                     <option value="DEPENDE DE ORGAO EXTERNO">20 - DEPENDE DE ORGÃO EXTERNO</option>
@@ -167,72 +175,16 @@
                                     <option value="ARQUIVADO">99 - ARQUIVADO</option>
                                 @endif
 
-
                             </select>
                         </div>
 
                         <div class="mb-3">
 
-
-
-                            {{-- <div class="my-2"> <button class="btn btn-sm btn-primary"
-                                    onclick="document.getElementById('file-input').click()">CARREGAR PROJETO</button>
-                            </div>
-                            <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-                                x-on:livewire-upload-finish="isUploading = false"
-                                x-on:livewire-upload-error="isUploading = false"
-                                x-on:livewire-upload-progress="progress = $event.detail.progress">
-
-                                <form wire:submit.prevent="saveFile">
-                                    <input type="file" id="file-input" multiple wire:model="files"
-                                        value="{{ $this->production->Note->note }}" accept=".pdf,.gif,.jpg,.png"
-                                        hidden>
-
-                                </form>
-
-                                <div x-show="isUploading" class="mb-3">
-
-                                    <div class="progress my-0" role="progressbar" aria-label="Danger example"
-                                        aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                                        style="width: 100%; border-radius: 0;">
-                                        <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
-                                            x-text="`${progress}%`">
-                                    </div>
-                                </div>
-                            </div> --}}
                             <div class="edp-bg-gray mb-3 py-2 rounded ">
                                 <div class="container">
 
-                                    {{-- @if (count($show_files))
-                                        @foreach ($show_files as $show)
-                                            <div
-                                                class="col-5 border border-secondary d-flex justify-content-between align-items-center p-0 mb-2 bg-white">
-                                                <div class="p-1 m-0 border-end border-secondary"><i
-                                                        class="bx bxs-file-{{ $show['ext'] }} text-danger fs-4"></i>
-                                                </div>
-                                                <div class="p-1 m-0 text-center no-wrap">
-                                                    <p class="my-0 py-0">
-                                                        {{ $show['name'] }}
-                                                    </p>
-                                                    <p class="my-0 py-0 text-danger" style="font-size: 12px;">
-                                                        {{ $show['old_name'] }}
-                                                    </p>
-                                                </div>
-                                                <div class="p-1 m-0 border-start border-secondary">
-                                                    <i class="bx bxs-trash text-danger fs-4"
-                                                        wire:click.prevent="delete_file({{ $show['id'] }})"
-                                                        style="cursor: pointer;"></i>
-                                                </div>
-                                            </div>
-                                        @endforeach
-                                    @else
-                                        <div class="my-2 py-2 text-center">
-                                            <h4 class="fw-bold">SEM ARQUIVOS</h4>
-                                        </div>
-                                    @endif --}}
-
-                                    {{-- @livewire('files.fileservices') --}}
-                                    @livewire('files.fileservices', ['note' => $note, 'production' => $production])
+                                    {{-- Carrega sistema de Upload de Arquivos --}}
+                                    @livewire('files.fileservices', ['note' => $note, 'production' => $production, 'needFiles' => $needFiles])
 
                                 </div>
                             </div>
@@ -263,9 +215,9 @@
                 </div>
             </div>
 
-
             <div class="d-flex justify-content-end">
-                <button class="btn btn-primary me-2" wire:click.prevent="save_info">SALVAR</button>
+                {{ $needFiles ? '.' : '' }}
+                <button class="btn btn-primary ms-2 me-2" wire:click.prevent="save_info">SALVAR</button>
                 <button class="btn btn-warning me-2" wire:click.prevent="to_pause">PAUSAR</button>
                 <button class="btn btn-success me-2"
                     wire:click.prevent="to_finish({{ $analise->production_id }})">ENCERRAR</button>

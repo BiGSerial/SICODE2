@@ -101,6 +101,8 @@ class Analise extends Component
     // Files
     public $files = [];
 
+    public $needFiles = false;
+
     public $show_files = [];
 
     public $nota_divergente;
@@ -110,6 +112,7 @@ class Analise extends Component
         'analise_clean'     => 'clean',
         'confirm_goFinish'  => 'goFinish',
         'clean' => 'clean',
+        'hasFile' => 'hasFile',
 
     ];
 
@@ -181,6 +184,15 @@ class Analise extends Component
                 ]);
             }
 
+            if ($this->production->d5) {
+
+                if ($this->production->Reclaim->category && ($this->production->Reclaim->category != 'LIBERAR EO')) {
+                    $this->conclusion = $this->production->Reclaim->category;
+                    $this->needFiles = true;
+                    $this->updatedConclusion();
+                }
+            }
+
             $this->view_form = true;
         }
     }
@@ -245,6 +257,7 @@ class Analise extends Component
 
         if (!count($this->show_files)) {
             $this->reset('files');
+
         }
 
         $this->updatedFiles();
@@ -423,8 +436,14 @@ class Analise extends Component
     {
         $this->emit('cancel_files');
         $production->update([
-            
+
         ]);
+    }
+
+    // Interação com o componante Livewire Files/Filesservice
+    public function hasFile($hasFile)
+    {
+        $this->needFiles = $hasFile;
     }
 
     public function to_finish(Production $production)
@@ -432,6 +451,9 @@ class Analise extends Component
         $this->save_info();
         $this->production = $production;
         $this->note       = Note::find($this->production->note_id);
+
+
+
 
         if ($this->postes == '') {
             $this->dispatchBrowserEvent('swal', [
@@ -452,6 +474,19 @@ class Analise extends Component
                 'title'    => 'CONCLUSÃO NÃO DEFINIDA',
                 'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
                 ',
+            ]);
+
+            return;
+        }
+
+        if ($this->needFiles) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ARQUIVOS OBRIGATÓRIO',
+                'html'     => '<div class="card"><div class="card-body"><p class="text-start">Para o tipo de RI (Resolução Interna) definido pelo solicitante, é obrigatório inserir o PDF do PROJETO em "ADICIONAR PROJETO".
+                </p><p class="text-start">Caso a solicitação tenha sido "ALTERAR PROJETO", lembre-se de adicionar apenas o PDF mais RECENTE e todas as FOLHAS desse projeto no mesmo UPLOAD se aplicável.
+                </p></div></div>',
             ]);
 
             return;

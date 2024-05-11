@@ -82,7 +82,8 @@
                                                     <td class="text-center">{{ $order->Note->note }}</td>
                                                     <td class="text-center"> <x-files.select-download-list
                                                             :files='$order->Note->Files' /></td>
-                                                    <td class="text-center">{{ $order->Operations->first()->cenTrab }}
+                                                    <td class="text-center">
+                                                        {{ isset($order->Operations->first()->cenTrab) ? $order->Operations->first()->cenTrab : '' }}
                                                     </td>
                                                 </tr>
                                             @endforeach

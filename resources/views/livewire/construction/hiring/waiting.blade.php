@@ -49,7 +49,7 @@
                 <th scope="col" class="text-center">Em Atividade</th>
                 <th scope="col" class="text-center">Status</th>
                 <th scope="col" class="text-center">Responsável</th>
-                {{-- <th scope="col" class="text-center"></th> --}}
+                <th scope="col" class="text-center"></th>
             </thead>
             <tbody class="table-group-divider">
                 @if ($lists)
@@ -101,7 +101,14 @@
                             <td class="text-center aling-middle">
                                 {{ $list->Reclaim->Production ? ($list->Reclaim->Production->User ? $list->Reclaim->Production->User->name : 'Desconhecido') : '' }}
                             </td>
-                            {{-- <td class="text-center aling-middle"></td> --}}
+                            <td class="text-center aling-middle">
+                                @if ($list->Reclaim && $list->Reclaim->completed)
+                                    <i class="ri-arrow-go-back-fill text-danger" tabindex="0" data-bs-toggle="popover"
+                                        data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="DEVOLUÇÃO"
+                                        data-bs-content="Devolver para o Responsável a Nota/Ov" style="cursor: pointer;"
+                                        wire:click.prevent="go_giveBack({{ $list->id }})"></i>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 @endif

@@ -1,3 +1,6 @@
+@php
+    use App\Helpers\SelectOptions;
+@endphp
 <div x-data="{ show1: false, show2: false, text: '', show3: false }">
     <x-show-loading />
 
@@ -41,6 +44,18 @@
                                 @endforeach
 
                             @endif
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="service_s" class="form-label">Categoria:</label>
+                        <select class="form-select" wire:model="category">
+
+                            <option value="" selected>Selecione Um Motivo</option>
+                            @foreach (SelectOptions::getReclaimsOptions() as $option)
+                                <option value="{{ $option->value }}">{{ $option->info }}</option>
+                            @endforeach
+
+
                         </select>
                     </div>
                     @if ($lastUser)

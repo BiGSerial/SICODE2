@@ -16,6 +16,7 @@ class Fileservices extends Component
     public ?Note $note = null;
     public ?Production $production = null;
     public $notNote = false;
+    public $needFiles;
 
     public $uploadsfiles = [];
     public $files = [];
@@ -25,10 +26,11 @@ class Fileservices extends Component
         'cancel_files' => 'cancel'
     ];
 
-    public function mount($note, $production)
+    public function mount($note, $production, $needFiles)
     {
         $this->note = $note;
         $this->production = $production;
+        $this->needFiles = $needFiles;
     }
 
     public function updatedUploadsFiles()
@@ -87,6 +89,12 @@ class Fileservices extends Component
             }
         }
 
+        // if (!empty($this->files) && $this->production->d5 && $this->needFiles) {
+        //     $this->emitUp('hasFile', false);
+        // } elseif (empty($this->files) && $this->production->d5 && $this->needFiles) {
+        //     $this->emitUp('hasFile', true);
+        // }
+
         $this->checkFiles();
     }
 
@@ -109,6 +117,13 @@ class Fileservices extends Component
             }
         } else {
             $this->notNote = false;
+
+        }
+
+        if (!empty($this->files) && $this->production->d5 && $this->needFiles) {
+            $this->emitUp('hasFile', false);
+        } elseif (empty($this->files) && $this->production->d5 && $this->needFiles) {
+            $this->emitUp('hasFile', true);
         }
 
     }
@@ -141,7 +156,10 @@ class Fileservices extends Component
 
             $this->files = [];
             $this->notNote = false;
+
         }
+
+        $this->checkFiles();
     }
 
     public function save()

@@ -15,6 +15,7 @@ class Reclaim extends Model
         'production_id',
         'completed',
         'completed_at',
+        'category',
     ];
 
     public function Note()

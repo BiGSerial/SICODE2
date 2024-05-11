@@ -2,6 +2,7 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Custom\Viabilitiesstatus;
+    use App\Helpers\SelectOptions;
 
 @endphp
 @push('css')
@@ -763,8 +764,9 @@
                                     class="text-danger fw-bold">*</span></label>
                             <select class="form-select" id="category" wire:model.defer='category'>
                                 <option value="" selected>Selecione...</option>
-                                <option value="ANEXO PDF">ANEXAR PDF</option>
-                                <option value="LIBERACO EO">LIBERAR EO</option>
+                                @foreach (SelectOptions::getReclaimsOptions() as $option)
+                                    <option value="{{ $option->value }}">{{ $option->info }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col">

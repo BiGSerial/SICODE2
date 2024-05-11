@@ -73,6 +73,8 @@ class Waiting extends Component
 
     public $comment;
 
+    public $waiting;
+
     // Clipboard
     public $clipboardData = [];
 
@@ -85,6 +87,7 @@ class Waiting extends Component
         'refresh_list' => '$refresh',
         'confirm_viability' => 'confirm_viability',
         'cleanAll' => 'closeall',
+        'giveBack' => 'giveBack',
     ];
 
     public function mount($service)
@@ -195,6 +198,79 @@ class Waiting extends Component
                     ->get();
 
 
+    }
+
+    public function go_giveBack(HiringWaiting $waiting)
+    {
+        $this->waiting = $waiting;
+
+        if ($this->waiting) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => "DEVOLVER (RI)",
+                'msg'           => "Deseja devolver a RESOLUÇÃO INTERNA novamente para o Responsável pela Resolução?",
+                'icon'          => 'question',
+                'btnOktxt'      => 'Sim, Delvolva!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'giveBack',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma Ordem foi Enviada!',
+
+            ]);
+
+            return;
+        }
+    }
+
+    public function giveBack()
+    {
+
+        DB::beginTransaction();
+
+        try {
+
+            $this->waiting->update([
+                'complete' => false,
+            ]);
+
+            $this->waiting->Reclaim->update([
+                'completed' => false,
+                'completed_at' => null,
+            ]);
+
+            $this->waiting->Reclaim->Production->update([
+                'completed' => false,
+                'completed_at' => null,
+                'confirmed' => false,
+                'confirmed_at' => null,
+                'status' => 2,
+                'priority' => true
+            ]);
+
+            DB::commit();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'RESOLUÇÂO DEVOLVIDA',
+                'timer'    => 5000,
+            ]);
+
+            $this->emit('refresh_list');
+
+            // DB::rollback();
+
+        } catch (\Throwable $th) {
+
+            DB::rollback();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ERRO AO RETORNAR',
+                'html'     => $th->getMessage(),
+                'timer'    => 2500,
+            ]);
+        }
     }
 
     public function render()

@@ -45,6 +45,7 @@ class Waitinghiring extends Component
                     ->with(['Operations' => function ($q) {
                         $q->where('operacao', '0010');
                     }])
+                    ->orderBy('note_id')
                     ->with('Note.Files')
                     ->get();
 
@@ -143,7 +144,7 @@ class Waitinghiring extends Component
 
         foreach ($this->orders->whereIn('id', $this->orderSelected) as $order) {
 
-            $ifExistingViab = Viability::where('order_id', $order->id)->where('completed', false)->count();
+            $ifExistingViab = Viability::where('order_id', $order->id)->count();
 
 
             if (!$ifExistingViab) {

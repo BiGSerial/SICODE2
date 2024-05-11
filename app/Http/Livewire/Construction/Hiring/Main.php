@@ -933,6 +933,7 @@ class Main extends Component
                     $reclaim = Reclaim::create([
                         'note_id' => $register->id,
                         'service_id' => $this->service_s,
+                        'category' => $this->category,
                     ]);
 
                     $comment = $reclaim->Comments()->create([
