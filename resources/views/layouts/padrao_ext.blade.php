@@ -230,24 +230,18 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
+        <!-- Exibir os dados do clipboard com formatação para Excel -->
+        <textarea id="clipboard-data" style="display: none;">
+        @if (count($clipboardData))
+@foreach ($clipboardData as $row)
+{{ implode("\t", $row) }}
+@endforeach
+@else
+SEM DADOS
+@endif
+    </textarea>
 
-        <footer class="footer" class="text-center">
-            <div class="copyright">
-                &copy; Copyright <strong><span>SICODE 2022 - {{ date('Y') }}
-                        v{{ $version->appver }}</span></strong>.
-                <br>
-                Centro Integrado de Projetos - Espirito Santo<br>
-                Laravel Framework v{{ app()->version() }}<br>
-                PHP v{{ phpversion() }}<br>
-                @livewire('status.bancosicode')
-                @if (env('APP_QA'))
-                    <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
-                @endif
-                @livewire('watchdog')
-            </div>
 
-        </footer>
-    </main><!-- End #main -->
 
     @livewire('components.modal.priority')
 

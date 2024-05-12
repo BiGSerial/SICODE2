@@ -33,6 +33,17 @@
                         <span class="visually-hidden">Loading...</span>
                     </div>
                 </button>
+
+                <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='copyClipboard'
+                    wire:target="copyClipboard" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                    data-bs-placement="top" data-bs-title="Copiar Selecionados para área de Transferência"><i
+                        class="bx bxs-copy-alt fs-4 m-0 align-middle" wire:target="copyClipboard"
+                        wire:loading.remove></i>
+                    <div class="spinner-border spinner-border-sm" role="status" wire:target="copyClipboard"
+                        wire:loading>
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </button>
             </div>
         </div>
         <table class="table table-sm table-condensed table-striped-columns">
@@ -105,7 +116,8 @@
                                 @if ($list->Reclaim && $list->Reclaim->completed)
                                     <i class="ri-arrow-go-back-fill text-danger" tabindex="0" data-bs-toggle="popover"
                                         data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="DEVOLUÇÃO"
-                                        data-bs-content="Devolver para o Responsável a Nota/Ov" style="cursor: pointer;"
+                                        data-bs-content="Devolver para o Responsável a Nota/Ov"
+                                        style="cursor: pointer;"
                                         wire:click.prevent="go_giveBack({{ $list->id }})"></i>
                                 @endif
                             </td>
@@ -339,4 +351,15 @@
     {{-- Fim Modals --}}
 
     @livewire('construction.hiring.actions.waitinghiring')
+
+    <!-- Exibir os dados do clipboard com formatação para Excel -->
+    <textarea id="clipboard-data" style="display: none;">
+        @if (count($clipboardData))
+@foreach ($clipboardData as $row)
+{{ implode("\t", $row) }}
+@endforeach
+@else
+SEM DADOS
+@endif
+    </textarea>
 </div>

@@ -194,7 +194,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
-
+       
 
         <footer class="footer" class="text-center">
             <div class="copyright">
