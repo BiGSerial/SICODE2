@@ -1,13 +1,13 @@
 <div>
     <div>
         <x-show-loading />
-        <div wire:ignore.self class="modal fade" id="ri_change_user" tabindex="-1" aria-labelledby="exampleModalLabel"
+        <div wire:ignore.self class="modal fade" id="ri_att_user" tabindex="-1" aria-labelledby="exampleModalLabel"
             aria-hidden="true">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content edp-bg-stategrey-50">
                     <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
                         <h4 class="my-auto fw-bold">
-                            TROCAR USUÁRIO RETORNO INTERNO
+                            ATRIBUIR USUARIO RETORNO INTERNO
                         </h4>
                     </div>
                     <div class="modal-body">
@@ -71,19 +71,14 @@
                         <table class="table table-sm table-striped-columns">
                             <thead>
                                 <th class="text-center align-middle">Nota</th>
-                                <th class="text-center align-middle">Usuario Origem</th>
-                                <th class="text-center align-middle">Empresa Origem</th>
+                                <th class="text-center align-middle">Rubrica</th>
                                 <th class="text-center align-middle">Usuario Destino</th>
                                 <th class="text-center align-middle">Empresa Destino</th>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td class="text-center align-middle">{{ $reclaim->Note->note }}</td>
-                                    <td class="text-center align-middle">
-                                        {{ $reclaim->Production->User ? $reclaim->Production->User->name : '---' }}</td>
-                                    <td class="text-center align-middle">
-                                        {{ $reclaim->Production->Company ? explode(' ', $reclaim->Production->Company->name)[0] : '---' }}
-                                    </td>
+                                    <td class="text-center align-middle">{{ $reclaim->Note->rubrica }}</td>
                                     <td class="text-center align-middle">{{ $user ? $user->name : '' }}</td>
                                     <td class="text-center align-middle">
                                         {{ $user ? explode(' ', $user->Employee->Contract->company->name)[0] : '' }}
@@ -100,8 +95,8 @@
                             Aguarde.
                         </div>
 
-                        <button class="btn btn-primary btn-sm" wire:click.prevent="toChangeUser()"
-                            wire:loading.attr='disabled'>ALTERAR USUARIO</button>
+                        <button class="btn btn-primary btn-sm" wire:click.prevent="toAttUser()"
+                            wire:loading.attr='disabled'>ATRIBUIR USUARIO</button>
                         <button class="btn btn-danger btn-sm" wire:click.prevent="cancelRIAction()"
                             wire:loading.attr='disabled'>CANCELAR</button>
                     </div>

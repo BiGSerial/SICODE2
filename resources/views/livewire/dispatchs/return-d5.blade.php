@@ -20,7 +20,7 @@
                         @endforeach
                     @endif
                 </select> --}}
-                <select name="" id="" class="form-select form-select-sm ms-5" style="max-width: 200px;"
+                {{-- <select name="" id="" class="form-select form-select-sm ms-5" style="max-width: 200px;"
                     wire:model="action">
                     <option value="" selected>Selecione uma Ação</option>
                     <option value="1">Atribuir em Massa</option>
@@ -33,7 +33,7 @@
                     <div class="spinner-border spinner-border-sm" role="status" wire:target="go_att_mass" wire:loading>
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                </button>
+                </button> --}}
 
             </div>
         </div>
@@ -104,7 +104,9 @@
                                         wire:click.prevent="$emitTo('dispatchs.users.richange-user','goChangeUser' , {{ $list->id }})"
                                         style='cursor: pointer;'></i>
                                 @else
-                                    <i class="ri-user-add-line text-primary fs-5"></i>
+                                    <i class="ri-user-add-line text-primary fs-5"
+                                        wire:click.prevent="$emitTo('dispatchs.users.riatt-user','goAttUser' , {{ $list->id }})"
+                                        style='cursor: pointer;'></i>
                                 @endif
 
                             </td>
@@ -119,6 +121,7 @@
 
     {{-- Livewires Components Functions --}}
     @livewire('dispatchs.users.richange-user', key('change-users-intern-return'))
+    @livewire('dispatchs.users.riatt-user', ['service' => $service], key('att-users-intern-return'))
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->
     <textarea id="clipboard-data" style="display: none;">

@@ -230,134 +230,123 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
-        <!-- Exibir os dados do clipboard com formatação para Excel -->
-        <textarea id="clipboard-data" style="display: none;">
-        @if (count($clipboardData))
-@foreach ($clipboardData as $row)
-{{ implode("\t", $row) }}
-@endforeach
-@else
-SEM DADOS
-@endif
-    </textarea>
+
+        @livewire('components.modal.priority')
+
+
+        @livewireScripts
 
 
 
-    @livewire('components.modal.priority')
-
-
-    @livewireScripts
-
-
-
-    <div aria-live="polite" aria-atomic="true" class="position-fixed" style="margin-right: 10%; z-index: 1060;">
-        <div class="toast-container position-fixed end-0 bottom-0 p-3" style="margin-right: 40px; margin-bottom: 20px;">
-            <div id="torrada" class="toast align-items-center border-0" role="alert" aria-live="assertive"
-                aria-atomic="true">
+        <div aria-live="polite" aria-atomic="true" class="position-fixed" style="margin-right: 10%; z-index: 1060;">
+            <div class="toast-container position-fixed end-0 bottom-0 p-3"
+                style="margin-right: 40px; margin-bottom: 20px;">
+                <div id="torrada" class="toast align-items-center border-0" role="alert" aria-live="assertive"
+                    aria-atomic="true">
+                </div>
             </div>
         </div>
-    </div>
 
 
 
 
 
-    <!--   Core JS Files   -->
-    <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
-            class="bi bi-arrow-up-short"></i></a>
+        <!--   Core JS Files   -->
+        <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
+                class="bi bi-arrow-up-short"></i></a>
 
-    <!-- Vendor JS Files -->
-    <script src="{{ asset('assets/vendor/apexcharts/apexcharts.min.js') }}"></script>
-    {{-- <script defer scr="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script> --}}
-    <script src="{{ asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('assets/vendor/chart.js/chart.min.js') }}"></script>
+        <!-- Vendor JS Files -->
+        <script src="{{ asset('assets/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        {{-- <script defer scr="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script> --}}
+        <script src="{{ asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+        <script src="{{ asset('assets/vendor/chart.js/chart.min.js') }}"></script>
 
-    {{-- <script src="{{ asset('assets/vendor/echarts/echarts.min.js') }}"></script> --}}
-    <script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
-    <script src="{{ asset('assets/vendor/simple-datatables/simple-datatables.js') }}"></script>
-    <script src="{{ asset('assets/vendor/tinymce/tinymce.min.js') }}"></script>
-    <script src="{{ asset('assets/vendor/php-email-form/validate.js') }}"></script>
+        {{-- <script src="{{ asset('assets/vendor/echarts/echarts.min.js') }}"></script> --}}
+        <script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
+        <script src="{{ asset('assets/vendor/simple-datatables/simple-datatables.js') }}"></script>
+        <script src="{{ asset('assets/vendor/tinymce/tinymce.min.js') }}"></script>
+        <script src="{{ asset('assets/vendor/php-email-form/validate.js') }}"></script>
 
-    <!-- Template Main JS File -->
-    <script src="{{ asset('assets/js/main.js') }}"></script>
-    <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
+        <!-- Template Main JS File -->
+        <script src="{{ asset('assets/js/main.js') }}"></script>
+        <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
 
-    <!-- Alpine v3 -->
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        <!-- Alpine v3 -->
+        <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-    <!-- Focus plugin -->
-    <script defer src="https://unpkg.com/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
-
-
-
-    <script>
-        window.addEventListener('swal', function(e) {
-            Swal.fire(e.detail);
-        });
-
-        window.addEventListener('torrada', function(e) {
+        <!-- Focus plugin -->
+        <script defer src="https://unpkg.com/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
 
 
 
-            showToast(createToast(e.detail.menssage, ' text-bg-' + e.detail.status));
+        <script>
+            window.addEventListener('swal', function(e) {
+                Swal.fire(e.detail);
+            });
 
-        });
+            window.addEventListener('torrada', function(e) {
 
-        window.addEventListener("showModal", function(e) {
 
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
 
-        window.addEventListener("hideModal", function(e) {
+                showToast(createToast(e.detail.menssage, ' text-bg-' + e.detail.status));
 
-            const modals = document.getElementsByClassName("modal show");
+            });
 
-            for (const modalEl of modals) {
+            window.addEventListener("showModal", function(e) {
 
-                var modal = bootstrap.Modal.getInstance(modalEl);
-                modal.hide();
+                const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
+                myModal.show();
+            })
+
+            window.addEventListener("hideModal", function(e) {
+
+                const modals = document.getElementsByClassName("modal show");
+
+                for (const modalEl of modals) {
+
+                    var modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                }
+
+
+
+            });
+
+
+            function createToast(message, bgClass) {
+
+
+                var toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.setAttribute('role', 'alert');
+                toast.setAttribute('aria-live', 'assertive');
+                toast.setAttribute('aria-atomic', 'true');
+
+                var toastHeader = document.createElement('div');
+                toastHeader.className = 'toast-header ' + bgClass;
+                toastHeader.innerHTML =
+                    '<strong class="me-auto">System Message</strong><button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>';
+
+                var toastBody = document.createElement('div');
+                toastBody.className = 'toast-body';
+                toastBody.textContent = message;
+
+                toast.appendChild(toastHeader);
+                toast.appendChild(toastBody);
+
+                return toast;
             }
 
+            function showToast(toast) {
+                var toastContainer = document.querySelector('.toast-container');
+                toastContainer.appendChild(toast);
 
+                var bootstrapToast = new bootstrap.Toast(toast);
+                bootstrapToast.show();
+            }
+        </script>
 
-        });
-
-
-        function createToast(message, bgClass) {
-
-
-            var toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.setAttribute('role', 'alert');
-            toast.setAttribute('aria-live', 'assertive');
-            toast.setAttribute('aria-atomic', 'true');
-
-            var toastHeader = document.createElement('div');
-            toastHeader.className = 'toast-header ' + bgClass;
-            toastHeader.innerHTML =
-                '<strong class="me-auto">System Message</strong><button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>';
-
-            var toastBody = document.createElement('div');
-            toastBody.className = 'toast-body';
-            toastBody.textContent = message;
-
-            toast.appendChild(toastHeader);
-            toast.appendChild(toastBody);
-
-            return toast;
-        }
-
-        function showToast(toast) {
-            var toastContainer = document.querySelector('.toast-container');
-            toastContainer.appendChild(toast);
-
-            var bootstrapToast = new bootstrap.Toast(toast);
-            bootstrapToast.show();
-        }
-    </script>
-
-    @stack('script')
+        @stack('script')
 
 </body>
 

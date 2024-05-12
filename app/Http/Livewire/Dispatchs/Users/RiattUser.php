@@ -3,14 +3,17 @@
 namespace App\Http\Livewire\Dispatchs\Users;
 
 use App\Models\Company;
+use App\Models\Production;
 use App\Models\Reclaim;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
-class RichangeUser extends Component
+class RiattUser extends Component
 {
     public ?Reclaim $reclaim = null;
+    public ?Service $service = null;
     public $selectAll = false;
     public $selected = [];
     public $user;
@@ -21,12 +24,13 @@ class RichangeUser extends Component
 
 
     protected $listeners = [
-        'goChangeUser',
-        'confirm_transferUser'
+        'goAttUser',
+        'confirm_attuser'
     ];
 
-    public function mount()
+    public function mount($service)
     {
+        $this->service = $service;
         $this->companies = Company::OrderBy('name')->get();
     }
 
@@ -46,13 +50,13 @@ class RichangeUser extends Component
     }
 
 
-    public function goChangeUser(Reclaim $reclaim)
+    public function goAttUser(Reclaim $reclaim)
     {
         $this->reclaim = $reclaim;
 
         if ($this->reclaim) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => "ri_change_user",
+                'id' => "ri_att_user",
             ]);
         }
     }
@@ -71,7 +75,7 @@ class RichangeUser extends Component
         $this->emit('refresh_list');
     }
 
-    public function toChangeUser()
+    public function toAttUser()
     {
         if (!$this->company || !$this->user_s) {
             $this->dispatchBrowserEvent('swal', [
@@ -85,12 +89,12 @@ class RichangeUser extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmar Transferência',
-            'msg'           => "Você está prestes a transferir {$this->reclaim->Note->note} para {$this->user->name}, Deseja continuar?",
+            'title'         => 'Confirmar Atribuição?',
+            'msg'           => "Você está prestes a atribuir a NOTA/OV {$this->reclaim->Note->note} para {$this->user->name}, Deseja continuar?",
             'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Transfira!',
+            'btnOktxt'      => 'Sim, Atribua!',
             'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_transferUser',
+            'action'        => 'confirm_attuser',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma nenhuma nota foi Transferida.',
 
@@ -99,30 +103,42 @@ class RichangeUser extends Component
         return;
     }
 
-    public function confirm_transferUser()
+    public function confirm_attuser()
     {
-        if (($user = User::find($this->user_s)) && $this->reclaim->Production) {
+        if (($user = User::find($this->user_s)) && !$this->reclaim->Production) {
+
 
             DB::beginTransaction();
 
-            $check = $this->reclaim->Production->update([
+            // Cria uma nova produção;
+            $production = Production::create([
+                'note_id' => $this->reclaim->Note->id,
+                'service_id' => $this->service->uuid,
                 'company_id' => $user->Employee->Contract->company->id,
                 'user_id' => $user->id,
+                'dispatch_by' => Auth()->User()->id,
+                'dispatch_at' => date('Y-m-d H:i:s'),
                 'att_by' => Auth()->User()->id,
                 'att_at' => date('Y-m-d H:i:s'),
                 'status' => 2,
+                'd5' => true,
             ]);
+
+            // Associa a Produção ao Retorno Interno para manter o controle.
+            $check = $this->reclaim->update(['production_id' => $production->id]);
 
             if ($check) {
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'success',
-                    'title'    => 'USUARIO DO RI ALERADO COM SUCESSO',
+                    'title'    => 'NOTA ATRIBUIDA AO USUÁRIO COM SUCESSL',
                     'timer'    => 5000,
                 ]);
 
                 DB::commit();
+
+                // DB::rollback();
 
                 $this->cleanThis();
 
@@ -134,8 +150,8 @@ class RichangeUser extends Component
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon'     => 'werror',
-                    'title'    => 'FALHA AO ALTERAR USUARIO',
+                    'icon'     => 'error',
+                    'title'    => 'FALHA AO ATRIBUITR USUARIO',
                     'html'     => 'Ocorreu alguma falha no processo que não foi possível alterar o usuário. Cheque os dados e tente novamente.',
                     'timer'    => 5000,
                 ]);
@@ -148,6 +164,17 @@ class RichangeUser extends Component
 
             }
 
+        } else {
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'FALHA AO REGISTRAR USUARIO',
+                'html'     => 'Por algum motivo os dados foram perdidos ou não antedem a essa solicitação especíca. Revise as informações e tente novamente.',
+                'timer'    => 5000,
+            ]);
+
+            return;
         }
     }
 
@@ -169,13 +196,12 @@ class RichangeUser extends Component
         $this->search = "";
         $this->company = "";
 
-
     }
 
 
     public function render()
     {
-        return view('livewire.dispatchs.users.richange-user', [
+        return view('livewire.dispatchs.users.riatt-user', [
             'users' => $this->users
         ]);
     }
