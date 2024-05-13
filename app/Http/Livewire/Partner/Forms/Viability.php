@@ -20,6 +20,8 @@ class Viability extends Component
 
     public $result = [];
 
+    public $hasFile = true;
+
     // Files
     public $files = [];
 
@@ -32,6 +34,7 @@ class Viability extends Component
     protected $listeners = [
         'confirm_cancelForm' => 'cancelForm',
         'confirm_save_form'  => 'saveForm',
+        'hasFile'
     ];
 
     public function mount($id)
@@ -58,12 +61,17 @@ class Viability extends Component
 
     }
 
+    public function hasFile($value)
+    {
+        $this->hasFile = $value;
+    }
+
     public function updatedFiles()
     {
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,png',
+                'files.*' => 'mimes:pdf,jpeg,png,xls,xlsx',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
@@ -89,9 +97,22 @@ class Viability extends Component
 
                     if (count($this->files) > 1) {
 
-                        $name = "CROQUI-{$this->data->note}-F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT) . '_' . str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
+                        if ($file->getClientOriginalExtension() == 'pdf') {
+                            $name = "CROQUI-{$this->data->note}-F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT) . '_' . str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
+                        } elseif ($file->getClientOriginalExtension() == 'xlsx' || $file->getClientOriginalExtension() == 'xls') {
+                            $name = "ADS-{$this->data->note}-F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT) . '_' . str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
+                        }
+
                     } else {
-                        $name = "CROQUI-{$this->data->note}-F01_01";
+
+                        if ($file->getClientOriginalExtension() == 'pdf') {
+                            $name = "CROQUI-{$this->data->note}-F01_01";
+                        } elseif ($file->getClientOriginalExtension() == 'xlsx' || $file->getClientOriginalExtension() == 'xls') {
+                            $name = "ADS-{$this->data->note}-F01_01";
+                        } else {
+                            $name = "{$file->getClientOriginalExtension()}-{$this->data->note}-F01_01";
+                        }
+
                     }
 
                     $this->show_files[$index] = [
@@ -175,7 +196,7 @@ class Viability extends Component
                     $campos[] = 'Motivo de Alteração não informado.';
                 }
 
-                if (!count($this->files)) {
+                if (!$this->hasFile) {
                     $block    = true;
                     $campos[] = 'Sem Croqui Anexado.';
                 }
@@ -234,43 +255,47 @@ class Viability extends Component
 
                 $erro = false;
 
-                $files_id = [];
+                // $files_id = [];
 
-                if (count($this->show_files)) {
+                // if (count($this->show_files)) {
 
-                    foreach ($this->show_files as $temp_file) {
+                //     foreach ($this->show_files as $temp_file) {
 
-                        $caminho = '';
+                //         $caminho = '';
 
-                        if (isset($this->files[$temp_file['id']])) {
+                //         if (isset($this->files[$temp_file['id']])) {
 
-                            $caminho = $this->files[$temp_file['id']]->store('/arquivos/croqui');
+                //             $caminho = $this->files[$temp_file['id']]->store('/arquivos/croqui');
 
-                            if ($caminho) {
+                //             if ($caminho) {
 
-                                $file = File::create([
-                                    'note_id'   => $this->data->id,
-                                    'user_id'   => Auth()->User()->id,
-                                    'file_name' => $temp_file['name'],
-                                    'path'      => $caminho,
-                                    'ext'       => $temp_file['ext'],
-                                ]);
+                //                 $file = File::create([
+                //                     'note_id'   => $this->data->id,
+                //                     'user_id'   => Auth()->User()->id,
+                //                     'file_name' => $temp_file['name'],
+                //                     'path'      => $caminho,
+                //                     'ext'       => $temp_file['ext'],
+                //                 ]);
 
-                                if (!$file) {
-                                    $erro = true;
-                                } else {
-                                    $files_id[] = $file->id;
-                                }
+                //                 if (!$file) {
+                //                     $erro = true;
+                //                 } else {
+                //                     $files_id[] = $file->id;
+                //                 }
 
-                            }
+                //             }
 
-                        }
+                //         }
 
-                    }
-                }
+                //     }
+                // }
+
+
+
+
 
                 foreach ($formData as $data) {
-                    $chk_form = Form::updateOrCreate(['viability_id' => $data['viability_id']], $data)->Files()->syncWithoutDetaching($files_id);
+                    $chk_form = Form::updateOrCreate(['viability_id' => $data['viability_id']], $data);
 
                     if (!$chk_form) {
                         $erro = true;
@@ -289,6 +314,9 @@ class Viability extends Component
                 }
 
                 if (!$erro) {
+
+                    $this->emitTo('files.filepartners', 'save_files');
+
                     DB::commit();
 
                     $this->dispatchBrowserEvent('swal', [

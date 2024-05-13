@@ -18,7 +18,7 @@ class Main extends Component
     {
         return Note::whereRelation('Viabilities', function ($q) {
             $q->where('approved', false)
-                // ->where('engineer_id', Auth()->User()->id)
+                ->where('engineer_id', Auth()->User()->id)
                 ->where('tacit', false)
                 ->where('canceled', false)
                 ->where('rejected', true)
@@ -26,7 +26,7 @@ class Main extends Component
         })
             ->with(['Viabilities' => function ($query) {
                 $query->where('approved', false)
-                // ->where('engineer_id', Auth()->User()->id)
+                ->where('engineer_id', Auth()->User()->id)
                 ->where('tacit', false)
                 ->where('canceled', false)
                 ->where('rejected', true)

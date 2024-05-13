@@ -87,7 +87,7 @@ class Main extends Component
                 'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
+                        adequada.
                     </p>
                 ",
             ]);
@@ -217,6 +217,7 @@ class Main extends Component
                     ->orderBy('type_note', 'desc');
             }])
             ->orderBy('priority', 'desc')
+            ->orderBy('d5', 'desc')
             ->orderBy(function ($query) {
                 $query->select('type_note')
                     ->from('notes')

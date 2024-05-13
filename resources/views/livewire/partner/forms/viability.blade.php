@@ -118,7 +118,7 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
+                        {{-- <div class="mb-3">
                             <div class="my-2"> <button class="btn btn-sm btn-primary"
                                     onclick="document.getElementById('file-input').click()">CARREGAR CROQUI</button>
                                 <span class="text-danger fw-bold">*</span>
@@ -130,15 +130,11 @@
 
                                 <form wire:submit.prevent="saveFile">
                                     <input type="file" id="file-input" multiple wire:model="files" hidden>
-                                    {{-- <button type="submit" id="id-submit"></button> --}}
+
                                 </form>
 
                                 <div x-show="isUploading" class="mb-3">
-                                    {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                    x-bind:style="`width: ${progress}%`">
-                                    <span class="align-middle" x-text="`${progress}%`"></span>
-                                </div> --}}
+
                                     <div class="progress my-0" role="progressbar" aria-label="Danger example"
                                         aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
                                         style="width: 100%; border-radius: 0;">
@@ -180,10 +176,9 @@
 
                                 </div>
                             </div>
-                        </div>
+                        </div> --}}
 
-
-
+                        @livewire('files.filepartners', ['note' => $note, 'needFiles' => true], key('FilesPartners'))
                     @endif
 
                     @if ($changes != '')
@@ -213,6 +208,7 @@
                     @endif
                 </div>
                 <div class="card-footer d-flex justify-content-end">
+                    {{ $hasFile }}
                     <button class="btn btn-danger m-2" wire:click.prevent="toCancelForm">CANCELAR</button>
                     <button class="btn btn-primary m-2" @disabled($changes === '')
                         wire:click.prevent="toSaveForm">SALVAR</button>
