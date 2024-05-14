@@ -51,4 +51,11 @@ class ConstructionController extends Controller
             'service' => $service,
         ]);
     }
+
+
+    // REDIRECIONADOR RESPONSER CONSTRUÇÃO
+    public function responser_main()
+    {
+        return view('construction.responser.main');
+    }
 }

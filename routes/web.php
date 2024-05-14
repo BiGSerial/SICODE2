@@ -81,6 +81,10 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/viab_returned', 'returned')->name('returned');
     Route::get('/waiting_list', 'waiting')->name('waiting');
+
+    Route::prefix('/responser')->name('responser.')->group(function () {
+        Route::get('/', 'responser_main')->name('main');
+    });
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {

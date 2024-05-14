@@ -40,14 +40,14 @@ class Viabilitiesstatus
             ],
             // 4
             [
-                'status'  => 'Aguardando Resposta Contratante',
+                'status'  => 'Aguardando Contratante',
                 'icon'    => 'bx bxs-user-voice',
                 'colorbg' => 'text-bg-info',
                 'color'   => 'info',
             ],
             // 5
             [
-                'status'  => 'Aguardando Resposta Parceira',
+                'status'  => 'Aguardando Parceira',
                 'icon'    => 'bx bxs-user-voice',
                 'colorbg' => 'text-bg-danger',
                 'color'   => 'danger',

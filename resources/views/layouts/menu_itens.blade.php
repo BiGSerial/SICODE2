@@ -131,6 +131,18 @@
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
             style="background-color: #dbd8d8; width: 300px;">
             @can('operator')
+                @can('management')
+                    @once
+                        <li style="background-color: #ffffff; color: white;">
+                            <h6 class="dropdown-header">CONTROLE</h6>
+                        </li>
+                    @endonce
+                    <li><a class="dropdown-item"
+                            href="{{ route('construction.responser.main', ['service' => $service->uuid]) }}"><i
+                                class=" align-middle text-info"></i>ACOMPANHAMENTO CONTRATAÇÃO</a>
+                    </li>
+                @endcan
+
                 @if ($constructions->count())
                     @foreach ($constructions as $service)
                         @if ($service->pivot->dispatch)
