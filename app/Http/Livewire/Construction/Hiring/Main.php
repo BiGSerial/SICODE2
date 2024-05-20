@@ -714,10 +714,17 @@ class Main extends Component
             // Adicionar os IDs ausentes de $selected
             foreach ($this->lists->pluck('id')->toArray() as $id) {
                 if (!in_array($id, $this->selected)) {
-                    // dd();
-                    if (!($this->lists->where('id', $id)->first())->Viabilities->count() && !($this->lists->where('id', $id)->first())->Note->Waitings->where('complete', false)->count()) {
-                        $this->selected[] = $id;
+
+                    if (
+                        !($this->lists->where('id', $id)->first())->Viabilities->count() &&
+                        !($this->lists->where('id', $id)->first())->Note->Waitings->where('complete', false)->count()
+                    ) {
+                        $status = $this->lists->where('id', $id)->first()->statusSist;
+                        if (stripos($status, 'ENCE') === false && stripos($status, 'ENTE') === false) {
+                            $this->selected[] = $id;
+                        }
                     }
+
                 }
             }
         } else {

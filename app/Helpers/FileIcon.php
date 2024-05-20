@@ -23,8 +23,6 @@ class FileIcon
                 return (object)['icon' => 'bx bxs-file-png text-secondary'];
                 break;
             case "doc":
-                return (object)['icon' => 'ri-file-word-line text-primary'];
-                break;
             case "docx":
                 return (object)['icon' => 'ri-file-word-line text-primary'];
                 break;

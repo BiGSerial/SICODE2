@@ -35,13 +35,15 @@
     </style>
 @endpush
 <div>
+    <x-show-loading />
     <section class="section dashboard">
         <div class="row">
             <div class="col-lg-8">
                 <div class="row">
 
                     <div class="col-xxl-4 col-md-6">
-                        <div class="card info-card revenue-card">
+                        <div class="card info-card revenue-card @if ($this->filterStatus['column'] == 'hired') border border-5 border-success @endif"
+                            wire:click.prevent="setFilterStatus('hired')" style="cursor: pointer;">
 
 
                             <div class="card-body">
@@ -76,7 +78,8 @@
                     </div>
 
                     <div class="col-xxl-4 col-md-6">
-                        <div class="card info-card customers-card">
+                        <div class="card info-card customers-card @if ($this->filterStatus['column'] == 'completed') border border-5 border-success @endif"
+                            wire:click.prevent="setFilterStatus('completed')" style="cursor: pointer;">
 
 
                             <div class="card-body">
@@ -113,7 +116,8 @@
                     </div>
 
                     <div class="col-xxl-4 col-md-6">
-                        <div class="card info-card sales-card">
+                        <div class="card info-card sales-card @if ($this->filterResponser) border border-5 border-success @endif"
+                            wire:click.prevent="setFilterStatus('responser')" style="cursor: pointer;">
 
 
                             <div class="card-body">
@@ -139,6 +143,7 @@
                 </div>
                 <div>
                     <div class="mb-3 d-flex justify-content-end">
+
                         <select name="" id="" class="form-select form-select-sm ms-2"
                             style="max-width: 110px;" wire:model="perPage">
                             <option value="25">25 page</option>
@@ -178,7 +183,17 @@
                             </div>
                         </button>
 
-
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            {{ $lists->links() }}
+                        </div>
+                        <div class="col-6 d-flex justify-content-end align-middle">
+                            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                                {{ $lists->lastItem() }}
+                                de {{ $lists->total() }}
+                                registros.</span>
+                        </div>
                     </div>
                     <div class="table-responsive rounded">
                         @if (!$lists->count())
@@ -188,114 +203,165 @@
                                 </div>
                             </div>
                         @else
-                            <table class="table table-condensed table-striped">
-                                <thead>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-condensed table-striped table-hover">
+                                    <thead class="sticky-top">
 
-                                    <th class="text-center">Note</th>
-                                    <th class="text-center">Ordem</th>
-                                    <th class="text-center">Enviado</th>
-                                    <th class="text-center">Esperado</th>
-                                    <th class="text-center">Real</th>
-                                    <th class="text-center">PZE</th>
-                                    <th class="text-center">Rubrica</th>
-                                    <th class="text-center">Municipio</th>
-                                    <th class="text-center">Empreiteira</th>
-                                    <th class="text-center">Responsável</th>
-                                    <th class="text-center">Status</th>
-                                </thead>
-                                <tbody>
-                                    @foreach ($lists as $list)
-                                        @php
-                                            $days_left = '';
+                                        <th class="text-center">Note</th>
+                                        <th class="text-center">Ordem</th>
+                                        <th class="text-center">Contratada</th>
+                                        <th class="text-center">Enviado</th>
+                                        <th class="text-center">Esperado</th>
+                                        <th class="text-center">Real</th>
+                                        <th class="text-center">PZE</th>
+                                        <th class="text-center">Rubrica</th>
+                                        <th class="text-center">Municipio</th>
+                                        <th class="text-center">Empreiteira</th>
+                                        <th class="text-center">Responsável</th>
+                                        <th class="text-center">Status</th>
+                                    </thead>
+                                    <tbody class="table-group-divider">
+                                        @foreach ($lists as $list)
+                                            @php
+                                                $days_left = '';
 
-                                            // Dias Restantes
-                                            if ($list->type_note == 1) {
-                                                if ($list->mesalization && $list->mesalization != 'erro') {
-                                                    preg_match('/\d+\/\d+/', $list->mesalization, $matches);
+                                                // Dias Restantes
+                                                if ($list->type_note == 1) {
+                                                    if ($list->mesalization && $list->mesalization != 'erro') {
+                                                        preg_match('/\d+\/\d+/', $list->mesalization, $matches);
 
-                                                    if (!empty($matches)) {
-                                                        [$mes, $ano] = explode('/', $matches[0]);
+                                                        if (!empty($matches)) {
+                                                            [$mes, $ano] = explode('/', $matches[0]);
 
-                                                        if ($mes >= 1) {
-                                                            $data = "{$ano}-{$mes}-28 23:59:59";
+                                                            if ($mes >= 1) {
+                                                                $data = "{$ano}-{$mes}-28 23:59:59";
 
-                                                            $hoje = Carbon::now();
+                                                                $hoje = Carbon::now();
 
-                                                            $dataCarbon = Carbon::createFromFormat(
-                                                                'Y-m-d H:i:s',
-                                                                $data,
-                                                            );
+                                                                $dataCarbon = Carbon::createFromFormat(
+                                                                    'Y-m-d H:i:s',
+                                                                    $data,
+                                                                );
 
-                                                            $days_left = $hoje->diffInDays($dataCarbon, false);
-                                                        } else {
-                                                            $data = "{$ano}-12-28 23:59:59";
+                                                                $days_left = $hoje->diffInDays($dataCarbon, false);
+                                                            } else {
+                                                                $data = "{$ano}-12-28 23:59:59";
 
-                                                            $hoje = Carbon::now();
+                                                                $hoje = Carbon::now();
 
-                                                            $dataCarbon = Carbon::createFromFormat(
-                                                                'Y-m-d H:i:s',
-                                                                $data,
-                                                            );
+                                                                $dataCarbon = Carbon::createFromFormat(
+                                                                    'Y-m-d H:i:s',
+                                                                    $data,
+                                                                );
 
-                                                            $days_left = $hoje->diffInDays($dataCarbon, false);
+                                                                $days_left = $hoje->diffInDays($dataCarbon, false);
+                                                            }
                                                         }
                                                     }
+                                                } elseif ($list->type_note == 2) {
+                                                    $days_left = $list->days_left;
                                                 }
-                                            } elseif ($list->type_note == 2) {
-                                                $days_left = $list->days_left;
-                                            }
-                                        @endphp
-                                        <tr>
-                                            <td class="text-center align-middle fw-bold">{{ $list->note }}</td>
-                                            <td class="text-center align-middle">
-                                                @if ($list->Viabilities->count())
-                                                    @foreach ($list->Viabilities as $viab)
-                                                        <p class="py-0 my-0">{{ $viab->Order->ordem }}</p>
-                                                    @endforeach
-                                                @endif
-                                            </td>
-                                            <td class="text-center align-middle">
-                                                {{ $list->Viabilities->count() ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->sended_at)) : '' }}
-                                            </td>
-                                            <td class="text-center align-middle">{{ date('d/m/Y H:i:s') }}</td>
-                                            <td class="text-center align-middle">
-                                                {{ $list->Viabilities->count() && isset($list->Viabilities->first()->returned_at) ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
-                                            </td>
-                                            <td class="text-center align-middle">{{ $days_left }}</td>
-                                            <td class="text-center align-middle">{{ $list->rubrica }}</td>
-                                            <td class="text-center align-middle">{{ $list->lexp }}</td>
-                                            <td class="text-center align-middle">
-                                                @php
 
-                                                    $name = '';
+                                                $color = '';
 
-                                                    if (
-                                                        $list->Viabilities->count() &&
-                                                        isset($list->Viabilities->first()->Engineer->name)
-                                                    ) {
-                                                        $nameParts = preg_split(
-                                                            '/\s+/',
-                                                            $list->Viabilities->first()->Engineer->name,
-                                                        );
-                                                        $name = $nameParts[0] . ' ' . end($nameParts);
-                                                    }
+                                                if (
+                                                    $list->Viabilities->first()->approved &&
+                                                    !$list->Viabilities->first()->rejected &&
+                                                    !$list->Viabilities->first()->tacit
+                                                ) {
+                                                    $color = 'green';
+                                                } elseif (
+                                                    !$list->Viabilities->first()->approved &&
+                                                    $list->Viabilities->first()->rejected &&
+                                                    !$list->Viabilities->first()->tacit
+                                                ) {
+                                                    $color = 'red';
+                                                } elseif (
+                                                    !$list->Viabilities->first()->approved &&
+                                                    !$list->Viabilities->first()->rejected &&
+                                                    $list->Viabilities->first()->tacit
+                                                ) {
+                                                    $color = 'yellow';
+                                                }
 
-                                                @endphp
-                                                {{ $list->Viabilities->count() && isset($list->Viabilities->first()->Company->name)
-                                                    ? explode(' ', $list->Viabilities->first()->Company->name)[0]
-                                                    : '' }}
-                                            </td>
-                                            <td class="text-center align-middle">
-                                                {{ $name }}
-                                            </td>
-                                            <td class="text-center align-middle">
-                                                <span
-                                                    class="badge {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                                                $tcolor = '';
+
+                                                if ($list->Viabilities->first()->hired) {
+                                                    $tcolor = 'table-success';
+                                                }
+
+                                            @endphp
+                                            <tr wire:key="{{ $list->id }}"
+                                                wire:dblclick.prevet="$emitTo('construction.responser.actions.responserpartners', 'getInfoResponse', {{ $list }})"
+                                                style="cursor: pointer; border-left: 8px solid {{ $color }};">
+                                                <td class="text-center align-middle fw-bold {{ $tcolor }}">
+                                                    {{ $list->note }}</td>
+                                                <td class="text-center align-middle">
+                                                    @if ($list->Viabilities->count())
+                                                        @foreach ($list->Viabilities as $viab)
+                                                            <p class="py-0 my-0">{{ $viab->Order->ordem }}</p>
+                                                        @endforeach
+                                                    @endif
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    {{ $list->Viabilities->first()->hired ? 'SIM' : 'NÃO' }}
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    {{ $list->Viabilities->count() ? date('d/m/Y', strToTime($list->Viabilities->first()->sended_at)) : '' }}
+                                                </td>
+                                                <td class="text-center align-middle">{{ date('d/m/Y') }}</td>
+                                                <td class="text-center align-middle">
+                                                    {{ $list->Viabilities->count() && isset($list->Viabilities->first()->returned_at) ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    {{ Carbon::now()->addDays($days_left)->format('d/m/Y') }}
+                                                </td>
+                                                <td class="text-center align-middle">{{ $list->rubrica }}</td>
+                                                <td class="text-center align-middle">{{ $list->lexp }}</td>
+                                                <td class="text-center align-middle">
+                                                    @php
+
+                                                        $name = '';
+
+                                                        if (
+                                                            $list->Viabilities->count() &&
+                                                            isset($list->Viabilities->first()->Engineer->name)
+                                                        ) {
+                                                            $nameParts = preg_split(
+                                                                '/\s+/',
+                                                                $list->Viabilities->first()->Engineer->name,
+                                                            );
+                                                            $name = $nameParts[0] . ' ' . end($nameParts);
+                                                        }
+
+                                                    @endphp
+                                                    {{ $list->Viabilities->count() && isset($list->Viabilities->first()->Company->name)
+                                                        ? $list->Viabilities->first()->Company->name
+                                                        : '' }}
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    {{ $name }}
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    <span
+                                                        class="badge {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}">{{ Viabilitiesstatus::status($list->Viabilities->first()->status)->status }}</span>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-6">
+                                    {{ $lists->links() }}
+                                </div>
+                                <div class="col-6 d-flex justify-content-end align-middle">
+                                    <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                                        {{ $lists->lastItem() }}
+                                        de {{ $lists->total() }}
+                                        registros.</span>
+                                </div>
+                            </div>
                         @endif
                     </div>
                 </div>
@@ -319,15 +385,16 @@
                             <div class="table-responsive rounded overflow-auto thinScroll" style="max-height: 315px">
                                 <table class="table table-condensed table-striped">
                                     <thead class="sticky-top">
-                                        <th class="text-center"></th>
-                                        <th class="text-center">Note</th>
-                                        <th class="text-center">Empreiteira</th>
-                                        <th class="text-center">Responsável</th>
-                                        <th class="text-center">Tempo</th>
-                                        <th class="text-center">Status</th>
-
+                                        <tr class="table-primary">
+                                            <th class="text-center"></th>
+                                            <th class="text-center">Note</th>
+                                            <th class="text-center">Empreiteira</th>
+                                            <th class="text-center">Responsável</th>
+                                            <th class="text-center">Tempo</th>
+                                            <th class="text-center">Status</th>
+                                        </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody class="table-group-divider">
 
                                         @foreach ($listResponsers as $responser)
                                             @php
@@ -405,6 +472,7 @@
                 </div>
 
 
+
                 <div class="card info-card sales-card">
 
 
@@ -423,14 +491,16 @@
                             @else
                                 <table class="table table-condensed table-striped">
                                     <thead class="sticky-top">
-                                        <th class="text-center">Note</th>
-                                        <th class="text-center">Note</th>
-                                        <th class="text-center">Serviço</th>
-                                        <th class="text-center">tempo</th>
-                                        <th class="text-center">Status</th>
-                                        <th class="text-center">Responsável</th>
+                                        <tr class="table-primary">
+                                            <th class="text-center"></th>
+                                            <th class="text-center">Note</th>
+                                            <th class="text-center">Serviço</th>
+                                            <th class="text-center">tempo</th>
+                                            <th class="text-center">Status</th>
+                                            <th class="text-center">Responsável</th>
+                                        </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody class="table-group-divider">
                                         @foreach ($waitingLists as $waiting)
                                             @php
                                                 $name = '';
@@ -509,9 +579,13 @@
                     </div>
                 </div>
 
+
             </div>
 
         </div>
 </div>
 </section>
+
+{{-- LIVEWIRE COMPONENTS --}}
+@livewire('construction.responser.actions.responserpartners')
 </div>

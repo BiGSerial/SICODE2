@@ -14,9 +14,15 @@ class Main extends Component
     use WithPagination;
     protected $paginationTheme = 'bootstrap';
 
-    public $perPage;
+    public $perPage = 50;
     public $search;
     public $company;
+    public $filterStatus =  [
+        'column' => null,
+        'value' => null
+    ];
+    public $filterResponser = false;
+
 
     public function getCountHiringProperty()
     {
@@ -30,6 +36,59 @@ class Main extends Component
 
 
         })->count();
+    }
+
+    public function setFilterStatus($status)
+    {
+        if ($status == 'hired') {
+
+            $this->filterResponser = false;
+
+
+
+            if (!$this->filterStatus['column']) {
+                $this->filterStatus = [
+                    'column' => 'hired',
+                    'value' => true
+                ];
+            } else {
+                $this->filterStatus =  [
+                    'column' => null,
+                    'value' => null
+                ];
+            }
+
+
+
+        } elseif ($status == 'completed') {
+
+            $this->filterResponser = false;
+
+            if (!$this->filterStatus['column']) {
+                $this->filterStatus = [
+                    'column' => 'completed',
+                    'value' => false
+                ];
+            } else {
+                $this->filterStatus =  [
+                    'column' => null,
+                    'value' => null
+                ];
+            }
+
+        } else {
+            $this->filterStatus =  [
+                'column' => null,
+                'value' => null
+            ];
+            if (!$this->filterResponser) {
+                $this->filterResponser = true;
+            } else {
+                $this->filterResponser = false;
+            }
+        }
+
+
     }
 
     public function searching()
@@ -99,6 +158,12 @@ class Main extends Component
                     })
                     ->when(Auth()->User()->engineer, function ($sq) {
                         $sq->where('engineer_id', Auth()->User()->id);
+                    })
+                    ->when($this->filterStatus['column'], function ($q) {
+                        $q->where($this->filterStatus['column'], $this->filterStatus['value']);
+                    })
+                    ->when($this->filterResponser, function ($q) {
+                        $q->where('status', 4);
                     });
 
 
@@ -108,14 +173,31 @@ class Main extends Component
             ->whereMonth('sended_at', date('m'))
             ->when(Auth()->User()->engineer, function ($sq) {
                 $sq->where('engineer_id', Auth()->User()->id);
+            })->when($this->company, function ($sq) {
+                $sq->where('company_id', $this->company);
+            })
+            ->when($this->filterStatus['column'], function ($q) {
+                $q->where($this->filterStatus['column'], $this->filterStatus['value']);
+            })
+            ->when($this->filterResponser, function ($q) {
+                $q->where('status', 4);
             });
+            ;
         }])
         ->when(trim($this->search), function ($q) {
             $q->where(function ($sq) {
                 $sq->where('note', 'like', "%".trim($this->search)."%")
+                    ->orWhere('rubrica', 'like', "%".trim($this->search)."%")
+                    ->orWhere('lexp', 'like', "%".trim($this->search)."%")
                     ->orWhereRelation('Orders', 'ordem', 'like', "%".trim($this->search)."%");
             });
         })
+
+
+        ->when($this->filterResponser, function ($q) {
+            $q->whereRelation('Viabilities', 'status', 4);
+        })
+
         ->paginate($this->perPage);
     }
 

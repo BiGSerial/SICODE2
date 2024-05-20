@@ -506,7 +506,7 @@
                                     @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-primary
                                     @elseif($block == 1 && $user['lastUser'] == 'Desconhecido')
                                         table-warning
-                                    @elseif($block == 2)      
+                                    @elseif($block == 2)
                                         table-success
                                     @elseif($block == 3)
                                         table-danger @endif
@@ -566,7 +566,7 @@
                                                 style="font-size: 8px;">{{ $list->nstats }}</span></td>
                                     @endif
                                     <td scope="col"
-                                        class="text-center 
+                                        class="text-center
                                     @if ($list->days_left < 0) text-bg-secondary
                                     @elseif($list->days_left >= 0 && $list->days_left < 6)
                                     table-danger
