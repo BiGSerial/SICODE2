@@ -54,6 +54,7 @@ class TacitLogic extends Command
                     'completed_at' => $viability->hired ? Carbon::now() : null,
                     'status' => $viability->hired ? 9 : 15,
                     'approved' => true,
+                    'status' => $viability->hired ? 9 : 14,
                 ]);
 
                 $viability->Comments()->create([

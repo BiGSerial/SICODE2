@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.2",
+    "appver": "1.8.3",
     "historic": [
+        {
+            "version": "1.8.3",
+            "description": "Chagend Filter Hiring List",
+            "date": "2024-05-22"
+        },
         {
             "version": "1.8.2",
             "description": "Renew Waiting List to Garantee files before to send",
