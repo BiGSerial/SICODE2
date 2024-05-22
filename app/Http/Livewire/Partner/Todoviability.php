@@ -19,6 +19,7 @@ class Todoviability extends Component
     public $cities;
 
     public $files_selected = [];
+    public $inActivity = [];
 
     public $search;
 
@@ -43,7 +44,18 @@ class Todoviability extends Component
 
     }
 
+    public function putInActvity($id)
+    {
 
+
+        if ($id) {
+
+            foreach ($this->lists->where('id', $id)->first()->Viabilities as $viab) {
+                $viab->update(['inActivity' => !$viab->inActivity]);
+            }
+        }
+
+    }
 
     public function downloadFile($id)
     {
@@ -113,7 +125,7 @@ class Todoviability extends Component
         $query->whereRelation('Viabilities', function ($q) {
             $q->where('tacit', false)
                 ->where('canceled', false)
-                ->where('hired', false)
+
                 ->where('completed', false);
 
             if (!Auth()->User()->superadm) {
@@ -125,13 +137,12 @@ class Todoviability extends Component
                 }
             }
 
-        })
-            ->with(['Viabilities' => function ($query) {
-                $query->where('tacit', false)
-                ->where('canceled', false)
-                ->where('hired', false)
-                ->where('completed', false);
-            }, 'Files']);
+        })->with(['Viabilities' => function ($query) {
+            $query->where('tacit', false)
+            ->where('canceled', false)
+
+            ->where('completed', false);
+        }, 'Files']);
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -155,6 +166,10 @@ class Todoviability extends Component
 
     public function render()
     {
+        foreach ($this->lists as $list) {
+            $this->inActivity[$list->id] = $list->Viabilities->last()->inActivity;
+        }
+
         return view('livewire.partner.todoviability', [
             'lists'  => $this->lists,
             'cities' => $this->cities,

@@ -207,6 +207,7 @@ class Main extends Component
             return $q->whereYear('sended_at', date('Y'))
                     ->whereMonth('sended_at', date('m'))
                     ->where('rejected', true)
+                    ->where('completed', false)
                     ->when(Auth()->User()->engineer, function ($sq) {
                         $sq->where('engineer_id', Auth()->User()->id);
                     });
@@ -231,7 +232,17 @@ class Main extends Component
 
     public function getWaitingListsProperty()
     {
-        return HiringWaiting::where('complete', false)->get();
+        $query = HiringWaiting::Query();
+        $query->where('complete', false)
+            ->when($this->search, function ($q) {
+                $q->whereRelation('Note', 'note', 'like', "%".$this->search."%");
+            })
+            ->orderBy('created_at', 'DESC');
+
+
+
+        return $query->get();
+
     }
 
     public function getCompaniesProperty()

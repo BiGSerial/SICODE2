@@ -276,11 +276,7 @@
                                                     !$list->Viabilities->first()->tacit
                                                 ) {
                                                     $color = 'red';
-                                                } elseif (
-                                                    !$list->Viabilities->first()->approved &&
-                                                    !$list->Viabilities->first()->rejected &&
-                                                    $list->Viabilities->first()->tacit
-                                                ) {
+                                                } elseif ($list->Viabilities->first()->tacit) {
                                                     $color = 'yellow';
                                                 }
 
@@ -291,8 +287,8 @@
                                                 }
 
                                             @endphp
-                                            <tr wire:key="{{ $list->id }}"
-                                                wire:dblclick.prevet="$emitTo('construction.responser.actions.responserpartners', 'getInfoResponse', {{ $list }})"
+                                            <tr wire:key="viability-{{ $list->id }}"
+                                                wire:dblclick.prevet="$emitTo('construction.responser.actions.responserinfo', 'getInfoResponse', {{ $list }})"
                                                 style="cursor: pointer; border-left: 8px solid {{ $color }};">
                                                 <td class="text-center align-middle fw-bold {{ $tcolor }}">
                                                     {{ $list->note }}</td>
@@ -383,7 +379,7 @@
                             </div>
                         @else
                             <div class="table-responsive rounded overflow-auto thinScroll" style="max-height: 315px">
-                                <table class="table table-condensed table-striped">
+                                <table class="table table-condensed table-striped table-hover">
                                     <thead class="sticky-top">
                                         <tr class="table-primary">
                                             <th class="text-center"></th>
@@ -436,7 +432,9 @@
                                                 }
 
                                             @endphp
-                                            <tr>
+                                            <tr wire:key="responser-{{ $responser->id }}"
+                                                wire:dblclick.prevent="$emitTo('construction.responser.actions.responserpartners', 'getInfoPartnerViab', {{ $responser }})"
+                                                style="cursor: pointer;">
                                                 <td class="text-center align-middle">
                                                     @if ($twentyFourHours)
                                                         <i class="ri-24-hours-line text-danger blinking fs-5"></i>
@@ -473,111 +471,114 @@
 
 
 
-                <div class="card info-card sales-card">
+                @if (!Auth()->User()->engineer)
+                    <div class="card info-card sales-card">
 
 
-                    <div class="card-body">
-                        <h5 class="card-title">Retorno Interno(RI) <span>| {{ date('M') }}</span></h5>
+                        <div class="card-body">
+                            <h5 class="card-title">Retorno Interno(RI) <span>| {{ date('M') }}</span></h5>
 
 
-                        <div class="table-responsive rounded overflow-auto thinScroll" style="max-height: 315px">
+                            <div class="table-responsive rounded overflow-auto thinScroll" style="max-height: 315px">
 
-                            @if (!$waitingLists->count())
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h4 class="text-center">SEM REGISTROS</h4>
+                                @if (!$waitingLists->count())
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h4 class="text-center">SEM REGISTROS</h4>
+                                        </div>
                                     </div>
-                                </div>
-                            @else
-                                <table class="table table-condensed table-striped">
-                                    <thead class="sticky-top">
-                                        <tr class="table-primary">
-                                            <th class="text-center"></th>
-                                            <th class="text-center">Note</th>
-                                            <th class="text-center">Serviço</th>
-                                            <th class="text-center">tempo</th>
-                                            <th class="text-center">Status</th>
-                                            <th class="text-center">Responsável</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="table-group-divider">
-                                        @foreach ($waitingLists as $waiting)
-                                            @php
-                                                $name = '';
-                                                if (
-                                                    $waiting->Reclaim->Production &&
-                                                    isset($waiting->Reclaim->Production->user_id)
-                                                ) {
-                                                    $nameParts = preg_split(
-                                                        '/\s+/',
-                                                        $waiting->Reclaim->Production->User->name,
-                                                    );
-                                                    $name = $nameParts[0] . ' ' . end($nameParts);
-                                                }
-
-                                                // Status Retorno
-                                                $status = 0;
-                                                if ($waiting->Reclaim) {
-                                                    if ($waiting->Reclaim->completed) {
-                                                        $status = 1;
-                                                    } elseif ($waiting->Reclaim->Production) {
-                                                        $status = 2;
-                                                    } else {
-                                                        $status = 3;
-                                                    }
-                                                }
-
-                                                // Verifica se registro está a mais de 24h sem movimentação.
-                                                $twentyFourHours = false;
-
-                                                if (isset($waiting->Reclaim->updated_at)) {
-                                                    $updatedDate = Carbon::parse($waiting->Reclaim->updated_at);
-
-                                                    if ($updatedDate->diffInHours(Carbon::now()) > 24) {
-                                                        $twentyFourHours = true;
-                                                    } else {
-                                                        $twentyFourHours = false;
-                                                    }
-                                                }
-                                            @endphp
-                                            <tr>
-                                                <td class="text-center align-middle">
-                                                    @if ($twentyFourHours)
-                                                        <i class="ri-24-hours-line text-danger blinking fs-5"></i>
-                                                    @endif
-                                                </td>
-                                                <td class="text-center align-middle">{{ $waiting->Note->note }}</td>
-                                                <td class="text-center align-middle">
-                                                    {{ $waiting->Reclaim->Service->service }}</td>
-                                                <td class="text-center align-middle">
-                                                    {{ Carbon::parse($waiting->Reclaim->updated_at)->diffForHumans(Carbon::now(), ['locale' => 'pt_br', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
-                                                </td>
-                                                <td class="text-center align-middle">
-                                                    @if ($status == 1)
-                                                        <span class="badge text-bg-success">Completo</span>
-                                                    @elseif ($status == 2)
-                                                        <span class="badge text-bg-primary">Atribuído</span>
-                                                    @elseif ($status == 3)
-                                                        <span class="badge text-bg-secondary">Não Atribuido</span>
-                                                    @else
-                                                        <span class="badge text-bg-dark">Desconhecido</span>
-                                                    @endif
-
-
-                                                </td>
-                                                <td class="text-center align-middle">{{ $name }}</td>
-
-
+                                @else
+                                    <table class="table table-condensed table-striped">
+                                        <thead class="sticky-top">
+                                            <tr class="table-primary">
+                                                <th class="text-center"></th>
+                                                <th class="text-center">Note</th>
+                                                <th class="text-center">Serviço</th>
+                                                <th class="text-center">tempo</th>
+                                                <th class="text-center">Status</th>
+                                                <th class="text-center">Responsável</th>
                                             </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            @endif
+                                        </thead>
+                                        <tbody class="table-group-divider">
+                                            @foreach ($waitingLists as $waiting)
+                                                @php
+                                                    $name = '';
+                                                    if (
+                                                        $waiting->Reclaim->Production &&
+                                                        isset($waiting->Reclaim->Production->user_id)
+                                                    ) {
+                                                        $nameParts = preg_split(
+                                                            '/\s+/',
+                                                            $waiting->Reclaim->Production->User->name,
+                                                        );
+                                                        $name = $nameParts[0] . ' ' . end($nameParts);
+                                                    }
+
+                                                    // Status Retorno
+                                                    $status = 0;
+                                                    if ($waiting->Reclaim) {
+                                                        if ($waiting->Reclaim->completed) {
+                                                            $status = 1;
+                                                        } elseif ($waiting->Reclaim->Production) {
+                                                            $status = 2;
+                                                        } else {
+                                                            $status = 3;
+                                                        }
+                                                    }
+
+                                                    // Verifica se registro está a mais de 24h sem movimentação.
+                                                    $twentyFourHours = false;
+
+                                                    if (isset($waiting->Reclaim->updated_at)) {
+                                                        $updatedDate = Carbon::parse($waiting->Reclaim->updated_at);
+
+                                                        if ($updatedDate->diffInHours(Carbon::now()) > 24) {
+                                                            $twentyFourHours = true;
+                                                        } else {
+                                                            $twentyFourHours = false;
+                                                        }
+                                                    }
+                                                @endphp
+                                                <tr>
+                                                    <td class="text-center align-middle">
+                                                        @if ($twentyFourHours)
+                                                            <i class="ri-24-hours-line text-danger blinking fs-5"></i>
+                                                        @endif
+                                                    </td>
+                                                    <td class="text-center align-middle">{{ $waiting->Note->note }}
+                                                    </td>
+                                                    <td class="text-center align-middle">
+                                                        {{ $waiting->Reclaim->Service->service }}</td>
+                                                    <td class="text-center align-middle">
+                                                        {{ Carbon::parse($waiting->Reclaim->updated_at)->diffForHumans(Carbon::now(), ['locale' => 'pt_br', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
+                                                    </td>
+                                                    <td class="text-center align-middle">
+                                                        @if ($status == 1)
+                                                            <span class="badge text-bg-success">Completo</span>
+                                                        @elseif ($status == 2)
+                                                            <span class="badge text-bg-primary">Atribuído</span>
+                                                        @elseif ($status == 3)
+                                                            <span class="badge text-bg-secondary">Não Atribuido</span>
+                                                        @else
+                                                            <span class="badge text-bg-dark">Desconhecido</span>
+                                                        @endif
+
+
+                                                    </td>
+                                                    <td class="text-center align-middle">{{ $name }}</td>
+
+
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                @endif
+
+                            </div>
 
                         </div>
-
                     </div>
-                </div>
+                @endif
 
 
             </div>
@@ -587,5 +588,6 @@
 </section>
 
 {{-- LIVEWIRE COMPONENTS --}}
-@livewire('construction.responser.actions.responserpartners')
+@livewire('construction.responser.actions.responserpartners', key('responser-partner'))
+@livewire('construction.responser.actions.responserinfo', key('responser-info'))
 </div>

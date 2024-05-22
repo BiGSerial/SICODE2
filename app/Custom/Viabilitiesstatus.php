@@ -115,6 +115,13 @@ class Viabilitiesstatus
                 'colorbg' => 'text-bg-primary',
                 'color'   => 'warning',
             ],
+            // 15
+            [
+                'status'  => 'Liberado Tácitamente',
+                'icon'    => 'bx bxs-badge-dollar',
+                'colorbg' => 'text-bg-warning',
+                'color'   => 'warning',
+            ],
 
         ];
 

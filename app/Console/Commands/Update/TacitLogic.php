@@ -50,7 +50,9 @@ class TacitLogic extends Command
                 $viability->update([
                     'tacit' => true,
                     'tacit_at' => Carbon::now(),
-                    'completed' => true,
+                    'completed' => $viability->hired ? true : false,
+                    'completed_at' => $viability->hired ? Carbon::now() : null,
+                    'status' => $viability->hired ? 9 : 15,
                     'approved' => true,
                 ]);
 

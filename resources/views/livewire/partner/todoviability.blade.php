@@ -145,6 +145,7 @@
                         <th scope="col" class="text-center align-middle">Status</th>
                         <th scope="col" class="text-center align-middle">Acao</th>
                         <th scope="col" class="text-center align-middle"></th>
+                        <th scope="col" class="text-center align-middle"></th>
                     </thead>
                     <tbody class="table-group-divider">
                         @foreach ($lists as $index => $list)
@@ -255,7 +256,8 @@
                                 }
 
                             @endphp
-                            <tr style="cursor: pointer;">
+                            <tr style="cursor: pointer;"
+                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})">
                                 <td></td>
                                 <td class="text-center align-middle">{{ $list->note }}</td>
                                 <td class="text-center align-middle">
@@ -315,6 +317,12 @@
                                     @endif
 
                                 </td>
+                                <td class="align-middle">
+                                    
+                                    <input class="form-check-input border border-secondary" type="checkbox"
+                                        value="{{ $list->id }}" wire:model="inActivity.{{ $list->id }}"
+                                        wire:click.prevent="putInActvity({{ $list->id }})">
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -339,4 +347,7 @@
         {{-- FIM Paginador --}}
     @endif
     {{-- END LIST --}}
+
+    {{-- Livewire Components --}}
+    @livewire('partner.actions.responserviab', key('reesponser_modal_viab'))
 </div>

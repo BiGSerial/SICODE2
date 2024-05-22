@@ -197,7 +197,7 @@ class Approveaction extends Component
 
         $this->modal = '';
         $this->comment = "";
-        $this->emitUp('refresh_list');
+        $this->emitUp('update_list');
 
     }
 

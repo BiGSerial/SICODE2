@@ -13,4 +13,13 @@ class SelectOptions
         ];
     }
 
+    public static function getResponserOptions()
+    {
+        return [
+            (object)['info' => 'Selecione Resposta', 'value' => ''],
+            (object)['info' => 'CONCORDAR', 'value' => 'CONCORDAR'],
+            (object)['info' => 'DISCORDAR', 'value' => 'DISCORDAR'],
+        ];
+    }
+
 }

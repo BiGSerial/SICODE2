@@ -1,14 +1,9 @@
 @php
     use App\Helpers\FileIcon;
-    use App\Custom\Viabilitiesstatus;
-    use App\Custom\Notestatus;
-    use App\Helpers\SelectOptions;
-    use Carbon\Carbon;
 @endphp
-
 <div>
     <x-show-loading />
-    <div wire:ignore.self class="modal fade" id="responserPartners" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade" id="responserInfo" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content  edp-bg-stategrey-50">
@@ -135,6 +130,43 @@
                                     </div>
                                 </div>
 
+                                @if ($note->Viabilities->count() && $note->Viabilities->last()->Form)
+                                    @php
+                                        $form = $note->Viabilities->last()->Form;
+                                    @endphp
+                                    <div class="card">
+                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RETORNO
+                                            VIABILIDADE</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-condensed table-striped-columns">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">MOTIVO:</td>
+                                                        <td class="align-middle fw-bold">{{ $form->reason }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">IMPACTO:</td>
+                                                        <td class="align-middle">
+                                                            {{ $form->changes * 10 }}%
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">RESPONSÁVEL:</td>
+                                                        <td class="align-middle text-uppercase">
+                                                            {{ $form->responsible }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">DESCRIÇÃO:</td>
+                                                        <td class="align-middle">{{ $form->description }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
+
+                            </div>
+                            <div class="col-md-6">
                                 <div class="card">
                                     <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
                                         <h4 class="fs-5 my-0 py-0">Arquivos</h4>
@@ -189,133 +221,34 @@
                                     </div>
                                 </div>
 
-                            </div>
-                            <div class="col-md-6">
+                                @if ($note->Viabilities->count() && $note->Viabilities->last()->Comments->count())
 
-                                @if ($note->Viabilities->count() && $note->Viabilities->last()->Form)
-                                    @php
-                                        $form = $note->Viabilities->last()->Form;
-                                    @endphp
                                     <div class="card">
-                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RETORNO
-                                            VIABILIDADE</h5>
+                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
+                                            COMENTÁRIOS</h5>
                                         <div class="table-responsive">
-                                            <div class="card-body">
-                                                <table class="table table-sm table-condensed table-striped-columns">
-                                                    <tbody>
+                                            <table class="table table-sm table-condensed table-striped-columns">
+                                                <tbody>
+
+                                                    @foreach ($note->Viabilities->last()->Comments as $comment)
                                                         <tr>
-                                                            <td class="fw-bold col-2 align-middle">MOTIVO:</td>
-                                                            <td class="align-middle fw-bold">{{ $form->reason }}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td class="fw-bold col-2 align-middle">IMPACTO:</td>
-                                                            <td class="align-middle">
-                                                                {{ $form->changes * 10 }}%
+                                                            <td class="col-2">
+                                                                {{ date('d/m/Y H:i', strToTime($comment->created_at)) }}
+                                                            </td>
+                                                            <td class="fw-bold col-2">{{ $comment->User->name }}
+                                                            </td>
+                                                            <td class="col">{{ $comment->message }}
                                                             </td>
                                                         </tr>
-                                                        <tr>
-                                                            <td class="fw-bold col-2 align-middle">RESPONSÁVEL:</td>
-                                                            <td class="align-middle text-uppercase">
-                                                                {{ $form->responsible }}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td class="fw-bold col-2 align-middle">DESCRIÇÃO:</td>
-                                                            <td class="align-middle">{{ $form->description }}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                    @endforeach
+
+
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
 
-
-
-                                    @if ($note->Viabilities->last()->Comments->count())
-
-                                        <div class="card">
-                                            <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                                COMENTÁRIOS</h5>
-                                            <div class="table-responsive">
-                                                <table class="table table-sm table-condensed table-striped-columns">
-                                                    <tbody>
-
-                                                        @foreach ($note->Viabilities->last()->Comments as $comment)
-                                                            <tr>
-                                                                <td class="col-2">
-                                                                    {{ date('d/m/Y H:i', strToTime($comment->created_at)) }}
-                                                                </td>
-                                                                <td class="fw-bold col-2">{{ $comment->User->name }}
-                                                                </td>
-                                                                <td class="col">{{ $comment->message }}
-                                                                </td>
-                                                            </tr>
-                                                        @endforeach
-
-
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-
-                                    @endif
-
-
-                                    @if (!$note->Viabilities->last()->replica && $note->Viabilities->last()->status == 4)
-                                        <div class="card">
-                                            <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                                RESPONDER ATIVIDADE
-                                            </h5>
-                                            <div class="card-body">
-                                                <div class="row mb-3">
-                                                    <div class="col-3">
-                                                        <label for="" class="form-label">Decisão</label>
-                                                        <select
-                                                            class="form-select form-select-sm border border-secondary"
-                                                            wire:model.defer="decision">
-                                                            @foreach (SelectOptions::getResponserOptions() as $options)
-                                                                <option @once selected @endonce
-                                                                    value="{{ $options->value }}">
-                                                                    {{ $options->info }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="col mb-3">
-                                                        <label for="" class="form-label">Texto
-                                                            Descritivo</label>
-                                                        <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"
-                                                            wire:model.defer="responser"></textarea>
-                                                    </div>
-                                                </div>
-                                                <div class="clear-fix">
-                                                    <div class="d-flex justify-content-end">
-                                                        <button class="btn btn-sm btn-danger"
-                                                            wire:click="toResponser()">ENVIAR</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endif
-
-                                    @if ($note->Viabilities->last()->treplica && $note->Viabilities->last()->status == 4)
-                                        <div class="card">
-                                            <div class="card-body">
-
-                                                <div class="clear-fix">
-                                                    <div class="d-flex justify-content-end">
-                                                        <button class="btn btn-sm btn-danger"
-                                                            wire:click="toResponser()">ENVIAR</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endif
-
-
                                 @endif
-
-
-
-
 
                             </div>
                         </div>

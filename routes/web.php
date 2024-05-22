@@ -131,3 +131,7 @@ Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->gr
         return View('desingtestview');
     });
 });
+
+Route::get('/info', function () {
+    return phpinfo();
+});

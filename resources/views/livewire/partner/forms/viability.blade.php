@@ -178,10 +178,11 @@
                             </div>
                         </div> --}}
 
-                        @livewire('files.filepartners', ['note' => $note, 'needFiles' => true], key('FilesPartners'))
+                        {{-- @livewire('files.filepartners', ['note' => $note, 'needFiles' => true], key('FilesPartners')) --}}
                     @endif
 
                     @if ($changes != '')
+                        @livewire('files.filepartners', ['note' => $note, 'needFiles' => true], key('FilesPartners'))
                         <div class="mb-3 col-3">
                             <label class="form-label">Responsável pelo informe: <span
                                     class="text-danger fw-bold">*</span></label>

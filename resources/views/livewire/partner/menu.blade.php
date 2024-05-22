@@ -18,14 +18,14 @@
                         </li>
                     </div>
 
-                    <div class="border-start border-3 mb-1 py-0">
+                    {{-- <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.hired.viability') }}" class="nav-item text-white">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span>Contratadas à Viabilizar</span>
                                 @livewire('partner.count.hiredviability', key('count-hired-viab'))
                             </a>
                         </li>
-                    </div>
+                    </div> --}}
 
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
