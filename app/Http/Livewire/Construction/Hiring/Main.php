@@ -771,7 +771,8 @@ class Main extends Component
 
 
         if (!$this->allCenters) {
-            $query->where('statusSist', 'like', 'ABER%');
+            $query->where('statusSist', 'not like', 'ENTE%')
+                  ->where('statusSist', 'not like', 'ENCE%');
         }
 
         $query->where(function ($q) {
