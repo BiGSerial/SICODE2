@@ -134,26 +134,64 @@ class Main extends Component
 
             $query = Order::Query();
 
-            $query->with('Operations', 'Note.Files', 'Viabilities');
+            $query->with('Operations', 'Note.Files', 'Note.Orders', 'Viabilities')
+                ->when($this->search, function ($q) {
+                    $this->advanceSearch = '';
+                    $this->advanceSearch = '';
+                    $this->gotoPage(1);
 
-            if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
-                $query->whereRelation('Operations', function ($query) {
-                    $query->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['empreiteira'])
-                        ->orWhere('cenTrab', '');
+
+                    return $q->where(function ($query) {
+                        $query->where('ordem', 'like', trim($this->search))
+                            ->orWhereRelation('Note', 'note', 'like', trim($this->search));
+                    });
                 });
+
+
+
+            $query->join('notes', 'orders.note_id', '=', 'notes.id');
+
+
+            if (!$this->allCenters) {
+                $query->where('statusSist', 'not like', 'ENTE%')
+                      ->where('statusSist', 'not like', 'ENCE%')
+                      ->where(function ($q) {
+                          $q->whereRelation('Operations', function ($sq) {
+                              $sq->where('operacao', '0010')
+                                  ->where('status', 'not like', 'CONF%');
+                          });
+                      });
+
             }
 
-            $query->when($this->search, function ($q) {
-                $this->gotoPage(1);
-                $this->advanceSearch = '';
+            $query->where(function ($q) {
+                return $q->whereRelation('Note', function ($query) {
+                    $query->where(function ($qq) {
+                        $qq->WhereIn('nstats', [46, 47, 48, 49, 50])
+                            ->whereNotIn('rubrica', ['Incoporação'])
+                            ->where('type_note', 2);
+                    })->orWhere(function ($qq) {
+                        $qq->Where('type_note', 1)
 
-                return $q->where(function ($query) {
-                    $query->where('ordem', 'like', trim($this->search))
-                        ->orWhereRelation('Note', 'note', 'like', trim($this->search));
+                            ->when(!$this->allCenters, function ($q) {
+                                return $q->where('centerjob', 'like', 'VIAB%');
+                            })
+
+                            ->orWhere(function ($qq) {
+                                $qq->Where('centerjob', '')
+                                    ->Where('type_note', 1);
+                            });
+                    });
                 });
             });
 
-            if (count($this->multiSearch)) {
+
+            // if (count($this->multiSearch)) {
+            //     $query->whereIn('ordem', $this->multiSearch);
+
+            // }
+
+            if ($this->multiSearch) {
 
 
                 // $query->whereIn('ordem', $this->multiSearch);
@@ -164,34 +202,14 @@ class Main extends Component
                 });
             }
 
-            $query->where('statusSist', 'like', 'ABER%')
-                ->where(function ($q) {
-                    return $q->whereRelation('Note', function ($query) {
-                        $query->where(function ($qq) {
-                            $qq->WhereIn('nstats', [46, 47, 48, 49, 50])
-                                ->where('type_note', 2);
-                        })->orWhere(function ($qq) {
-                            $qq->Where('centerjob', 'like', 'VIAB%')
-                                ->Where('type_note', 1)
-                                ->orWhere(function ($qq) {
-                                    $qq->Where('centerjob', '')
-                                        ->Where('type_note', 1);
-                                });
-                        });
-                    });
+            if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
+                $query->whereRelation('Operations', function ($query) {
+                    $query->where('operacao', '0010')
+                        ->where('status', 'like', 'ABER%')
+                        ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['empreiteira'])
+                        ->orWhere('cenTrab', '');
                 });
-
-            // if (count($this->multiSearch)) {
-            //     $query->whereIn('ordem', $this->multiSearch);
-            //     // $query->where(function ($q) {
-            //     //     return $q->WhereRelation('Note', function ($query) {
-            //     //         $query->whereIn('note', $this->multiSearch);
-            //     //     })->orWhereIn('ordem', $this->multiSearch);
-            //     // });
-            // }
-
-
-
+            }
 
             if (isset($_SESSION['filter'][$this->filter_group]['city'])) {
                 $query->whereRelation('Note', function ($query) {
@@ -212,6 +230,8 @@ class Main extends Component
                     $query->where('type_note', $this->typeNote);
                 });
             }
+
+
 
             $send = $query->get();
 
@@ -772,13 +792,21 @@ class Main extends Component
 
         if (!$this->allCenters) {
             $query->where('statusSist', 'not like', 'ENTE%')
-                  ->where('statusSist', 'not like', 'ENCE%');
+                  ->where('statusSist', 'not like', 'ENCE%')
+                  ->where(function ($q) {
+                      $q->whereRelation('Operations', function ($sq) {
+                          $sq->where('operacao', '0010')
+                              ->where('status', 'not like', 'CONF%');
+                      });
+                  });
+
         }
 
         $query->where(function ($q) {
             return $q->whereRelation('Note', function ($query) {
                 $query->where(function ($qq) {
                     $qq->WhereIn('nstats', [46, 47, 48, 49, 50])
+                        ->whereNotIn('rubrica', ['Incoporação'])
                         ->where('type_note', 2);
                 })->orWhere(function ($qq) {
                     $qq->Where('type_note', 1)

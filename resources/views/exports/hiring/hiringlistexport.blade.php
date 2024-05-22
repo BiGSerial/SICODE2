@@ -1,3 +1,7 @@
+@php
+    use Carbon\Carbon;
+@endphp
+
 @if ($lists->count())
 
 
@@ -20,56 +24,55 @@
                 <th scope="col" class="fw-bold">Status OP10</th>
                 <th scope="col" class="fw-bold">Centro OP10</th>
                 <th scope="col" class="fw-bold">Prazo Restante</th>
-                <th scope="col" class="fw-bold">Situação</th>
+
 
             </tr>
         </thead>
         <tbody>
             @foreach ($lists as $list)
                 @php
-                    $block = false;
-                    $viability = '';
-                    $status = '';
+                    $days_left = '';
 
-                    if ($list->Viabilities->count()) {
-                        if ($list->Viabilities->Where('completed', false)->count()) {
-                            $viability = $list->Viabilities->Where('completed', false)->last();
+                    // Dias Restantes
+                    if ($list->type_note == 1) {
+                        if ($list->mesalization && $list->mesalization != 'erro') {
+                            preg_match('/\d+\/\d+/', $list->mesalization, $matches);
 
-                            $block = true;
+                            if (!empty($matches)) {
+                                [$mes, $ano] = explode('/', $matches[0]);
 
-                            if ($viability->approved) {
-                                $status = [
-                                    'info' => 'Aprovado',
-                                    'color_text' => 'text-bg-succes',
-                                    'table' => 'table-success',
-                                ];
-                            } elseif ($viability->rejected && !$viability->approved) {
-                                $status = [
-                                    'info' => 'Rejeitado',
-                                    'color_text' => 'text-bg-danger',
-                                    'table' => 'table-danger',
-                                ];
-                            } elseif ($viability->canceled && !$viability->rejected && !$viability->approved) {
-                                $status = [
-                                    'info' => 'Cancelado',
-                                    'color_text' => 'text-bg-secondary',
-                                    'table' => 'table-secondary',
-                                ];
-                            } else {
-                                $status = [
-                                    'info' => 'Em Viabilidade',
-                                    'color_text' => 'text-bg-primary',
-                                    'table' => 'table-primary',
-                                ];
+                                if ($mes >= 1) {
+                                    $data = "{$ano}-{$mes}-28 23:59:59";
+
+                                    $hoje = Carbon::now();
+
+                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                } else {
+                                    $data = "{$ano}-12-28 23:59:59";
+
+                                    $hoje = Carbon::now();
+
+                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
+
+                                    $days_left = $hoje->diffInDays($dataCarbon, false);
+                                }
                             }
                         }
+                    } elseif ($list->type_note == 2) {
+                        $days_left = $list->days_left;
                     }
+
+                    $color = '';
+
                 @endphp
 
                 <tr>
 
                     <td class="fw-bold">{{ $list->ordem }}</td>
                     <td>{{ $list->Note->note }}</td>
+                    <td>{{ $list->pep }}</td>
                     <td>{{ $list->Note->type_note == 2 ? 'OV' : 'NOTA' }}</td>
                     <td>
                         {{ $list->Note->Files->count() ? 'SIM' : 'NÃO' }}
@@ -96,14 +99,9 @@
                     </td>
                     <td> {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->cenTrab : '___') : '---' }}
                     </td>
-                    <td>
-                        {{ $list->Note->days_left }}</td>
-                    <td>
-                        @if ($block)
-                            <span>{{ $status['info'] }}</span>
-                        @endif
+                    <td class="text-center align-middle">
+                        {{ Carbon::now()->addDays($days_left)->format('d/m/Y') }}
                     </td>
-
                 </tr>
             @endforeach
         </tbody>
