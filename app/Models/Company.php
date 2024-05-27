@@ -27,4 +27,9 @@ class Company extends Model
     {
         return $this->hasMany(Contract::class);
     }
+
+    public function Users()
+    {
+        return $this->belongsToMany(User::class);
+    }
 }

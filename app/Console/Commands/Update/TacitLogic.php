@@ -29,46 +29,70 @@ class TacitLogic extends Command
      */
     public function handle()
     {
-        $sevenDaysAgo = Carbon::now()->subDays(7);
+        $sevenDaysAgo = Carbon::now()->subDays(7)->startOfDay();
+
+        // dd($sevenDaysAgo, $sevenDaysAgo->copy()->subDays(-10));
+
 
         $viabilitiesToUpdate = Viability::whereNull('returned_at')
-            ->where('sended_at', '<=', $sevenDaysAgo)
-            ->where('rejected', false)
-            ->where('approved', false)
-            ->where('completed', false)
-            ->get();
+                            ->where('sended_at', '<=', $sevenDaysAgo)
+                            ->where('rejected', false)
+                            ->where('approved', false)
+                            ->where('completed', false)
+                            ->get();
 
         if ($viabilitiesToUpdate) {
 
             $progressBar = new ProgressBar($this->output, $viabilitiesToUpdate->count());
-            $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s%');
+            $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%%');
 
             $progressBar->start();
 
             foreach ($viabilitiesToUpdate as $viability) {
 
-                $viability->update([
-                    'tacit' => true,
-                    'tacit_at' => Carbon::now(),
-                    'completed' => $viability->hired ? true : false,
-                    'completed_at' => $viability->hired ? Carbon::now() : null,
-                    'status' => $viability->hired ? 9 : 15,
-                    'approved' => true,
-                    'status' => $viability->hired ? 9 : 14,
-                ]);
+                $adjustedSevenDaysAgo = $sevenDaysAgo->copy()->subDays($viability->Days->sum('days'));
 
-                $viability->Comments()->create([
-                    'user_id' => User::first()->id,
-                    'message' => '>> OBRA LIBERADA PARA CONTRATAÇÃO TÁCITA DEVIDO EXPIRAÇÃO DO PRAZO ESTIPULADO DE RETORNO DA PARCEIRA. (Systema) <<',
-                ]);
+                if ($viability->sended_at <= $adjustedSevenDaysAgo) {
+
+                    $viability->update([
+                        'tacit' => true,
+                        'tacit_at' => Carbon::now(),
+                        'completed' => $viability->hired ? true : false,
+                        'completed_at' => $viability->hired ? Carbon::now() : null,
+                        'status' => $viability->hired ? 9 : 15,
+                        'approved' => true,
+                    ]);
+
+                    $viability->Comments()->create([
+                        'user_id' => User::first()->id,
+                        'message' => '>> OBRA LIBERADA PARA CONTRATAÇÃO TÁCITA DEVIDO EXPIRAÇÃO DO PRAZO ESTIPULADO DE RETORNO DA PARCEIRA. (Systema) <<',
+                    ]);
+
+                }
 
                 $progressBar->advance();
             }
 
             $progressBar->finish();
 
-            dump($viabilitiesToUpdate);
+            // Fix Tacit
+            $fixTacits = Viability::Where('tacit', true)->where(function ($q) {
+                $q->where('status', '!=', 9)
+                ->orWhere('status', '!=', 15);
+            })->get();
 
+            if ($fixTacits->isNotEmpty()) {
+                foreach ($fixTacits as $fix) {
+                    $fix->update([
+                        'tacit' => $fix->returned_at ? false : true,
+                        'completed' => $fix->hired ? true : false,
+                        'completed_at' => $fix->hired ? Carbon::parse($fix->sended_at)->addDays(7) : null,
+                        'status' => $fix->hired ? 9 : ($fix->returned_at ? 14 : 15),
+                        'approved' => true,
+                        'rejected' => false,
+                    ]);
+                }
+            }
             return;
         }
 

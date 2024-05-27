@@ -22,8 +22,13 @@ class Histviab extends Component
 
     public $search;
 
+    // search by date
+    public $date_in;
+    public $date_out;
+    public $dateBy = 'sended_at';
+
     // Filters
-    private $filter_group = 'partner';
+    private $filter_group = 'partner_hist';
 
     private $filter;
 
@@ -41,6 +46,11 @@ class Histviab extends Component
     {
         $this->cities = City::orderBy('cidade')->get();
 
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
     }
 
     public function downloadFile($id)
@@ -94,6 +104,14 @@ class Histviab extends Component
         }
     }
 
+    public function cleanAll()
+    {
+        $this->date_in = "";
+        $this->date_out = "";
+        $this->dateBy = 'sended_at';
+        $this->search = '';
+    }
+
     public function getListsProperty()
     {
 
@@ -106,11 +124,43 @@ class Histviab extends Component
 
         }
 
+        // dd($_SESSION['filter']);
+
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('completed', true)
-                ->orderBy('sended_at');
+
+            $q->where('completed', true);
+
+            if (!Auth()->User()->superadm) {
+
+                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
+
+                if ($companyId) {
+                    $q->where('company_id', $companyId);
+                } else {
+                    $q->where('company_id', null);
+                }
+
+            }
+
+            if ($this->dateBy && ($this->date_in || $this->date_out)) {
+
+                if ($this->date_in && !$this->date_out) {
+                    $q->whereDate($this->dateBy, '>=', $this->date_in);
+                }
+
+                if (!$this->date_in && $this->date_out) {
+                    $q->whereDate($this->dateBy, '<=', $this->date_out);
+                }
+
+                if ($this->date_in && $this->date_out) {
+                    $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
+                }
+            }
+
+            $q->orderBy('sended_at');
+
         })
             ->with(['Viabilities' => function ($query) {
                 $query->where('completed', true)

@@ -332,7 +332,7 @@ class Accompany extends Component
 
     public function edit($note)
     {
-       
+
         $this->emit('edit_hiring', $note);
     }
 
@@ -695,33 +695,30 @@ class Accompany extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::Query();
+        $query = Note::query();
 
         $query->with('Viabilities.Company', 'Viabilities.Order', 'Files')
-            ->whereRelation('Viabilities', function ($q) {
-                return $q->where('completed', false)
-                        ->where('hired', false)
-                        ->where('user_id', Auth()->User()->id);
+            ->whereHas('Viabilities', function ($q) {
+                $q->where('completed', false)
+                  ->where('user_id', Auth()->user()->id)
+                  ->orderBy('sended_at');
             });
 
         if ($this->search) {
-            $query->where('note', $this->search);
+            $query->where('note', 'like', '%' . $this->search . '%');
         }
 
         if (isset($this->filter['cidade'])) {
-
             $query->whereIn('lexp', $this->filter['cidade']);
         }
 
         if (isset($this->filter['empreiteira'])) {
-
-            $query->whereRelation('Viabilities', function ($q) {
+            $query->whereHas('Viabilities', function ($q) {
                 $q->whereIn('company_id', $this->filter['empreiteira']);
             });
         }
 
         if (isset($this->filter['rubrica'])) {
-
             $query->whereIn('rubrica', $this->filter['rubrica']);
         }
 
@@ -729,11 +726,13 @@ class Accompany extends Component
             $query->where('type_note', $this->typeNote);
         }
 
-        $query->orderBy('note');
+       
 
-        return $query;
 
+        return $query; // Executar a consulta e retornar os resultados
     }
+
+
 
     public function getMyhiringsProperty()
     {

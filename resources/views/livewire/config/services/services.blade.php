@@ -26,7 +26,7 @@
         </div>
     @else
         @foreach ($services as $service)
-            <div class="card">
+            <div class="card" wire:key="service-{{ $service->id }}">
                 <div class="card-header">
                     <div class="row">
                         <div class="col">
@@ -70,7 +70,18 @@
                                 </h4>
                             @endif
                         </div>
+
                         <div class="col d-flex justify-content-end">
+                            <button
+                                class="btn btn-sm
+                                @if ($service->canReturn) btn-success
+                                @else
+                                btn-outline-secondary @endif
+                             mx-1 align-middle"
+                                wire:click.prevent="update_return({{ $service->id }})">
+                                <i class="ri-arrow-go-back-fill align-middle"></i>
+                                Retorno
+                            </button>
                             <button class="btn btn-sm btn-outline-secondary mx-1 align-middle"
                                 wire:click.prevent="addStatus({{ $service->id }})">
                                 <i class="ri-scales-3-fill align-middle"></i>

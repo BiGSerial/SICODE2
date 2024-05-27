@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Exports\parner\exportExcel;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note};
 use Illuminate\Support\Facades\{Crypt, Storage};
@@ -44,22 +45,37 @@ class Todoviability extends Component
 
     }
 
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
+    }
+
     public function putInActvity($id)
     {
-
-
         if ($id) {
 
             foreach ($this->lists->where('id', $id)->first()->Viabilities as $viab) {
                 $viab->update(['inActivity' => !$viab->inActivity]);
             }
         }
+    }
 
+    public function export_excel()
+    {
+
+        return (new  exportExcel($this->lists->get()->sortBy(function ($note) {
+            // Acessar a primeira 'Viability' e o campo 'sended_at'
+            return $note->Viabilities->first()->sended_at ?? null;
+        })))->download(date('YmdHis-') . 'exportViabilityParner.xlsx');
     }
 
     public function downloadFile($id)
     {
-        if ($file = File::find($id)->first()) {
+
+
+        if ($file = File::find($id)) {
+
+
 
             if (Storage::disk('local')->exists($file->path)) {
                 return Storage::download($file->path, $file->file_name);
@@ -123,18 +139,21 @@ class Todoviability extends Component
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('tacit', false)
-                ->where('canceled', false)
+            $q->where('canceled', false)
+                ->where('completed', false)
+                ->where('tacit', false);
 
-                ->where('completed', false);
 
             if (!Auth()->User()->superadm) {
 
-                if (isset(Auth()->User()->Employee->Contract->Company->id)) {
-                    $q->where('company_id', Auth()->User()->Employee->Contract->Company->id);
+                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
+
+                if ($companyId) {
+                    $q->where('company_id', $companyId);
                 } else {
                     $q->where('company_id', null);
                 }
+
             }
 
         })->with(['Viabilities' => function ($query) {
@@ -161,7 +180,7 @@ class Todoviability extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        return $query->paginate($this->perPage);
+        return $query;
     }
 
     public function render()
@@ -171,7 +190,7 @@ class Todoviability extends Component
         }
 
         return view('livewire.partner.todoviability', [
-            'lists'  => $this->lists,
+            'lists'  => $this->lists->paginate($this->perPage),
             'cities' => $this->cities,
         ]);
     }

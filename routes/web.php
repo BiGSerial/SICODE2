@@ -111,9 +111,9 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
 
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
-    Route::get('/', 'viability')->name('main.viability');
+    Route::get('/', 'main')->name('main.viability');
     Route::get('/todo-viability', 'viability')->name('todo.viability');
-    Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
+    // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
     Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
 
 });

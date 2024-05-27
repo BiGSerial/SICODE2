@@ -260,6 +260,7 @@ class Main extends Component
             $this->emit('go_viability', $this->selected);
 
             return;
+            
             $orders = Order::with('Note.Files')->find($this->selected);
 
             if ($orders) {

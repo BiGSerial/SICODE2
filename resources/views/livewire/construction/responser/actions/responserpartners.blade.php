@@ -6,7 +6,7 @@
     use Carbon\Carbon;
 @endphp
 
-<div>
+<div x-data>
     <x-show-loading />
     <div wire:ignore.self class="modal fade" id="responserPartners" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
@@ -85,7 +85,7 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">Contratação:</td>
                                                         <td class="col align-middle align-middle">
-                                                            @if ($note->Viabilities->first()->hired)
+                                                            @if ($note->Viabilities->last()->hired)
                                                                 <span class="text-success fw-bold">Obra
                                                                     Contratada</span>
                                                             @else
@@ -97,15 +97,15 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">DtContratação:</td>
                                                         <td class="col align-middle align-middle">
-                                                            {{ $note->Viabilities->first()->hired ? date('d/m/Y H:i:s', strToTime($note->Viabilities->first()->hired_at)) : '---' }}
+                                                            {{ $note->Viabilities->last()->hired ? date('d/m/Y H:i:s', strToTime($note->Viabilities->last()->hired_at)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">Contratante:</td>
                                                         <td class="col align-middle align-middle">
-                                                            @if ($note->Viabilities->first()->User)
+                                                            @if ($note->Viabilities->last()->User)
                                                                 <span
-                                                                    class="text-success fw-bold">{{ $note->Viabilities->first()->User->name }}</span>
+                                                                    class="text-success fw-bold">{{ $note->Viabilities->last()->User->name }}</span>
                                                             @else
                                                                 <span class="text-secondary fw-bold">----</span>
                                                             @endif
@@ -114,19 +114,19 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">StS OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->first()->Order->Operations->count() ? $note->Viabilities->first()->Order->Operations->Where('operacao', '0010')->first()->status : '---' }}
+                                                            {{ $note->Viabilities->last()->Order->Operations->count() ? $note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->status : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">Dt OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->first()->Order->Operations->where('operacao', '0010')->first()->fimReal ? date('d/m/Y H:i:s', strToTime($note->Viabilities->first()->Order->Operations->Where('operacao', '0010')->first()->fimReal)) : '---' }}
+                                                            {{ $nisset(ote->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">centroTrabalho:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->first()->Order->Operations->where('operacao', '0010')->first()->fimReal ? date('d/m/Y H:i:s', strToTime($note->Viabilities->first()->Order->Operations->Where('operacao', '0010')->first()->fimReal)) : '---' }}
+                                                            {{ isset($note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -266,26 +266,106 @@
                                                 RESPONDER ATIVIDADE
                                             </h5>
                                             <div class="card-body">
-                                                <div class="row mb-3">
-                                                    <div class="col-3">
-                                                        <label for="" class="form-label">Decisão</label>
+
+                                                <div class="col-4 mb-3">
+                                                    <label for="" class="form-label">Decisão</label>
+                                                    <select class="form-select form-select-sm border border-secondary"
+                                                        wire:model="decision">
+                                                        @foreach (SelectOptions::getResponserOptions() as $options)
+                                                            <option @once selected @endonce
+                                                                value="{{ $options->value }}">
+                                                                {{ $options->info }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col mb-3">
+                                                    <label for="" class="form-label">Texto
+                                                        Descritivo</label>
+                                                    <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"
+                                                        wire:model.defer="responser"></textarea>
+                                                </div>
+
+
+                                                @if ($decision === 'CONCORDAR')
+                                                    <div class="col-4 mb-3">
+                                                        <label for="" class="form-label">RETORNAR
+                                                            PARA:</label>
                                                         <select
                                                             class="form-select form-select-sm border border-secondary"
-                                                            wire:model.defer="decision">
-                                                            @foreach (SelectOptions::getResponserOptions() as $options)
-                                                                <option @once selected @endonce
-                                                                    value="{{ $options->value }}">
-                                                                    {{ $options->info }}</option>
+                                                            wire:model="service">
+                                                            <option value="">
+                                                                Selecione </option>
+                                                            @foreach ($services as $serv)
+                                                                <option value="{{ $serv->uuid }}">
+                                                                    {{ $serv->service }}</option>
                                                             @endforeach
                                                         </select>
                                                     </div>
-                                                    <div class="col mb-3">
-                                                        <label for="" class="form-label">Texto
-                                                            Descritivo</label>
-                                                        <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"
-                                                            wire:model.defer="responser"></textarea>
+
+                                                    <div class="col-4 mb-3">
+                                                        <label for="" class="form-label">Categoria:</label>
+                                                        <select
+                                                            class="form-select form-select-sm border border-secondary"
+                                                            wire:model.defer="category">
+                                                            <option value="">
+                                                                Selecione </option>
+                                                            @foreach (SelectOptions::getReclaimsOptions() as $option)
+                                                                <option value="{{ $option->value }}">
+                                                                    {{ $option->info }}</option>
+                                                            @endforeach
+                                                        </select>
                                                     </div>
-                                                </div>
+                                                    <div class="col">
+                                                        <div class="card">
+                                                            @if ($service && !$production)
+                                                                <div class="card-body">
+                                                                    <h5>NENHUM USUARIO ENCONTRADO</h5>
+                                                                    <P>Nesse caso, enviaremos a obra para o POOL do
+                                                                        serviço selecionado sem atribuição. Aguarde ou
+                                                                        comunique o responsável pelos despachos para
+                                                                        resultados mais raápidos.</P>
+                                                                </div>
+                                                            @else
+                                                                @if ($production)
+                                                                    <div class="card-body">
+                                                                        <table class="table table-sm table-condensed">
+                                                                            <thead>
+                                                                                <th>Serviço</th>
+                                                                                <th>Usuario</th>
+                                                                                <th>Data</th>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td class='align-middle'>
+                                                                                        {{ $production->Service->service }}
+                                                                                    </td>
+                                                                                    <td class='align-middle'>
+                                                                                        {{ $production->User->name }}
+                                                                                    </td>
+                                                                                    <td class='align-middle'>
+                                                                                        {{ date('d/m/Y H:i:s', strToTime($production->completed_at)) }}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                    <div class="card-footer text-bg-danger py-0">
+                                                                        <p class="py-0 my-1">A Obra retornará para o
+                                                                            último usuário que
+                                                                            interagiu com a obra pelo SICODE.</p>
+                                                                    </div>
+                                                                @endif
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endif
+
+
+
+
+
+
+
                                                 <div class="clear-fix">
                                                     <div class="d-flex justify-content-end">
                                                         <button class="btn btn-sm btn-danger"
@@ -299,7 +379,80 @@
                                     @if ($note->Viabilities->last()->treplica && $note->Viabilities->last()->status == 4)
                                         <div class="card">
                                             <div class="card-body">
-
+                                                <div class="col mb-3">
+                                                    <label for="" class="form-label">Texto
+                                                        Descritivo</label>
+                                                    <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"
+                                                        wire:model.defer="responser"></textarea>
+                                                </div>
+                                                <div class="col-3 mb-3">
+                                                    <label for="" class="form-label">RETORNAR
+                                                        PARA:</label>
+                                                    <select class="form-select form-select-sm border border-secondary"
+                                                        wire:model="service">
+                                                        <option value="">
+                                                            Selecione </option>
+                                                        @foreach ($services as $serv)
+                                                            <option value="{{ $serv->uuid }}">
+                                                                {{ $serv->service }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-4 mb-3">
+                                                    <label for="" class="form-label">Categoria:</label>
+                                                    <select class="form-select form-select-sm border border-secondary"
+                                                        wire:model.defer="category">
+                                                        <option value="">
+                                                            Selecione </option>
+                                                        @foreach (SelectOptions::getReclaimsOptions() as $option)
+                                                            <option value="{{ $option->value }}">
+                                                                {{ $option->info }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="card">
+                                                        @if ($service && !$production)
+                                                            <div class="card-body">
+                                                                <h5>NENHUM USUARIO ENCONTRADO</h5>
+                                                                <P>Nesse caso, enviaremos a obra para o POOL do
+                                                                    serviço selecionado sem atribuição. Aguarde ou
+                                                                    comunique o responsável pelos despachos para
+                                                                    resultados mais raápidos.</P>
+                                                            </div>
+                                                        @else
+                                                            @if ($production)
+                                                                <div class="card-body">
+                                                                    <table class="table table-sm table-condensed">
+                                                                        <thead>
+                                                                            <th>Serviço</th>
+                                                                            <th>Usuario</th>
+                                                                            <th>Data</th>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            <tr>
+                                                                                <td class='align-middle'>
+                                                                                    {{ $production->Service->service }}
+                                                                                </td>
+                                                                                <td class='align-middle'>
+                                                                                    {{ $production->User->name }}
+                                                                                </td>
+                                                                                <td class='align-middle'>
+                                                                                    {{ date('d/m/Y H:i:s', strToTime($production->completed_at)) }}
+                                                                                </td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                                <div class="card-footer text-bg-danger py-0">
+                                                                    <p class="py-0 my-1">A Obra retornará para o
+                                                                        último usuário que
+                                                                        interagiu com a obra pelo SICODE.</p>
+                                                                </div>
+                                                            @endif
+                                                        @endif
+                                                    </div>
+                                                </div>
                                                 <div class="clear-fix">
                                                     <div class="d-flex justify-content-end">
                                                         <button class="btn btn-sm btn-danger"
@@ -331,4 +484,13 @@
 
         </div>
     </div>
+
+    <script>
+        // Capturando o evento de fechamento do modal
+        document.getElementById('responserPartners').addEventListener('hidden.bs.modal', () => {
+
+            Livewire.emit('closeAll');
+        });
+    </script>
+
 </div>

@@ -98,9 +98,9 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">Contratante:</td>
                                                         <td class="col align-middle align-middle">
-                                                            @if ($note->Viabilities->first()->User)
+                                                            @if ($note->Viabilities->last()->User)
                                                                 <span
-                                                                    class="text-success fw-bold">{{ $note->Viabilities->first()->User->name }}</span>
+                                                                    class="text-success fw-bold">{{ $note->Viabilities->last()->User->name }}</span>
                                                             @else
                                                                 <span class="text-secondary fw-bold">----</span>
                                                             @endif
@@ -109,19 +109,19 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">StS OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->first()->Order->Operations->count() ? $note->Viabilities->first()->Order->Operations->Where('operacao', '0010')->first()->status : '---' }}
+                                                            {{ $note->Viabilities->last()->Order->Operations->count() ? $note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->status : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">Dt OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->first()->Order->Operations->where('operacao', '0010')->first()->fimReal ? date('d/m/Y H:i:s', strToTime($note->Viabilities->first()->Order->Operations->Where('operacao', '0010')->first()->fimReal)) : '---' }}
+                                                            {{ isset($note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">centroTrabalho:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->first()->Order->Operations->where('operacao', '0010')->first()->fimReal ? date('d/m/Y H:i:s', strToTime($note->Viabilities->first()->Order->Operations->Where('operacao', '0010')->first()->fimReal)) : '---' }}
+                                                            {{ isset($note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
                                                         </td>
                                                     </tr>
                                                 </tbody>

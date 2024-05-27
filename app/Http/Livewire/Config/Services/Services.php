@@ -108,6 +108,27 @@ class Services extends Component
         }
     }
 
+    public function update_return(Service $service)
+    {
+
+
+        $check = $service->update(['canReturn' => !$service->canReturn]);
+
+        if ($check) {
+
+            $status = $service->canReturn ? ' >>> TRUE <<< ' : ' >>> FALSE <<<';
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => "SERVIÇO ".$service->service." ALTERADO PARA ". $status,
+            ]);
+        }
+
+        $this->emitSelf('$refresh');
+
+
+    }
+
     public function getServicesProperty()
     {
         return Service::with('contracts.company')->orderBy('service')->get();

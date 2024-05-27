@@ -460,8 +460,8 @@
                                         @if ($block)
                                             @if (!$waiting)
                                                 <span
-                                                    class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}"
-                                                    style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($list->Viabilities->first()->status)->status) }}</span>
+                                                    class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}"
+                                                    style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($list->Viabilities->last()->status)->status) }}</span>
                                             @elseif ($waiting)
                                                 <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
                                             @else
@@ -854,8 +854,10 @@
     </div>
 
 
-
+    {{-- Livewire Componentes --}}
     @livewire('construction.hiring.actions.viability', key('Viability-modal'))
+
+
 
 
 

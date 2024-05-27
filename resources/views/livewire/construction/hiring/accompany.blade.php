@@ -2,30 +2,6 @@
     use Carbon\Carbon;
     use App\Custom\Viabilitiesstatus;
 
-    function getClassForDate($daysDifference)
-    {
-        if ($daysDifference < 0) {
-            return 'table-secondary'; // data de vencimento no futuro
-        } elseif ($daysDifference == 0 || $daysDifference == 1) {
-            return 'table-danger'; // um dia ou menos para o vencimento
-        } elseif ($daysDifference <= 4) {
-            return 'table-warning'; // menos de uma semana para o vencimento
-        } else {
-            return 'table-success'; // mais de uma semana para o vencimento
-        }
-    }
-
-    function getFirstLastName(string $old_name)
-    {
-        $name = explode(' ', $old_name);
-
-        if (count($name) > 1) {
-            $name = $name[0] . ' ' . end($name);
-            return $name;
-        } else {
-            return $old_name;
-        }
-    }
 @endphp
 @push('css')
     <style>
@@ -217,130 +193,102 @@
                     <table class="table table-sm table-striped table-condensed">
                         <thead class="table-dark">
                             <tr>
-                                <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectAll">
+                                <th class="align-middle text-center">
+                                    <input class="form-check-input border-1 border-secondary" type="checkbox"
+                                        wire:model="selectAll">
                                 </th>
-                                <th scope="col" class="fw-bold">Nota</th>
-                                <th scope="col" class="fw-bold">Ordem</th>
-                                <th scope="col" class="fw-bold">Files</th>
-                                <th scope="col" class="fw-bold">Rubrica</th>
-                                <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Empreitaira</th>
-                                <th scope="col" class="fw-bold">Engenheiro</th>
-                                <th scope="col" class="fw-bold">Dt Envio</th>
-                                <th scope="col" class="fw-bold">Est Retorno</th>
-                                <th scope="col" class="fw-bold">Real Retorno</th>
-                                <th scope="col" class="fw-bold">Resultado</th>
-                                <th scope="col" class="fw-bold">Status</th>
-                                <th scope="col" class="fw-bold"></th>
-
-
-
+                                <th scope="col" class="fw-bold text-center">Nota</th>
+                                <th scope="col" class="fw-bold text-center">Ordem</th>
+                                <th scope="col" class="fw-bold text-center">Files</th>
+                                <th scope="col" class="fw-bold text-center">Rubrica</th>
+                                <th scope="col" class="fw-bold text-center">Municipio</th>
+                                <th scope="col" class="fw-bold text-center">Empreitaira</th>
+                                <th scope="col" class="fw-bold text-center">Responsável</th>
+                                <th scope="col" class="fw-bold text-center">Dt Envio</th>
+                                <th scope="col" class="fw-bold text-center">Dt Estimada</th>
+                                <th scope="col" class="fw-bold text-center">Restantes</th>
+                                <th scope="col" class="fw-bold text-center">Dt Real Viab</th>
+                                <th scope="col" class="fw-bold text-center">Contratado</th>
+                                <th scope="col" class="fw-bold text-center">Status</th>
+                                <th scope="col" class="fw-bold text-center"></th>
                             </tr>
                         </thead>
                         <tbody>
+                            @foreach ($lists->sortBy(function ($note) {
+        // Acessar a primeira 'Viability' e o campo 'sended_at'
+        return $note->Viabilities->first()->sended_at ?? null;
+    }) as $list)
+                                <tr wire:key="acompany-{{ $list }}">
+                                    <td class="align-middle text-center"><input
+                                            class="form-check-input border-1 border-secondary" type="checkbox"
+                                            wire:model.defer="selected"></td>
+                                    <td class="align-middle text-center fw-bold">{{ $list->note }}</td>
 
-
-                            @foreach ($lists as $list)
-                                {{-- @dump($list) --}}
-                                @php
-                                    $dueDate = $list->Viabilities->last()->sended_at
-                                        ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
-                                        : null;
-                                    $today = $list->Viabilities->last()->returned_at
-                                        ? Carbon::parse($list->Viabilities->last()->returned_at)
-                                        : Carbon::now();
-                                    $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
-
-                                    if ($dueDate) {
-                                        $totalDaysDifference = $dueDate->diffInMinutes(
-                                            $list->Viabilities->last()->sended_at,
-                                        );
-                                        $elapsedDaysDifference = Carbon::parse(
-                                            $list->Viabilities->last()->sended_at,
-                                        )->diffInMinutes($today);
-
-                                        $percentElapsed = ($elapsedDaysDifference / $totalDaysDifference) * 100;
-                                    } else {
-                                        $percentElapsed = 0;
-                                    }
-                                @endphp
-
-                                <tr class="align-items-center" wire:key='list-{{ $list->id }}'>
-                                    <td class="align-middle"> <input class="form-check-input border border-secondary"
-                                            type="checkbox" wire:model.defer="selected" value="{{ $list->id }}">
-                                    </td>
-                                    <td class="fw-bold align-middle">{{ $list->note }}</td>
-                                    <td class="align-middle">
+                                    <td class="align-middle text-center">
                                         @if ($list->Viabilities->count())
-                                            @foreach ($list->Viabilities as $viab)
-                                                <p class="my-0 py-0">{{ $viab->Order->ordem }}
-                                                    @if ($viab->approved && !$viab->rejected)
-                                                        <i class="bx bxs-badge-check text-success"></i>
-                                                    @elseif (!$viab->approved && $viab->rejected)
-                                                        <i class="bx bx-x-circle text-danger"></i>
-                                                    @endif
+                                            @foreach ($list->Viabilities->sortBy('Order.ordem') as $viab)
+                                                <p class="my-1 py-0">
+                                                    {{ $viab->Order->ordem }}
                                                 </p>
                                             @endforeach
                                         @endif
                                     </td>
-                                    <td class="align-middle">
+                                    <td class="align-middle text-center">
                                         <x-files.select-download-list :files='$list->Files' />
                                     </td>
-                                    <td class="align-middle">{{ $list->rubrica }}</td>
-                                    <td class="align-middle">{{ $list->lexp }}</td>
-                                    <td class="align-middle">
-                                        {{ getFirstLastName($list->Viabilities->last()->Company->name) }}</td>
-                                    <td class="align-middle">
-                                        {{ getFirstLastName($list->Viabilities->last()->Engineer->name) }}</td>
-                                    <td class="align-middle">
-                                        {{ $list->Viabilities->last()->sended_at ? Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') : '---' }}
-                                        </t class="align-middle"d>
-                                    <td class="progress-cell border-start border-end border-2 align-middle">
-                                        <div class="progress-bg"
-                                            style="width: {{ $percentElapsed }}%;
-                                                @if ($percentElapsed > 80.0) background-color: #FBC4C4;
-                                                @elseif($percentElapsed > 70.0 && $percentElapsed <= 80.0)
-                                                    background-color: #FBF8C4;
-                                                @else
-                                                    background-color: #85CAF9; @endif
-                                            ">
-                                        </div>
-                                        <span
-                                            class="progress-text fw-bold">{{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
-                                        </span>
+                                    <td class="align-middle text-center">{{ $list->rubrica }}</td>
+                                    <td class="align-middle text-center">{{ $list->lexp }}</td>
+                                    <td class="align-middle text-center">
+                                        {{ isset($list->Viabilities->last()->Company->name) ? $list->Viabilities->last()->Company->name : '---' }}
                                     </td>
-                                    <td class="align-middle fw-bold">
-                                        {{ $list->Viabilities->last()->returned_at ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y') : '---' }}
+                                    <td class="align-middle text-center">
+                                        {{ isset($list->Viabilities->last()->Engineer->name) ? $list->Viabilities->last()->Engineer->name : '---' }}
                                     </td>
-                                    <td class="align-middle">
-                                        <x-hiring.status_viability :status="$list->Viabilities" />
+                                    <td class="align-middle text-center fw-bold">
+                                        {{ isset($list->Viabilities->last()->sended_at) ? Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') : '---' }}
                                     </td>
-                                    <td class="align-middle">
+                                    @php
+                                        $daysAdded = $list->Viabilities->last()->Days->count();
 
-                                        <x-hiring.status :badge="isset($list->Viabilities->last()->status)
-                                            ? $list->Viabilities->last()->status
-                                            : 0" />
-
+                                        if (isset($list->Viabilities->last()->sended_at) && $daysAdded) {
+                                            $days = 7 + $list->Viabilities->last()->Days->sum('days');
+                                            $estimated = Carbon::parse($list->Viabilities->last()->sended_at)->addDays(
+                                                $days,
+                                            );
+                                        } else {
+                                            $estimated = '---';
+                                        }
+                                    @endphp
+                                    <td class="align-middle text-center fw-bold text-danger">
+                                        {{ $estimated != '---' ? $estimated->format('d/m/Y') : '---' }}
                                     </td>
-                                    <td class="align-middle">
-                                        <div class="dropdown" style="position: inherit">
-                                            <button class="btn btn-danger btn-sm dropdown-toggle" type="button"
-                                                data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="ri-menu-fill"></i>
-                                            </button>
-                                            <ul class="dropdown-menu  edp-bg-gray">
-                                                <li>
-                                                    <a class="dropdown-item" href="#"
-                                                        wire:click.prevent="edit({{ $list }})">
-                                                        <i class="ri-edit-2-line text-primary align-middle"></i>
-                                                        Editar
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </div>
+                                    <td class="align-middle text-center fw-bold">
+                                        {{ $estimated != '---' ? Carbon::now()->startOfDay()->diffInDays($estimated->startOfDay(), false) : '---' }}
+                                    </td>
+                                    <td class="align-middle text-center fw-bold text-primary">
+                                        {{ isset($list->Viabilities->last()->returned_at) ? Carbon::parse($list->Viabilities->last()->returned_at)->format('d/m/Y') : '---' }}
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        @if ($list->Viabilities->count())
+                                            @if ($list->Viabilities->last()->hired)
+                                                <span class="text-success fw-bold">SIM</span>
+                                            @else
+                                                <span class="text-danger fw-bold">NÃO</span>
+                                            @endif
+                                        @endif
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        @if ($list->Viabilities->count())
+                                            <span
+                                                class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->first()->status)->colorbg }}"
+                                                style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($list->Viabilities->first()->status)->status) }}</span>
+                                        @endif
                                     </td>
 
+                                    <td class="align-middle text-center">
+                                        <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
+                                            wire:click.prevent="$emitTo('construction.hiring.actions.edit', 'edit_hiring', {{ $list->id }})"></i>
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -468,205 +416,8 @@
 
     </div>
 
-    <div wire:ignore.self class="modal fade" id="viability_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-
-
-        <div class="modal-dialog modal-lg">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h4 class="my-auto fw-bold">VIABILIDADE</h4>
-                </div>
-
-                <div class="modal-body"> {{-- Inicio Modal Body --}}
-
-                    <div class="card">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-start">
-                            <h4 class="my-auto">Dados de Envio</h4>
-                        </div>
-                        <div class="card-body d-flex justify-content-between">
-                            <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione a Empreiteira</label>
-                                <select class="form-select" wire:model.defer="company_s">
-                                    <option>----</option>
-                                    @if ($companies)
-                                        @foreach ($companies as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-
-                                </select>
-
-
-                            </div>
-                            <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione o Engenheiro
-                                    Responsável</label>
-                                <select class="form-select" wire:model.defer="engineer_s">
-                                    @if ($engineers)
-                                        <option>----</option>
-                                        @foreach ($engineers as $engineer)
-                                            <option value="{{ $engineer->id }}">{{ $engineer->name }}</option>
-                                        @endforeach
-                                    @endif
-
-                                </select>
-
-
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
-                            <h4 class="my-auto">Arquivos</h4>
-                            <button class="btn btn-sm btn-primary"
-                                onclick="document.getElementById('file-input').click()">Add</button>
-
-                        </div>
-
-                        <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-                            x-on:livewire-upload-finish="isUploading = false"
-                            x-on:livewire-upload-error="isUploading = false"
-                            x-on:livewire-upload-progress="progress = $event.detail.progress">
-
-                            <form wire:submit.prevent="saveFile">
-                                <input type="file" id="file-input" multiple wire:model="files" hidden>
-                                {{-- <button type="submit" id="id-submit"></button> --}}
-                            </form>
-
-                            <div x-show="isUploading" class="mb-3">
-                                {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                    x-bind:style="`width: ${progress}%`">
-                                    <span class="align-middle" x-text="`${progress}%`"></span>
-                                </div> --}}
-                                <div class="progress" role="progressbar" aria-label="Danger example"
-                                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                                    style="width: 100%; border-radius: 0;">
-                                    <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
-                                        x-text="`${progress}%`">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card-body " id="drop-area">
-                            <div class="row g-1 justify-content-between mb-3">
-
-                                @if (count($show_existing_files))
-                                    @foreach ($show_existing_files as $file)
-                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
-                                            <div class="p-1 m-0 border-end border-secondary"><i
-                                                    class="bx bxs-file-{{ $file['ext'] }} text-success fs-4"></i>
-                                            </div>
-                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
-                                            </div>
-                                            <div class="p-1 m-0 border-start border-secondary">
-                                                <i class="ri-file-cloud-line text-succes fs-4"></i>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @endif
-
-                                @if (count($show_files))
-                                    @foreach ($show_files as $file)
-                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
-                                            <div class="p-1 m-0 border-end border-secondary"><i
-                                                    class="bx bxs-file-{{ $file['ext'] }} @if ($file['chk']) text-success
-                                                    @else text-danger @endif fs-4 align-middle"></i>
-                                            </div>
-                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
-                                            </div>
-                                            <div class="p-1 m-0 border-start border-secondary"><i
-                                                    class="bx bx-trash text-danger fs-4 align-middle"
-                                                    wire:click.prevent="delete_file({{ $file['id'] }})"
-                                                    style="cursor: pointer;"></i>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @else
-                                    <h4 class="fs-4 fw-bold my-auto text-center">SEM ARQUIVOS</h4>
-                                @endif
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div class="card">
-
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
-                            <h4 class="my-auto">Ordens/Ovs</h4>
-
-
-                        </div>
-
-
-
-
-                        <div class="card-body ">
-                            @if ($show_registers)
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-condensed table-striped">
-                                        <thead class="table-dark">
-
-                                            <th scope="col">Ordem</th>
-                                            <th scope="col">Note</th>
-                                            <th scope="col">File</th>
-                                            <th scope="col"></th>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($show_registers as $register)
-                                                <tr>
-
-                                                    <td>{{ $register['order'] }}</td>
-                                                    <td>{{ $register['note'] }}</td>
-                                                    <td class="fw-bold">
-                                                        @if (isset($show_files[$register['file_index']]) && !$register['file_online'])
-                                                            {{ $show_files[$register['file_index']]['name'] }}
-                                                        @elseif ($register['file_online'])
-                                                            Aquivo Existente
-                                                        @else
-                                                            Sem Arquivo
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        <i class="bx bx-trash text-danger fs-4 align-middle"
-                                                            wire:click.prevent="delete_note({{ $register['id'] }})"
-                                                            style="cursor: pointer;"></i>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-
-
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                        </div>
-
-                    </div>
-                    {{-- <div class="mb-3">
-                        <label for="search" class="form-label">Observações</label>
-                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"></textarea>
-                    </div> --}}
-
-                </div> {{-- Fim Modal Body --}}
-
-
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click.prevent="to_viability">Enviar</button>
-                </div>
-
-            </div>
-
-
-        </div>
-
-        @livewire('construction.hiring.actions.edit')
-
-    </div>
+    {{-- Livewire Components --}}
+    @livewire('construction.hiring.actions.edit', key('hiring-edit'))
 
     @push('script')
         <script>

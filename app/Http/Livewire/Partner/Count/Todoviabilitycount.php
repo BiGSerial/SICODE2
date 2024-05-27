@@ -12,10 +12,8 @@ class Todoviabilitycount extends Component
         $query = Note::Query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('tacit', false)
-                ->where('canceled', false)
-                ->where('hired', false)
-                ->where('completed', false);
+            $q->where('completed', false)
+                ->where('status', 1);
 
             if (!Auth()->User()->superadm) {
 
@@ -26,13 +24,8 @@ class Todoviabilitycount extends Component
                 }
             }
 
-        })
-            ->with(['Viabilities' => function ($query) {
-                $query->where('tacit', false)
-                ->where('canceled', false)
-                ->where('hired', false)
-                ->where('completed', false);
-            }, 'Files']);
+        });
+
 
         $this->emit('todocount', $query->count());
 

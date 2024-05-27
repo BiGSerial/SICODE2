@@ -26,6 +26,7 @@ class Service extends Model
         'project',
         'construction',
         'icon',
+        'canReturn'
     ];
 
     public function Contracts()

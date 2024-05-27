@@ -17,11 +17,17 @@ class Main extends Component
     public $perPage = 50;
     public $search;
     public $company;
+
     public $filterStatus =  [
         'column' => null,
         'value' => null
     ];
+
     public $filterResponser = false;
+
+    protected $listeners = [
+        'refresh_main' => '$refresh',
+    ];
 
 
     public function getCountHiringProperty()
@@ -93,6 +99,12 @@ class Main extends Component
 
     public function searching()
     {
+        $this->gotoPage(1);
+    }
+
+    public function searchOff()
+    {
+        $this->search = "";
         $this->gotoPage(1);
     }
 
@@ -203,16 +215,22 @@ class Main extends Component
 
     public function getListResponsersProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            return $q->whereYear('sended_at', date('Y'))
-                    ->whereMonth('sended_at', date('m'))
-                    ->where('rejected', true)
-                    ->where('completed', false)
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    });
-
-        })->get();
+        return Note::whereHas('Viabilities', function ($q) {
+            $q->whereYear('sended_at', date('Y'))
+                ->whereMonth('sended_at', date('m'))
+                ->where('rejected', true)
+                ->where('completed', false)
+                ->when(Auth()->user()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->user()->id);
+                });
+        })
+            ->with(['Viabilities' => function ($query) {
+                $query->orderBy('updated_at', 'DESC');
+            }])
+            ->get()
+            ->sortBy(function ($note) {
+                return $note->Viabilities->max('updated_at');
+            });
     }
 
     public function getCountResponsersProperty()
@@ -232,17 +250,23 @@ class Main extends Component
 
     public function getWaitingListsProperty()
     {
-        $query = HiringWaiting::Query();
-        $query->where('complete', false)
-            ->when($this->search, function ($q) {
-                $q->whereRelation('Note', 'note', 'like', "%".$this->search."%");
-            })
-            ->orderBy('created_at', 'DESC');
+        $query = HiringWaiting::query();
 
+        $query->where('complete', false);
 
+        if ($this->search) {
+            $query->whereRelation('Note', 'note', 'like', "%" . $this->search . "%");
+        }
 
-        return $query->get();
+        // Obter todos os resultados
+        $results = $query->get();
 
+        // Ordenar manualmente para colocar primeiro aqueles cuja relação Reclaim não tem relação Production
+        $results = $results->sortBy(function ($hiringWaiting) {
+            return $hiringWaiting->Reclaim->Production ? 1 : 0;
+        })->sortByDesc('created_at');
+
+        return $results;
     }
 
     public function getCompaniesProperty()

@@ -4,6 +4,9 @@ namespace App\Http\Livewire\Construction\Responser\Actions;
 
 use App\Models\File;
 use App\Models\Note;
+use App\Models\Production;
+use App\Models\Reclaim;
+use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -16,16 +19,37 @@ class Responserpartners extends Component
     public $selectedFiles = [];
     public $decision;
     public $responser;
+    public $services;
+    public $service;
+    public $production;
+    public $category;
 
     protected $listeners = [
         'getInfoPartnerViab',
-        'confirm_response',
+        'confirm_response' => 'confirm_responser',
+        'closeAll',
     ];
+
+    public function mount()
+    {
+        $this->services = Service::where('canReturn', true)->orderBy('service')->get();
+    }
+
+    public function updatedService($service)
+    {
+        if ($service) {
+            $this->production = Production::where('service_id', $service)->where('note_id', $this->note->id)->where('completed', true)->get();
+        } else {
+            $this->production = null;
+        }
+
+        if ($this->production) {
+            $this->production = $this->production->last();
+        }
+    }
 
     public function getInfoPartnerViab(Note $note)
     {
-
-
         $this->note = $note;
 
         if ($this->note) {
@@ -37,7 +61,20 @@ class Responserpartners extends Component
 
     public function toResponser()
     {
+
+
+        if ($this->note->Viabilities->where('completed', false)->last()->treplica) {
+
+
+            $this->decision = 'CONCORDAR';
+        }
+
+
+
         if (!trim($this->responser) ||  !$this->decision) {
+
+
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -72,7 +109,8 @@ class Responserpartners extends Component
                 'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
             ]);
 
-            return;
+
+
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -87,82 +125,232 @@ class Responserpartners extends Component
 
     }
 
-    public function confirm_response()
+    public function confirm_responser()
     {
+
+
         if ($this->decision === 'CONCORDAR') {
 
-            // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n >> EMPRESA PARCEIRA CONCORDA COM SEGUIMENTO PARA CONTRATAÇÃO. <<";
 
 
-            if ($this->note->Viabilities->count()) {
+            DB::beginTransaction();
 
-                foreach ($this->note->Viabilities as $viability) {
-                    DB::beginTransaction();
+            try {
 
-                    try {
-                        // Atualize a viabilidade
-                        $viability->update([
-                            'approved' => true,
-                            'rejected' => false,
-                            'treplica' => true,
-                            'completed' => $viability->hired ? true : false,
-                            'completed_at' => $viability->hired ? date('Y-m-d H:i:s') : null,
-                            'status' => $viability->hired ? 9 : 6,
+                if (!$this->category) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Informar a Categoria é obrigatório',
+                        'timer'    => 2500,
+                    ]);
+
+                    return;
+                }
+
+                // Acrescenta decisão da Empreiteira a mensagem postada.
+                // $this->responser .= "\n\n >> EMPRESA CONTRATANTE CONCORDA COM O RESULTADO DA VIABILIDADE FEITO PELA PARECEIRA. <<";
+
+
+                if ($this->production) {
+
+                    // dd($this->production);
+
+                    $production = Production::Create([
+                        'note_id' => $this->production->note_id,
+                        'service_id' => $this->production->service_id,
+                        'company_id' => $this->production->company_id,
+                        'user_id' => $this->production->user_id,
+                        'att_by' => Auth()->User()->id,
+                        'dispatch_by' => Auth()->User()->id,
+                        'dispatch_at' => date('Y-m-d H:i:s'),
+                        'att_at' => date('Y-m-d H:i:s'),
+                        'dt_note' => $this->note->dt_status,
+                        'status_note' => $this->note->nstats,
+                        'status' => 2,
+                        'd5' => true,
+                    ]);
+
+                    if ($production) {
+
+                        $return = Reclaim::create([
+                            'note_id' => $production->note_id,
+                            'service_id' => $production->service_id,
+                            'production_id' => $production->id,
+                            'category' => $this->category,
                         ]);
 
-                        // Crie um novo comentário e associe-o à viabilidade
-                        $viability->Comments()->create([
-                            'user_id' => auth()->user()->id,
-                            'message' => $this->responser ?? null,
-
+                        $return->Comments()->create([
+                            'user_id' => Auth()->User()->id,
+                            'message' => $this->responser
                         ]);
+
+                        if ($return && $this->note->Viabilities->where('completed', false)->count()) {
+
+
+                            foreach ($this->note->Viabilities->where('completed', false) as $viab) {
+                                // dd($viab);
+                                $viab->update([
+                                    'status' => 12,
+                                    'engineer' => true,
+                                    'engineer_at' => date('Y-m-d H:i:s'),
+                                ]);
+
+                                $viab->Reclaims()->attach($return->id);
+                                $viab->Comments()->create([
+                                    'user_id' => auth()->user()->id,
+                                    'message' => '>>> RRESPONSÁVEL INFORMOU CONFORMIDADE COM A VIABILIDADE <<<',
+
+                                ]);
+
+
+                            }
+
+                        } else {
+                            DB::rollback();
+
+                            $this->dispatchBrowserEvent('swal', [
+                                'position' => 'center',
+                                'icon'     => 'warning',
+                                'title'    => 'Ocorreu um erro individual. tente novamente.',
+                                'timer'    => 8000,
+                            ]);
+
+                            return;
+                        }
 
                         DB::commit();
 
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
                             'icon'     => 'success',
-                            'title'    => 'Contestação Aceita',
-                            'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                            'title'    => 'ACEITA CONTESTAÇÃO',
+                            'html'      => 'O Resultado da Viabilidade foi Acesita com sucesso, e obra despachada com sucesso.',
                             'timer'    => 5000,
                         ]);
 
-                        $this->emitUp('refresh_list');
-                        $this->clean();
 
-                    } catch (\Throwable $th) {
-                        DB::rollback();
+                        $this->emitTo('construction.responser.main', 'refresh_main');
+                        $this->closeAll();
+                    }
+                } else {
+
+                    try {
+
+                        $return = Reclaim::create([
+                            'note_id' => $this->note->id,
+                            'service_id' => $this->service,
+                            'category' => $this->category,
+                        ]);
+
+                        $return->Comments()->create([
+                            'user_id' => Auth()->User()->id,
+                            'message' => $this->responser
+                        ]);
+
+                        if ($return && $this->note->Viabilities->where('completed', false)->count()) {
+
+
+                            foreach ($this->note->Viabilities->where('completed', false) as $viab) {
+                                // dd($viab);
+                                $viab->update([
+                                    'status' => 12,
+                                    'engineer' => true,
+                                    'engineer_at' => date('Y-m-d H:i:s'),
+                                ]);
+
+                                $viab->Reclaims()->attach($return->id);
+                                $viab->Comments()->create([
+                                    'user_id' => auth()->user()->id,
+                                    'message' => '>>> RRESPONSÁVEL INFORMOU CONFORMIDADE COM A VIABILIDADE <<<',
+
+                                ]);
+
+
+                            }
+
+                        } else {
+                            DB::rollback();
+
+                            $this->dispatchBrowserEvent('swal', [
+                                'position' => 'center',
+                                'icon'     => 'warning',
+                                'title'    => 'Ocorreu um erro individual. tente novamente.',
+                                'timer'    => 8000,
+                            ]);
+
+                            return;
+                        }
+
+                        DB::commit();
 
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
-                            'icon'     => 'danger',
-                            'title'    => 'Erro',
-                            'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada..',
+                            'icon'     => 'success',
+                            'title'    => 'ACEITA CONTESTAÇÃO',
+                            'html'      => 'O Resultado da Viabilidade foi Acesita com sucesso, e obra despachada com sucesso.',
                             'timer'    => 5000,
                         ]);
-                        $this->clean();
 
+
+                        $this->emitTo('construction.responser.main', 'refresh_main');
+                        $this->closeAll();
+
+                    } catch (\Throwable $th) {
+
+                        DB::rollback();
+
+                        dd($th->getMessage());
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'warning',
+                            'title'    => 'Ocorreu um erro individual. tente novamente.',
+                            'timer'    => 8000,
+                        ]);
+
+                        return;
                     }
                 }
+
+
+
+            } catch (\Throwable $th) {
+                DB::rollback();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Ocorreu uma Falha e Nao conseguimos registrar.',
+                    'timer'    => 8000,
+                ]);
+
+
+
+
+                return;
             }
         }
 
         if ($this->decision === 'DISCORDAR') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n >> EMPRESA PARCEIRA MANTÉM A REJEIÇÃO DA VIABILIDADE TÉCNICA APRESENTADA. <<";
+            // $this->responser .= "\n\n >> EMPRESA PARCEIRA MANTÉM A REJEIÇÃO DA VIABILIDADE TÉCNICA APRESENTADA. <<";
 
-            if ($this->note->Viabilities->count()) {
-                foreach ($this->note->Viabilities as $viability) {
+
+
+            if ($this->note->Viabilities->where('completed', false)->count()) {
+
+                foreach ($this->note->Viabilities->where('completed', false) as $viability) {
+
                     DB::beginTransaction();
 
                     try {
                         // Atualize a viabilidade
                         $viability->update([
                             'approved' => false,
-                            'treplica' => true,
-                            'status' => 4,
+                            'replica' => true,
+                            'status' => 5,
                         ]);
 
                         // Crie um novo comentário e associe-o à viabilidade
@@ -177,13 +365,13 @@ class Responserpartners extends Component
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
                             'icon'     => 'success',
-                            'title'    => 'Contestação Mantida',
-                            'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                            'title'    => 'CONTESTAÇÃO AO PARCEIRO',
+                            'html'      => 'Foi enviado sua contestação ao parceiro',
                             'timer'    => 5000,
                         ]);
 
-                        $this->emitUp('refresh_list');
-                        $this->clean();
+                        $this->emitUp('refresh_main');
+                        $this->closeAll();
 
                     } catch (\Throwable $th) {
                         DB::rollback();
@@ -195,7 +383,9 @@ class Responserpartners extends Component
                             'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
                             'timer'    => 5000,
                         ]);
-                        $this->clean();
+
+                        // dd($th->getMessage());
+
                     }
                 }
             }
@@ -207,6 +397,9 @@ class Responserpartners extends Component
 
     public function isTextValid($text)
     {
+        // Converte o texto para minúsculas para garantir que a verificação não seja case sensitive
+        $text = strtolower($text);
+
         // Verificação de comprimento mínimo
         if (strlen($text) < 10) {
             return false;
@@ -219,7 +412,7 @@ class Responserpartners extends Component
         }
 
         // Verificação de variação de caracteres
-        $containsLetter = preg_match('/[a-zA-Z]/', $text);
+        $containsLetter = preg_match('/[a-z]/', $text); // Apenas letras minúsculas, pois o texto já foi convertido para minúsculas
         $containsDigit = preg_match('/[0-9]/', $text);
         if (!$containsLetter && !$containsDigit) {
             return false;
@@ -248,14 +441,32 @@ class Responserpartners extends Component
             "cvbn", "nbvc",
             "vbnm", "mnbv"
         ];
+
         foreach ($commonPatterns as $pattern) {
             if (strpos($text, $pattern) !== false) {
                 return false;
             }
         }
 
-
         return true;
+    }
+
+
+
+
+    public function closeAll()
+    {
+
+        $this->dispatchBrowserEvent('hideModal');
+        $this->emitTo('construction.responser.main', 'refresh_main');
+
+        $this->note = null;
+        $this->selectedFiles = [];
+        $this->decision = "";
+        $this->responser = "";
+        $this->service = "";
+        $this->production = null;
+
     }
 
 

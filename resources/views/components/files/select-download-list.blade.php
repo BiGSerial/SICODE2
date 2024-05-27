@@ -1,22 +1,22 @@
-<div x-data="{ isShow: false }" style="position: inherit;">
-
+<div>
     @if ($files->count())
-
-        <i class="ri-file-3-line text-danger" @click="isShow=!isShow"></i>
-        <div class="position-absolute start-0 ms-5" style="display: none; z-index: 99999; width: 300px; right: 100px"
-            x-show="isShow" @click.away="isShow=false">
-
-            <div class="list-group shadow border border-1 border-secondary">
-                <div class="list-group-item edp-bg-sprucegreen-70 text-edp-verde text-center fw-bold">
-                    LISTA DE ARQUIVOS</div>
+        <div class="dropdown" style="position: inherit;">
+            <i class="ri-file-3-line fs-4 text-danger" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                style="cursor: pointer;"></i>
+            {{-- <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                Dropdown button
+            </button> --}}
+            <ul class="dropdown-menu edp-bg-gray py-0">
+                <li class="edp-bg-sprucegreen-70 text-edp-verde text-center fw-bold py-1">ARQUIVOS</li>
                 @foreach ($files->sortBy('file_name') as $file)
-                    <button type="button" class="list-group-item group-item-action"
-                        wire:click.prevent="downloadFile({{ $file->id }})"><i
-                            class="ri-file-3-line fs-5 text-danger align-middle"></i>
-                        {{ $file->file_name }}</button>
+                    <li wire:key="file-{{ $file->id }}">
+                        <a class="dropdown-item" href="#"
+                            wire:click.prevent="downloadFile({{ $file->id }})">{{ $file->file_name }}
+                        </a>
+                    </li>
                 @endforeach
-            </div>
+            </ul>
         </div>
-
     @endif
 </div>

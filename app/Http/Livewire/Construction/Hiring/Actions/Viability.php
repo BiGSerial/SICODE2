@@ -30,7 +30,8 @@ class Viability extends Component
 
     protected $listeners = [
         'go_viability' => 'go_viability',
-        'conf_viability' => 'confirm_viability'
+        'conf_viability' => 'confirm_viability',
+        'closeModal' => 'cancelarViab',
     ];
 
     public function go_viability(array $orders_id)

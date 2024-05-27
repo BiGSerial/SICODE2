@@ -4,6 +4,11 @@ namespace App\Http\Controllers;
 
 class PartnerController extends Controller
 {
+    public function main()
+    {
+        return view('partner.main');
+    }
+
     public function viability()
     {
         return view('partner.viability');

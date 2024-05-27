@@ -40,6 +40,10 @@
             <label class="form-check-label" for="project">Projeto</label>
         </div>
         <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="project" wire:model.defer="returnable">
+            <label class="form-check-label" for="project">Retornável</label>
+        </div>
+        <div class="form-check form-check-inline">
             <input class="form-check-input" type="checkbox" id="construction" wire:model.defer="construction">
             <label class="form-check-label" for="construction">Construção</label>
         </div>

@@ -20,6 +20,8 @@ class Create extends Component
 
     public $construction;
 
+    public $returnable;
+
     public $icon;
 
     protected $listeners = [
@@ -66,6 +68,7 @@ class Create extends Component
             'folder'       => $this->folder_s,
             'project'      => $this->project ? true : false,
             'construction' => $this->construction ? true : false,
+            'canReturn'    => $this->returnable ? true : false,
             'icon'         => $this->icon ?? $this->icon,
         ])) {
 

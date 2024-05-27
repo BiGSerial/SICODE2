@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
 use Illuminate\Support\Facades\Storage;
@@ -12,9 +13,39 @@ class Histhiring extends Component
 {
     use WithFileUploads;
 
+    public $perPage = 50;
+
+    public $cities;
+
+    public $files_selected = [];
+
+    public $search;
+
+    // search by date
+    public $date_in;
+    public $date_out;
+    public $dateBy = 'sended_at';
+
+    // Filters
+    private $filter_group = 'hiring_hist';
+
+    private $filter;
+
+    protected $queryString = [
+        'search'  => ['except' => '', 'as' => 'buscar'],
+
+        'perPage' => ['as' => 'pp'],
+    ];
+
     protected $listeners = [
         'update_list' => '$refresh'
     ];
+
+    public function mount()
+    {
+        $this->cities = City::orderBy('cidade')->get();
+
+    }
 
     public function downloadFile($id)
     {
@@ -33,16 +64,61 @@ class Histhiring extends Component
         }
     }
 
+    public function cleanAll()
+    {
+        $this->date_in = "";
+        $this->date_out = "";
+        $this->dateBy = 'sended_at';
+        $this->search = '';
+    }
+
     public function getListsProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
+        $query = Note::query();
+
+        $query->whereRelation('Viabilities', function ($q) {
             $q->where('user_id', auth()->user()->id)
                 ->where('hired', true);
-        })
-            ->with(['Viabilities' => function ($query) {
-                $query->where('hired', true)
-                ->with('Company', 'User', 'Form', 'Comments.User');
-            }, 'Files'])->paginate(50);
+
+            if ($this->dateBy && ($this->date_in || $this->date_out)) {
+
+                if ($this->date_in && !$this->date_out) {
+                    $q->whereDate($this->dateBy, '>=', $this->date_in);
+                }
+
+                if (!$this->date_in && $this->date_out) {
+                    $q->whereDate($this->dateBy, '<=', $this->date_out);
+                }
+
+                if ($this->date_in && $this->date_out) {
+                    $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
+                }
+            }
+
+            $q->orderBy('sended_at', 'DESC');
+        });
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->Where('note', 'like', "%$this->search%")
+                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+
+
+            });
+        }
+
+        if (isset($this->filter['city'])) {
+
+            $query->whereIn('lexp', $this->filter['city']);
+        }
+
+        $query->with(['Viabilities' => function ($query) {
+            $query->where('hired', true)
+            ->with('Company', 'User', 'Form', 'Comments.User');
+        }, 'Files']);
+
+
+        return $query->paginate($this->perPage);
     }
 
 

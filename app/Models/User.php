@@ -80,4 +80,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Activeuser::class);
     }
+
+    public function Companies()
+    {
+        return $this->belongsToMany(Company::class);
+    }
 }

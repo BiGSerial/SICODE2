@@ -168,4 +168,16 @@
             </div>
         </div>
     </div>
+
+
+    {{-- Scripts Locais --}}
+
 </div>
+
+<script>
+    // Capturando o evento de fechamento do modal
+    document.getElementById('modal_viability').addEventListener('hidden.bs.modal', () => {
+
+        Livewire.emitTo('construction.hiring.actions.viability', 'closeModal');
+    });
+</script>

@@ -75,7 +75,7 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary">
+                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
                         <option value="25">25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
@@ -126,29 +126,46 @@
         </div>
         {{-- FIM Paginador --}}
         <div class="card mb-2 edp-bg-gray">
-            <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">VIABILIDADE A EXECUTAR</h4>
 
+            <div class="card-header edp-bg-seoweedgreen-100 text-white">
+                <div class="row">
+                    <div class="col">
+                        <h4 class="my-0">VIABILIDADE A EXECUTAR</h4>
+                    </div>
+                    <div class="col-3 d-flex justify-content-end">
+
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+
+                    </div>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="table table-sm table-condensed table-striped table-hover">
                     <thead>
-                        <th scope="col" class="text-center align-middle"></th>
-                        <th scope="col" class="text-center align-middle">Nota/OV</th>
-                        <th scope="col" class="text-center align-middle">Arquivos</th>
-                        <th scope="col" class="text-center align-middle">Ordem</th>
-                        <th scope="col" class="text-center align-middle">Contratado</th>
-                        <th scope="col" class="text-center align-middle">Recebido</th>
-                        <th scope="col" class="text-center align-middle">Prazo Viab</th>
-                        <th scope="col" class="text-center align-middle">Prazo Obra</th>
-                        <th scope="col" class="text-center align-middle">Rubrica</th>
-                        <th scope="col" class="text-center align-middle">Regiao</th>
-                        <th scope="col" class="text-center align-middle">Municipio</th>
-                        <th scope="col" class="text-center align-middle">Status</th>
-                        <th scope="col" class="text-center align-middle">Acao</th>
-                        <th scope="col" class="text-center align-middle"></th>
-                        <th scope="col" class="text-center align-middle"></th>
+                        <tr>
+                            <th scope="col" class="text-center align-middle"></th>
+                            <th scope="col" class="text-center align-middle">Nota/OV</th>
+                            <th scope="col" class="text-center align-middle">Arquivos</th>
+                            <th scope="col" class="text-center align-middle">Ordem</th>
+                            <th scope="col" class="text-center align-middle">Contratado</th>
+                            <th scope="col" class="text-center align-middle">Recebido</th>
+                            <th scope="col" class="text-center align-middle">Prazo Viab</th>
+                            <th scope="col" class="text-center align-middle">Prazo Obra</th>
+                            <th scope="col" class="text-center align-middle">Rubrica</th>
+                            <th scope="col" class="text-center align-middle">Regiao</th>
+                            <th scope="col" class="text-center align-middle">Municipio</th>
+                            <th scope="col" class="text-center align-middle">Status</th>
+                            <th scope="col" class="text-center align-middle">Acao</th>
+                            <th scope="col" class="text-center align-middle"></th>
+                            <th scope="col" class="text-center align-middle"></th>
+                        </tr>
                     </thead>
                     <tbody class="table-group-divider">
-                        @foreach ($lists as $index => $list)
+                        @foreach ($lists->sortBy(function ($note) {
+        // Acessar a primeira 'Viability' e o campo 'sended_at'
+        return $note->Viabilities->first()->sended_at ?? null;
+    }) as $index => $list)
                             @php
                                 $status = null;
 
@@ -255,10 +272,36 @@
                                     }
                                 }
 
+                                $color = '';
+
+                                if (
+                                    $list->Viabilities->last()->approved &&
+                                    !$list->Viabilities->last()->rejected &&
+                                    !$list->Viabilities->last()->tacit
+                                ) {
+                                    $color = 'green';
+                                } elseif (
+                                    !$list->Viabilities->last()->approved &&
+                                    $list->Viabilities->last()->rejected &&
+                                    !$list->Viabilities->last()->tacit
+                                ) {
+                                    $color = 'red';
+                                } elseif ($list->Viabilities->last()->tacit) {
+                                    $color = 'yellow';
+                                }
+
+                                $tcolor = '';
+
+                                if ($list->Viabilities->last()->hired) {
+                                    $tcolor = 'table-success';
+                                }
+
                             @endphp
-                            <tr style="cursor: pointer;"
-                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})">
-                                <td></td>
+                            <tr wire:key="viability-{{ $list->id }}"
+                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})"
+                                style="cursor: pointer; border-left: 8px solid {{ $color }};">
+                                <td>
+                                </td>
                                 <td class="text-center align-middle">{{ $list->note }}</td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
@@ -318,7 +361,7 @@
 
                                 </td>
                                 <td class="align-middle">
-                                    
+
                                     <input class="form-check-input border border-secondary" type="checkbox"
                                         value="{{ $list->id }}" wire:model="inActivity.{{ $list->id }}"
                                         wire:click.prevent="putInActvity({{ $list->id }})">

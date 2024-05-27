@@ -73,4 +73,9 @@ class Viability extends Model
     {
         return $this->belongsToMany(File::class);
     }
+
+    public function Days()
+    {
+        return $this->hasMany(Daysviab::class);
+    }
 }

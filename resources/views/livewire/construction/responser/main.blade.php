@@ -165,10 +165,21 @@
                             wire:model.defer="search">
                         <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='searching'
                             wire:target="searching" wire:loading.attr="disabled" data-bs-toggle="tooltip"
-                            data-bs-placement="top" data-bs-title="Executar"><i
+                            data-bs-placement="top" data-bs-title="Buscar"><i
                                 class="bx bx-search-alt fs-4 m-0 align-middle" wire:target="searching"
                                 wire:loading.remove></i>
                             <div class="spinner-border spinner-border-sm" role="status" wire:target="searching"
+                                wire:loading>
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </button>
+
+                        <button class="btn btn-sm btn-danger ms-2" wire:click.prevent='searchOff'
+                            wire:target="searchOff" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                            data-bs-placement="top" data-bs-title="Limpar Busca"><i
+                                class="ri-filter-off-line fs-5 m-0 align-middle" wire:target="searchOff"
+                                wire:loading.remove></i>
+                            <div class="spinner-border spinner-border-sm" role="status" wire:target="searchOff"
                                 wire:loading>
                                 <span class="visually-hidden">Loading...</span>
                             </div>
@@ -364,7 +375,7 @@
             </div>
 
             <div class="col-lg-4">
-                <div class="card info-card sales-card">
+                <div class="card info-card sales-card" wire:poll.60s>
 
 
                     <div class="card-body">
