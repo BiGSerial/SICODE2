@@ -43,6 +43,7 @@ class Todoviability extends Component
     {
         $this->cities = City::orderBy('cidade')->get();
 
+
     }
 
     public function updatedPerPage()
@@ -52,12 +53,14 @@ class Todoviability extends Component
 
     public function putInActvity($id)
     {
+
         if ($id) {
 
-            foreach ($this->lists->where('id', $id)->first()->Viabilities as $viab) {
+            foreach ((Note::find($id))->Viabilities as $viab) {
                 $viab->update(['inActivity' => !$viab->inActivity]);
             }
         }
+
     }
 
     public function export_excel()
@@ -142,8 +145,6 @@ class Todoviability extends Component
             $q->where('canceled', false)
                 ->where('completed', false)
                 ->where('tacit', false);
-
-
             if (!Auth()->User()->superadm) {
 
                 $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
@@ -183,11 +184,29 @@ class Todoviability extends Component
         return $query;
     }
 
+    public function inActivityUpdade()
+    {
+        return $this->inActivity = Note::whereRelation('Viabilities', function ($q) {
+            $q->where('canceled', false)
+                ->where('inActivity', true)
+                ->where('completed', false)
+                ->where('tacit', false);
+
+            if (!Auth()->User()->superadm) {
+
+                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
+                if ($companyId) {
+                    $q->where('company_id', $companyId);
+                } else {
+                    $q->where('company_id', null);
+                }
+            }
+        })->get()->pluck('id')->toArray();
+    }
+
     public function render()
     {
-        foreach ($this->lists as $list) {
-            $this->inActivity[$list->id] = $list->Viabilities->last()->inActivity;
-        }
+        $this->inActivityUpdade();
 
         return view('livewire.partner.todoviability', [
             'lists'  => $this->lists->paginate($this->perPage),

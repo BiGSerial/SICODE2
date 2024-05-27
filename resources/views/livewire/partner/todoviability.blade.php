@@ -363,10 +363,14 @@
 
                                 </td>
                                 <td class="align-middle">
-
+                                    @php
+                                        $check = isset($list->Viabilities->last()->inActivity)
+                                            ? $list->Viabilities->last()->inActivity
+                                            : false;
+                                    @endphp
                                     <input class="form-check-input border border-secondary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model="inActivity.{{ $list->id }}"
-                                        wire:click.prevent="putInActvity({{ $list->id }})">
+                                        wire:click.prevent="putInActvity({{ $list->id }})"
+                                        @checked($check)>
                                 </td>
                             </tr>
                         @endforeach
