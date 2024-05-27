@@ -91,24 +91,28 @@
 
                 <div class="col-1">
                     <input type="date" id="date_in" class="form-control border border-secondary"
-                        wire:model="date_in">
+                        wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Data Inicial">
                 </div>
 
                 <div class="col-1">
                     <input type="date" id="date_out" class="form-control border border-secondary"
-                        wire:model="date_out">
+                        wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Data Final">
                 </div>
 
                 <div class="col-1">
                     <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy">
+                        wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Data por Coluna">
                         <option value="sended_at">Recebido</option>
                         <option value="returned_at">Viabilizado</option>
                         <option value="completed_at">Completado</option>
                     </select>
                 </div>
                 <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()'><i class="ri-find-replace-line fs-5"></i></button></div>
+                        wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button></div>
                 <div class="col-5 d-flex justify-content-end">
                     @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_hist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
                     @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_hist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
@@ -296,7 +300,9 @@
                             @endphp
                             <tr wire:key="viability-{{ $list->id }}"
                                 wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})"
-                                style="cursor: pointer; border-left: 8px solid {{ $color }};">
+                                style="cursor: pointer; border-left: 8px solid {{ $color }};"
+                                data-bs-toggle="tooltip" data-bs-placement="left"
+                                data-bs-title="Duplo Clique para mais Opções">
                                 <td>
                                 </td>
                                 <td class="text-center align-middle">{{ $list->note }}</td>

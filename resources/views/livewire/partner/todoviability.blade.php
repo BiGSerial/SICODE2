@@ -299,7 +299,9 @@
                             @endphp
                             <tr wire:key="viability-{{ $list->id }}"
                                 wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})"
-                                style="cursor: pointer; border-left: 8px solid {{ $color }};">
+                                style="cursor: pointer; border-left: 8px solid {{ $color }};"
+                                data-bs-toggle="tooltip" data-bs-placement="left"
+                                data-bs-title="Duplo Clique para mais Opções">
                                 <td>
                                 </td>
                                 <td class="text-center align-middle">{{ $list->note }}</td>

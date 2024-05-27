@@ -300,7 +300,9 @@
                                             @endphp
                                             <tr wire:key="viability-{{ $list->id }}"
                                                 wire:dblclick.prevet="$emitTo('construction.responser.actions.responserinfo', 'getInfoResponse', {{ $list }})"
-                                                style="cursor: pointer; border-left: 8px solid {{ $color }};">
+                                                style="cursor: pointer; border-left: 8px solid {{ $color }};"
+                                                data-bs-toggle="tooltip" data-bs-placement="right"
+                                                data-bs-title="Duplo Clique para mais Opções">
                                                 <td class="text-center align-middle fw-bold {{ $tcolor }}">
                                                     {{ $list->note }}</td>
                                                 <td class="text-center align-middle">
@@ -445,7 +447,9 @@
                                             @endphp
                                             <tr wire:key="responser-{{ $responser->id }}"
                                                 wire:dblclick.prevent="$emitTo('construction.responser.actions.responserpartners', 'getInfoPartnerViab', {{ $responser }})"
-                                                style="cursor: pointer;">
+                                                style="cursor: pointer;" data-bs-toggle="tooltip"
+                                                data-bs-placement="left"
+                                                data-bs-title="Duplo Clique para mais Opções">
                                                 <td class="text-center align-middle">
                                                     @if ($twentyFourHours)
                                                         <i class="ri-24-hours-line text-danger blinking fs-5"></i>

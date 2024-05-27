@@ -120,7 +120,7 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle">Dt OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $nisset(ote->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
+                                                            {{ isset($note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
