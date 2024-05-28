@@ -258,6 +258,18 @@ class Accompany extends Component
         }
     }
 
+    public function checkAllSelect($items)
+    {
+        $items = $items->pluck('id')->toArray();
+
+        if (!array_diff($items,  $this->hiringSelected)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
     public function go_to_hiring()
     {
         $this->hirings = $this->myhirings;
@@ -726,7 +738,7 @@ class Accompany extends Component
             $query->where('type_note', $this->typeNote);
         }
 
-       
+
 
 
         return $query; // Executar a consulta e retornar os resultados

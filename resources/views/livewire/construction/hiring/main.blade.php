@@ -240,11 +240,15 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
+
                     <table class="table table-sm table-striped table-condensed">
                         <thead class="table-dark">
                             <tr>
                                 <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectAll">
+                                    <input class="form-check-input border border-secondary" type="checkbox"
+                                        wire:model.defer="selectAll" wire:click="setSelectAll()"
+                                        @checked($this->checkAllSelect($lists))>
+
                                 </th>
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>

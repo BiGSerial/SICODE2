@@ -195,7 +195,7 @@
                             <tr>
                                 <th class="align-middle text-center">
                                     <input class="form-check-input border-1 border-secondary" type="checkbox"
-                                        wire:model="selectAll">
+                                        wire:model="selectAll" @checked($this->checkAllSelect($lists))>
                                 </th>
                                 <th scope="col" class="fw-bold text-center">Nota</th>
                                 <th scope="col" class="fw-bold text-center">Ordem</th>
@@ -221,7 +221,7 @@
                                 <tr wire:key="acompany-{{ $list }}">
                                     <td class="align-middle text-center"><input
                                             class="form-check-input border-1 border-secondary" type="checkbox"
-                                            wire:model.defer="selected"></td>
+                                            value="{{ $list->id }}" wire:model.defer="selected"></td>
                                     <td class="align-middle text-center fw-bold">{{ $list->note }}</td>
 
                                     <td class="align-middle text-center">

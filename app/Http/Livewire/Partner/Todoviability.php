@@ -204,6 +204,11 @@ class Todoviability extends Component
         })->get()->pluck('id')->toArray();
     }
 
+    public function checkInActivity($item)
+    {
+        return isset($item->Viabilities->last()->inActivity) ? $item->Viabilities->last()->inActivity : false;
+    }
+
     public function render()
     {
         $this->inActivityUpdade();

@@ -260,7 +260,7 @@ class Main extends Component
             $this->emit('go_viability', $this->selected);
 
             return;
-            
+
             $orders = Order::with('Note.Files')->find($this->selected);
 
             if ($orders) {
@@ -729,9 +729,10 @@ class Main extends Component
         $this->emit('refresh_list');
     }
 
-    public function updatedSelectAll($value)
+    public function setSelectAll()
     {
-        if ($value) {
+
+        if ($this->selectAll) {
             // Adicionar os IDs ausentes de $selected
             foreach ($this->lists->pluck('id')->toArray() as $id) {
                 if (!in_array($id, $this->selected)) {
@@ -759,6 +760,17 @@ class Main extends Component
             }
             $this->selected = $newSelected;
         }
+    }
+
+    public function checkAllSelect($items)
+    {
+
+        $items = $items->pluck('id')->toArray();
+
+        $this->selectAll = empty(array_diff($items, $this->selected));
+
+        return $this->selectAll;
+
     }
 
     public function getListsProperty()
