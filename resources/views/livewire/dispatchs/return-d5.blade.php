@@ -11,29 +11,16 @@
         </div>
         <div class="card-body py-0 mt-3">
             <div class="mb-3 d-flex justify-content-end">
-                {{-- <select name="" id="" class="form-select form-select-sm ms-2 me-2" style="max-width: 200px;"
-                    wire:model="cjobes">
-                    <option value="" selected>Centro Trabalho</option>
-                    @if ($centerJobs)
-                        @foreach ($centerJobs as $cjob)
-                            <option value="{{ $cjob->cenTrab }}">{{ $cjob->cenTrab }}</option>
-                        @endforeach
-                    @endif
-                </select> --}}
-                {{-- <select name="" id="" class="form-select form-select-sm ms-5" style="max-width: 200px;"
-                    wire:model="action">
-                    <option value="" selected>Selecione uma Ação</option>
-                    <option value="1">Atribuir em Massa</option>
-                    <option value="2">Remover em Massa</option>
-                </select>
-                <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='go_att_mass'
-                    @disabled(!$action) wire:target="go_att_mass" wire:loading.attr="disabled"
-                    data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Executar"><i
-                        class="bx bx-send fs-4 m-0 align-middle" wire:target="go_att_mass" wire:loading.remove></i>
-                    <div class="spinner-border spinner-border-sm" role="status" wire:target="go_att_mass" wire:loading>
+
+                <button class="btn btn-sm btn-danger ms-2" wire:click.prevent='cleanUser' wire:target="cleanUser"
+                    @disabled(!$filterUser) wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                    data-bs-placement="top" data-bs-title="Limpar Filtrp Usuario"><i
+                        class="ri-filter-off-line fs-4 m-0 align-middle" wire:target="cleanUser"
+                        wire:loading.remove></i>
+                    <div class="spinner-border spinner-border-sm" role="status" wire:target="cleanUser" wire:loading>
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                </button> --}}
+                </button>
 
             </div>
         </div>

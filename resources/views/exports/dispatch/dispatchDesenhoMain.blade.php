@@ -18,6 +18,7 @@
             <th scope="col" class="fw-bold text-center">Grp4</th>
             <th scope="col" class="fw-bold text-center">Grp5</th>
             <th scope="col" class="fw-bold text-center">Postes L</th>
+            <th scope="col" class="fw-bold text-center">RetornoInterno</th>
             <th scope="col" class="fw-bold text-center">Status</th>
             <th scope="col" class="fw-bold text-center">Prazo Real</th>
             <th scope="col" class="fw-bold text-center">Situação</th>
@@ -33,13 +34,13 @@
             @endphp
 
             <tr
-                class="align-middle 
-                @if ($block) @if ($production->status == 1) 
+                class="align-middle
+                @if ($block) @if ($production->status == 1)
                 table-warning
                 @elseif ($production->status == 2)
                 table-primary
                 @elseif ($production->status == 5)
-                table-success 
+                table-success
                 @else
                 table-primary @endif @endif">
 
@@ -72,7 +73,8 @@
                 </td>
                 <td class="fw-light text-center">{{ $list->postes ? $list->postes : '_____' }}
                 </td>
-
+                <td class="fw-light text-center">{{ $list->d5 ? $list->postes : '_____' }}
+                </td>
 
                 @if ($list->type_note != 1)
                     <td class="fw-light text-center">{{ $list->nstats }} </td>
@@ -81,7 +83,7 @@
                             style="font-size: 8px;">{{ $list->nstats }}</span></td>
                 @endif
                 <td scope="col"
-                    class="text-center 
+                    class="text-center
                 @if ($list->days_left < 0) text-bg-secondary
                 @elseif($list->days_left >= 0 && $list->days_left < 6)
                 table-danger

@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
+use App\Helpers\SelectOptions;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production, Reclaim};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -441,7 +442,7 @@ class Analise extends Component
     }
 
     // Interação com o componante Livewire Files/Filesservice
-    public function hasFile($hasFile)
+    public function hasFile($hasFile = false)
     {
         $this->needFiles = $hasFile;
     }
@@ -479,7 +480,9 @@ class Analise extends Component
             return;
         }
 
-        if ($this->needFiles) {
+
+
+        if ($this->needFiles && SelectOptions::verifyNeedFilesReclaims($this->conclusion)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -491,6 +494,8 @@ class Analise extends Component
 
             return;
         }
+
+       
 
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENCERRAMENTO DE SERVIÇO',

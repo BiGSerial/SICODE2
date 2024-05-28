@@ -44,7 +44,7 @@ class Stack extends Component
 
     public $status_s = [];
 
-    public $selectall;
+    public $selectAll;
 
     public $selected = [];
 
@@ -114,12 +114,12 @@ class Stack extends Component
         $this->user_fs = [$user_id];
     }
 
-    public function updatedSelectall($val)
+    public function setSelectAll()
     {
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+        $idsToKeep = $this->lists->pluck('id')->toArray();
 
-        if ($val) {
+        if ($this->selectAll) {
             // Adicionar os IDs ausentes de $selected
             foreach ($idsToKeep as $id) {
                 if (!in_array($id, $this->selected)) {
@@ -137,6 +137,17 @@ class Stack extends Component
             }
             $this->selected = $newSelected;
         }
+
+    }
+
+    public function checkAllSelect($items)
+    {
+
+        $items = $items->pluck('id')->toArray();
+
+        $this->selectAll = empty(array_diff($items, $this->selected));
+
+        return $this->selectAll;
 
     }
 
@@ -649,6 +660,7 @@ class Stack extends Component
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
             ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created')
@@ -720,6 +732,8 @@ class Stack extends Component
     public function getStatusProperty()
     {
         return Production::with(['Note'])
+            ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
@@ -769,7 +783,7 @@ class Stack extends Component
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
             })
-            ->orderBy('priority', 'DESC')
+
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
@@ -878,19 +892,7 @@ class Stack extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->filter(function ($list) {
 
-            return !$list
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
-
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
 
         if (!Auth()->User()->contract) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();

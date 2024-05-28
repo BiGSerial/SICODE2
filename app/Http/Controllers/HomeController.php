@@ -22,7 +22,12 @@ class HomeController extends Controller
 
     public function getProductionProperty()
     {
-        return Production::Where('user_id', Auth()->User()->id)->where('rejected', false)->Where('confirmed', true)->Select('completed_at', 'count(*) as total')->groupBy('completed_at')->get();
+        return Production::Where('user_id', Auth()->User()->id)
+                ->where('rejected', false)->Where('confirmed', true)
+                ->where('d5', false)
+                ->Select('completed_at', 'count(*) as total')
+                ->groupBy('completed_at')
+                ->get();
     }
 
     /**
@@ -40,7 +45,7 @@ class HomeController extends Controller
         } elseif (Auth()->User()->onlyparner) {
 
             return redirect()->route('partner.main.viability');
-            
+
         } else {
 
             $userId         = auth()->user()->id;
@@ -50,6 +55,7 @@ class HomeController extends Controller
             $prod = Production::where('user_id', $userId)
                 ->where('confirmed', true)
                 ->where('rejected', false)
+                ->where('d5', false)
                 ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
                 ->orderBy('completed_at')
                 ->select(DB::raw('DATE(completed_at) as date'), DB::raw('COUNT(*) as total'), DB::raw('SUM(postes_u) as postes'))
@@ -59,6 +65,7 @@ class HomeController extends Controller
             $mes = Production::where('user_id', $userId)
                 ->where('confirmed', true)
                 ->where('rejected', false)
+                ->where('d5', false)
                 ->select(
                     DB::raw('YEAR(completed_at) as year'),
                     DB::raw('MONTH(completed_at) as month'),
@@ -91,6 +98,7 @@ class HomeController extends Controller
 
             $inconsistencies = Production::where('user_id', $userId)
                 ->where('confirmed', false)->where('tries', '>=', 2)
+                ->where('d5', false)
                 ->with('Note', 'service')
                 ->orderBy('completed_at')
                 ->get();
@@ -98,6 +106,7 @@ class HomeController extends Controller
             $statusCounts = DB::table('productions')
                 ->where('user_id', $userId)
                 ->where('rejected', false)
+                ->where('d5', false)
                 ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
                 ->selectRaw('
                                     COUNT(*) as total_notes,
@@ -132,6 +141,7 @@ class HomeController extends Controller
         $prod = Production::where('user_id', $userId)
             ->where('confirmed', true)
             ->where('rejected', false)
+            ->where('d5', false)
             ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
             ->orderBy('completed_at')
             ->select(DB::raw('DATE(completed_at) as date'), DB::raw('COUNT(*) as total'), DB::raw('SUM(postes_u) as postes'))
@@ -141,6 +151,7 @@ class HomeController extends Controller
         $mes = Production::where('user_id', $userId)
             ->where('confirmed', true)
             ->where('rejected', false)
+            ->where('d5', false)
             ->select(
                 DB::raw('YEAR(completed_at) as year'),
                 DB::raw('MONTH(completed_at) as month'),
@@ -173,6 +184,7 @@ class HomeController extends Controller
 
         $inconsistencies = Production::where('user_id', $userId)
             ->where('confirmed', false)->where('tries', '>=', 2)
+            ->where('d5', false)
             ->with('Note', 'service')
             ->orderBy('completed_at')
             ->get();
@@ -180,6 +192,7 @@ class HomeController extends Controller
         $statusCounts = DB::table('productions')
             ->where('user_id', $userId)
             ->where('rejected', false)
+            ->where('d5', false)
             ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
             ->selectRaw('
                                     COUNT(*) as total_notes,

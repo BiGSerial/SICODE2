@@ -32,6 +32,7 @@
             <th>Postes Cadastro</th>
             <th>Postes</th>
             <th>Parado</th>
+            <th>RetornoInterno</th>
             <th>Situação</th>
             <th>Produção</th>
             <th>Conclusão</th>
@@ -87,6 +88,7 @@
                 <td>{{ $export->postes_c ? $export->postes_c : '--' }}</td>
                 <td>{{ $export->postes_u ? $export->postes_u : '--' }}</td>
                 <td>{{ CarbonInterval::seconds($export->stopped)->cascade()->forHumans(['short' => true]) }}</td>
+                <td>{{ $export->d5 ? 'SIM' : 'NÃO' }}</td>
                 <td>
                     @if ($export->confirmed)
                         Contabilizado

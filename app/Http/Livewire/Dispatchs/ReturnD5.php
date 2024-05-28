@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Dispatchs;
 
 use App\Models\Company;
+use App\Models\File;
 use App\Models\Note;
 use App\Models\Operation;
 use App\Models\Production;
@@ -10,6 +11,7 @@ use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -54,6 +56,9 @@ class ReturnD5 extends Component
     // Clipboard
     public $clipboardData = [];
 
+    //filter User
+    public $filterUser;
+
 
     protected $queryString = [
 
@@ -64,6 +69,7 @@ class ReturnD5 extends Component
         'confirm_viability' => 'confirm_viability',
         'cleanAll' => 'closeall',
         'giveBack' => 'giveBack',
+        'filterUser' => 'filterUser',
     ];
 
     public function mount($service)
@@ -82,6 +88,16 @@ class ReturnD5 extends Component
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         // $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
         $this->services  = Service::orderBy('service')->get();
+    }
+
+    public function filterUser($user_id)
+    {
+        $this->filterUser = $user_id;
+    }
+
+    public function cleanUser()
+    {
+        $this->filterUser = '';
     }
 
     public function updatedSelectAll($value)
@@ -111,52 +127,22 @@ class ReturnD5 extends Component
         }
     }
 
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
+    }
+
     public function go_att_mass()
     {
 
 
 
     }
-
-    // public function copyClipboard()
-    // {
-    //     if (count($this->selected)) {
-
-
-
-    //         $orders = Order::join('notes', 'orders.note_id', '=', 'notes.id')->with('Operations', 'Note.Files')
-    //         ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
-    //         ->orderBy('myTypeNote', 'DESC')
-    //         ->orderBy('myDayLeft')
-    //         ->orderBy('myNote')
-    //         ->whereRelation('Note', function ($q) {
-    //             $q->whereIn('note_id', $this->selected);
-    //         })->get();
-
-    //         if ($orders) {
-
-
-
-    //             foreach ($orders as $order) {
-
-    //                 $this->clipboardData[] = [
-    //                     $order->ordem,
-    //                     $order->Note->note,
-    //                     $order->pep ?? ''
-    //                 ];
-    //             }
-
-    //             // dd($this->clipboardData);
-
-    //             $this->dispatchBrowserEvent('copyToBoard', $this->clipboardData);
-
-    //             $this->dispatchBrowserEvent('torrada', [
-    //                 'status'   => 'success',
-    //                 'menssage' => "Copiado para a área de transferência",
-    //             ]);
-    //         }
-    //     }
-    // }
 
 
     public function closeall()
@@ -177,6 +163,9 @@ class ReturnD5 extends Component
     public function getListsProperty()
     {
         return Reclaim::Where('service_id', $this->service->uuid)
+                    ->when($this->filterUser, function($q){
+                        $q->WhereRelation('Production', 'user_id', $this->filterUser);
+                    })
                     ->Where('completed', false)
                     ->with('Production.User', 'Note')
                     ->orderBy('created_at')

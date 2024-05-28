@@ -24,6 +24,8 @@ class Productions extends Component
 
     public $complete = false;
 
+    public $d5 = false;
+
     public $cities;
     public $search = false;
 
@@ -110,6 +112,9 @@ class Productions extends Component
 
             });
 
+        }
+        if (!$this->d5) {
+            $query->where('d5', false);
         }
 
         if ($this->service) {

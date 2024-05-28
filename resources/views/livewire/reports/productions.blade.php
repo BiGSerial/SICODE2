@@ -66,9 +66,17 @@
                 @endif
                 <div class="mb-3 col-1">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" wire:model="complete">
+                        <input class="form-check-input border-secondary" type="checkbox" wire:model="complete">
                         <label class="form-check-label" for="flexCheckDefault">
                             Incluir em Aberto
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3 col-1">
+                    <div class="form-check">
+                        <input class="form-check-input border-secondary" type="checkbox" wire:model="d5">
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Incluir (RI)
                         </label>
                     </div>
                 </div>
@@ -112,6 +120,7 @@
                                 <th scope="col">Fim</th>
                                 <th scope="col">Parado</th>
                                 <th scope="col">Postes</th>
+                                <th scope="col">D5</th>
                                 <th scope="col">Situação</th>
                                 <th scope="col">Conclusão</th>
                             </tr>
@@ -150,6 +159,9 @@
                                         @else
                                             ---
                                         @endif
+                                    </td>
+                                    <td>
+                                        {{ $list->d5 ? 'SIM' : 'NÃO' }}
                                     </td>
                                     <td>
                                         @if ($list->confirmed)

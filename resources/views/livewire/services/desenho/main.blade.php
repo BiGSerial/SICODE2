@@ -149,6 +149,7 @@
                                 <thead class="table-dark">
                                     <tr>
                                         <th scope="col" class="fw-bold">Note</th>
+                                        <th scope="col" class="fw-bold">Files</th>
                                         <th scope="col" class="fw-bold">DOE</th>
                                         <th scope="col" class="fw-bold">GRP2</th>
                                         <th scope="col" class="fw-bold">numPedido</th>
@@ -163,7 +164,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
+                                    @foreach ($lists as $list)
                                         <tr class="align-middle @if ($list->priority) table-danger @endif">
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
@@ -184,6 +185,11 @@
                                                         data-bs-placement="top" data-bs-title="Exibir Prioridade"
                                                         data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
                                                 @endif
+                                            </td>
+                                            <td class="align-middle">
+                                                {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                                <x-files.select-download-list :files='$list->Note->Files' />
+
                                             </td>
                                             <td class="fw-bold text-success text-center">
                                                 @if ($list->Note->doe)

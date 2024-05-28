@@ -2,8 +2,9 @@
 
 namespace App\Http\Livewire\Services\Desenho;
 
-use App\Models\{Note, Production, Service, User};
+use App\Models\{File, Note, Production, Service, User};
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -65,6 +66,16 @@ class Main extends Component
             'status'   => 'success',
             'menssage' => $msg,
         ]);
+    }
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
     }
 
     public function checkOpen()
