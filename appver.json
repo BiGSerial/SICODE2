@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.3",
+    "appver": "1.8.4",
     "historic": [
+        {
+            "version": "1.8.4",
+            "description": "Update requisicion Rodrigo Crocci, about Draw seccion, and fix some problems",
+            "date": "2024-05-28"
+        },
         {
             "version": "1.8.3",
             "description": "Chagend Filter Hiring List",
