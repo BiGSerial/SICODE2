@@ -3,10 +3,13 @@
 namespace App\Http\Livewire\Construction\Hiring\Actions;
 
 use App\Models\Company;
+use App\Models\File;
 use App\Models\Note;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use ZipArchive;
 
 class Edit extends Component
 {
@@ -159,6 +162,18 @@ class Edit extends Component
             }
         }
     }
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
+    }
+
+
 
     public function closeAll()
     {
