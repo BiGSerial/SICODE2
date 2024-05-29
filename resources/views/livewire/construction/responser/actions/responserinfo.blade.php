@@ -252,6 +252,30 @@
 
                             </div>
                         </div>
+
+                        <div class="row">
+                            <div class="col-6">
+                                <dic class="card">
+                                    <div class="card-header">
+                                        <h5 class="py-1 my-0">Controle</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="col mb-3">
+                                            <label for="" class="form-label">Texto
+                                                Descritivo</label>
+                                            <input class="form-control border border-secondary" type="number"
+                                                id="inputDays" max="15" min="-15"
+                                                wire:model.defer="setDays">
+                                        </div>
+                                    </div>
+                                </dic>
+                            </div>
+
+                            <div class="col-6">
+
+                            </div>
+
+                        </div>
                     </div>
                 @endif
 
@@ -264,4 +288,18 @@
 
         </div>
     </div>
+
+    <script>
+        window.getElementById('inputDays').addEventListener('keyUp', function(event) {
+            alert('teste');
+            const input = envet.target;
+            const value - parseFloat(input.value);
+
+            if (value < -15) {
+                input.value = -15;
+            } else if (value > 15) {
+                input.value = 15;
+            }
+        });
+    </script>
 </div>

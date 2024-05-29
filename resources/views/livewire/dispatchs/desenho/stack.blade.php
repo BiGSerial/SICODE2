@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -535,12 +536,15 @@
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                         {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                     </td>
+                                    @php
+                                        $daysleft = new DaysLeft($list->note);
+                                    @endphp
                                     <td scope="col"
                                         class="text-center
-                                    @if ($list->Note->days_left < 0) text-bg-secondary
-                                    @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
+                                    @if ($daysleft->getDaysLeft() < 0) text-bg-secondary
+                                    @elseif($daysleft->getDaysLeft() >= 0 && $daysleft->getDaysLeft() < 6)
                                     table-danger
-                                    @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
+                                    @elseif($daysleft->getDaysLeft() >= 6 && $daysleft->getDaysLeft() < 10)
                                         table-warning
                                     @else
                                         table-success @endif
@@ -554,7 +558,7 @@
                             <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                             ">
-                                        {{ 30 - $list->Note->days_left }}
+                                        {{ 30 - $daysleft->getDaysLeft() }}
                                     </td>
                                     {{-- <td class="fw-light text-center">
                                         <span

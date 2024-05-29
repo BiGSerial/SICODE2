@@ -3,6 +3,7 @@
     use App\Custom\Notestatus;
     use App\Custom\Viabilitiesstatus;
     use App\Helpers\SelectOptions;
+    use App\Helpers\DaysLeft;
 
 @endphp
 @push('css')
@@ -272,39 +273,8 @@
                                     $block = false;
                                     $viability = '';
                                     $status = '';
-                                    $days_left = 0;
+                                    $days_left = (new DaysLeft($list->Note))->getDaysLeft();
                                     $waiting = false;
-
-                                    // Dias Restantes
-                                    if ($list->Note->type_note == 1) {
-                                        if ($list->Note->mesalization && $list->Note->mesalization != 'erro') {
-                                            preg_match('/\d+\/\d+/', $list->Note->mesalization, $matches);
-
-                                            if (!empty($matches)) {
-                                                [$mes, $ano] = explode('/', $matches[0]);
-
-                                                if ($mes >= 1) {
-                                                    $data = "{$ano}-{$mes}-28 23:59:59";
-
-                                                    $hoje = Carbon::now();
-
-                                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
-
-                                                    $days_left = $hoje->diffInDays($dataCarbon, false);
-                                                } else {
-                                                    $data = "{$ano}-12-28 23:59:59";
-
-                                                    $hoje = Carbon::now();
-
-                                                    $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
-
-                                                    $days_left = $hoje->diffInDays($dataCarbon, false);
-                                                }
-                                            }
-                                        }
-                                    } elseif ($list->Note->type_note == 2) {
-                                        $days_left = $list->Note->days_left;
-                                    }
 
                                     if ($list->Viabilities->count()) {
                                         if ($list->Viabilities->count()) {
