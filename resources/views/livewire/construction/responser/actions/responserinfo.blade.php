@@ -255,32 +255,33 @@
 
                         <div class="row">
                             <div class="col-6">
-                                @if (!$note->Viabilities->last()->completed && !$note->Viabilities->last())
-                                <div class="card">
-                                    <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                        CONTROLE</h5>
+                                @if (!$note->Viabilities->last()->completed && $note->Viabilities->last()->status == 1)
+                                    <div class="card">
+                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
+                                            CONTROLE</h5>
 
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col mb-3">
-                                                <label for="" class="form-label">
-                                                    <p class="my-0 py-1">
-                                                        <strong>ADICIONAR
-                                                            PRAZO:</strong>
-                                                    </p>
-                                                    {{ $note->Viabilities->last()->Days->sum('days') }}/15 dias
-                                                    Disponível
-                                                </label>
-                                                <input class="form-control border border-secondary" type="number"
-                                                    id="inputDays" max="15" min="-15"
-                                                    wire:model.defer="setDays" style="max-width: 100px;">
-                                            </div>
-                                            <div class="col-2 align-middle p-1">
-                                                <button class="btn btn-primary" wire:click="addDays">SALVAR</button>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col mb-3">
+                                                    <label for="" class="form-label">
+                                                        <p class="my-0 py-1">
+                                                            <strong>ADICIONAR
+                                                                PRAZO:</strong>
+                                                        </p>
+                                                        {{ $note->Viabilities->last()->Days->sum('days') }}/15 dias
+                                                        Disponível
+                                                    </label>
+                                                    <input class="form-control border border-secondary" type="number"
+                                                        id="inputDays" max="15" min="-15"
+                                                        wire:model.defer="setDays" style="max-width: 100px;">
+                                                </div>
+                                                <div class="col-2 align-middle p-1">
+                                                    <button class="btn btn-primary"
+                                                        wire:click="addDays">SALVAR</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
                                 @endif
                             </div>
 

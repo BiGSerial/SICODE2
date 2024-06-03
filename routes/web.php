@@ -96,8 +96,11 @@ Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.'
 
 Route::prefix('/reports')->controller(ReportsController::class)->name('reports.')->middleware('auth')->group(function () {
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
+    Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
+
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
+
 });
 
 Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('can:operator')->group(function () {

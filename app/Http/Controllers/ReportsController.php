@@ -9,6 +9,11 @@ class ReportsController extends Controller
         return view('reports.productions');
     }
 
+    public function viabilities()
+    {
+        return view('reports.viabilities');
+    }
+
     public function search()
     {
         return view('reports.busca');

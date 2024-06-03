@@ -15,7 +15,8 @@ class Responserinfo extends Component
     public $setDays;
 
     protected $listeners = [
-        'getInfoResponse'
+        'getInfoResponse',
+        'refreshDays' => '$refresh'
     ];
 
     public function getInfoResponse(Note $note)
@@ -115,15 +116,37 @@ class Responserinfo extends Component
                 $viab->save();
             }
         } catch (\Throwable $th) {
-            dd($th->getMessage());
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'    => 'Não conseguimos atualizar o prazo... nenhum dia foi adicionado.',
+                'timer'    => 5000,
+            ]);
+
+            return;
         }
 
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'NOVO PRAZO',
+            'html'    => 'Foram alterado o prazo para entrega da viabilidade.',
+            'timer'    => 2500,
+        ]);
+
+        $this->emitSelf('refreshDays');
+        $this->emitUp('refresh_main');
+
+        $this->note = $this->note->fresh();
         $this->setDays = 0;
 
     }
 
     public function render()
     {
-        return view('livewire.construction.responser.actions.responserinfo');
+        return view('livewire.construction.responser.actions.responserinfo', [
+            'note' => $this->note,
+        ]);
     }
 }

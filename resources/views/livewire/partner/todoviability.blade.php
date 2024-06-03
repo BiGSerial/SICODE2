@@ -325,7 +325,10 @@
                                     {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-danger fw-bold">
-                                    {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)->format('d/m/Y') }}
+                                    @php
+                                        $days = $list->Viabilities->last()->Days->sum('days');
+                                    @endphp
+                                    {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7 + $days)->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-primary fw-bold">
                                     {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays($days_left)->format('d/m/Y') }}
