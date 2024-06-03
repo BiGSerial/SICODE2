@@ -212,8 +212,7 @@ class Main extends Component
     public function getListResponsersProperty()
     {
         return Note::whereHas('Viabilities', function ($q) {
-            $q->whereYear('sended_at', date('Y'))
-                ->whereMonth('sended_at', date('m'))
+            $q
                 ->where('rejected', true)
                 ->where('completed', false)
                 ->when(Auth()->user()->engineer, function ($sq) {
@@ -232,8 +231,7 @@ class Main extends Component
     public function getCountResponsersProperty()
     {
         return Note::whereRelation('Viabilities', function ($q) {
-            return $q->whereYear('sended_at', date('Y'))
-                    ->whereMonth('sended_at', date('m'))
+            return $q
                     ->where('rejected', true)
                     ->when(Auth()->User()->engineer, function ($sq) {
                         $sq->where('engineer_id', Auth()->User()->id);
