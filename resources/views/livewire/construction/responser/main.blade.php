@@ -318,7 +318,9 @@
                                                 <td class="text-center align-middle">
                                                     {{ $list->Viabilities->count() ? date('d/m/Y', strToTime($list->Viabilities->first()->sended_at)) : '' }}
                                                 </td>
-                                                <td class="text-center align-middle">{{ date('d/m/Y') }}</td>
+                                                <td class="text-center align-middle">
+                                                    {{ Carbon::parse($list->Viabilities->first()->sended_at)->addDays(7 + $list->Viabilities->last()->Days->sum('days'))->format('d/m/Y') }}
+                                                </td>
                                                 <td class="text-center align-middle">
                                                     {{ $list->Viabilities->count() && isset($list->Viabilities->first()->returned_at) ? date('d/m/Y H:i:s', strToTime($list->Viabilities->first()->returned_at)) : '' }}
                                                 </td>

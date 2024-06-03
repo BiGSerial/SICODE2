@@ -2,6 +2,7 @@
     use Carbon\Carbon;
     use Carbon\CarbonInterval;
     use App\Custom\Notestatus;
+    use App\Helpers\FileIcon;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -110,6 +111,8 @@
                                 </dl>
                             @endif
 
+
+
                         </dl>
                     </div>
 
@@ -129,11 +132,60 @@
                                 </dl>
                             </div>
                         </div>
+
+                        <div class="card">
+                            <h5 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">ARQUIVOS</h5>
+                            @if ($lists->Files->count())
+                                <table class="table table-sm table-condensed table-striped table-hover">
+                                    <thead class="">
+                                        <th class="text-center">
+                                            {{-- <input class="form-check-input border border-1 border-secondary"
+                                                            type="checkbox"></td> --}}
+                                        </th>
+                                        <th class="text-center col-1">Serviço</th>
+                                        <th class="text-center">Tipo</th>
+                                        <th class="text-center">Arquivo</th>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($lists->Files->sortBy('file_name') as $file)
+                                            {{-- @dump($file->ext) --}}
+                                            <tr>
+                                                <td class="text-center align-middle"><input
+                                                        class="form-check-input border border-1 border-secondary"
+                                                        type="checkbox" value="{{ $file->id }}"
+                                                        wire:model.defer="selectedFiles"></td>
+                                                <td class="text-center align-middle">
+                                                    {{ isset($file->Service->service) ? $file->Service->service : '' }}
+                                                </td>
+                                                <td class="text-center align-middle"><i
+                                                        class="{{ FileIcon::getIcon($file->ext)->icon }} fs-4 align-middle"></i>
+                                                </td>
+                                                <td class="text-center align-middle"><span
+                                                        wire:click.prenvet="downloadFile({{ $file->id }})"
+                                                        style="cursor: pointer;">{{ $file->file_name }}</span>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+
+                                </table>
+                                <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles"><i
+                                        class="bx bxs-cloud-download"></i> Baixar
+                                    Selecionados</button>
+                            @else
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h4 class="text-center">SEM ARQUIVOS</h4>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 </div>
 
                 @if ($lists->Productions->count())
                     <div class="table-responsive">
+                        <h5 class="edp-bg-sprucegreen-100 edp-text-verde-dark py-1 px-3 my-0 fw-bold">PROJETO</h5>
                         <table class="table table-sm table-condensed table-striped border border-1">
                             <thead class="table-dark">
                                 <th scope="col">#</th>
@@ -190,7 +242,57 @@
                 @else
                     <div class="card">
                         <div class="card-body">
-                            <h4 class="text-center">SEM INFORMAÇÃO DE ATIVIDADES NA NOTA/OV</h4>
+                            <h4 class="text-center">SEM INFORMAÇÃO DE ATIVIDADES EM PROJETOS NA NOTA/OV</h4>
+                        </div>
+                    </div>
+                @endif
+
+                @if ($lists->Viabilities->count())
+                    <div class="table-responsive">
+                        <h5 class="edp-bg-sprucegreen-100 edp-text-verde-dark py-1 px-3 my-0 fw-bold">CONTRATAÇÃO</h5>
+                        <table class="table table-sm table-condensed table-striped border border-1">
+                            <thead class="table-dark">
+                                <th scope="col">#</th>
+                                <th scope="col">Ordem</th>
+                                <th scope="col">Contratante</th>
+                                <th scope="col">Contratado</th>
+                                <th scope="col">Tácitamente</th>
+                                <th scope="col">Dt Contratação</th>
+                                <th scope="col">Dt Envio</th>
+                                <th scope="col">Dt Retorno</th>
+                                <th scope="col">Responsável</th>
+                                <th scope="col">Empreiteira</th>
+                                <th scope="col">Resp Informe</th>
+                            </thead>
+                            <tbody>
+                                @foreach ($lists->Viabilities as $viab)
+                                    <tr>
+                                        <td class="aligh-middle"></td>
+                                        <td class="aligh-middle">{{ $viab->Order->ordem }}</td>
+                                        <td class="aligh-middle">{{ $viab->User->name }}</td>
+                                        <td class="aligh-middle">{{ $viab->hired ? 'SIM' : 'NÃO' }}</td>
+                                        <td class="aligh-middle">{{ $viab->tacit ? 'SIM' : 'NÃO' }}</td>
+                                        <td class="aligh-middle">
+                                            {{ $viab->hired ? date('d/m/Y H:i:s', strToTime($viab->hired_at)) : '---' }}
+                                        </td>
+                                        <td class="aligh-middle">
+                                            {{ date('d/m/Y H:i:s', strToTime($viab->sended_at)) }}</td>
+                                        <td class="aligh-middle">
+                                            {{ $viab->returned_at ? date('d/m/Y H:i:s', strToTime($viab->sended_at)) : '---' }}
+                                        </td>
+                                        <td class="aligh-middle">{{ $viab->Engineer->name }}</td>
+                                        <td class="aligh-middle">{{ $viab->Company->name }}</td>
+                                        <td class="aligh-middle">{{ $viab->Form ? $viab->Form->responsible : '---' }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="text-center">SEM INFORMAÇÃO DE CONTRATAÇÃO NA NOTA/OV</h4>
                         </div>
                     </div>
                 @endif

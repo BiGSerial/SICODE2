@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.4",
+    "appver": "1.8.5",
     "historic": [
+        {
+            "version": "1.8.5",
+            "description": "Possibility to Iuncrease Days of Viabilities. And Some Modification on Search Notes",
+            "date": "2024-06-02"
+        },
         {
             "version": "1.8.4",
             "description": "Update requisicion Rodrigo Crocci, about Draw seccion, and fix some problems",

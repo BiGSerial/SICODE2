@@ -12,6 +12,7 @@ class Responserinfo extends Component
 {
     public ?Note $note = null;
     public $selectedFiles = [];
+    public $setDays;
 
     protected $listeners = [
         'getInfoResponse'
@@ -84,6 +85,41 @@ class Responserinfo extends Component
                 return response()->download($zipFile)->deleteFileAfterSend(true);
             }
         }
+    }
+
+    public function addDays()
+    {
+        if ($this->setDays == 0) {
+            return;
+        }
+
+        if (($this->note->Viabilities->last()->Days->sum('days') + $this->setDays) > 15 || ($this->note->Viabilities->last()->Days->sum('days') + $this->setDays) < 0) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'PRAZO INDISPONÌVEL',
+                'msg'    => 'O PRAZO NAO PODE SER MAIOR QUE 15 DIAS, NEM MENOR QUE 0 DIAS.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
+
+        try {
+            foreach ($this->note->Viabilities->where('completed', false) as $viab) {
+                $viab->Days()->create([
+                    'days' => $this->setDays,
+                    'user_id' => auth()->user()->id,
+                ]);
+
+                $viab->save();
+            }
+        } catch (\Throwable $th) {
+            dd($th->getMessage());
+        }
+
+        $this->setDays = 0;
+
     }
 
     public function render()

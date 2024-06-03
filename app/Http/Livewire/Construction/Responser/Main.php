@@ -163,11 +163,9 @@ class Main extends Component
     public function getListHiringProperty()
     {
         return Note::whereRelation('Viabilities', function ($q) {
-            return $q->whereYear('sended_at', date('Y'))
-                    ->whereMonth('sended_at', date('m'))
-                    ->when($this->company, function ($sq) {
-                        $sq->where('company_id', $this->company);
-                    })
+            return $q->when($this->company, function ($sq) {
+                $sq->where('company_id', $this->company);
+            })
                     ->when(Auth()->User()->engineer, function ($sq) {
                         $sq->where('engineer_id', Auth()->User()->id);
                     })
@@ -181,9 +179,7 @@ class Main extends Component
 
         })
         ->with(['Viabilities' => function ($q) {
-            return $q->whereYear('sended_at', date('Y'))
-            ->whereMonth('sended_at', date('m'))
-            ->when(Auth()->User()->engineer, function ($sq) {
+            return $q->when(Auth()->User()->engineer, function ($sq) {
                 $sq->where('engineer_id', Auth()->User()->id);
             })->when($this->company, function ($sq) {
                 $sq->where('company_id', $this->company);
