@@ -33,6 +33,9 @@
             <li><a class="dropdown-item" href="{{ route('reports.productions') }}"><i
                         class="ri-git-repository-line align-middle text-primary"></i>RELATÓRIO DE PRODUÇÃO</a>
             </li>
+            <li><a class="dropdown-item" href="{{ route('reports.viabilities') }}"><i
+                        class="ri-git-repository-line align-middle text-primary"></i>RELATÓRIO DE VIABILIDADE</a>
+            </li>
             <li><a class="dropdown-item" href="{{ route('reports.advancedsearch') }}"><i
                         class="ri-search-eye-line align-middle text-primary"></i>BUSCAR AVANÇADA</a>
             </li>

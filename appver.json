@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.5",
+    "appver": "1.8.6",
     "historic": [
+        {
+            "version": "1.8.6",
+            "description": "View Repoorts of Viabilities and some other Fixes",
+            "date": "2024-06-03"
+        },
         {
             "version": "1.8.5",
             "description": "Possibility to Iuncrease Days of Viabilities. And Some Modification on Search Notes",
