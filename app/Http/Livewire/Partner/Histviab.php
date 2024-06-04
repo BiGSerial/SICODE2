@@ -55,7 +55,7 @@ class Histviab extends Component
 
     public function downloadFile($id)
     {
-        if ($file = File::find($id)->first()) {
+        if ($file = File::find($id)) {
 
             if (Storage::disk('local')->exists($file->path)) {
                 return Storage::download($file->path, $file->file_name);

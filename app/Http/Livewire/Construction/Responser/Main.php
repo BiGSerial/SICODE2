@@ -17,6 +17,7 @@ class Main extends Component
     public $perPage = 50;
     public $search;
     public $company;
+    public $responser;
 
     public $filterStatus =  [
         'column' => null,
