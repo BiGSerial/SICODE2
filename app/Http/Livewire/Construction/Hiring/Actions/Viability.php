@@ -38,7 +38,9 @@ class Viability extends Component
     {
         $this->cleanAll();
 
-        $this->orders = Order::with('Note.Files')->whereIn('id', $orders_id)->limit(5)->get();
+        // dd($orders_id);
+
+        $this->orders = Order::with('Note.Files')->whereIn('id', $orders_id)->get();
 
         if ($this->orders->isNotEmpty()) {
             foreach ($this->orders as $order) {
@@ -365,6 +367,7 @@ class Viability extends Component
     {
         $this->company = "";
         $this->user = "";
+        $this->orders = null;
     }
 
     public function cancelarViab()

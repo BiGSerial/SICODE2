@@ -383,7 +383,24 @@
 
 
                     <div class="card-body">
-                        <h5 class="card-title">Aguardando Responsável <span>| {{ date('M') }}</span></h5>
+                        <div class="d-flex justify-content-between">
+                            <div class="align-middle">
+                                <h5 class="card-title">Aguardando Responsável <span>| {{ date('M') }}</span></h5>
+                            </div>
+
+                            <div class="align-middle my-3">
+                                <select class="form-select form-select-sm align-middle border-secondary"
+                                    aria-label="Responsible Select" wire:model="responser">
+                                    <option value="" selected>Todos</option>
+                                    @if ($responsers)
+                                        @foreach ($responsers as $response)
+                                            <option value="{{ $response->id }}">{{ $response->name }}</option>
+                                        @endforeach
+                                    @endif
+
+                                </select>
+                            </div>
+                        </div>
 
 
                         @if (!$listResponsers->count())
@@ -510,6 +527,7 @@
                                             <tr class="table-primary">
                                                 <th class="text-center"></th>
                                                 <th class="text-center">Note</th>
+                                                <th class="text-center">Motivo</th>
                                                 <th class="text-center">Serviço</th>
                                                 <th class="text-center">tempo</th>
                                                 <th class="text-center">Status</th>
@@ -563,6 +581,9 @@
                                                         @endif
                                                     </td>
                                                     <td class="text-center align-middle">{{ $waiting->Note->note }}
+                                                    </td>
+                                                    <td class="text-center align-middle" style="font-size: 10px;">
+                                                        {{ $waiting->Reclaim->category }}
                                                     </td>
                                                     <td class="text-center align-middle">
                                                         {{ $waiting->Reclaim->Service->service }}</td>

@@ -30,7 +30,13 @@ class Main extends Component
 
     public $waiting;
 
+    // Filters
+    private $filter_group = 'oexterno';
+
+    private $filter;
+
     protected $listeners = [
+        'refresh_list'      => '$refresh',
         'refresh_service'   => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
@@ -69,9 +75,9 @@ class Main extends Component
             <div class='card card-light'>
             <div class='card-body'>
             <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p> 
+            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
             </div>
-            </div>  
+            </div>
             ",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Atribua!',
@@ -146,30 +152,18 @@ class Main extends Component
         }
     }
 
-    public function filter_save()
-    {
-        // session()->put('filtro', $this->rubrica_s);
-        session_start();
-        $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
-        $this->emit('refresh_service');
 
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-
-        session_start();
-
-        if (isset($_SESSION['filtro'])) {
-            unset($_SESSION['filtro']);
-        }
-
-        $this->emit('refresh_service');
-    }
 
     public function getNotesProperty()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+
+        }
 
         $query = Note::query();
 
@@ -191,11 +185,21 @@ class Main extends Component
                     ->orWhere('numPedido', 'like', '%' . $s . '%')
                     ->orWhere('group2', 'like', '%' . $s . '%');
             });
-        })->when($this->rubrica_s, function ($q, $s) {
-            return $q->whereIn('rubrica', $s);
-        })
-            ->with('Productions.User')
-            ->orderBy('days_left');
+        });
+
+        if (isset($this->filter['rubrica'])) {
+
+            $query->whereIn('rubrica', $this->filter['rubrica']);
+        }
+
+        if (isset($this->filter['city'])) {
+
+            $query->whereIn('lexp', $this->filter['city']);
+        }
+
+
+        $query->with('Productions.User')
+        ->orderBy('days_left');
 
         return $query;
 

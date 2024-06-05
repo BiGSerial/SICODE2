@@ -301,11 +301,15 @@ class Viability extends Component
                         $erro = true;
                     }
 
-                    $chk_viability = ModelsViability::find($data['viability_id'])->update([
+                    $chk_viability = ModelsViability::find($data['viability_id']);
+
+                    $chk_viability->update([
                         'returned_at' => date('Y-m-d H:i:s'),
-                        'approved'    => $data['approved'] ? $data['approved'] : false,
-                        'rejected'    => $data['rejected'] ? $data['rejected'] : false,
-                        'status'    => $data['status'] ? $data['status'] : null,
+                        'approved'    => $data['approved'] ? true : false,
+                        'rejected'    => $data['rejected'] ? true : false,
+                        'completed'   => $chk_viability->hired && $data['approved'] ? true : false,
+                        'completed_at'   => $chk_viability->hired && $data['approved'] ? date('Y-m-d H:i:s') : null,
+                        'status'    => $chk_viability->hired && $data['approved'] ? 9 : $data['status'],
                     ]);
 
                     if (!$chk_viability) {

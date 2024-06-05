@@ -733,37 +733,34 @@ class Main extends Component
     {
 
         if ($this->selectAll) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($this->lists->pluck('id')->toArray() as $id) {
+            // Adicionar os IDs que cumprem as regras à lista de selecionados
+            foreach ($this->lists as $item) {
+                $id = $item->id;
                 if (!in_array($id, $this->selected)) {
+                    $viabilitiesCount = $item->Viabilities->count();
+                    $waitingsCount = $item->Note->Waitings->where('complete', false)->count();
+                    $status = $item->statusSist;
 
-                    if (
-                        !($this->lists->where('id', $id)->first())->Viabilities->count() &&
-                        !($this->lists->where('id', $id)->first())->Note->Waitings->where('complete', false)->count()
-                    ) {
-                        $status = $this->lists->where('id', $id)->first()->statusSist;
-                        if (stripos($status, 'ENCE') === false && stripos($status, 'ENTE') === false) {
-                            $this->selected[] = $id;
-                        }
+                    if ($viabilitiesCount == 0 && $waitingsCount == 0 &&
+                        stripos($status, 'ENCE') === false && stripos($status, 'ENTE') === false) {
+                        $this->selected[] = $id;
                     }
-
                 }
             }
         } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $this->lists->pluck('id')->toArray())) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
+             // Remover os IDs de $selected que estão presentes em $this->lists
+        $visibleIds = $this->lists->pluck('id')->toArray();
+        $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
+            return !in_array($id, $visibleIds);
+        });
         }
+
+
     }
 
     public function checkAllSelect($items)
     {
+
 
         $items = $items->pluck('id')->toArray();
 

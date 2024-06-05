@@ -6,6 +6,7 @@ use App\Custom\Viabilitiesstatus;
 use App\Models\Company;
 use App\Models\HiringWaiting;
 use App\Models\Note;
+use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -212,12 +213,17 @@ class Main extends Component
 
     public function getListResponsersProperty()
     {
+
+
         return Note::whereHas('Viabilities', function ($q) {
-            $q
-                ->where('rejected', true)
+            $q->where('rejected', true)
                 ->where('completed', false)
                 ->when(Auth()->user()->engineer, function ($sq) {
                     $sq->where('engineer_id', Auth()->user()->id);
+                }, function ($sq) {
+                    if ($this->responser) {
+                        $sq->where('engineer_id', $this->responser);
+                    }
                 });
         })
             ->with(['Viabilities' => function ($query) {
@@ -282,6 +288,9 @@ class Main extends Component
             'waitingLists' => $this->waitingLists,
             'companies' => $this->companies,
             'lists' => $this->listHiring,
+            'responsers' => User::find($this->listResponsers->flatMap(function ($responder) {
+                return $responder->viabilities->pluck('engineer_id');
+            })->unique()),
         ]);
     }
 }

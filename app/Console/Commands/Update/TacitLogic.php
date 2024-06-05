@@ -65,7 +65,7 @@ class TacitLogic extends Command
 
                     $viability->Comments()->create([
                         'user_id' => User::first()->id,
-                        'message' => '>> OBRA LIBERADA PARA CONTRATAÇÃO TÁCITA DEVIDO EXPIRAÇÃO DO PRAZO ESTIPULADO DE RETORNO DA PARCEIRA. (Systema) <<',
+                        'message' => '>> OBRA LIBERADA PARA CONTRATAÇÃO TÁCITA DEVIDO EXPIRAÇÃO DO PRAZO ESTIPULADO DE RETORNO DA PARCEIRA. (System) <<',
                     ]);
 
                 }
@@ -93,6 +93,22 @@ class TacitLogic extends Command
                     ]);
                 }
             }
+
+
+            // Corrigir Status Contratados e Viavéis
+            $fixHireds = Viability::where('hired', true)->where('approved', true)->where('completed', false)->get();
+
+            if ($fixHireds) {
+                foreach ($fixHireds as $fixHired) {
+                    $fixHired->update([
+                        'completed' => true,
+                        'completed_at' => date('Y-m-d H:i:s'),
+                        'status' => 9,
+                    ]);
+                }
+            }
+
+
             return;
         }
 
