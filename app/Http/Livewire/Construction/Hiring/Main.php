@@ -748,11 +748,11 @@ class Main extends Component
                 }
             }
         } else {
-             // Remover os IDs de $selected que estão presentes em $this->lists
-        $visibleIds = $this->lists->pluck('id')->toArray();
-        $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
-            return !in_array($id, $visibleIds);
-        });
+            // Remover os IDs de $selected que estão presentes em $this->lists
+            $visibleIds = $this->lists->pluck('id')->toArray();
+            $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
+                return !in_array($id, $visibleIds);
+            });
         }
 
 
@@ -760,7 +760,6 @@ class Main extends Component
 
     public function checkAllSelect($items)
     {
-
 
         $items = $items->pluck('id')->toArray();
 
