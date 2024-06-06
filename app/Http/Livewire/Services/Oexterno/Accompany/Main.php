@@ -2,8 +2,12 @@
 
 namespace App\Http\Livewire\Services\Oexterno\Accompany;
 
-use App\Models\{Note, Production, Service, User};
+use App\Custom\RuleBuilder;
+use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Query\Expression;
 use Livewire\{Component, WithPagination};
+use ZipArchive;
 
 class Main extends Component
 {
@@ -13,7 +17,7 @@ class Main extends Component
 
     public $service;
 
-    public $perPage = 100;
+    public $perPage = 200;
 
     public $search;
 
@@ -21,34 +25,47 @@ class Main extends Component
 
     public $rubrica_l;
 
-    public $limit_pause = 3;
-
-    public $analise;
-
-    public $user_l;
-
-    public $user_s;
-
-    public $user_search;
-
-    public $production;
-
     public $note;
 
+    public $last_update;
+
+    public $protocolar = true;
+
+    public $waiting;
+
+    public $typeNote = "";
+
+    // Filters
+    private $filter_group = 'oexterno';
+
+    private $filter;
+
     protected $listeners = [
-        'refresh_accomany'   => '$refresh',
-        'getCopy'            => 'copy',
-        'confirm_getAnalise' => 'go_to_analise',
+        'refresh_list'      => '$refresh',
+        'refresh_service'   => '$refresh',
+        'getCopy'           => 'copy',
+        'confirm_accompany' => 'add_to_accompany',
+    ];
+
+    protected $queryString = [
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'p'],
+        'perPage' => ['as' => 'pp'],
     ];
 
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->first();
-    }
+        $this->service     = Service::where('uuid', $service)->with('Status')->first();
+        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-    public function goTransferProd($prod_id)
-    {
-        $this->emit('transfer_production', $prod_id);
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {
+            $this->rubrica_s = $_SESSION['filtro']['rubrica'];
+        }
     }
 
     public function copy($msg)
@@ -59,126 +76,121 @@ class Main extends Component
         ]);
     }
 
-    public function checkOpen()
+    // public function downloadZip()
+    // {
+    //     if (count($this->files_selected)) {
+    //         $files = File::find($this->files_selected);
+
+    //         if ($files) {
+    //             $zipFile = 'Arquivos-Lote-' . hash('crc32', time()) . '.zip';
+    //             $zip     = new ZipArchive();
+    //             $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+    //             foreach ($files as $file) {
+    //                 $content = Storage::get($file->path);
+    //                 $zip->addFromString($file->file_name . '.' . $file->ext, $content);
+    //             }
+
+    //             $zip->close();
+
+    //             $this->files_selected = [];
+
+    //             return response()->download($zipFile)->deleteFileAfterSend(true);
+    //         }
+    //     } else {
+    //         $this->dispatchBrowserEvent('swal', [
+    //             'position' => 'center',
+    //             'icon'     => 'warning',
+    //             'title'    => 'Nenhum Arquivo foi selecionado para Download',
+    //             'timer'    => 5000,
+    //         ]);
+
+    //         return;
+    //     }
+    // }
+
+    public function downloadFile($id)
     {
+        if ($file = File::find($id)) {
 
-        $check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first();
 
-        if ($check) {
 
-            $this->emit('open_analise_oex', ['productionId' => $check->id, 'noteId' => $check->note_id]);
-
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'info',
-                'title'    => 'NOTA AINDA EM ATIVIDADE',
-                'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA. \n
-                    <p class='text-bg-light mt-2 p-2'>
-                        É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
-                    </p>
-                ",
-            ]);
-
-        }
-
-    }
-
-    public function go_to_analise()
-    {
-        $this->emit('open_analise_oex', $this->analise);
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'analise_form',
-        ]);
-    }
-
-    public function getAnalise($production, $note)
-    {
-        $this->analise = ['productionId' => $production, 'noteId' => $note];
-
-        if ($this->limit_pause === Production::Where('status', 4)->Where('service_id', $this->service->uuid)->Where('user_id', Auth()->User()->id)->count() && (Production::find($production))->status != 4) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'AVISO DE LIMITE DE PAUSA',
-                'msg'           => "Você ja atingiu o limite de pausa neste serviço, ao iniciar esta nota, você não poderá colocar esta NOTA/OV em espera. \n Tem certeza que deseja continuar?",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Continue!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_getAnalise',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Ação Cancelada.',
-
-            ]);
-        } else {
-            $this->emit('open_analise_oex', $this->analise);
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
         }
     }
 
-    public function filter_save()
-    {
 
-        // if (!(session_status() == PHP_SESSION_ACTIVE)) {
-        //     session_start();
+
+
+    public function getNotesProperty()
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
+        $query = Note::query();
+
+        $query->select('notes.*', new Expression('COALESCE(externals.updated_at, "2020-01-01") as external_updated_at'))
+            ->leftJoin('externals', 'notes.id', '=', 'externals.note_id');
+
+        // RuleBuilder::applyRules($query, $this->service->Status);
+
+        // if ($this->protocolar || $this->waiting) {
+        //     // $query = Note::query();
+        //     $query->when($this->protocolar, function ($q) {
+        //         return $q->where('nstats', 20);
+        //     })->when($this->waiting, function ($q) {
+        //         return $q->where('nstats', 11);
+        //     });
         // }
-        // session()->put('filtro', $this->rubrica_s);
-        // session_start();
-        // $_SESSION['filtro'] = $this->rubrica_s;
-        $this->emit('refresh_service');
 
+        $query->where(function ($q) {
+            $q->where('nstats', 11)
+                ->where('type_note', 2);
+        });
+
+        $query->when($this->search, function ($q, $s) {
+            return $q->where(function ($query) use ($s) {
+                $query->where('note', 'like', '%' . $s . '%')
+                    ->orWhere('material', 'like', '%' . $s . '%')
+                    ->orWhere('numPedido', 'like', '%' . $s . '%')
+                    ->orWhere('group2', 'like', '%' . $s . '%');
+            });
+        });
+
+        if ($this->typeNote) {
+            $query->where('type_note', $this->typeNote);
+        }
+
+        if (isset($this->filter['rubrica'])) {
+            $query->whereIn('rubrica', $this->filter['rubrica']);
+        }
+
+        if (isset($this->filter['city'])) {
+            $query->whereIn('lexp', $this->filter['city']);
+        }
+
+        $query->orderBy('external_updated_at')
+            ->orderBy('notes.dt_status');
+
+        return $query;
     }
 
-    public function visualizar()
-    {
-
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-
-        // session_start();
-        // if (isset($_SESSION['filtro'])) {
-        //     unset($_SESSION['filtro']);
-        // }
-
-        $this->emit('refresh_service');
-    }
-
-    public function getListsProperty()
-    {
-        $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%' . $this->user_search . '%');
-        })->orderBy('name')->get();
-
-        return Production::Where('service_id', $this->service->uuid)
-            ->when($this->user_s, function ($q) {
-                return $q->where('user_id', $this->user_s);
-            }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
-            })
-            ->where('completed', false)
-            ->when($this->search, function ($q, $s) {
-                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                    ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
-            })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
-            ->paginate($this->perPage);
-    }
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
-        return view('livewire.services.oexterno.accompany.main', [
-            'lists' => $this->lists,
+
+        return view('livewire.services.oexterno.accompany.main',  [
+            'total'  => $this->notes->get(),
+            'lists'  => $this->notes->paginate($this->perPage),
+            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }
 }

@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Helpers\DaysLeft;
+    use App\Helpers\SelectOptions;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -15,7 +16,7 @@
                         <option value="25">25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
-                        <option value="250">250</option>
+                        <option value="200">200</option>
                         <option value="500">500</option>
                     </select>
                 </div>
@@ -30,6 +31,21 @@
                 </div>
 
                 <div class="col-6 d-flex justify-content-end">
+                    <div class="form-check form-check-inline align-middle">
+                        <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote"
+                            value="1">
+                        <label class="form-check-label" for="inlineRadio1">Nota</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote"
+                            value="2">
+                        <label class="form-check-label" for="inlineRadio1">OV</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote"
+                            value="">
+                        <label class="form-check-label" for="inlineRadio1">Ambos</label>
+                    </div>
                     @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'oexterno', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
                     @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'oexterno', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
                     @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'oexterno', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
@@ -67,116 +83,74 @@
 
         @if (!$lists->count())
             <div class="card-body">
-                <h4 class="text-center">{{ $service->service }} LISTA PARA PROTOCOLAR</h4>
+                <h4 class="text-center">SEM DADOS EM {{ $service->service }}</h4>
             </div>
         @else
-            <h4 class="card-header fw-bold text-bg-secondary">LISTA PARA {{ mb_strtoupper($service->service) }}
+            <h4 class="card-header fw-bold text-bg-secondary">{{ mb_strtoupper($service->service) }} LISTA PARA
+                PROTOCOLAR
 
             </h4>
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
-                    <thead class="table-dark        ">
-                        <tr>
+                <table class="table table-sm  table-condensed table-hover">
+                    <thead class="table-dark">
+                        <tr class="sticky-top">
 
-                            <th scope="col" class="fw-bold">Note</th>
+                            <th scope="col" class="fw-bold text-center">Note</th>
+                            <th scope="col" class="fw-bold text-center">Files</th>
+                            <th scope="col" class="fw-bold text-center">Protocolo</th>
+                            <th scope="col" class="fw-bold text-center">numPedido</th>
+                            <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Municipio</th>
+                            <th scope="col" class="fw-bold text-center">Descrição</th>
+                            <th scope="col" class="fw-bold text-center">Status</th>
+                            {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
+                            <th scope="col" class="fw-bold text-center">Dias no Status</th>
+                            <th scope="col" class="fw-bold text-center">Prazo Real</th>
+                            <th scope="col" class="fw-bold text-center">Situação</th>
 
-
-                            <th scope="col" class="fw-bold">Files</th>
-                            <th scope="col" class="fw-bold">numPedido</th>
-                            <th scope="col" class="fw-bold">Rubrica</th>
-                            <th scope="col" class="fw-bold">Municipio</th>
-                            <th scope="col" class="fw-bold">Grp1</th>
-                            <th scope="col" class="fw-bold">Grp2</th>
-
-                            <th scope="col" class="fw-bold">Descrição</th>
-
-
-                            <th scope="col" class="fw-bold">Status</th>
-                            {{-- <th scope="col" class="fw-bold">Pze</th> --}}
-                            <th scope="col" class="fw-bold">Data</th>
-                            <th scope="col" class="fw-bold">Prazo Real</th>
-                            <th scope="col" class="fw-bold">Situação</th>
-                            <th scope="col" class="fw-bold"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $block = false;
-
-                                // if ($list->Productions->count()) {
-                                //     $block = $list->Productions
-                                //         ->where('status_note', $list->nstats)
-                                //         ->Where('dt_note', $list->dt_status)
-                                //         // ->where(function ($q) use ($list) {
-                                //         //     return $q->where('completed', false)
-                                //         //         ->orWhere('dt_note', $list->dt_status);
-                                //         // })
-                                //         ->first();
-                                // }
-
-                                $count = $list->Productions
-                                    ->where('service_id', $service->uuid)
-                                    ->where('noinconsistency', false);
-
-                                if ($count->count()) {
-                                    if ($count->last()->dt_note == $list->dt_status || !$count->last()->confirmed) {
-                                        $block = true;
-                                    }
-                                    if (isset($count->last()->User->name)) {
-                                        $production = $count->last();
-
-                                        $lastUser = $count->last()->User->name;
-
-                                        $lastUser = explode(' ', $lastUser);
-                                        $lastUser = $lastUser[0] . ' ' . end($lastUser);
-                                    } else {
-                                        $lastUser = 'DESCONHECIDO';
-                                    }
-
-                                    // $chave = array_search($list->id, $selected);
-
-                                    // if ($chave !== false) {
-                                    //     unset($selected[$chave]);
-                                    //     $selected = $selected;
-                                    // }
-                                }
 
                                 $daysleft = (new DaysLeft($list))->getDaysLeft();
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
-                            <tr
-                                class="align-middle
-                        @if ($block) @if ($production->status == 1)
-                            table-warning
-                            @elseif ($production->status == 2)
-                            table-primary
-                            @elseif ($production->status == 5 && !$production->confirmed)
-                            table-success
-                            @elseif ($production->status == 5 && $production->confirmed)
-                            table-danger
-                            @else
-                            table-primary @endif @endif">
+                            <tr class="align-middle"
+                                wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
 
-                                <td class="fw-bold copy-text" data-value="{{ $list->note }}">
+                                <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
 
 
-                                <td class="fw-light">{{ date('d/m/Y', strToTime($list->dt_created)) }}</td>
-                                <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
-                                <td class="fw-light">{{ $list->rubrica }}</td>
-                                <td class="fw-light">{{ $list->lexp }}</td>
-                                <td class="fw-light">{{ $list->group1 }}</td>
-                                <td class="fw-light">{{ $list->group2 }}</td>
+                                <td class="text-center align-middle">
+                                    {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                    <x-files.select-download-list :files='$list->Files' />
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($list->External)
+                                        <i class="ri-file-text-fill text-success fs-5"></i>
+                                    @else
+                                        <i class="ri-file-text-line text-danger fs-5"></i>
+                                    @endif
 
-                                <td class="fw-light">{{ $list->material }}</td>
+                                </td>
+                                <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
+                                <td class="fw-light text-center">{{ $list->rubrica }}</td>
+                                <td class="fw-light text-center">{{ $list->lexp }}</td>
 
 
-                                <td class="fw-light">{{ $list->nstats }}</td>
-                                {{-- <td class="fw-light">{{ $list->pze }}</td> --}}
-                                <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}
+                                <td class="fw-light text-center">{{ $list->material }}</td>
+
+
+                                <td class="fw-light text-center">{{ $list->nstats }}</td>
+                                {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
+                                <td class="fw-light text-center">
+                                    {{ Carbon::parse($list->dt_status)->diffInDays(Carbon::now(), false) }}
+                                    {{-- {{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }} --}}
                                 </td>
                                 <td scope="col"
                                     class="text-center
@@ -199,7 +173,7 @@
                             ">
                                     {{ 30 - $daysleft }}
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light text-center">
                                     @if ($list->pze_parecer === 'Vencido')
                                         <span class="badge text-bg-danger">VENCIDO</span>
                                     @elseif ($list->pze_parecer === 'Não vencido')
@@ -210,27 +184,7 @@
                                 </td>
 
 
-                                <td class="fw-bold text-center">
-                                    @if (!$block)
-                                        <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
-                                            style="cursor: pointer;"
-                                            wire:click.prevent="to_accompany({{ $list->id }})"
-                                            data-bs-toggle="tooltip" data-bs-placement="top"
-                                            data-bs-custom-class="custom-tooltip"
-                                            data-bs-title="Enviar para Acompanhamento"></i>
-                                    @else
-                                        {{-- @php
-                                            if (isset($block->User->name)) {
-                                                $name = explode(' ', $block->User->name);
-                                                $name = $name[0] . ' ' . substr(end($name), 0, 1);
-                                            } else {
-                                                $name = 'DESCONHECIDO';
-                                            }
-                                        @endphp --}}
-                                        <span style="font-size: 11px">{{ $lastUser }}</span>
-                                    @endif
 
-                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -253,28 +207,31 @@
         </div>
     </div>
 
+    {{-- Livewire Components --}}
+    @livewire('services.oexterno.actions.protocols', key('external_protocols'))
+</div>
 
-    @push('script')
-        <script>
-            const copyTextCells = document.querySelectorAll('.copy-text');
+@push('script')
+    <script>
+        const copyTextCells = document.querySelectorAll('.copy-text');
 
-            copyTextCells.forEach(cell => {
-                cell.addEventListener('click', () => {
-                    const value = cell.getAttribute('data-value');
-                    copyToClipboard(value);
-                    livewire.emit('getCopy',
-                        `Valor "${value}" copiado para a área de transferência.`);
-                    // alert(`Valor "${value}" copiado para a área de transferência.`);
-                });
+        copyTextCells.forEach(cell => {
+            cell.addEventListener('click', () => {
+                const value = cell.getAttribute('data-value');
+                copyToClipboard(value);
+                livewire.emit('getCopy',
+                    `Valor "${value}" copiado para a área de transferência.`);
+                // alert(`Valor "${value}" copiado para a área de transferência.`);
             });
+        });
 
-            function copyToClipboard(text) {
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-            }
-        </script>
-    @endpush
+        function copyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+        }
+    </script>
+@endpush

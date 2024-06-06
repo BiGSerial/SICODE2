@@ -3,8 +3,10 @@
 namespace App\Http\Livewire\Services\Oexterno;
 
 use App\Custom\RuleBuilder;
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
+use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
+use ZipArchive;
 
 class Main extends Component
 {
@@ -30,6 +32,8 @@ class Main extends Component
 
     public $waiting;
 
+    public $typeNote = "";
+
     // Filters
     private $filter_group = 'oexterno';
 
@@ -40,6 +44,13 @@ class Main extends Component
         'refresh_service'   => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
+    ];
+
+    protected $queryString = [
+        'typeNote'=> ['except' => '', 'as' => 'tipo'],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'p'],
+        'perPage' => ['as' => 'pp'],
     ];
 
     public function mount($service)
@@ -62,6 +73,53 @@ class Main extends Component
             'status'   => 'success',
             'menssage' => $msg,
         ]);
+    }
+
+    // public function downloadZip()
+    // {
+    //     if (count($this->files_selected)) {
+    //         $files = File::find($this->files_selected);
+
+    //         if ($files) {
+    //             $zipFile = 'Arquivos-Lote-' . hash('crc32', time()) . '.zip';
+    //             $zip     = new ZipArchive();
+    //             $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+    //             foreach ($files as $file) {
+    //                 $content = Storage::get($file->path);
+    //                 $zip->addFromString($file->file_name . '.' . $file->ext, $content);
+    //             }
+
+    //             $zip->close();
+
+    //             $this->files_selected = [];
+
+    //             return response()->download($zipFile)->deleteFileAfterSend(true);
+    //         }
+    //     } else {
+    //         $this->dispatchBrowserEvent('swal', [
+    //             'position' => 'center',
+    //             'icon'     => 'warning',
+    //             'title'    => 'Nenhum Arquivo foi selecionado para Download',
+    //             'timer'    => 5000,
+    //         ]);
+
+    //         return;
+    //     }
+    // }
+
+    public function downloadFile($id)
+    {
+
+
+        if ($file = File::find($id)) {
+
+
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
     }
 
     public function to_accompany(Note $note)
@@ -167,16 +225,26 @@ class Main extends Component
 
         $query = Note::query();
 
-        RuleBuilder::applyRules($query, $this->service->Status);
+        // RuleBuilder::applyRules($query, $this->service->Status);
 
-        if ($this->protocolar || $this->waiting) {
-            // $query = Note::query();
-            $query->when($this->protocolar, function ($q) {
-                return $q->where('nstats', 20);
-            })->when($this->waiting, function ($q) {
-                return $q->where('nstats', 11);
+        // if ($this->protocolar || $this->waiting) {
+        //     // $query = Note::query();
+        //     $query->when($this->protocolar, function ($q) {
+        //         return $q->where('nstats', 20);
+        //     })->when($this->waiting, function ($q) {
+        //         return $q->where('nstats', 11);
+        //     });
+        // }
+
+        $query->where(function($q){
+            $q->where(function($q){
+                $q->where('nstats', 20)
+                    ->where('type_note', 2);
+            })->orWhere(function($q){
+                $q->where('nstats')
+                    ->where('type_note', 1);
             });
-        }
+        });
 
         $query->when($this->search, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
@@ -186,6 +254,10 @@ class Main extends Component
                     ->orWhere('group2', 'like', '%' . $s . '%');
             });
         });
+
+        if ($this->typeNote) {
+            $query->where('type_note', $this->typeNote);
+        }
 
         if (isset($this->filter['rubrica'])) {
 
@@ -199,7 +271,8 @@ class Main extends Component
 
 
         $query->with('Productions.User')
-        ->orderBy('days_left');
+        ->orderBy('days_left')
+        ->orderBy('dt_status');
 
         return $query;
 

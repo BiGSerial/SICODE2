@@ -89,4 +89,9 @@ class Note extends Model
     {
         return $this->hasMany(HiringWaiting::class);
     }
+
+    public function External()
+    {
+        return $this->hasOne(External::class);
+    }
 }

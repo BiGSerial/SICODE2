@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.6",
+    "appver": "1.8.7",
     "historic": [
+        {
+            "version": "1.8.7",
+            "description": "externals",
+            "date": "2024-06-06"
+        },
         {
             "version": "1.8.6",
             "description": "View Repoorts of Viabilities and some other Fixes",
