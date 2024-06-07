@@ -18,5 +18,65 @@
 
 @section('content')
     {{-- @livewire('services.analises_pre.historic', ['service' => $service->uuid]) --}}
-    @livewire('services.historic', ['service' => $service->uuid])
+    @livewire('services.oexterno.historic', ['service' => $service->uuid])
 @endsection
+
+@push('script')
+    <script>
+        window.addEventListener('alertar', function(e) {
+
+            const Confirmation = Swal.mixin({
+                customClass: {
+                    confirmButton: 'btn btn-success',
+                    cancelButton: 'btn btn-danger'
+                },
+                buttonsStyling: false
+            });
+
+            Swal.fire({
+                title: e.detail.title,
+                html: e.detail.msg,
+                icon: e.detail.icon,
+                showCancelButton: true,
+                confirmButtonText: e.detail.btnOktxt,
+                cancelButtonText: e.detail.btnCanceltxt,
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+
+                    Livewire.emit(e.detail.action)
+
+                } else if (
+                    /* Read more about handling dismissals below */
+                    result.dismiss === Swal.DismissReason.cancel
+                ) {
+                    Swal.fire(
+                        e.detail.cancel_titulo,
+                        e.detail.cancel_msg,
+                        'success'
+                    )
+                }
+            })
+        });
+    </script>
+
+    <script>
+        window.addEventListener('copyToBoard', function(e) {
+            copyToClipboard();
+        });
+
+
+
+        function copyToClipboard() {
+            const textToCopy = document.getElementById('clipboard-data').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.textContent = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+
+        }
+    </script>
+@endpush

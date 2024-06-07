@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Oexterno\Actions;
 
 use App\Models\File;
 use App\Models\Note;
+use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 use Livewire\Component;
@@ -12,6 +13,7 @@ use ZipArchive;
 class Protocols extends Component
 {
     public ?Note $note = null;
+    public $encerrar;
     public $selType;
     public $selAgency;
     public $protocol = [];
@@ -20,7 +22,8 @@ class Protocols extends Component
 
     protected $listeners = [
         'openProtocol',
-        'cleanAll'
+        'cleanAll',
+        'confirm_finish',
     ];
 
     public function openProtocol(Note $note)
@@ -164,24 +167,74 @@ class Protocols extends Component
 
 
         $this->note = $this->note->fresh();
-        $this->cleanAll();
+
+
+        if ($this->encerrar) {
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => "Encerrar Protocolo para {$this->note->note}?",
+                'msg'           => "Você selecionou encerrar os protocolos para esta Nota/OV. Ao prosseguir, não será mais possível adicionar novos comentários ou protocolos. Tenha ajustado o Motivo em Comentários para Encerrado com o seu parecer final.<br><br> Deseja realmente encerra esta NOTA/OV?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Encerrar!',
+                'btnCanceltxt'  => 'Não, Cancelar',
+                'action'        => 'confirm_finish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma NOTA/OV foi encerrada!',
+
+            ]);
+
+            return;
+        } else {
+
+            $this->cleanAll();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'SALVO COM SUCESSO',
+
+                'timer'    => 2500,
+            ]);
+        }
+    }
+
+    public function confirm_finish()
+    {
+
+
+        $protocol = $this->note->External->Comments()->Create(
+            [
+                'user_id' => User::first()->id,
+                'comment' => ">> Protocolo encerrado por: " . Auth()->User()->name . " << (System)",
+                'title' => "ENCERRADO",
+            ]
+        );
+
+        $protocol = $this->note->External()->update([
+            'completed' => true
+        ]);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => 'SALVO COM SUCESSO',
+            'title'    => 'ENCERRADO COM SUCESSO',
 
             'timer'    => 2500,
         ]);
+
+        $this->note = $this->note->fresh();
+        $this->cleanAll();
     }
 
     public function cleanAll()
     {
+
         $this->emitUp('refresh_list');
         $this->selType = '';
         $this->selAgency = '';
         $this->protocol = [];
         $this->comment = [];
+        $this->encerrar = '';
     }
 
     public function downloadFile(File $file)

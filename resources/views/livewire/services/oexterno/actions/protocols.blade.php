@@ -135,54 +135,73 @@
                                                     {{ $note->External && $note->External->Protocols->count() ? $note->External->Protocols->last()->protocol : ' --- ' }}
                                                 </td>
                                             </tr>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3 align-middle">Novo Protocolo</td>
-                                                <td class="text-start">
+                                            @if (!$note->External || ($note->External && !$note->External->completed))
+                                                <tr>
+                                                    <td class="text-end fw-bold col-3 align-middle">Novo Protocolo</td>
+                                                    <td class="text-start">
 
-                                                    <input type="text" class="form-control"
-                                                        aria-label="Sizing example input"
-                                                        aria-describedby="inputGroup-sizing-sm"
-                                                        wire:model.defer="protocol.protocol">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3">Descrição</td>
-                                                <td class="text-start">
-                                                    <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
-                                                        style="height: 100px; resize: none;" wire:model.defer="protocol.description"></textarea>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3">Motivo</td>
-                                                <td class="text-start">
-                                                    <select class="form-select form-select-sm"
-                                                        aria-label="Small select example"
-                                                        wire:model.defer="comment.title">
-                                                        <option selected>Selecione</option>
-                                                        @foreach (SelectOptions::getProtocolReasons() as $reason)
-                                                            <option value="{{ $reason->value }}">{{ $reason->reason }}
-                                                            </option>
-                                                        @endforeach
+                                                        <input type="text" class="form-control"
+                                                            aria-label="Sizing example input"
+                                                            aria-describedby="inputGroup-sizing-sm"
+                                                            wire:model.defer="protocol.protocol">
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-end fw-bold col-3">Descrição</td>
+                                                    <td class="text-start">
+                                                        <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
+                                                            style="height: 100px; resize: none;" wire:model.defer="protocol.description"></textarea>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-end fw-bold col-3">Motivo</td>
+                                                    <td class="text-start">
+                                                        <select class="form-select form-select-sm"
+                                                            aria-label="Small select example"
+                                                            wire:model.defer="comment.title">
+                                                            <option selected>Selecione</option>
+                                                            @foreach (SelectOptions::getProtocolReasons() as $reason)
+                                                                <option value="{{ $reason->value }}">
+                                                                    {{ $reason->reason }}
+                                                                </option>
+                                                            @endforeach
 
-                                                    </select>
+                                                        </select>
 
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3">Comentários</td>
-                                                <td class="text-start">
-                                                    <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
-                                                        style="height: 100px; resize: none;" wire:model.defer="comment.comment"></textarea>
-                                                </td>
-                                            </tr>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-end fw-bold col-3">Comentários</td>
+                                                    <td class="text-start">
+                                                        <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
+                                                            style="height: 100px; resize: none;" wire:model.defer="comment.comment"></textarea>
+                                                    </td>
+                                                </tr>
+                                            @endif
+
 
                                         </tbody>
                                     </table>
-                                    <div class="card-footer">
-                                        <div class="d-flex justify-content-end">
-                                            <button class="btn btn-primary btn-sm" wire:click="save">SALVAR</button>
+                                    @if (!$note->External || ($note->External && !$note->External->completed))
+                                        <div class="card-footer">
+                                            <div class="clear-fix">
+                                                <div class="d-flex justify-content-end me-2">
+                                                    <div class="form-check align-middle">
+                                                        <input class="form-check-input border border-1 border-secondary"
+                                                            type="checkbox" value="true" id="flexCheckIndeterminate"
+                                                            wire:model.defer="encerrar">
+                                                        <label class="form-check-label" for="flexCheckIndeterminate">
+                                                            Encerrar Protocolo
+                                                        </label>
+                                                    </div>
+                                                    <div class="d-flex justify-content-end ms-2">
+                                                        <button class="btn btn-primary btn-sm"
+                                                            wire:click="save">SALVAR</button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    @endif
                                 </div>
 
                             </div>

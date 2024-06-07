@@ -57,4 +57,24 @@
             })
         });
     </script>
+
+    <script>
+        window.addEventListener('copyToBoard', function(e) {
+            copyToClipboard();
+        });
+
+
+
+        function copyToClipboard() {
+            const textToCopy = document.getElementById('clipboard-data').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.textContent = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+
+        }
+    </script>
 @endpush
