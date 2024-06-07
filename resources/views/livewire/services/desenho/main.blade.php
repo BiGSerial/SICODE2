@@ -169,7 +169,14 @@
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
-                                                @livewire('services.desenho.modals.retornointerno', ['list' => $list], key('ri-' . $list->id))
+                                                @if ($list->d5)
+                                                    <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
+                                                        wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
+                                                        {{ $list->Note->note }}
+                                                    </span>
+                                                @else
+                                                    {{ $list->Note->note }}
+                                                @endif
 
                                                 <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
@@ -337,8 +344,9 @@
         </div>
     </div>
 
-    {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
+    {{-- LIVEWIRE COMPONENTS --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
+    @livewire('services.desenho.actions.responserinfo', key('responser_info_return'))
 
     <div wire:init="checkOpen"></div>
 

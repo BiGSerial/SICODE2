@@ -43,10 +43,10 @@ class RiattUser extends Component
     public function getUsersProperty()
     {
         return User::WhereRelation('Employee.Contract.company', 'id', $this->company)
-                    ->when(trim($this->search), function ($q) {
-                        $q->where('name', 'like', "%".trim($this->search)."%");
-                    })
-                    ->orderBy('name')->get();
+            ->when(trim($this->search), function ($q) {
+                $q->where('name', 'like', "%" . trim($this->search) . "%");
+            })
+            ->orderBy('name')->get();
     }
 
 
@@ -132,7 +132,7 @@ class RiattUser extends Component
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'success',
-                    'title'    => 'NOTA ATRIBUIDA AO USUÁRIO COM SUCESSL',
+                    'title'    => 'NOTA ATRIBUIDA AO USUÁRIO COM SUCESSO',
                     'timer'    => 5000,
                 ]);
 
@@ -145,7 +145,6 @@ class RiattUser extends Component
                 $this->emitUp('cleanAll');
 
                 return;
-
             } else {
 
                 $this->dispatchBrowserEvent('swal', [
@@ -161,9 +160,7 @@ class RiattUser extends Component
 
 
                 return;
-
             }
-
         } else {
 
             $this->dispatchBrowserEvent('swal', [
@@ -195,7 +192,6 @@ class RiattUser extends Component
         $this->user_s = "";
         $this->search = "";
         $this->company = "";
-
     }
 
 

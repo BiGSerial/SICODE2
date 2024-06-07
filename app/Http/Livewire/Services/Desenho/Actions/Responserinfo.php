@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Desenho\Actions;
 
 use App\Models\File;
 use App\Models\Note;
+use App\Models\Production;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use ZipArchive;
@@ -11,6 +12,7 @@ use ZipArchive;
 class Responserinfo extends Component
 {
     public ?Note $note = null;
+    public ?Production $production = null;
     public $selectedFiles = [];
     public $setDays;
 
@@ -19,11 +21,13 @@ class Responserinfo extends Component
         'refreshDays' => '$refresh'
     ];
 
-    public function getInfoResponse(Note $note)
+    public function getInfoResponse(Production $production)
     {
-        $this->note = $note;
+        $this->production = $production;
 
-        if ($this->note) {
+
+
+        if ($this->production) {
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'responserInfo',
             ]);
@@ -36,7 +40,7 @@ class Responserinfo extends Component
         if ($file) {
 
             if (Storage::fileExists($file->path)) {
-                return Storage::download($file->path, explode('.', $file->file_name)[0].".".$file->ext);
+                return Storage::download($file->path, explode('.', $file->file_name)[0] . "." . $file->ext);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -52,7 +56,7 @@ class Responserinfo extends Component
 
     public function zipFiles()
     {
-        if(!count($this->selectedFiles)) {
+        if (!count($this->selectedFiles)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -63,14 +67,14 @@ class Responserinfo extends Component
             return;
         }
 
-        if(count($this->selectedFiles)) {
+        if (count($this->selectedFiles)) {
 
 
             $files = File::WhereIn('id', $this->selectedFiles)->get();
 
 
             if ($files) {
-                $zipFile = 'Arquivos-'.$this->note->note."-" . hash('crc32', time()) . '.zip';
+                $zipFile = 'Arquivos-' . $this->note->note . "-" . hash('crc32', time()) . '.zip';
                 $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
@@ -140,7 +144,6 @@ class Responserinfo extends Component
 
         $this->note = $this->note->fresh();
         $this->setDays = 0;
-
     }
 
     public function render()

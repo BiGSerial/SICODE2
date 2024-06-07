@@ -7,9 +7,9 @@
         aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content  edp-bg-stategrey-50">
-                @if ($note)
+                @if ($production)
                     <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                        <h4 class="modal-title fs-5">Informação de {{ $note->note }}</h4>
+                        <h4 class="modal-title fs-5">Informação de {{ $production->Note->note }}</h4>
                     </div>
                     <div class="container-fluid my-3">
                         <div class="row">
@@ -18,59 +18,69 @@
                                     <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
                                         <h4 class="fs-5 my-0 py-0">Dados da Nota</h4>
                                     </div>
-                                    <div class="card-body py-1 my-0">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <tbody>
+
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped-columns">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="col-2 fw-bold align-middle text-end">Nota/OV:</td>
+                                                    <td class="col  align-middle">{{ $production->Note->note }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="col-2 fw-bold align-middle text-end">Ordens:</td>
+                                                    <td class="col align-middle">
+                                                        @if ($production->Note->Viabilities->count())
+                                                            @foreach ($production->Note->Viabilities as $viab)
+                                                                <p class="my-1 py-0">{{ $viab->Order->ordem }}</p>
+                                                            @endforeach
+                                                        @elseif ($production->Note->Orders->count())
+                                                            @foreach ($production->Note->Orders as $order)
+                                                                <p class="my-1 py-0">{{ $order->ordem }}</p>
+                                                            @endforeach
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="col-2 fw-bold  align-middle text-end">Status:</td>
+                                                    <td class="col  align-middle">{{ $production->Note->nstats }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="col-2 fw-bold align-middle text-end">Situação:</td>
+                                                    <td class="col align-middle align-middle">
+                                                        {{ $production->Note->status }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="col-2 fw-bold align-middle text-end">Municipio:</td>
+                                                    <td class="col align-middle">{{ $production->Note->lexp }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="col-2 fw-bold align-middle text-end">Rubrica:</td>
+                                                    <td class="col align-middle">{{ $production->Note->rubrica }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="col-2 fw-bold align-middle text-end">Material:</td>
+                                                    <td class="col align-middle">{{ $production->Note->material }}
+                                                    </td>
+                                                </tr>
+                                                @if ($production->Note->Viabilities->count())
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">Nota/OV:</td>
-                                                        <td class="col  align-middle">{{ $note->note }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle">Ordems:</td>
-                                                        <td class="col align-middle">
-                                                            @if ($note->Viabilities->count())
-                                                                @foreach ($note->Viabilities as $viab)
-                                                                    <p class="my-1 py-0">{{ $viab->Order->ordem }}</p>
-                                                                @endforeach
-                                                            @endif
+                                                        <td class="col-2 fw-bold align-middle text-end">Viabilidade:
                                                         </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold  align-middle">Status:</td>
-                                                        <td class="col  align-middle">{{ $note->nstats }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle">Situação:</td>
-                                                        <td class="col align-middle align-middle">{{ $note->status }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle">Municipio:</td>
-                                                        <td class="col align-middle">{{ $note->lexp }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle">Rubrica:</td>
-                                                        <td class="col align-middle">{{ $note->rubrica }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle">Material:</td>
-                                                        <td class="col align-middle">{{ $note->material }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle">Viabilidade:</td>
                                                         <td class="col align-middle align-middle">
-                                                            @if ($note->Viabilities->first()->tacit && $note->Viabilities->first()->approved)
+                                                            @if ($production->Note->Viabilities->last()->tacit && $production->Note->Viabilities->last()->approved)
                                                                 <span class="text-warning fw-bold">Aprovado
                                                                     Tácitamente</span>
-                                                            @elseif ($note->Viabilities->first()->approved && !$note->Viabilities->first()->rejected)
+                                                            @elseif ($production->Note->Viabilities->last()->approved && !$production->Note->Viabilities->last()->rejected)
                                                                 <span class="text-success fw-bold">Aprovado</span>
-                                                            @elseif(!$note->Viabilities->first()->approved && $note->Viabilities->first()->rejected)
+                                                            @elseif(!$production->Note->Viabilities->last()->approved && $production->Note->Viabilities->last()->rejected)
                                                                 <span class="text-danger fw-bold">Rejeitado</span>
                                                             @elseif(
-                                                                !$note->Viabilities->first()->approved &&
-                                                                    !$note->Viabilities->first()->rejected &&
-                                                                    !$note->Viabilities->first()->completed)
+                                                                !$production->Note->Viabilities->last()->approved &&
+                                                                    !$production->Note->Viabilities->last()->rejected &&
+                                                                    !$production->Note->Viabilities->last()->completed)
                                                                 <span class="text-primary fw-bold">Viabilidade</span>
                                                             @else
                                                                 <span class="text-secondary fw-bold">Desconhecido</span>
@@ -78,9 +88,10 @@
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">Contratação:</td>
+                                                        <td class="col-2 fw-bold align-middle text-end">Contratação:
+                                                        </td>
                                                         <td class="col align-middle align-middle">
-                                                            @if ($note->Viabilities->first()->hired)
+                                                            @if ($production->Note->Viabilities->last()->hired)
                                                                 <span class="text-success fw-bold">Obra
                                                                     Contratada</span>
                                                             @else
@@ -90,89 +101,57 @@
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">DtContratação:</td>
+                                                        <td class="col-2 fw-bold align-middle text-end">DtContratação:
+                                                        </td>
                                                         <td class="col align-middle align-middle">
-                                                            {{ $note->Viabilities->first()->hired ? date('d/m/Y H:i:s', strToTime($note->Viabilities->first()->hired_at)) : '---' }}
+                                                            {{ $production->Note->Viabilities->last()->hired ? date('d/m/Y H:i:s', strToTime($production->Note->Viabilities->last()->hired_at)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">Contratante:</td>
+                                                        <td class="col-2 fw-bold align-middle text-end">Contratante:
+                                                        </td>
                                                         <td class="col align-middle align-middle">
-                                                            @if ($note->Viabilities->last()->User)
+                                                            @if ($production->Note->Viabilities->last()->User)
                                                                 <span
-                                                                    class="text-success fw-bold">{{ $note->Viabilities->last()->User->name }}</span>
+                                                                    class="text-success fw-bold">{{ $production->Note->Viabilities->last()->User->name }}</span>
                                                             @else
                                                                 <span class="text-secondary fw-bold">----</span>
                                                             @endif
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">StS OP010:</td>
+                                                        <td class="col-2 fw-bold align-middle text-end">StS OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $note->Viabilities->last()->Order->Operations->count() ? $note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->status : '---' }}
+                                                            {{ $production->Note->Viabilities->last()->Order->Operations->count() ? $production->Note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->status : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">Dt OP010:</td>
+                                                        <td class="col-2 fw-bold align-middle text-end">Dt OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ isset($note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
+                                                            {{ isset($production->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($production->Note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="col-2 fw-bold align-middle">centroTrabalho:</td>
+                                                        <td class="col-2 fw-bold align-middle text-end">centroTrabalho:
+                                                        </td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ isset($note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
+                                                            {{ isset($production->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $production->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
                                                         </td>
                                                     </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                @endif
+                                            </tbody>
+                                        </table>
                                     </div>
+
                                 </div>
 
-                                @if ($note->Viabilities->count() && $note->Viabilities->last()->Form)
-                                    @php
-                                        $form = $note->Viabilities->last()->Form;
-                                    @endphp
-                                    <div class="card">
-                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RETORNO
-                                            VIABILIDADE</h5>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-condensed table-striped-columns">
-                                                <tbody>
-                                                    <tr>
-                                                        <td class="fw-bold col-2 align-middle">MOTIVO:</td>
-                                                        <td class="align-middle fw-bold">{{ $form->reason }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="fw-bold col-2 align-middle">IMPACTO:</td>
-                                                        <td class="align-middle">
-                                                            {{ $form->changes * 10 }}%
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="fw-bold col-2 align-middle">RESPONSÁVEL:</td>
-                                                        <td class="align-middle text-uppercase">
-                                                            {{ $form->responsible }}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="fw-bold col-2 align-middle">DESCRIÇÃO:</td>
-                                                        <td class="align-middle">{{ $form->description }}</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                @endif
 
-                            </div>
-                            <div class="col-md-6">
                                 <div class="card">
                                     <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
                                         <h4 class="fs-5 my-0 py-0">Arquivos</h4>
                                     </div>
                                     <div class="card-body py-1 my-0">
-                                        @if ($note->Files->count())
+                                        @if ($production->Note->Files->count())
                                             <table class="table table-sm table-condensed table-striped table-hover">
                                                 <thead class="">
                                                     <th class="text-center">
@@ -184,7 +163,7 @@
                                                     <th class="text-center">Arquivo</th>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach ($note->Files->sortBy('file_name') as $file)
+                                                    @foreach ($production->Note->Files->sortBy('file_name') as $file)
                                                         {{-- @dump($file->ext) --}}
                                                         <tr>
                                                             <td class="text-center align-middle"><input
@@ -220,8 +199,45 @@
 
                                     </div>
                                 </div>
+                            </div>
+                            <div class="col-md-6">
 
-                                @if ($note->Viabilities->count() && $note->Viabilities->last()->Comments->count())
+                                @if ($production->Note->Viabilities->count() && $production->Note->Viabilities->last()->Form)
+                                    @php
+                                        $form = $production->Note->Viabilities->last()->Form;
+                                    @endphp
+                                    <div class="card">
+                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RETORNO
+                                            VIABILIDADE</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-condensed table-striped-columns">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">MOTIVO:</td>
+                                                        <td class="align-middle fw-bold">{{ $form->reason }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">IMPACTO:</td>
+                                                        <td class="align-middle">
+                                                            {{ $form->changes * 10 }}%
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">RESPONSÁVEL:</td>
+                                                        <td class="align-middle text-uppercase">
+                                                            {{ $form->responsible }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold col-2 align-middle">DESCRIÇÃO:</td>
+                                                        <td class="align-middle">{{ $form->description }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                {{-- @if ($production->Note->Viabilities->count() && $production->Note->Viabilities->last()->Comments->count())
 
                                     <div class="card">
                                         <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
@@ -230,7 +246,7 @@
                                             <table class="table table-sm table-condensed table-striped-columns">
                                                 <tbody>
 
-                                                    @foreach ($note->Viabilities->last()->Comments as $comment)
+                                                    @foreach ($production->Note->Viabilities->last()->Comments as $comment)
                                                         <tr>
                                                             <td class="col-2">
                                                                 {{ date('d/m/Y H:i', strToTime($comment->created_at)) }}
@@ -248,9 +264,63 @@
                                         </div>
                                     </div>
 
+                                @endif --}}
+
+
+
+                                @if ($production->Reclaim && $production->Reclaim->Comments->count())
+                                    <div class="card">
+                                        <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
+                                            <h4 class="fs-5 my-0 py-0">Retorno Interno</h4>
+                                        </div>
+
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped-columns">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="col-2 fw-bold align-middle text-end">Motivo:</td>
+                                                        <td class="col  align-middle">
+                                                            {{ $production->Reclaim->category }}
+                                                        </td>
+                                                    </tr>
+
+                                                    @foreach ($production->Reclaim->Comments as $comment)
+                                                        <tr>
+                                                            <td class="col-2 fw-bold  align-middle text-end">
+                                                                Solicitante:
+                                                            </td>
+                                                            <td class="col  align-middle">
+                                                                {{ $comment->User->name }} <span
+                                                                    class="fs-6">({{ $comment->User->email }})</span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="col-2 fw-bold align-middle text-end">
+                                                                Commentario:
+                                                            </td>
+                                                            <td class="col align-middle align-middle">
+                                                                {{ $comment->message }}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="mb-3">
+                                                            <td class="col-2 fw-bold align-middle text-end">Data:
+                                                            </td>
+                                                            <td class="col align-middle">
+                                                                {{ date('d/m/Y H:i', strToTime($comment->created_at)) }}
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+
+
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                    </div>
                                 @endif
 
                             </div>
+
                         </div>
 
 
