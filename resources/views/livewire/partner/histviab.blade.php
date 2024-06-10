@@ -146,7 +146,20 @@
         </div>
         {{-- FIM Paginador --}}
         <div class="card mb-2 edp-bg-gray">
-            <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">HISTÓRICO DE VIABILIDADE</h4>
+            <div class="card-header edp-bg-seoweedgreen-100 text-white">
+                <div class="row">
+                    <div class="col">
+                        <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">HISTÓRICO DE VIABILIDADE</h4>
+                    </div>
+                    <div class="col-3 d-flex justify-content-end">
+
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+
+                    </div>
+                </div>
+            </div>
+
 
             <div class="table-responsive">
                 <table class="table table-sm table-condensed table-striped table-hover">

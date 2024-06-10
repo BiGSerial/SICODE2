@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Exports\parner\exportExcel;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note};
 use Illuminate\Support\Facades\{Crypt, Storage};
@@ -45,6 +46,15 @@ class Histviab extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+    }
+
+    public function export_excel()
+    {
+
+        return (new exportExcel($this->lists->get()->sortBy(function ($note) {
+            // Acessar a primeira 'Viability' e o campo 'sended_at'
+            return $note->Viabilities->first()->sended_at ?? null;
+        })))->download(date('YmdHis-') . 'HistViabExport.xlsx');
     }
 
     public function updatedPerPage()
@@ -176,13 +186,13 @@ class Histviab extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        return $query->paginate($this->perPage);
+        return $query;
     }
 
     public function render()
     {
         return view('livewire.partner.histviab', [
-            'lists'  => $this->lists,
+            'lists'  => $this->lists->paginate($this->perPage),
             'cities' => $this->cities,
         ]);
     }

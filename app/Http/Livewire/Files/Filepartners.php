@@ -149,11 +149,11 @@ class Filepartners extends Component
                     $folhas = ($extension == 'pdf') ? $totalPdfCount : $totalXlsCount;
 
                     if ($extension == "pdf") {
-                        $newName = "CROQUI_" . $this->note->note . "_F" . str_pad(++$pdfCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
+                        $newName = "CROQUI_VIAB_" . $this->note->note . "_F" . str_pad(++$pdfCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     } elseif (in_array($extension, ["xls", "xlsx"])) {
-                        $newName = "EXCEL_" . $this->note->note . "_F" . str_pad(++$xlsCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
+                        $newName = "EXCEL_VIAB_" . $this->note->note . "_F" . str_pad(++$xlsCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     } else {
-                        $newName = strtoupper($extension) . "_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
+                        $newName = strtoupper($extension) . "_VIAB_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     }
 
                     $version = File::where('file_name', 'like', "%" . $newName . "%")->count();

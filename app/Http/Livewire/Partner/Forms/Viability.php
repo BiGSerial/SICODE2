@@ -42,7 +42,6 @@ class Viability extends Component
         try {
 
             $this->cities = City::orderBy('cidade')->get();
-
         } catch (\Throwable $th) {
 
             $this->cities = false;
@@ -58,7 +57,6 @@ class Viability extends Component
                     ->with('Order');
             }])->find(Crypt::decrypt($id));
         }
-
     }
 
     public function hasFile($value)
@@ -102,7 +100,6 @@ class Viability extends Component
                         } elseif ($file->getClientOriginalExtension() == 'xlsx' || $file->getClientOriginalExtension() == 'xls') {
                             $name = "ADS-{$this->data->note}-F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT) . '_' . str_pad(count($this->files), 2, '0', STR_PAD_LEFT);
                         }
-
                     } else {
 
                         if ($file->getClientOriginalExtension() == 'pdf') {
@@ -112,7 +109,6 @@ class Viability extends Component
                         } else {
                             $name = "{$file->getClientOriginalExtension()}-{$this->data->note}-F01_01";
                         }
-
                     }
 
                     $this->show_files[$index] = [
@@ -125,7 +121,6 @@ class Viability extends Component
                     ];
                 }
             }
-
         }
     }
 
@@ -200,7 +195,6 @@ class Viability extends Component
                     $block    = true;
                     $campos[] = 'Sem Croqui Anexado.';
                 }
-
             }
 
             if (!isset($this->result['responsible']) || $this->result['responsible'] == '') {
@@ -230,7 +224,6 @@ class Viability extends Component
                 ]);
 
                 return;
-
             } else {
 
                 $formData = [];
@@ -320,6 +313,7 @@ class Viability extends Component
                 if (!$erro) {
 
                     $this->emitTo('files.filepartners', 'save_files');
+                    $this->emitTo('partner.todoviability', 'refresh_list');
 
                     DB::commit();
 
@@ -331,7 +325,6 @@ class Viability extends Component
                     ]);
 
                     return redirect(route('partner.todo.viability'));
-
                 } else {
                     DB::rollBack();
 
@@ -343,9 +336,7 @@ class Viability extends Component
                         'timer'    => 5000,
                     ]);
                 }
-
             }
-
         } else {
 
             $this->dispatchBrowserEvent('swal', [
@@ -370,6 +361,5 @@ class Viability extends Component
         return view('livewire.partner.forms.viability', [
             'note' => $this->data,
         ])->layout('layouts.forms.viability');
-
     }
 }
