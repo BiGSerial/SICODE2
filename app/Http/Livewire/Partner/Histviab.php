@@ -45,7 +45,6 @@ class Histviab extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
-
     }
 
     public function updatedPerPage()
@@ -121,7 +120,6 @@ class Histviab extends Component
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
-
         }
 
         // dd($_SESSION['filter']);
@@ -141,7 +139,6 @@ class Histviab extends Component
                 } else {
                     $q->where('company_id', null);
                 }
-
             }
 
             if ($this->dateBy && ($this->date_in || $this->date_out)) {
@@ -160,7 +157,6 @@ class Histviab extends Component
             }
 
             $q->orderBy('sended_at');
-
         })
             ->with(['Viabilities' => function ($query) {
                 $query->where('completed', true)
