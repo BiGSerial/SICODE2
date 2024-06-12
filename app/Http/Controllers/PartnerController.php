@@ -23,4 +23,9 @@ class PartnerController extends Controller
     {
         return view('partner.hist_viability');
     }
+
+    public function workreport()
+    {
+        return view('partner.workreport');
+    }
 }

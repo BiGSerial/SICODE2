@@ -25,7 +25,6 @@ Route::get('/', function () {
         } else {
             return redirect('home');
         }
-
     }
 
     return view('auth.login');
@@ -100,7 +99,6 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
 
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
-
 });
 
 Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('can:operator')->group(function () {
@@ -118,7 +116,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/todo-viability', 'viability')->name('todo.viability');
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
     Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
-
+    Route::get('/workreport', 'workreport')->name('report.workreport');
 });
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {

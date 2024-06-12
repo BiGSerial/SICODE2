@@ -13,6 +13,28 @@ class SelectOptions
         ];
     }
 
+    public static function getEquipmentOptions()
+    {
+        return [
+            (object)['info' => 'CONCENTRADOR PRIMARIO', 'nick' => 'CP'],
+            (object)['info' => 'CONCENTRADOR SECUNDÁRIO', 'nick' => 'CS'],
+            (object)['info' => 'REGULADOR DE TENSÃO', 'nick' => 'RT'],
+            (object)['info' => 'RELIGADOR', 'nick' => 'RL'],
+            (object)['info' => 'TRAFO', 'nick' => 'TF'],
+        ];
+    }
+
+    public static function getFasesOptions()
+    {
+        return [
+            (object)['info' => 'A', 'nick' => 'A'],
+            (object)['info' => 'B', 'nick' => 'B'],
+            (object)['info' => 'C', 'nick' => 'C'],
+            (object)['info' => 'ABC', 'nick' => 'ABC'],
+            (object)['info' => 'Não Aplicável', 'nick' => 'NA'],
+        ];
+    }
+
     public static function verifyNeedFilesReclaims($item)
     {
 
@@ -81,6 +103,7 @@ class SelectOptions
             (object)['type' => 'PREFEITURA', 'nick' => 'PM CACHOEIRO DE ITAPEMIRIM', 'agency' => 'Prefeitura Municipal de Cachoeiro de Itapemirim'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM CASTELO', 'agency' => 'Prefeitura Municipal de Castelo'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM CARIACICA', 'agency' => 'Prefeitura Municipal de Cariacica'],
+            (object)['type' => 'PREFEITURA', 'nick' => 'PM DOMINGOS MARTINS', 'agency' => 'Prefeitura Municipal de Domingos Martins'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM GUACUI', 'agency' => 'Prefeitura Municipal de Guaçuí'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM GUARAPARI', 'agency' => 'Prefeitura Municipal de Guarapari'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM IBIRAÇU', 'agency' => 'Prefeitura Municipal de Ibiraçu'],

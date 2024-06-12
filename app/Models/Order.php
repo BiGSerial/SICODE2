@@ -43,4 +43,9 @@ class Order extends Model
     {
         return $this->hasMany(Viability::class);
     }
+
+    public function WorkReports()
+    {
+        return $this->belongsToMany(WorkReport::class, 'order_work_report');
+    }
 }
