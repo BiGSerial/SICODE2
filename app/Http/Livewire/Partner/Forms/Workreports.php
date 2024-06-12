@@ -18,18 +18,11 @@ class Workreports extends Component
     public $equipment;
     public $model_equipment = [
         'type' => '',
-        'company_id' => '',
-        'user_id' => '',
-        'date' => '',
+        'patrimony' => '',
+        'fases' => '',
+        'pole' => '',
         'installed' => false,
-        'connection' => false,
-        'changes' => '',
-        'observation' => '',
-        'damage' => false,
-        'description' => '',
-        'team' => '',
-        'responsible' => ''
-    ];;
+    ];
 
     public $form = [
         'note_id' => '',
@@ -38,7 +31,7 @@ class Workreports extends Component
         'date' => '',
         'equipment' => false,
         'connection' => false,
-        'changes' => '',
+        'changes' => false,
         'observation' => '',
         'damage' => false,
         'description' => '',
@@ -91,11 +84,25 @@ class Workreports extends Component
 
     public function addEquipment()
     {
+
+        // dd($this->model_equipment);
+
         if (empty($this->temp_equipment)) {
 
-            $this->temp_equipment[] = [
-                'id' => $order->id,
-            ];
+            $this->temp_equipment[] = $this->model_equipment;
+        } else {
+            $add = true;
+
+            foreach ($this->temp_equipment as $equip) {
+                if ($equip['type'] == $this->model_equipment['type'] && $equip['patrimony'] == $this->model_equipment['patrimony']) {
+                    $add = false;
+                    break;
+                }
+            }
+
+            if ($add) {
+                $this->temp_equipment[] = $this->model_equipment;
+            }
         }
     }
 
@@ -157,6 +164,13 @@ class Workreports extends Component
             'damage' => false, 'description' => '',
             'team' => '',
             'responsible' => ''
+        ];
+        $this->model_equipment = [
+            'type' => '',
+            'patrimony' => '',
+            'fases' => '',
+            'pole' => '',
+            'installed' => false,
         ];
     }
 

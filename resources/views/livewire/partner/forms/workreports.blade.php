@@ -115,12 +115,12 @@
                         <div class="card">
                             <h5 class="my-0 py-1 card-header">ORDENS/DRs RELACIONADAS</h5>
                             @if (!empty($temp_orders))
-                                <table class="table-sm table-condensed table-striped-columns">
+                                <table class="table table-sm table-condensed table-striped-columns">
                                     <tbody>
                                         @foreach ($temp_orders as $index => $t_order)
                                             <tr class="px-2">
-                                                <td class="text-start">{{ $t_order['ordem'] }}</td>
-                                                <td class="text-end"><i class="ri-delete-bin-2-line text-danger"
+                                                <td class="text-center">{{ $t_order['ordem'] }}</td>
+                                                <td class="text-center"><i class="ri-delete-bin-2-line text-danger"
                                                         wire:click="remOrders({{ $index }})"
                                                         style="cursor: pointer;"></i></td>
                                             </tr>
@@ -136,104 +136,170 @@
                     </div>
 
                     @if (!empty($temp_orders))
-                        <div class="mb-3 " style="max-width: 300px">
-                            <label for="exampleFormControlInput1" class="form-label">Obra BTZERO?</label>
-                            <select class="form-select" aria-label="Default select example">
-                                <option selected>Selecione</option>
-                                <option value="1">Sim</option>
-                                <option value="">Não</option>
-                            </select>
-                        </div>
-
                         <div class="mb-3" style="max-width: 300px">
                             <label for="exampleFormControlInput1" class="form-label">Data Conclusão da Obra:</label>
-                            <input type="date" class="form-control" id="exampleFormControlInput1"
-                                max="{{ date('Y-m-d') }}">
+                            <input type="date" class="form-control" id="dateWork" max="{{ date('Y-m-d') }}"
+                                wire:model.defer="form.date">
                         </div>
 
                         <div class="mb-3 " style="max-width: 300px">
                             <label for="exampleFormControlInput1" class="form-label">Houve Instalação ou Desinstalação
                                 de Equipamento?</label>
-                            <select class="form-select" aria-label="Default select example" wire:model="equipment">
+                            <select class="form-select" aria-label="Default select example" wire:model="form.equipment">
                                 <option selected>Selecione</option>
                                 <option value="1">Sim</option>
                                 <option value="">Não</option>
                             </select>
                         </div>
 
-                        @if ($equipment)
+                        @if ($form['equipment'])
                             <div class="col-md-6">
                                 <div class="clear-fix">
-                                    <div class="row">
-                                        <div class="mb-3 col-md-4">
-                                            <label for="exampleFormControlInput1" class="form-label">Tipo de
-                                                Equipamento:</label>
-                                            <select class="form-select" aria-label="Default select example">
-                                                <option selected>Selecione</option>
-                                                @foreach (SelectOptions::getEquipmentOptions() as $item)
-                                                    <option value="{{ $item->nick }}">{{ $item->info }}</option>
-                                                @endforeach
-                                            </select>
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="my-0 py-0">CADASTRAR EQUIPAMENTOS</h5>
                                         </div>
-                                        <div class="mb-3 col-md-3">
-                                            <label for="exampleFormControlInput1"
-                                                class="form-label">Patrimônio:</label>
-                                            <input type="text" class="form-control" id="exampleFormControlInput1">
-                                        </div>
-                                        <div class="mb-3 col-md-3">
-                                            <label for="exampleFormControlInput1"
-                                                class="form-label">Movimento:</label>
-                                            <select class="form-select" aria-label="Default select example">
-                                                <option selected>Selecione</option>
-                                                <option value="1">Instalação</option>
-                                                <option value="">Desinstalação</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3 col-md-4">
-                                            <label for="exampleFormControlInput1" class="form-label">Fases
-                                                Ligadas:</label>
-                                            <select class="form-select" aria-label="Default select example">
-                                                <option selected>Selecione</option>
-                                                @foreach (SelectOptions::getFasesOptions() as $item)
-                                                    <option value="{{ $item->nick }}">{{ $item->info }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="mb-3 col-md-3">
-                                            <label for="exampleFormControlInput1" class="form-label">Poste
-                                                Referencial:</label>
-                                            <input type="text" class="form-control" id="exampleFormControlInput1">
-                                        </div>
-                                        <div class="mb-3 col-md-3">
+                                        <div class="card-body">
 
-                                            <button class="btn btn-sm btn-primary mt-3">Adicionar</button>
-                                        </div>
-                                        <div class="card">
-                                            <h5 class="my-0 py-1 card-header">EQUIPAMENTOS</h5>
-                                            @if (!empty($temp_orders))
-                                                <table class="table-sm table-condensed table-striped-columns">
-                                                    <tbody>
-                                                        @foreach ($temp_orders as $index => $t_order)
-                                                            <tr class="px-2">
-                                                                <td class="text-start">{{ $t_order['ordem'] }}</td>
-                                                                <td class="text-end"><i
-                                                                        class="ri-delete-bin-2-line text-danger"
-                                                                        wire:click="remOrders({{ $index }})"
-                                                                        style="cursor: pointer;"></i></td>
-                                                            </tr>
+                                            <div class="row">
+                                                <div class="mb-3 col-md-4">
+                                                    <label for="exampleFormControlInput1" class="form-label">Tipo de
+                                                        Equipamento:</label>
+                                                    <select class="form-select" aria-label="Default select example"
+                                                        id="type" wire:model.defer="model_equipment.type">
+                                                        <option selected>Selecione</option>
+                                                        @foreach (SelectOptions::getEquipmentOptions() as $item)
+                                                            <option value="{{ $item->nick }}">{{ $item->info }}
+                                                            </option>
                                                         @endforeach
-                                                    </tbody>
-                                                </table>
-                                            @else
-                                                <div class="card-body">
-                                                    <h5 class="text-center">NENHUMA ORDEM ASSOCIADA</h5>
+                                                    </select>
                                                 </div>
-                                            @endif
+                                                <div class="mb-3 col-md-3">
+                                                    <label for="exampleFormControlInput1"
+                                                        class="form-label">Patrimônio:</label>
+                                                    <input type="text" class="form-control" id="patrimony"
+                                                        wire:model.defer="model_equipment.patrimony">
+                                                </div>
+                                                <div class="mb-3 col-md-3">
+                                                    <label for="exampleFormControlInput1"
+                                                        class="form-label">Movimento:</label>
+                                                    <select class="form-select" aria-label="Default select example"
+                                                        wire:model.defer="model_equipment.installed">
+                                                        <option selected>Selecione</option>
+                                                        <option value="1">Instalação</option>
+                                                        <option value="">Desinstalação</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3 col-md-4">
+                                                    <label for="exampleFormControlInput1" class="form-label">Fases
+                                                        Ligadas:</label>
+                                                    <select class="form-select" aria-label="Default select example"
+                                                        id="fases" wire:model.defer="model_equipment.fases">
+                                                        <option selected>Selecione</option>
+                                                        @foreach (SelectOptions::getFasesOptions() as $item)
+                                                            <option value="{{ $item->nick }}">{{ $item->info }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3 col-md-3">
+                                                    <label for="exampleFormControlInput1" class="form-label">Poste
+                                                        Referencial:</label>
+                                                    <input type="text" class="form-control" id="pole"
+                                                        wire:model.defer="model_equipment.pole">
+                                                </div>
+                                                <div class="mb-3 col-md-3">
+
+                                                    <button class="btn btn-sm btn-primary mt-4"
+                                                        wire:click="addEquipment()">Adicionar</button>
+                                                </div>
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="my-0 py-0">EQUIPAMENTOS</h5>
+                                        </div>
+                                        @if (!empty($temp_equipment))
+                                            <table class="table table-sm table-condensed table-striped-columns">
+                                                <thead>
+                                                    <tr class="table-secondary">
+                                                        <th scope='col' class="text-center">Tipo</th>
+                                                        <th scope='col' class="text-center">Patrimônio</th>
+                                                        <th scope='col' class="text-center">Movimento</th>
+                                                        <th scope='col' class="text-center">Fases</th>
+                                                        <th scope='col' class="text-center">Poste</th>
+                                                        <th scope='col' class="text-center"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($temp_equipment as $index => $equip)
+                                                        <tr class="px-2">
+                                                            <td class="text-center align-middle">{{ $equip['type'] }}
+                                                            </td>
+                                                            <td class="text-center align-middle">
+                                                                {{ $equip['patrimony'] }}</td>
+                                                            <td class="text-center align-middle">
+                                                                {{ $equip['installed'] ? 'INSTALAÇÃO' : 'DESINSTALAÇÃO' }}
+                                                            </td>
+                                                            <td class="text-center align-middle">{{ $equip['fases'] }}
+                                                            </td>
+                                                            <td class="text-center align-middle">{{ $equip['pole'] }}
+                                                            </td>
+                                                            <td class="text-center align-middle"><i
+                                                                    class="ri-delete-bin-2-line text-danger"
+                                                                    wire:click="remEquipment({{ $index }})"
+                                                                    style="cursor: pointer;"></i></td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        @else
+                                            <div class="card-body">
+                                                <h5 class="text-center">NENHUMA ORDEM ASSOCIADA</h5>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
                         @endif
+
+                        <div class="mb-3 " style="max-width: 300px">
+                            <label for="exampleFormControlInput1" class="form-label">Houve Alterações no
+                                projeto?</label>
+                            <select class="form-select" aria-label="Default select example"
+                                wire:model="form.changes">
+                                <option selected>Selecione</option>
+                                <option value="1">Sim</option>
+                                <option value="">Não</option>
+                            </select>
+                        </div>
+
+
+                        <div class="mb-3 col-md-6">
+                            <label for="exampleFormControlInput1" class="form-label">Observações (Desligamento
+                                programado/ Alterações/ Informações Gerais): </label>
+                            <textarea type="text" class="form-control" id="observacao" rows="4" wire:model.defer="form.observation"> </textarea>
+                        </div>
+
+                        <div class="mb-3 " style="max-width: 300px">
+                            <label for="exampleFormControlInput1" class="form-label">Houveram danos a propriedade de
+                                particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.)</label>
+                            <select class="form-select" aria-label="Default select example" wire:model="form.damage">
+                                <option selected>Selecione</option>
+                                <option value="1">Sim</option>
+                                <option value="">Não</option>
+                            </select>
+                        </div>
+
+                        @if ($form['damage'])
+                            <div class="mb-3 col-md-6">
+                                <label for="exampleFormControlInput1" class="form-label">Detalhar os Danos Causados e
+                                    Previsão de reparo: </label>
+                                <textarea type="text" class="form-control" id="observacao" rows="4" wire:model.defer="form.description"> </textarea>
+                            </div>
+                        @endif
+
                     @endif
                 </div>
             </div>

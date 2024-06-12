@@ -123,6 +123,7 @@ class SelectOptions
             (object)['type' => 'PREFEITURA', 'nick' => 'PM PIUMA', 'agency' => 'Prefeitura Municipal de Piuma'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM RIO BANANAL', 'agency' => 'Prefeitura Municipal de Rio Bananal'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM STA M JETIBA', 'agency' => 'Prefeitura Municipal de Santa Maria de Jetibá'],
+            (object)['type' => 'PREFEITURA', 'nick' => 'PM STA TERESA', 'agency' => 'Prefeitura Municipal de Santa Teresa'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM SAO GABRIEL DA PALHA', 'agency' => 'Prefeitura Municipal de São Gabriel da Palha'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM SÃO MATEUS', 'agency' => 'Prefeitura Municipal de São Mateus'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM SERRA', 'agency' => 'Prefeitura Municipal de Serra'],
