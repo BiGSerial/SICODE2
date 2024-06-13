@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('work_reports', function (Blueprint $table) {
             $table->id();
             $table->foreignId('note_id')->constrained('notes')->cascadeOnDelete();
-            $table->foreignId('company_id')->nullable();
+            $table->foreignUuid('company_id')->nullable();
             $table->foreignUuid('user_id')->nullable();
             $table->date('date')->nullable();
             $table->boolean('equipment')->nullable()->default(false);
@@ -26,7 +26,10 @@ return new class extends Migration
             $table->boolean('damage')->nullable()->default(false);
             $table->text('description')->nullable();
             $table->string('team')->nullable();
-            $table->strin('responsible')->nullable();
+            $table->string('responsible')->nullable();
+            $table->boolean('approved')->nullable()->default(false);
+            $table->boolean('rejected')->nullable()->default(false);
+            $table->boolean('retry')->nullable()->default(false);
             $table->timestamps();
         });
     }

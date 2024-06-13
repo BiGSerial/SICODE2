@@ -16,6 +16,7 @@ class SelectOptions
     public static function getEquipmentOptions()
     {
         return [
+            (object)['info' => 'BANCO CAPACITORES', 'nick' => 'BC'],
             (object)['info' => 'CONCENTRADOR PRIMARIO', 'nick' => 'CP'],
             (object)['info' => 'CONCENTRADOR SECUNDÁRIO', 'nick' => 'CS'],
             (object)['info' => 'REGULADOR DE TENSÃO', 'nick' => 'RT'],
@@ -30,6 +31,9 @@ class SelectOptions
             (object)['info' => 'A', 'nick' => 'A'],
             (object)['info' => 'B', 'nick' => 'B'],
             (object)['info' => 'C', 'nick' => 'C'],
+            (object)['info' => 'AB', 'nick' => 'AB'],
+            (object)['info' => 'AC', 'nick' => 'AC'],
+            (object)['info' => 'BC', 'nick' => 'BC'],
             (object)['info' => 'ABC', 'nick' => 'ABC'],
             (object)['info' => 'Não Aplicável', 'nick' => 'NA'],
         ];

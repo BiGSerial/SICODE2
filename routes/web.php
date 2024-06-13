@@ -117,6 +117,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
     Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
     Route::get('/workreport', 'workreport')->name('report.workreport');
+    Route::get('/workedlist', 'workedlist')->name('report.workedlist');
 });
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {

@@ -37,23 +37,28 @@
                 </ul>
             </li>
 
-            {{-- <li class="nav-item">
+            <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#contracts-nav" data-bs-toggle="collapse" href="#">
-                    <i class="ri-award-fill"></i><span>Contratação</span><i class="bi bi-chevron-down ms-auto"></i>
+                    <i class="ri-award-fill"></i><span>Informes</span><i class="bi bi-chevron-down ms-auto"></i>
                 </a>
 
-                <ul id="contracts-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="contracts-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="" class="nav-item text-white">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Obras Conntratadas</span>
+                            <a href="{{ route('partner.report.workreport') }}" class="nav-item text-white">
+                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informar Obras</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
+                                <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Informadas</span>
                             </a>
                         </li>
                     </div>
 
 
                 </ul>
-            </li> --}}
+            </li>
         </ul>
 
     </aside>

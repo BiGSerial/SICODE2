@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('work_report_id')->constrained('work_reports')->cascadeOnDelete();
             $table->string('type')->nullable();
-            $table->booolean('installed')->nullable()->default(false);
+            $table->boolean('installed')->default(false);
             $table->string('patrimony')->nullable();
             $table->string('fases')->nullable();
             $table->string('pole')->nullable();

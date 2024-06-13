@@ -4,6 +4,8 @@ namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\Note;
 use App\Models\Order;
+use App\Models\WorkReport;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Workreports extends Component
@@ -13,38 +15,97 @@ class Workreports extends Component
     public $notes;
     public $search;
     public $s_order;
+    public bool $hasFiles = false;
 
 
     public $equipment;
+    public $meeters;
     public $model_equipment = [
-        'type' => '',
-        'patrimony' => '',
-        'fases' => '',
-        'pole' => '',
-        'installed' => false,
+        'type' => null,
+        'patrimony' => null,
+        'fases' => null,
+        'pole' => null,
+        'installed' => null,
+    ];
+
+    public $model_meeter = [
+        'number' => null,
+        'borne' => null,
+        'fases' => null,
     ];
 
     public $form = [
-        'note_id' => '',
-        'company_id' => '',
-        'user_id' => '',
-        'date' => '',
-        'equipment' => false,
-        'connection' => false,
-        'changes' => false,
-        'observation' => '',
-        'damage' => false,
-        'description' => '',
-        'team' => '',
-        'responsible' => ''
+        'note_id' => null,
+        'company_id' => null,
+        'user_id' => null,
+        'date' => null,
+        'equipment' => null,
+        'connection' => null,
+        'changes' => null,
+        'observation' => null,
+        'damage' => null,
+        'description' => null,
+        'team' => null,
+        'responsible' => null
     ];
 
     public $temp_orders = [];
     public $temp_equipment = [];
+    public $temp_meeters = [];
 
     protected $listeners = [
-        'confirm_informe'
+        'confirm_informe',
+        'send_informe',
+        'hasFile'
     ];
+
+    protected $rules = [
+        'form.date' => 'required|date|before_or_equal:today',
+        'form.equipment' => 'required|boolean',
+        'form.changes' => 'required|boolean',
+        'form.observation' => 'nullable|string|max:5000',
+        'form.damage' => 'required|boolean',
+        'form.description' => 'required_if:form.damage,1|nullable|string|min:10|max:5000',
+        'form.connection' => 'required|boolean',
+        'form.team' => 'required|string|max:255',
+        'form.responsible' => 'required|string|max:255',
+
+    ];
+
+    public function messages()
+    {
+        return [
+            'form.date.required' => 'O campo [data de conclusão] é obrigatório.',
+            'form.date.date' => 'O campo [data de conclusão] deve ser uma data válida.',
+            'form.date.before_or_equal' => 'O campo data de conclusão deve ser uma data anterior ou igual a hoje.',
+            'form.equipment.required' => 'O campo [Equipamento Instalados] é obrigatório.',
+            'form.equipment.boolean' => 'O campo [Equipamento Instalados] deve ser verdadeiro ou falso.',
+            'form.changes.required' => 'O campo [Houveram Mudanças] é obrigatório.',
+            'form.changes.boolean' => 'O campo [Houveram Mudanças] deve ser verdadeiro ou falso.',
+            'form.observation.string' => 'O campo [Observações] deve ser uma string.',
+            'form.damage.required' => 'O campo [Houve Dano] é obrigatório.',
+            'form.damage.boolean' => 'O campo [Houve Dano] deve ser verdadeiro ou falso.',
+            'form.description.required_if' => 'A descrição do DANO é obrigatório quado for informado a existência de DANO.',
+            'form.description.string' => 'O campo [Descrição] deve ser uma string.',
+            'form.connection.required' => 'O campo [Houve Ligação] é obrigatório.',
+            'form.connection.boolean' => 'O campo [Houve Ligação] deve ser verdadeiro ou falso.',
+            'form.meeters.required' => 'O campo [Medidores Istalados] é obrigatório.',
+            'form.meeters.boolean' => 'O campo [Medidores Istalados] deve ser verdadeiro ou falso.',
+            'form.team.required' => 'O campo [Nome da Equipe] é obrigatório.',
+            'form.team.string' => 'O campo [Nome da Equipe] deve ser uma string.',
+            'form.responsible.required' => 'O campo [Encarregado Responsável] é obrigatório.',
+            'form.responsible.string' => 'O campo [Encarregado Responsável] deve ser uma string.',
+        ];
+    }
+
+    /**
+     * Recebe evento oriundo de um componente Livewire informando que existe arquivo carregado.
+     * @param [bool] $hasFile
+     */
+    public function hasFile(bool $hasFile)
+    {
+        $this->hasFiles = $hasFile;
+    }
 
     public function search()
     {
@@ -65,6 +126,169 @@ class Workreports extends Component
 
                 return;
             }
+        }
+    }
+
+    public function submit()
+    {
+        try {
+
+            $this->validate();
+
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'CONFIRMAR CONCLUSÂO OBRA ' . $this->note->note,
+                'msg'           => '
+                    <div class="card">
+                        <div class="card-body text-start">
+                           <p>Você está preste a confirmar a obra ' . $this->note->note . '. Reforçamos que a confirmação PARCIAL da obra poderá acarretar atrasos, incluindo qualquer recursos oriundo em depedência deste informa.</p>
+                           <h4>Gostaria realmente de confirmar a conclusão desta OBRA?</h4>
+                        </div>
+                    </div>
+                ',
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Confirmar',
+                'btnCanceltxt'  => 'Cancelar',
+                'action'        => 'send_informe',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Cancelado a Confirmação do Formulário.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $errors = $e->validator->errors()->all();
+            $html = '<ul>';
+            foreach ($errors as $error) {
+                $html .= '<li>' . $error . '</li>';
+            }
+            $html .= '</ul>';
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => '<div class="card"><div class="card-body text-start">' . $html . '</div></div>',
+            ]);
+
+            // $this->resetErrorBag();
+        }
+    }
+
+    public function send_informe()
+    {
+        $this->form['note_id'] = $this->note->id;
+        $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
+        $this->form['user_id'] = Auth()->User()->id;
+
+        if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => 'Não foram relacionados os Equipementos Instalados ou Removidos',
+            ]);
+
+            return;
+        }
+
+        if ($this->form['damage'] == true && !trim($this->form['description'])) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => 'O Detalhamento dos Danos Causados é Obrigatório.',
+            ]);
+
+            return;
+        }
+
+        if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => 'Os equipamentos Instalados/Desinstalados é obrigatório sua informação.',
+            ]);
+
+            return;
+        }
+
+        if ($this->form['changes'] == true && !$this->hasFiles) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => 'É obrigatório anexar o AsBuilt da Obra Executada. (apenas PDF)',
+            ]);
+
+            return;
+        }
+
+        if ($this->meeters == true && empty($this->temp_meeters)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => 'É obrigatório a informação dos medidores instalados.',
+            ]);
+
+            return;
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $form = WorkReport::updateOrCreate(
+                ['note_id' => $this->form['note_id']],
+                $this->form
+            );
+
+            if ($form) {
+
+                if (!empty($this->temp_orders)) {
+
+                    $ordersId = [];
+
+                    foreach ($this->temp_orders as $order) {
+                        $ordersId[] = $order['id'];
+                    }
+
+                    $form->Orders()->attach($ordersId);
+
+                    unset($ordersId);
+                }
+
+                if ($form->equipment && !empty($this->temp_equipment)) {
+                    foreach ($this->temp_equipment as $equipment) {
+                        $form->Equipment()->create($equipment);
+                    }
+                }
+
+                if (!empty($this->temp_meeters)) {
+                    foreach ($this->temp_meeters as $meeter) {
+                        $form->Meeters()->create($meeter);
+                    }
+                }
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'Informe Entregue com Sucesso',
+                ]);
+
+                $this->cleanAll();
+                $this->initForm();
+
+                $this->note = null;
+
+                $this->emitTo('files.partnersinform', 'save_files');
+
+                DB::commit();
+            }
+        } catch (\Throwable $th) {
+
+            DB::rollback();
+
+            dd($th->getMessage());
         }
     }
 
@@ -89,10 +313,10 @@ class Workreports extends Component
 
         if (empty($this->temp_equipment)) {
 
-            $this->temp_equipment[] = $this->model_equipment;
+            $this->temp_equipment[] = array_map('trim', $this->model_equipment);
         } else {
             $add = true;
-
+            $this->model_equipment = array_map('trim', $this->model_equipment);
             foreach ($this->temp_equipment as $equip) {
                 if ($equip['type'] == $this->model_equipment['type'] && $equip['patrimony'] == $this->model_equipment['patrimony']) {
                     $add = false;
@@ -110,6 +334,37 @@ class Workreports extends Component
     {
         if (isset($this->temp_equipment[$index])) {
             unset($this->temp_equipment[$index]);
+        }
+    }
+
+    public function addMeeters()
+    {
+
+        // dd($this->model_equipment);
+
+        if (empty($this->temp_meeters)) {
+
+            $this->temp_meeters[] = array_map('trim', $this->model_meeter);
+        } else {
+            $add = true;
+            $this->model_meeter = array_map('trim', $this->model_meeter);
+            foreach ($this->temp_meeters as $equip) {
+                if ($equip['number'] == $this->model_meeter['number']) {
+                    $add = false;
+                    break;
+                }
+            }
+
+            if ($add) {
+                $this->temp_meeters[] = $this->model_meeter;
+            }
+        }
+    }
+
+    public function remMeeters($index)
+    {
+        if (isset($this->temp_meeters[$index])) {
+            unset($this->temp_meeters[$index]);
         }
     }
 
@@ -156,22 +411,34 @@ class Workreports extends Component
         $this->temp_orders = [];
         $this->temp_equipment = [];
         $this->form = [
-            'note_id' => '',
-            'company_id' => '',
-            'user_id' => '', 'date' => '',
-            'equipment' => false, 'connection' => false,
-            'changes' => '', 'observation' => '',
-            'damage' => false, 'description' => '',
-            'team' => '',
-            'responsible' => ''
+            'note_id' => null,
+            'company_id' => null,
+            'user_id' => null,
+            'date' => null,
+            'equipment' => null,
+            'connection' => null,
+            'changes' => null,
+            'observation' => null,
+            'damage' => null,
+            'description' => null,
+            'team' => null,
+            'responsible' => null
         ];
         $this->model_equipment = [
-            'type' => '',
-            'patrimony' => '',
-            'fases' => '',
-            'pole' => '',
-            'installed' => false,
+            'type' => null,
+            'patrimony' => null,
+            'fases' => null,
+            'pole' => null,
+            'installed' => null,
         ];
+
+        $this->model_meeter = [
+            'number' => null,
+            'borne' => null,
+            'fases' => null,
+        ];
+
+        $this->emitTo('files.partnersinform', 'cancel_files');
     }
 
     public function render()

@@ -43,4 +43,9 @@ class WorkReport extends Model
     {
         return $this->belongsToMany(Order::class, 'order_work_report');
     }
+
+    public function Meeters()
+    {
+        return $this->hasMany(Meeter::class);
+    }
 }

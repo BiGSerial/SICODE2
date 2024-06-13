@@ -28,4 +28,9 @@ class PartnerController extends Controller
     {
         return view('partner.workreport');
     }
+
+    public function workedlist()
+    {
+        return view('partner.worksList');
+    }
 }
