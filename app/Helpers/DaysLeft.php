@@ -24,14 +24,14 @@ final class DaysLeft
 
                 if ($mes >= 1) {
                     $data = "{$ano}-{$mes}-28 23:59:59";
-
                 } else {
                     $data = "{$ano}-12-28 23:59:59";
                 }
+            } else {
+                return null;
             }
 
             return $data;
-
         } else {
 
             return null;
@@ -46,7 +46,7 @@ final class DaysLeft
 
             $hoje = Carbon::now();
 
-            $dataCarbon = Carbon::parse( $this->convertMensalizationToDate($this->note->mesalization));
+            $dataCarbon = Carbon::parse($this->convertMensalizationToDate($this->note->mesalization));
             $days_left = $hoje->diffInDays($dataCarbon, false);
 
             return $days_left;
@@ -63,5 +63,4 @@ final class DaysLeft
             return Carbon::now()->addDays($this->note->days_left)->format('d/m/Y');
         }
     }
-
 }

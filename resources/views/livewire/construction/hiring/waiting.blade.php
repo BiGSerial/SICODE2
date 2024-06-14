@@ -114,12 +114,17 @@
                             </td>
                             <td class="text-center aling-middle">
                                 @if ($list->Reclaim && $list->Reclaim->completed)
-                                    <i class="ri-arrow-go-back-fill text-danger" tabindex="0" data-bs-toggle="popover"
-                                        data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="DEVOLUÇÃO"
+                                    <i class="ri-arrow-go-back-fill text-primary" tabindex="0"
+                                        data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
+                                        data-bs-title="DEVOLUÇÃO"
                                         data-bs-content="Devolver para o Responsável a Nota/Ov"
                                         style="cursor: pointer;"
                                         wire:click.prevent="go_giveBack({{ $list->id }})"></i>
                                 @endif
+                                <i class="ri-delete-bin-2-line text-danger" tabindex="0" data-bs-toggle="popover"
+                                    data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="EXCLUIR"
+                                    data-bs-content="Excluir registro de Espera" style="cursor: pointer;"
+                                    wire:click.prevent="cancelWaiting({{ $list->id }})"></i>
                             </td>
                         </tr>
                     @endforeach

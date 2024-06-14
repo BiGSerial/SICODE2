@@ -29,12 +29,13 @@
 @endsection
 
 @section('content')
+
     <div class="container-fluid main-content menu-hidden">
 
         @can('engineer')
             @livewire('engineer.main')
         @endcan
-        
+
         @can('user')
             <div class="row justify-content-center">
                 <div class="col-md-8">
@@ -240,6 +241,6 @@
             </div>
         @endcan
 
-        
+
     </div>
 @endsection
