@@ -200,7 +200,15 @@
                                                         </a>
                                                     @endif
                                                 @endif
+                                                @if (Auth()->User()->superadm)
+                                                    <a href="{{ route('impersonate', $user->id) }}"
+                                                        class="table-link">
 
+                                                        <span class="fa-stack">
+                                                            <i class="ri-eye-line btn btn-info btn-sm"></i>
+                                                        </span>
+                                                    </a>
+                                                @endif
 
                                             </td>
                                         </tr>

@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use Illuminate\Support\Facades\Session;
+
+class ImpersonationController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('admin')->only(['impersonate']);
+    }
+
+    public function impersonate($userId)
+    {
+        $user = User::find($userId);
+
+        if ($user) {
+            Session::put('impersonate', Auth()->User()->id);
+            // session(['impersonate' => Auth()->User()->id]);
+            Auth()->login($user);
+
+            return redirect('/')->with('success', 'Você está acessando como ' . $user->name);
+        }
+
+        return redirect()->back()->with('error', 'Usuario não Encontrado.');
+    }
+
+    public function stopImpersonating()
+    {
+
+        // $originalUserId = Session::get('impersonate');
+        $originalUser = User::find(Session::get('impersonate'));
+
+
+
+        if ($originalUser) {
+            Auth()->login($originalUser);
+
+            Session::forget('impersonate');
+
+            return redirect('/')->with('success', 'Você parou de se passar por alguem');
+        }
+
+        return redirect()->back()->with('error', 'Usuario original não encontrado.');
+    }
+}

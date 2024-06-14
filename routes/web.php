@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, ImpersonationController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -133,6 +133,13 @@ Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->gr
         return View('desingtestview');
     });
 });
+
+Route::middleware('auth')->group(function () {
+    Route::get('impersonate/{userId}', [ImpersonationController::class, 'impersonate'])->name('impersonate');
+    Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
+});
+
+
 
 Route::get('/info', function () {
     return phpinfo();

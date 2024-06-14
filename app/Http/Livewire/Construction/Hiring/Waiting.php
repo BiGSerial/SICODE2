@@ -2,12 +2,15 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Http\Livewire\Construction\Hiring\Actions\Waitinghiring;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\HiringWaiting;
 use App\Models\Note;
 use App\Models\Operation;
 use App\Models\Order;
+use App\Models\Production;
+use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Viability;
@@ -23,6 +26,9 @@ class Waiting extends Component
     use WithFileUploads;
 
     protected $paginationTheme = 'bootstrap';
+
+
+    public $deleteNote;
 
     public $perPage = 50;
 
@@ -80,15 +86,14 @@ class Waiting extends Component
     public $clipboardData = [];
 
 
-    protected $queryString = [
-
-    ];
+    protected $queryString = [];
 
     protected $listeners = [
         'refresh_list' => '$refresh',
         'confirm_viability' => 'confirm_viability',
         'cleanAll' => 'closeall',
         'giveBack' => 'giveBack',
+        'deleteWaiting',
     ];
 
     public function mount($service)
@@ -161,13 +166,13 @@ class Waiting extends Component
 
 
             $orders = Order::join('notes', 'orders.note_id', '=', 'notes.id')->with('Operations', 'Note.Files')
-            ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
-            ->orderBy('myTypeNote', 'DESC')
-            ->orderBy('myDayLeft')
-            ->orderBy('myNote')
-            ->whereRelation('Note', function ($q) {
-                $q->whereIn('note_id', $this->selected);
-            })->get();
+                ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
+                ->orderBy('myTypeNote', 'DESC')
+                ->orderBy('myDayLeft')
+                ->orderBy('myNote')
+                ->whereRelation('Note', function ($q) {
+                    $q->whereIn('note_id', $this->selected);
+                })->get();
 
             if ($orders) {
 
@@ -210,34 +215,101 @@ class Waiting extends Component
         $this->emit('refresh_list');
     }
 
+    public function cancelWaiting($waiting)
+    {
+        $this->deleteNote = $waiting;
+
+        if ($this->deleteNote) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => "Remopver Espera",
+                'msg'           => "Deseja Remover a Espera de Resolução Interna?",
+                'icon'          => 'question',
+                'btnOktxt'      => 'Sim, Remova!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'deleteWaiting',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma espera foi removida!',
+
+            ]);
+
+            return;
+        }
+    }
+
+    public function deleteWaiting()
+    {
+        $this->deleteNote = HiringWaiting::find($this->deleteNote);
+
+
+        // dd($this->deleteNote);
+
+        DB::beginTransaction();
+
+        try {
+
+            if (isset($this->deleteNote->Reclaim->Production)) {
+
+                $this->deleteNote->Reclaim->Production->delete();
+            }
+
+            if (isset($this->deleteNote->Reclaim)) {
+                $this->deleteNote->Reclaim->delete();
+            }
+
+            $this->deleteNote->delete();
+
+            DB::commit();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Espera removida com Sucesso.',
+                'timer'    => 5000,
+            ]);
+
+            $this->deleteNote = null;
+            $this->emit('refresh_list');
+        } catch (\Throwable $th) {
+
+            dd($th->getMessage());
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Ocorreu algum erro ao tentar remover espera.',
+                'timer'    => 5000,
+            ]);
+            $this->deleteNote = null;
+            DB::rollback();
+        }
+    }
+
 
 
     public function getListsProperty()
     {
         return HiringWaiting::where('user_id', auth()->user()->id)
-                        ->where('complete', false)
-                        ->when($this->cjobes, function ($query) {
-                            $query->whereHas('Note.Orders.Operations', function ($subquery) {
-                                $subquery->where('cenTrab', $this->cjobes)->where('operacao', '0010');
-                            });
-                        })
-                        ->orderBy('created_at')
-                        ->with(['Note.Orders.Operations' => function ($query) {
-                            $query->where('operacao', '0010');
-                        }, 'Note.Files', 'Reclaim.Production'])
-                        ->paginate($this->perPage);
+            ->where('complete', false)
+            ->when($this->cjobes, function ($query) {
+                $query->whereHas('Note.Orders.Operations', function ($subquery) {
+                    $subquery->where('cenTrab', $this->cjobes)->where('operacao', '0010');
+                });
+            })
+            ->orderBy('created_at')
+            ->with(['Note.Orders.Operations' => function ($query) {
+                $query->where('operacao', '0010');
+            }, 'Note.Files', 'Reclaim.Production'])
+            ->paginate($this->perPage);
     }
 
     public function getCentroTrabProperty()
     {
         return Operation::where('operacao', '0010')
-                    ->where('descOperacao', 'like', '%EMPREITAR E VIABIL%')
-                    ->select('cenTrab')
-                    ->orderBy('cenTrab')
-                    ->groupBy('cenTrab')
-                    ->get();
-
-
+            ->where('descOperacao', 'like', '%EMPREITAR E VIABIL%')
+            ->select('cenTrab')
+            ->orderBy('cenTrab')
+            ->groupBy('cenTrab')
+            ->get();
     }
 
     public function go_giveBack(HiringWaiting $waiting)
