@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\HiringWaiting;
 use App\Models\Note;
 use App\Models\User;
+use App\Models\Viability;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -36,13 +37,11 @@ class Main extends Component
     {
         return Note::whereRelation('Viabilities', function ($q) {
             return $q->where('hired', true)
-                    ->whereYear('hired_at', date('Y'))
-                    ->whereMonth('hired_at', date('m'))
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    });
-
-
+                ->whereYear('hired_at', date('Y'))
+                ->whereMonth('hired_at', date('m'))
+                ->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                });
         })->count();
     }
 
@@ -65,9 +64,6 @@ class Main extends Component
                     'value' => null
                 ];
             }
-
-
-
         } elseif ($status == 'completed') {
 
             $this->filterResponser = false;
@@ -83,7 +79,6 @@ class Main extends Component
                     'value' => null
                 ];
             }
-
         } else {
             $this->filterStatus =  [
                 'column' => null,
@@ -95,8 +90,6 @@ class Main extends Component
                 $this->filterResponser = false;
             }
         }
-
-
     }
 
     public function searching()
@@ -115,11 +108,11 @@ class Main extends Component
         $actual = $this->countHiring;
         $past = Note::whereRelation('Viabilities', function ($q) {
             return $q->where('hired', true)
-                    ->whereYear('hired_at', date('Y'))
-                    ->whereMonth('hired_at', date('m') - 1)
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    });
+                ->whereYear('hired_at', date('Y'))
+                ->whereMonth('hired_at', date('m') - 1)
+                ->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                });
         })->count();
 
         if ($past != 0) {
@@ -133,13 +126,11 @@ class Main extends Component
     {
         return Note::whereRelation('Viabilities', function ($q) {
             return $q->where('completed', false)
-                    ->whereYear('sended_at', date('Y'))
-                    ->whereMonth('sended_at', date('m'))
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    });
-
-
+                ->whereYear('sended_at', date('Y'))
+                ->whereMonth('sended_at', date('m'))
+                ->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                });
         })->count();
     }
 
@@ -148,11 +139,11 @@ class Main extends Component
         $actual = $this->countViability;
         $past = Note::whereRelation('Viabilities', function ($q) {
             return $q->where('hired', true)
-                    ->whereYear('hired_at', date('Y'))
-                    ->whereMonth('hired_at', date('m') - 1)
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    });
+                ->whereYear('hired_at', date('Y'))
+                ->whereMonth('hired_at', date('m') - 1)
+                ->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                });
         })->count();
 
         if ($past != 0) {
@@ -168,47 +159,45 @@ class Main extends Component
             return $q->when($this->company, function ($sq) {
                 $sq->where('company_id', $this->company);
             })
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    })
+                ->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                })
+                ->when($this->filterStatus['column'], function ($q) {
+                    $q->where($this->filterStatus['column'], $this->filterStatus['value']);
+                })
+                ->when($this->filterResponser, function ($q) {
+                    $q->where('status', 4);
+                });
+        })
+            ->with(['Viabilities' => function ($q) {
+                return $q->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                })->when($this->company, function ($sq) {
+                    $sq->where('company_id', $this->company);
+                })
                     ->when($this->filterStatus['column'], function ($q) {
                         $q->where($this->filterStatus['column'], $this->filterStatus['value']);
                     })
                     ->when($this->filterResponser, function ($q) {
                         $q->where('status', 4);
-                    });
+                    });;
+            }])
+
+            ->when(trim($this->search), function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('note', 'like', "%" . trim($this->search) . "%")
+                        ->orWhere('rubrica', 'like', "%" . trim($this->search) . "%")
+                        ->orWhere('lexp', 'like', "%" . trim($this->search) . "%")
+                        ->orWhereRelation('Orders', 'ordem', 'like', "%" . trim($this->search) . "%");
+                });
+            })
 
 
-        })
-        ->with(['Viabilities' => function ($q) {
-            return $q->when(Auth()->User()->engineer, function ($sq) {
-                $sq->where('engineer_id', Auth()->User()->id);
-            })->when($this->company, function ($sq) {
-                $sq->where('company_id', $this->company);
-            })
-            ->when($this->filterStatus['column'], function ($q) {
-                $q->where($this->filterStatus['column'], $this->filterStatus['value']);
-            })
             ->when($this->filterResponser, function ($q) {
-                $q->where('status', 4);
-            });
-            ;
-        }])
-        ->when(trim($this->search), function ($q) {
-            $q->where(function ($sq) {
-                $sq->where('note', 'like', "%".trim($this->search)."%")
-                    ->orWhere('rubrica', 'like', "%".trim($this->search)."%")
-                    ->orWhere('lexp', 'like', "%".trim($this->search)."%")
-                    ->orWhereRelation('Orders', 'ordem', 'like', "%".trim($this->search)."%");
-            });
-        })
+                $q->whereRelation('Viabilities', 'status', 4);
+            })
 
-
-        ->when($this->filterResponser, function ($q) {
-            $q->whereRelation('Viabilities', 'status', 4);
-        })
-
-        ->paginate($this->perPage);
+            ->paginate($this->perPage);
     }
 
     public function getListResponsersProperty()
@@ -239,14 +228,12 @@ class Main extends Component
     {
         return Note::whereRelation('Viabilities', function ($q) {
             return $q
-                    ->where('rejected', true)
-                    ->when(Auth()->User()->engineer, function ($sq) {
-                        $sq->where('engineer_id', Auth()->User()->id);
-                    });
-
-
+                ->where('rejected', true)
+                ->when(Auth()->User()->engineer, function ($sq) {
+                    $sq->where('engineer_id', Auth()->User()->id);
+                });
         })
-        ->count();
+            ->count();
     }
 
     public function getWaitingListsProperty()

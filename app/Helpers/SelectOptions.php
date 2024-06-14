@@ -71,6 +71,7 @@ class SelectOptions
             (object)['reason' => 'Aguardando Alvará', 'value' => 'AGUARDANDO ALVARA'],
             (object)['reason' => 'Aguardando Ajustes', 'value' => 'AGUARDANDO AJUSTES'],
             (object)['reason' => 'Aguardando Comprovante', 'value' => 'AGUARDANDO COMPROVANTE'],
+            (object)['reason' => 'Aguardando Protocolo Presencial', 'value' => 'AGUARDANDO PROTOCOLO PRESENCIAL'],
             (object)['reason' => 'Alvará em Anexo', 'value' => 'ALVARA EM ANEXO'],
             (object)['reason' => 'Carta ao cliente', 'value' => 'CARTA AO CLIENTE'],
             (object)['reason' => 'Deferido', 'value' => 'DEFERIDO'],
