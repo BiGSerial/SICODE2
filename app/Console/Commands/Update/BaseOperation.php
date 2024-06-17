@@ -28,10 +28,12 @@ class BaseOperation extends Command
      */
     public function handle()
     {
-        $totalRecords = Edp_depcBaseOperation::where('operacao', '0010')->count();
+        $totalRecords = Order::Where('statusSist', 'Not Like', 'ENT%')->Where('statusSist', 'Not Like', 'ENC%')->count();
         $cities       = City::get();
 
-        $progressBar = new ProgressBar($this->output, $totalRecords, 0.2);
+
+
+        $progressBar = new ProgressBar($this->output, $totalRecords * 6, 0.2);
 
         $progressBar->setFormat("<bg=blue;fg=white>UPDATE OPERATION: %current%/%max% </><fg=white;options=bold> [%cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </>\n <bg=blue;fg=white>READING: </> %message%");
         // $progressBar->setFormat('%current%/%max% [%cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
@@ -41,7 +43,7 @@ class BaseOperation extends Command
 
         $progressBar->start();
 
-        $chunkSize = 5000;
+        $chunkSize = 500;
 
         $count['upd']   = 0;
         $count['ctd']   = 0;
@@ -49,19 +51,17 @@ class BaseOperation extends Command
         $count['cloop'] = 0;
         $count['nf']    = 0;
 
-        Edp_depcBaseOperation::where('operacao', '0010')->chunk($chunkSize, function ($origins) use (&$progressBar, &$count) {
-            $originOrders = $origins->pluck('ordem')->unique();
-            $orders       = Order::whereIn('ordem', $originOrders)->get();
+        Order::Where('statusSist', 'Not Like', 'ENT%')->Where('statusSist', 'Not Like', 'ENC%')->chunk($chunkSize, function ($orders) use (&$progressBar, &$count) {
 
-            if (count($originOrders) > $orders->count()) {
-                $this->info('<bg=yellow;fg=black> INFO </> <fg=white;options=bold> DESTINY`s BASE HAVE NOTES/OV NOT FOUNDED...</>');
-            }
+            $originOrders = $orders->pluck('ordem')->unique();
+            $operations   = Edp_depcBaseOperation::whereIn('ordem', $originOrders)->get();
+
 
             $count['cloop']++;
 
-            foreach ($origins as $origin) {
+            foreach ($operations as $operation) {
 
-                $order = $orders->where('ordem', $origin->ordem)->first();
+                $order = $orders->where('ordem', $operation->ordem)->first();
 
                 // if (!$order) {
 
@@ -93,36 +93,33 @@ class BaseOperation extends Command
 
                 if ($order) {
                     $operation = $order->Operations()->updateOrCreate(
-                        ['operacao' => $origin->operacao],
+                        ['operacao' => $operation->operacao],
                         [
-                            'descOperacao'    => $origin->descOperacao,
-                            'inicioPlanejado' => $origin->inicioPlanejado,
-                            'fimPlanejado'    => $origin->fimPlanejado,
-                            'inicioReal'      => $origin->inicioReal,
-                            'fimReal'         => $origin->fimReal,
-                            'status'          => $origin->status,
-                            'notaOv'          => $origin->notaOv,
-                            'cenPlan'         => $origin->cenPlan,
-                            'cenTrab'         => $origin->cenTrab,
-                            'txtCenTrab'      => $origin->txtCenTrab,
+                            'descOperacao'    => $operation->descOperacao,
+                            'inicioPlanejado' => $operation->inicioPlanejado,
+                            'fimPlanejado'    => $operation->fimPlanejado,
+                            'inicioReal'      => $operation->inicioReal,
+                            'fimReal'         => $operation->fimReal,
+                            'status'          => $operation->status,
+                            'notaOv'          => $operation->notaOv,
+                            'cenPlan'         => $operation->cenPlan,
+                            'cenTrab'         => $operation->cenTrab,
+                            'txtCenTrab'      => $operation->txtCenTrab,
                         ]
                     );
 
                     if ($operation->wasRecentlyCreated) {
 
                         $count['ctd']++;
-
                     } else {
 
                         $count['upd']++;
-
                     }
-
                 } else {
                     $count['nf']++;
                 }
 
-                $progressBar->setMessage($origin->id, 'message');
+                $progressBar->setMessage($operation->id, 'message');
                 $progressBar->setMessage($count['nf'], 'nf');
                 $progressBar->setMessage($count['cloop'], 'cloop');
                 $progressBar->setMessage($count['tloop'], 'tloop');
@@ -130,10 +127,6 @@ class BaseOperation extends Command
                 $progressBar->setMessage($count['ctd'], 'ctd');
                 $progressBar->advance();
             }
-
-            unset($origins);
-            unset($orders);
-
         });
 
         unset($count);
