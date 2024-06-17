@@ -94,4 +94,9 @@ class Note extends Model
     {
         return $this->hasOne(External::class);
     }
+
+    public function WorkForm()
+    {
+        return $this->hasMany(WorkReport::class);
+    }
 }
