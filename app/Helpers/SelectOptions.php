@@ -96,6 +96,7 @@ class SelectOptions
             (object)['type' => 'AMBIENTAL', 'nick' => 'IBAMA', 'agency' => 'Instituto Brasileiro do Meio Ambiente e dos Recursos Naturais Renováveis'],
             (object)['type' => 'FEDERAL', 'nick' => 'FURNAS', 'agency' => 'Eletrobras Furnas'],
             (object)['type' => 'FEDERAL', 'nick' => 'SECULT', 'agency' => 'Secretaria de Estado da Cultura'],
+            (object)['type' => 'PREFEITURA', 'nick' => 'PM ANCHIETA', 'agency' => 'Prefeitura Municipal de Anchieta'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM AFONSO CLAUDIO', 'agency' => 'Prefeitura Municipal de Afonso Cláudio'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM ALEGRE', 'agency' => 'Prefeitura Municipal de Alegre'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM AGUA DOCE DO NORTE', 'agency' => 'Prefeitura Municipal de Água Doce do Norte'],
