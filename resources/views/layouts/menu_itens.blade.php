@@ -1,7 +1,3 @@
-
-
-
-
 @can('admin')
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button" data-bs-toggle="dropdown"
@@ -187,7 +183,7 @@
                     @endforeach
                 @endif
             @endcan
-            @can('user')
+            @can('operator')
                 <li>
                     <hr class="dropdown-divider">
                 </li>

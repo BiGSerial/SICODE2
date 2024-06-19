@@ -16,6 +16,14 @@
                         </a>
                     </li>
 
+                    <li>
+                        <a href="{{ route('services.hiringsurvey', ['service' => $service->uuid]) }}"
+                            class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-circle"></i> <span>EM VIABILIDADE</span>
+                            {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
+                        </a>
+                    </li>
+
                     {{-- <li>
                         <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">

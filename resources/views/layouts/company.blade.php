@@ -111,15 +111,26 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
-    <header id="header" class="header fixed-top d-flex align-items-center edp-bg-violeta-100">
+
+
+    <header id="header"
+        class="header fixed-top d-flex align-items-center @if (session('impersonate')) text-bg-danger @else edp-bg-violeta-100 @endif">
         <i class="bi bi-list toggle-sidebar-btn text-white me-3"></i>
 
         @if (env('APP_QA') && env('APP_DEBUG'))
-            <i class="text-white fs-6">Desenvolvimento</i>
+            <i class="edp-text-verde-light fs-6">Desenvolvimento</i>
         @elseif (env('APP_QA'))
-            <i class="text-white fs-6">Qualidade</i>
+            <i class="edp-text-verde-light fs-6">Qualidade</i>
         @else
-            <i class="text-white fs-6">Produção</i>
+            <i class="edp-text-verde-light fs-6">Produção</i>
+        @endif
+
+        @if (session('impersonate'))
+            <h5 class="text-warning text-uppercase mx-4 align-middle">VOCÊ ESTÁ NA VISÂO DE
+                <strong>{{ Auth()->User()->name }}</strong>.
+                <a href="{{ route('stopImpersonating') }}" class="btn btn-sm btn-primary mx-2 align-middle">PARAR
+                    VISÃO</a>
+            </h5>
         @endif
 
         <nav class="header-nav ms-auto me-2">

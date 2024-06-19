@@ -42,4 +42,13 @@ class ServicesController extends Controller
             'service' => $service,
         ]);
     }
+
+    public function hiringsurvey(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.levantamento.historicviab', [
+            'service' => $service,
+        ]);
+    }
 }
