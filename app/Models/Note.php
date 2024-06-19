@@ -97,6 +97,11 @@ class Note extends Model
 
     public function WorkForm()
     {
-        return $this->hasMany(WorkReport::class);
+        return $this->hasOne(WorkReport::class);
+    }
+
+    public function d5Return()
+    {
+        return $this->hasOne(D5Return::class);
     }
 }

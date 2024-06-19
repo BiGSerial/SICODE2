@@ -20,24 +20,50 @@
                         <table class="table table-sm table-condensed table-striped">
                             <tbody>
                                 @foreach ($notes as $note)
-                                    <tr wire:key="{{ $note->id }}" wire:click="toConfirmWork({{ $note }})"
-                                        style="cursor: pointer;">
-                                        <td class="fw-bold align-middle">{{ $note->note }}</td>
-                                        <td class="align-middle">
-                                            @if ($note->Orders->count())
-                                                @foreach ($note->Orders as $order)
-                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                @endforeach
-                                            @endif
-                                        </td>
-                                        <td class="align-middle">
-                                            @if ($note->Viabilities->count())
-                                                {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
-                                            @else
-                                                SEM INFORMAÇÔES DE VIABILIDADE
-                                            @endif
-                                        </td>
-                                    </tr>
+                                    @if (!$note->WorkForm)
+                                        <tr wire:key="{{ $note->id }}"
+                                            wire:click="toConfirmWork({{ $note }})" style="cursor: pointer;">
+                                            <td class="fw-bold align-middle">{{ $note->note }}</td>
+                                            <td class="align-middle">
+                                                @if ($note->Orders->count())
+                                                    @foreach ($note->Orders as $order)
+                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                            <td class="align-middle">
+                                                @if ($note->Viabilities->count())
+                                                    {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
+                                                @else
+                                                    SEM INFORMAÇÔES DE VIABILIDADE
+                                                @endif
+                                            </td>
+                                            <td class="align-middle fw-bold">
+                                                {{ $note->WorkForm ? 'OBRA INFORMADA' : 'NÃO INFORMADA' }}
+                                            </td>
+                                        </tr>
+                                    @else
+                                        <tr wire:key="{{ $note->id }}">
+                                            <td class="fw-bold align-middle">{{ $note->note }}</td>
+                                            <td class="align-middle">
+                                                @if ($note->Orders->count())
+                                                    @foreach ($note->Orders as $order)
+                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                            <td class="align-middle">
+                                                @if ($note->Viabilities->count())
+                                                    {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
+                                                @else
+                                                    SEM INFORMAÇÔES DE VIABILIDADE
+                                                @endif
+                                            </td>
+                                            <td class="align-middle fw-bold">
+                                                {{ $note->WorkForm ? 'OBRA INFORMADA' : 'NÃO INFORMADA' }}
+                                            </td>
+                                        </tr>
+                                    @endif
                                 @endforeach
                             </tbody>
                         </table>
@@ -209,7 +235,7 @@
                                                             wire:model.defer="model_equipment.installed">
                                                             <option selected>Selecione</option>
                                                             <option value="1">Instalação</option>
-                                                            <option value="">Desinstalação</option>
+                                                            <option value="0">Desinstalação</option>
                                                         </select>
                                                     </div>
                                                     <div class="mb-3 col-md-4">
@@ -304,7 +330,7 @@
 
                             @if ($form['changes'])
                                 <div class="mb-3 col-md-6">
-                                    @livewire('files.partnersinform', ['note' => $note])
+                                    @livewire('files.partnersinform', ['note' => $note], key('files_forms'))
                                 </div>
                             @endif
 

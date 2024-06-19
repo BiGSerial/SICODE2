@@ -118,12 +118,12 @@ class Stack extends Component
         $this->user_fs = [$user_id];
     }
 
-    public function updatedSelectall($val)
+    public function setSelectAll()
     {
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+        $idsToKeep = $this->lists->pluck('id')->toArray();
 
-        if ($val) {
+        if ($this->selectAll) {
             // Adicionar os IDs ausentes de $selected
             foreach ($idsToKeep as $id) {
                 if (!in_array($id, $this->selected)) {
@@ -141,8 +141,18 @@ class Stack extends Component
             }
             $this->selected = $newSelected;
         }
-
     }
+
+    public function checkAllSelect($items)
+    {
+
+        $items = $items->pluck('id')->toArray();
+
+        $this->selectall = empty(array_diff($items, $this->selected));
+
+        return $this->selectall;
+    }
+
 
     public function export_excel()
     {
@@ -168,7 +178,6 @@ class Stack extends Component
         } else {
             return (new ProductionControlExport($this->lists->find($this->selected)))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
         }
-
     }
 
     public function buscarMulti()
@@ -225,7 +234,6 @@ class Stack extends Component
         $_SESSION['filtro']['user']     = $this->user_fs;
         $_SESSION['filtro']['company']  = $this->company_fs;
         $this->emit('refresh_service');
-
     }
 
     public function filter_clean()
@@ -502,12 +510,9 @@ class Stack extends Component
 
                                 return;
                             }
-
                         }
                     }
-
                 }
-
             }
 
             if ($count) {
@@ -551,7 +556,6 @@ class Stack extends Component
 
                 ]);
             }
-
         }
     }
 
@@ -605,7 +609,6 @@ class Stack extends Component
 
             ]);
         }
-
     }
 
     public function confirm_des_att_mass()
@@ -647,7 +650,6 @@ class Stack extends Component
                     'timer'    => 2500,
                 ]);
             }
-
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -689,7 +691,6 @@ class Stack extends Component
                     'timer'    => 8000,
                 ]);
             }
-
         }
     }
 
@@ -747,7 +748,6 @@ class Stack extends Component
                         }
                     }
                 }
-
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -831,7 +831,6 @@ class Stack extends Component
 
                         return;
                     }
-
                 } else {
                     dd($production, $note->note);
 
@@ -895,10 +894,8 @@ class Stack extends Component
                             $this->additionalData[$index] = $coluna[1];
                         }
                     }
-
                 }
             }
-
         }
     }
 
@@ -933,7 +930,6 @@ class Stack extends Component
             ]);
 
             $this->closeall();
-
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -974,11 +970,9 @@ class Stack extends Component
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
-
             })
             ->when($this->user_fs, function ($q) {
                 return $q->whereIn('user_id', $this->user_fs);
-
             })
             ->when($this->rubrica_s, function ($q) {
                 return $q->whereHas('Note', function ($query) {
@@ -999,16 +993,16 @@ class Stack extends Component
                 });
             })
 
-        // ->when($this->status_s, function ($q) {
-        //     return $q->whereIn('productions.status', $this->status_s)
-        //             ->orWhereNull('productions.status');
-        // })
-        // ->when($this->note_type, function ($q) {
-        //     return $q->whereHas('Note', function ($query) {
-        //         return $query->whereIn('type_note', $this->note_type)
-        //                 ->orWhereNull('type_note');
-        //     });
-        // })
+            // ->when($this->status_s, function ($q) {
+            //     return $q->whereIn('productions.status', $this->status_s)
+            //             ->orWhereNull('productions.status');
+            // })
+            // ->when($this->note_type, function ($q) {
+            //     return $q->whereHas('Note', function ($query) {
+            //         return $query->whereIn('type_note', $this->note_type)
+            //                 ->orWhereNull('type_note');
+            //     });
+            // })
             ->orderBy('priority', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')
@@ -1132,7 +1126,6 @@ class Stack extends Component
         $this->user_s         = '';
         $this->additionalData = [];
         $this->enter_dd       = '';
-
     }
 
     public function clean()
@@ -1155,7 +1148,7 @@ class Stack extends Component
         if ($this->delete) {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'Deletar Produção',
-                'msg'   => "Você está prestes a removert {$this->delete->Note->note} da produção. Esteja ciente ao fazer isso de forma inadequada poderá prejudicar a medição do usuário ou empresa. 
+                'msg'   => "Você está prestes a removert {$this->delete->Note->note} da produção. Esteja ciente ao fazer isso de forma inadequada poderá prejudicar a medição do usuário ou empresa.
                 Lembrando que a exclusão também removerá do LOG do BI. \n Deseja Continuar?",
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Remova!',
@@ -1189,7 +1182,6 @@ class Stack extends Component
             ]);
 
             $this->closeall();
-
         } else {
 
             $this->dispatchBrowserEvent('swal', [
@@ -1205,19 +1197,7 @@ class Stack extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
-
-            return !$list
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
-
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
+    
 
         if (!Auth()->User()->contract) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();

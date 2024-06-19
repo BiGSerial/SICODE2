@@ -70,9 +70,16 @@ class Main extends Component
     //Botão de exibição de nao atribuído
     public $not_assigned = false;
 
+    // Filters
+    private $filter_group = 'supervision';
+
+    private $filter;
+
+
 
     protected $listeners = [
         'refresh_dispatch' => '$refresh',
+        'refresh_list'      => '$refresh',
         'getCopy' => 'copy',
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch' => 'confirmed_att',
@@ -915,6 +922,13 @@ class Main extends Component
 
     public function getListsProperty()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
 
         $query = Note::query();
         // RuleBuilder::applyRules($query, $this->service->Status);
@@ -922,28 +936,21 @@ class Main extends Component
         //     $q->where('nstats', '<', 98)
         //         ->where('type_note', 2);
         // });
-        $query->whereHas('Orders', function ($q) {
+        $query->whereHas('WorkForm')
+            ->whereHas('Orders', function ($q) {
 
-            $q->whereHas('Operations', function ($sq) {
-                $sq->where('operacao', '0010')
-                    ->where('status', 'like', 'CONF%');
-            })
-                ->whereHas('Operations', function ($sq) {
+                $q->whereHas('Operations', function ($sq) {
+                    $sq->where('operacao', '0010')
+                        ->where('status', 'like', 'CONF%');
+                })->whereHas('Operations', function ($sq) {
                     $sq->where('operacao', '0030')
                         ->where(function ($sq) {
                             $sq->where('status', 'like', 'CNPA%')
                                 ->orWhere('status', 'like', 'LIB%')
                                 ->orwhere('status', 'like', 'JBFI LIB%');
                         });
-                })
-                ->whereHas('Operations', function ($sq) {
-                    $sq->whereIn('operacao', ['0040', '0050', '0060'])
-                        ->where(function ($sq) {
-                            $sq->where('status', 'like', 'LIB%')
-                                ->orwhere('status', 'like', 'JBFI LIB%');
-                        });
                 });
-        });
+            });
 
         if (strlen($this->search)) {
             $this->gotoPage(1);
@@ -965,11 +972,7 @@ class Main extends Component
             $this->search = "";
 
             $query->where(function ($q) {
-                return $q->WhereIn('note', $this->multiSearch)
-                    ->orWhere(function ($q) {
-                        $q->whereIn('note', $this->multiSearch)
-                            ->where('centerjob', 'PREDSINA');
-                    });
+                return $q->WhereIn('note', $this->multiSearch);
             });
         } elseif (!$this->search && !count($this->multiSearch) && $this->base) {
             $query->where(function ($q) {
@@ -1003,6 +1006,15 @@ class Main extends Component
             });
         }
 
+        // dd($this->filter['city']);
+
+        if (isset($this->filter['rubrica'])) {
+            $query->whereIn('rubrica', $this->filter['rubrica']);
+        }
+
+        if (isset($this->filter['city'])) {
+            $query->whereIn('lexp', $this->filter['city']);
+        }
 
         $query->with('Productions.User', 'Wpas')
             ->orderBy('type_note', 'DESC')

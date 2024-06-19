@@ -56,7 +56,8 @@ class Workreports extends Component
     protected $listeners = [
         'confirm_informe',
         'send_informe',
-        'hasFile'
+        'hasFile',
+        'savedFiles',
     ];
 
     protected $rules = [
@@ -105,6 +106,14 @@ class Workreports extends Component
     public function hasFile(bool $hasFile)
     {
         $this->hasFiles = $hasFile;
+    }
+
+    public function savedFiles()
+    {
+        // Revebe chamado pelo Component de Arquivos;
+        $this->note = null;
+        $this->cleanAll();
+        $this->initForm();
     }
 
     public function search()
@@ -211,6 +220,8 @@ class Workreports extends Component
             return;
         }
 
+        // dd($this->form['changes'], $this->hasFiles);
+
         if ($this->form['changes'] == true && !$this->hasFiles) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -252,9 +263,7 @@ class Workreports extends Component
                         $ordersId[] = $order['id'];
                     }
 
-                    $form->Orders()->attach($ordersId);
-
-                    unset($ordersId);
+                    $form->Orders()->sync($ordersId);
                 }
 
                 if ($form->equipment && !empty($this->temp_equipment)) {
@@ -275,20 +284,34 @@ class Workreports extends Component
                     'title'    => 'Informe Entregue com Sucesso',
                 ]);
 
-                $this->cleanAll();
-                $this->initForm();
 
-                $this->note = null;
-
-                $this->emitTo('files.partnersinform', 'save_files');
 
                 DB::commit();
+
+                if ($this->form['changes'] == true && $this->hasFiles) {
+
+                    // Emite comando SAVE para o componente Laravel.
+                    $this->emitTo('files.partnersinform', 'save_files');
+
+                    return;
+                }
+
+                // return;
+
+                $this->note = null;
+                $this->cleanAll();
+                $this->initForm();
             }
         } catch (\Throwable $th) {
 
             DB::rollback();
 
             dd($th->getMessage());
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Ocorreu algum erro ao enviar o form. Verifique e tente mais tarde.',
+            ]);
         }
     }
 

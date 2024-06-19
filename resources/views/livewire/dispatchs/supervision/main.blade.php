@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -8,7 +9,7 @@
 
     <x-showselected :count="$selected" />
 
-    <div class="row">
+    <div class="row mb-3 justify-content-end">
         <div class="col-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
@@ -19,167 +20,42 @@
                 <option value="500">500</option>
             </select>
         </div>
-        <div class="mb-3 col-md-2">
+
+        <div class="col-2">
             <label for="search" class="form-label">Buscar</label>
             <div class="input-group">
-                <input wire:model.bounce.2s="search" type="email"
+                <input wire:model.bounce.2s="search" type="text"
                     class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
                 <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
                         class="ri-checkbox-multiple-blank-line"></i></button>
             </div>
         </div>
+
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
+            <label for="search" class="form-label"> </label>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
                 <label class="form-check-label" for="inlineRadio1">Nota</label>
             </div>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
                 <label class="form-check-label" for="inlineRadio1">OV</label>
             </div>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
                 <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
 
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Região
-                    @if (count($region_s))
-                        <span class="badge text-bg-light">{{ count($region_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($region_l) && $region_l->count() > 0)
-                            @foreach ($region_l as $region)
-                                @if ($region->regiao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="region_s"
-                                            wire:key="{{ $region->regiao }}" value="{{ $region->regiao }}">
-                                        <label for="opcao1">{{ $region->regiao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Regional
-                    @if (count($district_s))
-                        <span class="badge text-bg-light">{{ count($district_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($district_l) && $district_l->count() > 0)
-                            @foreach ($district_l as $district)
-                                @if ($district->baseConstrucao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="district_s"
-                                            wire:key="{{ $district->baseConstrucao }}"
-                                            value="{{ $district->baseConstrucao }}">
-                                        <label for="opcao1">{{ $district->baseConstrucao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Município
-                    @if (count($city_s))
-                        <span class="badge text-bg-light">{{ count($city_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($city_l) && $city_l->count() > 0)
-                            @foreach ($city_l as $city)
-                                @if ($city->cidade)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="city_s"
-                                            wire:key="{{ $city->cidade }}" value="{{ $city->cidade }}">
-                                        <label for="opcao1">{{ $city->municipio }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-
-            <div class="mx-1 ">
-                <button class="btn btn-primary" wire:click.prevent="filter_save" tabindex="0"
-                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
-                    data-bs-content="Aplicar Filtros"><i class="ri-filter-fill"></i>
-                </button>
-            </div>
-            <div class="mx-1 "><button class="btn btn-primary" wire:click.prevent="filter_clean" tabindex="0"
-                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
-                    data-bs-content="Remover Filtros"><i class="ri-filter-off-fill"></i>
-                </button></div>
-
-
+            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'supervision', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'supervision', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
         </div>
 
         <div class="mb-3">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0"
-                data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
+            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                data-bs-trigger="hover focus" data-bs-placement="right"
                 data-bs-title="Exibir Apenas Notas Nao Atribuidas"
                 data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
                 <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
@@ -194,7 +70,9 @@
 
             </div>
         </div>
+
     </div>
+
 
     <div class="row">
 
@@ -245,9 +123,9 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
                         <span data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Adicionar numeração DD em Massa"> <button
-                                class="btn btn-sm btn-success me-2" data-bs-toggle="modal"
-                                data-bs-target="#add_mass_dds"><i class="ri-checkbox-multiple-fill"></i> Att
+                            data-bs-title="Adicionar numeração DD em Massa"> <button class="btn btn-sm btn-success me-2"
+                                data-bs-toggle="modal" data-bs-target="#add_mass_dds"><i
+                                    class="ri-checkbox-multiple-fill"></i> Att
                                 DD</button></span>
 
                         <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'
@@ -275,7 +153,7 @@
                                 <th scope="col" class="fw-bold text-center">Note</th>
                                 <th scope="col" class="fw-bold text-center">DD</th>
                                 <th scope="col" class="fw-bold text-center">MMGD</th>
-                                <th scope="col" class="fw-bold text-center">Criado Em</th>
+                                <th scope="col" class="fw-bold text-center">Informado Em</th>
                                 <th scope="col" class="fw-bold text-center">numPedido</th>
                                 <th scope="col" class="fw-bold text-center">Rubrica</th>
                                 <th scope="col" class="fw-bold text-center">Municipio</th>
@@ -283,10 +161,9 @@
                                 <th scope="col" class="fw-bold text-center">Grp2</th>
                                 <th scope="col" class="fw-bold text-center">Grp4</th>
                                 <th scope="col" class="fw-bold text-center">Grp5</th>
-                                <th scope="col" class="fw-bold text-center">Levantamentos</th>
+                                <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                                 <th scope="col" class="fw-bold text-center">Status</th>
                                 {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
-
                                 <th scope="col" class="fw-bold text-center">Prazo Real</th>
                                 <th scope="col" class="fw-bold text-center">Situação</th>
                                 <th scope="col" class="fw-bold text-center"></th>
@@ -299,9 +176,13 @@
                                     $lastUser = '';
                                     $lastCompany = '';
 
-                                    $count = $list->Productions->where('service_id', $service->uuid)->where('noinconsistency', false);
+                                    $count = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('noinconsistency', false);
 
-                                    $count2 = $list->Productions->where('service_id', $service->uuid)->where('completed', true);
+                                    $count2 = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('completed', true);
 
                                     if ($count2->count()) {
                                         // $lastUser = $list->Productions
@@ -343,15 +224,15 @@
 
 
                                 <tr
-                                    class="align-middle  
-                                    @if ($block) @if ($production->status == 1) 
+                                    class="align-middle
+                                    @if ($block) @if ($production->status == 1)
                                         table-warning
                                         @elseif ($production->status == 2)
                                         table-primary
                                         @elseif ($production->status == 5 && !$production->confirmed)
                                         table-success
                                         @elseif ($production->status == 5 && $production->confirmed)
-                                        table-danger 
+                                        table-danger
                                         @else
                                         table-primary @endif @endif">
                                     <td>
@@ -416,13 +297,15 @@
                                     <td class="fw-light text-center">
                                         {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
                                     {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
-
+                                    @php
+                                        $days_left = (new DaysLeft($list))->getDaysLeft();
+                                    @endphp
                                     <td scope="col"
-                                        class="text-center 
-                                        @if ($list->days_left < 0) text-bg-secondary
-                                        @elseif($list->days_left >= 0 && $list->days_left < 6)
+                                        class="text-center
+                                        @if ($days_left < 0) text-bg-secondary
+                                        @elseif($days_left >= 0 && $days_left < 6)
                                         table-danger
-                                        @elseif($list->days_left >= 6 && $list->days_left < 10)
+                                        @elseif($days_left >= 6 && $days_left < 10)
                                             table-warning
                                         @else
                                             table-success @endif
@@ -436,7 +319,7 @@
                                         <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                         <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                         ">
-                                        {{ 30 - $list->days_left }}
+                                        {{ 30 - $days_left }}
                                     </td>
                                     <td class="fw-light text-center">
                                         @if ($list->pze_parecer === 'Vencido')
@@ -639,7 +522,11 @@
                                             <td>
                                                 @if ($this->type === '2' && isset($list))
                                                     @php
-                                                        $dd = $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '';
+                                                        $dd = $list->Wpas->count()
+                                                            ? (!$list->Wpas->last()->production_id
+                                                                ? $list->Wpas->last()->dd
+                                                                : '')
+                                                            : '';
 
                                                         $additionalData[$index] = $dd;
                                                     @endphp

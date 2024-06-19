@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -299,9 +300,13 @@
                                     $lastUser = '';
                                     $lastCompany = '';
 
-                                    $count = $list->Productions->where('service_id', $service->uuid)->where('noinconsistency', false);
+                                    $count = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('noinconsistency', false);
 
-                                    $count2 = $list->Productions->where('service_id', $service->uuid)->where('completed', true);
+                                    $count2 = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('completed', true);
 
                                     if ($count2->count()) {
                                         // $lastUser = $list->Productions
@@ -343,15 +348,15 @@
 
 
                                 <tr
-                                    class="align-middle  
-                                    @if ($block) @if ($production->status == 1) 
+                                    class="align-middle
+                                    @if ($block) @if ($production->status == 1)
                                         table-warning
                                         @elseif ($production->status == 2)
                                         table-primary
                                         @elseif ($production->status == 5 && !$production->confirmed)
                                         table-success
                                         @elseif ($production->status == 5 && $production->confirmed)
-                                        table-danger 
+                                        table-danger
                                         @else
                                         table-primary @endif @endif">
                                     <td>
@@ -416,13 +421,15 @@
                                     <td class="fw-light text-center">
                                         {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
                                     {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
-
+                                    @php
+                                        $days_left = (new DaysLeft($list))->getDaysLeft();
+                                    @endphp
                                     <td scope="col"
-                                        class="text-center 
-                                        @if ($list->days_left < 0) text-bg-secondary
-                                        @elseif($list->days_left >= 0 && $list->days_left < 6)
+                                        class="text-center
+                                        @if ($days_left < 0) text-bg-secondary
+                                        @elseif($days_left >= 0 && $days_left < 6)
                                         table-danger
-                                        @elseif($list->days_left >= 6 && $list->days_left < 10)
+                                        @elseif($days_left >= 6 && $days_left < 10)
                                             table-warning
                                         @else
                                             table-success @endif
@@ -436,7 +443,7 @@
                                         <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                         <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                         ">
-                                        {{ 30 - $list->days_left }}
+                                        {{ 30 - $days_left }}
                                     </td>
                                     <td class="fw-light text-center">
                                         @if ($list->pze_parecer === 'Vencido')
@@ -639,7 +646,11 @@
                                             <td>
                                                 @if ($this->type === '2' && isset($list))
                                                     @php
-                                                        $dd = $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '';
+                                                        $dd = $list->Wpas->count()
+                                                            ? (!$list->Wpas->last()->production_id
+                                                                ? $list->Wpas->last()->dd
+                                                                : '')
+                                                            : '';
 
                                                         $additionalData[$index] = $dd;
                                                     @endphp

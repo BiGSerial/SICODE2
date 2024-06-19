@@ -85,4 +85,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Company::class);
     }
+
+    public function d5Return()
+    {
+        return $this->hasOne(D5Return::class);
+    }
 }

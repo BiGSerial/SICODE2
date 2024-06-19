@@ -219,7 +219,7 @@
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                             </td>
                                             <td scope="col"
-                                                class="text-center 
+                                                class="text-center
                                         @if ($list->Note->days_left < 0) text-bg-secondary
                                         @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                         table-danger
@@ -319,7 +319,7 @@
                     {{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
                 </div>
                 <div class="modal-body">
-                    @livewire('services.levantamento.forms.analise', key('levantamento-form'))
+                    @livewire('services.supervision.forms.analise', key('supervision-form'))
                 </div>
                 {{-- <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"

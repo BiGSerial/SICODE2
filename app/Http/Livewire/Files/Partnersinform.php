@@ -126,6 +126,8 @@ class Partnersinform extends Component
 
     public function save()
     {
+
+
         if (count($this->files)) {
             $pdfCount = File::where('note_id', $this->note->id)->where('ext', 'pdf')->count();
             $xlsCount = File::where('note_id', $this->note->id)->whereIn('ext', ['xls', 'xlsx'])->count();
@@ -169,6 +171,8 @@ class Partnersinform extends Component
                 'menssage' => "Arquivos salvos com sucesso",
             ]);
         }
+
+        $this->emitUp('savedFiles');
     }
 
     public function render()

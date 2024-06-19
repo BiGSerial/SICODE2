@@ -25,7 +25,9 @@
     </style>
 @endpush
 
-
+@php
+    use App\Helpers\SelectOptions;
+@endphp
 
 
 
@@ -72,55 +74,75 @@
 
 
             <div class="card">
-                <h4 class="card-header">Resultado Levantamento</h4>
+                <h4 class="card-header">Resultado da Fiscalização</h4>
                 <div class="card-body">
 
-                    <div class="row">
-                        <div class="mb-3 col-3">
+
+                    {{-- <div class="mb-3 col-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Postes:</label>
                             <input type="number" min="0" max="500"
                                 class="form-control border border-secondary" wire:model.defer="postes">
+                        </div> --}}
+
+                    <div class="mb-3 col-2">
+                        <label for="inputPassword" class="col-sm-12 col-form-label">Nessessidade de D5?</label>
+                        <select class="form-select border border-secondary" aria-label="Default select example"
+                            wire:model="d5">
+                            <option value="" selected>Selecione</option>
+                            {{-- <option value="DEPENDE DE ORGAO EXTERNO">DEPENDE DE ORGÃO EXTERNO</option> --}}
+                            <option value="1">SIM</option>
+                            <option value="0">NÃO</option>
+
+                            {{-- <option value="INSPECAO REJEITADA">INSPEÇÃO REJEITADA</option>
+                                <option value="INSPECAO REJEITADA">INSPEÇÃO APROVADA</option> --}}
+                        </select>
+                    </div>
+
+                    @if ($d5 == 1)
+
+                        <div class="mb-3 col-3">
+                            <label for="inputPassword" class="col-sm-12 col-form-label">Nota D5:</label>
+                            <input type="text" class="form-control border border-secondary"
+                                aria-label="Default select example" wire:model.defer="noted5" />
+
                         </div>
 
-                        <div class="mb-3 col-2">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Depende Orgão Externo:</label>
+                        <div class="mb-3 col-3">
+                            <label for="inputPassword" class="col-sm-12 col-form-label">Motivo:</label>
                             <select class="form-select border border-secondary" aria-label="Default select example"
-                                wire:model.defer="doe">
-                                <option value="0" selected>Selecione</option>
-                                {{-- <option value="DEPENDE DE ORGAO EXTERNO">DEPENDE DE ORGÃO EXTERNO</option> --}}
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="NAO SEI">NÃO SEI</option>
-                                {{-- <option value="INSPECAO REJEITADA">INSPEÇÃO REJEITADA</option>
-                                <option value="INSPECAO REJEITADA">INSPEÇÃO APROVADA</option> --}}
+                                wire:model.defer="d5reason">
+                                <option value="" selected>Selecione</option>
+                                @foreach (SelectOptions::getD5Reasons() as $reasonD5)
+                                    <option value="{{ $reasonD5->value }}" selected>{{ $reasonD5->reason }}</option>
+                                @endforeach
+
                             </select>
                         </div>
 
+                    @endif
+
+                    @if ($d5 == 0 || $d5 == 1)
                         <div class="mb-3 col-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Conclusão:</label>
                             <select class="form-select border border-secondary" aria-label="Default select example"
                                 wire:model="conclusion">
-                                <option value="0" selected>Selecione</option>
-                                {{-- <option value="DEPENDE DE ORGAO EXTERNO">DEPENDE DE ORGÃO EXTERNO</option> --}}
-                                <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
-                                <option value="RETORNADO ANALISE">21 - RETORNADO PARA ANÁLISE</option>
-                                <option value="ENVIADO AO DESENHO/ORÇAMENTO">28 - ENVIADO AO DESENHO/ORÇAMENTO</option>
-                                {{-- <option value="INSPECAO REJEITADA">INSPEÇÃO REJEITADA</option>
-                                <option value="INSPECAO REJEITADA">INSPEÇÃO APROVADA</option> --}}
+                                <option value="" selected>Selecione</option>
+                                @foreach (SelectOptions::getSupervisionEnd() as $supEnd)
+                                    <option value="{{ $supEnd->value }}" selected>{{ $supEnd->reason }}</option>
+                                @endforeach
                             </select>
                         </div>
 
-
-
                         <div class="mb-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Informações: <span
+                            <label for="inputPassword" class="col-sm-12 col-form-label">Observações: <span
                                     class="fw-bold"><i class="ri-file-copy-line copyButton" data-id="infoTextArea2"
                                         style="cursor: pointer;"></i></span></label>
                             <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8" wire:model.defer="info"></textarea>
                         </div>
+                    @endif
 
 
-                    </div>
+
 
                 </div>
             </div>

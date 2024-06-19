@@ -116,4 +116,9 @@ class Production extends Model
     {
         return $this->hasOne(Reclaim::class);
     }
+
+    public function d5Return()
+    {
+        return $this->hasOne(D5Return::class);
+    }
 }

@@ -69,6 +69,40 @@ class SelectOptions
         ];
     }
 
+    // MOTIVOS PARA GERAÇÃO DE D5 e FISCALIZAÇÃO
+
+    public static function getD5Reasons()
+    {
+        return [
+            (object)['reason' => 'Falta de Materiais', 'value' => 'FALTA DE MATERIAIS'],
+            (object)['reason' => 'Reparo Passeio', 'value' => 'REPARO PASSEIO'],
+            (object)['reason' => 'Aterramento', 'value' => 'ATERRAMENTO'],
+            (object)['reason' => 'Inventário', 'value' => 'INVENTARIO'],
+            (object)['reason' => 'Pendência de Poda', 'value' => 'PENDENCIA DE PODA'],
+            (object)['reason' => 'Projeto', 'value' => 'PROJETO'],
+            (object)['reason' => 'Chave', 'value' => 'CHAVE'],
+            (object)['reason' => 'Condutor', 'value' => 'CONDUTOR'],
+            (object)['reason' => 'Conexão', 'value' => 'CONEXAO'],
+            (object)['reason' => 'Equipamento', 'value' => 'EQUIPAMENTO'],
+            (object)['reason' => 'Estrutura/Poste', 'value' => 'ESTRUTURA/POSTE'],
+            (object)['reason' => 'Isolador/Cadeia', 'value' => 'ISOLADOR/CADEIA'],
+            (object)['reason' => 'Padrão de Entrada', 'value' => 'PADRAO DE ENTRADA'],
+            (object)['reason' => 'Para-raio', 'value' => 'PARA-RAIO'],
+            (object)['reason' => 'Sinalização', 'value' => 'SINALIZACAO'],
+            (object)['reason' => 'Outros', 'value' => 'OUTROS']
+        ];
+    }
+
+    public static function getSupervisionEnd()
+    {
+        return [
+            (object)['reason' => 'Fiscalizado Sem Pendências', 'value' => 'FISCALIZADO SEM PENDENCIAS', 'block' => false],
+            (object)['reason' => 'Fiscalizado Com Pendências', 'value' => 'FISCALIZADO COM PENDENCIAS', 'block' => true]
+        ];
+    }
+
+    // OPÇÕES DE ORGÃO EXTERNO
+
     public static function getProtocolReasons()
     {
         return [
@@ -87,6 +121,8 @@ class SelectOptions
             (object)['reason' => 'Taxa de Pagamento Paga', 'value' => 'TAXA DE PAGAMENTO PAGA']
         ];
     }
+
+
 
     public static function getExternals($type = null)
     {
