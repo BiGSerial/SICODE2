@@ -71,6 +71,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/waiting_list', 'waiting_list')->name('waiting');
+    Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
 });
 
 Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->middleware('can:user')->group(function () {
