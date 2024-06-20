@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.7",
+    "appver": "1.8.8",
     "historic": [
+        {
+            "version": "1.8.8",
+            "description": "Fix Export Hiring Accompany List",
+            "date": "2024-06-20"
+        },
         {
             "version": "1.8.7",
             "description": "externals",
