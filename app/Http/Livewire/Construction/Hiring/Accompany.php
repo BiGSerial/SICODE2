@@ -126,8 +126,6 @@ class Accompany extends Component
 
             return;
         }
-
-
     }
 
     public function confirm_contract()
@@ -158,15 +156,12 @@ class Accompany extends Component
                         if ($register) {
                             $hiring->Comments()->create([
                                 'user_id' => Auth()->User()->id,
-                                'message' => "Contratado em " . date('d/m/Y') ." as " .  date('H:i:s') . ". Por confirmação manual, pós viabilidade."
+                                'message' => "Contratado em " . date('d/m/Y') . " as " .  date('H:i:s') . ". Por confirmação manual, pós viabilidade."
                             ]);
                         }
-
                     } catch (\Throwable $th) {
                         $erro = true;
                     }
-
-
                 }
 
                 if ($erro) {
@@ -179,10 +174,9 @@ class Accompany extends Component
                         'title'    => 'Erro ao Contratar',
                         'html'     => 'Ocorreram erro(s) ao tentar Contratar a Obra, verifique e tente novamente.',
                         'timer'    => 5000,
-                ]);
+                    ]);
 
                     return;
-
                 } else {
 
                     DB::commit();
@@ -196,7 +190,6 @@ class Accompany extends Component
 
                     $this->closeall();
                 }
-
             }
         }
     }
@@ -205,11 +198,14 @@ class Accompany extends Component
     {
         if (count($this->selected)) {
 
-            $export = $this->notes->find($this->selected);
-
+            $export = Viability::whereRelation('Order.Note', function ($query) {
+                return $query->whereIn('id', $this->selected);
+            })->with('Order.Note');
         } else {
 
-            $export = $this->notes->get();
+            $export = Viability::whereRelation('Order.Note', function ($query) {
+                return $query->whereIn('id', $this->myhirings->pluck('id')->toArray());
+            })->with('Order.Note');
         }
 
         return (new HiringAccompanyExport($export))->download(date('YmdHis-') . 'exportViabilityAccompany.xlsx');
@@ -222,7 +218,6 @@ class Accompany extends Component
             $export = Viability::whereRelation('Order.Note', function ($query) {
                 return $query->whereIn('id', $this->hiringSelected);
             })->with('Order.Note');
-
         } else {
 
 
@@ -274,7 +269,7 @@ class Accompany extends Component
     {
         $this->hirings = $this->myhirings;
 
-        if($this->hirings) {
+        if ($this->hirings) {
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'hiring_jobs',
             ]);
@@ -323,7 +318,6 @@ class Accompany extends Component
                         $this->show_registers[$order->id] = array_merge($this->show_registers[$order->id], ['file_online' => true]);
                     }
                 }
-
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -339,7 +333,6 @@ class Accompany extends Component
                 'id' => 'viability_modal',
             ]);
         }
-
     }
 
     public function edit($note)
@@ -360,7 +353,6 @@ class Accompany extends Component
             ]);
 
             return;
-
         } else {
             $company = $this->companies->where('id', $this->company_s)->first()->name;
 
@@ -430,11 +422,8 @@ class Accompany extends Component
                         if (!$file) {
                             $erro = true;
                         }
-
                     }
-
                 }
-
             }
         }
 
@@ -452,7 +441,6 @@ class Accompany extends Component
 
                 if (!$viability) {
                     $erro = true;
-
                 }
             }
         }
@@ -466,7 +454,6 @@ class Accompany extends Component
                 'title'    => 'TIVEMOS UM ERRO INESPERADO, NENHUM REGISTRO FOI EXECUTADO.',
                 'timer'    => 5000,
             ]);
-
         } else {
 
             DB::commit();
@@ -476,11 +463,11 @@ class Accompany extends Component
             $this->dispatchBrowserEvent(
                 'swal',
                 [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Registro Efetuado com Sucesso.',
-                'timer'    => 5000,
-            ]
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'Registro Efetuado com Sucesso.',
+                    'timer'    => 5000,
+                ]
             );
         }
     }
@@ -493,7 +480,6 @@ class Accompany extends Component
 
 
                 return Storage::download($file->path, $file->file_name);
-
             }
         }
     }
@@ -519,17 +505,15 @@ class Accompany extends Component
 
                 return response()->download($zipFile)->deleteFileAfterSend(true);
             }
-
-
         } else {
             $this->dispatchBrowserEvent(
                 'swal',
                 [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Nenhum Arquivo Selecionados para Download.',
-                'timer'    => 5000,
-            ]
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'Nenhum Arquivo Selecionados para Download.',
+                    'timer'    => 5000,
+                ]
             );
         }
     }
@@ -568,7 +552,6 @@ class Accompany extends Component
 
             $this->associate_files();
         }
-
     }
 
     public function delete_file($id)
@@ -712,8 +695,8 @@ class Accompany extends Component
         $query->with('Viabilities.Company', 'Viabilities.Order', 'Files')
             ->whereHas('Viabilities', function ($q) {
                 $q->where('completed', false)
-                  ->where('user_id', Auth()->user()->id)
-                  ->orderBy('sended_at');
+                    ->where('user_id', Auth()->user()->id)
+                    ->orderBy('sended_at');
             });
 
         if ($this->search) {
@@ -752,7 +735,7 @@ class Accompany extends Component
         return Note::whereDoesntHave('viabilities', function ($query) {
             $query->where(function ($subQuery) {
                 $subQuery->where('completed', true)
-                         ->orWhere('approved', false);
+                    ->orWhere('approved', false);
             });
         })
             ->whereHas('viabilities', function ($query) {
@@ -760,7 +743,6 @@ class Accompany extends Component
                     ->where('completed', false);
             })->with('Viabilities.Company')
             ->find($this->notes->get()->pluck('id'));
-
     }
 
 
@@ -771,7 +753,6 @@ class Accompany extends Component
         $lists = $this->notes;
 
         return $lists->paginate($this->perPage);
-
     }
 
     public function render()
