@@ -101,14 +101,16 @@
                     @if ($d5 == 1)
 
                         <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Nota D5:</label>
+                            <label for="inputPassword" class="col-sm-12 col-form-label">Nota D5: <span
+                                    class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control border border-secondary"
-                                aria-label="Default select example" wire:model.defer="noted5" />
+                                aria-label="Default select example" wire:model.defer="d5note" />
 
                         </div>
 
                         <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Motivo:</label>
+                            <label for="inputPassword" class="col-sm-12 col-form-label">Motivo: <span
+                                    class="text-danger fw-bold">*</span></label>
                             <select class="form-select border border-secondary" aria-label="Default select example"
                                 wire:model.defer="d5reason">
                                 <option value="" selected>Selecione</option>
@@ -119,9 +121,16 @@
                             </select>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="inputPassword" class="col-sm-12 col-form-label">Observações da D5: </label>
+                            <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8" wire:model.defer="d5detail"></textarea>
+                        </div>
+
                     @endif
 
                     @if ($d5 == 0 || $d5 == 1)
+                   
+
                         <div class="mb-3 col-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Conclusão:</label>
                             <select class="form-select border border-secondary" aria-label="Default select example"
@@ -131,7 +140,9 @@
                                     <option value="{{ $supEnd->value }}" selected>{{ $supEnd->reason }}</option>
                                 @endforeach
                             </select>
+
                         </div>
+
 
                         <div class="mb-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Observações: <span

@@ -130,21 +130,21 @@ class Main extends Component
         $this->service = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        session_start();
-        if (isset($_SESSION['filtro']) && $_SESSION['filtro']) {
-            if (isset($_SESSION['filtro']['rubrica'])) {
-                $this->rubrica_s = $_SESSION['filtro']['rubrica'];
-            }
-            if (isset($_SESSION['filtro']['city'])) {
-                $this->city_s = $_SESSION['filtro']['city'];
-            }
-            if (isset($_SESSION['filtro']['district'])) {
-                $this->district_s = $_SESSION['filtro']['district'];
-            }
-            if (isset($_SESSION['filtro']['region'])) {
-                $this->region_s = $_SESSION['filtro']['region'];
-            }
-        }
+        // session_start();
+        // if (isset($_SESSION['filtro']) && $_SESSION['filtro']) {
+        //     if (isset($_SESSION['filtro']['rubrica'])) {
+        //         $this->rubrica_s = $_SESSION['filtro']['rubrica'];
+        //     }
+        //     if (isset($_SESSION['filtro']['city'])) {
+        //         $this->city_s = $_SESSION['filtro']['city'];
+        //     }
+        //     if (isset($_SESSION['filtro']['district'])) {
+        //         $this->district_s = $_SESSION['filtro']['district'];
+        //     }
+        //     if (isset($_SESSION['filtro']['region'])) {
+        //         $this->region_s = $_SESSION['filtro']['region'];
+        //     }
+        // }
     }
 
     public function export_excel()
@@ -1062,19 +1062,19 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->filter(function ($list) {
+        // $this->filteredLists = $this->lists->filter(function ($list) {
 
-            return !$list->Productions
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
+        //     return !$list->Productions
+        //         ->where('status_note', $list->nstats)
+        //         ->where('dt_note', $list->dt_status)
+        //         ->first();
+        // });
 
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
+        // if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
+        //     $this->selectall = true;
+        // } else {
+        //     $this->selectall = false;
+        // }
 
         if (!Auth()->User()->contract) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();
@@ -1092,26 +1092,26 @@ class Main extends Component
             })
             ->orderBy('name')->get();
 
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
-        // Municipios Filtros
-        $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
+        // // Municipios Filtros
+        // $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
 
-        $this->district_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+        // $this->district_l = City::when($this->region_s, function ($q) {
+        //     return $q->whereIn('regiao', $this->region_s);
+        // })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
 
-        $this->city_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })
-            ->when($this->district_s, function ($q) {
-                return $q->whereIn('baseConstrucao', $this->district_s);
-            })
-            ->select('rdMunicipio', 'cidade', 'municipio')
-            ->distinct()
-            ->orderBy('cidade')
-            ->groupBy('rdMunicipio', 'cidade', 'municipio')
-            ->get();
+        // $this->city_l = City::when($this->region_s, function ($q) {
+        //     return $q->whereIn('regiao', $this->region_s);
+        // })
+        //     ->when($this->district_s, function ($q) {
+        //         return $q->whereIn('baseConstrucao', $this->district_s);
+        //     })
+        //     ->select('rdMunicipio', 'cidade', 'municipio')
+        //     ->distinct()
+        //     ->orderBy('cidade')
+        //     ->groupBy('rdMunicipio', 'cidade', 'municipio')
+        //     ->get();
 
 
 

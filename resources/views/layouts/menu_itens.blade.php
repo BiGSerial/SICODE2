@@ -1,10 +1,44 @@
+<style>
+    .dropdown-menu-custom {
+        max-height: 600px;
+        /* Ajuste a altura máxima conforme necessário */
+        overflow-y: auto;
+    }
+
+    /* Custom scrollbar styles */
+    .dropdown-menu-custom::-webkit-scrollbar {
+        width: 8px;
+        /* Largura da scrollbar */
+    }
+
+    .dropdown-menu-custom::-webkit-scrollbar-track {
+        background: #dbd8d8;
+        /* Cor de fundo da track da scrollbar */
+    }
+
+    .dropdown-menu-custom::-webkit-scrollbar-thumb {
+        background-color: #888;
+        /* Cor da barra de rolagem */
+        border-radius: 10px;
+        /* Bordas arredondadas */
+        border: 2px solid #dbd8d8;
+        /* Espaçamento entre a scrollbar e o conteúdo */
+    }
+
+    .dropdown-menu-custom::-webkit-scrollbar-thumb:hover {
+        background: #555;
+        /* Cor da barra de rolagem ao passar o mouse */
+    }
+</style>
+
 @can('admin')
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button" data-bs-toggle="dropdown"
             aria-expanded="false">
             ADMINISTRAÇÃO
         </a>
-        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2" style="background-color: #dbd8d8">
+        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
+            style="background-color: #dbd8d8">
             <li><a class="dropdown-item" href="{{ route('admin.user.list') }}"><i
                         class="ri-account-pin-box-fill align-middle text-primary"></i>USUARIOS</a>
             </li>
@@ -83,7 +117,7 @@
             data-bs-toggle="dropdown" aria-expanded="false">
             PROJETO
         </a>
-        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
+        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
             style="background-color: #dbd8d8; width: 300px;">
             @can('operator')
                 @if ($projetos->count())

@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Http\Livewire\Service\Supervision;
+namespace App\Http\Livewire\Services\Payment\Accompany;
 
-use App\Exports\ProductionServiceExport;
-use App\Models\{Production, Service, User};
+use App\Models\{Note, Production, Service, User};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -22,15 +21,15 @@ class Main extends Component
 
     public $rubrica_l;
 
-    public $limit_pause = 50;
+    public $limit_pause = 3;
+
+    public $analise;
 
     public $user_l;
 
     public $user_s;
 
     public $user_search;
-
-    public $analise;
 
     public $production;
 
@@ -47,19 +46,9 @@ class Main extends Component
         $this->service = Service::where('uuid', $service)->first();
     }
 
-    public function visualizar()
-    {
-
-    }
-
-    public function export_excel()
-    {
-        return (new ProductionServiceExport($this->lists->get()))->download(date('YmdHis-') . 'production_services.xlsx');
-    }
-
     public function goTransferProd($prod_id)
     {
-        $this->emit('transfer_production_lev', $prod_id);
+        $this->emit('transfer_production', $prod_id);
     }
 
     public function copy($msg)
@@ -77,7 +66,7 @@ class Main extends Component
 
         if ($check) {
 
-            $this->emit('open_analise_lev', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+            $this->emit('open_analise_analise', ['productionId' => $check->id, 'noteId' => $check->note_id]);
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form',
@@ -101,7 +90,7 @@ class Main extends Component
 
     public function go_to_analise()
     {
-        $this->emit('open_analise_lev', $this->analise);
+        $this->emit('open_analise_analise', $this->analise);
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'analise_form',
         ]);
@@ -124,7 +113,7 @@ class Main extends Component
 
             ]);
         } else {
-            $this->emit('open_analise_lev', $this->analise);
+            $this->emit('open_analise_analise', $this->analise);
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form',
             ]);
@@ -133,10 +122,19 @@ class Main extends Component
 
     public function filter_save()
     {
+
+        // if (!(session_status() == PHP_SESSION_ACTIVE)) {
+        //     session_start();
+        // }
         // session()->put('filtro', $this->rubrica_s);
         // session_start();
         // $_SESSION['filtro'] = $this->rubrica_s;
         $this->emit('refresh_service');
+
+    }
+
+    public function visualizar()
+    {
 
     }
 
@@ -154,14 +152,11 @@ class Main extends Component
 
     public function getListsProperty()
     {
-
         $this->user_l = User::when($this->user_search, function ($q) {
             return $q->where('name', 'like', '%' . $this->user_search . '%');
         })->orderBy('name')->get();
 
-        return Production::with(['Note'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->Where('service_id', $this->service->uuid)
+        return Production::Where('service_id', $this->service->uuid)
             ->when($this->user_s, function ($q) {
                 return $q->where('user_id', $this->user_s);
             }, function ($q) {
@@ -175,15 +170,15 @@ class Main extends Component
             ->with(['Note' => function ($query) {
                 $query->orderBy('dt_status', 'asc');
             }])
-            ->orderBy('priority', 'DESC')
-            ->orderBy('notes.dt_created', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created');
+            ->paginate($this->perPage);
     }
 
     public function render()
     {
-        return view('livewire.service.supervision.main', [
-            'lists' => $this->lists->paginate($this->perPage),
+        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+
+        return view('livewire.services.payment.accompany.main', [
+            'lists' => $this->lists,
         ]);
     }
 }

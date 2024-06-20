@@ -2,8 +2,9 @@
 
 namespace App\Http\Livewire\Services\Supervision\Forms;
 
-use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
+use App\Models\{Analise as ModelsAnalise, D5Return, Note, Notetimeline, Production};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Analise extends Component
@@ -77,6 +78,10 @@ class Analise extends Component
     public $postes;
 
     public $d5 = 2;
+    public $d5note;
+    public $d5reason;
+    public $d5detail;
+
 
     protected $listeners = [
         'open_analise_lev' => 'openAnalise',
@@ -177,64 +182,17 @@ class Analise extends Component
         }
     }
 
-    //     public function updatedConclusion($value)
-    //     {
+    // public function updatedConclusion($value)
+    // {
 
-    //         $this->save_info();
+    //     $this->save_info();
 
-    //         $text = "";
+    //     $text = "";
 
-    //         if ($this->service_type == "ER") {
-    //             $text = "
-    // __________________________________________________
 
-    // Comprador: {$this->comprador};
-    // Matrícula: {$this->matricula} - em conformidade com o INCRA apresentado;
-    // Área total: {$this->area} ha;
-    // Localização do imóvel: {$this->endereco} - em conformidade com a informada no pedido;
+    //     $this->info = $text;
 
-    // Documento Apresentado: {$this->documento}
-
-    // *****
-    // Documentação válida para dar continuidade ao levantamento de campo;
-    // Necessário informar a universalização no croqui/SAP para definição do custo;
-    // *****
-
-    // Instalação vizinha: {$this->nmedidor}
-    // Coordenada: Lat {$this->lat} / Lon {$this->lon}
-    // Alim: {$this->alimentador}
-    // Tel.:
-
-    // __________________________________________________
-    //         ";
-    //         }
-
-    //         if ($this->service_type == "RR") {
-    //             $text = "
-    // __________________________________________________
-
-    // Comprador: {$this->comprador};
-    // Segue para levantamento de campo;
-
-    // ****
-    // Providenciar:
-    // Croqui, fotos, GPS, parecer técnico e análise de risco, se necessário.
-    // ****
-
-    // Documentação válida para dar continuidade ao levantamento de campo.
-    // Necessário informar a universalização no croqui/SAP para definição do custo.
-
-    // Instalação: {$this->ninst};
-    // Coordenada: Lat {$this->lat} / Lon {$this->lon};
-    // Alim: {$this->alimentador};
-    // Tel.:
-    // __________________________________________________
-    // ";
-    //         }
-
-    //         $this->info = $text;
-
-    //     }
+    // }
 
     public function save_info()
     {
@@ -251,8 +209,8 @@ class Analise extends Component
             // 'area' => $this->area ? (float)$this->area : 0.00,
             // 'endereco' => $this->endereco,
             // 'documento' => $this->documento,
-            'doe'    => $this->doe,
-            'postes' => (int) $this->postes,
+            // 'doe'    => $this->doe,
+            // 'postes' => (int) $this->postes,
         ]);
     }
 
@@ -303,6 +261,17 @@ class Analise extends Component
 
         //     return;
         // }
+        if ($this->d5 == 1 && !trim($this->d5note) && !$this->d5reason) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'INFORMAÇÕES D5',
+                'html'     => 'As informações sobre a D5 são obrigatórias.
+                ',
+            ]);
+
+            return;
+        }
 
         if (!$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [
@@ -316,82 +285,62 @@ class Analise extends Component
             return;
         }
 
-        if (!trim($this->postes)) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'ENCERRAMENTO DE SERVIÇO SEM INFORMAÇÃO DE POSTE',
-                'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong> Sem POSTES.
-                <div class='card text-bg-danger'>
-                <div class='card-body'>
-                   Você está prestes a encerrar sua produção com <strong>NENHUM</strong> poste envolvido.
-
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'ENCERRAMENTO DE SERVIÇO',
+            'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>
+        </div>
+                <div class='card'>
+                    <div class='card-body'>
+                        Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
+                        Uma vez encerrado, essa operação nao poderá ser desfeita.
+                        <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
+                    </div>
                 </div>
-            </div>
-                    <div class='card'>
-                        <div class='card-body'>
-                            Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                            Uma vez encerrado, essa operação nao poderá ser desfeita.
-                            <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
-                        </div>
-                    </div>
-                ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Continue!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_goFinish',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Ação Cancelada.',
+            ",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Continue!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_goFinish',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Ação Cancelada.',
 
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'ENCERRAMENTO DE SERVIÇO',
-                'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
-                    <div class='card'>
-                        <div class='card-body'>
-                            Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                            Uma vez encerrado, essa operação nao poderá ser desfeita.
-                            <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
-                        </div>
-                    </div>
-                ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Continue!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_goFinish',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Ação Cancelada.',
-
-            ]);
-        }
+        ]);
     }
 
     public function goFinish()
     {
-        $chk = $this->production->update([
-            'status'       => 5,
-            'completed_at' => date('Y-m-d H:i:s'),
-            'postes_u'     => (int) $this->postes,
-            'completed'    => true,
-            'confirmed'    => false,
-            'priority'     => false,
 
-        ]);
 
-        if ($chk) {
+
+
+
+
+
+
+
+        DB::beginTransaction();
+
+        try {
             $user = Auth()->User()->name;
 
-            if (!$this->note->update(['doe' => $this->doe == 'SIM' ? true : false, 'postes' => (int) $this->postes])) {
-                $this->dispatchBrowserEvent('torrada', [
-                    'status'   => 'danger',
-                    'menssage' => 'Não foi possível atualizar o DOE na Nota.',
-                ]);
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'ENCERRAMENTO LEVANTAMENTO',
-                    'html'     => 'Nota/OV encerrada com sucesso.
-                    ',
+            $chk = $this->production->update([
+                'status'       => 5,
+                'completed_at' => date('Y-m-d H:i:s'),
+                'completed'    => true,
+                'confirmed'    => true,
+                'priority'     => false,
+
+            ]);
+
+            if ($this->d5 == 1) {
+                $d5 = D5Return::create([
+                    'production_id' => $this->production->id,
+                    'note_id' => $this->production->note_id,
+                    'user_id'    => Auth()->User()->id,
+                    'note' => trim($this->d5note),
+                    'reason' => $this->d5reason,
+                    'description' => $this->d5detail,
+
                 ]);
             }
 
@@ -403,10 +352,30 @@ class Analise extends Component
                 'status'     => 5,
             ]);
 
-            $this->clean();
-            $this->dispatchBrowserEvent('hideModal');
-            $this->emit('refresh_accomany');
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'ENVIADO COM SUCESSO',
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Alguma coisa deu errado. verifique as informações e tente novamnete.'
+            ]);
+
+            // dd($th->getMessage());
+
+            return;
         }
+
+        $this->clean();
+        $this->dispatchBrowserEvent('hideModal');
+        $this->emit('refresh_accomany');
     }
 
     public function gerarCarta($res, $sub)
