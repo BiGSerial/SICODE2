@@ -55,13 +55,6 @@ class Main extends Component
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
-        }
     }
 
     public function copy($msg)

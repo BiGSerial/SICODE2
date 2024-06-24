@@ -35,8 +35,13 @@ class Main extends Component
 
     public $note;
 
+    // Filters
+    private $filter_group = 'publication_acc';
+    public $filters;
+
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
+        'refresh_list'       => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
     ];
@@ -44,6 +49,14 @@ class Main extends Component
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
+            $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
+        }
     }
 
     public function goTransferProd($prod_id)
@@ -79,13 +92,11 @@ class Main extends Component
                 'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
+                        adequada.
                     </p>
                 ",
             ]);
-
         }
-
     }
 
     public function go_to_analise()
@@ -130,12 +141,10 @@ class Main extends Component
         // session_start();
         // $_SESSION['filtro'] = $this->rubrica_s;
         $this->emit('refresh_service');
-
     }
 
     public function visualizar()
     {
-
     }
 
     public function filter_clean()
@@ -152,9 +161,14 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%' . $this->user_search . '%');
-        })->orderBy('name')->get();
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
 
         return Production::Where('service_id', $this->service->uuid)
             ->when($this->user_s, function ($q) {
@@ -166,6 +180,16 @@ class Main extends Component
             ->when($this->search, function ($q, $s) {
                 return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
                     ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+            })
+            ->when(isset($this->filters['city']), function ($q, $s) {
+                return $q->whereRelation('Note', function ($q) {
+                    $q->whereIn('lexp', $this->filters['city']);
+                });
+            })
+            ->when(isset($this->filters['rubrica']), function ($q, $s) {
+                return $q->whereRelation('Note', function ($q) {
+                    $q->whereIn('rubrica', $this->filters['rubrica']);
+                });
             })
             ->with(['Note' => function ($query) {
                 $query->orderBy('dt_status', 'asc');

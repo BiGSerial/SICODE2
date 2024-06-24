@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
 
@@ -129,146 +130,99 @@
                     @endforeach
                 @endif
             </h4>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Rubrica</th>
-                                <th>Município</th>
-                                <th>Empresa</th>
-                                <th>Data Execução</th>
-                                <th>Data Informe</th>
-                                <th>Dias Pilha</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $block = false;
 
-                                    // if ($list->Productions->count()) {
-                                    //     $block = $list->Productions
-                                    //         ->where('status_note', $list->nstats)
-                                    //         ->Where('dt_note', $list->dt_status)
-                                    //         // ->where(function ($q) use ($list) {
-                                    //         //     return $q->where('completed', false)
-                                    //         //         ->orWhere('dt_note', $list->dt_status);
-                                    //         // })
-                                    //         ->first();
-                                    // }
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-condensed">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="align-middle text-center">Empresa</th>
+                            <th class="align-middle text-center">Município</th>
+                            <th class="align-middle text-center">Data Execução</th>
+                            <th class="align-middle text-center">Data Informe</th>
+                            <th class="align-middle text-center">Dias Pilha</th>
+                            <th class="align-middle text-center">Prazo Restante</th>
+                            <th class="align-middle text-center"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            @php
+                                $block = false;
 
-                                    $count = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('noinconsistency', false);
+                                if (
+                                    isset($list->Production) &&
+                                    $list->Production->where('service_id', $service->uuid)->count()
+                                ) {
+                                    $production = $list->Production->where('service_id', $service->uuid)->last();
+                                    $block = true;
+                                }
 
-                                    if ($count->count()) {
-                                        if ($count->last()->dt_note == $list->dt_status || !$count->last()->confirmed) {
-                                            $block = true;
-                                        }
+                                $daysLeft = new DaysLeft($list);
 
-                                        if (isset($count->last()->User->name)) {
-                                            $production = $count->last();
-
-                                            $lastUser = $count->last()->User->name;
-
-                                            $lastUser = explode(' ', $lastUser);
-                                            $lastUser = $lastUser[0] . ' ' . end($lastUser);
-                                        } else {
-                                            $lastUser = 'DESCONHECIDO';
-                                        }
-
-                                        // $chave = array_search($list->id, $selected);
-
-                                        // if ($chave !== false) {
-                                        //     unset($selected[$chave]);
-                                        //     $selected = $selected;
-                                        // }
-                                    }
-
-                                @endphp
-                                {{-- @dump($list->Productions) --}}
-                                <tr
-                                    class="align-middle
+                            @endphp
+                            {{-- @dump($list->Productions) --}}
+                            <tr
+                                class="align-middle text-center
                                 @if ($block) @if ($production->status == 1)
                                     table-warning
                                     @elseif ($production->status == 2)
                                     table-primary
-                                    @elseif ($production->status == 5 && !$production->confirmed)
+                                    @elseif ($production->status == 5)
                                     table-success
-                                    @elseif ($production->status == 5 && $production->confirmed)
-                                    table-danger
                                     @else
-                                    table-primary @endif @endif">
-
-                                    @if (Auth()->User()->management ||
-                                            Auth()->User()->superadm ||
-                                            ($count->last() !== null && $count->last()->user_id === Auth()->User()->id))
-                                        <td class="fw-bold copy-text" data-value="{{ $list->note }}">
-                                            {{ $list->note }}
-                                        </td>
-                                    @else
-                                        <td></td>
-                                    @endif
+                                    table-primary @endif
+                                @endif">
 
 
-                                    <td class="fw-light">{{ date('d/m/Y', strToTime($list->dt_created)) }}</td>
-                                    <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
-                                    <td class="fw-light">{{ $list->rubrica }}</td>
-                                    <td class="fw-light">{{ $list->lexp }}</td>
-                                    <td class="fw-light">{{ $list->group1 }}</td>
-                                    <td class="fw-light">{{ $list->group2 }}</td>
-                                    @can('management')
-                                        <td class="fw-light">{{ $list->material }}</td>
-                                    @endcan
+                                <td class="fw-light">{{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
+                                </td>
 
-                                    <td class="fw-light">{{ $list->nstats }}</td>
-                                    {{-- <td class="fw-light">{{ $list->pze }}</td> --}}
-                                    <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}
-                                    </td>
-                                    <td scope="col"
-                                        class="text-center
-                                        @if ($list->days_left < 0) text-bg-secondary
-                                        @elseif($list->days_left >= 0 && $list->days_left < 6)
+                                <td class="fw-light">{{ $list->lexp }}</td>
+
+                                <td class="fw-light">
+                                    {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
+                                </td>
+                                <td class="fw-light">
+                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
+                                </td>
+
+                                <td scope="col" class="text-center">
+                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->date)->diffInDays($list->WorkForm->created_at, false) : '---' }}
+                                </td>
+
+                                <td scope="col"
+                                    class="text-center
+                                        @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
+                                        @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
                                         table-danger
-                                        @elseif($list->days_left >= 6 && $list->days_left < 10)
+                                        @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
                                             table-warning
                                         @else
                                             table-success @endif
                                     "
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                        data-bs-placement="top" data-bs-title="Prazo Real"
-                                        data-bs-content="
+                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                    data-bs-content="
                                 <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                                 <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                                 <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
-                                        {{ 30 - $list->days_left }}
-                                    </td>
-                                    <td class="fw-light">
-                                        @if ($list->pze_parecer === 'Vencido')
-                                            <span class="badge text-bg-danger">VENCIDO</span>
-                                        @elseif ($list->pze_parecer === 'Não vencido')
-                                            <span class="badge text-bg-success">EM PRAZO</span>
-                                        @else
-                                            <span class="badge text-bg-secondary">DESCONHECIDO</span>
-                                        @endif
-                                    </td>
+                                    {{ $daysLeft->getDaysLeft() }}
+                                </td>
 
 
-                                    <td class="fw-bold text-center">
-                                        @if (!$block)
-                                            <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
-                                                style="cursor: pointer;"
-                                                wire:click.prevent="to_accompany({{ $list->id }})"
-                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Enviar para Acompanhamento"></i>
-                                        @else
-                                            {{-- @php
+                                <td class="fw-bold text-center">
+                                    @if (!$block)
+                                        <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                            style="cursor: pointer;"
+                                            wire:click.prevent="to_accompany({{ $list->id }})"
+                                            data-bs-toggle="tooltip" data-bs-placement="top"
+                                            data-bs-custom-class="custom-tooltip"
+                                            data-bs-title="Enviar para Acompanhamento"></i>
+                                    @else
+                                        {{-- @php
                                                 if (isset($block->User->name)) {
                                                     $name = explode(' ', $block->User->name);
                                                     $name = $name[0] . ' ' . substr(end($name), 0, 1);
@@ -276,52 +230,52 @@
                                                     $name = 'DESCONHECIDO';
                                                 }
                                             @endphp --}}
-                                            <span style="font-size: 11px">{{ $lastUser }}</span>
-                                        @endif
+                                        <span style="font-size: 11px">{{ $lastUser }}</span>
+                                    @endif
 
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+
         @endif
-        </dic>
-        <div class="row">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
-            </div>
+    </div>
+    <div class="row">
+        <div class="col-6">
+            {{ $lists->links() }}
+        </div>
+        <div class="col-6 d-flex justify-content-end align-middle">
+            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                {{ $lists->lastItem() }}
+                de {{ $lists->total() }}
+                registros.</span>
         </div>
     </div>
+</div>
 
-    @push('script')
-        <script>
-            const copyTextCells = document.querySelectorAll('.copy-text');
+@push('script')
+    <script>
+        const copyTextCells = document.querySelectorAll('.copy-text');
 
-            copyTextCells.forEach(cell => {
-                cell.addEventListener('click', () => {
-                    const value = cell.getAttribute('data-value');
-                    copyToClipboard(value);
-                    livewire.emit('getCopy',
-                        `Valor "${value}" copiado para a área de transferência.`);
-                    // alert(`Valor "${value}" copiado para a área de transferência.`);
-                });
+        copyTextCells.forEach(cell => {
+            cell.addEventListener('click', () => {
+                const value = cell.getAttribute('data-value');
+                copyToClipboard(value);
+                livewire.emit('getCopy',
+                    `Valor "${value}" copiado para a área de transferência.`);
+                // alert(`Valor "${value}" copiado para a área de transferência.`);
             });
+        });
 
-            function copyToClipboard(text) {
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-            }
-        </script>
-    @endpush
+        function copyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+        }
+    </script>
+@endpush

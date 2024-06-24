@@ -14,12 +14,12 @@
                             <i class="bi bi-circle"></i> <span>LISTA {{ mb_strToUpper($service->service) }}</span>
                         </a>
                     </li>
-                    <li>
+                    {{-- <li>
                         <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
                             <i class="bi bi-circle"></i> <span>ACOMPANHAMENTO</span> @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
-                    </li>
+                    </li> --}}
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
@@ -32,6 +32,6 @@
         </li>
     </ul>
 
-    
+
 
 </aside>

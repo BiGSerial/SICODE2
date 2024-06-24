@@ -6,85 +6,53 @@
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
-    <div class="row justify-content-between">
-        <div class="mb-3 col-3">
-            <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
-                id="search" placeholder="Buscar">
+    <div class="row mb-3 justify-content-end">
+        <div class="col-1">
+            <label for="" class="form-label">Por Página</label>
+            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+            </select>
         </div>
-        <div class="btn-group mb-3">
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
 
-                </button>
+        <div class="col-2">
+            <label for="search" class="form-label">Buscar</label>
+            <div class="input-group">
+                <input wire:model.bounce.2s="search" type="text"
+                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
+                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
+                        class="ri-checkbox-multiple-blank-line"></i></button>
+            </div>
+        </div>
 
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-                    </form>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                        Aplicar Filtro</button>
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_clean"><i
-                            class="ri-filter-off-fill"></i> Limpar Filtro</button>
-
-                </div>
+        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
+            <label for="search" class="form-label"> </label>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
+                <label class="form-check-label" for="inlineRadio1">Nota</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
+                <label class="form-check-label" for="inlineRadio1">OV</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
+                <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
 
-
-
+            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publication_acc', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publication_acc', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publication_acc', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publication_acc', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'publication_acc'], key('removeAll'))
         </div>
+
+
 
     </div>
-
-    @can('superadm')
-        <div class="row justify-content-start">
-            <div class="col-2">
-                <input wire:model.bounce.2s="user_search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-            </div>
-
-            <div class="col-3 mb-3">
-                <div class="input-group">
-                    <select class="form-select border border-2 border-secondary" aria-label="Default select example"
-                        wire:model.defer="user_s">
-                        @if ($user_l->count())
-                            <option value="">Selecione Usuario</option>
-                            @foreach ($user_l as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
-                        @endif
-                    </select>
-
-
-                    <button class="btn btn-primary " wire:click.prevent="visualizar" type="button">
-                        Visualizar</button>
-                </div>
-            </div>
-        </div>
-    @endcan
-
-
-
 
 
     <nav>
@@ -142,15 +110,13 @@
                                 <thead class="table-dark">
                                     <tr>
                                         <th scope="col" class="fw-bold">Note</th>
-                                        <th scope="col" class="fw-bold">Criado Em</th>
-                                        <th scope="col" class="fw-bold">numPedido</th>
-                                        <th scope="col" class="fw-bold">Rubrica</th>
+                                        <th scope="col" class="fw-bold">Ordens</th>
+                                        <th scope="col" class="fw-bold">NumEquipamentos</th>
+                                        <th scope="col" class="fw-bold">Empreiteira</th>
                                         <th scope="col" class="fw-bold">Municipio</th>
-                                        <th scope="col" class="fw-bold">Zona</th>
-                                        <th scope="col" class="fw-bold">Grp2</th>
                                         <th scope="col" class="fw-bold">Descrição</th>
                                         <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                        <th scope="col" class="fw-bold">Dias da Nota</th>
+                                        <th scope="col" class="fw-bold">Na Pilha</th>
                                         <th scope="col" class="fw-bold">Status</th>
                                         <th scope="col" class="fw-bold"></th>
                                     </tr>
@@ -189,7 +155,7 @@
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                             </td>
                                             <td scope="col"
-                                                class="text-center 
+                                                class="text-center
                                         @if ($list->Note->days_left < 0) text-bg-secondary
                                         @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                         table-danger
