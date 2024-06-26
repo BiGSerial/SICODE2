@@ -5,20 +5,14 @@ namespace App\Http\Livewire\Components\Pausenote;
 use App\Models\{Note, Notetimeline, Production, Service};
 use Livewire\Component;
 
-class Pausenote extends Component
+class Pausenote2 extends Component
 {
-    public $show_pause = false;
+    public ?Production $production = null;
+    public ?Notetimeline $pause = null;
 
-    public $note;
 
-    public $production;
-
-    public $service;
-
-    public $count;
-
-    public $limit_pause = 5000;
-
+    public $limite = 100;
+    public $count = 0;
     public $info;
 
     protected $listeners = [
@@ -31,19 +25,28 @@ class Pausenote extends Component
      * @param ['productionId' => $check->id, 'noteId' => $check->note_id] $data
      * @return void
      */
-    public function to_stopNote($data)
+    public function to_stopNote(Production $production)
     {
-        if (isset($data['limit']) && $data['limit']) {
-            $this->limit_pause = $data['limit'];
+        $this->count = Production::Where('service_id', $production->service_id)->where('user_id', Auth()->User()->id)->where('status', 4)->count();
+
+        if ($this->count >= $this->limite) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'LIMITE ATINGIDO.',
+                'html'     => 'Você atingiu o limite permitido para PAUSA. É necessario finalizar as anterirores.',
+                'timer'    => 10000,
+            ]);
+
+            return;
         }
 
-        $this->note       = Note::find($data['noteId']);
-        $this->production = Production::find($data['productionId']);
-        $this->count      = Production::Where('status', 4)->Where('service_id', $this->production->service_id)->Where('user_id', Auth()->User()->id)->count();
+        $this->production = $production;
 
-        if ($this->production && $this->note) {
-            $this->service    = Service::Where('uuid', $this->production->service_id)->first();
-            $this->show_pause = true;
+        if ($this->production) {
+            $this->dispatchBrowserEvent('showModal', [
+                'id' => "pauseModal",
+            ]);
         }
     }
 
@@ -82,10 +85,8 @@ class Pausenote extends Component
 
     public function clean()
     {
-        $this->show_pause = false;
-        $this->note       = null;
+
         $this->production = null;
-        $this->service    = null;
         $this->count      = 0;
         $this->info       = null;
     }
@@ -95,11 +96,14 @@ class Pausenote extends Component
         $this->clean();
         $this->dispatchBrowserEvent('hideModal');
         $this->dispatchBrowserEvent('hideModal');
-        $this->emit('refresh_accomany');
+        $this->dispatchBrowserEvent('hideModal');
+        $this->emitTo('services.publication.accompany.main', 'refresh_list');
     }
+
+
 
     public function render()
     {
-        return view('livewire.components.pausenote.pausenote');
+        return view('livewire.components.pausenote.pausenote2');
     }
 }

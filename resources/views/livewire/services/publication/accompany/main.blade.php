@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -98,117 +99,139 @@
                     </div>
                 @else
                     <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
-                        {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
-                            @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                ({{ $sts->value }})
-                            @endforeach
-                        @endif
+                        {{ mb_strtoupper($service->service) }}
                     </h4>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped table-condensed">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th scope="col" class="fw-bold">Note</th>
-                                        <th scope="col" class="fw-bold">Ordens</th>
-                                        <th scope="col" class="fw-bold">NumEquipamentos</th>
-                                        <th scope="col" class="fw-bold">Empreiteira</th>
-                                        <th scope="col" class="fw-bold">Municipio</th>
-                                        <th scope="col" class="fw-bold">Descrição</th>
-                                        <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                        <th scope="col" class="fw-bold">Na Pilha</th>
-                                        <th scope="col" class="fw-bold">Status</th>
-                                        <th scope="col" class="fw-bold"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
-                                        <tr
-                                            class="align-middle @if ($list->block) table-primary @endif">
-                                            <td
-                                                class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                                {{ $list->Note->note }}
-                                                <span class="copy-text" data-value="{{ $list->Note->note }}"
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-condensed table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col" class="fw-bold text-center">Note</th>
+                                    <th scope="col" class="fw-bold text-center">Files</th>
+                                    <th scope="col" class="fw-bold text-center">Ordens</th>
+                                    <th scope="col" class="fw-bold text-center">Qtd Equipamentos</th>
+                                    <th scope="col" class="fw-bold text-center">Empreiteira</th>
+                                    <th scope="col" class="fw-bold text-center">Municipio</th>
+                                    <th scope="col" class="fw-bold text-center">Descrição</th>
+                                    <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
+                                    <th scope="col" class="fw-bold text-center">Na Pilha</th>
+                                    <th scope="col" class="fw-bold text-center">PrazoTotal</th>
+                                    <th scope="col" class="fw-bold text-center">Status</th>
+                                    <th scope="col" class="fw-bold text-center"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
+                                    @php
+                                        $daysLeft = new DaysLeft($list->Note);
+                                    @endphp
+                                    <tr wire:key="work-{{ $list->id }}"
+                                        wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
+                                        class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
+                                        <td
+                                            class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                            {{ $list->Note->note }}
+                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="top"
+                                                data-bs-content="Copiar Número da Nota"> <i
+                                                    class="ri-file-copy-line"></i></span>
+
+                                            @if ($list->priority)
+                                                <i class="ri-alert-fill align-middle"
+                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-content="Copiar Número da Nota"> <i
-                                                        class="ri-file-copy-line"></i></span>
+                                                    data-bs-title="Exibir Prioridade"
+                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle">
+                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                            <x-files.select-download-list :files='$list->Note->Files' />
 
-                                                @if ($list->priority)
-                                                    <i class="ri-alert-fill align-middle"
-                                                        wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                        style="cursor: pointer;" tabindex="0"
-                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                        data-bs-placement="top" data-bs-title="Exibir Prioridade"
-                                                        data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                                @endif
-                                            </td>
-                                            <td class="fw-light">
-                                                {{ date('d/m/Y', strToTime($list->Note->dt_created)) }}</td>
-                                            <td class="fw-light">{{ $list->Note->numPedido }}</td>
-                                            <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                            <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                            <td class="fw-light">{{ $list->Note->group1 }}</td>
-                                            <td class="fw-light">{{ $list->Note->group2 }}</td>
-                                            <td class="fw-light">{{ $list->Note->material }}</td>
-                                            <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                            </td>
-                                            <td scope="col"
-                                                class="text-center
-                                        @if ($list->Note->days_left < 0) text-bg-secondary
-                                        @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
+                                        </td>
+                                        <td class="fw-light text-center align-middle">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                @endforeach
+                                            @endif
+                                        </td>
+                                        <td class="fw-light text-center align-middle">
+
+                                            @if (isset($list->Note->WorkForm))
+                                                <span
+                                                    class="badge text-bg-dark">{{ $list->Note->WorkForm->Equipment->count() }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="fw-light text-center align-middle">
+                                            {{ isset($list->Note->WorkForm) ? $list->Note->WorkForm->Company->name : '---' }}
+                                        </td>
+                                        <td class="fw-light text-center align-middle">{{ $list->Note->lexp }}</td>
+                                        <td class="fw-light text-center align-middle">{{ $list->Note->material }}</td>
+                                        <td class="fw-light text-center align-middle">
+                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                        </td>
+                                        <td class="fw-light text-center align-middle">
+                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->created_at) : '---' }}
+                                        </td>
+                                        <td scope="col"
+                                            class="text-center
+                                        @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
+                                        @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
                                         table-danger
-                                        @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
+                                        @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
                                             table-warning
                                         @else
                                             table-success @endif
                                     "
-                                                tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                data-bs-placement="top" data-bs-title="Prazo Real"
-                                                data-bs-content="
+                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Prazo Real"
+                                            data-bs-content="
                                 <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                                 <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                                 <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
-                                                {{ 30 - $list->Note->days_left }}
-                                            </td>
-                                            <td class="fw-light">
-                                                <span
-                                                    class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
-                                            </td>
-                                            <td class="fw-bold fs-5">
-                                                @if (!$list->block)
-                                                    @if (!$list->completed)
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Iniciar.">
-                                                            <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                        </span>
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Transferir.">
-                                                            <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                        </span>
-                                                    @endif
+                                            {{ 30 - $daysLeft->getDaysLeft() }}
+                                        </td>
+                                        <td class="fw-light text-center align-middle">
+                                            <span
+                                                class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                        </td>
+                                        <td class="fw-bold fs-5">
+                                            @if (!$list->block && !$this->blockWaiting($list->status))
+                                                @if (!$list->completed)
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Iniciar.">
+                                                        {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                            style="cursor: pointer;"
+                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i> --}}
+                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                            style="cursor: pointer;"
+                                                            wire:click.prevent="$emitTo('services.publication.forms.jobform', 'showProduction', {{ $list }})"></i>
+                                                    </span>
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Transferir.">
+                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                                    </span>
                                                 @endif
-                                            </td>
+                                            @endif
+                                        </td>
 
 
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
+
                 @endif
 
 
@@ -247,7 +270,7 @@
                     {{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
                 </div>
                 <div class="modal-body">
-                    @livewire('services.analises.forms.analise', key('analise-form'))
+                    @livewire('services.publication.forms.analise', key('analise-form'))
                 </div>
                 {{-- <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
@@ -283,6 +306,8 @@
 
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
+    @livewire('partner.show.show-work-form', key('WorkFormCompany'))
+    @livewire('services.publication.forms.jobform', key('production'))
 
     <div wire:init="checkOpen"></div>
 

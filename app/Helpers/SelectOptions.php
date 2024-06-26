@@ -39,6 +39,13 @@ class SelectOptions
         ];
     }
 
+    public static function getPublicationOptions()
+    {
+        return [
+            (object)['info' => 'LIBERAR PARA LIGAÇÃO', 'value' => 'LIBERADO PARA LIGAÇÃO'],
+        ];
+    }
+
     public static function verifyNeedFilesReclaims($item)
     {
 

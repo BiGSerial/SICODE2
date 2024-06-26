@@ -199,6 +199,13 @@ class Notestatus
                 'colorbg' => 'text-bg-primary',
                 'color'   => 'primary',
             ],
+            // 27
+            [
+                'status'  => 'Iniciada',
+                'icon'    => 'ri-run-fill',
+                'colorbg' => 'text-bg-info',
+                'color'   => 'info',
+            ],
         ];
 
         return (object) $status[$sts];

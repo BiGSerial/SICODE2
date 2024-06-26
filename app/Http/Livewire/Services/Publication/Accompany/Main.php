@@ -2,7 +2,8 @@
 
 namespace App\Http\Livewire\Services\Publication\Accompany;
 
-use App\Models\{Note, Production, Service, User};
+use App\Models\{File, Note, Production, Service, User};
+use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -59,6 +60,19 @@ class Main extends Component
         }
     }
 
+    public function blockWaiting($status)
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['waitingForm']) && $status != 27) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public function goTransferProd($prod_id)
     {
         $this->emit('transfer_production', $prod_id);
@@ -79,11 +93,13 @@ class Main extends Component
 
         if ($check) {
 
-            $this->emit('open_analise_analise', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+            // $this->emit('open_analise_analise', ['productionId' => $check->id, 'noteId' => $check->note_id]);
 
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
+            // $this->dispatchBrowserEvent('showModal', [
+            //     'id' => 'analise_form',
+            // ]);
+
+            $this->emitTo('services.publication.forms.jobform', 'showProduction', $check);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -145,6 +161,16 @@ class Main extends Component
 
     public function visualizar()
     {
+    }
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            }
+        }
     }
 
     public function filter_clean()
