@@ -51,7 +51,7 @@ class Historic extends Component
             ->groupBy('mes_ano')
             ->orderBy('mes_ano')
             ->get();
-        dd($this->date_prod_l);
+        // dd($this->date_prod_l);
 
     }
 

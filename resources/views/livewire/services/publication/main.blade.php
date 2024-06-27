@@ -32,7 +32,7 @@
 
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
-            <div class="form-check form-check-inline">
+            {{-- <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
                 <label class="form-check-label" for="inlineRadio1">Nota</label>
             </div>
@@ -43,9 +43,9 @@
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
                 <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
+            </div> --}}
 
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publication', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+            {{-- @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publication', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica')) --}}
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publication', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
             @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publication', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publication', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
@@ -149,11 +149,7 @@
                             @php
                                 $block = false;
 
-                                if (
-                                    isset($list->Production) &&
-                                    $list->Production->where('service_id', $service->uuid)->count()
-                                ) {
-                                    $production = $list->Production->where('service_id', $service->uuid)->last();
+                                if ($production = $this->hasPublication($list)) {
                                     $block = true;
                                 }
 
@@ -222,15 +218,15 @@
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="Enviar para Acompanhamento"></i>
                                     @else
-                                        {{-- @php
-                                                if (isset($block->User->name)) {
-                                                    $name = explode(' ', $block->User->name);
-                                                    $name = $name[0] . ' ' . substr(end($name), 0, 1);
-                                                } else {
-                                                    $name = 'DESCONHECIDO';
-                                                }
-                                            @endphp --}}
-                                        <span style="font-size: 11px">{{ $lastUser }}</span>
+                                        @php
+                                            if (isset($production->User->name)) {
+                                                $name = explode(' ', $production->User->name);
+                                                $name = $name[0] . ' ' . end($name);
+                                            } else {
+                                                $name = 'DESCONHECIDO';
+                                            }
+                                        @endphp
+                                        <span style="font-size: 11px">{{ $name }}</span>
                                     @endif
 
                                 </td>

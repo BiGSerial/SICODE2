@@ -32,6 +32,10 @@ class Main extends Component
 
     public $assigned_mmgd = false;
 
+    protected $queryString = [
+        'search' => ['except' => '', 'as' => 'buscar'],
+    ];
+
     // Filters
     private $filter_group = 'publication';
 
@@ -54,7 +58,6 @@ class Main extends Component
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
     }
 
     public function copy($msg)
@@ -164,7 +167,16 @@ class Main extends Component
         }
     }
 
+    public function hasPublication(Note $note)
+    {
+        $production = $note->Productions->where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->last();
 
+        if ($production) {
+            return $production;
+        } else {
+            return false;
+        }
+    }
 
 
 

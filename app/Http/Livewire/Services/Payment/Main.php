@@ -2,9 +2,9 @@
 
 namespace App\Http\Livewire\Services\Payment;
 
-use App\Custom\RuleBuilder;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
 use Livewire\{Component, WithPagination};
+use App\Services\Payment\NoteFilter;
 
 class Main extends Component
 {
@@ -26,29 +26,40 @@ class Main extends Component
 
     public $last_update;
 
+    public $typeNote;
+
     //Botão de  nao atribuído.
     public $not_assigned = false;
 
     public $assigned_mmgd = false;
 
+    // Filters
+    private $filter_group = 'publication';
+
     protected $listeners = [
         'refresh_service'   => '$refresh',
+        'refresh_list'      => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
     ];
+
+    protected $queryString = [
+        'search' => ['except' => '', 'as' => 'buscar'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
+    ];
+
+    protected $noteFilter;
+
+    public function boot(NoteFilter $noteFilter)
+    {
+        $this->noteFilter = $noteFilter;
+    }
+
 
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
-        }
     }
 
     public function copy($msg)
@@ -79,9 +90,9 @@ class Main extends Component
             <div class='card card-light'>
             <div class='card-body'>
             <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p> 
+            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
             </div>
-            </div>  
+            </div>
             ",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Atribua!',
@@ -158,35 +169,18 @@ class Main extends Component
         }
     }
 
-    public function filter_save()
+    public function hasPublication(Note $note)
     {
-        $this->gotoPage(1);
+        $production = $note->Productions->where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->last();
 
-        if (!isset($_SESSION)) {
-            session_start();
+        if ($production) {
+            return $production;
+        } else {
+            return false;
         }
-        $_SESSION['filtro']['analise']['rubrica'] = $this->rubrica_s;
-
-        $this->emit('refresh_service');
-
     }
 
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
 
-        if (!isset($_SESSION)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filtro']['analise'])) {
-            unset($_SESSION['filtro']['analise']);
-        }
-
-        $this->gotoPage(1);
-
-        $this->emit('refresh_service');
-    }
 
     public function filterStatus()
     {
@@ -195,51 +189,64 @@ class Main extends Component
         } else {
             $this->not_assigned = true;
         }
-
     }
 
     public function getListsProperty()
     {
 
-        $query = Note::query();
+        // $query = Note::query();
 
-        RuleBuilder::applyRules($query, $this->service->Status);
+        // // RuleBuilder::applyRules($query, $this->service->Status);
 
-        $query->when($this->search, function ($q, $s) {
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%');
-            });
-        })->when($this->rubrica_s, function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('rubrica', $this->rubrica_s)
-                    ->orWhereNull('rubrica');
-            });
-        });
+        // $query->whereHas('WorkForm')
+        //     ->whereHas('Orders', function ($q) {
+        //         $q->where('statusSist', 'LIKE', 'LIB%')
+        //             ->whereHas('Operations', function ($sq) {
+        //                 $sq->where('operacao', '0010')
+        //                     ->where('status', 'like', 'CONF%');
+        //             });
+        //     });
 
-        if ($this->not_assigned) {
-            $query->where(function ($q) {
-                $q->doesntHave('Productions')
-                    ->orWhereDoesntHave('Productions', function ($subquery) {
-                        $subquery->where('service_id', $this->service->uuid)
-                            ->where('confirmed', false);
-                    });
-            });
-        }
+        // $query->when($this->search, function ($q, $s) {
+        //     return $q->where(function ($query) use ($s) {
+        //         $query->where('note', 'like', '%' . $s . '%')
+        //             ->orWhere('material', 'like', '%' . $s . '%')
+        //             ->orWhere('numPedido', 'like', '%' . $s . '%')
+        //             ->orWhere('group2', 'like', '%' . $s . '%');
+        //     });
+        // })->when($this->rubrica_s, function ($q) {
+        //     return $q->where(function ($query) {
+        //         $query->whereIn('rubrica', $this->rubrica_s)
+        //             ->orWhereNull('rubrica');
+        //     });
+        // });
 
-        if ($this->assigned_mmgd) {
-            $query->where('material', 'like', '%MMGD%');
-        } else {
-            $query->where('material', 'not like', '%MMGD%');
-        }
+        // if ($this->not_assigned) {
+        //     $query->where(function ($q) {
+        //         $q->doesntHave('Productions')
+        //             ->orWhereDoesntHave('Productions', function ($subquery) {
+        //                 $subquery->where('service_id', $this->service->uuid)
+        //                     ->where('confirmed', false);
+        //             });
+        //     });
+        // }
 
-        $query->with('Productions.User')
-            ->orderBy('days_left', 'ASC');
+        // if ($this->assigned_mmgd) {
+        //     $query->where('material', 'like', '%MMGD%');
+        // } else {
+        //     $query->where('material', 'not like', '%MMGD%');
+        // }
 
-        return $query->paginate($this->perPage);
+        // $query->with('Productions.User')
+        //     ->orderBy('days_left', 'ASC');
 
+        // return $query->paginate($this->perPage);
+
+        return $this->noteFilter->filter($this->search,  $this->filter_group)
+            ->when($this->typeNote, function ($q) {
+                $q->where('type_note', $this->typeNote);
+            })
+            ->paginate($this->perPage);
     }
 
     public function render()

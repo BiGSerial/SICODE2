@@ -83,73 +83,73 @@
                     @endforeach
                 @endif
             </h4>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark        ">
-                            <tr>
-                                <th scope="col" class="fw-bold">Note</th>
-                                <th scope="col" class="fw-bold"></th>
-                                {{-- <th scope="col" class="fw-bold">numPedido</th> --}}
-                                <th scope="col" class="fw-bold">Rubrica</th>
-                                <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Grupo</th>
-                                <th scope="col" class="fw-bold">Descrição</th>
-                                <th scope="col" class="fw-bold">Iniciado</th>
-                                <th scope="col" class="fw-bold">Concluído</th>
-                                <th scope="col" class="fw-bold">Tempo</th>
-                                <th scope="col" class="fw-bold">Parado</th>
-                                <th scope="col" class="fw-bold">Resultado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                <tr
-                                    class="align-middle
+
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-condensed">
+                    <thead class="table-dark        ">
+                        <tr>
+                            <th scope="col" class="fw-bold">Note</th>
+                            <th scope="col" class="fw-bold"></th>
+                            {{-- <th scope="col" class="fw-bold">numPedido</th> --}}
+                            <th scope="col" class="fw-bold">Rubrica</th>
+                            <th scope="col" class="fw-bold">Municipio</th>
+                            <th scope="col" class="fw-bold">Grupo</th>
+                            <th scope="col" class="fw-bold">Descrição</th>
+                            <th scope="col" class="fw-bold">Iniciado</th>
+                            <th scope="col" class="fw-bold">Concluído</th>
+                            <th scope="col" class="fw-bold">Tempo</th>
+                            <th scope="col" class="fw-bold">Parado</th>
+                            <th scope="col" class="fw-bold">Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            <tr
+                                class="align-middle
                             @if (Carbon::parse($list->completed_at)->diffInDays(Carbon::now()) > 1 &&
                                     $list->completed &&
                                     $list->status_note == $list->Note->nstats) table-warning @endif
                         ">
-                                    <td class="fw-bold copy-text" data-value="{{ $list->Note->note }}"
-                                        style="cursor: pointer;">
-                                        {{ $list->Note->note }}
-                                    </td>
-                                    <td>
-                                        @if (!$list->confirmed)
-                                            <i class="ri-rest-time-line text-primary"></i>
-                                        @else
-                                            <i class="ri-checkbox-circle-line text-success"></i>
-                                        @endif
+                                <td class="fw-bold copy-text" data-value="{{ $list->Note->note }}"
+                                    style="cursor: pointer;">
+                                    {{ $list->Note->note }}
+                                </td>
+                                <td>
+                                    @if (!$list->confirmed)
+                                        <i class="ri-rest-time-line text-primary"></i>
+                                    @else
+                                        <i class="ri-checkbox-circle-line text-success"></i>
+                                    @endif
 
-                                        @if ($list->transferred)
-                                            <i class="ri-exchange-fill text-warning"></i>
-                                        @endif
+                                    @if ($list->transferred)
+                                        <i class="ri-exchange-fill text-warning"></i>
+                                    @endif
 
-                                    </td>
-                                    {{-- <td class="fw-light">{{ $list->Note->numPedido }}</td> --}}
-                                    <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                    <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                    <td class="fw-light">{{ $list->Note->group1 }}</td>
-                                    <td class="fw-light">{{ $list->Note->material }}</td>
-                                    <td class="fw-light">{{ date('d/m/Y H:i', strToTime($list->att_at)) }}</td>
-                                    <td class="fw-light">
-                                        {{ Carbon::parse($list->completed_at)->format('d/m/Y H:i') }}
-                                    </td>
-                                    <td class="fw-light">
-                                        {{ Carbon::parse($list->completed_at)->diffForHumans(Carbon::parse($list->att_at)->format('Y-m-d H:i')) }}
-                                    </td>
-                                    <td class="fw-light">
-                                        {{ CarbonInterval::seconds($list->stopped)->cascade()->forHumans(['short' => true]) }}
-                                    </td>
-                                    <td class="fs-6">
-                                        @livewire('components.historic.analises', ['production_id' => $list - id], key('hist-' . $list->id))
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                </td>
+                                {{-- <td class="fw-light">{{ $list->Note->numPedido }}</td> --}}
+                                <td class="fw-light">{{ $list->Note->rubrica }}</td>
+                                <td class="fw-light">{{ $list->Note->lexp }}</td>
+                                <td class="fw-light">{{ $list->Note->group1 }}</td>
+                                <td class="fw-light">{{ $list->Note->material }}</td>
+                                <td class="fw-light">{{ date('d/m/Y H:i', strToTime($list->att_at)) }}</td>
+                                <td class="fw-light">
+                                    {{ Carbon::parse($list->completed_at)->format('d/m/Y H:i') }}
+                                </td>
+                                <td class="fw-light">
+                                    {{ Carbon::parse($list->completed_at)->diffForHumans(Carbon::parse($list->att_at)->format('Y-m-d H:i')) }}
+                                </td>
+                                <td class="fw-light">
+                                    {{ CarbonInterval::seconds($list->stopped)->cascade()->forHumans(['short' => true]) }}
+                                </td>
+                                <td class="fs-6">
+                                    @livewire('components.historic.analises', ['production_id' => $list->id], key('hist-' . $list->id))
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+
         @endif
 
 
