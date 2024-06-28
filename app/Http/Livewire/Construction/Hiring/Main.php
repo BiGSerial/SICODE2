@@ -122,7 +122,6 @@ class Main extends Component
                 ->find($this->selected);
 
             return (new HiringListExport($query))->download(date('YmdHis-') . 'exportOrdersList.xlsx');
-
         } else {
             if (!(session_status() == PHP_SESSION_ACTIVE)) {
                 session_start();
@@ -154,14 +153,13 @@ class Main extends Component
 
             if (!$this->allCenters) {
                 $query->where('statusSist', 'not like', 'ENTE%')
-                      ->where('statusSist', 'not like', 'ENCE%')
-                      ->where(function ($q) {
-                          $q->whereRelation('Operations', function ($sq) {
-                              $sq->where('operacao', '0010')
-                                  ->where('status', 'not like', 'CONF%');
-                          });
-                      });
-
+                    ->where('statusSist', 'not like', 'ENCE%')
+                    ->where(function ($q) {
+                        $q->whereRelation('Operations', function ($sq) {
+                            $sq->where('operacao', '0010')
+                                ->where('status', 'not like', 'CONF%');
+                        });
+                    });
             }
 
             $query->where(function ($q) {
@@ -323,7 +321,6 @@ class Main extends Component
             ]);
 
             return;
-
         }
 
 
@@ -454,11 +451,8 @@ class Main extends Component
                         if (!$file) {
                             $erro = true;
                         }
-
                     }
-
                 }
-
             }
         }
 
@@ -483,7 +477,6 @@ class Main extends Component
                     if (!$viability) {
                         $erro = true;
                     }
-
                 }
             } elseif ($this->action == 2) {
                 // TO Direct hiring, this will direct to completed job.
@@ -505,7 +498,6 @@ class Main extends Component
 
                     if (!$viability) {
                         $erro = true;
-
                     }
                 }
             }
@@ -520,7 +512,6 @@ class Main extends Component
                 'title'    => 'TIVEMOS UM ERRO INESPERADO, NENHUM REGISTRO FOI EXECUTADO.',
                 'timer'    => 5000,
             ]);
-
         } else {
 
             DB::commit();
@@ -566,7 +557,6 @@ class Main extends Component
                 return response()->download($zipFile)->deleteFileAfterSend(true);
             }
         } else {
-
         }
     }
 
@@ -604,7 +594,6 @@ class Main extends Component
 
             $this->associate_files();
         }
-
     }
 
     public function delete_file($id)
@@ -741,8 +730,10 @@ class Main extends Component
                     $waitingsCount = $item->Note->Waitings->where('complete', false)->count();
                     $status = $item->statusSist;
 
-                    if ($viabilitiesCount == 0 && $waitingsCount == 0 &&
-                        stripos($status, 'ENCE') === false && stripos($status, 'ENTE') === false) {
+                    if (
+                        $viabilitiesCount == 0 && $waitingsCount == 0 &&
+                        stripos($status, 'ENCE') === false && stripos($status, 'ENTE') === false
+                    ) {
                         $this->selected[] = $id;
                     }
                 }
@@ -754,8 +745,6 @@ class Main extends Component
                 return !in_array($id, $visibleIds);
             });
         }
-
-
     }
 
     public function checkAllSelect($items)
@@ -766,8 +755,9 @@ class Main extends Component
         $this->selectAll = empty(array_diff($items, $this->selected));
 
         return $this->selectAll;
-
     }
+
+
 
     public function getListsProperty()
     {
@@ -801,20 +791,21 @@ class Main extends Component
 
         if (!$this->allCenters) {
             $query->where('statusSist', 'not like', 'ENTE%')
-                  ->where('statusSist', 'not like', 'ENCE%')
-                  ->where(function ($q) {
-                      $q->whereRelation('Operations', function ($sq) {
-                          $sq->where('operacao', '0010')
-                              ->where('status', 'not like', 'CONF%');
-                      });
-                  });
-
+                ->where('statusSist', 'not like', 'ENCE%')
+                ->where(function ($q) {
+                    $q->whereRelation('Operations', function ($sq) {
+                        $sq->where('operacao', '0010')
+                            ->where('status', 'not like', 'CONF%');
+                    });
+                });
         }
 
         $query->where(function ($q) {
             return $q->whereRelation('Note', function ($query) {
                 $query->where(function ($qq) {
-                    $qq->WhereIn('nstats', [46, 47, 48, 49, 50])
+                    $qq->when(!$this->allCenters, function ($q) {
+                        $q->WhereIn('nstats', [46, 47, 48, 49, 50]);
+                    })
                         ->whereNotIn('rubrica', ['Incoporação'])
                         ->where('type_note', 2);
                 })->orWhere(function ($qq) {
@@ -885,18 +876,17 @@ class Main extends Component
             ->orderBy('myNote');
 
         return $query->paginate($this->perPage);
-
     }
 
     public function copyClipboard()
     {
         if (count($this->selected)) {
             $orders = Order::join('notes', 'orders.note_id', '=', 'notes.id')->with('Operations', 'Note.Files')
-            ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
-            ->orderBy('myTypeNote', 'DESC')
-            ->orderBy('myDayLeft')
-            ->orderBy('myNote')
-            ->find($this->selected);
+                ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
+                ->orderBy('myTypeNote', 'DESC')
+                ->orderBy('myDayLeft')
+                ->orderBy('myNote')
+                ->find($this->selected);
 
             if ($orders) {
                 foreach ($orders as $order) {
@@ -946,7 +936,6 @@ class Main extends Component
 
             return;
         }
-
     }
 
     public function confirm_return()
@@ -1011,7 +1000,6 @@ class Main extends Component
 
                     $hiringWaiting->save();
                     $reclaim->save();
-
                 } else {
 
                     // Criar HiringWaiting
@@ -1036,14 +1024,11 @@ class Main extends Component
 
                     $hiringWaiting->Reclaim()->associate($reclaim);
                     $hiringWaiting->save();
-
                 }
-
             } catch (\Throwable $th) {
                 $error++;
                 $debug[] = $th->getMessage();
             }
-
         }
 
         if (!$error) {
@@ -1057,7 +1042,6 @@ class Main extends Component
             DB::commit();
 
             $this->closeall();
-
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -1068,9 +1052,7 @@ class Main extends Component
             ]);
 
             DB::rollback();
-
         }
-
     }
 
     public function copy($msg)

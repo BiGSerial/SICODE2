@@ -1,6 +1,11 @@
 {
-    "appver": "1.8.8",
+    "appver": "1.8.9",
     "historic": [
+        {
+            "version": "1.8.9",
+            "description": "Fix Search engine from Hiring page",
+            "date": "2024-06-28"
+        },
         {
             "version": "1.8.8",
             "description": "Fix Export Hiring Accompany List",
