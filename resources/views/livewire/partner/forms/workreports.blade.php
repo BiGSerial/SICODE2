@@ -128,10 +128,10 @@
                         </div>
                         <div class="mb-3" style="max-width: 300px">
                             <label for="exampleFormControlInput1" class="form-label">Adicione as Ordens deste
-                                Informe. <span class="text-danger fw-bold" data-bs-toggle="popover"
+                                Informe. <span class="text-danger fw-bold">*</span>
+                                <i class="ri-question-line text-primary fw-bold" data-bs-toggle="popover"
                                     data-bs-title="Popover title"
-                                    data-bs-content="And here's some amazing content. It's very engaging. Right?">*</span>
-                                <i class="ri-question-line text-primary fw-bold"></i></label>
+                                    data-bs-content="And here's some amazing content. It's very engaging. Right?"></i></label>
                             <select class="form-select mb-3" aria-label="Default select example"
                                 wire:model.defer="s_order">
                                 <option selected>Selecionar</option>
@@ -176,7 +176,8 @@
 
                         @if (!empty($temp_orders))
                             <div class="mb-3" style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Data Conclusão da Obra:</label>
+                                <label for="exampleFormControlInput1" class="form-label">Data Conclusão da Obra: <span
+                                        class="text-danger fw-bold">*</span></label>
                                 <input type="date" class="form-control" id="dateWork" max="{{ date('Y-m-d') }}"
                                     wire:model.defer="form.date">
                                 @error($form['date'])
@@ -187,7 +188,7 @@
                             <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Houve Instalação ou
                                     Desinstalação
-                                    de Equipamento?</label>
+                                    de Equipamento? <span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example"
                                     wire:model="form.equipment">
                                     <option selected>Selecione</option>
@@ -213,7 +214,7 @@
                                                         <select class="form-select"
                                                             aria-label="Default select example" id="type"
                                                             wire:model.defer="model_equipment.type">
-                                                            <option selected>Selecione</option>
+                                                            <option value="" selected>Selecione</option>
                                                             @foreach (SelectOptions::getEquipmentOptions() as $item)
                                                                 <option value="{{ $item->nick }}">
                                                                     {{ $item->info }}
@@ -319,7 +320,7 @@
 
                             <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Houve Alterações no
-                                    projeto?</label>
+                                    projeto? <span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example"
                                     wire:model="form.changes">
                                     <option selected>Selecione</option>
@@ -343,7 +344,8 @@
                             <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Houveram danos a propriedade
                                     de
-                                    particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.)</label>
+                                    particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.) <span
+                                        class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example"
                                     wire:model="form.damage" id="damage">
                                     <option selected>Selecione</option>
@@ -356,7 +358,7 @@
                                 <div class="mb-3 col-md-6">
                                     <label for="exampleFormControlInput1" class="form-label">Detalhar os Danos
                                         Causados e
-                                        Previsão de reparo: </label>
+                                        Previsão de reparo: <span class="text-danger fw-bold">*</span></label>
                                     <textarea type="text" class="form-control" id="description" rows="4" wire:model.defer="form.description"> </textarea>
                                 </div>
                             @endif
@@ -364,7 +366,7 @@
                             <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Ligação foi executada do
                                     momento
-                                    da obra?</label>
+                                    da obra? <span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example"
                                     wire:model="form.connection" id="connection">
                                     <option selected>Selecione</option>
@@ -375,7 +377,7 @@
 
                             <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Foram Instalados
-                                    Medidores?</label>
+                                    Medidores? <span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example" wire:model="meeters">
                                     <option selected>Selecione</option>
                                     <option value="1">Sim</option>
@@ -474,7 +476,15 @@
                             @endif
 
                             <div class="mb-3 col-md-3">
-                                <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA):</label>
+                                <label for="exampleFormControlInput1" class="form-label">Numero da DD (Ultimo
+                                    Relacionado a esta obra) <span class="text-danger fw-bold">*</span></label>
+                                <input type="text" class="form-control" id="dd"
+                                    wire:model.defer="form.dd">
+                            </div>
+
+                            <div class="mb-3 col-md-3">
+                                <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA) <span
+                                        class="text-danger fw-bold">*</span>:</label>
                                 <input type="text" class="form-control" id="team"
                                     wire:model.defer="form.team">
                             </div>
@@ -482,7 +492,7 @@
                             <div class="mb-3 col-md-3">
                                 <label for="exampleFormControlInput1" class="form-label">Qual o encarregado
                                     responsável
-                                    pela execução da atividade?</label>
+                                    pela execução da atividade? <span class="text-danger fw-bold">*</span></label>
                                 <input type="text" class="form-control" id="responsible"
                                     wire:model.defer="form.responsible">
                             </div>

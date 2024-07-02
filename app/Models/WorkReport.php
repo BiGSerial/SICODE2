@@ -21,12 +21,18 @@ class WorkReport extends Model
         'damage',
         'description',
         'team',
-        'responsible'
+        'responsible',
+        'dd'
     ];
 
     public function Note()
     {
         return $this->belongsTo(Note::class);
+    }
+
+    public function User()
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function Company()

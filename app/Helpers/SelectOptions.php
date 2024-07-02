@@ -46,6 +46,14 @@ class SelectOptions
         ];
     }
 
+    public static function getPaymentsOptions()
+    {
+        return [
+            (object)['info' => 'PAGAMENTO PARCIAL', 'value' => 'PAGAMENTO PARCIAL'],
+            (object)['info' => 'PAGAMENTO TOTAL', 'value' => 'PAGAMENTO TOTAL'],
+        ];
+    }
+
     public static function verifyNeedFilesReclaims($item)
     {
 

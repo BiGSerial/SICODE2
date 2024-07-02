@@ -32,9 +32,9 @@
 
     <div class="container-fluid main-content menu-hidden">
 
-        @can('engineer')
+        {{-- @can('engineer')
             @livewire('engineer.main')
-        @endcan
+        @endcan --}}
 
         @can('user')
             <div class="row justify-content-center">

@@ -212,7 +212,7 @@
                                                             wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i> --}}
                                                         <i class="ri-play-circle-line m-0 align-middle text-success"
                                                             style="cursor: pointer;"
-                                                            wire:click.prevent="$emitTo('services.publication.forms.jobform', 'showProduction', {{ $list }})"></i>
+                                                            wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $list }})"></i>
                                                     </span>
                                                     <span class="d-inline-block" data-bs-toggle="tooltip"
                                                         data-bs-placement="top" data-bs-custom-class="custom-tooltip"
@@ -259,7 +259,7 @@
 
 
     <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
+    {{-- <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
         tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content h-100">
@@ -267,19 +267,19 @@
                     <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
                         {{ mb_strtoupper($service->service) }}
                     </h1>
-                    {{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     @livewire('services.publication.forms.analise', key('analise-form'))
                 </div>
-                {{-- <div class="modal-footer">
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
                         wire:click.prevent="$emit('analise_clean')">Close</button>
                     <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
+                </div>
             </div>
         </div>
-    </div>
+    </div> --}}
 
     <!-- Modal -->
     <div wire:ignore.self class="modal fade" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
@@ -307,7 +307,7 @@
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
-    @livewire('services.publication.forms.jobform', key('production'))
+    @livewire('services.payment.forms.jobform', key('payment-form'))
 
     <div wire:init="checkOpen"></div>
 

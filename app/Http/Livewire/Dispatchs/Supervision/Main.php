@@ -931,25 +931,22 @@ class Main extends Component
         }
 
         $query = Note::query();
-        // RuleBuilder::applyRules($query, $this->service->Status);
-        // $query->where(function ($q) {
-        //     $q->where('nstats', '<', 98)
-        //         ->where('type_note', 2);
-        // });
+
+
         $query->whereHas('WorkForm')
             ->whereHas('Orders', function ($q) {
-
-                $q->whereHas('Operations', function ($sq) {
-                    $sq->where('operacao', '0010')
-                        ->where('status', 'like', 'CONF%');
-                })->whereHas('Operations', function ($sq) {
-                    $sq->where('operacao', '0030')
-                        ->where(function ($sq) {
-                            $sq->where('status', 'like', 'CNPA%')
-                                ->orWhere('status', 'like', 'LIB%')
-                                ->orwhere('status', 'like', 'JBFI LIB%');
-                        });
-                });
+                $q->where('statusSist', 'LIKE', 'LIB%')
+                    ->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0010')
+                            ->where('status', 'like', 'CONF%');
+                    })->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0030')
+                            ->where(function ($sq) {
+                                $sq->where('status', 'like', 'CNPA%')
+                                    ->orWhere('status', 'like', 'LIB%')
+                                    ->orwhere('status', 'like', 'JBFI LIB%');
+                            });
+                    });
             });
 
         if (strlen($this->search)) {

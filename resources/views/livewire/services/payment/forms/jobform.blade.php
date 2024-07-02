@@ -98,17 +98,17 @@
                             <div class="card">
                                 <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RESOLUÇÃO</h5>
                                 <div class="card-body">
-                                    <div class="mb-3 col-md-1">
+                                    {{-- <div class="mb-3 col-md-1">
                                         <label for="ativos" class="form-label">Qtd Ativos</label>
                                         <input type="number" id="ativos" class="form-control border-secondary"
                                             wire:model.defer="analise.postes">
-                                    </div>
+                                    </div> --}}
                                     <div class="mb-3 col-md-3">
                                         <label for="resultado" class="form-label">Resultado</label>
                                         <select id="resultado" class="form-select border-secondary"
                                             wire:model.defer="analise.conclusion">
                                             <option value="">Selecione...</option>
-                                            @foreach (SelectOptions::getPublicationOptions() as $item)
+                                            @foreach (SelectOptions::getPaymentsOptions() as $item)
                                                 <option value="{{ $item->value }}">{{ $item->info }}</option>
                                             @endforeach
                                         </select>

@@ -102,7 +102,7 @@
                         data-bs-title="Data Final">
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                {{-- <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
                     <select name="" id="" class="form-select border border-secondary"
                         wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Data por Coluna">
@@ -110,7 +110,7 @@
                         <option value="returned_at">Viabilizado</option>
                         <option value="completed_at">Completado</option>
                     </select>
-                </div>
+                </div> --}}
                 <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
                         wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button>
@@ -155,12 +155,12 @@
                     <div class="col">
                         <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">OBRAS INFORMADAS</h4>
                     </div>
-                    <div class="col-3 d-flex justify-content-end">
+                    {{-- <div class="col-3 d-flex justify-content-end">
 
                         <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
-                    </div>
+                    </div> --}}
                 </div>
             </div>
             <div class="table-responsive">

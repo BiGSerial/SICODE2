@@ -296,6 +296,70 @@
                         </div>
                     </div>
                 @endif
+
+
+                @if ($lists->WorkForm)
+                    <div class="table-responsive">
+                        <h5 class="edp-bg-sprucegreen-100 edp-text-verde-dark py-1 px-3 my-0 fw-bold">CONCLUSÃO DE OBRA
+                            (INFORME)</h5>
+                        <table class="table table-sm table-condensed table-striped border border-1">
+
+                            <thead class="table-dark">
+                                <tr>
+
+                                    <th class="text-center" scope="col">Ordens</th>
+                                    <th class="text-center" scope="col">Equipamentos</th>
+                                    <th class="text-center" scope="col">Alteração</th>
+                                    <th class="text-center" scope="col">Equipe WPA</th>
+                                    <th class="text-center" scope="col">Responsável</th>
+                                    <th class="text-center" scope="col">Conclusão Informada</th>
+                                    <th class="text-center" scope="col">Entregue Em</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                                <tr wire:click="$emitTo('partner.show.show-work-form', 'show_form', {{ $lists->WorkForm }})"
+                                    wire:key="{{ $lists->WorkForm->id }}" style="cursor: pointer;">
+
+                                    <td class="text-center align-middle">
+                                        @if ($lists->WorkForm->Orders->count())
+                                            @foreach ($lists->WorkForm->Orders as $order)
+                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                            @endforeach
+                                        @endif
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {!! $lists->WorkForm->Equipment->count()
+                                            ? "<span class='badge text-bg-dark'>" . $lists->WorkForm->Equipment->count() . '</span>'
+                                            : '' !!}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ $lists->WorkForm->changes ? 'SIM' : 'NÂO' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ $lists->WorkForm->team ? $lists->WorkForm->team : 'Desconhecido' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ $lists->WorkForm->responsible ? $lists->WorkForm->responsible : 'Desconhecido' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ $lists->WorkForm->date ? date('d/m/Y', strToTime($lists->WorkForm->date)) : 'Desconhecido' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ $lists->WorkForm->created_at ? date('d/m/Y', strToTime($lists->WorkForm->created_at)) : 'Desconhecido' }}
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="text-center">SEM INFORME DE OBRA</h4>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     @else
@@ -305,4 +369,7 @@
             </div>
         </div>
     @endif
+
+    {{-- Modals Components --}}
+    @livewire('partner.show.show-work-form', key('FormModdalShow'))
 </div>

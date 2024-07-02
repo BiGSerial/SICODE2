@@ -58,7 +58,11 @@
                                             <td class="align-middle">
                                                 {{ date('d/m/Y H:i:s', strToTime($form->created_at)) }}</td>
                                         </tr>
-
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">Numero DD:</td>
+                                            <td class="align-middle fw-bold">
+                                                {{ $form->dd }}</td>
+                                        </tr>
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">Equipe WPA:</td>
                                             <td class="align-middle">

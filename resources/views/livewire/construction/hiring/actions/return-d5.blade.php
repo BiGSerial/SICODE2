@@ -18,7 +18,9 @@
             <option value="" selected>Selecione o Serviço</option>
             @if ($services)
                 @foreach ($services as $service)
-                    <option value="{{ $service->uuid }}">{{ $service->service }}</option>
+                    @if ($service->canReturn)
+                        <option value="{{ $service->uuid }}">{{ $service->service }}</option>
+                    @endif
                 @endforeach
             @endif
         </select>

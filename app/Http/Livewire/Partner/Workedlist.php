@@ -24,7 +24,7 @@ class Workedlist extends Component
     // search by date
     public $date_in;
     public $date_out;
-    public $dateBy = 'sended_at';
+    // public $dateBy = 'sended_at';
 
     // Filters
     private $filter_group = 'partner_forms';
@@ -44,6 +44,13 @@ class Workedlist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+    }
+
+    public function cleanAll()
+    {
+        $this->search = '';
+        $this->date_in = '';
+        $this->date_out = '';
     }
 
     public function getListsProperty()

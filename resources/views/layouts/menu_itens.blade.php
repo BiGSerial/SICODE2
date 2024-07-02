@@ -217,7 +217,7 @@
                     @endforeach
                 @endif
             @endcan
-            @can('operator')
+
                 <li>
                     <hr class="dropdown-divider">
                 </li>
@@ -237,7 +237,7 @@
                         </li>
                     @endforeach
                 @endif
-            @endcan
+           
 
         </ul>
     </li>

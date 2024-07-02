@@ -99,7 +99,7 @@ class Main extends Component
             //     'id' => 'analise_form',
             // ]);
 
-            $this->emitTo('services.publication.forms.jobform', 'showProduction', $check);
+            $this->emitTo('services.payment.forms.jobform', 'showProduction', $check);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -115,13 +115,13 @@ class Main extends Component
         }
     }
 
-    public function go_to_analise()
-    {
-        $this->emit('open_analise_analise', $this->analise);
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'analise_form',
-        ]);
-    }
+    // public function go_to_analise()
+    // {
+    //     $this->emit('open_analise_analise', $this->analise);
+    //     $this->dispatchBrowserEvent('showModal', [
+    //         'id' => 'analise_form',
+    //     ]);
+    // }
 
     public function getAnalise($production, $note)
     {

@@ -1,0 +1,72 @@
+<?php
+
+namespace App\Console\Commands\Update;
+
+use App\Models\Edp_depc\BaseCosts;
+use App\Models\Order;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Output\ConsoleOutput;
+
+class BaseCostsUpd extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'sicode:upd_costs_mot';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Update Residual MOT';
+
+    /**
+     * Execute the console command.
+     */
+    public function handle()
+    {
+        // Obtém todas as ordens únicas
+        $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem');
+
+        if ($ordens->isNotEmpty()) {
+            $output = new ConsoleOutput();
+            $progressBar = new ProgressBar($output, $ordens->count());
+            $progressBar->start();
+
+            // Processa as ordens em chunks de 500
+            Order::whereIn('ordem', $ordens)->chunk(500, function ($orders) use ($progressBar) {
+                // Obtém todas as ordens atuais do chunk
+                $orderOrdens = $orders->pluck('ordem')->toArray();
+
+                // Calcula os custos para as ordens atuais do chunk
+                $costs = BaseCosts::whereIn('ordem', $orderOrdens)
+                    ->select('ordem', DB::raw('SUM((qtdNecessaria - qtdRetirada) * preco) AS MOAberta'))
+                    ->groupBy('ordem')
+                    ->get();
+
+                // Atualiza cada ordem com o custo calculado
+                foreach ($costs as $cost) {
+                    $order = $orders->where('ordem', $cost->ordem)->first();
+
+                    if ($order) {
+                        $order->moaberto = $cost->MOAberta;
+                        $order->save(); // Salva a ordem atualizada
+                    }
+
+                    $progressBar->advance();
+                }
+
+                // Avança a barra de progresso
+
+            });
+
+            $progressBar->finish();
+            $this->info('Atualização de ordens concluída!');
+        }
+    }
+}

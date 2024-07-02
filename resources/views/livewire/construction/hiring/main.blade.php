@@ -750,7 +750,9 @@
                                 <option value="" selected>Selecione...</option>
                                 @if ($this->services)
                                     @foreach ($this->services as $serv)
-                                        <option value="{{ $serv->uuid }}">{{ $serv->service }}</option>
+                                        @if ($serv->canReturn)
+                                            <option value="{{ $serv->uuid }}">{{ $serv->service }}</option>
+                                        @endif
                                     @endforeach
                                 @endif
                             </select>

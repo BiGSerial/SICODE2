@@ -183,7 +183,7 @@
                                 </td>
 
                                 <td scope="col" class="text-center">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->date)->diffInDays($list->WorkForm->created_at, false) : '---' }}
+                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false) : '---' }}
                                 </td>
 
                                 <td scope="col"

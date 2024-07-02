@@ -25,7 +25,7 @@ class Workreports extends Component
         'patrimony' => null,
         'fases' => null,
         'pole' => null,
-        'installed' => null,
+        'installed' => false,
     ];
 
     public $model_meeter = [
@@ -69,6 +69,7 @@ class Workreports extends Component
         'form.description' => 'required_if:form.damage,1|nullable|string|min:10|max:5000',
         'form.connection' => 'required|boolean',
         'form.team' => 'required|string|max:255',
+        'form.dd' => 'required|string|max:255',
         'form.responsible' => 'required|string|max:255',
 
     ];
@@ -92,6 +93,8 @@ class Workreports extends Component
             'form.connection.boolean' => 'O campo [Houve Ligação] deve ser verdadeiro ou falso.',
             'form.meeters.required' => 'O campo [Medidores Istalados] é obrigatório.',
             'form.meeters.boolean' => 'O campo [Medidores Istalados] deve ser verdadeiro ou falso.',
+            'form.dd.required' => 'O campo [Numero da DD] é obrigatório.',
+            'form.dd.string' => 'O campo [Numero da DD] deve ser uma string.',
             'form.team.required' => 'O campo [Nome da Equipe] é obrigatório.',
             'form.team.string' => 'O campo [Nome da Equipe] deve ser uma string.',
             'form.responsible.required' => 'O campo [Encarregado Responsável] é obrigatório.',
@@ -332,13 +335,28 @@ class Workreports extends Component
     public function addEquipment()
     {
 
-        // dd($this->model_equipment);
+        if (!empty($this->model_equipment)) {
+            foreach ($this->model_equipment as $key => $value) {
+                if (!isset($value) || $value == '') {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Erro de Validação Equipamentos',
+                        'html'     => 'Todos os campos são obrigatórios.',
+                    ]);
+
+                    return;
+                }
+            }
+        }
 
         if (empty($this->temp_equipment)) {
+
 
             $this->temp_equipment[] = array_map('trim', $this->model_equipment);
         } else {
             $add = true;
+
             $this->model_equipment = array_map('trim', $this->model_equipment);
             foreach ($this->temp_equipment as $equip) {
                 if ($equip['type'] == $this->model_equipment['type'] && $equip['patrimony'] == $this->model_equipment['patrimony']) {

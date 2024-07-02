@@ -136,11 +136,18 @@
                     <thead class="table-dark">
                         <tr>
                             <th class="align-middle text-center">Nota</th>
+                            <th class="align-middle text-center">Ordem</th>
+                            <th class="align-middle text-center">Status</th>
+                            <th class="align-middle text-center">OP30</th>
+                            <th class="align-middle text-center">OP40</th>
+                            <th class="align-middle text-center">OP50</th>
+                            <th class="align-middle text-center">CentroTrab</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
                             <th class="align-middle text-center">Prazo Restante</th>
+
                             <th class="align-middle text-center"></th>
                         </tr>
                     </thead>
@@ -157,8 +164,9 @@
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
+
                             <tr
-                                class="align-middle text-center
+                                class="align-middle
                                 @if ($block) @if ($production->status == 1)
                                     table-warning
                                     @elseif ($production->status == 2)
@@ -169,7 +177,69 @@
                                     table-primary @endif
                                 @endif">
 
-                                <td class="fw-light fw-bold text-center">{{ $list->note }}
+                                <td class="fw-light fw-bold text-center">{{ $list->note }} </td>
+
+                                <td class="text-center align-middle">
+                                    @if ($list->Orders->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->ordem }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($order->Operations->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->statusSist }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($order->Operations->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($order->Operations->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($order->Operations->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($order->Operations->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0040')->first()->cenTrab)[0] : '---' }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+
                                 <td class="fw-light text-center">
                                     {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>
@@ -183,30 +253,27 @@
                                     {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
                                 </td>
 
-
-
                                 <td scope="col"
-                                    class="text-center
-                                        @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
-                                        @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
-                                        table-danger
-                                        @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
+                                    class="text-center text-center
+                                    @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
+                                    @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
+                                    table-danger
+                                    @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
+                                        table-warning
+                                    @else
+                                        table-success @endif
+                                "
                                     tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="top" data-bs-title="Prazo Real"
                                     data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
+                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
+                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
+                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
+                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
+                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
+                            ">
                                     {{ $daysLeft->getDaysLeft() }}
                                 </td>
-
 
                                 <td class="fw-bold text-center">
                                     @if (!$block)
@@ -231,45 +298,6 @@
                                 </td>
 
                             </tr>
-                            {{-- <td>@dump($list->Orders->count())</td> --}}
-
-                            @if ($list->Orders->count())
-                                <tr>
-                                    <td colspan="7">
-                                        <table class="table mb-0">
-                                            <thead>
-                                                <th class="text-center align-middle">Ordem</th>
-                                                <th class="text-center align-middle">Status</th>
-                                                <th class="text-center align-middle">OP30</th>
-                                                <th class="text-center align-middle">OP40</th>
-                                                <th class="text-center align-middle">OP50</th>
-                                                <th class="text-center align-middle">CentroTrab</th>
-                                            </thead>
-                                            <tbody>
-                                                @foreach ($list->Orders as $order)
-                                                       <tr>
-                                                        <td class="text-center align-middle">{{ $order->ordem }}</td>
-                                                        <td class="text-center align-middle">{{ $order->statusSist }}
-                                                        </td>
-                                                        <td class="text-center align-middle">
-                                                            {{ $order->Operations->count() ? $order->Operations->where('operacao', '0030')->first()->status : '---' }}
-                                                        </td>
-                                                        <td class="text-center align-middle">
-                                                            {{ $order->Operations->count() ? $order->Operations->where('operacao', '0040')->first()->status : '---' }}
-                                                        </td>
-                                                        <td class="text-center align-middle">
-                                                            {{ $order->Operations->count() ? $order->Operations->where('operacao', '0050')->first()->status : '---' }}
-                                                        </td>
-                                                        <td class="text-center align-middle">
-                                                            {{ $order->Operations->count() ? $order->Operations->where('operacao', '0040')->first()->cenTrab : '---' }}
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </td>
-                                </tr>
-                            @endif
                         @endforeach
                     </tbody>
                 </table>
