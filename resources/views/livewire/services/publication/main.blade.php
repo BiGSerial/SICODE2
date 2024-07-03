@@ -153,9 +153,11 @@
                                     $block = true;
                                 }
 
-                                $last_day = Carbon::parse($list->WorkForm->date)->add(3)
+                                $days = $list->WorkForm
+                                    ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
+                                    : 0;
 
-                                $daysLeft = new DaysLeft($list);
+                                $daysLeft = 3 - $days;
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -190,10 +192,10 @@
 
                                 <td scope="col"
                                     class="text-center
-                                        @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
-                                        @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
+                                        @if ($daysLeft < 0) text-bg-secondary
+                                        @elseif($daysLeft >= 0 && $daysLeft < 1)
                                         table-danger
-                                        @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
+                                        @elseif($daysLeft >= 1 && $daysLeft < 2)
                                             table-warning
                                         @else
                                             table-success @endif
@@ -207,7 +209,7 @@
                                 <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
-                                    {{ $daysLeft->getDaysLeft() }}
+                                    {{ $daysLeft }}
                                 </td>
 
 
