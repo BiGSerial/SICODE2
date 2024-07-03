@@ -145,7 +145,8 @@
                     <thead class="table-dark">
                         <tr>
                             <th>
-                                <input class="form-check-input" type="checkbox" wire:model="selectall">
+                                <input class="form-check-input" type="checkbox" wire:model.defer="selectAll"
+                                    wire:click="setSelectAll()">
                             </th>
                             {{-- @can('management')
                                     <th scope="col" class="fw-bold">Note</th>

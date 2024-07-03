@@ -409,7 +409,7 @@
                         <thead class="table-dark">
                             <tr>
                                 <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectall"
+                                    <input class="form-check-input" type="checkbox" wire:model="selectAll"
                                         wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                                 </th>
                                 <th scope="col" class="fw-bold text-center">Note</th>

@@ -34,7 +34,7 @@ class Main extends Component
     public $advanceSearch;
     public $multiSearch = [];
 
-    public $selectall;
+    public $selectAll;
     public $selected = [];
     public $company_l;
     public $company_s;
@@ -163,28 +163,63 @@ class Main extends Component
         return (new ExportDDExcel())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-') . 'exportDD.xlsx');
     }
 
-    public function updatedSelectall($val)
+    // public function updatedSelectall($val)
+    // {
+
+    //     $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+
+    //     if ($val) {
+    //         // Adicionar os IDs ausentes de $selected
+    //         foreach ($idsToKeep as $id) {
+    //             if (!in_array($id, $this->selected)) {
+    //                 $this->selected[] = $id;
+    //             }
+    //         }
+    //     } else {
+    //         // Criar um novo array $selected com os IDs que devem ser mantidos
+    //         $newSelected = [];
+    //         foreach ($this->selected as $id) {
+    //             if (!in_array($id, $idsToKeep)) {
+    //                 $newSelected[] = $id;
+    //             }
+    //         }
+    //         $this->selected = $newSelected;
+    //     }
+    // }
+
+    public function setSelectAll()
     {
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
-
-        if ($val) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
+        if ($this->selectAll) {
+            // Adicionar os IDs que cumprem as regras à lista de selecionados
+            foreach ($this->lists as $item) {
+                $id = $item->id;
                 if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
+                    $production = $item->Production ? $item->Production->where('id_service', $this->service->uuid)->where('completed', false)->count() : false;
+
+
+                    if (!$production) {
+                        $this->selected[] = $id;
+                    }
                 }
             }
         } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
+            // Remover os IDs de $selected que estão presentes em $this->lists
+            $visibleIds = $this->lists->pluck('id')->toArray();
+            $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
+                return !in_array($id, $visibleIds);
+            });
         }
+    }
+
+    public function checkAllSelect($items)
+    {
+
+        $items = $items->pluck('id')->toArray();
+
+        $this->selectAll = empty(array_diff($items, $this->selected));
+
+        return $this->selectAll;
     }
 
     public function copy($msg)
