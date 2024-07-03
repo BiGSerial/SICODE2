@@ -37,7 +37,7 @@ class NoteFilter
                     })
                     ->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0050')
-                            ->where('status', 'like', 'CONF%');
+                            ->where('status', 'like', 'LIB%');
                     });
             });
 

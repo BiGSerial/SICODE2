@@ -153,6 +153,8 @@
                                     $block = true;
                                 }
 
+                                $last_day = Carbon::parse($list->WorkForm->date)->add(3)
+
                                 $daysLeft = new DaysLeft($list);
 
                             @endphp
