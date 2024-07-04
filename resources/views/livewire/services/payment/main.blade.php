@@ -137,6 +137,7 @@
                         <tr>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
+                            <th class="align-middle text-center">MOA</th>
                             <th class="align-middle text-center">Status</th>
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
@@ -146,7 +147,7 @@
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
-                            <th class="align-middle text-center">Prazo Restante</th>
+                            <th class="align-middle text-center">Prazo Pagamento</th>
 
                             <th class="align-middle text-center"></th>
                         </tr>
@@ -160,7 +161,7 @@
                                     $block = true;
                                 }
 
-                                $daysLeft = new DaysLeft($list);
+                                $daysLeft = $this->deadline($list);
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -189,6 +190,16 @@
                                     @endif
 
                                 </td>
+                                <td class="text-center align-middle fw-bold">
+                                    @if ($order->Operations->count())
+                                        @foreach ($list->Orders as $order)
+                                            <span class="my-0py-0">
+                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
@@ -199,6 +210,7 @@
                                     @endif
 
                                 </td>
+
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
@@ -255,10 +267,10 @@
 
                                 <td scope="col"
                                     class="text-center text-center
-                                    @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
-                                    @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
+                                    @if ($daysLeft < 0) table-dark
+                                    @elseif($daysLeft >= 0 && $daysLeft < 3)
                                     table-danger
-                                    @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
+                                    @elseif($daysLeft >= 3 && $daysLeft < 6)
                                         table-warning
                                     @else
                                         table-success @endif
@@ -272,7 +284,7 @@
                             <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                             ">
-                                    {{ $daysLeft->getDaysLeft() }}
+                                    {{ $daysLeft }}
                                 </td>
 
                                 <td class="fw-bold text-center">

@@ -146,7 +146,7 @@ class Partnersinform extends Component
                     } elseif (in_array($extension, ["xls", "xlsx"])) {
                         $newName = "EXCEL_ASBUILT_" . $this->note->note . "_F" . str_pad(++$xlsCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     } else {
-                        $newName = strtoupper($extension) . "_VIAB_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
+                        $newName = strtoupper($extension) . "_ASBUILT_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     }
 
                     $version = File::where('file_name', 'like', "%" . $newName . "%")->count();

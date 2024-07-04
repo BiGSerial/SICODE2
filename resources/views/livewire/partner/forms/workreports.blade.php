@@ -497,6 +497,13 @@
                                     wire:model.defer="form.responsible">
                             </div>
 
+                            <div class="mb-3 col-md-3">
+                                <label for="exampleFormControlInput1" class="form-label">Responsável por este
+                                    informe? <span class="text-danger fw-bold">*</span></label>
+                                <input type="text" class="form-control" id="informer"
+                                    wire:model.defer="form.informer">
+                            </div>
+
                             <button class="btn btn-sm btn-primary" type="submit">ENVIAR</button>
                             <button class="btn btn-sm btn-danger">CANCELAR</button>
                         @endif

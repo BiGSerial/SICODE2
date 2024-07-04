@@ -71,6 +71,7 @@ class Workreports extends Component
         'form.team' => 'required|string|max:255',
         'form.dd' => 'required|string|max:255',
         'form.responsible' => 'required|string|max:255',
+        'form.informer' => 'required|string|max:255',
 
     ];
 
@@ -99,6 +100,8 @@ class Workreports extends Component
             'form.team.string' => 'O campo [Nome da Equipe] deve ser uma string.',
             'form.responsible.required' => 'O campo [Encarregado Responsável] é obrigatório.',
             'form.responsible.string' => 'O campo [Encarregado Responsável] deve ser uma string.',
+            'form.informer.required' => 'O campo [Informante Responsável] é obrigatório.',
+            'form.informer.string' => 'O campo [Informante Responsável] deve ser uma string.',
         ];
     }
 

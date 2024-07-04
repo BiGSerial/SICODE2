@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.0",
+    "appver": "1.9.1",
     "historic": [
+        {
+            "version": "1.9.1",
+            "description": "Fix table, add informs and new informer",
+            "date": "2024-07-04"
+        },
         {
             "version": "1.9.0",
             "description": "Implemented, Supervision, Payments and Publication.",

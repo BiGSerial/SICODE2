@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Payment\Accompany;
 
 use App\Models\{File, Note, Production, Service, User};
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
@@ -221,6 +222,22 @@ class Main extends Component
                 $query->orderBy('dt_status', 'asc');
             }])
             ->paginate($this->perPage);
+    }
+
+    // Rules Days Left
+    public function deadline(Note $note)
+    {
+        $days = 10;
+        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+
+        if ($date_forms) {
+
+            $deadline_date = Carbon::parse($date_forms)->addDays($days);
+
+            return Carbon::now()->diffInDays($deadline_date, false);
+        } else {
+            return 0;
+        }
     }
 
     public function render()

@@ -42,36 +42,45 @@
                                         </tr>
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">MUNICIPIO:</td>
-                                            <td class="align-middle">{{ $form->Note->lexp }}</td>
+                                            <td class="align-middle text-uppercase">{{ $form->Note->lexp }}</td>
                                         </tr>
 
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">EMPREITEIRA:</td>
+                                            <td class="align-middle text-uppercase">{{ $form->Company->name }}</td>
+                                        </tr>
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">MUDANÇA NO PROJETO:</td>
                                             <td class="align-middle">{{ $form->change ? 'SIM' : 'NÃO' }}</td>
                                         </tr>
                                         <tr>
-                                            <td class="fw-bold col-2 align-middle">Data Informada:</td>
+                                            <td class="fw-bold col-2 align-middle">DATA DE EXECUÇÃO:</td>
                                             <td class="align-middle">{{ date('d/m/Y', strToTime($form->date)) }}</td>
                                         </tr>
                                         <tr>
-                                            <td class="fw-bold col-2 align-middle">Data Sicode:</td>
+                                            <td class="fw-bold col-2 align-middle">DATA DO INFORME:</td>
                                             <td class="align-middle">
                                                 {{ date('d/m/Y H:i:s', strToTime($form->created_at)) }}</td>
                                         </tr>
                                         <tr>
-                                            <td class="fw-bold col-2 align-middle">Numero DD:</td>
+                                            <td class="fw-bold col-2 align-middle">NÚMERO DD:</td>
                                             <td class="align-middle fw-bold">
                                                 {{ $form->dd }}</td>
                                         </tr>
                                         <tr>
-                                            <td class="fw-bold col-2 align-middle">Equipe WPA:</td>
-                                            <td class="align-middle">
+                                            <td class="fw-bold col-2 align-middle">EQUIPE WPA:</td>
+                                            <td class="align-middle text-uppercase">
                                                 {{ $form->team }}</td>
                                         </tr>
                                         <tr>
-                                            <td class="fw-bold col-2 align-middle">Responsável Execução:</td>
-                                            <td class="align-middle">
+                                            <td class="fw-bold col-2 align-middle">ENCARREGADO RESPONSÁVEL:</td>
+                                            <td class="align-middle text-uppercase">
                                                 {{ $form->responsible }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">RESPONSÁVEL PELO INFORME:</td>
+                                            <td class="align-middle text-uppercase">
+                                                {{ $form->informer }}</td>
                                         </tr>
                                     </tbody>
                                 </table>

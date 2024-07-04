@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Payment;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
 use Livewire\{Component, WithPagination};
 use App\Services\Payment\NoteFilter;
+use Carbon\Carbon;
 
 class Main extends Component
 {
@@ -193,60 +194,27 @@ class Main extends Component
 
     public function getListsProperty()
     {
-
-        // $query = Note::query();
-
-        // // RuleBuilder::applyRules($query, $this->service->Status);
-
-        // $query->whereHas('WorkForm')
-        //     ->whereHas('Orders', function ($q) {
-        //         $q->where('statusSist', 'LIKE', 'LIB%')
-        //             ->whereHas('Operations', function ($sq) {
-        //                 $sq->where('operacao', '0010')
-        //                     ->where('status', 'like', 'CONF%');
-        //             });
-        //     });
-
-        // $query->when($this->search, function ($q, $s) {
-        //     return $q->where(function ($query) use ($s) {
-        //         $query->where('note', 'like', '%' . $s . '%')
-        //             ->orWhere('material', 'like', '%' . $s . '%')
-        //             ->orWhere('numPedido', 'like', '%' . $s . '%')
-        //             ->orWhere('group2', 'like', '%' . $s . '%');
-        //     });
-        // })->when($this->rubrica_s, function ($q) {
-        //     return $q->where(function ($query) {
-        //         $query->whereIn('rubrica', $this->rubrica_s)
-        //             ->orWhereNull('rubrica');
-        //     });
-        // });
-
-        // if ($this->not_assigned) {
-        //     $query->where(function ($q) {
-        //         $q->doesntHave('Productions')
-        //             ->orWhereDoesntHave('Productions', function ($subquery) {
-        //                 $subquery->where('service_id', $this->service->uuid)
-        //                     ->where('confirmed', false);
-        //             });
-        //     });
-        // }
-
-        // if ($this->assigned_mmgd) {
-        //     $query->where('material', 'like', '%MMGD%');
-        // } else {
-        //     $query->where('material', 'not like', '%MMGD%');
-        // }
-
-        // $query->with('Productions.User')
-        //     ->orderBy('days_left', 'ASC');
-
-        // return $query->paginate($this->perPage);
-
         return $this->noteFilter->filter($this->search,  $this->filter_group)
             ->when($this->typeNote, function ($q) {
                 $q->where('type_note', $this->typeNote);
             })
             ->paginate($this->perPage);
+    }
+
+    // Rules Days Left
+    public function deadline(Note $note)
+    {
+        $days = 10;
+        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+
+        if ($date_forms) {
+
+            $deadline_date = Carbon::parse($date_forms)->addDays($days);
+
+            return Carbon::now()->diffInDays($deadline_date, false);
+        } else {
+            return 0;
+        }
     }
 
     public function render()

@@ -22,7 +22,8 @@ class WorkReport extends Model
         'description',
         'team',
         'responsible',
-        'dd'
+        'dd',
+        'informer',
     ];
 
     public function Note()

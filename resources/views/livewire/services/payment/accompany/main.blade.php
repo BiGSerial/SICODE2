@@ -106,24 +106,28 @@
                         <table class="table table-sm table-striped table-condensed table-hover">
                             <thead class="table-dark">
                                 <tr>
-                                    <th scope="col" class="fw-bold text-center">Note</th>
-                                    <th scope="col" class="fw-bold text-center">Files</th>
-                                    <th scope="col" class="fw-bold text-center">Ordens</th>
-                                    <th scope="col" class="fw-bold text-center">Qtd Equipamentos</th>
-                                    <th scope="col" class="fw-bold text-center">Empreiteira</th>
-                                    <th scope="col" class="fw-bold text-center">Municipio</th>
-                                    <th scope="col" class="fw-bold text-center">Descrição</th>
-                                    <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                                    <th scope="col" class="fw-bold text-center">Na Pilha</th>
-                                    <th scope="col" class="fw-bold text-center">PrazoTotal</th>
-                                    <th scope="col" class="fw-bold text-center">Status</th>
-                                    <th scope="col" class="fw-bold text-center"></th>
+                                    <th class="align-middle text-center">Nota</th>
+                                    <th class="align-middle text-center">Files</th>
+                                    <th class="align-middle text-center">Ordem</th>
+                                    <th class="align-middle text-center">MOA</th>
+                                    <th class="align-middle text-center">Status</th>
+                                    <th class="align-middle text-center">OP30</th>
+                                    <th class="align-middle text-center">OP40</th>
+                                    <th class="align-middle text-center">OP50</th>
+                                    <th class="align-middle text-center">CentroTrab</th>
+                                    <th class="align-middle text-center">Empresa</th>
+                                    <th class="align-middle text-center">Município</th>
+                                    <th class="align-middle text-center">Data Execução</th>
+                                    <th class="align-middle text-center">Data Informe</th>
+                                    <th class="align-middle text-center">Prazo Pagamento</th>
+                                    <th class="align-middle text-center">Status</th>
+                                    <th class="align-middle text-center"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
                                     @php
-                                        $daysLeft = new DaysLeft($list->Note);
+                                        $daysLeft = $this->deadline($list->Note);
                                     @endphp
                                     <tr wire:key="work-{{ $list->id }}"
                                         wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
@@ -158,44 +162,103 @@
                                                 @endforeach
                                             @endif
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-
-                                            @if (isset($list->Note->WorkForm))
-                                                <span
-                                                    class="badge text-bg-dark">{{ $list->Note->WorkForm->Equipment->count() }}</span>
+                                        <td class="text-center align-middle fw-bold">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <span class="my-0py-0">
+                                                        R$ {{ number_format($order->moaberto, 2, ',', '.') }}
+                                                    </span>
+                                                @endforeach
                                             @endif
+
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-                                            {{ isset($list->Note->WorkForm) ? $list->Note->WorkForm->Company->name : '---' }}
+
+                                        <td class="text-center align-middle">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <span class="my-0py-0">
+                                                        {{ $order->statusSist }}
+                                                    </span>
+                                                @endforeach
+                                            @endif
+
                                         </td>
-                                        <td class="fw-light text-center align-middle">{{ $list->Note->lexp }}</td>
-                                        <td class="fw-light text-center align-middle">{{ $list->Note->material }}</td>
-                                        <td class="fw-light text-center align-middle">
-                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+
+                                        <td class="text-center align-middle">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <span class="my-0py-0">
+                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+                                                    </span>
+                                                @endforeach
+                                            @endif
+
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->created_at) : '---' }}
+                                        <td class="text-center align-middle">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <span class="my-0py-0">
+                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                                    </span>
+                                                @endforeach
+                                            @endif
+
                                         </td>
+                                        <td class="text-center align-middle">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <span class="my-0py-0">
+                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                                    </span>
+                                                @endforeach
+                                            @endif
+
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <span class="my-0py-0">
+                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0050')->first()->cenTrab)[0] : '---' }}
+                                                    </span>
+                                                @endforeach
+                                            @endif
+
+                                        </td>
+
+
+                                        <td class="fw-light text-center">
+                                            {{ $list->Note->WorkForm ? $list->Note->WorkForm->Company->name : '---' }}
+                                        </td>
+
+                                        <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
+
+                                        <td class="fw-light text-center">
+                                            {{ $list->Note->WorkForm ? date('d/m/Y', strToTime($list->Note->WorkForm->date)) : '---' }}
+                                        </td>
+                                        <td class="fw-light">
+                                            {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->created_at)) : '---' }}
+                                        </td>
+
                                         <td scope="col"
-                                            class="text-center
-                                        @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
-                                        @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
-                                        table-danger
-                                        @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
+                                            class="text-center text-center
+                                            @if ($daysLeft < 0) table-dark
+                                            @elseif($daysLeft >= 0 && $daysLeft < 3)
+                                            table-danger
+                                            @elseif($daysLeft >= 3 && $daysLeft < 6)
+                                                table-warning
+                                            @else
+                                                table-success @endif
+                                        "
                                             tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                             data-bs-placement="top" data-bs-title="Prazo Real"
                                             data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
-                                            {{ 30 - $daysLeft->getDaysLeft() }}
+                                    <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
+                                    <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
+                                    <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
+                                    <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
+                                    <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
+                                    ">
+                                            {{ $daysLeft }}
                                         </td>
                                         <td class="fw-light text-center align-middle">
                                             <span
@@ -224,8 +287,6 @@
                                                 @endif
                                             @endif
                                         </td>
-
-
                                     </tr>
                                 @endforeach
                             </tbody>
