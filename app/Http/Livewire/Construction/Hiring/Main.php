@@ -63,6 +63,7 @@ class Main extends Component
 
     public $action;
 
+
     // Indicate Hiring Note when send to Viability
     public $hiring = false;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Partner;
+namespace App\Http\Livewire\Reports;
 
 use App\Models\Edp_depc\City;
 use App\Models\File;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class Workedlist extends Component
+class Workreports extends Component
 {
     use WithPagination;
 
@@ -29,7 +29,7 @@ class Workedlist extends Component
     // public $dateBy = 'sended_at';
 
     // Filters
-    private $filter_group = 'partner_forms';
+    private $filter_group = 'reports_worklist';
 
     private $filter;
 
@@ -78,7 +78,7 @@ class Workedlist extends Component
         $query = WorkReport::Query();
 
 
-        $query->where('company_id', Auth()->User()->Employee->Contract->company->id);
+        // $query->where('company_id', Auth()->User()->Employee->Contract->company->id);
 
 
         if (($this->date_in || $this->date_out)) {
@@ -102,6 +102,9 @@ class Workedlist extends Component
                     ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
             });
         }
+        if (isset($this->filter['company'])) {
+            $query->whereIn('company_id', $this->filter['company']);
+        }
 
         if (isset($this->filter['city'])) {
             $query->whereRelation('Note', function ($q) {
@@ -122,7 +125,7 @@ class Workedlist extends Component
 
     public function render()
     {
-        return view('livewire.partner.workedlist', [
+        return view('livewire.reports.workreports', [
             'lists' => $this->lists->paginate($this->perPage)
         ]);
     }

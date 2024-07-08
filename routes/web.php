@@ -99,6 +99,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
 
+    Route::get('/workreports', 'workreports')->name('workreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
 });

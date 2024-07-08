@@ -183,9 +183,9 @@
                                 <td class="text-center align-middle">
                                     @if ($list->Orders->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
+                                            <p class="my-0 py-0">
                                                 {{ $order->ordem }}
-                                            </span>
+                                            </p>
                                         @endforeach
                                     @endif
 
@@ -193,9 +193,9 @@
                                 <td class="text-center align-middle fw-bold">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
+                                            <p class="my-0 py-0">
                                                 R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </span>
+                                            </p>
                                         @endforeach
                                     @endif
 
@@ -203,9 +203,9 @@
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
+                                            <p class="my-0 py-0">
                                                 {{ $order->statusSist }}
-                                            </span>
+                                            </p>
                                         @endforeach
                                     @endif
 
@@ -214,9 +214,9 @@
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
-                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-                                            </span>
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+                                            </p>
                                         @endforeach
                                     @endif
 
@@ -224,9 +224,9 @@
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
-                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </span>
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                            </p>
                                         @endforeach
                                     @endif
 
@@ -234,9 +234,9 @@
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
-                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                            </span>
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                            </p>
                                         @endforeach
                                     @endif
 
@@ -244,9 +244,9 @@
                                 <td class="text-center align-middle">
                                     @if ($order->Operations->count())
                                         @foreach ($list->Orders as $order)
-                                            <span class="my-0py-0">
-                                                {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0040')->first()->cenTrab)[0] : '---' }}
-                                            </span>
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->cenTrab)[0] : '---' }}
+                                            </p>
                                         @endforeach
                                     @endif
 

@@ -128,7 +128,8 @@
                         </div>
                         <div class="mb-3" style="max-width: 300px">
                             <label for="exampleFormControlInput1" class="form-label">Adicione as Ordens deste
-                                Informe. <span class="text-danger fw-bold">*</span>
+                                Informe. <span class="text-danger fw-bold">*</span> (Obs: Adicione apenas as ordens/Drs
+                                pertencentes informados no projeto.)
                                 <i class="ri-question-line text-primary fw-bold" data-bs-toggle="popover"
                                     data-bs-title="Popover title"
                                     data-bs-content="And here's some amazing content. It's very engaging. Right?"></i></label>

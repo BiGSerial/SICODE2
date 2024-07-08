@@ -239,10 +239,30 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
+        <footer class="footer" class="text-center">
+            <div class="copyright">
+                &copy; Copyright <strong><span>SICODE 2022 - {{ date('Y') }}
+                        v{{ $version->appver }}</span></strong>.
+                <br>
+                Centro Integrado de Projetos - Espirito Santo<br>
+                Laravel Framework v{{ app()->version() }}<br>
+                PHP v{{ phpversion() }}<br>
+                @livewire('status.bancosicode')
+                @if (env('APP_QA'))
+                    <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
+                @endif
+                @livewire('watchdog')
+            </div>
+
+        </footer>
+
+
         @livewire('components.modal.priority')
 
 
-        @livewireScripts
+
+
+
 
 
 
@@ -257,7 +277,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
 
-
+        @livewireScripts
 
         <!--   Core JS Files   -->
         <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i

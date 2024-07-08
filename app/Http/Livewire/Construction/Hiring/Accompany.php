@@ -695,7 +695,6 @@ class Accompany extends Component
         $query->with('Viabilities.Company', 'Viabilities.Order', 'Files')
             ->whereHas('Viabilities', function ($q) {
                 $q->where('completed', false)
-                    ->where('user_id', Auth()->user()->id)
                     ->orderBy('sended_at');
             });
 

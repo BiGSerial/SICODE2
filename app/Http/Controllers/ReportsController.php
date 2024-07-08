@@ -23,4 +23,9 @@ class ReportsController extends Controller
     {
         return view('reports.buscaavancada');
     }
+
+    public function workreports()
+    {
+        return view('reports.workreports');
+    }
 }

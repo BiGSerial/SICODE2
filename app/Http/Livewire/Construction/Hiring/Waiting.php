@@ -86,7 +86,7 @@ class Waiting extends Component
     public $clipboardData = [];
 
 
-    protected $queryString = [];
+
 
     protected $listeners = [
         'refresh_list' => '$refresh',
@@ -94,6 +94,10 @@ class Waiting extends Component
         'cleanAll' => 'closeall',
         'giveBack' => 'giveBack',
         'deleteWaiting',
+    ];
+
+    protected $queryString = [
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
 
     public function mount($service)
@@ -288,11 +292,15 @@ class Waiting extends Component
 
     public function getListsProperty()
     {
-        return HiringWaiting::where('user_id', auth()->user()->id)
-            ->where('complete', false)
+        return HiringWaiting::where('complete', false)
             ->when($this->cjobes, function ($query) {
                 $query->whereHas('Note.Orders.Operations', function ($subquery) {
                     $subquery->where('cenTrab', $this->cjobes)->where('operacao', '0010');
+                });
+            })
+            ->when($this->typeNote, function ($query) {
+                $query->whereHas('Note', function ($subquery) {
+                    $subquery->where('type_note', $this->typeNote);
                 });
             })
             ->orderBy('created_at')

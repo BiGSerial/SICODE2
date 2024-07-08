@@ -118,10 +118,11 @@
 
 
                 <div class="col d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner_forms'], key('removeAll'))
+                    @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'reports_worklist', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'reports_worklist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'reports_worklist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'reports_worklist', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'reports_worklist'], key('removeAll'))
                 </div>
 
             </div>
@@ -169,6 +170,7 @@
                         <tr>
                             <th class="text-center" scope="col">Note</th>
                             <th class="text-center" scope="col">Ordens</th>
+                            <th class="text-center" scope="col">Empreiteira</th>
                             <th class="text-center" scope="col">Rubrica</th>
                             <th class="text-center" scope="col">Files</th>
                             <th class="text-center" scope="col">Equipamentos</th>
@@ -191,6 +193,7 @@
                                         @endforeach
                                     @endif
                                 </td>
+                                <td class="text-center align-middle">{{ $list->Company->name }}</td>
                                 <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
                                 <td class="text-center align-middle">
                                     <x-files.select-download-list :files='$list->Note->Files' />

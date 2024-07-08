@@ -11,8 +11,20 @@
         </div>
         <div class="card-body py-0 mt-3">
             <div class="mb-3 d-flex justify-content-end">
-                <select name="" id="" class="form-select form-select-sm ms-2 me-2" style="max-width: 200px;"
-                    wire:model="cjobes">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
+                    <label class="form-check-label" for="inlineRadio1">Nota</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
+                    <label class="form-check-label" for="inlineRadio1">OV</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
+                    <label class="form-check-label" for="inlineRadio1">Ambos</label>
+                </div>
+                <select name="" id="" class="form-select form-select-sm ms-2 me-2"
+                    style="max-width: 200px;" wire:model="cjobes">
                     <option value="" selected>Centro Trabalho</option>
                     @if ($centerJobs)
                         @foreach ($centerJobs as $cjob)
@@ -115,8 +127,8 @@
                             <td class="text-center aling-middle">
                                 @if ($list->Reclaim && $list->Reclaim->completed)
                                     <i class="ri-arrow-go-back-fill text-primary" tabindex="0"
-                                        data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
-                                        data-bs-title="DEVOLUÇÃO"
+                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                        data-bs-placement="top" data-bs-title="DEVOLUÇÃO"
                                         data-bs-content="Devolver para o Responsável a Nota/Ov"
                                         style="cursor: pointer;"
                                         wire:click.prevent="go_giveBack({{ $list->id }})"></i>

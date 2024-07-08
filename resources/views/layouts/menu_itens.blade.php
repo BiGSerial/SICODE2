@@ -218,26 +218,26 @@
                 @endif
             @endcan
 
-                <li>
-                    <hr class="dropdown-divider">
+            <li>
+                <hr class="dropdown-divider">
+            </li>
+            @if ($constructions->count())
+                <li style="background-color: #ffffff; color: white;">
+                    <h6 class="dropdown-header">SERVIÇOS</h6>
                 </li>
-                @if ($constructions->count())
-                    <li style="background-color: #ffffff; color: white;">
-                        <h6 class="dropdown-header">SERVIÇOS</h6>
+                @foreach ($constructions as $service)
+                    <li><a class="dropdown-item"
+                            href="{{ route('construction.main', ['service' => $service->uuid]) }}">
+                            <div class="d-flex align-items-center">
+                                <i class="{{ $service->icon }} text-primary"></i>
+                                <span>{{ mb_strtoupper($service->service) }}</span>
+                                @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
+                            </div>
+                        </a>
                     </li>
-                    @foreach ($constructions as $service)
-                        <li><a class="dropdown-item"
-                                href="{{ route('construction.main', ['service' => $service->uuid]) }}">
-                                <div class="d-flex align-items-center">
-                                    <i class="{{ $service->icon }} text-primary"></i>
-                                    <span>{{ mb_strtoupper($service->service) }}</span>
-                                    @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
-                                </div>
-                            </a>
-                        </li>
-                    @endforeach
-                @endif
-           
+                @endforeach
+            @endif
+
 
         </ul>
     </li>
@@ -306,8 +306,13 @@
 
     <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2" style="background-color: #dbd8d8">
         <li><a class="dropdown-item" href="{{ route('reports.search') }}"><i
-                    class="ri-search-eye-line align-middle text-primary"></i>BUSCAR</a>
+                    class="ri-search-eye-line align-middle text-primary"></i>NOTAS/OVS</a>
+        </li>
+
+        <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
+                    class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
         </li>
 
     </ul>
+
 </li>
