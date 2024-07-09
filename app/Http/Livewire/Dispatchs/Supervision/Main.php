@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Custom\RuleBuilder;
 use App\Exports\ExportDDExcel;
+use App\Exports\ExportDDSupervision;
 use App\Models\Bancoupdate;
 use App\Models\Company;
 use App\Models\Edp_depc\City;
@@ -43,6 +44,8 @@ class Main extends Component
     public $type;
     public $additionalData = [];
     public $additionalDataUpd = [];
+
+    public $typeNote = '';
 
     public $notes;
     public $filteredLists;
@@ -84,6 +87,13 @@ class Main extends Component
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch' => 'confirmed_att',
         'confirm_mass_dd' => 'confirmed_mass_dd',
+    ];
+
+    protected $queryString = [
+        'search'   => ['except' => '', 'as' => 'buscar'],
+        'page'     => ['except' => 1, 'as' => 'p'],
+        'perPage'  => ['as' => 'pp'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
 
     public function view_edit($key)
@@ -160,7 +170,7 @@ class Main extends Component
             return;
         }
 
-        return (new ExportDDExcel())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-') . 'exportDD.xlsx');
+        return (new ExportDDSupervision())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-') . 'exportDD.xlsx');
     }
 
     // public function updatedSelectall($val)
@@ -1020,9 +1030,9 @@ class Main extends Component
             });
         }
 
-        if ($this->note_type) {
+        if ($this->typeNote) {
             $query->where(function ($q) {
-                return $q->where('type_note', $this->note_type)
+                return $q->where('type_note', $this->typeNote)
                     ->orWhereNull('type_note');
             });
         }
