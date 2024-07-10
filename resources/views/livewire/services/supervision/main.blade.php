@@ -67,32 +67,7 @@
         </div> --}}
     </div>
 
-    @can('superadm')
-        <div class="row justify-content-start">
-            <div class="col-2">
-                <input wire:model.bounce.2s="user_search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-            </div>
 
-            <div class="col-3 mb-3">
-                <div class="input-group">
-                    <select class="form-select border border-2 border-secondary" aria-label="Default select example"
-                        wire:model.defer="user_s">
-                        @if ($user_l->count())
-                            <option value="">Selecione Usuario</option>
-                            @foreach ($user_l as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
-                        @endif
-                    </select>
-
-
-                    <button class="btn btn-primary " wire:click.prevent="visualizar" type="button">
-                        Visualizar</button>
-                </div>
-            </div>
-        </div>
-    @endcan
 
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -154,72 +129,82 @@
                         </div>
                     </div>
 
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped table-condensed">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th scope="col" class="fw-bold">Note</th>
-                                        <th scope="col" class="fw-bold">DD</th>
-                                        <th scope="col" class="fw-bold">MMGD</th>
-                                        <th scope="col" class="fw-bold">Grupo2</th>
-                                        {{-- <th scope="col" class="fw-bold">Grupo5</th> --}}
-                                        <th scope="col" class="fw-bold">Rubrica</th>
-                                        <th scope="col" class="fw-bold">Municipio</th>
-                                        <th scope="col" class="fw-bold">Zona</th>
-                                        <th scope="col" class="fw-bold">Descrição</th>
-                                        <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                        <th scope="col" class="fw-bold">Prazo Real</th>
-                                        <th scope="col" class="fw-bold">Status</th>
-                                        <th scope="col" class="fw-bold"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
-                                        <tr class="align-middle @if ($list->priority) table-danger @endif">
-                                            <td
-                                                class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                                {{ $list->Note->note }}
-                                                <span class="copy-text" data-value="{{ $list->Note->note }}"
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-condensed">
+                            <thead class="table-dark">
+                                <tr class="text-center align-middle">
+                                    <th scope="col" class="fw-bold">Note</th>
+                                    <th scope="col" class="fw-bold">DD</th>
+                                    <th scope="col" class="fw-bold">MMGD</th>
+                                    <th scope="col" class="fw-bold">Grupo2</th>
+                                    {{-- <th scope="col" class="fw-bold">Grupo5</th> --}}
+                                    <th scope="col" class="fw-bold">Rubrica</th>
+                                    <th scope="col" class="fw-bold">Municipio</th>
+                                    <th scope="col" class="fw-bold">Zona</th>
+                                    <th scope="col" class="fw-bold">Descrição</th>
+                                    <th scope="col" class="fw-bold">Dias Atribuido</th>
+                                    <th scope="col" class="fw-bold">Prazo Real</th>
+                                    <th scope="col" class="fw-bold">Status</th>
+                                    <th scope="col" class="fw-bold"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
+                                    @php
+
+                                        if ($list->status == 27) {
+                                            $block = true;
+                                        } else {
+                                            $block = false;
+                                        }
+
+                                    @endphp
+                                    <tr
+                                        class="align-middle text-center @if ($list->priority) table-danger @endif">
+                                        <td
+                                            class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                            {{ $list->Note->note }}
+                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="top"
+                                                data-bs-content="Copiar Número da Nota"> <i
+                                                    class="ri-file-copy-line"></i></span>
+
+                                            @if ($list->priority)
+                                                <i class="ri-alert-fill align-middle"
+                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-content="Copiar Número da Nota"> <i
-                                                        class="ri-file-copy-line"></i></span>
+                                                    data-bs-title="Exibir Prioridade"
+                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                            @endif
+                                        </td>
+                                        <td
+                                            class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                            @if ($list->Wpas->count())
+                                                <a class="link-primary fw-bold"
+                                                    href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}"">{{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}</a>
+                                            @else
+                                                -----
+                                            @endif
 
-                                                @if ($list->priority)
-                                                    <i class="ri-alert-fill align-middle"
-                                                        wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                        style="cursor: pointer;" tabindex="0"
-                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                        data-bs-placement="top" data-bs-title="Exibir Prioridade"
-                                                        data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                                @endif
-                                            </td>
-                                            <td
-                                                class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                                @if ($list->Wpas->count())
-                                                    <a class="link-primary fw-bold"
-                                                        href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}"">{{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}</a>
-                                                @else
-                                                    -----
-                                                @endif
-
-                                            </td>
-                                            <td class="fw-light">
-                                                <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
-                                            </td>
-                                            <td class="fw-light">
-                                                {{ $list->Note->group2 }}</td>
-                                            {{-- <td class="fw-light">{{ $list->Note->group5 }}</td> --}}
-                                            <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                            <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                            <td class="fw-light">{{ $list->Note->group1 }}</td>
-                                            <td class="fw-light">{{ $list->Note->material }}</td>
-                                            <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                            </td>
-                                            <td scope="col"
-                                                class="text-center
+                                        </td>
+                                        <td class="fw-light">
+                                            <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
+                                        </td>
+                                        <td class="fw-light">
+                                            {{ $list->Note->group2 }}</td>
+                                        {{-- <td class="fw-light">{{ $list->Note->group5 }}</td> --}}
+                                        <td class="fw-light">{{ $list->Note->rubrica }}</td>
+                                        <td class="fw-light">{{ $list->Note->lexp }}</td>
+                                        <td class="fw-light">{{ $list->Note->group1 }}</td>
+                                        <td class="fw-light">{{ $list->Note->material }}</td>
+                                        <td class="fw-light">
+                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                        </td>
+                                        <td scope="col"
+                                            class="text-center
                                         @if ($list->Note->days_left < 0) text-bg-secondary
                                         @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                         table-danger
@@ -228,59 +213,65 @@
                                         @else
                                             table-success @endif
                                     "
-                                                tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                data-bs-placement="top" data-bs-title="Prazo Real"
-                                                data-bs-content="
+                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Prazo Real"
+                                            data-bs-content="
                                 <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                                 <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                                 <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
-                                                {{ 30 - $list->Note->days_left }}
-                                            </td>
-                                            {{-- <td class="fw-light">
+                                            {{ 30 - $list->Note->days_left }}
+                                        </td>
+                                        {{-- <td class="fw-light">
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
                                             </td> --}}
 
-                                            <td class="fw-light">
-                                                @if ($list->transferred && $list->block_wpa)
-                                                    <span class="badge bg-warning">Aguardando Despacho</span>
-                                                @else
-                                                    <span
-                                                        class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
-                                                @endif
-                                            </td>
-                                            <td class="fw-bold fs-5">
-                                                @if (!$list->block && !$list->block_wpa)
-                                                    @if (!$list->completed)
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
+                                        <td class="fw-light">
+                                            @if ($list->transferred && $list->block_wpa)
+                                                <span class="badge bg-warning">Aguardando Despacho</span>
+                                            @else
+                                                <span
+                                                    class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="fw-bold fs-5">
+                                            @if ((!$list->block && !$list->block_wpa) || (!$block && $list->status != 27))
+                                                @if (!$list->completed)
+                                                    {{-- <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top"
                                                             data-bs-custom-class="custom-tooltip"
                                                             data-bs-title="Iniciar.">
                                                             <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                                style="cursor: pointer;"
                                                                 wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                        </span>
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Transferir.">
-                                                            <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                        </span>
-                                                    @endif
+                                                        </span> --}}
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Iniciar.">
+                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click="$emitTo('services.supervision.forms.jobform', 'showProduction', {{ $list }})"></i>
+                                                    </span>
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Transferir.">
+                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                                    </span>
                                                 @endif
-                                            </td>
+                                            @endif
+                                        </td>
 
 
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
+
                 @endif
 
 
@@ -308,7 +299,7 @@
 
 
     <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
+    {{-- <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
         tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content h-100">
@@ -316,19 +307,15 @@
                     <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
                         {{ mb_strtoupper($service->service) }}
                     </h1>
-                    {{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
+
                 </div>
                 <div class="modal-body">
                     @livewire('services.supervision.forms.analise', key('supervision-form'))
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
+
             </div>
         </div>
-    </div>
+    </div> --}}
 
     <!-- Modal -->
     <div wire:ignore.self class="modal fade" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
@@ -344,17 +331,14 @@
                 <div class="modal-body">
                     @livewire('components.pausenote.pausenote')
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
+
             </div>
         </div>
     </div>
 
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprodlev', key('Transfer_production'))
+    @livewire('services.supervision.forms.jobform', key('JobForm'))
 
     <div wire:init="checkOpen"></div>
 

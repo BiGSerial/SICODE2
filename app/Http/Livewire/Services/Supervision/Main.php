@@ -38,6 +38,7 @@ class Main extends Component
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
+        'refresh_list'   => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
     ];
@@ -49,7 +50,6 @@ class Main extends Component
 
     public function visualizar()
     {
-
     }
 
     public function export_excel()
@@ -77,11 +77,13 @@ class Main extends Component
 
         if ($check) {
 
-            $this->emit('open_analise_lev', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+            // $this->emit('open_analise_lev', ['productionId' => $check->id, 'noteId' => $check->note_id]);
 
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
+            // $this->dispatchBrowserEvent('showModal', [
+            //     'id' => 'analise_form',
+            // ]);
+
+            $this->emitTo('services.supervision.forms.jobform', 'showProduction', $check);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -90,21 +92,19 @@ class Main extends Component
                 'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
+                        adequada.
                     </p>
                 ",
             ]);
-
         }
-
     }
 
     public function go_to_analise()
     {
-        $this->emit('open_analise_lev', $this->analise);
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'analise_form',
-        ]);
+        // $this->emit('open_analise_lev', $this->analise);
+        // $this->dispatchBrowserEvent('showModal', [
+        //     'id' => 'analise_form',
+        // ]);
     }
 
     public function getAnalise($production, $note)
@@ -137,7 +137,6 @@ class Main extends Component
         // session_start();
         // $_SESSION['filtro'] = $this->rubrica_s;
         $this->emit('refresh_service');
-
     }
 
     public function filter_clean()

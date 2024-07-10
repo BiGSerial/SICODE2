@@ -38,7 +38,7 @@ class Main extends Component
     public $note;
 
     // Filters
-    private $filter_group = 'publication_acc';
+    private $filter_group = 'payments_acc';
     public $filters;
 
     protected $listeners = [
@@ -207,6 +207,9 @@ class Main extends Component
             ->when($this->search, function ($q, $s) {
                 return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
                     ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+            })
+            ->when(isset($this->filters['company']), function ($q, $s) {
+                $q->whereIn('company_id', $this->filters['company']);
             })
             ->when(isset($this->filters['city']), function ($q, $s) {
                 return $q->whereRelation('Note', function ($q) {

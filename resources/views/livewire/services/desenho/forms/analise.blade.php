@@ -164,6 +164,7 @@
                                 @else
                                     <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
                                     <option value="DEPENDE DE ORGAO EXTERNO">20 - DEPENDE DE ORGÃO EXTERNO</option>
+                                    <option value="PROCESSO PARA MEDICAO">22 - PROCESSO PARA MEDIÇÃO</option>
                                     <option value="RETORNADO LEVANTAMENTO">27 - RETORNADO LEVANTAMENTO</option>
                                     <option value="EXECUCAO DE OBRAS DA EMPRESA">47 - EXECUÇÃO DE OBRAS DA EMPRESA
                                     </option>

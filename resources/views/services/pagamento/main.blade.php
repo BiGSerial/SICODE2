@@ -12,7 +12,7 @@
 @endsection
 
 @section('menu')
-    @include('services.menu')
+    @include('services.pagamento.menu')
 @endsection
 
 @section('content')

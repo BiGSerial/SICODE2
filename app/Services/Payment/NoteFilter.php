@@ -21,7 +21,14 @@ class NoteFilter
 
         $query = Note::query();
 
-        $query->whereHas('WorkForm')
+        $query->whereHas('WorkForm', function ($q) {
+            $q->when(isset($this->filters['company']), function ($sq) {
+                return $sq->where(function ($query) {
+                    $query->whereIn('company_id', $this->filters['company'])
+                        ->orWhereNull('company_id');
+                });
+            });
+        })
             ->whereHas('Orders', function ($q) {
                 $q->where('statusSist', 'LIKE', 'LIB%')
                     ->whereHas('Operations', function ($sq) {

@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.1",
+    "appver": "1.9.2",
     "historic": [
+        {
+            "version": "1.9.2",
+            "description": "update Supervision view, Payments, etc",
+            "date": "2024-07-10"
+        },
         {
             "version": "1.9.1",
             "description": "Fix table, add informs and new informer",

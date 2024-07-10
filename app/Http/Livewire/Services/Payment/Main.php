@@ -5,11 +5,13 @@ namespace App\Http\Livewire\Services\Payment;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
 use Livewire\{Component, WithPagination};
 use App\Services\Payment\NoteFilter;
+use App\Helpers\TextFormatter;
 use Carbon\Carbon;
 
 class Main extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -18,6 +20,10 @@ class Main extends Component
     public $perPage = 100;
 
     public $search;
+
+    public $advanceSearch;
+
+    public $multiSearch = [];
 
     public $rubrica_s = [];
 
@@ -35,7 +41,7 @@ class Main extends Component
     public $assigned_mmgd = false;
 
     // Filters
-    private $filter_group = 'publication';
+    private $filter_group = 'payments';
 
     protected $listeners = [
         'refresh_service'   => '$refresh',
@@ -69,6 +75,16 @@ class Main extends Component
             'status'   => 'success',
             'menssage' => $msg,
         ]);
+    }
+
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
+            $this->dispatchBrowserEvent('hideModal');
+        } else {
+            $this->multiSearch = [];
+        }
     }
 
     public function filterMMGD()
@@ -195,6 +211,12 @@ class Main extends Component
     public function getListsProperty()
     {
         return $this->noteFilter->filter($this->search,  $this->filter_group)
+            ->when($this->multiSearch, function ($q) {
+                $q->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });;
+            })
             ->when($this->typeNote, function ($q) {
                 $q->where('type_note', $this->typeNote);
             })

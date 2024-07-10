@@ -97,6 +97,7 @@ class Pausenote2 extends Component
         $this->dispatchBrowserEvent('hideModal');
         $this->dispatchBrowserEvent('hideModal');
         $this->dispatchBrowserEvent('hideModal');
+        $this->emitUp('refresh_list');
         $this->emitTo('services.publication.accompany.main', 'refresh_list');
     }
 
