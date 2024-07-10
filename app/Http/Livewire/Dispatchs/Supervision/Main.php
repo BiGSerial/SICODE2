@@ -1010,7 +1010,8 @@ class Main extends Component
                     ->orWhere('group1', 'like', '%' . trim($this->search) . '%')
                     ->orWhere('group2', 'like', '%' . trim($this->search) . '%')
                     ->orWhere('group4', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('group5', 'like', '%' . trim($this->search) . '%');
+                    ->orWhere('group5', 'like', '%' . trim($this->search) . '%')
+                    ->orWhereRelation('Orders', 'ordem', 'like', '%' . trim($this->search) . '%');
             });
         }
 
@@ -1019,7 +1020,10 @@ class Main extends Component
             $this->search = "";
 
             $query->where(function ($q) {
-                return $q->WhereIn('note', $this->multiSearch);
+                return $q->WhereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->WhereIn('ordem', $this->multiSearch);
+                    });
             });
         } elseif (!$this->search && !count($this->multiSearch) && $this->base) {
             $query->where(function ($q) {

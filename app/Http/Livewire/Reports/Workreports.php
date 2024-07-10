@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Reports;
 
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
@@ -12,6 +13,7 @@ use Livewire\WithPagination;
 class Workreports extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -22,6 +24,9 @@ class Workreports extends Component
     public $files_selected = [];
 
     public $search;
+    public $advanceSearch;
+
+    public $multiSearch = [];
 
     // search by date
     public $date_in;
@@ -48,9 +53,22 @@ class Workreports extends Component
         $this->cities = City::orderBy('cidade')->get();
     }
 
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->goToPage(1);
+            $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
+            $this->dispatchBrowserEvent('hideModal');
+        } else {
+            $this->multiSearch = [];
+        }
+    }
+
     public function cleanAll()
     {
         $this->search = '';
+        $this->advanceSearch = '';
+        $this->multiSearch = [];
         $this->date_in = '';
         $this->date_out = '';
     }
@@ -102,6 +120,17 @@ class Workreports extends Component
                     ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
             });
         }
+
+        if ($this->multiSearch) {
+            $query->where(function ($q) {
+                $q->WhereRelation('Note', function ($sq) {
+                    $sq->whereIn('note', $this->multiSearch);
+                })->orWhereRelation('Orders', function ($sq) {
+                    $sq->whereIn('ordem', $this->multiSearch);
+                });
+            });
+        }
+
         if (isset($this->filter['company'])) {
             $query->whereIn('company_id', $this->filter['company']);
         }

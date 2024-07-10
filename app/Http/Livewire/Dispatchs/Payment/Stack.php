@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Http\Livewire\Dispatchs\Supervision;
+namespace App\Http\Livewire\Dispatchs\Payment;
 
-use App\Exports\{ExportDDExcel, ProductionControlExport};
+use App\Exports\DispatchDesenhoStack;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use Carbon\Carbon;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component
@@ -44,7 +45,7 @@ class Stack extends Component
 
     public $status_s = [];
 
-    public $selectall;
+    public $selectAll;
 
     public $selected = [];
 
@@ -91,17 +92,13 @@ class Stack extends Component
 
     public $productions;
 
-    public $existDD = [];
+    public $audits;
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
-        // 'confirm_add_priority' => 'give_priority',
-        // 'confirm_rem_priority' => 'remove_priority',
-        // 'confirm_delete' => "confirm_delete",
+        'refresh_list'         => '$refresh',
         'confirm_remove_att'   => 'remove_att',
         'confirm_dispatch'     => 'confirmed_att',
         'getCopy'              => 'copy',
-        'confirm_mass_dd'      => 'confirmed_mass_dd',
         'confirm_des_att_mass' => 'confirm_des_att_mass',
         'filterUser'           => 'filterUser',
         'closeall'             => 'closeall',
@@ -148,66 +145,33 @@ class Stack extends Component
 
         $items = $items->pluck('id')->toArray();
 
-        $this->selectall = empty(array_diff($items, $this->selected));
+        $this->selectAll = empty(array_diff($items, $this->selected));
 
-        return $this->selectall;
+        return $this->selectAll;
     }
-
 
     public function export_excel()
     {
-        // if (!count($this->selected)) {
-        //     $this->dispatchBrowserEvent('swal', [
-        //         'position' => 'center',
-        //         'icon' => 'warning',
-        //         'title' => 'Nenhuma nota foi selecionada para Exportar!',
-        //         'timer' => 2500,
-        //     ]);
-
-        //     return;
-        // }
-
-        // $notes = Note::whereHas('Productions', function ($query) {
-        //     return $query->whereIn('id', $this->selected);
-        // });
-
-        // return (new ExportDDExcel())->exportDD($notes->pluck('id')->toArray(), $this->service->service)->download(date('YmdHis-').'exportProdNote.xlsx');
-
         if (!count($this->selected)) {
-            return (new ProductionControlExport($this->lists->get()))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
+            return (new DispatchDesenhoStack($this->exports->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         } else {
-            return (new ProductionControlExport($this->lists->find($this->selected)))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
+            $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
+
+            return (new DispatchDesenhoStack($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         }
     }
 
-    public function buscarMulti()
+    public function go_priority_mass()
     {
-
-        if ($this->advanceSearch) {
-
-            $this->gotoPage(1);
-
-            $this->search = '';
-
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
+        if (count($this->selected)) {
+            $this->emit('setPriority', $this->selected);
         }
+    }
 
-        if (count($this->multiSearch)) {
-            $this->closeall();
+    public function go_des_priority_mass()
+    {
+        if (count($this->selected)) {
+            $this->emit('removePriority', $this->selected);
         }
     }
 
@@ -239,7 +203,6 @@ class Stack extends Component
     public function filter_clean()
     {
         $this->gotoPage(1);
-
         $this->rubrica_s  = [];
         $this->city_s     = [];
         $this->district_s = [];
@@ -261,89 +224,9 @@ class Stack extends Component
         $this->emit('refresh_service');
     }
 
-    public function give_priority()
+    public function get_single_note($prod, $force = false)
     {
-        if ($this->priority->update(['priority' => true])) {
-            $this->emit('refresh_list');
-            unset($this->priority);
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Nota Priorizada com Sucesso',
-                'timer'    => 2500,
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Erro ao tentar priorizar a nota/ov',
-                'timer'    => 2500,
-            ]);
-        }
-    }
-
-    public function ask_priority($production_id)
-    {
-        $this->priority = Production::with('Note')->find($production_id);
-
-        if ($this->priority) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'Priorizar',
-                'msg'           => "Você deseja priorizar <strong>{$this->priority->Note->note}</strong>?",
-                'icon'          => 'question',
-                'btnOktxt'      => 'Sim, priorize!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_add_priority',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhuma nenhuma priorização foi definida.',
-            ]);
-        }
-    }
-
-    public function remove_priority()
-    {
-        if ($this->priority->update(['priority' => false])) {
-            $this->emit('refresh_list');
-            unset($this->priority);
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Nota prioridade removida com Sucesso',
-                'timer'    => 2500,
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Erro ao tentar remover prioridade a nota/ov',
-                'timer'    => 2500,
-            ]);
-        }
-    }
-
-    public function ask_despriority($production_id)
-    {
-        $this->priority = Production::with('Note')->find($production_id);
-
-        if ($this->priority) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'Remover Prioridade',
-                'msg'           => "Você deseja remover prioridade <strong>{$this->priority->Note->note}</strong>?",
-                'icon'          => 'question',
-                'btnOktxt'      => 'Sim, despriorize!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_rem_priority',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhuma nenhuma despriorização foi definida.',
-            ]);
-        }
-    }
-
-    public function get_single_note($prod)
-    {
-
+        $this->force    = $force;
         $this->selected = [$prod];
 
         $this->go_att_mass();
@@ -375,187 +258,6 @@ class Stack extends Component
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'add_mass_notes',
             ]);
-        }
-    }
-
-    public function confirm_att()
-    {
-        if ($this->type == '2') {
-
-            if (!$this->user_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer'    => 2500,
-                ]);
-
-                return;
-            }
-
-            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
-        } else {
-
-            if (!$this->company_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer'    => 2500,
-                ]);
-
-                return;
-            }
-
-            $para = (Company::find($this->company_s))->name;
-        }
-
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmar Atribuir',
-            'msg'           => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Despache!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_dispatch',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
-
-        ]);
-    }
-
-    public function mass_modal()
-    {
-        if (!trim($this->enter_dd)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nenhum entrada para atribuição',
-                'timer'    => 5000,
-            ]);
-
-            return;
-        }
-
-        $this->additionalData = [];
-        $this->existDD        = [];
-
-        $linhas = explode("\n", trim($this->enter_dd));
-
-        if ($linhas && count($linhas)) {
-            $count = 0;
-            $ok    = 0;
-
-            foreach ($linhas as $linha) {
-                if ($linha) {
-                    $coluna = explode("\t", $linha);
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(';', $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(' ', $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(',', $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'warning',
-                            'title'    => "Gentileza separar os valores com alguma forma válida: ' ', ';', ','.",
-
-                        ]);
-
-                        return;
-                    }
-
-                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
-
-                        $dd = Production::where('completed', false)->where('service_id', $this->service->uuid)->whereRelation('Note', 'note', trim($coluna[0]))->first();
-
-                        if ($dd) {
-
-                            $chk = Wpa::Where('dd', trim($coluna[1]))->first();
-
-                            if ($chk && $chk->note_id != $dd->note_id) {
-                                $count++;
-                                $this->existDD[] = [
-                                    'dd'   => $coluna[1],
-                                    'note' => $chk->load('Note')->Note->note,
-                                ];
-                            }
-
-                            $ok++;
-
-                            $jaExiste = collect($this->additionalData)->contains('dd', $coluna[1]);
-
-                            if (!$jaExiste) {
-                                // Adiciona os dados se o valor não existir
-                                $this->additionalData[] = [
-                                    'production_id' => $dd->id,
-                                    'note_id'       => $dd->note_id,
-                                    'dd'            => $coluna[1],
-                                ];
-                            } else {
-                                $this->dispatchBrowserEvent('swal', [
-                                    'position' => 'center',
-                                    'icon'     => 'warning',
-                                    'title'    => 'NOTA DD REPETIDA',
-                                    'html'     => "A Nota DD <strong>{$coluna[1]}</strong> está sendo repetida para mais de uma Nota/OV. Gentileza verificar.",
-
-                                ]);
-
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if ($count) {
-                // $this->dispatchBrowserEvent('alertar', [
-                //     'title' =>  'Confirmar Atribuir DD a notas DIFERENTES?',
-                //     'msg' => "Existem {$count} Notas DD que estão sendo atribuídas a notas diferentes às já atribuídas anteriormente.",
-                //     'icon' => 'warning',
-                //     'btnOktxt' => 'Sim, Atribua!',
-                //     'btnCanceltxt' => 'Não, Cancele',
-                //     'action' => "confirm_mass_dd",
-                //     'cancel_titulo' => 'Cancelado!',
-                //     'cancel_msg' => 'Nenhuma Nota Atribuída.',
-
-                // ]);
-
-                $text = '';
-
-                foreach ($this->existDD as $dd_exist) {
-                    $text .= '<strong>' . $dd_exist['dd'] . '</strong> => <strong>' . $dd_exist['note'] . '</strong>.<br>';
-                }
-
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'DD EXISTENTE',
-                    'html'     => "Você está tentando atribuir {$count} notas DD já atribuídas a Notas diferentes.<br>" . $text,
-                ]);
-
-                return;
-            } else {
-
-                $this->dispatchBrowserEvent('alertar', [
-                    'title'         => 'Confirmar Atribuir DD?',
-                    'msg'           => "Você está prestes a atribuir {$ok} notas DD, Deseja Continuar?",
-                    'icon'          => 'info',
-                    'btnOktxt'      => 'Sim, Continue!',
-                    'btnCanceltxt'  => 'Não, Cancele',
-                    'action'        => 'confirm_mass_dd',
-                    'cancel_titulo' => 'Cancelado!',
-                    'cancel_msg'    => 'Nenhuma Nota Atribuída.',
-
-                ]);
-            }
         }
     }
 
@@ -662,105 +364,56 @@ class Stack extends Component
         }
     }
 
-    public function confirmed_mass_dd()
+    public function confirm_att()
     {
-
-        if ($count = count($this->additionalData)) {
-            $error = 0;
-
-            foreach ($this->additionalData as $wpa) {
-                if (!Wpa::Create($wpa)) {
-                    $error++;
-                }
-            }
-
-            if (!$error) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'Notas DDs associadas com sucesso',
-                    'timer'    => 2500,
-                ]);
-
-                $this->closeall();
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => "OOPS!, Ocorreram {$error} de {$count} ao associar as DD às Notas.",
-                    'timer'    => 8000,
-                ]);
-            }
-        }
-    }
-
-    public function confirmed_att()
-    {
-
         if ($this->type == '2') {
 
-            // Verifica se todas as entradas estão com DD atriobuídas.
-            if (count($this->additionalData)) {
-
-                // Checa se existe DD não preenchida
-                foreach ($this->additionalData as $key => $value) {
-                    if (!trim($value)) {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'warning',
-                            'title'    => 'Todas as Notas/OVs precisam estar associadas a uma Nota DD',
-                            'timer'    => 5000,
-                        ]);
-
-                        return;
-                    }
-                }
-
-                if (count(array_unique($this->additionalData)) !== count($this->additionalData)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Existem Notas DD repetidas atribuídas a Nota/OVs diferentes',
-                        'timer'    => 5000,
-                    ]);
-
-                    return;
-                }
-
-                //Checa se existe DD Repetida
-
-                $dds = Wpa::whereIn('dd', $this->additionalData)->with('Note')->get();
-
-                if ($dds->count()) {
-
-                    foreach ($this->additionalData as $key => $value) {
-                        $chk = $dds->where('dd', $value)->first();
-
-                        if ($chk && $chk->Note->note != $this->notes[$key]->note) {
-                            $this->dispatchBrowserEvent('swal', [
-                                'position' => 'center',
-                                'icon'     => 'error',
-                                'title'    => "DD {$value} já foi associada a uma outra Nota/OV",
-                                'timer'    => 5000,
-                            ]);
-
-                            return;
-                        }
-                    }
-                }
-            } else {
+            if (!$this->user_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
-                    'title'    => 'Nenhuma Nota DD associada as Notas/OVs!',
-                    'timer'    => 5000,
+                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
             }
+
+            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
+        } else {
+
+            if (!$this->company_s) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                    'timer'    => 2500,
+                ]);
+
+                return;
+            }
+
+            $para = (Company::find($this->company_s))->name;
         }
 
-        if ($this->type == '2') {
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Confirmar Atribuir',
+            'msg'           => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Despache!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_dispatch',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
+
+        ]);
+    }
+
+    public function confirmed_att()
+    {
+        $this->force = true;
+
+        if ($this->type == '2' || $this->force) {
 
             foreach ($this->notes as $key => $note) {
 
@@ -791,10 +444,9 @@ class Stack extends Component
                         'company_id' => $this->company_s,
                         'att_by'     => Auth()->User()->id,
                         'att_at'     => date('Y-m-d H:i:s'),
-                        'status'     => 2,
+                        'status'     => $this->user_s ? 2 : 1,
+                        'completed'  => false,
                     ])) {
-
-                        $user = Auth()->User()->name;
 
                         if (trim($this->user_s)) {
                             $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
@@ -802,22 +454,20 @@ class Stack extends Component
                             $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
                         }
 
-                        if ($production) {
-                            Notetimeline::Create([
-                                'note_id'      => $production->id,
-                                'service_id'   => $production->service_id,
-                                'user_id'      => Auth()->User()->id,
-                                'info'         => "Usuário {$user} {$user_info}",
-                                'status'       => 2,
-                                'productionId' => $production->id,
-                            ]);
-                        }
-
-                        Wpa::create([
-                            'production_id' => $production->id,
-                            'note_id'       => $note->id,
-                            'dd'            => $this->additionalData[$key],
+                        Notetimeline::Create([
+                            'note_id'      => $production->id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "{$user_info}",
+                            'status'       => $this->user_s ? 2 : 1,
+                            'productionId' => $production->id,
                         ]);
+
+                        // Wpa::create([
+                        //     'production_id' => $production->id,
+                        //     'note_id' => $note->id,
+                        //     'dd' => $this->additionalData[$key]
+                        // ]);
                     } else {
 
                         // dd($production);
@@ -832,7 +482,7 @@ class Stack extends Component
                         return;
                     }
                 } else {
-                    dd($production, $note->note);
+                    // dd($production, $note->note);
 
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
@@ -844,14 +494,14 @@ class Stack extends Component
                     return;
                 }
             }
-        }
 
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'Notas Despachadas com sucesso!',
-            'timer'    => 2500,
-        ]);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso!',
+                'timer'    => 2500,
+            ]);
+        }
 
         $this->closeall();
     }
@@ -904,9 +554,11 @@ class Stack extends Component
         $this->production = Production::with('User')->find($id);
 
         if ($this->production) {
+            $name = $this->production->User ? $this->production->User->name : 'Desconhecido';
+
             $this->dispatchBrowserEvent('alertar', [
                 'title'         => 'Confirmar Desatribuição',
-                'msg'           => "Você está prestes a Desatribuir a produção para {$this->production->User->name}. Deseja continuar?",
+                'msg'           => "Você está prestes a Desatribuir a produção para {$name}. Deseja continuar?",
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Remova!',
                 'btnCanceltxt'  => 'Não, Cancele',
@@ -920,7 +572,7 @@ class Stack extends Component
 
     public function remove_att()
     {
-        if ($this->production->update(['user_id' => '', 'status' => 1])) {
+        if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -960,14 +612,12 @@ class Stack extends Component
                             ->orWhere('material', 'like', '%' . $this->search . '%')
                             ->orWhere('lexp', 'like', '%' . $this->search . '%')
                             ->orWhere('rubrica', 'like', '%' . $this->search . '%')
-                            ->orWhere('centerjob', 'like', '%' . $this->search . '%')
-                            ->orWhereRelation('Orders', 'ordem', 'like', '%' . $this->search . '%');
+                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
                     });
                 });
             })
             ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id)
-                    ->orWhereNull('company_id');
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
@@ -977,8 +627,7 @@ class Stack extends Component
             })
             ->when($this->rubrica_s, function ($q) {
                 return $q->whereHas('Note', function ($query) {
-                    $query->where('rubrica', $this->rubrica_s)
-                        ->orWhereNull('rubrica');
+                    $query->whereIn('rubrica', $this->rubrica_s);
                 });
             })
             ->when($this->base, function ($q) {
@@ -990,33 +639,26 @@ class Stack extends Component
             })
             ->when($this->multiSearch, function ($q) {
                 return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('note', $this->multiSearch)
-                        ->orWhereRelation('Orders', function ($q) {
-                            $q->whereIn('ordem', $this->multiSearch);
-                        });
+                    return $query->whereIn('note', $this->multiSearch);
                 });
             })
-
-            // ->when($this->status_s, function ($q) {
-            //     return $q->whereIn('productions.status', $this->status_s)
-            //             ->orWhereNull('productions.status');
-            // })
-            // ->when($this->note_type, function ($q) {
-            //     return $q->whereHas('Note', function ($query) {
-            //         return $query->whereIn('type_note', $this->note_type)
-            //                 ->orWhereNull('type_note');
-            //     });
-            // })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s);
+            })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', 'type_note', $this->note_type);
+            })
             ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->select('productions.*', 'notes.dt_created as note_dt_created')
+            ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
 
-    public function getStatusProperty()
+    public function getExportsProperty()
     {
-
         return Production::with(['Note'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where('confirmed', false)
@@ -1048,6 +690,70 @@ class Stack extends Component
             })
             ->when($this->rubrica_s, function ($q) {
                 return $q->whereHas('Note', function ($query) {
+                    $query->whereIn('rubrica', $this->rubrica_s);
+                });
+            })
+            ->when($this->base, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('nexp', $this->base)
+                        ->orwhere('nexp', null)
+                        ->orwhere('nexp', '');
+                });
+            })
+            ->when($this->multiSearch, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('note', $this->multiSearch);
+                });
+            })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s);
+            })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', 'type_note', $this->note_type);
+            })
+            ->orderBy('priority', 'DESC')
+            ->orderBy('notes.type_note', 'DESC')
+            ->orderBy('notes.days_left', 'asc')
+            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+
+    }
+
+    public function getStatusProperty()
+    {
+        return Production::with(['Note'])
+            ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->where('confirmed', false)
+            ->where('service_id', $this->service->uuid)
+            ->when($this->search, function ($q) {
+                return $q->where(function ($query) {
+                    $query->whereHas('Note', function ($subquery) {
+                        return $subquery->where('note', 'like', '%' . $this->search . '%')
+                            ->orWhere('group2', 'like', '%' . $this->search . '%')
+                            ->orWhere('group3', 'like', '%' . $this->search . '%')
+                            ->orWhere('group4', 'like', '%' . $this->search . '%')
+                            ->orWhere('group5', 'like', '%' . $this->search . '%')
+                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                            ->orWhere('material', 'like', '%' . $this->search . '%')
+                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                            ->orWhere('centerjob', 'like', '%' . $this->search . '%')
+                            ->orWhereRelation('Orders', 'ordem', 'like', '%' . $this->search . '%');
+                    });
+                });
+            })
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->when($this->user_fs, function ($q) {
+                return $q->whereIn('user_id', $this->user_fs);
+            })
+            ->when($this->rubrica_s, function ($q) {
+                return $q->whereHas('Note', function ($query) {
                     $query->whereIn('rubrica', $this->rubrica_s)->orWhereNull('rubrica');
                 });
             })
@@ -1058,7 +764,10 @@ class Stack extends Component
             })
             ->when($this->multiSearch, function ($q) {
                 return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('note', $this->multiSearch);
+                    return $query->whereIn('note', $this->multiSearch)
+                        ->orWhereRelation('Orders', function ($q) {
+                            $q->whereIn('ordem', $this->multiSearch);
+                        });
                 });
             })
             ->when($this->status_s, function ($q) {
@@ -1067,7 +776,7 @@ class Stack extends Component
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
             })
-            ->orderBy('priority', 'DESC')
+
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
@@ -1120,82 +829,72 @@ class Stack extends Component
 
     public function closeall()
     {
-
-        $this->emit('refresh_list');
-
         $this->dispatchBrowserEvent('hideModal');
 
         $this->company_s      = '';
         $this->selected       = [];
         $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
-        $this->enter_dd       = '';
+        $this->advanceSearch  = '';
+        $this->gotoPage(1);
+
+        $this->emitSelf('refresh_list');
     }
 
     public function clean()
     {
 
-        $this->company_s = '';
-        $this->enter_dd  = '';
-        $this->user_s    = '';
-
+        $this->company_s      = '';
+        $this->enter_dd       = '';
+        $this->user_s         = '';
+        $this->type           = '';
         $this->additionalData = [];
+        $this->multiSearch    = [];
     }
 
-    public function to_delete($id)
+    public function buscarMulti()
     {
 
-        $this->delete = '';
+        if ($this->advanceSearch) {
 
-        $this->delete = Production::with('Note')->find($id);
+            $this->search = '';
+            $this->gotoPage(1);
 
-        if ($this->delete) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Deletar Produção',
-                'msg'   => "Você está prestes a removert {$this->delete->Note->note} da produção. Esteja ciente ao fazer isso de forma inadequada poderá prejudicar a medição do usuário ou empresa.
-                Lembrando que a exclusão também removerá do LOG do BI. \n Deseja Continuar?",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Remova!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_delete',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
+            $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nao encontramos a produção para remover!',
-                'timer'    => 2500,
-            ]);
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
+            }
 
-            return;
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
+            }
+
+            $this->multiSearch = array_map('trim', $this->multiSearch);
+        }
+
+        if (count($this->multiSearch)) {
+            $this->closeall();
         }
     }
 
-    public function confirm_delete()
+    public function deadline(Note $note)
     {
-        if ($this->delete->delete()) {
+        $days = 10;
+        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
 
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Produção removida com sucesso',
-                'timer'    => 2500,
-            ]);
+        if ($date_forms) {
 
-            $this->closeall();
+            $deadline_date = Carbon::parse($date_forms)->addDays($days);
+
+            return Carbon::now()->diffInDays($deadline_date, false);
         } else {
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Ocorreu algum problema ao tentar remover a produção',
-                'timer'    => 6000,
-            ]);
-
-            $this->closeall();
+            return 0;
         }
     }
 
@@ -1209,40 +908,52 @@ class Stack extends Component
             $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         }
 
-        $this->status_l = $this->lists->pluck('status')->unique();
-
-        $this->user_fl = Production::Where('service_id', $this->service->uuid)
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-            })->when($this->company_fs, function ($q) {
+        $this->user_fl = Production::where('service_id', $this->service->uuid)
+            ->when(Auth()->user()->contract, function ($q) {
+                return $q->where('company_id', Auth()->user()->employee->contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
-            })->select('user_id')->with('User')->groupBy('user_id')->get();
+            })
+            ->select('user_id')
+            ->with('User')
+            ->groupBy('user_id')
+            ->get();
+
+        $this->status_l = $this->lists->pluck('status')->unique();
 
         $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
-        // Municipios Filtros
-        $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
+        //Filtros depedentes de bancos externos, testar antes.
+        try {
 
-        $this->district_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
 
-        $this->city_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })
-            ->when($this->district_s, function ($q) {
-                return $q->whereIn('baseConstrucao', $this->district_s);
+            $this->district_l = City::when($this->region_s, function ($q) {
+                return $q->whereIn('regiao', $this->region_s);
+            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+            $this->city_l = City::when($this->region_s, function ($q) {
+                return $q->whereIn('regiao', $this->region_s);
             })
-            ->select('rdMunicipio', 'cidade', 'municipio')
-            ->orderBy('cidade')
-            ->groupBy('rdMunicipio', 'cidade', 'municipio')
-            ->get();
+                ->when($this->district_s, function ($q) {
+                    return $q->whereIn('baseConstrucao', $this->district_s);
+                })
+                ->select('rdMunicipio', 'cidade', 'municipio')
+                ->orderBy('cidade')
+                ->groupBy('rdMunicipio', 'cidade', 'municipio')
+                ->get();
+        } catch (\Illuminate\Database\QueryException $e) {
 
-        return view('livewire.dispatchs.supervision.stack', [
+            $this->region_l   = [];
+            $this->district_l = [];
+            $this->city_l     = [];
+        }
+
+        return view('livewire.dispatchs.payment.stack', [
             'allList' => $this->status->get(),
-            'lists'   => $this->lists->paginate($this->perPage),
+            'lists'   => $this->lists,
         ]);
     }
 }

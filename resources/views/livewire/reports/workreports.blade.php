@@ -86,9 +86,15 @@
                 </div>
 
                 <div class="col-sm-8 col-md-2 col-xxl-2 mb-3">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                    <div class="input-group">
+                        <input wire:model.bounce.2s="search" type="email" class="form-control border-secondary"
+                            id="search" placeholder="Buscar">
+                        <button class="btn btn-outline-secondary" data-bs-toggle="modal"
+                            data-bs-target="#buscar_multi"><i class="ri-checkbox-multiple-blank-line"></i></button>
+                    </div>
                 </div>
+
+
 
                 <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
                     <input type="date" id="date_in" class="form-control border border-secondary"
@@ -223,6 +229,29 @@
             </div>
         </div>
     @endif
+
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
 
     {{-- LivewireComponent --}}
     @livewire('partner.show.show-work-form', key('FormModdalShow'))

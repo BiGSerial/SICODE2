@@ -67,8 +67,8 @@ class NoteFilter
             });
         });;
 
-        $query->with('Productions.User')
-            ->orderBy('days_left', 'ASC');
+        $query->with('Productions.User');
+
 
         return $query;
     }

@@ -44,7 +44,7 @@
                 <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
                 <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
-            
+
             @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
@@ -168,7 +168,7 @@
                             {{-- @dump($list->Productions) --}}
 
                             <tr
-                                class="align-middle
+                                class="align-middle text-center
                                 @if ($block) @if ($production->status == 1)
                                     table-warning
                                     @elseif ($production->status == 2)
@@ -182,8 +182,8 @@
                                 <td class="fw-light fw-bold text-center">{{ $list->note }} </td>
 
                                 <td class="text-center align-middle">
-                                    @if ($list->Orders->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
                                             </p>
@@ -192,8 +192,8 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-                                    @if ($order->Operations->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 R$ {{ number_format($order->moaberto, 2, ',', '.') }}
                                             </p>
@@ -202,8 +202,8 @@
 
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($order->Operations->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->statusSist }}
                                             </p>
@@ -213,8 +213,8 @@
                                 </td>
 
                                 <td class="text-center align-middle">
-                                    @if ($order->Operations->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
                                             </p>
@@ -223,8 +223,8 @@
 
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($order->Operations->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
                                             </p>
@@ -233,8 +233,8 @@
 
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($order->Operations->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
                                             </p>
@@ -243,8 +243,8 @@
 
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($order->Operations->count())
-                                        @foreach ($list->Orders as $order)
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->cenTrab)[0] : '---' }}
                                             </p>
