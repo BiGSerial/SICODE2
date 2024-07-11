@@ -415,6 +415,25 @@ class Workreports extends Component
     public function confirm_informe()
     {
         $this->note = $this->preNote;
+
+
+        $filteredOrders = $this->note->Orders->filter(function ($order) {
+            return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+        });
+
+        if ($this->note->type_note == 2 && $this->note->Orders->count() > 1) {
+
+            if ($filteredOrders->count() == 1) {
+                foreach ($filteredOrders as $order) {
+                    $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
+                }
+            }
+        } elseif ($this->note->type_note == 1) {
+
+            foreach ($filteredOrders as $order) {
+                $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
+            }
+        }
     }
 
     public function toConfirmWork(Note $note)
@@ -445,6 +464,14 @@ class Workreports extends Component
         $this->preNote = "";
         $this->search = "";
         $this->notes = "";
+    }
+
+    public function calcelForm()
+    {
+
+        $this->initForm();
+        $this->cleanAll();
+        $this->note = null;
     }
 
     public function initForm()

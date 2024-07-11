@@ -26,7 +26,9 @@
                                             <td class="fw-bold align-middle">{{ $note->note }}</td>
                                             <td class="align-middle">
                                                 @if ($note->Orders->count())
-                                                    @foreach ($note->Orders as $order)
+                                                    @foreach ($note->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
                                                         <p class="my-0 py-0">{{ $order->ordem }}</p>
                                                     @endforeach
                                                 @endif
@@ -128,8 +130,8 @@
                         </div>
                         <div class="mb-3" style="max-width: 300px">
                             <label for="exampleFormControlInput1" class="form-label">Adicione as Ordens deste
-                                Informe. <span class="text-danger fw-bold">*</span> (Obs: Adicione apenas as ordens/Drs
-                                pertencentes informados no projeto.)
+                                Informe. <span class="text-danger fw-bold">*</span> (Obs: Adicione todas as Ordens que
+                                constem no projeto.)
                                 <i class="ri-question-line text-primary fw-bold" data-bs-toggle="popover"
                                     data-bs-title="Popover title"
                                     data-bs-content="And here's some amazing content. It's very engaging. Right?"></i></label>
@@ -137,7 +139,9 @@
                                 wire:model.defer="s_order">
                                 <option selected>Selecionar</option>
                                 @if ($note->Orders->count())
-                                    @foreach ($note->Orders as $order)
+                                    @foreach ($note->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
                                         <option value="{{ $order->id }}">{{ $order->ordem }}</option>
                                     @endforeach
                                 @endif
@@ -506,7 +510,8 @@
                             </div>
 
                             <button class="btn btn-sm btn-primary" type="submit">ENVIAR</button>
-                            <button class="btn btn-sm btn-danger">CANCELAR</button>
+                            <button class="btn btn-sm btn-danger" type="reset"
+                                wire:click='calcelForm()'>CANCELAR</button>
                         @endif
                     </div>
                 </div>
