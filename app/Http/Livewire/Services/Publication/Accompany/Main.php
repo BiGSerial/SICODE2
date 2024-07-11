@@ -36,6 +36,8 @@ class Main extends Component
 
     public $note;
 
+    public $typeNote;
+
     // Filters
     private $filter_group = 'publication_acc';
     public $filters;
@@ -203,6 +205,9 @@ class Main extends Component
                 return $q->where('user_id', Auth()->user()->id);
             })
             ->where('completed', false)
+            ->when($this->typeNote, function ($q) {
+                $q->whereRelation('Note', 'type_note', $this->typeNote);
+            })
             ->when($this->search, function ($q, $s) {
                 return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
                     ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
