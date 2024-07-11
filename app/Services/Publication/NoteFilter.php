@@ -51,10 +51,10 @@ class NoteFilter
                 $query->whereIn('lexp', $this->filters['city'])
                     ->orWhereNull('lexp');
             });
-        });;
+        });
 
-        $query->with('Productions.User')
-            ->orderBy('days_left', 'ASC');
+        $query->with('Productions.User');
+
 
         return $query;
     }

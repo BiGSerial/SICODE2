@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.2",
+    "appver": "1.9.3",
     "historic": [
+        {
+            "version": "1.9.3",
+            "description": "Correct Publication List",
+            "date": "2024-07-11"
+        },
         {
             "version": "1.9.2",
             "description": "update Supervision view, Payments, etc",

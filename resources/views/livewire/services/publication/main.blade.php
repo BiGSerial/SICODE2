@@ -204,9 +204,9 @@
                                     data-bs-placement="top" data-bs-title="Prazo Real"
                                     data-bs-content="
                                 <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
+                                <span class='fs-4 text-success'>&#9632;</span> 3> DIAS PARA VENCER <br>
+                                <span class='fs-4 text-warning'>&#9632;</span> 2< DIAS PARA VENCER <br>
+                                <span class='fs-4 text-danger'>&#9632;</span> 1< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
                                     {{ $daysLeft }}

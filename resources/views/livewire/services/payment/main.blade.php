@@ -154,6 +154,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $soma = 0;
+                        @endphp
                         @foreach ($lists as $list)
                             @php
                                 $block = false;
@@ -182,7 +185,7 @@
                                 <td class="fw-light fw-bold text-center">{{ $list->note }} </td>
 
                                 <td class="text-center align-middle">
-                                    @if ($list->WorkForm->Orders->count())
+                                    @if ($list->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
@@ -194,6 +197,9 @@
                                 <td class="text-center align-middle fw-bold">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
+                                            @php
+                                                $soma += $order->moaberto;
+                                            @endphp
                                             <p class="my-0 py-0">
                                                 R$ {{ number_format($order->moaberto, 2, ',', '.') }}
                                             </p>
@@ -313,6 +319,24 @@
                             </tr>
                         @endforeach
                     </tbody>
+                    <tfoot>
+                        <tr class="table-dark align-middle">
+                            <td></td>
+                            <td class="text-end">Total:</td>
+                            <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 

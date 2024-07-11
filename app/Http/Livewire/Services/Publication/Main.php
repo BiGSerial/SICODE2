@@ -191,61 +191,35 @@ class Main extends Component
 
     public function getListsProperty()
     {
-
-        // $query = Note::query();
-
-        // // RuleBuilder::applyRules($query, $this->service->Status);
-
-        // $query->whereHas('WorkForm')
-        //     ->whereHas('Orders', function ($q) {
-        //         $q->where('statusSist', 'LIKE', 'LIB%')
-        //             ->whereHas('Operations', function ($sq) {
-        //                 $sq->where('operacao', '0010')
-        //                     ->where('status', 'like', 'CONF%');
-        //             });
-        //     });
-
-        // $query->when($this->search, function ($q, $s) {
-        //     return $q->where(function ($query) use ($s) {
-        //         $query->where('note', 'like', '%' . $s . '%')
-        //             ->orWhere('material', 'like', '%' . $s . '%')
-        //             ->orWhere('numPedido', 'like', '%' . $s . '%')
-        //             ->orWhere('group2', 'like', '%' . $s . '%');
-        //     });
-        // })->when($this->rubrica_s, function ($q) {
-        //     return $q->where(function ($query) {
-        //         $query->whereIn('rubrica', $this->rubrica_s)
-        //             ->orWhereNull('rubrica');
-        //     });
-        // });
-
-        // if ($this->not_assigned) {
-        //     $query->where(function ($q) {
-        //         $q->doesntHave('Productions')
-        //             ->orWhereDoesntHave('Productions', function ($subquery) {
-        //                 $subquery->where('service_id', $this->service->uuid)
-        //                     ->where('confirmed', false);
-        //             });
-        //     });
-        // }
-
-        // if ($this->assigned_mmgd) {
-        //     $query->where('material', 'like', '%MMGD%');
-        // } else {
-        //     $query->where('material', 'not like', '%MMGD%');
-        // }
-
-        // $query->with('Productions.User')
-        //     ->orderBy('days_left', 'ASC');
-
-        // return $query->paginate($this->perPage);
-
-        return $this->noteFilter->filter($this->search,  $this->filter_group)->paginate($this->perPage);
+        return $this->noteFilter->filter($this->search, $this->filter_group)
+            ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+            ->select('notes.*', 'work_reports.created_at as wCreated_at')
+            ->when($this->not_assigned, function ($q) {
+                $q->whereDoesntHave('Productions', function ($q) {
+                    $q->where('service_id', $this->service->uuid)
+                        ->whereNotNull('user_id');
+                })->orWhereHas('Productions', function ($q) {
+                    $q->where('service_id', $this->service->uuid)
+                        ->where(function ($q) {
+                            $q->whereNull('user_id')
+                                ->orWhere('user_id', '');
+                        });
+                });
+            })
+            ->orderBy('wCreated_at', 'asc')
+            ->paginate($this->perPage);
     }
+
+
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+
+        // dd(
+        //     $this->lists
+        // );
+
 
         return view('livewire.services.publication.main', [
             'lists'  => $this->lists,

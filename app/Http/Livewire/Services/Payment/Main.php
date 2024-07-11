@@ -215,11 +215,17 @@ class Main extends Component
                 $q->whereIn('note', $this->multiSearch)
                     ->orWhereRelation('Orders', function ($q) {
                         $q->whereIn('ordem', $this->multiSearch);
-                    });;
+                    });
             })
             ->when($this->typeNote, function ($q) {
                 $q->where('type_note', $this->typeNote);
             })
+            ->with(['WorkForm' => function ($q) {
+                $q->orderBy('created_at', 'asc');
+            }])
+            ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+            ->select('notes.*', 'work_reports.created_at as wCreated_at')
+            ->orderBy('wCreated_at', 'asc')
             ->paginate($this->perPage);
     }
 
