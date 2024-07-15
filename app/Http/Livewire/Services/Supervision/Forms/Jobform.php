@@ -16,6 +16,7 @@ class Jobform extends Component
     public ?Production $production = null;
     public ?Analise $analise = null;
 
+
     public $d5 = 2;
     public $return = [
         'note' => '',

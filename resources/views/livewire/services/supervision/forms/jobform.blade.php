@@ -184,7 +184,8 @@
                                                 <span class="fw-bold"><i class="ri-file-copy-line copyButton"
                                                         data-id="infoTextArea2"
                                                         style="cursor: pointer;"></i></span></label>
-                                            <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8" wire:model.defer="info"></textarea>
+                                            <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8"
+                                                wire:model.defer="analise.info"></textarea>
                                         </div>
                                     @endif
 

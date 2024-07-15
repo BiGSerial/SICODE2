@@ -27,6 +27,8 @@ class Main extends Component
 
     public $last_update;
 
+    public $notes_limits = 11;
+
     //Botão de  nao atribuído.
     public $not_assigned = false;
 
@@ -79,6 +81,23 @@ class Main extends Component
 
     public function to_accompany(Note $note)
     {
+        $qtd = Production::where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('completed', false)->count();
+
+        // dd($this->notes_limits >= $qtd);
+
+        if ($qtd >= $this->notes_limits) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OOOOPS! EXCESSO DE ATIVIDADE',
+                'html'     => "<strong>LIMITE ATINGIDO</strong> Você possui muitas atividades pendentes para serem finalizadas. Encerre as atividades pendentes para poder adquirir novas atividades.",
+            ]);
+
+            return;
+        }
+
+
+
         $this->note = $note;
 
         $this->dispatchBrowserEvent('alertar', [
