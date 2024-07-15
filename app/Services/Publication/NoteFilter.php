@@ -51,6 +51,12 @@ class NoteFilter
                 $query->whereIn('lexp', $this->filters['city'])
                     ->orWhereNull('lexp');
             });
+        })->when(isset($this->filters['company']), function ($q) {
+            return $q->where(function ($query) {
+                $query->whereRelation('WorkForm', function ($q) {
+                    $q->whereIn('company_id', $this->filters['company']);
+                });
+            });
         });
 
         $query->with('Productions.User');
