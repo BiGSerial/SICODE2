@@ -186,9 +186,9 @@ class Main extends Component
         }
     }
 
-    public function hasPublication(Note $note)
+    public function hasProduction(Note $note)
     {
-        $production = $note->Productions->where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->last();
+        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
 
         if ($production) {
             return $production;
