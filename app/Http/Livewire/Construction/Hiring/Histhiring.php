@@ -8,10 +8,15 @@ use App\Models\Note;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 class Histhiring extends Component
 {
     use WithFileUploads;
+
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
 
@@ -33,7 +38,6 @@ class Histhiring extends Component
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
-
         'perPage' => ['as' => 'pp'],
     ];
 
@@ -44,7 +48,6 @@ class Histhiring extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
-
     }
 
     public function downloadFile($id)
@@ -59,7 +62,6 @@ class Histhiring extends Component
 
 
                 return Storage::download($file->path, $file->file_name);
-
             }
         }
     }
@@ -77,8 +79,7 @@ class Histhiring extends Component
         $query = Note::query();
 
         $query->whereRelation('Viabilities', function ($q) {
-            $q->where('user_id', auth()->user()->id)
-                ->where('hired', true);
+            $q->where('hired', true);
 
             if ($this->dateBy && ($this->date_in || $this->date_out)) {
 
@@ -102,8 +103,6 @@ class Histhiring extends Component
             $query->where(function ($q) {
                 $q->Where('note', 'like', "%$this->search%")
                     ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
-
-
             });
         }
 
@@ -114,7 +113,7 @@ class Histhiring extends Component
 
         $query->with(['Viabilities' => function ($query) {
             $query->where('hired', true)
-            ->with('Company', 'User', 'Form', 'Comments.User');
+                ->with('Company', 'User', 'Form', 'Comments.User');
         }, 'Files']);
 
 
