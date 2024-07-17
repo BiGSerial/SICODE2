@@ -32,6 +32,9 @@ class Viability extends Model
         'replica',
         'treplica',
         'inActivity',
+        'note_id',
+        'visible_partner',
+        'rehired'
     ];
 
     public function Order()

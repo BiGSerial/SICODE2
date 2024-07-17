@@ -55,8 +55,6 @@ class Viability extends Component
                 'id' => 'modal_viability',
             ]);
         }
-
-
     }
 
     public function updatedUploadsfiles()
@@ -109,9 +107,7 @@ class Viability extends Component
                     }
                 }
             }
-
         }
-
     }
 
 
@@ -166,7 +162,6 @@ class Viability extends Component
             } else {
                 unset($this->toViabilities[$index]);
             }
-
         }
     }
 
@@ -175,7 +170,7 @@ class Viability extends Component
         $query = User::Query();
 
         if (trim($this->searchUser)) {
-            $query->where('name', 'like', "%".$this->searchUser."%");
+            $query->where('name', 'like', "%" . $this->searchUser . "%");
         }
 
         return $query->where('engineer', true)->orderBy('name')->get();
@@ -219,7 +214,7 @@ class Viability extends Component
         $this->dispatchBrowserEvent('alertar', [
             'title'         => "ENVIAR VIABILIDADE",
             'msg'           => "
-                <p>Deseja enviar <span class='fw-bold'>".count($this->toViabilities)."</span> obra(s) para <span class='fw-bold'>{$company->name}</span>?</p>
+                <p>Deseja enviar <span class='fw-bold'>" . count($this->toViabilities) . "</span> obra(s) para <span class='fw-bold'>{$company->name}</span>?</p>
                 <div class='card'>
                     <div class='card-body text-left'>
                         <p class='fw-bold'>Responsável:<span class='fw-normal'> {$user->name}</span></p>
@@ -236,8 +231,6 @@ class Viability extends Component
         ]);
 
         return;
-
-
     }
 
     public function confirm_viability()
@@ -278,15 +271,16 @@ class Viability extends Component
             }
 
             $checkExistsViability = ModelsViability::where('order_id', $order['order']['id'])
-                                    ->where(function ($query) {
-                                        $query->where('hired', false)
-                                            ->orWhere('completed', false);
-                                    })
-                                    ->count();
+                ->where(function ($query) {
+                    $query->where('hired', false)
+                        ->orWhere('completed', false);
+                })
+                ->count();
 
             if (!$checkExistsViability) {
 
                 $created_viab = ModelsViability::Create([
+                    'note_id'     => Order::find($order['order']['id'])->note_id,
                     'order_id'    => $order['order']['id'],
                     'company_id'  => $this->company,
                     'user_id'     => Auth()->User()->id,
@@ -303,13 +297,13 @@ class Viability extends Component
 
                         $folhas = count($order['files']);
 
-                        $newName = "PROJETO_".$order['order']['note']['note']."_F"
-                                .str_pad(++$index, 2, '0', STR_PAD_LEFT)."-"
-                                .str_pad($folhas, 2, '0', STR_PAD_LEFT);
+                        $newName = "PROJETO_" . $order['order']['note']['note'] . "_F"
+                            . str_pad(++$index, 2, '0', STR_PAD_LEFT) . "-"
+                            . str_pad($folhas, 2, '0', STR_PAD_LEFT);
 
-                        $version = File::where('file_name', 'like', "%".$newName."%")->count();
+                        $version = File::where('file_name', 'like', "%" . $newName . "%")->count();
 
-                        $newName = $newName."_rev".$version.".".$file->getClientOriginalExtension();
+                        $newName = $newName . "_rev" . $version . "." . $file->getClientOriginalExtension();
 
                         $caminho = "";
 
@@ -329,8 +323,6 @@ class Viability extends Component
                             ]);
                         }
                     }
-
-
                 } else {
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
@@ -360,7 +352,6 @@ class Viability extends Component
 
         $this->emitUp('goClean');
         $this->emitUp('refresh_list');
-
     }
 
     public function cleanAll()
