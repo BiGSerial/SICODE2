@@ -161,7 +161,7 @@
                             @php
                                 $block = false;
 
-                                if ($production = $this->hasPublication($list)) {
+                                if ($production = $this->hasProduction($list)) {
                                     $block = true;
                                 }
 

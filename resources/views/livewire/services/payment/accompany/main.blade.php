@@ -189,7 +189,7 @@
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
                                                     <span class="my-0py-0">
-                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
                                                     </span>
                                                 @endforeach
                                             @endif
@@ -199,7 +199,7 @@
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
                                                     <span class="my-0py-0">
-                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
                                                     </span>
                                                 @endforeach
                                             @endif
@@ -209,7 +209,7 @@
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
                                                     <span class="my-0py-0">
-                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
                                                     </span>
                                                 @endforeach
                                             @endif
@@ -219,7 +219,7 @@
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
                                                     <span class="my-0py-0">
-                                                        {{ $order->Operations->count() ? explode(' ', $order->Operations->where('operacao', '0050')->first()->cenTrab)[0] : '---' }}
+                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->cenTrab)[0] : '---' }}
                                                     </span>
                                                 @endforeach
                                             @endif
