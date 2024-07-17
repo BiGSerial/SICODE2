@@ -583,7 +583,7 @@
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->cenTrab)[0] : '---' }}
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
                                     @endif
