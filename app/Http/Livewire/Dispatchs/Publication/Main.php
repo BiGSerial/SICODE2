@@ -179,6 +179,22 @@ class Main extends Component
         ]);
     }
 
+    public function hasPublication(Note $note)
+    {
+        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+
+        if ($production) {
+            return $production;
+        } else {
+            return false;
+        }
+    }
+
+    public function hasPublicationCount(Note $note)
+    {
+        return $note->Productions->where('service_id', $this->service->uuid)->count();
+    }
+
     public function filter_save()
     {
         $this->gotoPage(1);
@@ -524,7 +540,8 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = Note::query();
+        $query = Note::query()->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
+
 
         if (count($this->multiSearch)) {
             $query->whereIn('note', $this->multiSearch);
@@ -549,8 +566,7 @@ class Main extends Component
                 $query->where(function ($q) {
                     $q->doesntHave('Productions')
                         ->orWhereDoesntHave('Productions', function ($subquery) {
-                            $subquery->where('service_id', $this->service->uuid)
-                                ->where('confirmed', false);
+                            $subquery->where('service_id', $this->service->uuid);
                         });
                 });
             }
@@ -606,8 +622,9 @@ class Main extends Component
         }
 
         $query->with('Productions.User')
-            ->orderBy('type_note', 'DESC')
-            ->orderBy('days_left');
+            // ->orderBy('type_note', 'DESC')
+            ->orderBy('work_dt_created', 'ASC')
+            ->select('notes.*', 'work_reports.created_at as work_dt_created');
 
         return $query;
     }

@@ -975,7 +975,8 @@ class Main extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::query();
+        $query = Note::query()
+            ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
 
         $query->whereHas('WorkForm')
@@ -1069,7 +1070,8 @@ class Main extends Component
 
         $query->with('Productions.User', 'Wpas')
             ->orderBy('type_note', 'DESC')
-            ->orderBy('days_left');
+            ->orderBy('work_dt_created', 'ASC')
+            ->select('notes.*', 'work_reports.created_at as work_dt_created');
 
         return $query->paginate($this->perPage);
     }
