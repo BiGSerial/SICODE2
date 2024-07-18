@@ -10,11 +10,13 @@
             <tr>
                 <th scope="col" class="text-center align-middle">Nota/OV</th>
                 <th scope="col" class="text-center align-middle">Ordem</th>
+                <th scope="col" class="text-center align-middle">Cliente</th>
                 <th scope="col" class="text-center align-middle">Contratado</th>
                 <th scope="col" class="text-center align-middle">Recebido</th>
                 <th scope="col" class="text-center align-middle">Prazo Viab</th>
                 <th scope="col" class="text-center align-middle">Prazo Obra</th>
                 <th scope="col" class="text-center align-middle">Rubrica</th>
+                <th scope="col" class="text-center align-middle">Descrição</th>
                 <th scope="col" class="text-center align-middle">Regiao</th>
                 <th scope="col" class="text-center align-middle">Municipio</th>
                 <th scope="col" class="text-center align-middle">Status</th>
@@ -168,7 +170,7 @@
                             @endforeach
                         @endif
                     </td>
-
+                    <td class="text-center align-middle">{{ $list->client }}</td>
                     <td class="text-center align-middle">
                         {{ $list->Viabilities->last()->hired ? 'SIM' : 'NÃO' }}</td>
                     <td class="text-center align-middle fw-bold">
@@ -181,7 +183,7 @@
                         {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays($days_left)->format('d/m/Y') }}
                     </td>
                     <td class="text-center align-middle">{{ $list->rubrica }}</td>
-
+                    <td class="text-center align-middle">{{ $list->material }}</td>
                     <td class="text-center align-middle">
                         {{ $cities->Where('rdMunicipio', $list->nexp)->first() ? $cities->Where('rdMunicipio', $list->nexp)->first()->regiao : '' }}
                     </td>

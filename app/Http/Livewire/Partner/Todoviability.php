@@ -42,8 +42,6 @@ class Todoviability extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
-
-
     }
 
     public function updatedPerPage()
@@ -60,7 +58,6 @@ class Todoviability extends Component
                 $viab->update(['inActivity' => !$viab->inActivity]);
             }
         }
-
     }
 
     public function export_excel()
@@ -136,7 +133,6 @@ class Todoviability extends Component
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
-
         }
 
         $query = Note::Query();
@@ -154,14 +150,12 @@ class Todoviability extends Component
                 } else {
                     $q->where('company_id', null);
                 }
-
             }
-
         })->with(['Viabilities' => function ($query) {
             $query->where('tacit', false)
-            ->where('canceled', false)
+                ->where('canceled', false)
 
-            ->where('completed', false);
+                ->where('completed', false);
         }, 'Files']);
 
         if ($this->search) {
