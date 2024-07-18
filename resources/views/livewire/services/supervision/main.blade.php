@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -150,13 +151,23 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
+                                @foreach ($lists as $list)
                                     @php
 
                                         if ($list->status == 27) {
                                             $block = true;
                                         } else {
                                             $block = false;
+                                        }
+
+                                        $dateForm = isset($list->Note->WorkForm)
+                                            ? $list->Note->WorkForm->created_at
+                                            : null;
+
+                                        if ($dateForm) {
+                                            $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
+                                        } else {
+                                            $daysLeft = 0;
                                         }
 
                                     @endphp
@@ -201,14 +212,14 @@
                                         <td class="fw-light">{{ $list->Note->group1 }}</td>
                                         <td class="fw-light">{{ $list->Note->material }}</td>
                                         <td class="fw-light">
-                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)) }}
                                         </td>
                                         <td scope="col"
                                             class="text-center
-                                        @if ($list->Note->days_left < 0) text-bg-secondary
-                                        @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
+                                        @if ($daysLeft < 0) text-bg-secondary
+                                        @elseif($daysLeft >= 0 && $daysLeft < 3)
                                         table-danger
-                                        @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
+                                        @elseif($daysLeft >= 3 && $daysLeft < 6)
                                             table-warning
                                         @else
                                             table-success @endif
@@ -218,11 +229,11 @@
                                             data-bs-content="
                                 <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                                 <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
+                                <span class='fs-4 text-warning'>&#9632;</span> 6< DIAS PARA VENCER <br>
+                                <span class='fs-4 text-danger'>&#9632;</span> 3< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
-                                            {{ 30 - $list->Note->days_left }}
+                                            {{ $daysLeft }}
                                         </td>
                                         {{-- <td class="fw-light">
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
