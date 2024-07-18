@@ -154,12 +154,6 @@
                                 @foreach ($lists as $list)
                                     @php
 
-                                        if ($list->status == 27) {
-                                            $block = true;
-                                        } else {
-                                            $block = false;
-                                        }
-
                                         $dateForm = isset($list->Note->WorkForm)
                                             ? $list->Note->WorkForm->created_at
                                             : null;
@@ -248,7 +242,8 @@
                                             @endif
                                         </td>
                                         <td class="fw-bold fs-5">
-                                            @if ((!$list->block && !$list->block_wpa) || (!$block && $list->status != 27))
+
+                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status))
                                                 @if (!$list->completed)
                                                     {{-- <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top"

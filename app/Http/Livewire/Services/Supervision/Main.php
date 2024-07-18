@@ -131,6 +131,19 @@ class Main extends Component
         }
     }
 
+    public function blockWaiting($status)
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['waitingForm']) && $status != 27) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public function filter_save()
     {
         // session()->put('filtro', $this->rubrica_s);
