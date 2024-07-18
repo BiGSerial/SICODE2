@@ -237,6 +237,7 @@
                                             @endif
                                         </td>
                                         <td class="fw-bold fs-5">
+
                                             @if ((!$list->block && !$list->block_wpa) || (!$block && $list->status != 27))
                                                 @if (!$list->completed)
                                                     {{-- <span class="d-inline-block" data-bs-toggle="tooltip"
