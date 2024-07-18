@@ -597,6 +597,7 @@ class Stack extends Component
     {
         return Production::with(['Note'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
             ->when($this->search, function ($q) {
@@ -649,9 +650,8 @@ class Stack extends Component
             })
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
-            ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created')
+            ->orderBy('work_dt_created', 'ASC')
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created')
             ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
@@ -723,6 +723,7 @@ class Stack extends Component
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
             ->join('notes', 'productions.note_id', '=', 'notes.id')
+
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
             ->when($this->search, function ($q) {
@@ -770,12 +771,7 @@ class Stack extends Component
             })
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
-            })
-
-            ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
-
+            });
     }
 
     public function filterStatus($status)

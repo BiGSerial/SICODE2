@@ -144,6 +144,14 @@
                                             </td>
                                         </tr>
                                         <tr>
+                                            <td class="fw-bold col-2 align-middle">CLIENTE:</td>
+                                            <td class="align-middle text-uppercase">{{ $note->client }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">DESCRIÇÃO:</td>
+                                            <td class="align-middle text-uppercase">{{ $note->material }}</td>
+                                        </tr>
+                                        <tr>
                                             <td class="fw-bold col-2 align-middle">RUBRICA:</td>
                                             <td class="align-middle text-uppercase">{{ $note->rubrica }}</td>
                                         </tr>

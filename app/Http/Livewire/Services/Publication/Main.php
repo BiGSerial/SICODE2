@@ -225,7 +225,7 @@ class Main extends Component
                         });
                 });
             })
-            ->orderBy('wCreated_at', 'asc')
+            ->orderBy('wCreated_at', 'ASC')
             ->paginate($this->perPage);
     }
 

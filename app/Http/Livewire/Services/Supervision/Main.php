@@ -131,6 +131,19 @@ class Main extends Component
         }
     }
 
+    public function blockWaiting($status)
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['waitingForm']) && $status != 27) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public function filter_save()
     {
         // session()->put('filtro', $this->rubrica_s);
@@ -154,29 +167,33 @@ class Main extends Component
     public function getListsProperty()
     {
 
-        $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%' . $this->user_search . '%');
+        // Obtém a lista de usuários baseada no critério de busca, se fornecido
+        $this->user_l = User::when($this->user_search, function ($query) {
+            return $query->where('name', 'like', '%' . $this->user_search . '%');
         })->orderBy('name')->get();
 
+        // Obtém a lista de produções com os filtros e relações especificados
         return Production::with(['Note'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->Where('service_id', $this->service->uuid)
-            ->when($this->user_s, function ($q) {
-                return $q->where('user_id', $this->user_s);
-            }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
+            ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
+            ->where('productions.service_id', $this->service->uuid)
+            ->when($this->user_s, function ($query) {
+                return $query->where('productions.user_id', $this->user_s);
+            }, function ($query) {
+                return $query->where('productions.user_id', Auth()->user()->id);
             })
-            ->where('completed', false)
-            ->when($this->search, function ($q, $s) {
-                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                    ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+            ->where('productions.completed', false)
+            ->when($this->search, function ($query, $search) {
+                return $query->whereRelation('Note', 'note', 'like', '%' . $search . '%')
+                    ->orWhereRelation('Note', 'material', 'like', '%' . $search . '%');
             })
             ->with(['Note' => function ($query) {
                 $query->orderBy('dt_status', 'asc');
             }])
             ->orderBy('priority', 'DESC')
-            ->orderBy('notes.dt_created', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created');
+            ->orderBy('work_dt_created', 'ASC')
+            ->orderBy('att_at', 'DESC')
+            ->orderBy('status', 'ASC')
+            ->select('productions.*', 'work_reports.created_at as work_dt_created');
     }
 
     public function render()

@@ -202,6 +202,7 @@
                                                 class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
                                         <td class="fw-bold fs-5">
+
                                             @if (!$list->block && !$this->blockWaiting($list->status))
                                                 @if (!$list->completed)
                                                     <span class="d-inline-block" data-bs-toggle="tooltip"
