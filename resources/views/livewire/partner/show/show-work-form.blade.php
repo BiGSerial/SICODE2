@@ -51,7 +51,7 @@
                                         </tr>
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">MUDANÇA NO PROJETO:</td>
-                                            <td class="align-middle">{{ $form->change ? 'SIM' : 'NÃO' }}</td>
+                                            <td class="align-middle">{{ $form->changes ? 'SIM' : 'NÃO' }}</td>
                                         </tr>
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">DATA DE EXECUÇÃO:</td>

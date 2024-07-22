@@ -148,10 +148,19 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $block = false;
+
+                                $block = 0;
 
                                 if ($production = $this->hasPublication($list)) {
-                                    $block = true;
+                                    if ($production->confirmed) {
+                                        $block = 4;
+                                    } elseif ($production->completed) {
+                                        $block = 3;
+                                    } elseif ($production->status == 1) {
+                                        $block = 2;
+                                    } else {
+                                        $block = 1;
+                                    }
                                 }
 
                                 $days = $list->WorkForm
@@ -164,15 +173,13 @@
                             {{-- @dump($list->Productions) --}}
                             <tr
                                 class="align-middle text-center
-                                @if ($block) @if ($production->status == 1)
-                                    table-warning
-                                    @elseif ($production->status == 2)
-                                    table-primary
-                                    @elseif ($production->status == 5)
-                                    table-success
-                                    @else
-                                    table-primary @endif
-                                @endif">
+                               @if ($block == 4) table-danger
+                                      @elseif ($block == 3)
+                                       table-success
+                                        @elseif ($block == 2)
+                                       table-warning
+                                        @elseif ($block == 1)
+                                       table-primary @endif">
 
 
                                 <td class="fw-light">{{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
