@@ -617,13 +617,13 @@ class Stack extends Component
                 });
             })
             ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                return $q->where('productions.company_id', Auth()->User()->Employee->Contract->company_id);
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
             })
             ->when($this->user_fs, function ($q) {
-                return $q->whereIn('user_id', $this->user_fs);
+                return $q->whereIn('productions.user_id', $this->user_fs);
             })
             ->when($this->rubrica_s, function ($q) {
                 return $q->whereHas('Note', function ($query) {
@@ -660,6 +660,7 @@ class Stack extends Component
     {
         return Production::with(['Note'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
             ->when($this->search, function ($q) {
@@ -679,13 +680,13 @@ class Stack extends Component
                 });
             })
             ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                return $q->where('productions.company_id', Auth()->User()->Employee->Contract->company_id);
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
             })
             ->when($this->user_fs, function ($q) {
-                return $q->whereIn('user_id', $this->user_fs);
+                return $q->whereIn('productions.user_id', $this->user_fs);
             })
             ->when($this->rubrica_s, function ($q) {
                 return $q->whereHas('Note', function ($query) {
@@ -711,19 +712,17 @@ class Stack extends Component
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
             ->orderBy('priority', 'DESC')
-            ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->orderBy('d5', 'DESC')
+            ->orderBy('work_dt_created', 'ASC')
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
 
     public function getStatusProperty()
     {
-        return Production::with(['Note'])
-            ->orderBy('priority', 'DESC')
-            ->orderBy('d5', 'DESC')
+        return  Production::with(['Note'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
-
+            ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
             ->when($this->search, function ($q) {
@@ -743,22 +742,24 @@ class Stack extends Component
                 });
             })
             ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                return $q->where('productions.company_id', Auth()->User()->Employee->Contract->company_id);
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
             })
             ->when($this->user_fs, function ($q) {
-                return $q->whereIn('user_id', $this->user_fs);
+                return $q->whereIn('productions.user_id', $this->user_fs);
             })
             ->when($this->rubrica_s, function ($q) {
                 return $q->whereHas('Note', function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s)->orWhereNull('rubrica');
+                    $query->whereIn('rubrica', $this->rubrica_s);
                 });
             })
             ->when($this->base, function ($q) {
                 return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('nexp', $this->base)->orWhereNull('nexp');
+                    return $query->whereIn('nexp', $this->base)
+                        ->orwhere('nexp', null)
+                        ->orwhere('nexp', '');
                 });
             })
             ->when($this->multiSearch, function ($q) {
@@ -767,11 +768,15 @@ class Stack extends Component
                 });
             })
             ->when($this->status_s, function ($q) {
-                return $q->whereIn('productions.status', $this->status_s)->orWhereNull('productions.status');
+                return $q->whereIn('productions.status', $this->status_s);
             })
             ->when($this->note_type, function ($q) {
-                return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
-            });
+                return $q->whereRelation('Note', 'type_note', $this->note_type);
+            })
+            ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
+            ->orderBy('work_dt_created', 'ASC')
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created');
     }
 
     public function filterStatus($status)

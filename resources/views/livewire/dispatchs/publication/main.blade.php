@@ -377,11 +377,7 @@
                                     }
                                 }
 
-                                $days = $list->WorkForm
-                                    ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
-                                    : 0;
-
-                                $daysLeft = 3 - $days;
+                                
 
                                 $days = $list->WorkForm
                                     ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)

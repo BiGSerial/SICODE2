@@ -27,7 +27,8 @@ class Main extends Component
 
     public $last_update;
 
-    public $notes_limits = 11;
+    public $notes_limits = 12;
+    public $notes_limits_max = 21;
 
     //Botão de  nao atribuído.
     public $not_assigned = false;
@@ -81,11 +82,50 @@ class Main extends Component
 
     public function to_accompany(Note $note)
     {
-        $qtd = Production::where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('completed', false)->count();
+        // $qtd = Production::where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('completed', false)->count();
 
-        // dd($this->notes_limits >= $qtd);
+        // // dd($this->notes_limits >= $qtd);
 
-        if ($qtd >= $this->notes_limits) {
+        // if ($qtd >= $this->notes_limits) {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'error',
+        //         'title'    => 'OOOOPS! EXCESSO DE ATIVIDADE',
+        //         'html'     => "<strong>LIMITE ATINGIDO</strong> Você possui muitas atividades pendentes para serem finalizadas. Encerre as atividades pendentes para poder adquirir novas atividades.",
+        //     ]);
+
+        //     return;
+        // }
+
+        $user_id = Auth()->user()->id;
+        $service_uuid = $this->service->uuid;
+        $initial_limit = $this->notes_limits; // Limite inicial de notas atribuídas
+        $limit_max = $this->notes_limits_max - $this->notes_limits;
+        // Contagem de notas em produção não finalizadas (status 2)
+        $qtd_production = Production::where('service_id', $service_uuid)
+            ->where('user_id', $user_id)
+            ->where('completed', false)
+            ->count();
+
+        // Contagem de notas pausadas (status 4)
+        $paused_count = Production::where('service_id', $service_uuid)
+            ->where('user_id', $user_id)
+            ->where('status', 4)
+            ->count();
+
+        $add = 0;
+
+        if ($paused_count > 0) {
+            $add = floor($paused_count / 3) + 1;
+
+
+
+            if ($add >= $limit_max) {
+                $add = $limit_max;
+            }
+        }
+
+        if ($qtd_production >= ($initial_limit + $add)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
@@ -95,8 +135,6 @@ class Main extends Component
 
             return;
         }
-
-
 
         $this->note = $note;
 

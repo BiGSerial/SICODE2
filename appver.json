@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.3",
+    "appver": "1.9.4",
     "historic": [
+        {
+            "version": "1.9.4",
+            "description": "Fix Dispatch Publication View",
+            "date": "2024-07-22"
+        },
         {
             "version": "1.9.3",
             "description": "Correct Publication List",
