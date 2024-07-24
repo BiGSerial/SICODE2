@@ -35,6 +35,9 @@ class ViabilityLog extends Model
         'returned_at',
         'hired_at',
         'tacit_at',
+        'ri_sended_at',
+        'ri_finished_at',
+        'ri_service',
+        'ri_category',
     ];
-
 }

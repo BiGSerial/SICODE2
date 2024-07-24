@@ -32,6 +32,7 @@ class Viability extends Model
         'replica',
         'treplica',
         'inActivity',
+
     ];
 
     public function Order()
