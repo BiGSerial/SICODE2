@@ -3,6 +3,8 @@
 namespace App\Console\Commands\SqlLog;
 
 use App\Custom\Viabilitiesstatus;
+use App\Http\Livewire\Construction\Hiring\Actions\Waitinghiring;
+use App\Models\HiringWaiting;
 use App\Models\SicodeSql\ViabilityLog;
 use App\Models\Viability;
 use Carbon\Carbon;
@@ -47,6 +49,33 @@ class ViabiliyLog extends Command
             ->with('Order', 'User', 'Company', 'Engineer')
             ->chunk(1000, function ($chunk) use ($progressBar) {
                 foreach ($chunk as $viability) {
+
+                    $sla_hiring = [
+                        'ri_sended_at' => null,
+                        'ri_finished_at' => null,
+                        'ri_service' => null,
+                        'ri_category' => null,
+                    ];
+
+                    $waiting_hiring = HiringWaiting::where('note_id', $viability->Order->Note->id)->first();
+
+                    if ($waiting_hiring) {
+
+
+
+                        $sla_hiring['ri_sended_at'] =  $waiting_hiring->created_at ? Carbon::parse($waiting_hiring->created_at)->format('Y-m-d H:i:s') : null;
+                        $sla_hiring['ri_category'] = $waiting_hiring->category ? $waiting_hiring->category : null;
+
+                        if ($waiting_hiring->Reclaim) {
+
+                            $sla_hiring['ri_finished_at'] = $waiting_hiring->Reclaim->completed_at ? $waiting_hiring->Reclaim->completed_at : null;
+                            $sla_hiring['ri_service'] = $waiting_hiring->Reclaim->Service->service ? $waiting_hiring->Reclaim->Service->service : null;
+                        }
+
+                        $this->info('Waiting: ' . $viability->Order->Note->note);
+                    }
+
+
                     $check = ViabilityLog::updateOrCreate(
                         ['viability_id' => $viability->id],
                         [
@@ -68,6 +97,10 @@ class ViabiliyLog extends Command
                             'returned_at' => $viability->returned_at,
                             'hired_at' => $viability->hired_at,
                             'tacit_at' => $viability->tacit_at,
+                            'ri_sended_at' => $sla_hiring['ri_sended_at'],
+                            'ri_finished_at' => $sla_hiring['ri_finished_at'],
+                            'ri_service' => $sla_hiring['ri_service'],
+                            'ri_category' => $sla_hiring['ri_category'],
                         ]
                     );
 
@@ -92,5 +125,4 @@ class ViabiliyLog extends Command
 
         $this->info('<bg=green;fg=white> DONE </>');
     }
-
 }

@@ -377,8 +377,6 @@
                                     }
                                 }
 
-                                
-
                                 $days = $list->WorkForm
                                     ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
                                     : 0;
@@ -431,7 +429,9 @@
                                         <span
                                             class="badge text-bg-dark">{{ $this->hasPublicationCount($list) }}</span><br>
                                         @php
-                                            $name = explode(' ', $production->User->name);
+                                            $name = isset($production->User->name)
+                                                ? explode(' ', $production->User->name)
+                                                : 'DESCONHECIDO';
 
                                             if (is_array($name)) {
                                                 $name = $name[0] . ' ' . end($name);
