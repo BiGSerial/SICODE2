@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.5",
+    "appver": "1.9.6",
     "historic": [
+        {
+            "version": "1.9.6",
+            "description": "Fix Filter Payment add 50 CNPA",
+            "date": "2024-08-02"
+        },
         {
             "version": "1.9.5",
             "description": "SQL Statements Log Created",

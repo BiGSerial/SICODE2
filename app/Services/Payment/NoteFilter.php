@@ -44,7 +44,10 @@ class NoteFilter
                     })
                     ->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0050')
-                            ->where('status', 'like', 'LIB%');
+                        ->where(function ($q) {
+                            $q->where('status', 'like', 'LIB%')
+                                ->orWhere('status', 'like', 'CNPA%');
+                        });
                     });
             });
 
@@ -65,7 +68,8 @@ class NoteFilter
                 $query->whereIn('lexp', $this->filters['city'])
                     ->orWhereNull('lexp');
             });
-        });;
+        });
+        ;
 
         $query->with('Productions.User');
 
