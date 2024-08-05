@@ -10,7 +10,6 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
-
 class Jobform extends Component
 {
     public ?Production $production = null;
@@ -30,9 +29,9 @@ class Jobform extends Component
     ];
 
     protected $rules = [
-        'analise.postes' => 'required|numeric',
+        'analise.postes' => 'required|numeric|min:0',
         'analise.info' => 'nullable|string',
-        'analise.conclusion' => 'required|min:1',
+        'analise.conclusion' => 'required',
 
     ];
 
@@ -161,7 +160,9 @@ class Jobform extends Component
 
 
         $this->saveForm();
-        $this->production->update(['status' => 27]);
+        $this->production->update([
+            'status' => 27
+        ]);
         $this->production->save();
         $this->emitUp('refresh_list');
         $this->dispatchBrowserEvent('hideModal');
@@ -230,6 +231,7 @@ class Jobform extends Component
             $chk = $this->production->update([
                 'status'       => 5,
                 'completed_at' => date('Y-m-d H:i:s'),
+                'postes_u'     => $this->analise ? $this->analise->postes : null,
                 'completed'    => true,
                 'confirmed'    => true,
                 'priority'     => false,
@@ -269,6 +271,8 @@ class Jobform extends Component
         } catch (\Throwable $th) {
 
             DB::rollback();
+
+            dd($th->getMessage());
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

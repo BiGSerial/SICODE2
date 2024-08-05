@@ -99,13 +99,6 @@
                                 <h4 class="card-header">Resultado da Fiscalização</h4>
                                 <div class="card-body">
 
-
-                                    {{-- <div class="mb-3 col-3">
-                                            <label for="inputPassword" class="col-sm-12 col-form-label">Postes:</label>
-                                            <input type="number" min="0" max="500"
-                                                class="form-control border border-secondary" wire:model.defer="postes">
-                                        </div> --}}
-
                                     <div class="mb-3 col-2">
                                         <label for="inputPassword" class="col-sm-12 col-form-label">Necessidade de
                                             D5?</label>
@@ -126,8 +119,10 @@
                                         <div class="mb-3 col-3">
                                             <label for="inputPassword" class="col-sm-12 col-form-label">Nota D5: <span
                                                     class="text-danger fw-bold">*</span></label>
-                                            <input type="text" class="form-control border border-secondary"
-                                                aria-label="Default select example" wire:model.defer="return.note" />
+                                            <input type="text"
+                                                class="form-control border border-secondary col-sm-2 col-xl-1"
+                                                aria-label="Default select example" wire:model.defer="return.note"
+                                                required />
 
                                         </div>
 
@@ -158,6 +153,13 @@
 
                                     @if ($d5 == 0 || $d5 == 1)
 
+                                        <div class="mb-3 col-3">
+                                            <label for="inputPassword" class="col-sm-12 col-form-label">Postes:</label>
+                                            <input type="number" name="number" id="poles"
+                                                class="form-control border border-secondary" min="0"
+                                                wire:model.defer="analise.postes">
+
+                                        </div>
 
                                         <div class="mb-3 col-3">
                                             <label for="inputPassword"

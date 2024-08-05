@@ -13,7 +13,7 @@
 @endsection
 
 @section('menu')
-    @include('services.levantamento.menu')
+    @include('services.fiscalizacao.menu')
 @endsection
 
 @section('content')
