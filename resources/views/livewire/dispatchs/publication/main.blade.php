@@ -345,10 +345,9 @@
                             <th>
                                 <input class="form-check-input" type="checkbox" wire:model="selectall">
                             </th>
-                            {{-- @can('management')
-                                    <th scope="col" class="fw-bold">Note</th>
-                                @endcan --}}
                             <th scope="col" class="fw-bold text-center">Note</th>
+                            <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Material</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
@@ -405,6 +404,13 @@
                                 <td class="fw-bold copy-text" data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
+                                <td class="fw-light">
+                                    {{ $list->rubrica }}
+                                </td>
+                                <td class="fw-light">
+                                    {{ $list->material }}
+                                </td>
+
                                 <td class="fw-light">
                                     {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>
