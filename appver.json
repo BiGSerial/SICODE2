@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.7",
+    "appver": "1.9.8",
     "historic": [
+        {
+            "version": "1.9.8",
+            "description": "Add Column to Publication Dispatch",
+            "date": "2024-08-05"
+        },
         {
             "version": "1.9.7",
             "description": "Inserted numbers of Poles in Supervision Form",

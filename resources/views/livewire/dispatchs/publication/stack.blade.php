@@ -425,120 +425,116 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectAll"
-                                        wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
-                                </th>
-                                <th scope="col" class="fw-bold text-center">Note</th>
-                                <th scope="col" class="fw-bold text-center">Ordem</th>
 
-
-                                <th scope="col" class="fw-bold text-center">Rubrica</th>
-                                <th scope="col" class="fw-bold text-center">Centro</th>
-                                <th scope="col" class="fw-bold text-center">Municipio</th>
-
-
-                                <th scope="col" class="fw-bold text-center">Empresa</th>
-                                <th scope="col" class="fw-bold text-center">Usuário</th>
-                                <th scope="col" class="fw-bold text-center">Dias Despachado</th>
-                                <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                                <th scope="col" class="fw-bold text-center">Prazo Pilha</th>
-                                <th scope="col" class="fw-bold text-center">Status</th>
-                                <th scope="col" class="fw-bold text-center"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                <tr wire:key="line-{{ $list->id }}"
-                                    class="align-middle text-center
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-condensed">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>
+                                <input class="form-check-input" type="checkbox" wire:model="selectAll"
+                                    wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
+                            </th>
+                            <th scope="col" class="fw-bold text-center">Note</th>
+                            <th scope="col" class="fw-bold text-center">Ordem</th>
+                            <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Material</th>
+                            <th scope="col" class="fw-bold text-center">Municipio</th>
+                            <th scope="col" class="fw-bold text-center">Empresa</th>
+                            <th scope="col" class="fw-bold text-center">Usuário</th>
+                            <th scope="col" class="fw-bold text-center">Dias Despachado</th>
+                            <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
+                            <th scope="col" class="fw-bold text-center">Prazo Pilha</th>
+                            <th scope="col" class="fw-bold text-center">Status</th>
+                            <th scope="col" class="fw-bold text-center"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            <tr wire:key="line-{{ $list->id }}"
+                                class="align-middle text-center
                                     @if ($list->block) table-primary @endif
 
                                     ">
-                                    <td>
-                                        <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                            value="{{ $list->id }}" wire:model.defer="selected">
-                                    </td>
-                                    <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                <td>
+                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
+                                        value="{{ $list->id }}" wire:model.defer="selected">
+                                </td>
+                                <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
-                                        @if ($list->d5)
-                                            <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
-                                                (RI)
-                                            </span>
-                                        @else
-                                            {{ $list->Note->note }}
-                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                                style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
-                                        @endif
-
-
-                                        @if ($list->priority)
-                                            <i class="ri-alert-fill text-danger align-middle"
-                                                wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                style="cursor: pointer;"></i>
-                                        @endif
-                                    </td>
-                                    <td class="fw-bold text-success text-center">
-                                        @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <p class="py-0 my-0">
-                                                    {{ $order->ordem }}
-                                                </p>
-                                            @endforeach
-                                        @endif
-                                    </td>
+                                    @if ($list->d5)
+                                        <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
+                                            (RI)
+                                        </span>
+                                    @else
+                                        {{ $list->Note->note }}
+                                        <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                            style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
+                                    @endif
 
 
-
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->Note->rubrica }}</td>
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->centerjob }}</td>
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->Note->lexp }}</td>
+                                    @if ($list->priority)
+                                        <i class="ri-alert-fill text-danger align-middle"
+                                            wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
+                                            style="cursor: pointer;"></i>
+                                    @endif
+                                </td>
+                                <td class="fw-bold text-success text-center">
+                                    @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
+                                        @foreach ($list->Note->WorkForm->Orders as $order)
+                                            <p class="py-0 my-0">
+                                                {{ $order->ordem }}
+                                            </p>
+                                        @endforeach
+                                    @endif
+                                </td>
 
 
 
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    {{ $list->Note->rubrica }}</td>
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    {{ $list->Note->material }}</td>
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    {{ $list->Note->lexp }}</td>
 
-                                        {{ $list->Company ? $list->Company->name : '-' }}</td>
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        @php
-                                            $nome = $list->User ? explode(' ', $list->User->name) : '----';
-                                            if (is_array($nome)) {
-                                                $nome = $nome[0] . ' ' . end($nome);
-                                            }
-                                        @endphp
-                                        {{ $nome }}</td>
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
-                                    </td>
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                    </td>
+
+
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+
+                                    {{ $list->Company ? $list->Company->name : '-' }}</td>
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                     @php
-                                        $days = $list->Note->WorkForm
-                                            ? Carbon::parse($list->Note->WorkForm->created_at)->diffInDays(
-                                                Carbon::now(),
-                                                false,
-                                            )
-                                            : 0;
-
-                                        $daysLeft = 3 - $days;
+                                        $nome = $list->User ? explode(' ', $list->User->name) : '----';
+                                        if (is_array($nome)) {
+                                            $nome = $nome[0] . ' ' . end($nome);
+                                        }
                                     @endphp
-                                    <td scope="col"
-                                        class="text-center
+                                    {{ $nome }}</td>
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
+                                </td>
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                </td>
+                                @php
+                                    $days = $list->Note->WorkForm
+                                        ? Carbon::parse($list->Note->WorkForm->created_at)->diffInDays(
+                                            Carbon::now(),
+                                            false,
+                                        )
+                                        : 0;
+
+                                    $daysLeft = 3 - $days;
+                                @endphp
+                                <td scope="col"
+                                    class="text-center
                                    @if ($daysLeft < 0) text-bg-secondary
                                             @elseif($daysLeft >= 0 && $daysLeft < 1)
                                             table-danger
@@ -547,32 +543,32 @@
                                             @else
                                                 table-success @endif
                                 "
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                        data-bs-placement="top" data-bs-title="Prazo Real"
-                                        data-bs-content="
+                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                    data-bs-content="
                             <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                             <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                             <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                             <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                             ">
-                                        {{ $daysLeft }}
-                                    </td>
-                                    {{-- <td class="fw-light text-center">
+                                    {{ $daysLeft }}
+                                </td>
+                                {{-- <td class="fw-light text-center">
                                         <span
                                             class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
                                     </td> --}}
-                                    <td class="fw-light text-center">
+                                <td class="fw-light text-center">
 
-                                        {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id, key($list->id)]) --}}
-                                        <livewire:components.status.statusview :status="$list->status" :idstatus="$list->id"
-                                            :note_id="$list->note_id" :wire:key="'status-view-' . $list->id" />
+                                    {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id, key($list->id)]) --}}
+                                    <livewire:components.status.statusview :status="$list->status" :idstatus="$list->id"
+                                        :note_id="$list->note_id" :wire:key="'status-view-' . $list->id" />
 
-                                        {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key('statusView-{{ $list->id }}')) --}}
-                                    </td>
-                                    <td class="fw-bold fs-5">
+                                    {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key('statusView-{{ $list->id }}')) --}}
+                                </td>
+                                <td class="fw-bold fs-5">
 
-                                        {{-- @if (!$list->completed)
+                                    {{-- @if (!$list->completed)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Iniciar.">
@@ -588,45 +584,45 @@
                                                         wire:click.prevent="goTransferProd({{ $list->id }})"></i>
                                                 </span>
                                             @endif --}}
-                                        <div class="dropdown" style="position: inherit">
-                                            <button class="btn btn-danger btn-sm dropdown-toggle" type="button"
-                                                data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="ri-menu-fill"></i>
-                                            </button>
-                                            <ul class="dropdown-menu  edp-bg-gray">
-                                                @if ($list->status == 1)
+                                    <div class="dropdown" style="position: inherit">
+                                        <button class="btn btn-danger btn-sm dropdown-toggle" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="ri-menu-fill"></i>
+                                        </button>
+                                        <ul class="dropdown-menu  edp-bg-gray">
+                                            @if ($list->status == 1)
+                                                <li><a class="dropdown-item" href="#"
+                                                        wire:click.prevent="get_single_note({{ $list->id }})"><i
+                                                            class="ri-user-shared-fill text-primary align-middle"></i>
+                                                        Atribuir</a></li>
+                                            @else
+                                                @if (!$list->completed)
                                                     <li><a class="dropdown-item" href="#"
-                                                            wire:click.prevent="get_single_note({{ $list->id }})"><i
-                                                                class="ri-user-shared-fill text-primary align-middle"></i>
-                                                            Atribuir</a></li>
-                                                @else
-                                                    @if (!$list->completed)
-                                                        <li><a class="dropdown-item" href="#"
-                                                                wire:click.prevent="to_remove_add({{ $list->id }})"><i
-                                                                    class="ri-user-received-2-line text-danger align-middle"></i>
-                                                                Desatribuir</a></li>
-                                                    @endif
-                                                    {{-- <li><a class="dropdown-item" href="#"><i
+                                                            wire:click.prevent="to_remove_add({{ $list->id }})"><i
+                                                                class="ri-user-received-2-line text-danger align-middle"></i>
+                                                            Desatribuir</a></li>
+                                                @endif
+                                                {{-- <li><a class="dropdown-item" href="#"><i
                                                             class="ri-exchange-line text-primary align-middle"></i>
                                                         Transferir</a></li> --}}
-                                                @endif
-                                                {{-- @livewire('production.actions.attribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('attribute-' . $list->id)) --}}
-                                                @livewire('production.actions.reattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
-                                                @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
-                                                @livewire('production.actions.delete', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
-                                                {{-- @livewire('audits.prodbutton', ['prod' => $list->id, 'service' => $this->service->uuid], key('audit-' . $list->id)) --}}
-                                            </ul>
-                                        </div>
+                                            @endif
+                                            {{-- @livewire('production.actions.attribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('attribute-' . $list->id)) --}}
+                                            @livewire('production.actions.reattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
+                                            @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
+                                            @livewire('production.actions.delete', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
+                                            {{-- @livewire('audits.prodbutton', ['prod' => $list->id, 'service' => $this->service->uuid], key('audit-' . $list->id)) --}}
+                                        </ul>
+                                    </div>
 
-                                    </td>
+                                </td>
 
 
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+
         @endif
 
 
