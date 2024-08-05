@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.6",
+    "appver": "1.9.7",
     "historic": [
+        {
+            "version": "1.9.7",
+            "description": "Inserted numbers of Poles in Supervision Form",
+            "date": "2024-08-05"
+        },
         {
             "version": "1.9.6",
             "description": "Fix Filter Payment add 50 CNPA",
