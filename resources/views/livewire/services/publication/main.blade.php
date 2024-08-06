@@ -136,6 +136,7 @@
                 <table class="table table-sm table-striped table-condensed">
                     <thead class="table-dark">
                         <tr>
+                            <th class="align-middle text-center">Note</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
@@ -181,6 +182,13 @@
                                         @elseif ($block == 1)
                                        table-primary @endif">
 
+                                @if (Auth()->User()->management || Auth()->User()->superadm || ($block && $production->user_id === Auth()->User()->id))
+                                    <td class="fw-bold" data-value="{{ $list->note }}">
+                                        {{ $list->note }}
+                                    </td>
+                                @else
+                                    <td></td>
+                                @endif
 
                                 <td class="fw-light">{{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>

@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.8",
+    "appver": "1.9.9",
     "historic": [
+        {
+            "version": "1.9.9",
+            "description": "Add filter Rules in Publish",
+            "date": "2024-08-06"
+        },
         {
             "version": "1.9.8",
             "description": "Add Column to Publication Dispatch",
