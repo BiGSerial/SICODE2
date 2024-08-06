@@ -30,7 +30,11 @@ class NoteFilter
                     })
                     ->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0020')
-                            ->where('status', 'not like', 'CONF%');
+                            ->where(function ($q) {
+                                $q->where('status', 'like', 'LIB%')
+                                    ->orWhere('status', 'like', 'CNPA%')
+                                    ->orWhere('status', 'like', 'JBFI LIB%');
+                            });
                     });
             });
 
