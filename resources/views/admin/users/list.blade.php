@@ -20,7 +20,7 @@
 @endsection
 
 @push('css')
-    <style>
+    {{-- <style>
         /* USER LIST TABLE */
         .user-list tbody td>img {
             position: relative;
@@ -226,7 +226,7 @@
         .table-stats .table-line-plus .status-social-icon {
             color: #a75d54;
         }
-    </style>
+    </style> --}}
 @endpush
 
 @push('script')
