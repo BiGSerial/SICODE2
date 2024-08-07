@@ -945,73 +945,63 @@ class Stack extends Component
     public function getListsProperty()
     {
         return Production::with(['Note'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
-            ->where('confirmed', false)
-            ->where('service_id', $this->service->uuid)
-            ->when($this->search, function ($q) {
-                return $q->where(function ($query) {
-                    $query->whereHas('Note', function ($subquery) {
-                        return $subquery->where('note', 'like', '%' . $this->search . '%')
-                            ->orWhere('group2', 'like', '%' . $this->search . '%')
-                            ->orWhere('group3', 'like', '%' . $this->search . '%')
-                            ->orWhere('group4', 'like', '%' . $this->search . '%')
-                            ->orWhere('group5', 'like', '%' . $this->search . '%')
-                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
-                            ->orWhere('material', 'like', '%' . $this->search . '%')
-                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
-                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
-                            ->orWhere('centerjob', 'like', '%' . $this->search . '%')
-                            ->orWhereRelation('Orders', 'ordem', 'like', '%' . $this->search . '%');
-                    });
+        ->join('notes', 'productions.note_id', '=', 'notes.id')
+        ->where('confirmed', false)
+        ->where('service_id', $this->service->uuid)
+        ->when($this->search, function ($q) {
+            return $q->where(function ($query) {
+                $query->whereHas('Note', function ($subquery) {
+                    return $subquery->where('note', 'like', '%' . $this->search . '%')
+                        ->orWhere('group2', 'like', '%' . $this->search . '%')
+                        ->orWhere('group3', 'like', '%' . $this->search . '%')
+                        ->orWhere('group4', 'like', '%' . $this->search . '%')
+                        ->orWhere('group5', 'like', '%' . $this->search . '%')
+                        ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                        ->orWhere('material', 'like', '%' . $this->search . '%')
+                        ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                        ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                        ->orWhere('centerjob', 'like', '%' . $this->search . '%');
                 });
-            })
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id)
-                    ->orWhereNull('company_id');
-            })
-            ->when($this->company_fs, function ($q) {
-                return $q->whereIn('company_id', $this->company_fs);
-            })
-            ->when($this->user_fs, function ($q) {
-                return $q->whereIn('user_id', $this->user_fs);
-            })
-            ->when($this->rubrica_s, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    $query->where('rubrica', $this->rubrica_s)
-                        ->orWhereNull('rubrica');
-                });
-            })
-            ->when($this->base, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('nexp', $this->base)
-                        ->orwhere('nexp', null)
-                        ->orwhere('nexp', '');
-                });
-            })
-            ->when($this->multiSearch, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('note', $this->multiSearch)
-                        ->orWhereRelation('Orders', function ($q) {
-                            $q->whereIn('ordem', $this->multiSearch);
-                        });
-                });
-            })
-
-            // ->when($this->status_s, function ($q) {
-            //     return $q->whereIn('productions.status', $this->status_s)
-            //             ->orWhereNull('productions.status');
-            // })
-            // ->when($this->note_type, function ($q) {
-            //     return $q->whereHas('Note', function ($query) {
-            //         return $query->whereIn('type_note', $this->note_type)
-            //                 ->orWhereNull('type_note');
-            //     });
-            // })
-            ->orderBy('priority', 'DESC')
-            ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('work_dt_created', 'ASC')
-            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            });
+        })
+        ->when(Auth()->User()->contract, function ($q) {
+            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+        })
+        ->when($this->company_fs, function ($q) {
+            return $q->whereIn('company_id', $this->company_fs);
+        })
+        ->when($this->user_fs, function ($q) {
+            return $q->whereIn('user_id', $this->user_fs);
+        })
+        ->when($this->rubrica_s, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                $query->whereIn('rubrica', $this->rubrica_s);
+            });
+        })
+        ->when($this->base, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                return $query->whereIn('nexp', $this->base)
+                    ->orwhere('nexp', null)
+                    ->orwhere('nexp', '');
+            });
+        })
+        ->when($this->multiSearch, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                return $query->whereIn('note', $this->multiSearch);
+            });
+        })
+        ->when($this->status_s, function ($q) {
+            return $q->whereIn('productions.status', $this->status_s);
+        })
+        ->when($this->note_type, function ($q) {
+            return $q->whereRelation('Note', 'type_note', $this->note_type);
+        })
+        ->orderBy('priority', 'DESC')
+        ->orderBy('d5', 'DESC')
+        ->orderBy('notes.type_note', 'DESC')
+        ->orderBy('notes.days_left', 'asc')
+        ->select('productions.*', 'notes.dt_created as note_dt_created')
+        ->paginate($this->perPage);
 
     }
 
@@ -1210,40 +1200,54 @@ class Stack extends Component
             $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         }
 
-        $this->status_l = $this->lists->pluck('status')->unique();
-
-        $this->user_fl = Production::Where('service_id', $this->service->uuid)
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-            })->when($this->company_fs, function ($q) {
+        $this->user_fl = Production::where('service_id', $this->service->uuid)
+            ->when(Auth()->user()->contract, function ($q) {
+                return $q->where('company_id', Auth()->user()->employee->contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
-            })->select('user_id')->with('User')->groupBy('user_id')->get();
+            })
+            ->select('user_id')
+            ->with('User')
+            ->groupBy('user_id')
+            ->get();
+
+        $this->status_l = $this->lists->pluck('status')->unique();
 
         $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
-        // Municipios Filtros
-        $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
+        //Filtros depedentes de bancos externos, testar antes.
+        try {
 
-        $this->district_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
 
-        $this->city_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })
-            ->when($this->district_s, function ($q) {
-                return $q->whereIn('baseConstrucao', $this->district_s);
+            $this->district_l = City::when($this->region_s, function ($q) {
+                return $q->whereIn('regiao', $this->region_s);
+
+            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+            $this->city_l = City::when($this->region_s, function ($q) {
+                return $q->whereIn('regiao', $this->region_s);
             })
-            ->select('rdMunicipio', 'cidade', 'municipio')
-            ->orderBy('cidade')
-            ->groupBy('rdMunicipio', 'cidade', 'municipio')
-            ->get();
+                ->when($this->district_s, function ($q) {
+                    return $q->whereIn('baseConstrucao', $this->district_s);
+                })
+                ->select('rdMunicipio', 'cidade', 'municipio')
+                ->orderBy('cidade')
+                ->groupBy('rdMunicipio', 'cidade', 'municipio')
+                ->get();
+
+        } catch (\Illuminate\Database\QueryException $e) {
+
+            $this->region_l   = [];
+            $this->district_l = [];
+            $this->city_l     = [];
+        }
 
         return view('livewire.dispatchs.supervision.stack', [
             'allList' => $this->status->get(),
-            'lists'   => $this->lists->paginate($this->perPage),
+            'lists'   => $this->lists,
         ]);
     }
 }

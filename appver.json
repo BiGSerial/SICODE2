@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.9",
+    "appver": "1.9.10",
     "historic": [
+        {
+            "version": "1.9.10",
+            "description": "Fix Bug on Filter in Supervision",
+            "date": "2024-08-07"
+        },
         {
             "version": "1.9.9",
             "description": "Add filter Rules in Publish",
