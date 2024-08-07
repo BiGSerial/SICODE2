@@ -44,7 +44,7 @@ class Stack extends Component
 
     public $status_s = [];
 
-    public $selectall;
+    public $selectAll;
 
     public $selected = [];
 
@@ -141,6 +141,7 @@ class Stack extends Component
             }
             $this->selected = $newSelected;
         }
+
     }
 
     public function checkAllSelect($items)
