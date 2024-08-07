@@ -149,9 +149,9 @@ class Stack extends Component
 
         $items = $items->pluck('id')->toArray();
 
-        $this->selectall = empty(array_diff($items, $this->selected));
+        $this->selectAll = empty(array_diff($items, $this->selected));
 
-        return $this->selectall;
+        return $this->selectAll;
     }
 
 
