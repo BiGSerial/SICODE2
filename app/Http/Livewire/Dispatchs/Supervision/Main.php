@@ -170,7 +170,7 @@ class Main extends Component
             return;
         }
 
-        return (new ExportDDSupervision())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-') . 'exportDD.xlsx');
+        return (new ExportDDSupervision())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
     }
 
     // public function updatedSelectall($val)
