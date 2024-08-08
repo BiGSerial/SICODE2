@@ -363,6 +363,7 @@
                         @foreach ($lists as $list)
                             @php
                                 $block = 0;
+                                $command = 0;
 
                                 if ($production = $this->hasPublication($list)) {
                                     if ($production->confirmed) {
@@ -373,6 +374,10 @@
                                         $block = 2;
                                     } else {
                                         $block = 1;
+                                    }
+
+                                    if ($production->confirmed) {
+                                        $command = 1;
                                     }
                                 }
 
@@ -489,6 +494,11 @@
                                     @else
                                         <span
                                             style="font-size: 11px">{{ explode(' ', $production->Company->name)[0] }}</span>
+                                        @if ($command)
+                                            <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                                style="cursor: pointer;"
+                                                wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                        @endif
                                     @endif
 
                                 </td>

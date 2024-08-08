@@ -1,3 +1,7 @@
+@php
+    use App\Helpers\DaysLeft;
+@endphp
+
 <table>
     <thead>
         <tr>
@@ -65,7 +69,7 @@
                 <td>{{ $export->lexp }}</td>
                 <td>{{ $export->nstats }}</td>
                 <td>{{ $export->centerjob }}</td>
-                <td>{{ 30 - $export->days_left }}</td>
+                <td>{{ (new DaysLeft($export))->getDaysLeft() }}</td>
             </tr>
         @endforeach
     </tbody>

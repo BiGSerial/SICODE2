@@ -175,9 +175,9 @@ class Stack extends Component
         // return (new ExportDDExcel())->exportDD($notes->pluck('id')->toArray(), $this->service->service)->download(date('YmdHis-').'exportProdNote.xlsx');
 
         if (!count($this->selected)) {
-            return (new ProductionControlExport($this->lists->get()))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
+            return (new ProductionControlExport($this->status->get()))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
         } else {
-            return (new ProductionControlExport($this->lists->find($this->selected)))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
+            return (new ProductionControlExport($this->status->find($this->selected)))->download(date('YmdHis-') . 'controle_de_producao.xlsx');
         }
     }
 
@@ -1010,59 +1010,62 @@ class Stack extends Component
     {
 
         return Production::with(['Note'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->where('confirmed', false)
-            ->where('service_id', $this->service->uuid)
-            ->when($this->search, function ($q) {
-                return $q->where(function ($query) {
-                    $query->whereHas('Note', function ($subquery) {
-                        return $subquery->where('note', 'like', '%' . $this->search . '%')
-                            ->orWhere('group2', 'like', '%' . $this->search . '%')
-                            ->orWhere('group3', 'like', '%' . $this->search . '%')
-                            ->orWhere('group4', 'like', '%' . $this->search . '%')
-                            ->orWhere('group5', 'like', '%' . $this->search . '%')
-                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
-                            ->orWhere('material', 'like', '%' . $this->search . '%')
-                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
-                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
-                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
-                    });
+        ->join('notes', 'productions.note_id', '=', 'notes.id')
+        ->where('confirmed', false)
+        ->where('service_id', $this->service->uuid)
+        ->when($this->search, function ($q) {
+            return $q->where(function ($query) {
+                $query->whereHas('Note', function ($subquery) {
+                    return $subquery->where('note', 'like', '%' . $this->search . '%')
+                        ->orWhere('group2', 'like', '%' . $this->search . '%')
+                        ->orWhere('group3', 'like', '%' . $this->search . '%')
+                        ->orWhere('group4', 'like', '%' . $this->search . '%')
+                        ->orWhere('group5', 'like', '%' . $this->search . '%')
+                        ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                        ->orWhere('material', 'like', '%' . $this->search . '%')
+                        ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                        ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                        ->orWhere('centerjob', 'like', '%' . $this->search . '%');
                 });
-            })
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-            })
-            ->when($this->company_fs, function ($q) {
-                return $q->whereIn('company_id', $this->company_fs);
-            })
-            ->when($this->user_fs, function ($q) {
-                return $q->whereIn('user_id', $this->user_fs);
-            })
-            ->when($this->rubrica_s, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s)->orWhereNull('rubrica');
-                });
-            })
-            ->when($this->base, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('nexp', $this->base)->orWhereNull('nexp');
-                });
-            })
-            ->when($this->multiSearch, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('note', $this->multiSearch);
-                });
-            })
-            ->when($this->status_s, function ($q) {
-                return $q->whereIn('productions.status', $this->status_s)->orWhereNull('productions.status');
-            })
-            ->when($this->note_type, function ($q) {
-                return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
-            })
-            ->orderBy('priority', 'DESC')
-            ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            });
+        })
+        ->when(Auth()->User()->contract, function ($q) {
+            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+        })
+        ->when($this->company_fs, function ($q) {
+            return $q->whereIn('company_id', $this->company_fs);
+        })
+        ->when($this->user_fs, function ($q) {
+            return $q->whereIn('user_id', $this->user_fs);
+        })
+        ->when($this->rubrica_s, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                $query->whereIn('rubrica', $this->rubrica_s);
+            });
+        })
+        ->when($this->base, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                return $query->whereIn('nexp', $this->base)
+                    ->orwhere('nexp', null)
+                    ->orwhere('nexp', '');
+            });
+        })
+        ->when($this->multiSearch, function ($q) {
+            return $q->whereHas('Note', function ($query) {
+                return $query->whereIn('note', $this->multiSearch);
+            });
+        })
+        ->when($this->status_s, function ($q) {
+            return $q->whereIn('productions.status', $this->status_s);
+        })
+        ->when($this->note_type, function ($q) {
+            return $q->whereRelation('Note', 'type_note', $this->note_type);
+        })
+        ->orderBy('priority', 'DESC')
+        ->orderBy('d5', 'DESC')
+        ->orderBy('notes.type_note', 'DESC')
+        ->orderBy('notes.days_left', 'asc')
+        ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
 
