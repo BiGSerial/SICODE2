@@ -90,4 +90,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(D5Return::class);
     }
+
+    public function ToServices()
+    {
+        return $this->hasMany(ServiceUser::class);
+    }
 }

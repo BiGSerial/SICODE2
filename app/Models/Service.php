@@ -40,4 +40,9 @@ class Service extends Model
     {
         return $this->hasMany(AuxiliarService::class, 'service_id', 'uuid');
     }
+
+    public function ToUsers()
+    {
+        return $this->hasMany(ServiceUser::class);
+    }
 }

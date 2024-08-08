@@ -10,9 +10,15 @@
         <div class="card edp-bg-gray">
             <div
                 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center">
-                <h4 class="card-title my-0 py-0">USUÁRIOS</h4>
-                <button type="button" class="btn btn-primary"><i class="ri-user-add-line align-middle"></i> Novo
-                    Usuário</button>
+                <h4 class="card-title my-0 py-0 align-start">USUÁRIOS</h4>
+                <div>
+                    <button type="button" class="btn btn-primary"
+                        wire:click.prevent="$emitTo('admin.user.actions.usuario', 'newUser')"><i
+                            class="ri-user-add-line align-middle"></i> Novo
+                        Usuário</button>
+                    <button type="button" class="btn btn-primary"><i
+                            class="ri-file-excel-2-line align-middle"></i></button>
+                </div>
             </div>
             <div class="card-body my-0">
                 <div class="row mb-3">
