@@ -4,9 +4,10 @@
 <div>
     <x-show-loading />
     <!-- Modal para Criar/Editar Usuário -->
-    @if ($this->user)
-        <div wire:ignore.self class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel"
-            aria-hidden="true">
+
+    <div wire:ignore.self class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel"
+        aria-hidden="true">
+        @if ($this->user)
             <div class="modal-dialog modal-lg">
                 <div class="modal-content edp-bg-gray">
                     <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
@@ -127,12 +128,12 @@
 
                         <!-- Seção 3: Adicionar Serviços -->
                         <div class="mb-3">
-                            <h6 class="text-primary">Adicionar Serviços</h6>
+                            <h6 class="text-primary">Adicionar Atividade</h6>
                             <div class="row">
                                 <div class="col-md-10">
                                     <select class="form-select" id="servicosDisponiveis"
                                         wire:model.defer="serviceSelect">
-                                        <option value="" selected>Selecione um Serviço</option>
+                                        <option value="" selected>Selecione Atividade</option>
                                         @if ($this->serviceList)
                                             @foreach ($this->serviceList as $sList)
                                                 <option value="{{ $sList->uuid }}">{{ $sList->service }}</option>
@@ -149,7 +150,7 @@
 
                                 <div class="card edp-bg-gray">
                                     <div class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                                        Serviços Permitidos
+                                        Atividades Liberadas
                                     </div>
                                     <table class="table table-sm table-condensed table-striped">
                                         <tbody>
@@ -227,7 +228,7 @@
                                                 @endforeach
                                             @else
                                                 <div class="card-body py-2">
-                                                    <h5 class="text-center my-0 py-0">SEM SERVIÇOS PERMITIDOS</h5>
+                                                    <h5 class="text-center my-0 py-0">SEM ATIVIDADE LIBERADA</h5>
                                                 </div>
                                             @endif
                                         </tbody>
@@ -275,14 +276,25 @@
                         @endif
 
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer edp-bg-sprucegreen-100">
+                        <button type="button" class="btn btn-warning" wire:click.prevent="resetPassword"><i
+                                class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="saveUser"
                             wire:click.prevent='Save'>Salvar</button>
                     </div>
                 </div>
             </div>
-        </div>
-    @endif
+        @endif
+    </div>
+
 
 </div>
+
+<script>
+    // Capturando o evento de fechamento do modal
+    document.getElementById('userModal').addEventListener('hidden.bs.modal', () => {
+
+        Livewire.emitTo('admin.user.actions.usuario', 'closeAll');
+    });
+</script>

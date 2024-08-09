@@ -52,7 +52,8 @@
                     </thead>
                     <tbody>
                         @foreach ($users_l as $theUser)
-                            <tr class="align-middle text-center" wire:key='theusers-{{ $theUser->id }}'>
+                            <tr class="align-middle text-center @if ($theUser->trashed()) table-danger text-light text-decoration-line-through @endif"
+                                wire:key='theusers-{{ $theUser->id }}'>
                                 <td>
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $theUser->id }}" wire:model.defer="selected">
@@ -113,33 +114,71 @@
                                     $active = isset($theUser->Watchdog->watchdog) && $theUser->Watchdog->watchdog;
                                 @endphp
                                 <td>
-                                    @if ($active)
-                                        <span class="badge text-bg-success">ONLINE</span>
+                                    @if ($theUser->trashed())
+                                        <span class="badge text-bg-danger">REMOVIDO</span>
                                     @else
-                                        <span class="badge text-bg-danger">OFFLINE</span>
-                                        <p class="mt-1 mb-0"><span class="fw-bold">Visto em:</span>
-                                            {{ isset($theUser->Watchdog->updated_at) ? Carbon::parse($theUser->Watchdog->updated_at)->diffForHumans(Carbon::now()) : 'Nunca Entrou' }}
-                                        </p>
+                                        @if ($active)
+                                            <span class="badge text-bg-success">ONLINE</span>
+                                        @else
+                                            <span class="badge text-bg-secondary">OFFLINE</span>
+                                            <p class="mt-1 mb-0"><span class="fw-bold">Visto em:</span>
+                                                {{ isset($theUser->Watchdog->updated_at) ? Carbon::parse($theUser->Watchdog->updated_at)->diffForHumans(Carbon::now()) : 'Nunca Entrou' }}
+                                            </p>
+                                        @endif
                                     @endif
                                 </td>
                                 <td>
-                                    <i class="ri-eye-line fs-5 text-info cursor-pointer me-2" title="Ver"
-                                        style="cursor: pointer;"></i>
-                                    <i wire:click.prevent="$emitTo('admin.user.actions.usuario', 'openUser', {{ $theUser }})"
-                                        class="ri-edit-line fs-5 text-warning cursor-pointer me-2" title="Editar"
-                                        style="cursor: pointer;"></i>
-                                    <i class="ri-delete-bin-line fs-5 text-danger cursor-pointer" title="Excluir"
-                                        style="cursor: pointer;"></i>
+
+
+
+                                    @if (!$theUser->trashed())
+                                        @if (Auth()->User()->superadm && $theUser->id !== $master->id)
+                                            <a href="{{ route('impersonate', $theUser->id) }}" class="table-link">
+
+                                                <i class="ri-eye-line fs-5 text-info cursor-pointer me-2"
+                                                    title="Ver" style="cursor: pointer;"></i>
+                                            </a>
+                                        @endif
+
+                                        @if ($theUser->id !== $master->id || Auth()->User()->id == $theUser->id)
+                                            <i wire:click.prevent="$emitTo('admin.user.actions.usuario', 'openUser', {{ $theUser }})"
+                                                class="ri-edit-line fs-5 text-warning cursor-pointer me-2"
+                                                title="Editar" style="cursor: pointer;"></i>
+                                        @endif
+
+                                        @if ($theUser->id !== Auth()->User()->id && $theUser->id !== $master->id)
+                                            <i class="ri-delete-bin-line fs-5 text-danger cursor-pointer"
+                                                title="Excluir" style="cursor: pointer;"
+                                                wire:click.prevent="$emitTo('admin.user.delete','delete_user', '{{ $theUser->id }}')"></i>
+                                        @endif
+                                    @else
+                                        <i class="ri-arrow-go-back-line fs-5 text-danger cursor-pointer"
+                                            title="Excluir" style="cursor: pointer;"
+                                            wire:click.prevent="$emitTo('admin.user.delete','undelete_user', '{{ $theUser->id }}')"></i>
+                                    @endif
+
+
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
-
+            <div class="row p-3">
+                <div class="col-6">
+                    {{ $users_l->links() }}
+                </div>
+                <div class="col-6 d-flex justify-content-end align-middle">
+                    <span class="align-middle"> Exibindo {{ $users_l->firstItem() }} até
+                        {{ $users_l->lastItem() }}
+                        de {{ $users_l->total() }}
+                        registros.</span>
+                </div>
+            </div>
         </div>
     </div>
 
     {{-- Livewire Components --}}
     @livewire('admin.user.actions.usuario', key('users'))
+    @livewire('admin.user.delete', key('delete-user'))
 </div>

@@ -25,6 +25,8 @@ class Table extends Component
 
     public $company_s;
 
+    public ?User $master = null;
+
     protected $listeners = [
         'refresh_table_user' => '$refresh',
 
@@ -34,6 +36,11 @@ class Table extends Component
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'pag'],
     ];
+
+    public function mount()
+    {
+        $this->master = User::first();
+    }
 
     public function update_user($id)
     {
@@ -50,6 +57,7 @@ class Table extends Component
     {
         $this->gotoPage(1);
     }
+
 
     public function getUserProperty()
     {

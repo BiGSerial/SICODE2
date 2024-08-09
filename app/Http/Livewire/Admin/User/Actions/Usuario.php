@@ -7,6 +7,7 @@ use App\Models\Contract;
 use App\Models\Service;
 use App\Models\ServiceUser;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 
 class Usuario extends Component
@@ -27,6 +28,7 @@ class Usuario extends Component
         'openUser' => 'openUser',
         'refreshuser' => '$refresh',
         'newUser' => 'newUser',
+        'closeAll' => 'closeAll'
     ];
 
     protected $rules = [
@@ -78,6 +80,7 @@ class Usuario extends Component
 
 
         $this->user = new User();
+        $this->user->password = Hash::make(123456);
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'userModal',
         ]);
@@ -140,6 +143,8 @@ class Usuario extends Component
         $this->emitSelf('refreshuser');
     }
 
+
+
     public function Save()
     {
         $this->user->save();
@@ -171,10 +176,35 @@ class Usuario extends Component
 
     }
 
+    public function resetPassword()
+    {
+        $this->user->password = Hash::make(123456);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'SENHA ALTERADA',
+            'html'     => "
+            <div class='card'>
+                <div class='card-body'>
+                <h4 class='text-bg-primary fw-bold p-2'>NOVA SENHA: 123456</h4>
+                <p class='fw-bold'>USUÁRIO AFETADO:\n
+                <h4 class='fw-bold text-primary'>{$this->user->name}</h4>
+                </p>
+                <p class='text-bg-danger p-2 rounded'>A nova senha surtirá efeito após <strong>SALVAR</strong>. Caso queira desconsiderar essa modificação, basta <strong>CANCELAR</strong>.</p>
+                </div>
+            </div>
+            ",
+
+        ]);
+    }
+
     public function closeAll()
     {
 
         $this->temporaryServices = [];
+
+        $this->user = null;
 
         $this->dispatchBrowserEvent('hideModal');
     }

@@ -181,7 +181,7 @@
                                                         <i class="ri-pencil-fill btn btn-primary btn-sm"></i>
                                                     </span>
                                                 </a>
-                                                @if ($user->id !== Auth()->USer()->id)
+                                                @if ($user->id !== Auth()->User()->id)
                                                     @if (!$user->trashed())
                                                         <a href="#" class="table-link">
                                                             <span class="fa-stack"
