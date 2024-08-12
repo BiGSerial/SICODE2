@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.11",
+    "appver": "1.9.12",
     "historic": [
+        {
+            "version": "1.9.12",
+            "description": "Fixed search in Payment Dispatch",
+            "date": "2024-08-12"
+        },
         {
             "version": "1.9.11",
             "description": "Changes Export Supervision and Changes on Possibility re-send publication on Confirmed Productions",
