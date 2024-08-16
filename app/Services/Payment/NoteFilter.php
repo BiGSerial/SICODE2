@@ -50,6 +50,7 @@ class NoteFilter
                         });
                     });
             });
+        
 
         $query->when($search, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
