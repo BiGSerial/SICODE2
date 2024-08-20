@@ -279,7 +279,7 @@
     </tbody>
     <tfoot>
         <tr class="table-dark align-middle">
-            <td></td>
+
             <td></td>
             <td class="text-end">Total:</td>
             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
