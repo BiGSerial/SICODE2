@@ -22,6 +22,9 @@ class WorkReport extends Model
         'description',
         'team',
         'responsible',
+        'approved',
+        'rejected',
+        'retry',
         'dd',
         'informer',
     ];
@@ -54,5 +57,10 @@ class WorkReport extends Model
     public function Meeters()
     {
         return $this->hasMany(Meeter::class);
+    }
+
+    public function Returnwork()
+    {
+        return $this->hasMany(ReturnWork::class);
     }
 }

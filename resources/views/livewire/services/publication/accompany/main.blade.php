@@ -224,6 +224,14 @@
                                                     </span>
                                                 @endif
                                             @endif
+
+                                            <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                data-bs-title="Devolver Informe">
+                                                <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                    style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                    wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
+                                            </span>
                                         </td>
 
 
@@ -309,6 +317,7 @@
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.publication.forms.jobform', key('production'))
+    @livewire('production.return.return-work', key('returnWorkfomr'))
 
     <div wire:init="checkOpen"></div>
 

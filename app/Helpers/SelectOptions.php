@@ -17,6 +17,7 @@ class SelectOptions
     {
         return [
             (object)['info' => 'BANCO CAPACITORES', 'nick' => 'BC'],
+            (object)['info' => 'CAIXA DE MEDIÇÃO', 'nick' => 'CM'],
             (object)['info' => 'CONCENTRADOR PRIMARIO', 'nick' => 'CP'],
             (object)['info' => 'CONCENTRADOR SECUNDÁRIO', 'nick' => 'CS'],
             (object)['info' => 'REGULADOR DE TENSÃO', 'nick' => 'RT'],
@@ -231,4 +232,19 @@ class SelectOptions
 
         return array_unique($types);
     }
+
+
+    // Return Publication
+    public static function getReasonPublication()
+    {
+        return [
+            (object)['reason' => 'Obra depende da execução de outra', 'value' => 'OBRA DEPENDE DA EXECUCAO DE OUTRA'],
+            (object)['reason' => 'Obra não executada', 'value' => 'OBRA NAO EXECUTADA'],
+            (object)['reason' => 'Patrimônio de equipamento informado incorretamente', 'value' => 'PATRIMONIO DE EQUIPAMENTO INFORMADO INCORRETAMENTE'],
+            (object)['reason' => 'Patrimônio de equipamento não informado', 'value' => 'PATRIMONIO DE EQUIPAMENTO NAO INFORMADO'],
+            (object)['reason' => 'Trafo não atendido', 'value' => 'TRAFO NAO ATENDIDO'],
+            (object)['reason' => 'Trafo pendente de DE-PARA', 'value' => 'TRAFO PENDENTE DE DE-PARA'],
+        ];
+    }
+
 }
