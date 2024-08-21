@@ -23,10 +23,11 @@ class NoteFilter
 
         $query->whereHas('WorkForm', function ($q) {
             $q->when(isset($this->filters['company']), function ($sq) {
-                return $sq->where(function ($query) {
-                    $query->whereIn('company_id', $this->filters['company'])
-                        ->orWhereNull('company_id');
-                });
+                return $sq->where('rejected', false)
+                    ->where(function ($query) {
+                        $query->whereIn('company_id', $this->filters['company'])
+                            ->orWhereNull('company_id');
+                    });
             });
         })
             ->whereHas('Orders', function ($q) {
@@ -70,7 +71,7 @@ class NoteFilter
                     ->orWhereNull('lexp');
             });
         });
-        
+
         $query->with('Productions.User');
 
 

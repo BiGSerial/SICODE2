@@ -137,6 +137,7 @@
                                 <tr class="text-center align-middle">
                                     <th scope="col" class="fw-bold">Note</th>
                                     <th scope="col" class="fw-bold">DD</th>
+                                    <th scope="col" class="fw-bold">Files</th>
                                     <th scope="col" class="fw-bold">MMGD</th>
                                     <th scope="col" class="fw-bold">Grupo2</th>
                                     {{-- <th scope="col" class="fw-bold">Grupo5</th> --}}
@@ -158,6 +159,10 @@
                                             ? $list->Note->WorkForm->created_at
                                             : null;
 
+                                        $formBlock = $list->Note->WorkForm->rejected
+                                            ? $list->Note->WorkForm->rejected
+                                            : false;
+
                                         if ($dateForm) {
                                             $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
                                         } else {
@@ -166,7 +171,7 @@
 
                                     @endphp
                                     <tr
-                                        class="align-middle text-center @if ($list->priority) table-danger @endif">
+                                        class="align-middle text-center @if ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif">
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                             {{ $list->Note->note }}
@@ -197,6 +202,11 @@
                                         </td>
                                         <td class="fw-light">
                                             <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
+                                        </td>
+                                        <td class="align-middle">
+                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                            <x-files.select-download-list :files='$list->Note->Files' />
+
                                         </td>
                                         <td class="fw-light">
                                             {{ $list->Note->group2 }}</td>
@@ -236,6 +246,9 @@
                                         <td class="fw-light">
                                             @if ($list->transferred && $list->block_wpa)
                                                 <span class="badge bg-warning">Aguardando Despacho</span>
+                                            @elseif ($formBlock)
+                                                <span class="badge text-bg-warning text-wrap p-1">INFORME EM
+                                                    REVISÃO</span>
                                             @else
                                                 <span
                                                     class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
@@ -243,7 +256,7 @@
                                         </td>
                                         <td class="fw-bold fs-5">
 
-                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status))
+                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status) && !$formBlock)
                                                 @if (!$list->completed)
                                                     {{-- <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top"

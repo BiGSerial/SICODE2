@@ -435,6 +435,7 @@
                         @foreach ($lists as $list)
                             @php
                                 $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm->created_at : null;
+                                $formBlock = $list->Note->WorkForm->rejected ? $list->Note->WorkForm->rejected : false;
 
                                 if ($dateForm) {
                                     $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
@@ -445,7 +446,7 @@
                             @endphp
                             <tr
                                 class="align-middle
-                                    @if ($list->block) table-primary @endif
+                                    @if ($list->block) table-primary @elseif ($formBlock) table-dark text-danger @endif
 
                                     ">
                                 <td>
@@ -563,7 +564,9 @@
                                 </td> --}}
                                 <td class="fw-light text-center">
                                     @if ($list->transferred && $list->block_wpa)
-                                        <span class="badge bg-warning">Aguardando Despacho</span>
+                                        <span class="badge text-bg-warning">Aguardando Despacho</span>
+                                    @elseif ($formBlock)
+                                        <span class="badge text-bg-info text-wrap p-1">AGUARDANDO INFORME</span>
                                     @else
                                         @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key($list->id))
                                     @endif

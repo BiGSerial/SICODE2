@@ -21,7 +21,9 @@ class NoteFilter
 
         $query = Note::query();
 
-        $query->whereHas('WorkForm')
+        $query->whereHas('WorkForm', function($sq){
+            $sq->where('rejected', false);
+        })
             ->whereHas('Orders', function ($q) {
                 $q->where('statusSist', 'LIKE', 'LIB%')
                     ->whereHas('Operations', function ($sq) {

@@ -549,7 +549,9 @@ class Main extends Component
 
             // RuleBuilder::applyRules($query, $this->service->Status);
 
-            $query->whereHas('WorkForm')
+            $query->whereHas('WorkForm', function ($sq) {
+                $sq->where('rejected', false);
+            })
                 ->whereHas('Orders', function ($q) {
                     $q->where('statusSist', 'LIKE', 'LIB%')
                         ->whereHas('Operations', function ($sq) {

@@ -5,6 +5,8 @@ namespace App\Http\Livewire\Files;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Production;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -165,6 +167,9 @@ class Filesupervision extends Component
             $totalPdfCount = $pdfCount + count(array_filter($this->files, fn ($file) => $file->getClientOriginalExtension() == 'pdf'));
             $totalXlsCount = $xlsCount + count(array_filter($this->files, fn ($file) => in_array($file->getClientOriginalExtension(), ['xls', 'xlsx'])));
 
+
+            DB::beginTransaction();
+
             foreach ($this->files as $file) {
                 $tempPath = $file->getRealPath();
                 if ($tempPath && file_exists($tempPath)) {
@@ -182,9 +187,9 @@ class Filesupervision extends Component
 
                     $version = File::where('file_name', 'like', "%" . $newName . "%")->count();
                     $newName = $newName . "_rev" . $version . "." . $extension;
-                    $caminho = $file->store('/arquivos/empreiteira');
+                    $caminho = $file->store('/arquivos/fiscal');
 
-                    if ($caminho) {
+                    if (Storage::exists($caminho)) {
                         File::create([
                             'note_id' => $this->note->id,
                             'user_id' => auth()->user()->id,
@@ -193,9 +198,27 @@ class Filesupervision extends Component
                             'path' => $caminho,
                             'ext' => $extension,
                         ]);
+                    } else {
+
+                        DB::rollBack();
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'warning',
+                            'title'    => 'ERRO AO SALVAR',
+                            'html'     => '<div class="card bg-primary text-white"><div class="card-body">
+                                <p class="fw-bold">Ocorreu um erro ao salvar um dos, ou o arquivo. Aparentemente não foi concluído o upload. Remova-o(os) da lista e tente novamente. </p>
+
+                                </div></div>',
+
+                        ]);
+
+                        return;
                     }
                 }
             }
+
+            DB::commit();
 
             $this->dispatchBrowserEvent('torrada', [
                 'status' => 'success',
