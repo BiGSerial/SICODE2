@@ -1,6 +1,16 @@
 {
-    "appver": "1.9.12",
+    "appver": "1.9.14",
     "historic": [
+        {
+            "version": "1.9.14",
+            "description": "Created Files Check",
+            "date": "2024-08-21"
+        },
+        {
+            "version": "1.9.13",
+            "description": "Report on Payments Columns",
+            "date": "2024-08-20"
+        },
         {
             "version": "1.9.12",
             "description": "Fixed search in Payment Dispatch",

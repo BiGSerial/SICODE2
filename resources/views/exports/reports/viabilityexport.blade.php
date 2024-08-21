@@ -40,8 +40,8 @@
                 <td class="align-middlw">
                     {{ $list->completed_at ? date('d/m/Y', strToTime($list->completed_at)) : '---' }}
                 </td>
-                <td class="align-middlw">{{ $list->Engineer->name }}</td>
-                <td class="align-middlw">{{ $list->Company->name }}</td>
+                <td class="align-middlw">{{ isset($list->Engineer->name) ? $list->Engineer->name : '---' }}</td>
+                <td class="align-middlw">{{ isset($list->Company->name) ? $list->Company->name : '---' }}</td>
                 <td class="align-middlw">{{ Viabilitiesstatus::status($list->status)->status }}</td>
             </tr>
         @endforeach

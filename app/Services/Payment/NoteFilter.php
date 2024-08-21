@@ -50,7 +50,7 @@ class NoteFilter
                         });
                     });
             });
-        
+
 
         $query->when($search, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
@@ -70,8 +70,7 @@ class NoteFilter
                     ->orWhereNull('lexp');
             });
         });
-        ;
-
+        
         $query->with('Productions.User');
 
 
