@@ -437,12 +437,11 @@
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
+                            <th class="align-middle text-center">Emp SAP</th>
+                            <th class="align-middle text-center">Emp Info</th>
 
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
-
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-
-
                             <th scope="col" class="fw-bold text-center">Empresa</th>
                             <th scope="col" class="fw-bold text-center">Usuário</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
@@ -510,6 +509,22 @@
                                         @endforeach
                                     @endif
 
+                                </td>
+
+                                <td class="text-center align-middle">
+                                    @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                        @foreach ($list->Note->WorkForm->Orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+
+                                </td>
+
+
+                                <td class="fw-light text-center">
+                                    {{ $list->Note->WorkForm ? $list->Note->WorkForm->Company->name : '---' }}
                                 </td>
 
 

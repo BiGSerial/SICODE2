@@ -99,9 +99,20 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
-                        {{ mb_strtoupper($service->service) }}
-                    </h4>
+                    <div class="card-header  text-bg-danger">
+                        <div class="row">
+                            <div class="col">
+                                <h4 class="fw-bold my-0">ACOMPANHAMENTO -
+                                    {{ mb_strtoupper($service->service) }}
+                                </h4>
+                            </div>
+                            <div class="col-3 d-flex justify-content-end">
+                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                        class="ri-file-excel-2-line"></i> Exportar</button>
+                            </div>
+                        </div>
+                    </div>
+
 
                     <div class="table-responsive">
                         <table class="table table-sm table-striped table-condensed table-hover">
@@ -111,7 +122,7 @@
                                     <th class="align-middle text-center">Files</th>
                                     <th class="align-middle text-center">Ordem</th>
                                     <th class="align-middle text-center">MOA</th>
-                                    <th class="align-middle text-center">Status</th>
+                                    {{-- <th class="align-middle text-center">Status</th> --}}
                                     <th class="align-middle text-center">OP30</th>
                                     <th class="align-middle text-center">OP40</th>
                                     <th class="align-middle text-center">OP50</th>
@@ -173,7 +184,7 @@
                                             @endif
 
                                         </td>
-
+                                        {{--
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
@@ -183,7 +194,7 @@
                                                 @endforeach
                                             @endif
 
-                                        </td>
+                                        </td> --}}
 
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
@@ -193,8 +204,8 @@
                                                     </span>
                                                 @endforeach
                                             @endif
-
                                         </td>
+
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)

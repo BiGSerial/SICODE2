@@ -9,17 +9,15 @@
             <th class="align-middle text-center">Nota</th>
             <th class="align-middle text-center">Ordem</th>
             <th class="align-middle text-center">MOA</th>
-
+            <th class="align-middle text-center">Emp SAP</th>
+            <th class="align-middle text-center">Emp Info</th>
+            <th class="align-middle text-center">Dt Informe</th>
             <th scope="col" class="fw-bold text-center">Rubrica</th>
             <th scope="col" class="fw-bold text-center">Municipio</th>
-            <th scope="col" class="fw-bold text-center">Empr.Infome</th>
-            <th scope="col" class="fw-bold text-center">DataInforme</th>
-
-            <th scope="col" class="fw-bold text-center">Empresa</th>
+            <th scope="col" class="fw-bold text-center">Emp Pag Usr</th>
             <th scope="col" class="fw-bold text-center">Usuário</th>
             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-
             <th scope="col" class="fw-bold text-center">Status</th>
 
         </tr>
@@ -78,6 +76,29 @@
 
                 </td>
 
+                <td class="text-center align-middle">
+                    @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                        @foreach ($list->Note->WorkForm->Orders as $order)
+                            <p class="my-0py-0">
+                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                            </p>
+                        @endforeach
+                    @endif
+
+                </td>
+
+
+                <td class="fw-light text-center">
+                    {{ $list->Note->WorkForm ? $list->Note->WorkForm->Company->name : '---' }}
+                </td>
+
+                <td class="text-center align-middle fw-bold">
+                    @if ($list->Note->WorkForm)
+                        {{ date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->created_at)) }}
+                    @endif
+
+                </td>
+
 
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                     {{ $list->Note->rubrica }}</td>
@@ -85,18 +106,8 @@
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                     {{ $list->Note->lexp }}</td>
 
-                <td class="text-center align-middle fw-bold">
-                    @if ($list->Note->WorkForm)
-                        {{ $list->Note->WorkForm->Company->name }}
-                    @endif
 
-                </td>
-                <td class="text-center align-middle fw-bold">
-                    @if ($list->Note->WorkForm)
-                        {{ date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->created_at)) }}
-                    @endif
 
-                </td>
 
                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
 

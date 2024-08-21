@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Exports\Dispatchs;
+namespace App\Exports\Services;
 
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithEvents, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class DispatchPaymentStack implements FromView, WithEvents, WithProperties
+class ServicePaymentStack implements FromView, WithEvents, WithProperties
 {
     use Exportable;
 
@@ -40,7 +40,7 @@ class DispatchPaymentStack implements FromView, WithEvents, WithProperties
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:J1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -68,7 +68,7 @@ class DispatchPaymentStack implements FromView, WithEvents, WithProperties
 
     public function view(): View
     {
-        return view('exports.dispatch.DispatchPaymentStack', [
+        return view('exports.services.servicePaymentStack', [
             'lists' => $this->data,
             'service' => $this->service,
         ]);
