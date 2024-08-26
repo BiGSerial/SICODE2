@@ -1,6 +1,11 @@
 {
-    "appver": "1.9.14",
+    "appver": "1.10.0",
     "historic": [
+        {
+            "version": "1.10.0",
+            "description": "Return WorkForm to Partner, and Major file Fix",
+            "date": "2024-08-26"
+        },
         {
             "version": "1.9.14",
             "description": "Created Files Check",
