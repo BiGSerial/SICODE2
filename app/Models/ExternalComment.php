@@ -23,7 +23,7 @@ class ExternalComment extends Model
 
     public function User()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
 }

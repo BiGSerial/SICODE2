@@ -44,7 +44,7 @@ class Workreports extends Component
         'changes' => null,
         'observation' => null,
         'damage' => null,
-        'description' => null,
+        'description' => '',
         'team' => null,
         'responsible' => null
     ];

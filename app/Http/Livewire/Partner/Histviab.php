@@ -68,6 +68,15 @@ class Histviab extends Component
 
             if (Storage::disk('local')->exists($file->path)) {
                 return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
             }
         }
     }

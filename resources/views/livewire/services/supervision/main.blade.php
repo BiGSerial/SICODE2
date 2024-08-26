@@ -200,14 +200,17 @@
                                             @endif
 
                                         </td>
-                                        <td class="fw-light">
-                                            <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
-                                        </td>
+
                                         <td class="align-middle">
                                             {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                             <x-files.select-download-list :files='$list->Note->Files' />
 
                                         </td>
+
+                                        <td class="fw-light">
+                                            <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
+                                        </td>
+
                                         <td class="fw-light">
                                             {{ $list->Note->group2 }}</td>
                                         {{-- <td class="fw-light">{{ $list->Note->group5 }}</td> --}}

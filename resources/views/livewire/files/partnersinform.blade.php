@@ -37,7 +37,7 @@
 
                     @foreach ($files as $index => $file)
                         <div
-                            class="col-4 border border-secondary d-flex justify-content-between align-items-center p-0 m-1 bg-white">
+                            class="col-md-6 border border-secondary d-flex justify-content-between align-items-center p-0 m-1 bg-white">
                             <div class="p-1 m-0 border-end border-secondary fs-4">
                                 <i class="{{ FileIcon::getIcon($file->getClientOriginalExtension())->icon }} fs-4"></i>
 

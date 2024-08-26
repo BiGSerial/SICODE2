@@ -41,7 +41,7 @@ class Filesupervision extends Component
         try {
 
             $this->validate([
-                'uploadsfiles.*' => 'mimes:pdf,jpeg,png',
+                'uploadsfiles.*' => 'mimes:pdf,jpeg,png, gif,xls,xlsx,xlsm',
             ]);
         } catch (ValidationException $e) {
 
@@ -179,7 +179,7 @@ class Filesupervision extends Component
 
                     if ($extension == "pdf") {
                         $newName = "ASBUILT_FISC_" . $this->note->note . "_F" . str_pad(++$pdfCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
-                    } elseif (in_array($extension, ["xls", "xlsx"])) {
+                    } elseif (in_array($extension, ["xls", "xlsx", "xlsm"])) {
                         $newName = "EXCEL_FISC_" . $this->note->note . "_F" . str_pad(++$xlsCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     } else {
                         $newName = strtoupper($extension) . "_FISC_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);

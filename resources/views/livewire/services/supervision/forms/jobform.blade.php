@@ -176,9 +176,10 @@
                                         </div>
 
                                         <div class="mb-3 ">
-                                            <label for="inputPassword" class="col-sm-12 col-form-label">Anexar As-built,
-                                                Correções...Caso seja necessário.</label>
+                                            <label for="inputPassword" class="col-sm-12 col-form-label">Anexar o ADS e
+                                                As-built em arquivos separados.</label>
                                             @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision'))
+
                                         </div>
 
                                         <div class="mb-3">

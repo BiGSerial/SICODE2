@@ -112,17 +112,6 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/map_info', 'survey_map')->name('mapinfo');
 });
 
-
-
-Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->name('main.viability');
-    Route::get('/todo-viability', 'viability')->name('todo.viability');
-    // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
-    Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
-    Route::get('/workreport', 'workreport')->name('report.workreport');
-    Route::get('/workedlist', 'workedlist')->name('report.workedlist');
-});
-
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
     Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
 });
@@ -143,6 +132,16 @@ Route::middleware('auth')->group(function () {
 });
 
 
+// Partners Route's
+Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
+    Route::get('/', 'main')->name('main.viability');
+    Route::get('/todo-viability', 'viability')->name('todo.viability');
+    // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
+    Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
+    Route::get('/workreport', 'workreport')->name('report.workreport');
+    Route::get('/workedlist', 'workedlist')->name('report.workedlist');
+    Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
+});
 
 Route::get('/info', function () {
     return phpinfo();

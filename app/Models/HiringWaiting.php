@@ -25,7 +25,7 @@ class HiringWaiting extends Model
 
     public function User()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     public function Reclaim()

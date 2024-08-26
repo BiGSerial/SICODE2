@@ -33,4 +33,9 @@ class PartnerController extends Controller
     {
         return view('partner.worksList');
     }
+
+    public function rejectedWorked()
+    {
+        return view('partner.workedRejectedList');
+    }
 }
