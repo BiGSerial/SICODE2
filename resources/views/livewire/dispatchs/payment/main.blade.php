@@ -383,7 +383,7 @@
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
                                 <td class="fw-light">
-                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
+                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
                                 <td class="fw-light text-center" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"

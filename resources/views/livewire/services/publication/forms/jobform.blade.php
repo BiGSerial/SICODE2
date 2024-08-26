@@ -69,7 +69,7 @@
                                                 <td class="fw-bold col-2 align-middle text-uppercase">Data Sicode:</td>
                                                 <td class="align-middle">
                                                     @if (isset($production->Note->WorkForm))
-                                                        {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->created_at)) }}
+                                                        {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->informed_at)) }}
                                                     @endif
                                                 </td>
                                             </tr>

@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.0",
+    "appver": "1.10.1",
     "historic": [
+        {
+            "version": "1.10.1",
+            "description": "Fix somethings and add NoteStatus View in All Status exibition",
+            "date": "2024-08-26"
+        },
         {
             "version": "1.10.0",
             "description": "Return WorkForm to Partner, and Major file Fix",

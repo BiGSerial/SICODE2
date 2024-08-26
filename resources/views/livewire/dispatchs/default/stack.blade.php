@@ -63,7 +63,7 @@
                 </div>
             @endif
 
-            
+
 
             <div class="dropdown mx-1">
                 <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
@@ -342,9 +342,9 @@
                         <tbody>
                             @foreach ($lists as $list)
                                 <tr
-                                    class="align-middle 
-                                    @if ($list->block) table-primary @endif 
-                                    
+                                    class="align-middle
+                                    @if ($list->block) table-primary @endif
+
                                     ">
                                     <td>
                                         <input class="form-check-input border border-1 border-primary" type="checkbox"
@@ -421,7 +421,10 @@
                                             class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
                                     </td> --}}
                                     <td class="fw-light text-center">
-                                        @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key($list->id))
+
+                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                     </td>
                                     <td class="fw-bold fs-5">
                                         @if (!$list->block)
@@ -430,14 +433,14 @@
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Iniciar.">
                                                     <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                        style="cursor: pointer;" 
+                                                        style="cursor: pointer;"
                                                         wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
                                                 </span>
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Transferir.">
                                                     <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                        style="cursor: pointer;" 
+                                                        style="cursor: pointer;"
                                                         wire:click.prevent="goTransferProd({{ $list->id }})"></i>
                                                 </span>
                                             @endif --}}
@@ -634,6 +637,7 @@
 
 
     {{-- END MODALS --}}
+    @livewire('components.status.show-status', key('show_status_note'))
 
 </div>
 

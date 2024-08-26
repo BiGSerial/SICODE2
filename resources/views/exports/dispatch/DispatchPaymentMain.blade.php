@@ -242,7 +242,7 @@
                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                 </td>
                 <td class="fw-light">
-                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
+                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                 </td>
                 <td>
                     @if ($user)

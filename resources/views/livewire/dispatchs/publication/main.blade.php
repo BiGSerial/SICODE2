@@ -382,7 +382,7 @@
                                 }
 
                                 $days = $list->WorkForm
-                                    ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
+                                    ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false)
                                     : 0;
 
                                 $daysLeft = 3 - $days;
@@ -426,11 +426,11 @@
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
                                 <td class="fw-light">
-                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
+                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
 
                                 <td scope="col" class="text-center">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false) : '---' }}
+                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false) : '---' }}
                                 </td>
                                 <td class="fw-light text-center" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"

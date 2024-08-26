@@ -51,7 +51,8 @@
                         </li>
                         <li>
                             <a href="{{ route('partner.report.rejectedWorked') }}" class="nav-item text-white">
-                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informe Rejeitados</span>
+                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informe
+                                    Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
                             </a>
                         </li>
                         <li>

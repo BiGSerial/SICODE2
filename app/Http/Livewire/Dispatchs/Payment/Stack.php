@@ -887,7 +887,7 @@ class Stack extends Component
     public function deadline(Note $note)
     {
         $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
 

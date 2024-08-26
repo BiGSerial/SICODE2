@@ -174,7 +174,7 @@
                                             {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                         </td>
                                         <td class="fw-light text-center align-middle">
-                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->created_at) : '---' }}
+                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->informed_at) : '---' }}
                                         </td>
                                         <td scope="col"
                                             class="text-center
@@ -197,9 +197,11 @@
                                 ">
                                             {{ 30 - $daysLeft->getDaysLeft() }}
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-                                            <span
-                                                class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                        <td class="fw-light text-center">
+
+                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
                                         <td class="fw-bold fs-5">
 
@@ -318,6 +320,7 @@
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.publication.forms.jobform', key('production'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
     <div wire:init="checkOpen"></div>
 

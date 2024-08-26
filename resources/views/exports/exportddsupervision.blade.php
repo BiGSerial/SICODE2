@@ -46,7 +46,7 @@
                 </td>
                 <td>
                     @if ($export->WorkForm)
-                        {{ $export->WorkForm->created_at ? date('d/m/Y', strToTime($export->WorkForm->created_at)) : '---' }}
+                        {{ $export->WorkForm->informed_at ? date('d/m/Y', strToTime($export->WorkForm->informed_at)) : '---' }}
                     @endif
                 </td>
                 <td>{{ $export->Wpas->count() ? (!$export->Wpas->last()->production_id ? $export->Wpas->last()->dd : '') : '' }}

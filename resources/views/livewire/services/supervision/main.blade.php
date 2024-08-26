@@ -156,7 +156,7 @@
                                     @php
 
                                         $dateForm = isset($list->Note->WorkForm)
-                                            ? $list->Note->WorkForm->created_at
+                                            ? $list->Note->WorkForm->informed_at
                                             : null;
 
                                         $formBlock = $list->Note->WorkForm->rejected
@@ -253,8 +253,9 @@
                                                 <span class="badge text-bg-warning text-wrap p-1">INFORME EM
                                                     REVISÃO</span>
                                             @else
-                                                <span
-                                                    class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                             @endif
                                         </td>
                                         <td class="fw-bold fs-5">
@@ -361,6 +362,7 @@
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprodlev', key('Transfer_production'))
     @livewire('services.supervision.forms.jobform', key('JobForm'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
     <div wire:init="checkOpen"></div>
 

@@ -233,13 +233,13 @@ class Main extends Component
                 $q->where('type_note', $this->typeNote);
             })
             ->with(['WorkForm' => function ($q) {
-                $q->orderBy('created_at', 'asc');
+                $q->orderBy('informed_at', 'asc');
             }]);
 
 
 
         $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-        ->select('notes.*', 'work_reports.created_at as wCreated_at')
+        ->select('notes.*', 'work_reports.informed_at as wCreated_at')
         ->orderBy('wCreated_at', 'asc');
 
 
@@ -251,7 +251,7 @@ class Main extends Component
     public function deadline(Note $note)
     {
         $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
 

@@ -265,7 +265,7 @@
                                     {{ $list->mmgd ? 'MMGD' : '' }}
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y H:i:s') : '---' }}
+                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->format('d/m/Y H:i:s') : '---' }}
                                 </td>
                                 <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>
@@ -310,7 +310,7 @@
                                 {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
                                 @php
                                     $days_left = $list->WorkForm
-                                        ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
+                                        ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false)
                                         : 0;
                                 @endphp
                                 <td scope="col"

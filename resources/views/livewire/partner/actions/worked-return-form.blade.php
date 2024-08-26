@@ -269,18 +269,21 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" wire:click="closeAll">Close</button>
-                        <button type="button" class="btn btn-primary" wire:click="toSave">SALVAR ALTERAÇÔES</button>
+                        <button type="button" class="btn btn-secondary" wire:click="closeAll">FECHAR</button>
+                        <button type="button" class="btn btn-primary" wire:click="toSave">RE-SUBMETER
+                            INFORME</button>
                     </div>
                 </div>
             @endif
         </div>
     </div>
-    <script>
-        // Capturando o evento de fechamento do modal
-        document.getElementById('modalReturnWorked').addEventListener('hidden.bs.modal', () => {
 
-            Livewire.emitTo('partner.actions.worked-return-form', 'closeAll');
-        });
-    </script>
 </div>
+
+<script>
+    // Capturando o evento de fechamento do modal
+    document.getElementById('modalReturnWorked').addEventListener('hidden.bs.modal', () => {
+
+        Livewire.emitTo('partner.actions.worked-return-form', 'closeAll');
+    });
+</script>

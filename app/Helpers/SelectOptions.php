@@ -238,6 +238,7 @@ class SelectOptions
     public static function getReasonPublication()
     {
         return [
+            (object)['reason' => 'A pedido da Empreiteira', 'value' => 'A PEDIDO DA EMPREITEIRA'],
             (object)['reason' => 'Obra depende da execução de outra', 'value' => 'OBRA DEPENDE DA EXECUCAO DE OUTRA'],
             (object)['reason' => 'Obra não executada', 'value' => 'OBRA NAO EXECUTADA'],
             (object)['reason' => 'Patrimônio de equipamento informado incorretamente', 'value' => 'PATRIMONIO DE EQUIPAMENTO INFORMADO INCORRETAMENTE'],

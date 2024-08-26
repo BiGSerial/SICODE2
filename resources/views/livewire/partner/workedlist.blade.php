@@ -211,7 +211,7 @@
                                     {{ $list->date ? date('d/m/Y', strToTime($list->date)) : 'Desconhecido' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->created_at ? date('d/m/Y', strToTime($list->created_at)) : 'Desconhecido' }}
+                                    {{ $list->informed_at ? date('d/m/Y', strToTime($list->informed_at)) : 'Desconhecido' }}
                                 </td>
                             </tr>
                         @endforeach

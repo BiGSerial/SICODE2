@@ -19,7 +19,8 @@ class WorkedReturnForm extends Component
         'toReturnWork',
         'hasFile',
         'savedFiles' => 'save',
-        'confirm_workform'
+        'confirm_workform',
+        'closeAll'
     ];
 
     protected $rules = [
@@ -131,7 +132,7 @@ class WorkedReturnForm extends Component
         unset($this->workReport->equipment);
 
         $this->workReport->rejected = 0;
-        $this->workReport->created_at = date('Y-m-d H:i:s');
+        $this->workReport->informed_at = date('Y-m-d H:i:s');
 
         $this->workReport->save();
         $this->closeAll();

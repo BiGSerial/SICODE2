@@ -217,8 +217,9 @@
                                         </td>
                                         <td>{{ $list->load('Company')->Company ? $list->load('Company')->Company->name : 'Desconhecido' }}
                                         </td>
-                                        <td> <span
-                                                class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                        <td> <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
                                         <td>{{ $list->dispatch_at ? date('d/m/Y H:i:s', strToTime($list->dispatch_at)) : '-' }}
                                         </td>
@@ -346,7 +347,7 @@
                                         {{ $lists->WorkForm->date ? date('d/m/Y', strToTime($lists->WorkForm->date)) : 'Desconhecido' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm->created_at ? date('d/m/Y', strToTime($lists->WorkForm->created_at)) : 'Desconhecido' }}
+                                        {{ $lists->WorkForm->informed_at ? date('d/m/Y', strToTime($lists->WorkForm->informed_at)) : 'Desconhecido' }}
                                     </td>
                                 </tr>
 
@@ -372,4 +373,5 @@
 
     {{-- Modals Components --}}
     @livewire('partner.show.show-work-form', key('FormModdalShow'))
+    @livewire('components.status.show-status', key('show_status_note'))
 </div>

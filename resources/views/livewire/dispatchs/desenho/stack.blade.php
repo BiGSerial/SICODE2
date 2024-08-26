@@ -560,18 +560,13 @@
                             ">
                                         {{ 30 - $daysleft->getDaysLeft() }}
                                     </td>
-                                    {{-- <td class="fw-light text-center">
-                                        <span
-                                            class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
-                                    </td> --}}
                                     <td class="fw-light text-center">
 
-                                        {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id, key($list->id)]) --}}
-                                        <livewire:components.status.statusview :status="$list->status" :idstatus="$list->id"
-                                            :note_id="$list->note_id" :wire:key="'status-view-' . $list->id" />
-
-                                        {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key('statusView-{{ $list->id }}')) --}}
+                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                     </td>
+
                                     <td class="fw-bold fs-5">
 
                                         {{-- @if (!$list->completed)
@@ -784,6 +779,9 @@
 
     @stack('modals')
     {{-- END MODALS --}}
+
+    {{-- Components Livewire --}}
+    @livewire('components.status.show-status', key('show_status'))
     @livewire('audits.info')
 
 </div>

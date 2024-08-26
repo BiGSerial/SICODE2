@@ -157,9 +157,11 @@
                                             <td class="fw-light">
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
                                             </td>
-                                            <td class="fw-light">
-                                                <span
-                                                    class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                            <td class="fw-light text-center">
+
+                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                             </td>
                                             <td class="fw-bold fs-5">
                                                 @if (!$list->block)
@@ -265,6 +267,7 @@
 
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
     <div wire:init="checkOpen"></div>
 

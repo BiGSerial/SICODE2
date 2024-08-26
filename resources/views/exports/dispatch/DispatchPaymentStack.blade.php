@@ -94,7 +94,7 @@
 
                 <td class="text-center align-middle fw-bold">
                     @if ($list->Note->WorkForm)
-                        {{ date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->created_at)) }}
+                        {{ date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) }}
                     @endif
 
                 </td>

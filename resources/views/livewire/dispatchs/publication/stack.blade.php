@@ -525,7 +525,7 @@
                                 </td>
                                 @php
                                     $days = $list->Note->WorkForm
-                                        ? Carbon::parse($list->Note->WorkForm->created_at)->diffInDays(
+                                        ? Carbon::parse($list->Note->WorkForm->informed_at)->diffInDays(
                                             Carbon::now(),
                                             false,
                                         )
@@ -554,17 +554,11 @@
                             ">
                                     {{ $daysLeft }}
                                 </td>
-                                {{-- <td class="fw-light text-center">
-                                        <span
-                                            class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
-                                    </td> --}}
                                 <td class="fw-light text-center">
 
-                                    {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id, key($list->id)]) --}}
-                                    <livewire:components.status.statusview :status="$list->status" :idstatus="$list->id"
-                                        :note_id="$list->note_id" :wire:key="'status-view-' . $list->id" />
-
-                                    {{-- @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key('statusView-{{ $list->id }}')) --}}
+                                    <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                        wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                        style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                 </td>
                                 <td class="fw-bold fs-5">
 
@@ -779,6 +773,7 @@
     @stack('modals')
     {{-- END MODALS --}}
     @livewire('audits.info')
+    @livewire('components.status.show-status', key('show_status_note'))
 
 </div>
 

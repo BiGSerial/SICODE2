@@ -434,7 +434,7 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm->created_at : null;
+                                $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm->informed_at : null;
                                 $formBlock = $list->Note->WorkForm->rejected ? $list->Note->WorkForm->rejected : false;
 
                                 if ($dateForm) {
@@ -558,19 +558,20 @@
                                 ">
                                     {{ $daysLeft }}
                                 </td>
-                                {{-- <td class="fw-light text-center">
-                                    <span
-                                        class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
-                                </td> --}}
+
                                 <td class="fw-light text-center">
                                     @if ($list->transferred && $list->block_wpa)
                                         <span class="badge text-bg-warning">Aguardando Despacho</span>
                                     @elseif ($formBlock)
-                                        <span class="badge text-bg-info text-wrap p-1">AGUARDANDO INFORME</span>
+                                        <span class="badge text-bg-info text-wrap p-1">INFORME EM REVISAO</span>
                                     @else
-                                        @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key($list->id))
+                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                     @endif
                                 </td>
+
+
                                 <td class="fw-bold fs-5">
                                     @if (!$list->block && !$list->block_wpa)
                                         {{-- @if (!$list->completed)
@@ -812,6 +813,7 @@
 
     {{-- END MODALS --}}
     @livewire('audits.info')
+    @livewire('components.status.show-status', key('show_status_note'))
 
 </div>
 

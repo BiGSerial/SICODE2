@@ -287,7 +287,7 @@
                 data-bs-title="Filtragem Direta por Status"
                 data-bs-content="
         <p>Ao apertar o botão, o sistema filtrará a lista pelo status escolhido. Para remover o filtro, basta limpar os filtros.</p>
-            
+
        ">
                 <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
                     wire:click.prevent="filterStatus(1)">
@@ -368,8 +368,8 @@
                                 <li tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="left" data-bs-title="Atribuir em Massa"
                                     data-bs-content="
-                                        <p>A Atribuição em Massa possibilita a modificação dos responsáveis por uma tarefa, 
-                                            mesmo que ela já tenha sido atribuída a outra pessoa. 
+                                        <p>A Atribuição em Massa possibilita a modificação dos responsáveis por uma tarefa,
+                                            mesmo que ela já tenha sido atribuída a outra pessoa.
                                             No entanto, essa ação só é possível se a atividade não estiver FINALIZADA ou em PAUSA.</p>
                                        ">
                                     <a class="dropdown-item" href="#" wire:click.prevent='go_att_mass'><i
@@ -379,7 +379,7 @@
                                 <li tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="left" data-bs-title="Desatribuir em Massa"
                                     data-bs-content="
-                                <p>A Desatribuição em Massa possibilita a remoção total responsável pela atividade liberando-a na LISTA PARA DESPACHO. 
+                                <p>A Desatribuição em Massa possibilita a remoção total responsável pela atividade liberando-a na LISTA PARA DESPACHO.
                                     No entanto, essa ação só é possível se a atividade <span class='fw-bold'>NÃO</span> estiver FINALIZADA ou em PAUSA.</p>
                                     <span class='fs-4 text-white fw-bold'>&#9632;</span> <span class='text-white fw-bold text-uppercase'>Marque a caixa no final do botão para forçar e ignorar o PAUSE.</span>
                                ">
@@ -432,9 +432,9 @@
                         <tbody>
                             @foreach ($lists as $list)
                                 <tr
-                                    class="align-middle 
-                                    @if ($list->block) table-primary @endif 
-                                    
+                                    class="align-middle
+                                    @if ($list->block) table-primary @endif
+
                                     ">
                                     <td>
                                         <input class="form-check-input border border-1 border-primary" type="checkbox"
@@ -468,18 +468,9 @@
                                         @if ($list->Wpas->count())
                                             @php
                                                 $wpa = WpaStatus::status(
-                                                    $list
-                                                        ->Wpas()
-                                                        ->get()
-                                                        ->last()->stats,
-                                                    $list
-                                                        ->Wpas()
-                                                        ->get()
-                                                        ->last()->execstats,
-                                                    $list
-                                                        ->Wpas()
-                                                        ->get()
-                                                        ->last()->completed_at,
+                                                    $list->Wpas()->get()->last()->stats,
+                                                    $list->Wpas()->get()->last()->execstats,
+                                                    $list->Wpas()->get()->last()->completed_at,
                                                 );
                                             @endphp
                                             <i
@@ -533,7 +524,7 @@
                                         {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                     </td>
                                     <td scope="col"
-                                        class="text-center 
+                                        class="text-center
                                     @if ($list->Note->days_left < 0) text-bg-secondary
                                     @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                     table-danger
@@ -552,7 +543,9 @@
                                         @if ($list->transferred && $list->block_wpa)
                                             <span class="badge bg-warning">Aguardando Despacho</span>
                                         @else
-                                            @livewire('components.status.statusview', ['status' => $list->status, 'idstatus' => $list->id, 'note_id' => $list->note_id], key($list->id))
+                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         @endif
                                     </td>
                                     <td class="fw-bold fs-5">
@@ -562,14 +555,14 @@
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Iniciar.">
                                                     <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                        style="cursor: pointer;" 
+                                                        style="cursor: pointer;"
                                                         wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
                                                 </span>
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Transferir.">
                                                     <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                        style="cursor: pointer;" 
+                                                        style="cursor: pointer;"
                                                         wire:click.prevent="goTransferProd({{ $list->id }})"></i>
                                                 </span>
                                             @endif --}}
@@ -740,7 +733,9 @@
                                             <td>{{ $note->material }}</td>
                                             <td>
                                                 @php
-                                                    $this->additionalData[$index] = $note->load('Wpas') ? $note->load('Wpas')->Wpas->last()->dd : '';
+                                                    $this->additionalData[$index] = $note->load('Wpas')
+                                                        ? $note->load('Wpas')->Wpas->last()->dd
+                                                        : '';
                                                 @endphp
 
                                                 <input wire:model.defer="additionalData.{{ $index }}"
@@ -794,6 +789,7 @@
 
     {{-- END MODALS --}}
     @livewire('audits.info')
+    @livewire('components.status.show-status', key('show_status_note'))
 
 </div>
 

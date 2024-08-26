@@ -64,7 +64,7 @@
                     {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                 </td>
                 <td class="fw-light text-center align-middle">
-                    {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->created_at) : '---' }}
+                    {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->informed_at) : '---' }}
                 </td>
                 <td scope="col"
                     class="text-center

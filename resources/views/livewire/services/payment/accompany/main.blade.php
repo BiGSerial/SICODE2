@@ -248,7 +248,7 @@
                                             {{ $list->Note->WorkForm ? date('d/m/Y', strToTime($list->Note->WorkForm->date)) : '---' }}
                                         </td>
                                         <td class="fw-light">
-                                            {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->created_at)) : '---' }}
+                                            {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) : '---' }}
                                         </td>
 
                                         <td scope="col"
@@ -272,9 +272,11 @@
                                     ">
                                             {{ $daysLeft }}
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-                                            <span
-                                                class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                        <td class="fw-light text-center">
+
+                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
                                         <td class="fw-bold fs-5">
                                             @if (!$list->block && !$this->blockWaiting($list->status))
@@ -381,6 +383,7 @@
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.payment.forms.jobform', key('payment-form'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
     <div wire:init="checkOpen"></div>
 

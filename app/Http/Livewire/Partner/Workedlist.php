@@ -96,15 +96,15 @@ class Workedlist extends Component
         if (($this->date_in || $this->date_out)) {
 
             if ($this->date_in && !$this->date_out) {
-                $query->whereDate('created_at', '>=', $this->date_in);
+                $query->whereDate('informed_at', '>=', $this->date_in);
             }
 
             if (!$this->date_in && $this->date_out) {
-                $query->whereDate('created_at', '<=', $this->date_out);
+                $query->whereDate('informed_at', '<=', $this->date_out);
             }
 
             if ($this->date_in && $this->date_out) {
-                $query->whereBetween('created_at', [$this->date_in, $this->date_out]);
+                $query->whereBetween('informed_at', [$this->date_in, $this->date_out]);
             }
         }
 
