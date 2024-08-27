@@ -24,7 +24,10 @@ class Search extends Component
 
     public function getBuscarProperty()
     {
-        return Note::where('note', trim($this->search))->with(['Productions' => function ($query) {
+        return Note::where(function ($q) {
+            $q->where('note', trim($this->search))
+                ->orWhereRelation('Orders', 'ordem', trim($this->search));
+        })->with(['Productions' => function ($query) {
             $query->where('rejected', false);
         }])->first();
     }
