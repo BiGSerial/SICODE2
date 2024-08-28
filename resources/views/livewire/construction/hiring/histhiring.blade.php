@@ -159,6 +159,8 @@
                         <th scope="col" class="text-center align-middle">Regiao</th>
                         <th scope="col" class="text-center align-middle">Municipio</th>
                         <th scope="col" class="text-center align-middle">Status</th>
+                        <th scope="col" class="text-center align-middle"></th>
+
 
                     </thead>
                     <tbody class="table-group-divider">
@@ -336,6 +338,10 @@
                                 <td class="text-center align-middle"><span
                                         class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
                                 </td>
+                                <td class="align-middle text-center">
+                                    <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
+                                        wire:click.prevent="$emitTo('construction.hiring.actions.edit', 'edit_hiring', {{ $list->id }})"></i>
+                                </td>
 
                             </tr>
                         @endforeach
@@ -364,6 +370,7 @@
 
     {{-- Livewire Components --}}
     @livewire('partner.actions.responserviab', key('reesponser_modal_viab'))
+    @livewire('construction.hiring.actions.edit', key('hiring-edit'))
 
     {{-- Scripts --}}
     <script>

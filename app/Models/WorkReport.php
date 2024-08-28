@@ -27,6 +27,7 @@ class WorkReport extends Model
         'retry',
         'dd',
         'informer',
+        'informed_at'
     ];
 
     public function Note()

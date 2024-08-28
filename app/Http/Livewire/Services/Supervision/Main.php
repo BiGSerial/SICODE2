@@ -41,6 +41,7 @@ class Main extends Component
         'refresh_list'   => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
+        'checkOpen',
     ];
 
     public function mount($service)

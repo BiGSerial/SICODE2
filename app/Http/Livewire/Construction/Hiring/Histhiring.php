@@ -42,7 +42,8 @@ class Histhiring extends Component
     ];
 
     protected $listeners = [
-        'update_list' => '$refresh'
+        'update_list' => '$refresh',
+        'refresh_list' => '$refresh',
     ];
 
     public function mount()
@@ -62,6 +63,15 @@ class Histhiring extends Component
 
 
                 return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
             }
         }
     }
@@ -119,6 +129,8 @@ class Histhiring extends Component
 
         return $query->paginate($this->perPage);
     }
+
+
 
 
 

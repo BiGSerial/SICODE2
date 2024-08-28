@@ -322,9 +322,18 @@
     @livewire('production.return.return-work', key('returnWorkfomr'))
     @livewire('components.status.show-status', key('show_status_note'))
 
-    <div wire:init="checkOpen"></div>
+    {{-- <div wire:init="checkOpen"></div> --}}
 
 </div>
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+        Livewire.emitTo('services.publication.accompany.main', 'checkOpen');
+
+    });
+</script>
 
 
 @push('script')

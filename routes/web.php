@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, ImpersonationController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -141,6 +141,12 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/workreport', 'workreport')->name('report.workreport');
     Route::get('/workedlist', 'workedlist')->name('report.workedlist');
     Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
+});
+
+
+// Files Controller Manager
+Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function(){
+    Route::get('/', 'main')->name('main');
 });
 
 Route::get('/info', function () {

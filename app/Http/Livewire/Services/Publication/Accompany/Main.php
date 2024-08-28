@@ -47,6 +47,7 @@ class Main extends Component
         'refresh_list'       => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
+        'checkOpen'
     ];
 
     public function mount($service)
@@ -60,6 +61,8 @@ class Main extends Component
         if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
             $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
         }
+
+
     }
 
     public function blockWaiting($status)
@@ -91,9 +94,9 @@ class Main extends Component
     public function checkOpen()
     {
 
-        $check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first();
+        // $check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first();
 
-        if ($check) {
+        if ($check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first()) {
 
             // $this->emit('open_analise_analise', ['productionId' => $check->id, 'noteId' => $check->note_id]);
 
@@ -230,6 +233,8 @@ class Main extends Component
 
     public function render()
     {
+       
+
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
         return view('livewire.services.publication.accompany.main', [

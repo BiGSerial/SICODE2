@@ -1,6 +1,7 @@
 <div>
-    <div wire:ignore.self class="modal fade" id="modal_edit_hiring" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
+    <x-show-loading />
+    <div wire:key='teste' wire:ignore.self class="modal fade" id="modal_edit_hiring" tabindex="-1"
+        aria-labelledby="exampleModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content  edp-bg-stategrey-50">
                 @if ($note)
@@ -137,9 +138,10 @@
                                     INFORMAÇÕES VIABILIDADE</h5>
 
                                 @if (
-                                    !$note->Viabilities->last()->approved &&
+                                    (!$note->Viabilities->last()->approved &&
                                         !$note->Viabilities->last()->rejected &&
-                                        !$note->Viabilities->last()->completed)
+                                        !$note->Viabilities->last()->completed) ||
+                                        $rehiring)
                                     <div class="table-responsive">
 
 
@@ -161,8 +163,14 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ALTERAR
-                                        PARA</h5>
+                                    <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
+                                        @if ($rehiring)
+                                            RECONTRATAR PARA
+                                        @else
+                                            ALTERAR
+                                            PARA
+                                        @endif
+                                    </h5>
                                     <div class="card-body">
                                         <div class="mb-3 col-6">
                                             <label for="exampleFormControlInput1" class="form-label">Parceira:</label>
@@ -192,6 +200,14 @@
                                             </select>
                                         </div>
 
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" role="switch"
+                                                id="flexSwitchCheckDefault" wire:model.defer="newsend">
+                                            <label class="form-check-label" for="flexSwitchCheckDefault">ENVIAR COMO
+                                                NOVA VIABILIDADE</label>
+                                        </div>
+
+
                                         <div class="mb-3">
                                             <button class="btn btn-sm btn-primary"
                                                 wire:click.prevent="toAlterViability()">SALVAR</button>
@@ -200,7 +216,10 @@
                                 @else
                                     <div class="card-body">
                                         <h4 class="text-center fw-bold">ALTERAÇÃO DA VIABILIDADE INDISPONÍVEL</h4>
-                                        <p class="text-center">A EMPRESA DE DESTINO JÁ EFETUOU O RETORNO DA VIABILDIADE.
+                                        <p class="text-center">A EMPRESA DE DESTINO JÁ EFETUOU O RETORNO DA VIABILIDADE.
+                                        </p>
+                                        <p class="text-center"><button class="btn btn-sm btn-primary"
+                                                wire:click="recontratar()">RECONTRATAR</button> {{ $rehiring }}
                                         </p>
                                     </div>
                                 @endif

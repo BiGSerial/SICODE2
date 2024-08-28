@@ -137,3 +137,14 @@
     {{-- Livewire Components --}}
     @livewire('components.pausenote.pausenote2', key('PauseNotes2'))
 </div>
+<script>
+    // Capturando o evento de fechamento do modal
+    document.getElementById('formProductionModal').addEventListener('hidden.bs.modal', () => {
+
+        document.getElementById('formProductionModal').removeAttribute('data-backdrop');
+        Livewire.emitTo('services.publication.forms.jobform', 'closeAll');
+
+    });
+
+   
+</script>
