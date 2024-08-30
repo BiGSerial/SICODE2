@@ -997,7 +997,8 @@ class Main extends Component
                     })->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0040')
                             ->where(function ($sq) {
-                                $sq->where('status', 'like', 'LIB%');
+                                $sq->where('status', 'like', 'LIB%')
+                                ->orwhere('status', 'like', 'JBFI LIB%');
                             });
                     });
             });

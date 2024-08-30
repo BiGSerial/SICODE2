@@ -316,6 +316,12 @@
                     class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
         </li>
 
+        @can('engineer')
+            <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+            </li>
+        @endcan
+
     </ul>
 
 </li>

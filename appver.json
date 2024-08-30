@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.1",
+    "appver": "1.10.2",
     "historic": [
+        {
+            "version": "1.10.2",
+            "description": "Created Files controller and View about Rejeceted Forms",
+            "date": "2024-08-30"
+        },
         {
             "version": "1.10.1",
             "description": "Fix somethings and add NoteStatus View in All Status exibition",

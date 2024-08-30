@@ -193,7 +193,7 @@ class Filesupervision extends Component
                         File::create([
                             'note_id' => $this->note->id,
                             'user_id' => auth()->user()->id,
-                            'service_id' => null,
+                            'service_id' => $this->production->service_id,
                             'file_name' => $newName,
                             'path' => $caminho,
                             'ext' => $extension,

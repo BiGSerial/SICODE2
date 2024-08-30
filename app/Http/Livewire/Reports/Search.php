@@ -17,10 +17,17 @@ class Search extends Component
         'search' => ['except' => '', 'as' => 's'],
     ];
 
+    protected $listeners = [
+        'update_list' => '$refresh',
+    ];
+
     public function Search()
     {
 
     }
+
+
+
 
     public function getBuscarProperty()
     {

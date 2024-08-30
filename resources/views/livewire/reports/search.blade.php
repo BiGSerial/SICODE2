@@ -3,7 +3,7 @@
     use Carbon\CarbonInterval;
     use App\Custom\Notestatus;
     use App\Helpers\FileIcon;
-    
+
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -35,7 +35,7 @@
             </h4>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-8">
+                    <div class="col-7">
                         <dl class="row">
                             <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">RUBRICA</dt>
                             <dd class="col-sm-8 text-white text-uppercase">{{ $lists->rubrica }}</dd>
@@ -118,7 +118,7 @@
                     </div>
 
 
-                    <div class="col-4">
+                    <div class="col-5">
                         <div class="card">
                             <h5 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">REGISTRO SICODE</h5>
                             <div class="card-body">
@@ -135,7 +135,22 @@
                         </div>
 
                         <div class="card">
-                            <h5 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">ARQUIVOS</h5>
+                            <div
+                                class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">ARQUIVOS</h5>
+                                <div>
+
+                                    @can('admin')
+                                        <button class="btn btn-sm btn-primary"
+                                            wire:click.prevent="$emitTo('files.manager.createfiles', 'createFile', {{ $lists }})">
+                                            <i class="ri-upload-cloud-2-line fs-5"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" wire:click="$emit('update_list')">
+                                            <i class="ri-upload-cloud-2-line fs-5"></i>
+                                        </button>
+                                    @endcan
+                                </div>
+                            </div>
                             @if ($lists->Files->count())
                                 <table class="table table-sm table-condensed table-striped table-hover">
                                     <thead class="">
@@ -146,11 +161,33 @@
                                         <th class="text-center col-1">Serviço</th>
                                         <th class="text-center">Tipo</th>
                                         <th class="text-center">Arquivo</th>
+                                        <th class="text-center">Tam</th>
+                                        <th class="text-center"></th>
                                     </thead>
                                     <tbody>
+                                        @php
+
+                                            // Funções
+                                            function formatFileSize($size)
+                                            {
+                                                $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                                                $unitIndex = 0;
+
+                                                while ($size >= 1024 && $unitIndex < count($units) - 1) {
+                                                    $size /= 1024;
+                                                    $unitIndex++;
+                                                }
+
+                                                return number_format($size, 2) . ' ' . $units[$unitIndex];
+                                            }
+
+                                        @endphp
                                         @foreach ($lists->Files->sortBy('file_name') as $file)
+                                            @php
+                                                $f_exists = Storage::exists($file->path);
+                                            @endphp
                                             {{-- @dump($file->ext) --}}
-                                            <tr>
+                                            <tr wire:key="file-{{ $file->id }}">
                                                 <td class="text-center align-middle"><input
                                                         class="form-check-input border border-1 border-secondary"
                                                         type="checkbox" value="{{ $file->id }}"
@@ -164,6 +201,22 @@
                                                 <td class="text-center align-middle"><span
                                                         wire:click.prenvet="downloadFile({{ $file->id }})"
                                                         style="cursor: pointer;">{{ $file->file_name }}</span>
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    @if ($f_exists)
+                                                        {{ formatFileSize(Storage::size($file->path)) }}
+                                                    @else
+                                                        ---
+                                                    @endif
+                                                </td>
+                                                <td class="text-center align-middle">
+                                                    @can('admin')
+                                                        <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
+                                                            wire:click.prevent="$emitTo('files.manager.fileedit', 'editFile', {{ $file }})"></i>
+                                                        <i class="ri-delete-bin-2-line text-danger fs-5"
+                                                            wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $file }})"
+                                                            style="cursor: pointer;"></i>
+                                                    @endcan
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -375,4 +428,6 @@
     {{-- Modals Components --}}
     @livewire('partner.show.show-work-form', key('FormModdalShow'))
     @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('files.manager.fileedit', key('file-edit'))
+    @livewire('files.manager.createfiles', key('create-files'))
 </div>

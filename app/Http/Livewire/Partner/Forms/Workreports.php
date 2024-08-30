@@ -192,6 +192,7 @@ class Workreports extends Component
         $this->form['note_id'] = $this->note->id;
         $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
         $this->form['user_id'] = Auth()->User()->id;
+        $this->form['informed_at'] = date('Y-m-d H:i:s');
 
         if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
             $this->dispatchBrowserEvent('swal', [

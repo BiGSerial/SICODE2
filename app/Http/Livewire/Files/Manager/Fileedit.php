@@ -16,7 +16,9 @@ class Fileedit extends Component
 
 
     protected $listeners = [
-        'editFile'
+        'editFile',
+        'deleteFile',
+        'fileConfirmDelete',
     ];
 
     public function editFile(File $file)
@@ -31,6 +33,61 @@ class Fileedit extends Component
                 'id' => 'modal_edit_file',
             ]);
         }
+    }
+
+    public function deleteFile(File $file = null)
+    {
+        $this->file = $file;
+
+        if ($this->file) {
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'Remover Arquivo',
+                'msg'           => "Você deseja remover o arquivo <strong>{$this->file->file_name}</strong>? O arquivo não poderá ser recuperado no servidor.",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Remova!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'fileConfirmDelete',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
+
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ARQUIVO REMOVIDO OU INEXISTENTE',
+                'timer'    => 3000,
+
+            ]);
+        }
+    }
+
+    public function fileConfirmDelete()
+    {
+        if (Storage::exists($this->file->path)) {
+            Storage::delete($this->file->path);
+        }
+
+        try {
+            $this->file->delete();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'ARQUIVO REMOVIDO',
+                'timer'    => 1500,
+
+            ]);
+        } catch (\Throwable $th) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO AO REMOVER ARQUIVO',
+                'timer'    => 3000,
+
+            ]);
+        }
+
     }
 
     protected $rules = [
@@ -59,6 +116,8 @@ class Fileedit extends Component
 
                 $this->file->path = $path;
                 $this->file->ext = $this->newFile->getClientOriginalExtension();
+                $this->file->noexists = false;
+
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -94,6 +153,7 @@ class Fileedit extends Component
 
     public function closeAll()
     {
+        $this->emitUp('update_list');
         $this->dispatchBrowserEvent('hideModal');
         $this->file = null;
         $this->newFile = '';

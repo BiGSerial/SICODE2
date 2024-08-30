@@ -100,6 +100,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
 
     Route::get('/workreports', 'workreports')->name('workreport');
+    Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport')->middleware('can:engineer');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
 });
@@ -145,7 +146,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
 
 
 // Files Controller Manager
-Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function(){
+Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main');
 });
 

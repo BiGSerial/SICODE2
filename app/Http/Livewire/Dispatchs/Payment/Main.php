@@ -86,6 +86,8 @@ class Main extends Component
 
     public $not_assigned = false;
 
+    public $typeNote = '';
+
 
     // Filters
     private $filter_group = 'payments';
@@ -99,12 +101,24 @@ class Main extends Component
         'confirm_dispatch'  => 'confirmed_att',
     ];
 
+    protected $queryString = [
+        'search'   => ['except' => '', 'as' => 'buscar'],
+        'page'     => ['except' => 1, 'as' => 'p'],
+        'perPage'  => ['as' => 'pp'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
+    ];
+
     public function mount($service)
     {
 
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+    }
 
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->gotoPage(1);
 
     }
 
@@ -472,7 +486,7 @@ class Main extends Component
 
     public function buscarMulti()
     {
-
+ 
         if ($this->advanceSearch) {
 
             $this->gotoPage(1);
@@ -497,6 +511,9 @@ class Main extends Component
         }
 
         if (count($this->multiSearch)) {
+
+            $this->gotoPage(1);
+
             $this->closeall();
         }
     }
@@ -566,9 +583,11 @@ class Main extends Component
 
 
         if (count($this->multiSearch)) {
-            $query->whereIn('note', $this->multiSearch)
-            ->orWhereRelation('Orders', function ($q) {
-                $q->whereIn('ordem', $this->multiSearch);
+            $query->where(function ($sq) {
+                $sq->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });
             });
         } elseif ($this->search) {
             $query->where(function ($query) {
@@ -600,7 +619,10 @@ class Main extends Component
                 $query->whereIn('lexp', $this->filters['city'])
                     ->orWhereNull('lexp');
             });
+        })->when($this->typeNote, function ($q) {
+            $q->where('type_note', $this->typeNote);
         });
+
 
 
         $query->with('Productions.User')

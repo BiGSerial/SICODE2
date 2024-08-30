@@ -28,4 +28,9 @@ class ReportsController extends Controller
     {
         return view('reports.workreports');
     }
+
+    public function rejectedWorkReports()
+    {
+        return view('reports.rejectedworkedreports');
+    }
 }

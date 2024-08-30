@@ -16,6 +16,7 @@ class File extends Model
         'file_name',
         'path',
         'ext',
+        'noexists',
     ];
 
     public function Note()

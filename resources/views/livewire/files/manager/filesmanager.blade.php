@@ -35,6 +35,30 @@
         </div>
     </div>
 
+    <div class="d-flex justify-content-end">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault"
+                wire:model="noFile">
+            <label class="form-check-label" for="flexSwitchCheckDefault">Somente Sem Link</label>
+        </div>
+        <button class="btn btn-primary ms-2" wire:click.prevent="export_excel" wire:loading.attr="disabled"
+            wire:target="export_excel">
+
+
+            <i class="ri-file-excel-2-line align-middle" wire:loading.remove wire:target="export_excel"></i>
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" wire:loading
+                wire:target="export_excel"></span>
+            Exportar</button>
+        <button class="btn btn-primary ms-2" wire:click.prevent="checkFilesExists" wire:loading.attr="disabled"
+            wire:target="checkFilesExists">
+
+
+            <i class="ri-link-m align-middle" wire:loading.remove wire:target="checkFilesExists"></i>
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" wire:loading
+                wire:target="checkFilesExists"></span>
+            Check</button>
+    </div>
+
     <!-- Renderização dos links de paginação -->
     <div class="d-flex justify-content-center">
         {{ $lists->links() }}
@@ -120,6 +144,16 @@
                                 <td class="text-center align-middle">
                                     <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
                                         wire:click.prevent="$emitTo('files.manager.fileedit', 'editFile', {{ $list }})"></i>
+                                    @if ($f_exists)
+                                        <i class="ri-download-cloud-2-line text-primary fs-5" style="cursor: pointer;"
+                                            wire:click.prevent="downloadFile({{ $list }})"></i>
+                                    @endif
+                                    <i class="ri-upload-cloud-2-fill text-primary fs-5" style="cursor: pointer;"
+                                        wire:click.prevent="$emitTo('files.manager.createfiles', 'createFile', {{ $list->Note }})"></i>
+                                    <i class="ri-delete-bin-2-line text-danger fs-5"
+                                        wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $list }})"
+                                        style="cursor: pointer;"></i>
+
                                 </td>
                             </tr>
                         @endforeach
@@ -153,4 +187,5 @@
     </div>
 
     @livewire('files.manager.fileedit', key('file-edit'))
+    @livewire('files.manager.createfiles', key('create-files'))
 </div>
