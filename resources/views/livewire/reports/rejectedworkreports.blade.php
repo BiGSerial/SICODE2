@@ -138,7 +138,7 @@
 
     @if (!$lists->count())
         <div class="text-center my-5 py-3">
-            <h3>NENHUMA ATIVIDADE ENCONTRADA</h3>
+            <h3>NENHUM INFORME REJEITADO</h3>
         </div>
     @endif
 
