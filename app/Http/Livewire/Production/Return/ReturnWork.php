@@ -68,12 +68,19 @@ class ReturnWork extends Component
 
             $this->production->Note->WorkForm->update([
                 'rejected' => true,
+                'informed_at' => null,
             ]);
 
             $this->returnWork->work_report_id = $this->production->Note->WorkForm->id;
             $this->returnWork->service_id = $this->production->service_id;
             $this->returnWork->user_id = Auth()->User()->id;
             $this->returnWork->save();
+
+            $this->production->Note->WorkForm->update([
+                'retry' => isset($this->production->Note->WorkForm->Returnwork) ? $this->production->Note->WorkForm->Returnwork->count() : 0,
+            ]);
+
+
             $this->production->delete();
 
             $this->emitUp('refresh_list');

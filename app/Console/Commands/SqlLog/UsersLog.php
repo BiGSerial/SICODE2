@@ -34,7 +34,7 @@ class UsersLog extends Command
 
         $progressBar->start();
 
-        User::chunk(50, function ($chunk) use ($progressBar) {
+        User::withTrashed()->chunk(50, function ($chunk) use ($progressBar) {
             foreach ($chunk as $user) {
                 UserSqlLog::updateOrCreate(
                     ['user_id' => $user->id],

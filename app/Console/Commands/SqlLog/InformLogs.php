@@ -69,7 +69,8 @@ class InformLogs extends Command
                             'approved' => $inform->approved,
                             'rejected' => $inform->rejected,
                             'retry' => $inform->retry,
-                            'informed_at' => $inform->created_at,
+                            'first_at' => $inform->created_at,
+                            'informed_at' => $inform->informed_at,
                         ]
                     );
                 }

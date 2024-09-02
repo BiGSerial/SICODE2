@@ -368,6 +368,9 @@
                                     <th class="text-center" scope="col">Equipe WPA</th>
                                     <th class="text-center" scope="col">Responsável</th>
                                     <th class="text-center" scope="col">Conclusão Informada</th>
+                                    <th class="text-center" scope="col">Primeira Entrega</th>
+                                    <th class="text-center" scope="col">Rejeiçoes</th>
+                                    <th class="text-center" scope="col">Ultima de Devolução</th>
                                     <th class="text-center" scope="col">Entregue Em</th>
                                 </tr>
                             </thead>
@@ -399,6 +402,15 @@
                                     </td>
                                     <td class="text-center align-middle">
                                         {{ $lists->WorkForm->date ? date('d/m/Y', strToTime($lists->WorkForm->date)) : 'Desconhecido' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ $lists->WorkForm->created_at ? date('d/m/Y', strToTime($lists->WorkForm->created_at)) : 'Desconhecido' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ isset($lists->WorkForm->Returnwork) ? $lists->WorkForm->Returnwork->count() : 0 }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {{ isset($lists->WorkForm->Returnwork) ? date('d/m/Y', strToTime($lists->WorkForm->Returnwork->last()->created_at)) : '----' }}
                                     </td>
                                     <td class="text-center align-middle">
                                         {{ $lists->WorkForm->informed_at ? date('d/m/Y', strToTime($lists->WorkForm->informed_at)) : 'Desconhecido' }}

@@ -111,6 +111,15 @@ class SelectOptions
         ];
     }
 
+    public static function getComissionEnd()
+    {
+        return [
+            (object)['reason' => '(58) Inspeção Rejeitada', 'value' => 'INSPECAO REJEITADA', 'block' => false],
+            (object)['reason' => '(61) Inspeção Aprovada', 'value' => 'INSPECAO APROVADA', 'block' => false]
+        ];
+    }
+
+
     public static function getSupervisionEnd()
     {
         return [

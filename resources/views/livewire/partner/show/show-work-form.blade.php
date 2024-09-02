@@ -60,7 +60,8 @@
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">DATA DO INFORME:</td>
                                             <td class="align-middle">
-                                                {{ date('d/m/Y H:i:s', strToTime($form->informed_at)) }}</td>
+                                                {{ isset($form->informed_at) ? date('d/m/Y H:i:s', strToTime($form->informed_at)) : '' }}
+                                            </td>
                                         </tr>
                                         <tr>
                                             <td class="fw-bold col-2 align-middle">NÚMERO DD:</td>
