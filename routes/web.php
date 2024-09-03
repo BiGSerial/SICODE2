@@ -100,7 +100,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
 
     Route::get('/workreports', 'workreports')->name('workreport');
-    Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport')->middleware('can:engineer');
+    Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
 });

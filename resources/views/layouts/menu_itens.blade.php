@@ -316,12 +316,11 @@
                     class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
         </li>
 
-        @can('engineer')
+        @if (!Auth()->User()->onlyparner)
             <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
                         class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
             </li>
-        @endcan
-
+        @endif
     </ul>
 
 </li>

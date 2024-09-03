@@ -371,6 +371,7 @@
                                     <th class="text-center" scope="col">Primeira Entrega</th>
                                     <th class="text-center" scope="col">Rejeiçoes</th>
                                     <th class="text-center" scope="col">Ultima de Devolução</th>
+                                    <th class="text-center" scope="col">Status Atual</th>
                                     <th class="text-center" scope="col">Entregue Em</th>
                                 </tr>
                             </thead>
@@ -407,10 +408,17 @@
                                         {{ $lists->WorkForm->created_at ? date('d/m/Y', strToTime($lists->WorkForm->created_at)) : 'Desconhecido' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ isset($lists->WorkForm->Returnwork) ? $lists->WorkForm->Returnwork->count() : 0 }}
+                                        {{ isset($lists->WorkForm->Returnwork) && $lists->WorkForm->Returnwork->count() ? $lists->WorkForm->Returnwork->count() : 0 }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ isset($lists->WorkForm->Returnwork) ? date('d/m/Y', strToTime($lists->WorkForm->Returnwork->last()->created_at)) : '----' }}
+                                        {{ isset($lists->WorkForm->Returnwork) && $lists->WorkForm->Returnwork->count() ? date('d/m/Y', strToTime($lists->WorkForm->Returnwork->last()->created_at)) : '---' }}
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        @if ($lists->WorkForm->rejected)
+                                            <span class="badge text-bg-warning text-wrap">Informe em Revisão</span>
+                                        @else
+                                            <span class="badge text-bg-success text-wrap">Normal</span>
+                                        @endif
                                     </td>
                                     <td class="text-center align-middle">
                                         {{ $lists->WorkForm->informed_at ? date('d/m/Y', strToTime($lists->WorkForm->informed_at)) : 'Desconhecido' }}

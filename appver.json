@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.3",
+    "appver": "1.10.4",
     "historic": [
+        {
+            "version": "1.10.4",
+            "description": "Fix some thigs and Transferprod, Search Bug",
+            "date": "2024-09-03"
+        },
         {
             "version": "1.10.3",
             "description": "Add Comssion options Service",

@@ -49,7 +49,7 @@
                     </div>
                     <div class="modal-footer edp-bg-stategrey-100">
                         <button type="button" class="btn btn-danger" wire:click.prevent="close()">CANCELAR</button>
-                        <button type="submit" class="btn btn-secondary" wire:click.prevent="save()">DEVOLVER</button>
+                        <button type="submit" class="btn btn-secondary" wire:click.prevent="toSave()">DEVOLVER</button>
 
                     </div>
                     </form>

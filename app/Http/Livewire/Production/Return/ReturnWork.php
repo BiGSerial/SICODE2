@@ -14,7 +14,8 @@ class ReturnWork extends Component
 
     protected $listeners = [
         'toReturn',
-        'close'
+        'close',
+        'confirm_return_work' => 'save',
     ];
 
     protected $rules = [
@@ -60,11 +61,30 @@ class ReturnWork extends Component
         }
     }
 
+    public function toSave()
+    {
+        $this->validate();
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'DEVOLVER INFORME',
+            'msg'   => "<p><strong>VOCÊ ESTÁ PRESTES A DEVOLVER O INFORME: </strong></p>
+                <p class='mb-0 py-0'>OBRA: <strong>{$this->production->Note->note}</strong> </p>
+                <p class='mt-0 py-0'>EMPREITEIRA: <strong>".mb_strToUpper($this->production->Note->WorkForm->Company->name)."</strong></p>
+
+                <p>Deseja continuar?</p> ",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Devolva!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_return_work',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
+
+        ]);
+    }
+
     public function save()
     {
         try {
-
-            $this->validate();
 
             $this->production->Note->WorkForm->update([
                 'rejected' => true,
@@ -77,7 +97,7 @@ class ReturnWork extends Component
             $this->returnWork->save();
 
             $this->production->Note->WorkForm->update([
-                'retry' => isset($this->production->Note->WorkForm->Returnwork) ? $this->production->Note->WorkForm->Returnwork->count() : 0,
+                'retry' => $this->production->Note->WorkForm->Returnwork->count(),
             ]);
 
 
