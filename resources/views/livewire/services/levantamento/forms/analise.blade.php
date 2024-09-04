@@ -110,7 +110,8 @@
                             </select>
                         </div>
 
-
+                        {{-- Files Upload --}}
+                        @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false])
 
                         <div class="mb-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Informações: <span
@@ -127,6 +128,7 @@
 
 
             <div class="d-flex justify-content-end">
+                {{ (int) $hasFile }}
                 <button class="btn btn-primary me-2" wire:click.prevent="save_info">SALVAR</button>
                 <button class="btn btn-warning me-2" wire:click.prevent="to_pause">PAUSAR</button>
                 <button class="btn btn-success me-2"

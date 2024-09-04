@@ -76,12 +76,21 @@ class Analise extends Component
 
     public $postes;
 
+    public $hasFile = false;
+
     protected $listeners = [
         'open_analise_lev' => 'openAnalise',
         'analise_clean'    => 'clean',
         'confirm_goFinish' => 'goFinish',
+        'savedFiles' => 'savedFiles',
+        'hasFile',
 
     ];
+
+    public function hasFile($value)
+    {
+        $this->hasFile = $value;
+    }
 
     public function updatedPostes($value)
     {
@@ -270,7 +279,7 @@ class Analise extends Component
                 'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
+                        adequada.
                     </p>
                 ",
             ]);
@@ -322,13 +331,13 @@ class Analise extends Component
                 <div class='card text-bg-danger'>
                 <div class='card-body'>
                    Você está prestes a encerrar sua produção com <strong>NENHUM</strong> poste envolvido.
-                  
+
                 </div>
             </div>
                     <div class='card'>
                         <div class='card-body'>
                             Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                            Uma vez encerrado, essa operação nao poderá ser desfeita. 
+                            Uma vez encerrado, essa operação nao poderá ser desfeita.
                             <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                         </div>
                     </div>
@@ -348,7 +357,7 @@ class Analise extends Component
                     <div class='card'>
                         <div class='card-body'>
                             Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                            Uma vez encerrado, essa operação nao poderá ser desfeita. 
+                            Uma vez encerrado, essa operação nao poderá ser desfeita.
                             <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                         </div>
                     </div>
@@ -402,11 +411,25 @@ class Analise extends Component
                 'status'     => 5,
             ]);
 
-            $this->clean();
-            $this->dispatchBrowserEvent('hideModal');
-            $this->emit('refresh_accomany');
+            if ($this->hasFile) {
+                $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+            } else {
+                $this->clean();
+                $this->dispatchBrowserEvent('hideModal');
+                $this->emit('refresh_accomany');
+            }
         }
     }
+
+    public function savedFiles()
+    {
+        $this->clean();
+        $this->emitTo('files.manager.create-prod-files', 'cleanFiles');
+        $this->dispatchBrowserEvent('hideModal');
+        $this->emit('refresh_accomany');
+    }
+
+
 
     public function gerarCarta($res, $sub)
     {
@@ -419,10 +442,10 @@ class Analise extends Component
         VIII - apresentação de licença ou declaração emitida pelo órgão competente se as instalações ou a extensão de rede de responsabilidade do consumidor e demais usuários ocuparem áreas protegidas pela legislação, tais como unidades de conservação, reservas legais, áreas de preservação permanente, territórios indígenas e quilombolas, entre outras;
         Dessa forma, pedimos que nos apresente ofício autorizativo da FUNAI em nome do solicitante. De posse do documento citado, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
         Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
-        
+
         Atenciosamente,";
 
-        $carta['LOTEAMENTO']['VILLAGE'] = '        
+        $carta['LOTEAMENTO']['VILLAGE'] = '
         Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo:
         Conforme parecer técnico APAS nº003-2017 processo 72708697 – Assunto:
         Regularização do fornecimento de energia elétrica Loteamento Village do Sol, foi estabelecido pelo órgão ambiental estadual manifestação favorável as ligações de energia elétrica para as moradias já existentes até 02/10/2015 e não se estende às novas ocupações.
@@ -435,7 +458,7 @@ class Analise extends Component
         Conforme ofício nº 0167/19 SEMAMA, para a continuidade do atendimento da ligação de energia, torna-se necessário V.Sa obter  autorização prévia junto à Secretaria  Municipal de Agricultura e Meio Ambiente, razão pela qual pedimos dirigir-se à citada Secretaria e obter o Requerimento específico.
         De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
         Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
-        
+
         Atenciosamente,';
 
         $carta['LOTEAMENTO']['SERRA'] = '
@@ -444,7 +467,7 @@ class Analise extends Component
         Para a continuidade do atendimento da ligação, torna-se necessário V.Sa obter  autorização prévia junto à Secretaria  de Desenvolvimento Urbano da Prefeitura Municipal da Serra.
         De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
         Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
-        
+
         Atenciosamente,';
 
         $carta['LOTEAMENTO']['DM'] = '
@@ -453,7 +476,7 @@ class Analise extends Component
         Para a continuidade do atendimento da ligação, torna-se necessário V.Sa obter  autorização prévia junto à Secretaria  de Meio Ambiente da Prefeitura Municipal de Domingos Martins
         Dessa forma, pedimos dirigir-se à citada Secretaria munido dos seguintes documentos: Certidão atualizada do imóvel, documentos pessoais do requisitante, cadastro ambiental rural (CAR), alvará de obras emitido pela SECPDE e croqui ou planta do imóvel georreferenciado com memorial descritivo e ART do responsável técnico, com identificação dos recursos hídricos mais próximos.De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
         Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
-        
+
         Atenciosamente,';
 
         $carta['SEMMA']['DM'] = '
@@ -483,12 +506,12 @@ class Analise extends Component
         $municipio = $this->note->lexp ? $this->note->lexp : $this->municipio;
 
         $carta['LOTEAMENTO']['OUTROS'] = "
-        Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo: 
+        Em atenção à solicitação de V.Sª., informamos que não foi possível dar sequência no protocolo solicitado, pelo seguinte motivo:
         O endereço informado se encontra em ÁREA RESTRITA (LOTEAMENTO IRREGULAR).
 
-        Para a continuidade do atendimento da ligação de energia, torna-se necessário V.Sa obter  autorização prévia junto à Prefeitura Municipal de {$municipio}, por meio da respectiva Secretaria  responsável pela regularização fundiária. 
-        De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação. 
-        Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes). 
+        Para a continuidade do atendimento da ligação de energia, torna-se necessário V.Sa obter  autorização prévia junto à Prefeitura Municipal de {$municipio}, por meio da respectiva Secretaria  responsável pela regularização fundiária.
+        De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
+        Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).
             ";
 
         $carta['SEMMA']['OUTROS'] = "
@@ -519,7 +542,7 @@ class Analise extends Component
             4.       Cadastro no CAR (no caso de imóvel rural);
             5.       Alvará de construção ou '''habite-se''' ou certidão emitida pela prefeitura municipal que ateste a regularidade urbanística e ambiental do imóvel, (no caso de imóvel urbano);
             6.       Informar telefone de contato e endereço de correspondência do (s) beneficiário (s) a que serão atendidos pela instalação.
-            Descrição da instalação da rede/ infraestrutura pretendida = {$this->note->group1} 
+            Descrição da instalação da rede/ infraestrutura pretendida = {$this->note->group1}
             Coordenadas UTM de localização/extensão da instalação = {$this->lat} m {$this->lon} m
             De posse da autorização, pedimos retornar a uma das Agências de Atendimento ao Cliente da EDP ES, para formalizar nova solicitação.
             Esclarecimentos adicionais poderão ser obtidos pelos telefones 0800 721 0707 (Atendimento Clientes Baixa Tensão) ou 0800 721 5671 (Atendimento Poder Público e Grandes Clientes).

@@ -355,9 +355,8 @@
                                 <th scope="col" class="fw-bold text-center">numPedido</th>
                                 <th scope="col" class="fw-bold text-center">Rubrica</th>
                                 <th scope="col" class="fw-bold text-center">Municipio</th>
-                                <th scope="col" class="fw-bold text-center">Grp1</th>
+                                <th scope="col" class="fw-bold text-center">Material</th>
                                 <th scope="col" class="fw-bold text-center">Grp2</th>
-
                                 <th scope="col" class="fw-bold text-center">Grp4</th>
                                 <th scope="col" class="fw-bold text-center">Grp5</th>
                                 <th scope="col" class="fw-bold text-center">Postes L</th>
@@ -536,7 +535,7 @@
                                     <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
                                     <td class="fw-light text-center">{{ $list->rubrica }}</td>
                                     <td class="fw-light text-center">{{ $list->lexp }}</td>
-                                    <td class="fw-light text-center">{{ $list->group1 }}</td>
+                                    <td class="fw-light text-center">{{ $list->material }}</td>
                                     <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
                                     </td>
                                     <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}

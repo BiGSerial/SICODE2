@@ -9,21 +9,57 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
+/**
+ * Componente Livewire para Gerenciamento de Arquivos de Produção
+ *
+ * Este componente é responsável por gerenciar o upload e manipulação de arquivos
+ * relacionados a uma produção específica. Permite adicionar, renomear, verificar
+ * e remover arquivos antes de salvar definitivamente no sistema de armazenamento.
+ *
+ * Comandos Recebidos:
+ * - `saveFiles`: Salva os arquivos temporários permanentemente.
+ * - `cleanFiles`: Limpa os arquivos temporários e redefine o estado do componente.
+ *
+ * Métodos Públicos:
+ * - `mount(Production $production, bool $needFiles = false)`: Inicializa o componente
+ *   com a produção especificada e determina se arquivos são necessários.
+ * - `updatedFiles()`: Valida e adiciona novos arquivos à lista temporária.
+ * - `removeFile($index)`: Remove um arquivo específico da lista de arquivos temporários.
+ * - `closeAll()`: Limpa todos os arquivos temporários e reinicializa o componente.
+ * - `saveFiles()`: Salva os arquivos temporários no armazenamento e no banco de dados.
+ *
+ * Comandos Emitidos:
+ * - `hasFile`: Informa se há arquivos presentes (true/false).
+ * - `savedFiles`: Notifica que os arquivos foram salvos com sucesso.
+ *
+ * Declaração do Componente no Blade:
+ * Para usar este componente em uma view Blade, inclua a seguinte linha:
+ *
+ * <livewire:files.manager.create-prod-files :production="$production" :need-files="true" />
+ *
+ * Onde:
+ * - `:production="$production"` passa uma instância de `Production`.
+ * - `:need-files="true"` (opcional) indica se arquivos são obrigatórios.
+ */
+
 class CreateProdFiles extends Component
 {
     use WithFileUploads;
 
     public ?Production $production = null;
     public $needFiles;
+    public $alertFile = false;
     public $files = [];
     public $tempFiles = [];
     public $uploadType;
+    public $services;
 
     protected $listeners = [
-        'createFile',
+        'saveFiles',
+        'cleanFiles' => 'closeAll',
     ];
 
-    public function mount(Production $production, $needFiles = false)
+    public function mount(Production $production, bool $needFiles = false)
     {
         $this->production = $production;
         $this->needFiles = $needFiles;
@@ -35,17 +71,52 @@ class CreateProdFiles extends Component
 
         if (count($this->files)) {
             foreach ($this->files as $file) {
-                $this->tempFiles[] = [
-                    'service_id' => $this->service_id,
-                    'user_id' => Auth()->User()->id,
-                    'uploadType' => $this->uploadType,
-                    'ext' => $file->getClientOriginalExtension(),
-                    'newName' => null,
-                    'file' => $file,
-                ];
+
+                $exists = false;
+
+                if (count($this->tempFiles)) {
+                    foreach ($this->tempFiles as $temp_file) {
+                        if ($temp_file['file']->getClientOriginalName() === $file->getClientOriginalName()) {
+                            $exists = true;
+                        }
+                    }
+                }
+
+                if (!$exists) {
+                    $this->tempFiles[] = [
+                        'note_id' => $this->production->service_id,
+                        'service_id' => $this->production->service_id,
+                        'user_id' => Auth()->User()->id,
+                        'uploadType' => $this->uploadType,
+                        'ext' => $file->getClientOriginalExtension(),
+                        'newName' => null,
+                        'file' => $file,
+                    ];
+                }
             }
         }
 
+        $this->checkFilesExists();
+    }
+
+    public function checkFilesExists()
+    {
+        if (count($this->tempFiles)) {
+
+            $this->alertFile = false;
+
+            foreach ($this->tempFiles as $temp_file) {
+
+                if (strpos($temp_file['file']->getClientOriginalName(), $this->production->Note->note) === false) {
+                    $this->alertFile = true;
+                }
+            }
+
+
+            $this->emitUp('hasFile', true);
+        } else {
+            $this->emitUp('hasFile', false);
+        }
     }
 
 
@@ -58,6 +129,8 @@ class CreateProdFiles extends Component
             }
             unset($this->tempFiles[$index]);
         }
+
+        $this->checkFilesExists();
     }
 
 
@@ -76,7 +149,7 @@ class CreateProdFiles extends Component
         $this->files = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
-        $this->dispatchBrowserEvent('hideModal');
+
     }
 
 
@@ -124,8 +197,8 @@ class CreateProdFiles extends Component
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->services->firstWhere('uuid', $temp['service_id'])->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev = mb_strtoupper(substr($this->production->Service->service, 0, 4));
+                $temp['newName'] = $type."_".$service_abrev."_".$this->production->Note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
@@ -140,6 +213,8 @@ class CreateProdFiles extends Component
             foreach ($this->tempFiles as $tempFile) {
                 $this->rename($this->tempFiles, $tempFile['uploadType']);
             }
+        } else {
+            return;
         }
 
         DB::beginTransaction();
@@ -151,7 +226,7 @@ class CreateProdFiles extends Component
 
             if (Storage::exists($caminho)) {
                 File::create([
-                    'note_id' => $this->note->id,
+                    'note_id' => $this->production->note->id,
                     'user_id' => Auth()->User()->id,
                     'service_id' => $saveFile['service_id'],
                     'file_name' => $saveFile['newName']."_Rev".$rev,
@@ -179,6 +254,7 @@ class CreateProdFiles extends Component
 
         DB::commit();
 
+
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
@@ -186,6 +262,8 @@ class CreateProdFiles extends Component
             'timer'    => 1500,
 
         ]);
+
+        $this->emitUp('savedFiles');
 
         $this->closeAll();
     }

@@ -257,4 +257,18 @@ class SelectOptions
         ];
     }
 
+
+    // FIles Type Options
+    public static function getFilesType()
+    {
+        return [
+            (object)['reason' => 'ADS', 'value' => 'ADS'],
+            (object)['reason' => 'Asbuilt', 'value' => 'ASBUILT'],
+            (object)['reason' => 'Croqui', 'value' => 'CROQUI'],
+            (object)['reason' => 'Imagem', 'value' => 'IMAGEM'],
+            (object)['reason' => 'Lista', 'value' => 'LISTA'],
+            (object)['reason' => 'Projeto', 'value' => 'PROJETO'],
+            (object)['reason' => 'Outros...', 'value' => 'OUTROS'],
+        ];
+    }
 }

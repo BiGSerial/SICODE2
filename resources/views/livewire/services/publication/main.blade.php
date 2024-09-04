@@ -11,7 +11,7 @@
     <div class="row mb-3 justify-content-end">
         <div class="col-1">
             <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
+            <select wire:model="perPage" class="form-select form-control-sm border border-2 border-secondary">
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
@@ -32,31 +32,13 @@
 
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
-            {{-- <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div> --}}
-
-            {{-- @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publication', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica')) --}}
             @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'publication', 'values' => 'name', 'direction' => 'ASC', 'query' => 'EXISTS (SELECT 1 FROM work_reports WHERE work_reports.company_id = companies.id)'], key('company'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publication', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
             @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publication', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publication', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'publication'], key('removeAll'))
         </div>
-
-
-
     </div>
-
 
     <div class="btn-group">
         <div class="mb-3 mx-1">
@@ -73,52 +55,31 @@
                         <span class="badge text-bg-danger">OFF</span>
                     @endif
                 </button>
-
             </div>
         </div>
-
-        {{-- <div class="mb-3 mx-1">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas MMGD"
-                data-bs-content="<p>Ao clicar, Apenas as notas de MMGD estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterMMGD()">
-                    Somente MMGD
-                    @if ($assigned_mmgd)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
-
-            </div>
-        </div> --}}
     </div>
 
     <div class="row">
-
         @if (!$lists->count())
             <div class="col-6">
                 @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
             </div>
-        @elseif ($lists->count())
+        @else
             <div class="col-6">
                 {{ $lists->links() }}
             </div>
         @endif
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
+            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de
+                {{ $lists->total() }} registros.
                 @if ($update)
                     Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
                 @endif
             </span>
         </div>
     </div>
-    <div class="card">
 
+    <div class="card">
         @if (!$lists->count())
             <div class="card-body">
                 <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }}</h4>
@@ -142,14 +103,13 @@
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
                             <th class="align-middle text-center">Dias Pilha</th>
-                            <th class="align-middle text-center">Prazo Restante</th>
+                            <th class="align-middle text-center">Prazo Obra</th>
                             <th class="align-middle text-center"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-
                                 $block = 0;
 
                                 if ($production = $this->hasPublication($list)) {
@@ -164,74 +124,70 @@
                                     }
                                 }
 
-                                $days = $list->WorkForm
-                                    ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false)
-                                    : 0;
-
-                                $daysLeft = 3 - $days;
-
+                                // Cores das linhas com base no status
+                                $rowClass = '';
+                                if ($block == 4) {
+                                    $rowClass = 'table-danger';
+                                } elseif ($block == 3) {
+                                    $rowClass = 'table-success';
+                                } elseif ($block == 2) {
+                                    $rowClass = 'table-warning';
+                                } elseif ($block == 1) {
+                                    $rowClass = 'table-primary';
+                                }
                             @endphp
-                            {{-- @dump($list->Productions) --}}
-                            <tr
-                                class="align-middle text-center
-                               @if ($block == 4) table-danger
-                                      @elseif ($block == 3)
-                                       table-success
-                                        @elseif ($block == 2)
-                                       table-warning
-                                        @elseif ($block == 1)
-                                       table-primary @endif">
+
+                            <tr class="align-middle text-center">
 
                                 @if (Auth()->User()->management || Auth()->User()->superadm || ($block && $production->user_id === Auth()->User()->id))
-                                    <td class="fw-bold" data-value="{{ $list->note }}">
+                                    <td class="fw-bold {{ $rowClass }}" data-value="{{ $list->note }}">
                                         {{ $list->note }}
                                     </td>
                                 @else
-                                    <td></td>
+                                    <td class="{{ $rowClass }}"></td>
                                 @endif
 
-                                <td class="fw-light">{{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
+                                <td class="fw-light {{ $rowClass }}">
+                                    {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>
 
-                                <td class="fw-light">{{ $list->lexp }}</td>
+                                <td class="fw-light {{ $rowClass }}">{{ $list->lexp }}</td>
 
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
 
-                                <td scope="col" class="text-center">
+                                <td scope="col" class="text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false) : '---' }}
                                 </td>
 
-                                <td scope="col"
-                                    class="text-center
-                                        @if ($daysLeft < 0) text-bg-secondary
-                                        @elseif($daysLeft >= 0 && $daysLeft < 1)
-                                        table-danger
-                                        @elseif($daysLeft >= 1 && $daysLeft < 2)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
-                                    data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 3> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 2< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 1< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
-                                    {{ $daysLeft }}
+                                @php
+                                    $daysLeft = new DaysLeft($list);
+                                    $prazoClass = '';
+
+                                    if ($daysLeft->getDaysLeft() < 0) {
+                                        $prazoClass = 'text-bg-secondary';
+                                    } elseif ($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 5) {
+                                        $prazoClass = 'text-bg-danger';
+                                    } elseif ($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 15) {
+                                        $prazoClass = 'text-bg-warning';
+                                    } else {
+                                        $prazoClass = 'text-bg-success';
+                                    }
+                                @endphp
+
+                                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                <td scope="col" class="text-center {{ $prazoClass }}"
+                                    style="background-color: inherit;">
+                                    {{ $daysLeft->getLastDate() }}
                                 </td>
 
-
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $rowClass }}">
                                     @if (!$block)
-                                        <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                        <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
                                             style="cursor: pointer;"
                                             wire:click.prevent="to_accompany({{ $list->id }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
@@ -239,14 +195,11 @@
                                             data-bs-title="Enviar para Acompanhamento"></i>
                                     @else
                                         @php
-                                            if (isset($production->User->name)) {
-                                                $name = explode(' ', $production->User->name);
-                                                $name = $name[0] . ' ' . end($name);
-                                            } else {
-                                                $name = 'DESCONHECIDO';
-                                            }
+                                            $name = $production->User->name ?? 'DESCONHECIDO';
+                                            $nameParts = explode(' ', $name);
+                                            $shortName = $nameParts[0] . ' ' . end($nameParts);
                                         @endphp
-                                        <span style="font-size: 11px">{{ $name }}</span>
+                                        <span style="font-size: 11px">{{ $shortName }}</span>
                                     @endif
                                 </td>
                             </tr>
@@ -254,18 +207,16 @@
                     </tbody>
                 </table>
             </div>
-
         @endif
     </div>
+
     <div class="row">
         <div class="col-6">
             {{ $lists->links() }}
         </div>
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
+            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de
+                {{ $lists->total() }} registros.</span>
         </div>
     </div>
 </div>
@@ -278,9 +229,7 @@
             cell.addEventListener('click', () => {
                 const value = cell.getAttribute('data-value');
                 copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
+                livewire.emit('getCopy', `Valor "${value}" copiado para a área de transferência.`);
             });
         });
 

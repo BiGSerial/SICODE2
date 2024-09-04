@@ -2,10 +2,18 @@
 
 namespace App\Helpers;
 
+use Hamcrest\Core\IsTypeOf;
+
 class FileIcon
 {
     public static function getIcon(string $ext)
     {
+
+
+        if (!$ext) {
+            return '';
+        }
+
         switch ($ext) {
             case "pdf":
                 return (object)['icon' => 'bx bxs-file-pdf text-danger'];
