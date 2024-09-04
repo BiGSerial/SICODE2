@@ -415,6 +415,7 @@
                                 <th scope="col" class="fw-bold text-center">DD</th>
                                 <th scope="col" class="fw-bold text-center">stsDD</th>
                                 <th scope="col" class="fw-bold text-center">MMGD</th>
+                                <th scope="col" class="fw-bold text-center">Despachante</th>
                                 <th scope="col" class="fw-bold text-center">Grp2</th>
                                 <th scope="col" class="fw-bold text-center">Rubrica</th>
                                 <th scope="col" class="fw-bold text-center">Municipio</th>
@@ -485,7 +486,25 @@
                                     <td class="fw-bold text-danger text-center">
                                         {{ $list->Note->mmgd ? 'MMGD' : '' }}
                                     </td>
-                                    <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif"
+                                    @php
+                                        $name = isset($list->Dispatcher->name)
+                                            ? explode(' ', $list->Dispatcher->name)
+                                            : null;
+
+                                        if ($name) {
+                                            $name = $name[0] . ' ' . end($name);
+                                        } else {
+                                            $name = 'DESCONHECIDO';
+                                        }
+
+                                    @endphp
+                                    <td
+                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                        {{ $name }}</td>
+
+
+                                    <td <td
+                                        class="fw-bold @if ($list->priority) text-danger fw-bold @endif"
                                         text-center">
                                         {{ $list->Note->group2 ? $list->Note->group2 : '____' }}
                                     </td>

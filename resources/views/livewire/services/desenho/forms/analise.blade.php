@@ -162,18 +162,10 @@
                                         <option value="{{ $option->value }}">{{ $option->info }}</option>
                                     @endforeach
                                 @else
-                                    <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
-                                    <option value="DEPENDE DE ORGAO EXTERNO">20 - DEPENDE DE ORGÃO EXTERNO</option>
-                                    <option value="PROCESSO PARA MEDICAO">22 - PROCESSO PARA MEDIÇÃO</option>
-                                    <option value="RETORNADO LEVANTAMENTO">27 - RETORNADO LEVANTAMENTO</option>
-                                    <option value="EXECUCAO DE OBRAS DA EMPRESA">47 - EXECUÇÃO DE OBRAS DA EMPRESA
-                                    </option>
-                                    <option value="EXECUCAO DE OBRAS CUSTO EMPRESA">50 - EXECUÇÃO DE OBRAS CUSTO
-                                        EMPRESA
-                                    </option>
-                                    <option value="ORÇAMENTO ESTIMADO">68 - ORÇAMENTO ESTIMADO</option>
-                                    <option value="ORÇAMENTO PRÉVIO">70 - ORÇAMENTO PRÉVIO</option>
-                                    <option value="ARQUIVADO">99 - ARQUIVADO</option>
+                                    @foreach (SelectOptions::getDrawConclusions() as $option)
+                                        <option value="{{ $option->value }}">{{ $option->reason }}</option>
+                                    @endforeach
+
                                 @endif
 
                             </select>
@@ -181,14 +173,7 @@
 
                         <div class="mb-3">
 
-                            <div class="edp-bg-gray mb-3 py-2 rounded ">
-                                <div class="container">
-
-                                    {{-- Carrega sistema de Upload de Arquivos --}}
-                                    @livewire('files.fileservices', ['note' => $note, 'production' => $production, 'needFiles' => $needFiles])
-
-                                </div>
-                            </div>
+                            @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => $needFiles])
 
                             @if ($nota_divergente)
                                 <div class="card">

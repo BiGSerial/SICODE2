@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.4",
+    "appver": "1.10.5",
     "historic": [
+        {
+            "version": "1.10.5",
+            "description": "Updated Files Upload from Survey, Supervision and Drawing",
+            "date": "2024-09-04"
+        },
         {
             "version": "1.10.4",
             "description": "Fix some thigs and Transferprod, Search Bug",

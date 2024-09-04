@@ -15,6 +15,8 @@ class Jobform extends Component
     public ?Production $production = null;
     public ?Analise $analise = null;
 
+    public $hasFile = false;
+
 
     public $d5 = 2;
     public $return = [
@@ -26,6 +28,8 @@ class Jobform extends Component
     protected $listeners = [
         'showProduction',
         'confirmFinish' => 'save',
+        'hasFile',
+        'savedFiles'
     ];
 
     protected $rules = [
@@ -43,6 +47,11 @@ class Jobform extends Component
             'analise.conclusion.required' => 'O campo [Resultado] é Obrigatório.',
 
         ];
+    }
+
+    public function hasFile($value)
+    {
+        $this->hasFile = $value;
     }
 
 
@@ -278,15 +287,21 @@ class Jobform extends Component
                 'title'    => 'ENVIADO COM SUCESSO',
             ]);
 
-            $this->emitTo('files.filesupervision', 'save_files');
+            // $this->emitTo('files.filesupervision', 'save_files');
             DB::commit();
 
-            $this->closeAll();
+            if ($this->hasFile) {
+                $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+            } else {
+                $this->closeAll();
+
+            }
+
         } catch (\Throwable $th) {
 
             DB::rollback();
 
-            dd($th->getMessage());
+
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -299,6 +314,13 @@ class Jobform extends Component
         }
     }
 
+    public function savedFiles()
+    {
+
+        $this->emitTo('files.manager.create-prod-files', 'cleanFiles');
+        $this->closeAll();
+    }
+
     public function closeAll()
     {
         $this->analise = null;
@@ -308,7 +330,7 @@ class Jobform extends Component
             'description' => null
         ];
 
-        $this->emitTo('files.filesupervision', 'cancel_files');
+
         $this->emitTo('services.supervision.main', 'refresh_list');
         $this->dispatchBrowserEvent('hideModal');
     }

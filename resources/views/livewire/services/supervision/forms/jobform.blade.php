@@ -176,10 +176,9 @@
                                         </div>
 
                                         <div class="mb-3 ">
-                                            <label for="inputPassword" class="col-sm-12 col-form-label">Anexar o ADS e
-                                                As-built em arquivos separados.</label>
-                                            @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision'))
 
+                                            {{-- @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision')) --}}
+                                            @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false], key('FilesSupervision'))
                                         </div>
 
                                         <div class="mb-3">
