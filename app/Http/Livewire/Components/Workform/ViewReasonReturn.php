@@ -49,6 +49,7 @@ class ViewReasonReturn extends Component
 
         if ($this->workReport) {
 
+            $this->getPage();
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'workRejectedViewCategory',

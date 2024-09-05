@@ -6,6 +6,7 @@ use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -148,13 +149,20 @@ class Rejectedworkreports extends Component
             });
         }
 
-        // Join com Returnwork para ordenar pela data mais recente de Returnwork
-        $query->leftJoin('return_works', 'work_reports.id', '=', 'return_works.work_report_id')
-            ->select('work_reports.*')
-            ->orderBy('return_works.created_at', 'ASC');
+        // Join com Returnwork para ordenar pelo último registro da relação
+        $subquery = DB::table('return_works')
+            ->select('work_report_id', DB::raw('MAX(created_at) as max_created_at'))
+            ->groupBy('work_report_id');
+
+        $query->leftJoinSub($subquery, 'last_return_work', function ($join) {
+            $join->on('work_reports.id', '=', 'last_return_work.work_report_id');
+        })
+        ->select('work_reports.*')
+        ->orderBy('last_return_work.max_created_at', 'ASC');
 
         return $query; // Executa a consulta e retorna os resultados
     }
+
 
 
     public function render()

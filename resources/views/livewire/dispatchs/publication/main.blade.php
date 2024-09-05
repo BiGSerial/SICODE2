@@ -356,7 +356,7 @@
                             <th class="align-middle text-center">Dias Pilha</th>
                             <th scope="col" class="fw-bold text-center">Retorno</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
-                            <th class="align-middle text-center">Prazo Restante</th>
+                            <th class="align-middle text-center">Dt Vencimento</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
                     </thead>
@@ -467,13 +467,11 @@
                                     $prazoClass = '';
 
                                     if ($daysLeft->getDaysLeft() < 0) {
-                                        $prazoClass = 'text-bg-secondary';
-                                    } elseif ($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 5) {
                                         $prazoClass = 'text-bg-danger';
-                                    } elseif ($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 15) {
-                                        $prazoClass = 'text-bg-warning';
-                                    } else {
+                                    } elseif ($daysLeft->getDaysLeft() > 15) {
                                         $prazoClass = 'text-bg-success';
+                                    } else {
+                                        $prazoClass = 'text-bg-warning';
                                     }
                                 @endphp
 

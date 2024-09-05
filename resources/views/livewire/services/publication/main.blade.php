@@ -103,7 +103,7 @@
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
                             <th class="align-middle text-center">Dias Pilha</th>
-                            <th class="align-middle text-center">Prazo Obra</th>
+                            <th class="align-middle text-center">Dt Vencimento</th>
                             <th class="align-middle text-center"></th>
                         </tr>
                     </thead>
@@ -169,13 +169,11 @@
                                     $prazoClass = '';
 
                                     if ($daysLeft->getDaysLeft() < 0) {
-                                        $prazoClass = 'text-bg-secondary';
-                                    } elseif ($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 5) {
                                         $prazoClass = 'text-bg-danger';
-                                    } elseif ($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 15) {
-                                        $prazoClass = 'text-bg-warning';
-                                    } else {
+                                    } elseif ($daysLeft->getDaysLeft() > 15) {
                                         $prazoClass = 'text-bg-success';
+                                    } else {
+                                        $prazoClass = 'text-bg-warning';
                                     }
                                 @endphp
 
@@ -183,6 +181,7 @@
                                 <td scope="col" class="text-center {{ $prazoClass }}"
                                     style="background-color: inherit;">
                                     {{ $daysLeft->getLastDate() }}
+
                                 </td>
 
                                 <td class="fw-bold text-center {{ $rowClass }}">

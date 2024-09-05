@@ -443,7 +443,7 @@
                             <th scope="col" class="fw-bold text-center">Usuário</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                            <th scope="col" class="fw-bold text-center">Prazo Pilha</th>
+                            <th class="align-middle text-center">Dt Vencimento</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
@@ -524,35 +524,21 @@
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                 </td>
                                 @php
-                                    $days = $list->Note->WorkForm
-                                        ? Carbon::parse($list->Note->WorkForm->informed_at)->diffInDays(
-                                            Carbon::now(),
-                                            false,
-                                        )
-                                        : 0;
+                                    $daysLeft = new DaysLeft($list->Note);
+                                    $prazoClass = '';
 
-                                    $daysLeft = 3 - $days;
+                                    if ($daysLeft->getDaysLeft() < 0) {
+                                        $prazoClass = 'text-bg-danger';
+                                    } elseif ($daysLeft->getDaysLeft() > 15) {
+                                        $prazoClass = 'text-bg-success';
+                                    } else {
+                                        $prazoClass = 'text-bg-warning';
+                                    }
                                 @endphp
-                                <td scope="col"
-                                    class="text-center
-                                   @if ($daysLeft < 0) text-bg-secondary
-                                            @elseif($daysLeft >= 0 && $daysLeft < 1)
-                                            table-danger
-                                            @elseif($daysLeft >= 1 && $daysLeft < 2)
-                                                table-warning
-                                            @else
-                                                table-success @endif
-                                "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
-                                    data-bs-content="
-                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                            ">
-                                    {{ $daysLeft }}
+                                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                <td scope="col" class="text-center {{ $prazoClass }}"
+                                    style="background-color: inherit;">
+                                    {{ $daysLeft->getLastDate() }}
                                 </td>
                                 <td class="fw-light text-center">
 
