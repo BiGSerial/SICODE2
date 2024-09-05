@@ -60,15 +60,9 @@
     </div>
 
     <div class="row">
-        @if (!$lists->count())
-            <div class="col-6">
-                @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div>
-        @else
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-        @endif
+        <div class="col-6">
+            {{ $lists->links() }}
+        </div>
         <div class="col-6 d-flex justify-content-end align-middle">
             <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de
                 {{ $lists->total() }} registros.

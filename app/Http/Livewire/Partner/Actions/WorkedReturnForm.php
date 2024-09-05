@@ -11,15 +11,15 @@ class WorkedReturnForm extends Component
     public ?WorkReport $workReport = null;
 
     public $pag = 0;
-    public bool $hasFiles = false;
+    public bool $hasFile = false;
 
 
     protected $listeners = [
         'tefresh_form' => '$refresh',
         'toReturnWork',
         'hasFile',
-        'savedFiles' => 'save',
-        'confirm_workform',
+        'savedFiles',
+        'confirm_workform' => 'save',
         'closeAll'
     ];
 
@@ -40,7 +40,7 @@ class WorkedReturnForm extends Component
 
     public function hasFile(bool $hasFile)
     {
-        $this->hasFiles = $hasFile;
+        $this->hasFile = $hasFile;
     }
 
 
@@ -112,18 +112,7 @@ class WorkedReturnForm extends Component
         return;
     }
 
-    public function confirm_workform()
-    {
-        if ($this->hasFiles) {
 
-
-            $this->emitTo('files.partnersinform', 'save_files');
-
-        } else {
-
-            $this->save();
-        }
-    }
 
     public function save()
     {
@@ -135,13 +124,26 @@ class WorkedReturnForm extends Component
         $this->workReport->informed_at = date('Y-m-d H:i:s');
 
         $this->workReport->save();
+
+        if ($this->hasFile) {
+            $this->emitTo('files.manager.create-gen-files', 'saveFiles');
+        } else {
+            $this->closeAll();
+        }
+    }
+
+    public function savedFiles()
+    {
+        // Revebe chamado pelo Component de Arquivos;
+        $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
         $this->closeAll();
     }
+
+
 
     public function closeAll()
     {
         $this->workReport = null;
-        $this->emitTo('files.partnersinform', 'cancel_files');
         $this->emitUp('refresh_rejected');
         $this->dispatchBrowserEvent('hideModal');
     }

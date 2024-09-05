@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.5",
+    "appver": "1.10.6",
     "historic": [
+        {
+            "version": "1.10.6",
+            "description": "Updated all files upload components",
+            "date": "2024-09-05"
+        },
         {
             "version": "1.10.5",
             "description": "Updated Files Upload from Survey, Supervision and Drawing",

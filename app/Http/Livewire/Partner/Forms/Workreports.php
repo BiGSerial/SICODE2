@@ -117,9 +117,11 @@ class Workreports extends Component
     public function savedFiles()
     {
         // Revebe chamado pelo Component de Arquivos;
+        $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
         $this->note = null;
         $this->cleanAll();
         $this->initForm();
+
     }
 
     public function search()
@@ -295,19 +297,21 @@ class Workreports extends Component
 
                 DB::commit();
 
-                if ($this->form['changes'] == true && $this->hasFiles) {
+                if ($this->hasFiles) {
 
                     // Emite comando SAVE para o componente Laravel.
-                    $this->emitTo('files.partnersinform', 'save_files');
+                    $this->emitTo('files.manager.create-gen-files', 'saveFiles');
 
                     return;
+                } else {
+                    $this->note = null;
+                    $this->cleanAll();
+                    $this->initForm();
                 }
 
                 // return;
 
-                $this->note = null;
-                $this->cleanAll();
-                $this->initForm();
+
             }
         } catch (\Throwable $th) {
 
@@ -422,19 +426,26 @@ class Workreports extends Component
             return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
         });
 
-        if ($this->note->type_note == 2 && $this->note->Orders->count() > 1) {
 
-            if ($filteredOrders->count() == 1) {
-                foreach ($filteredOrders as $order) {
-                    $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
-                }
-            }
-        } elseif ($this->note->type_note == 1) {
-
+        if (count($filteredOrders)) {
             foreach ($filteredOrders as $order) {
                 $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
             }
         }
+
+        // if ($this->note->type_note == 2 && $this->note->Orders->count() > 1) {
+
+        //     if ($filteredOrders->count() == 1) {
+        //         foreach ($filteredOrders as $order) {
+        //             $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
+        //         }
+        //     }
+        // } elseif ($this->note->type_note == 1) {
+
+        //     foreach ($filteredOrders as $order) {
+        //         $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
+        //     }
+        // }
     }
 
     public function toConfirmWork(Note $note)
@@ -510,8 +521,9 @@ class Workreports extends Component
             'fases' => null,
         ];
 
-        $this->emitTo('files.partnersinform', 'cancel_files');
+
     }
+
 
     public function render()
     {

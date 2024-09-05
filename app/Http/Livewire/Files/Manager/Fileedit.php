@@ -116,6 +116,8 @@ class Fileedit extends Component
 
                 $this->file->path = $path;
                 $this->file->ext = $this->newFile->getClientOriginalExtension();
+                $this->file->suspicious = false;
+                $this->file->original_name = $this->newFile->getClientOriginalName();
                 $this->file->noexists = false;
 
             } else {

@@ -34,7 +34,7 @@ class Createfiles extends Component
     {
         $this->validate();
 
-        if(count($this->files)) {
+        if (count($this->files)) {
             foreach ($this->files as $file) {
                 $this->tempFiles[] = [
                     'service_id' => $this->service_id,
@@ -42,6 +42,8 @@ class Createfiles extends Component
                     'uploadType' => $this->uploadType,
                     'ext' => $file->getClientOriginalExtension(),
                     'newName' => null,
+                    'original_name' => $file->getClientOriginalName(),
+                    'suspicious' => false,
                     'file' => $file,
                 ];
             }
@@ -159,6 +161,8 @@ class Createfiles extends Component
                     'file_name' => $saveFile['newName']."_Rev".$rev,
                     'path' => $caminho,
                     'ext' => $saveFile['ext'],
+                    'original_name' => $saveFile['original_name'],
+                    'suspicious' => $saveFile['suspicious'],
                     'noexists' => false,
                 ]);
             } else {

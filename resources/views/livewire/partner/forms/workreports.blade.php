@@ -336,7 +336,8 @@
 
                             @if ($form['changes'])
                                 <div class="mb-3 col-md-6">
-                                    @livewire('files.partnersinform', ['note' => $note], key('files_forms'))
+
+                                    @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
                                 </div>
                             @endif
 

@@ -137,7 +137,8 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    @livewire('files.partnersinform', ['note' => $workReport->Note], key('files_forms'))
+
+                                    @livewire('files.manager.create-gen-files', ['note' => $workReport->Note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
                                 </div>
 
                                 <div class="mb-3">

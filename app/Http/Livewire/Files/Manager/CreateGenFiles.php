@@ -3,14 +3,14 @@
 namespace App\Http\Livewire\Files\Manager;
 
 use App\Models\File;
-use App\Models\Production;
+use App\Models\Note;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 /**
- * Componente Livewire para Gerenciamento de Arquivos de Produção
+ * Componente Livewire para Gerenciamento de Arquivos de Generico
  *
  * Este componente é responsável por gerenciar o upload e manipulação de arquivos
  * relacionados a uma produção específica. Permite adicionar, renomear, verificar
@@ -35,20 +35,20 @@ use Livewire\WithFileUploads;
  * Declaração do Componente no Blade:
  * Para usar este componente em uma view Blade, inclua a seguinte linha:
  *
- * <livewire:files.manager.create-prod-files :production="$production" :need-files="true" />
+ * <livewire.files.manager.create-gen-files :production="$production" :need-files="true" />
  *
  * Onde:
  * - `:production="$production"` passa uma instância de `Production`.
  * - `:need-files="true"` (opcional) indica se arquivos são obrigatórios.
  */
 
-class CreateProdFiles extends Component
+class CreateGenFiles extends Component
 {
     use WithFileUploads;
 
-    public ?Production $production = null;
-    public $needFiles;
-    public $alertFile = false;
+    public ?Note $note = null;
+    public bool $alertFile = false;
+    public string $service;
     public $files = [];
     public $tempFiles = [];
     public $uploadType;
@@ -59,10 +59,10 @@ class CreateProdFiles extends Component
         'cleanFiles' => 'closeAll',
     ];
 
-    public function mount(Production $production, bool $needFiles = false)
+    public function mount(Note $note, string $service)
     {
-        $this->production = $production;
-        $this->needFiles = $needFiles;
+        $this->note = $note;
+        $this->service = $service;
     }
 
     public function updatedFiles()
@@ -84,8 +84,8 @@ class CreateProdFiles extends Component
 
                 if (!$exists) {
                     $this->tempFiles[] = [
-                        'note_id' => $this->production->Note->id,
-                        'service_id' => $this->production->service_id,
+                        'note_id' => $this->note->id,
+                        'service_id' => null,
                         'user_id' => Auth()->User()->id,
                         'uploadType' => $this->uploadType,
                         'ext' => $file->getClientOriginalExtension(),
@@ -109,7 +109,7 @@ class CreateProdFiles extends Component
 
             foreach ($this->tempFiles as &$temp_file) {
 
-                if (strpos($temp_file['file']->getClientOriginalName(), $this->production->Note->note) === false) {
+                if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
                     $this->alertFile = true;
                     $temp_file['suspicious'] = true;
                 }
@@ -147,7 +147,7 @@ class CreateProdFiles extends Component
             $this->tempFiles = [];
         }
 
-        $this->production = null;
+        $this->note = null;
         $this->uploadType = '';
         $this->files = [];
         $this->resetErrorBag();
@@ -176,14 +176,10 @@ class CreateProdFiles extends Component
         $count = 0;
         $item = 1;
         $type_s = '';
-        $service = '';
+
 
         foreach ($temps as $temp) {
 
-            if ($temp['service_id'] !== $service) {
-                $service = $temp['service_id'];
-                $count = 0;
-            }
 
             if ($temp['uploadType'] === $type) {
                 $count++;
@@ -193,15 +189,14 @@ class CreateProdFiles extends Component
 
         foreach ($temps as &$temp) {
 
-            if ($temp['uploadType'] !== $type_s || $temp['service_id'] !== $service) {
+            if ($temp['uploadType'] !== $type_s) {
                 $type_s = $temp['uploadType'];
-                $service = $temp['service_id'];
                 $item = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->production->Service->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->production->Note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev = mb_strtoupper(substr($this->service, 0, 4));
+                $temp['newName'] = $type."_".$service_abrev."_".$this->note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
@@ -229,9 +224,9 @@ class CreateProdFiles extends Component
 
             if (Storage::exists($caminho)) {
                 File::create([
-                    'note_id' => $this->production->note->id,
+                    'note_id' => $this->note->id,
                     'user_id' => Auth()->User()->id,
-                    'service_id' => $saveFile['service_id'],
+                    'service_id' => null,
                     'file_name' => $saveFile['newName']."_Rev".$rev,
                     'original_name' => $saveFile['original_name'],
                     'path' => $caminho,
@@ -284,6 +279,6 @@ class CreateProdFiles extends Component
 
     public function render()
     {
-        return view('livewire.files.manager.create-prod-files');
+        return view('livewire.files.manager.create-gen-files');
     }
 }
