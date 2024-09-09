@@ -1,0 +1,88 @@
+@php
+    use App\Custom\Viabilitiesstatus;
+    use App\Custom\Notestatus;
+    use Carbon\Carbon;
+@endphp
+<table class="table table-sm table-condensed table-striped-columns">
+    <thead>
+        <tr>
+            <th scope="col" class="text-center">Nota</th>
+            <th scope="col" class="text-center">Rubrica</th>
+            <th scope="col" class="text-center">Municipio</th>
+            <th scope="col" class="text-center">Solicitante</th>
+            <th scope="col" class="text-center">Empresa Solicitante</th>
+            <th scope="col" class="text-center">Categoria</th>
+            <th scope="col" class="text-center">Texto</th>
+            <th scope="col" class="text-center">Data Envio</th>
+            <th scope="col" class="text-center">Em Atividade</th>
+            <th scope="col" class="text-center">Status</th>
+            <th scope="col" class="text-center">Responsável</th>
+            <th scope="col" class="text-center">Empresa Responsável</th>
+        </tr>
+    </thead>
+    <tbody class="table-group-divider">
+        @if ($lists)
+            @foreach ($lists as $list)
+                @php
+                    $vencido = false;
+                    $vencimento = Carbon::now()->subHours(24)->toDateTimeString();
+                    if ($list->updated_at < $vencimento) {
+                        $vencido = true;
+                    }
+                @endphp
+
+                <tr wire:key="row-{{ $list->id }}">
+
+                    <td class="text-center align-middle fw-bold">{{ $list->Note->note }}</td>
+                    <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
+                    <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
+                    <td class="text-center align-middle">
+                        @if ($list->Waiting)
+                            {{ $list->Waiting->User->name }}
+                        @elseif ($list->Viabilities->count())
+                            {{ $list->Viabilities->last()->User->name }}
+                        @endif
+                    </td>
+                    <td class="text-center align-middle">
+                        @if ($list->Waiting)
+                            {{ $list->Waiting->User ? $list->Waiting->User->Employee->Contract->company->name : '' }}
+                        @elseif ($list->Viabilities->count())
+                            {{ $list->Viabilities->last()->User ? $list->Viabilities->last()->User->Employee->Contract->company->name : '' }}
+                        @endif
+                    </td>
+                    <td class="text-center align-middle">{{ $list->category }}</td>
+                    <td class="text-center align-middle">
+                        {{ $list->Comments->count() ? $list->Comments->last()->message : '' }}
+                    </td>
+                    <td class="text-center align-middle">
+                        {{ Carbon::parse($list->created_at)->format('d/m/Y H:i') }}
+                    </td>
+                    <td
+                        class="text-center align-middle
+                    @if ($vencido) text-bg-danger @endif
+                    ">
+                        {{ Carbon::parse($list->created_at)->diffForHumans(Carbon::now(), ['locale' => 'pt_br', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
+                    </td>
+                    <td class="text-center align-middle">
+                        @if ($list->Production)
+                            <span class="badge {{ Notestatus::status($list->Production->status)->colorbg }}">
+                                {{ Notestatus::status($list->Production->status)->status }}</span>
+                        @else
+                            <span class="badge text-bg-secondary">
+                                Aguardando Atribuição</span>
+                        @endif
+
+                    </td>
+                    <td class="text-center align-middle">
+                        {{ $list->Production ? ($list->Production->User ? $list->Production->User->name : 'Desconhecido') : '' }}
+                    </td>
+                    <td class="text-center align-middle">
+                        {{ $list->Production ? ($list->Production->Company ? $list->Production->Company->name : 'Desconhecido') : '' }}
+                    </td>
+
+                </tr>
+            @endforeach
+        @endif
+
+    </tbody>
+</table>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Dispatchs;
 
+use App\Exports\Reports\ReturnInternExport;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\Note;
@@ -90,6 +91,11 @@ class ReturnD5 extends Component
         $this->services  = Service::orderBy('service')->get();
     }
 
+    public function exportToExcel()
+    {
+        return (new ReturnInternExport($this->lists->get()))->download(date('YmdHis-') . 'exportInterReturns.xlsx');
+    }
+
     public function filterUser($user_id)
     {
         $this->filterUser = $user_id;
@@ -171,15 +177,14 @@ class ReturnD5 extends Component
                     })
                     ->Where('completed', false)
                     ->with('Production.User', 'Note')
-                    ->orderBy('created_at')
-                    ->paginate($this->perPage);
+                    ->orderBy('created_at');
     }
 
 
     public function render()
     {
         return view('livewire.dispatchs.return-d5', [
-            'lists' => $this->lists,
+            'lists' => $this->lists->paginate($this->perPage),
         ]);
     }
 }
