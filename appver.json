@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.6",
+    "appver": "1.10.7",
     "historic": [
+        {
+            "version": "1.10.7",
+            "description": "Add Export Excel on Intern Return",
+            "date": "2024-09-09"
+        },
         {
             "version": "1.10.6",
             "description": "Updated all files upload components",

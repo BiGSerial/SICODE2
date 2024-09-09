@@ -14,10 +14,20 @@
 
                 <button class="btn btn-sm btn-danger ms-2" wire:click.prevent='cleanUser' wire:target="cleanUser"
                     @disabled(!$filterUser) wire:loading.attr="disabled" data-bs-toggle="tooltip"
-                    data-bs-placement="top" data-bs-title="Limpar Filtrp Usuario"><i
+                    data-bs-placement="top" data-bs-title="Limpar Filtro Usuario"><i
                         class="ri-filter-off-line fs-4 m-0 align-middle" wire:target="cleanUser"
                         wire:loading.remove></i>
                     <div class="spinner-border spinner-border-sm" role="status" wire:target="cleanUser" wire:loading>
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </button>
+                <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='exportToExcel'
+                    wire:target="exportToExcel" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                    data-bs-placement="top" data-bs-title="Exportar para Excel"><i
+                        class="ri-file-excel-2-line fs-4 m-0 align-middle" wire:target="exportToExcel"
+                        wire:loading.remove></i>
+                    <div class="spinner-border spinner-border-sm" role="status" wire:target="exportToExcel"
+                        wire:loading>
                         <span class="visually-hidden">Loading...</span>
                     </div>
                 </button>
