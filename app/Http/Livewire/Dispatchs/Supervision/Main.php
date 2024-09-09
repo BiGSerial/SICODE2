@@ -874,44 +874,6 @@ class Main extends Component
     public function confirmed_mass_dd()
     {
 
-
-        // if ($count = count($this->additionalData)) {
-        //     $error = 0;
-        //     foreach ($this->additionalData as $wpa) {
-        //         if (!Wpa::Create($wpa)) {
-        //             $error++;
-        //         }
-        //     }
-        // }
-
-        // if ($count = count($this->additionalDataUpd)) {
-        //     $error = 0;
-        //     foreach ($this->additionalDataUpd as $wpa) {
-        //         if (!Wpa::Update($wpa)) {
-        //             $error++;
-        //         }
-        //     }
-        // }
-
-        // if (!$error) {
-        //     $this->dispatchBrowserEvent('swal', [
-        //         'position' => 'center',
-        //         'icon' => 'success',
-        //         'title' => 'Notas DDs associadas com sucesso',
-        //         'timer' => 2500,
-        //     ]);
-
-        //     $this->closeall();
-        // } else {
-        //     $this->dispatchBrowserEvent('swal', [
-        //         'position' => 'center',
-        //         'icon' => 'error',
-        //         'title' => "OOPS!, Ocorreram {$error} de {$count} ao associar as DD às Notas.",
-        //         'timer' => 8000,
-        //     ]);
-        // }
-
-
         $count = count($this->additionalData);
         $error = 0;
 
