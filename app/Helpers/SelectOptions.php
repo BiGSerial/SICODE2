@@ -17,6 +17,7 @@ class SelectOptions
     {
         return [
             (object)['info' => 'BANCO CAPACITORES', 'nick' => 'BC'],
+            (object)['info' => 'CAIXA DE MEDIÇÃO', 'nick' => 'CM'],
             (object)['info' => 'CONCENTRADOR PRIMARIO', 'nick' => 'CP'],
             (object)['info' => 'CONCENTRADOR SECUNDÁRIO', 'nick' => 'CS'],
             (object)['info' => 'REGULADOR DE TENSÃO', 'nick' => 'RT'],
@@ -109,6 +110,15 @@ class SelectOptions
             (object)['reason' => 'Outros', 'value' => 'OUTROS']
         ];
     }
+
+    public static function getComissionEnd()
+    {
+        return [
+            (object)['reason' => '(58) Inspeção Rejeitada', 'value' => 'INSPECAO REJEITADA', 'block' => false],
+            (object)['reason' => '(61) Inspeção Aprovada', 'value' => 'INSPECAO APROVADA', 'block' => false]
+        ];
+    }
+
 
     public static function getSupervisionEnd()
     {
@@ -231,4 +241,50 @@ class SelectOptions
 
         return array_unique($types);
     }
+
+
+    // Return Publication
+    public static function getReasonPublication()
+    {
+        return [
+            (object)['reason' => 'A pedido da Empreiteira', 'value' => 'A PEDIDO DA EMPREITEIRA'],
+            (object)['reason' => 'Obra depende da execução de outra', 'value' => 'OBRA DEPENDE DA EXECUCAO DE OUTRA'],
+            (object)['reason' => 'Obra não executada', 'value' => 'OBRA NAO EXECUTADA'],
+            (object)['reason' => 'Patrimônio de equipamento informado incorretamente', 'value' => 'PATRIMONIO DE EQUIPAMENTO INFORMADO INCORRETAMENTE'],
+            (object)['reason' => 'Patrimônio de equipamento não informado', 'value' => 'PATRIMONIO DE EQUIPAMENTO NAO INFORMADO'],
+            (object)['reason' => 'Trafo não atendido', 'value' => 'TRAFO NAO ATENDIDO'],
+            (object)['reason' => 'Trafo pendente de DE-PARA', 'value' => 'TRAFO PENDENTE DE DE-PARA'],
+        ];
+    }
+
+
+    // FIles Type Options
+    public static function getFilesType()
+    {
+        return [
+            (object)['reason' => 'ADS', 'value' => 'ADS'],
+            (object)['reason' => 'Asbuilt', 'value' => 'ASBUILT'],
+            (object)['reason' => 'Croqui', 'value' => 'CROQUI'],
+            (object)['reason' => 'Imagem', 'value' => 'IMAGEM'],
+            (object)['reason' => 'Lista', 'value' => 'LISTA'],
+            (object)['reason' => 'Projeto', 'value' => 'PROJETO'],
+            (object)['reason' => 'Outros...', 'value' => 'OUTROS'],
+        ];
+    }
+
+    // Desenho Draws Conclusions
+    public static function getDrawConclusions()
+{
+    return [
+        (object)['reason' => '10 - EM CONTATO COM CLIENTE', 'value' => 'EM CONTATO COM CLIENTE'],
+        (object)['reason' => '20 - DEPENDE DE ORGÃO EXTERNO', 'value' => 'DEPENDE DE ORGAO EXTERNO'],
+        (object)['reason' => '22 - PROCESSO PARA MEDIÇÃO', 'value' => 'PROCESSO PARA MEDICAO'],
+        (object)['reason' => '27 - RETORNADO LEVANTAMENTO', 'value' => 'RETORNADO LEVANTAMENTO'],
+        (object)['reason' => '47 - EXECUÇÃO DE OBRAS DA EMPRESA', 'value' => 'EXECUCAO DE OBRAS DA EMPRESA'],
+        (object)['reason' => '50 - EXECUÇÃO DE OBRAS CUSTO EMPRESA', 'value' => 'EXECUCAO DE OBRAS CUSTO EMPRESA'],
+        (object)['reason' => '68 - ORÇAMENTO ESTIMADO', 'value' => 'ORÇAMENTO ESTIMADO'],
+        (object)['reason' => '70 - ORÇAMENTO PRÉVIO', 'value' => 'ORÇAMENTO PRÉVIO'],
+        (object)['reason' => '99 - ARQUIVADO', 'value' => 'ARQUIVADO'],
+    ];
+}
 }

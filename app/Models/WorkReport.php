@@ -22,8 +22,12 @@ class WorkReport extends Model
         'description',
         'team',
         'responsible',
+        'approved',
+        'rejected',
+        'retry',
         'dd',
         'informer',
+        'informed_at'
     ];
 
     public function Note()
@@ -33,12 +37,12 @@ class WorkReport extends Model
 
     public function User()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     public function Company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class)->withTrashed();
     }
 
     public function Equipment()
@@ -54,5 +58,10 @@ class WorkReport extends Model
     public function Meeters()
     {
         return $this->hasMany(Meeter::class);
+    }
+
+    public function Returnwork()
+    {
+        return $this->hasMany(ReturnWork::class);
     }
 }

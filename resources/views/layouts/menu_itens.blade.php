@@ -78,6 +78,9 @@
             <li><a class="dropdown-item" href="{{ route('monitor.analises') }}"><i
                         class="ri-computer-line align-middle text-dark"></i>GRAFICO - ATIVIDADE</a></li>
 
+            <li><a class="dropdown-item" href="{{ route('files.main') }}"><i
+                        class="ri-file-2-line align-middle text-dark"></i>GERENCIAMENTO DE ARQUIVOS</a></li>
+
             @if (!Auth()->User()->contract)
                 <li><a class="dropdown-item" href="{{ route('monitor.inconsistency') }}"><i
                             class="ri-alert-line align-middle text-danger"></i>INCONSISTÊNCIAS</a></li>
@@ -313,6 +316,11 @@
                     class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
         </li>
 
+        @if (!Auth()->User()->onlyparner)
+            <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+            </li>
+        @endif
     </ul>
 
 </li>

@@ -139,7 +139,7 @@
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
-                            <th class="align-middle text-center">Status</th>
+                            {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
                             <th class="align-middle text-center">OP50</th>
@@ -207,7 +207,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                {{-- <td class="text-center align-middle">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -216,7 +216,7 @@
                                         @endforeach
                                     @endif
 
-                                </td>
+                                </td> --}}
 
                                 <td class="text-center align-middle">
                                     @if ($list->WorkForm->Orders->count())
@@ -269,7 +269,7 @@
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
                                 <td class="fw-light">
-                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
+                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
 
                                 <td scope="col"
@@ -324,7 +324,6 @@
                             <td></td>
                             <td class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                            <td></td>
                             <td></td>
                             <td></td>
                             <td></td>

@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
 
@@ -355,7 +356,7 @@
                             <th class="align-middle text-center">Dias Pilha</th>
                             <th scope="col" class="fw-bold text-center">Retorno</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
-                            <th class="align-middle text-center">Prazo Restante</th>
+                            <th class="align-middle text-center">Dt Vencimento</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
                     </thead>
@@ -381,59 +382,56 @@
                                     }
                                 }
 
-                                $days = $list->WorkForm
-                                    ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
-                                    : 0;
-
-                                $daysLeft = 3 - $days;
+                                // Cores das linhas com base no status
+                                $rowClass = '';
+                                if ($block == 4) {
+                                    $rowClass = 'table-danger';
+                                } elseif ($block == 3) {
+                                    $rowClass = 'table-success';
+                                } elseif ($block == 2) {
+                                    $rowClass = 'table-warning';
+                                } elseif ($block == 1) {
+                                    $rowClass = 'table-primary';
+                                }
                             @endphp
 
 
 
-                            <tr
-                                class="align-middle text-center
-                                   @if ($block == 4) table-danger
-                                      @elseif ($block == 3)
-                                       table-success
-                                        @elseif ($block == 2)
-                                       table-warning
-                                        @elseif ($block == 1)
-                                       table-primary @endif
-                                    ">
-                                <td>
+                            <tr class="align-middle text-center">
+                                <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
                                         @disabled($block)>
                                 </td>
 
-                                <td class="fw-bold copy-text" data-value="{{ $list->note }}">
+                                <td class="fw-bold copy-text {{ $rowClass }}" data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->rubrica }}
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->material }}
                                 </td>
 
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>
 
-                                <td class="fw-light">{{ $list->lexp }}</td>
+                                <td class="fw-light {{ $rowClass }}">{{ $list->lexp }}</td>
 
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
-                                <td class="fw-light">
-                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->created_at)) : '---' }}
+                                <td class="fw-light {{ $rowClass }}">
+                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
 
-                                <td scope="col" class="text-center">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false) : '---' }}
+                                <td scope="col" class="text-center {{ $rowClass }}">
+                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false) : '---' }}
                                 </td>
-                                <td class="fw-light text-center" tabindex="0" data-bs-toggle="popover"
-                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                <td class="fw-light {{ $rowClass }} text-center" tabindex="0"
+                                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Desenhos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
                                     @if ($production)
@@ -458,35 +456,33 @@
                                 </td>
 
                                 @if ($list->type_note != 1)
-                                    <td class="fw-light text-center">{{ $list->nstats }} </td>
+                                    <td class="fw-light {{ $rowClass }} text-center">{{ $list->nstats }} </td>
                                 @else
-                                    <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
-                                            style="font-size: 8px;">{{ $list->nstats }}</span></td>
+                                    <td class="fw-light {{ $rowClass }} text-center">{{ $list->centerjob }} <span
+                                            class="text-danger" style="font-size: 8px;">{{ $list->nstats }}</span>
+                                    </td>
                                 @endif
-                                <td scope="col"
-                                    class="text-center
-                                            @if ($daysLeft < 0) text-bg-secondary
-                                            @elseif($daysLeft >= 0 && $daysLeft < 1)
-                                            table-danger
-                                            @elseif($daysLeft >= 1 && $daysLeft < 2)
-                                                table-warning
-                                            @else
-                                                table-success @endif
-                                        "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
-                                    data-bs-content="
-                                    <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                    <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                    <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                    <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                    <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                    ">
-                                    {{ $daysLeft }}
+                                @php
+                                    $daysLeft = new DaysLeft($list);
+                                    $prazoClass = '';
+
+                                    if ($daysLeft->getDaysLeft() < 0) {
+                                        $prazoClass = 'text-bg-danger';
+                                    } elseif ($daysLeft->getDaysLeft() > 15) {
+                                        $prazoClass = 'text-bg-success';
+                                    } else {
+                                        $prazoClass = 'text-bg-warning';
+                                    }
+                                @endphp
+
+                                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                <td scope="col" class="text-center {{ $prazoClass }}"
+                                    style="background-color: inherit;">
+                                    {{ $daysLeft->getLastDate() }}
                                 </td>
 
 
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $rowClass }}">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"

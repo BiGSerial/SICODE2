@@ -104,6 +104,8 @@ class Analise extends Component
 
     public $needFiles = false;
 
+    public $hasFile = false;
+
     public $show_files = [];
 
     public $nota_divergente;
@@ -113,7 +115,8 @@ class Analise extends Component
         'analise_clean'     => 'clean',
         'confirm_goFinish'  => 'goFinish',
         'clean' => 'clean',
-        'hasFile' => 'hasFile',
+        'hasFile',
+        'savedFiles'
 
     ];
 
@@ -435,16 +438,16 @@ class Analise extends Component
 
     public function cancel(Production $production)
     {
-        $this->emit('cancel_files');
+        $this->emitTo('files.manager.create-prod-files', 'cleanFiles');
         $production->update([
 
         ]);
     }
 
     // Interação com o componante Livewire Files/Filesservice
-    public function hasFile($hasFile = false)
+    public function hasFile($value)
     {
-        $this->needFiles = $hasFile;
+        $this->hasFile = $value;
     }
 
     public function to_finish(Production $production)
@@ -482,7 +485,7 @@ class Analise extends Component
 
 
 
-        if ($this->needFiles && SelectOptions::verifyNeedFilesReclaims($this->conclusion)) {
+        if (!$this->hasFile && SelectOptions::verifyNeedFilesReclaims($this->conclusion)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -495,7 +498,7 @@ class Analise extends Component
             return;
         }
 
-       
+
 
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENCERRAMENTO DE SERVIÇO',
@@ -603,9 +606,16 @@ class Analise extends Component
                 // }
 
 
-                DB::commit();
-                $this->emit('save_files');
 
+                DB::commit();
+
+                if ($this->hasFile) {
+                    $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+                } else {
+                    $this->clean();
+                    $this->dispatchBrowserEvent('hideModal');
+                    $this->emit('refresh_accomany');
+                }
 
             }
 
@@ -623,6 +633,14 @@ class Analise extends Component
         }
     }
 
+    public function savedFiles()
+    {
+        $this->clean();
+        $this->emitTo('files.manager.create-prod-files', 'cleanFiles');
+        $this->dispatchBrowserEvent('hideModal');
+        $this->emit('refresh_accomany');
+    }
+
     public function clean()
     {
         $this->production  = null;
@@ -633,6 +651,8 @@ class Analise extends Component
         $this->card        = null;
         $this->view_form   = false;
         $this->postes      = '';
+
+
 
     }
 

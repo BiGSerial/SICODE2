@@ -69,7 +69,7 @@
                                                 <td class="fw-bold col-2 align-middle text-uppercase">Data Sicode:</td>
                                                 <td class="align-middle">
                                                     @if (isset($production->Note->WorkForm))
-                                                        {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->created_at)) }}
+                                                        {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->informed_at)) }}
                                                     @endif
                                                 </td>
                                             </tr>
@@ -176,9 +176,9 @@
                                         </div>
 
                                         <div class="mb-3 ">
-                                            <label for="inputPassword" class="col-sm-12 col-form-label">Anexar As-built,
-                                                Correções...Caso seja necessário.</label>
-                                            @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision'))
+
+                                            {{-- @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision')) --}}
+                                            @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false], key('FilesSupervision'))
                                         </div>
 
                                         <div class="mb-3">

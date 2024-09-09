@@ -99,9 +99,20 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
-                        {{ mb_strtoupper($service->service) }}
-                    </h4>
+                    <div class="card-header  text-bg-danger">
+                        <div class="row">
+                            <div class="col">
+                                <h4 class="fw-bold my-0">ACOMPANHAMENTO -
+                                    {{ mb_strtoupper($service->service) }}
+                                </h4>
+                            </div>
+                            <div class="col-3 d-flex justify-content-end">
+                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                        class="ri-file-excel-2-line"></i> Exportar</button>
+                            </div>
+                        </div>
+                    </div>
+
 
                     <div class="table-responsive">
                         <table class="table table-sm table-striped table-condensed table-hover">
@@ -111,7 +122,7 @@
                                     <th class="align-middle text-center">Files</th>
                                     <th class="align-middle text-center">Ordem</th>
                                     <th class="align-middle text-center">MOA</th>
-                                    <th class="align-middle text-center">Status</th>
+                                    {{-- <th class="align-middle text-center">Status</th> --}}
                                     <th class="align-middle text-center">OP30</th>
                                     <th class="align-middle text-center">OP40</th>
                                     <th class="align-middle text-center">OP50</th>
@@ -173,7 +184,7 @@
                                             @endif
 
                                         </td>
-
+                                        {{--
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
@@ -183,7 +194,7 @@
                                                 @endforeach
                                             @endif
 
-                                        </td>
+                                        </td> --}}
 
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
@@ -193,8 +204,8 @@
                                                     </span>
                                                 @endforeach
                                             @endif
-
                                         </td>
+
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
@@ -237,7 +248,7 @@
                                             {{ $list->Note->WorkForm ? date('d/m/Y', strToTime($list->Note->WorkForm->date)) : '---' }}
                                         </td>
                                         <td class="fw-light">
-                                            {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->created_at)) : '---' }}
+                                            {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) : '---' }}
                                         </td>
 
                                         <td scope="col"
@@ -261,9 +272,11 @@
                                     ">
                                             {{ $daysLeft }}
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-                                            <span
-                                                class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                        <td class="fw-light text-center">
+
+                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
                                         <td class="fw-bold fs-5">
                                             @if (!$list->block && !$this->blockWaiting($list->status))
@@ -370,11 +383,19 @@
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.payment.forms.jobform', key('payment-form'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
-    <div wire:init="checkOpen"></div>
+    {{-- <div wire:init="checkOpen"></div> --}}
 
 </div>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        Livewire.emitTo('services.payment.accompany.main', 'checkOpen');
+
+    });
+</script>
 
 @push('script')
     <script>

@@ -219,7 +219,7 @@
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                             </td>
                                             <td scope="col"
-                                                class="text-center 
+                                                class="text-center
                                         @if ($list->Note->days_left < 0) text-bg-secondary
                                         @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                                         table-danger
@@ -248,7 +248,9 @@
                                                     <span class="badge bg-warning">Aguardando Despacho</span>
                                                 @else
                                                     <span
-                                                        class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+                                                        class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                        wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                        style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                                 @endif
                                             </td>
                                             <td class="fw-bold fs-5">
@@ -355,6 +357,7 @@
 
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprodlev', key('Transfer_production'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
     <div wire:init="checkOpen"></div>
 

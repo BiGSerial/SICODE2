@@ -6,6 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
 use Livewire\{Component, WithPagination};
 use App\Services\Publication\NoteFilter;
+use Illuminate\Support\Facades\DB;
 
 class Main extends Component
 {
@@ -248,23 +249,55 @@ class Main extends Component
 
     public function getListsProperty()
     {
+        // return $this->noteFilter->filter($this->search, $this->filter_group)
+        //     ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        //     ->select('notes.*', 'work_reports.created_at as wCreated_at')
+        //     ->when($this->not_assigned, function ($q) {
+        //         $q->whereDoesntHave('Productions', function ($q) {
+        //             $q->where('service_id', $this->service->uuid)
+        //                 ->whereNotNull('user_id');
+        //         })->orWhereHas('Productions', function ($q) {
+        //             $q->where('service_id', $this->service->uuid)
+        //                 ->where(function ($q) {
+        //                     $q->whereNull('user_id')
+        //                         ->orWhere('user_id', '');
+        //                 });
+        //         });
+        //     })
+        //     ->orderBy('wCreated_at', 'ASC')
+        //     ->paginate($this->perPage);
+
         return $this->noteFilter->filter($this->search, $this->filter_group)
-            ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-            ->select('notes.*', 'work_reports.created_at as wCreated_at')
-            ->when($this->not_assigned, function ($q) {
-                $q->whereDoesntHave('Productions', function ($q) {
-                    $q->where('service_id', $this->service->uuid)
-                        ->whereNotNull('user_id');
-                })->orWhereHas('Productions', function ($q) {
-                    $q->where('service_id', $this->service->uuid)
-                        ->where(function ($q) {
-                            $q->whereNull('user_id')
-                                ->orWhere('user_id', '');
-                        });
-                });
-            })
-            ->orderBy('wCreated_at', 'ASC')
-            ->paginate($this->perPage);
+        ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        ->select(
+            'notes.*',
+            'work_reports.created_at as wCreated_at',
+            // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
+            DB::raw("
+                CASE
+                    WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                    WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                    ELSE NULL
+                END as prazo_final
+            ")
+        )
+        ->when($this->not_assigned, function ($q) {
+            $q->whereDoesntHave('Productions', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->whereNotNull('user_id');
+            })->orWhereHas('Productions', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where(function ($q) {
+                        $q->whereNull('user_id')
+                            ->orWhere('user_id', '');
+                    });
+            });
+        })
+        // Ordenar pela coluna 'prazo_final'
+        ->orderBy('prazo_final', 'ASC')
+        ->paginate($this->perPage);
+
+
     }
 
 

@@ -874,44 +874,6 @@ class Main extends Component
     public function confirmed_mass_dd()
     {
 
-
-        // if ($count = count($this->additionalData)) {
-        //     $error = 0;
-        //     foreach ($this->additionalData as $wpa) {
-        //         if (!Wpa::Create($wpa)) {
-        //             $error++;
-        //         }
-        //     }
-        // }
-
-        // if ($count = count($this->additionalDataUpd)) {
-        //     $error = 0;
-        //     foreach ($this->additionalDataUpd as $wpa) {
-        //         if (!Wpa::Update($wpa)) {
-        //             $error++;
-        //         }
-        //     }
-        // }
-
-        // if (!$error) {
-        //     $this->dispatchBrowserEvent('swal', [
-        //         'position' => 'center',
-        //         'icon' => 'success',
-        //         'title' => 'Notas DDs associadas com sucesso',
-        //         'timer' => 2500,
-        //     ]);
-
-        //     $this->closeall();
-        // } else {
-        //     $this->dispatchBrowserEvent('swal', [
-        //         'position' => 'center',
-        //         'icon' => 'error',
-        //         'title' => "OOPS!, Ocorreram {$error} de {$count} ao associar as DD às Notas.",
-        //         'timer' => 8000,
-        //     ]);
-        // }
-
-
         $count = count($this->additionalData);
         $error = 0;
 
@@ -979,7 +941,9 @@ class Main extends Component
             ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
 
-        $query->whereHas('WorkForm')
+        $query->whereHas('WorkForm', function ($sq) {
+            $sq->where('rejected', false);
+        })
             ->whereHas('Orders', function ($q) {
                 $q->where('statusSist', 'LIKE', 'LIB%')
                     ->whereHas('Operations', function ($sq) {
@@ -995,7 +959,8 @@ class Main extends Component
                     })->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0040')
                             ->where(function ($sq) {
-                                $sq->where('status', 'like', 'LIB%');
+                                $sq->where('status', 'like', 'LIB%')
+                                ->orwhere('status', 'like', 'JBFI LIB%');
                             });
                     });
             });

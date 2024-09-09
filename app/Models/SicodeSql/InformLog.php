@@ -37,5 +37,7 @@ class InformLog extends Model
         'informed_at',
         'created_at',
         'updated_at',
+        'first_at',
     ];
+
 }

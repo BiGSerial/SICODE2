@@ -42,8 +42,6 @@ final class DaysLeft
     {
         if ($this->note->type_note == 1) {
 
-            // dd($this->note->mesalization, $this->convertMensalizationToDate($this->note->mesalization));
-
             $hoje = Carbon::now();
 
             $dataCarbon = Carbon::parse($this->convertMensalizationToDate($this->note->mesalization));

@@ -115,7 +115,7 @@
                                     <th scope="col" class="fw-bold text-center">Descrição</th>
                                     <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
                                     <th scope="col" class="fw-bold text-center">Na Pilha</th>
-                                    <th scope="col" class="fw-bold text-center">PrazoTotal</th>
+                                    <th class="align-middle text-center">Dt Vencimento</th>
                                     <th scope="col" class="fw-bold text-center">Status</th>
                                     <th scope="col" class="fw-bold text-center"></th>
                                 </tr>
@@ -174,32 +174,32 @@
                                             {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                         </td>
                                         <td class="fw-light text-center align-middle">
-                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->created_at) : '---' }}
+                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->informed_at) : '---' }}
                                         </td>
-                                        <td scope="col"
-                                            class="text-center
-                                        @if ($daysLeft->getDaysLeft() < 0) text-bg-secondary
-                                        @elseif($daysLeft->getDaysLeft() >= 0 && $daysLeft->getDaysLeft() < 6)
-                                        table-danger
-                                        @elseif($daysLeft->getDaysLeft() >= 6 && $daysLeft->getDaysLeft() < 10)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
-                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Prazo Real"
-                                            data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
-                                            {{ 30 - $daysLeft->getDaysLeft() }}
+                                        @php
+                                            $daysLeft = new DaysLeft($list->Note);
+                                            $prazoClass = '';
+
+                                            if ($daysLeft->getDaysLeft() < 0) {
+                                                $prazoClass = 'text-bg-danger';
+                                            } elseif ($daysLeft->getDaysLeft() > 15) {
+                                                $prazoClass = 'text-bg-success';
+                                            } else {
+                                                $prazoClass = 'text-bg-warning';
+                                            }
+                                        @endphp
+
+                                        <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                        <td scope="col" class="text-center {{ $prazoClass }}"
+                                            style="background-color: inherit;">
+                                            {{ $daysLeft->getLastDate() }}
                                         </td>
-                                        <td class="fw-light text-center align-middle">
-                                            <span
-                                                class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
+
+                                        <td class="fw-light text-center">
+
+                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
                                         <td class="fw-bold fs-5">
 
@@ -224,6 +224,14 @@
                                                     </span>
                                                 @endif
                                             @endif
+
+                                            <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                data-bs-title="Devolver Informe">
+                                                <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                    style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                    wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
+                                            </span>
                                         </td>
 
 
@@ -309,10 +317,20 @@
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.publication.forms.jobform', key('production'))
+    @livewire('production.return.return-work', key('returnWorkfomr'))
+    @livewire('components.status.show-status', key('show_status_note'))
 
-    <div wire:init="checkOpen"></div>
+    {{-- <div wire:init="checkOpen"></div> --}}
 
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        Livewire.emitTo('services.publication.accompany.main', 'checkOpen');
+
+    });
+</script>
 
 
 @push('script')

@@ -59,22 +59,23 @@ class Production extends Model
 
     public function User()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
+
     }
 
     public function Dispatcher()
     {
-        return $this->belongsTo(User::class, 'dispatch_by', 'id');
+        return $this->belongsTo(User::class, 'dispatch_by', 'id')->withTrashed();
     }
 
     public function Att()
     {
-        return $this->belongsTo(User::class, 'att_by', 'id');
+        return $this->belongsTo(User::class, 'att_by', 'id')->withTrashed();
     }
 
     public function Company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class)->withTrashed();
     }
 
     public function Service()

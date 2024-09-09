@@ -69,7 +69,7 @@
                                                 <td class="fw-bold col-2 align-middle text-uppercase">Data Sicode:</td>
                                                 <td class="align-middle">
                                                     @if (isset($production->Note->WorkForm))
-                                                        {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->created_at)) }}
+                                                        {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->informed_at)) }}
                                                     @endif
                                                 </td>
                                             </tr>
@@ -137,3 +137,14 @@
     {{-- Livewire Components --}}
     @livewire('components.pausenote.pausenote2', key('PauseNotes2'))
 </div>
+<script>
+    // Capturando o evento de fechamento do modal
+    document.getElementById('formProductionModal').addEventListener('hidden.bs.modal', () => {
+
+        document.getElementById('formProductionModal').removeAttribute('data-backdrop');
+        Livewire.emitTo('services.publication.forms.jobform', 'closeAll');
+
+    });
+
+   
+</script>

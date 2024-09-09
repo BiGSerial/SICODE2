@@ -58,7 +58,18 @@
                 </button>
             </div>
         </div>
-        <table class="table table-sm table-condensed table-striped-columns">
+        <div class="row mx-3">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
+        <table class="table table-sm table-condensed table-striped-columns table-hover">
             <thead>
                 <th class="text-center"><input type="checkbox" class="form-checkbox" wire:model="selectAll"></th>
                 <th scope="col" class="text-center">Nota</th>
@@ -144,6 +155,17 @@
 
             </tbody>
         </table>
+        <div class="row mx-3">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
     </div>
 
 

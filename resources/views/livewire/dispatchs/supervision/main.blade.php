@@ -155,6 +155,7 @@
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">DD</th>
                             <th scope="col" class="fw-bold text-center">MMGD</th>
+                            <th scope="col" class="fw-bold text-center">Postes</th>
                             <th scope="col" class="fw-bold text-center">Informado Em</th>
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
@@ -264,8 +265,11 @@
                                 <td class="fw-bold text-danger text-center">
                                     {{ $list->mmgd ? 'MMGD' : '' }}
                                 </td>
+                                <td class="fw-bold text-primary text-center">
+                                    {{ isset($list->postes) ? $list->postes : '---' }}
+                                </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y H:i:s') : '---' }}
+                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->format('d/m/Y H:i:s') : '---' }}
                                 </td>
                                 <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>
@@ -310,7 +314,7 @@
                                 {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
                                 @php
                                     $days_left = $list->WorkForm
-                                        ? Carbon::parse($list->WorkForm->created_at)->diffInDays(Carbon::now(), false)
+                                        ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false)
                                         : 0;
                                 @endphp
                                 <td scope="col"

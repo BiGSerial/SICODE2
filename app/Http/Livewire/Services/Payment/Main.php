@@ -210,30 +210,48 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        return $this->noteFilter->filter($this->search,  $this->filter_group)
-            ->when($this->multiSearch, function ($q) {
-                $q->whereIn('note', $this->multiSearch)
-                    ->orWhereRelation('Orders', function ($q) {
-                        $q->whereIn('ordem', $this->multiSearch);
-                    });
-            })
+        $query = $this->noteFilter->filter($this->search, $this->filter_group);
+
+
+
+        if ($this->not_assigned && isset($this->service)) {
+            $query->whereDoesntHave('Productions', function ($sq) {
+                $sq->where('service_id', $this->service->uuid);
+
+            });
+        }
+
+
+
+        $query->when($this->multiSearch, function ($q) {
+            $q->whereIn('note', $this->multiSearch)
+                ->orWhereRelation('Orders', function ($q) {
+                    $q->whereIn('ordem', $this->multiSearch);
+                });
+        })
             ->when($this->typeNote, function ($q) {
                 $q->where('type_note', $this->typeNote);
             })
             ->with(['WorkForm' => function ($q) {
-                $q->orderBy('created_at', 'asc');
-            }])
-            ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-            ->select('notes.*', 'work_reports.created_at as wCreated_at')
-            ->orderBy('wCreated_at', 'asc')
-            ->paginate($this->perPage);
+                $q->orderBy('informed_at', 'asc');
+            }]);
+
+
+
+        $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        ->select('notes.*', 'work_reports.informed_at as wCreated_at')
+        ->orderBy('wCreated_at', 'asc');
+
+
+
+        return $query->paginate($this->perPage);
     }
 
     // Rules Days Left
     public function deadline(Note $note)
     {
         $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
 

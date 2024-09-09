@@ -17,6 +17,7 @@ class Jobform extends Component
     protected $listeners = [
         'showProduction',
         'confirmFinish' => 'save',
+        'closeAll'
     ];
 
     protected $rules = [
@@ -155,6 +156,20 @@ class Jobform extends Component
 
     public function to_finish()
     {
+
+        if (!$this->analise->postes) {
+            $alert = "
+        <div class='card text-bg-danger py-0 my-1'>
+            <div class='card-body'>
+                <h4 class='fw-bold'>ATENÇÃO</h4>
+                <p class='my-0'>Sua produção consta como <strong>ZERO</strong>. Este aviso é exibido mesmo que sua produção seja definida realmente como 0. Se não for seu caso, verifique novamente as informações inseridas e submeta novamente.</p>
+            </div>
+        </div>
+    ";
+        } else {
+            $alert = "";
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENCERRAMENTO DE SERVIÇO',
             'msg'   => "Você está prestes encerrar <strong>{$this->production->Note->note}</strong>.
@@ -165,7 +180,7 @@ class Jobform extends Component
                         <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                     </div>
                 </div>
-            ",
+            " . $alert,
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Continue!',
             'btnCanceltxt'  => 'Não, Cancele',
@@ -210,6 +225,7 @@ class Jobform extends Component
                     'position' => 'center',
                     'icon'     => 'success',
                     'title'    => 'Encerrado com Sucesso',
+                    'timer'    => 2500
                 ]);
 
                 $this->closeAll();
@@ -232,6 +248,7 @@ class Jobform extends Component
     public function closeAll()
     {
         $this->emitUp('refresh_list');
+        $this->dispatchBrowserEvent('hideModal');
         $this->dispatchBrowserEvent('hideModal');
     }
 

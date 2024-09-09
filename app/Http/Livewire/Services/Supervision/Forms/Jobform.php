@@ -15,6 +15,8 @@ class Jobform extends Component
     public ?Production $production = null;
     public ?Analise $analise = null;
 
+    public $hasFile = false;
+
 
     public $d5 = 2;
     public $return = [
@@ -26,6 +28,8 @@ class Jobform extends Component
     protected $listeners = [
         'showProduction',
         'confirmFinish' => 'save',
+        'hasFile',
+        'savedFiles'
     ];
 
     protected $rules = [
@@ -43,6 +47,11 @@ class Jobform extends Component
             'analise.conclusion.required' => 'O campo [Resultado] é Obrigatório.',
 
         ];
+    }
+
+    public function hasFile($value)
+    {
+        $this->hasFile = $value;
     }
 
 
@@ -198,6 +207,20 @@ class Jobform extends Component
             return;
         }
 
+
+        if (!$this->analise->postes) {
+            $alert = "
+        <div class='card text-bg-danger py-0 my-1'>
+            <div class='card-body'>
+                <h4 class='fw-bold'>ATENÇÃO</h4>
+                <p class='my-0'>Sua produção consta como <strong>ZERO</strong>. Este aviso é exibido mesmo que sua produção seja definida realmente como 0. Se não for seu caso, verifique novamente as informações inseridas e submeta novamente.</p>
+            </div>
+        </div>
+    ";
+        } else {
+            $alert = "";
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENCERRAMENTO DE SERVIÇO',
             'msg'   => "Você está prestes encerrar <strong>{$this->production->Note->note}</strong>.
@@ -208,7 +231,7 @@ class Jobform extends Component
                         <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                     </div>
                 </div>
-            ",
+            ".$alert,
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Continue!',
             'btnCanceltxt'  => 'Não, Cancele',
@@ -264,15 +287,21 @@ class Jobform extends Component
                 'title'    => 'ENVIADO COM SUCESSO',
             ]);
 
-            $this->emitTo('files.filesupervision', 'save_files');
+            // $this->emitTo('files.filesupervision', 'save_files');
             DB::commit();
 
-            $this->closeAll();
+            if ($this->hasFile) {
+                $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+            } else {
+                $this->closeAll();
+
+            }
+
         } catch (\Throwable $th) {
 
             DB::rollback();
 
-            dd($th->getMessage());
+
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -285,6 +314,13 @@ class Jobform extends Component
         }
     }
 
+    public function savedFiles()
+    {
+
+        $this->emitTo('files.manager.create-prod-files', 'cleanFiles');
+        $this->closeAll();
+    }
+
     public function closeAll()
     {
         $this->analise = null;
@@ -294,7 +330,7 @@ class Jobform extends Component
             'description' => null
         ];
 
-        $this->emitTo('files.filesupervision', 'cancel_files');
+
         $this->emitTo('services.supervision.main', 'refresh_list');
         $this->dispatchBrowserEvent('hideModal');
     }

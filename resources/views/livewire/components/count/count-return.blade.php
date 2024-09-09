@@ -22,6 +22,7 @@
 <div wire:poll.180s>
     @if ($count)
         <div class="d-flex align-items-center">
+            
             <span
                 class="
                 badge

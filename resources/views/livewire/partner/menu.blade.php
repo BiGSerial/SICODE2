@@ -50,6 +50,12 @@
                             </a>
                         </li>
                         <li>
+                            <a href="{{ route('partner.report.rejectedWorked') }}" class="nav-item text-white">
+                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informe
+                                    Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Informadas</span>
                             </a>

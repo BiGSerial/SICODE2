@@ -1,6 +1,56 @@
 {
-    "appver": "1.9.11",
+    "appver": "1.10.6",
     "historic": [
+        {
+            "version": "1.10.6",
+            "description": "Updated all files upload components",
+            "date": "2024-09-05"
+        },
+        {
+            "version": "1.10.5",
+            "description": "Updated Files Upload from Survey, Supervision and Drawing",
+            "date": "2024-09-04"
+        },
+        {
+            "version": "1.10.4",
+            "description": "Fix some thigs and Transferprod, Search Bug",
+            "date": "2024-09-03"
+        },
+        {
+            "version": "1.10.3",
+            "description": "Add Comssion options Service",
+            "date": "2024-09-02"
+        },
+        {
+            "version": "1.10.2",
+            "description": "Created Files controller and View about Rejeceted Forms",
+            "date": "2024-08-30"
+        },
+        {
+            "version": "1.10.1",
+            "description": "Fix somethings and add NoteStatus View in All Status exibition",
+            "date": "2024-08-26"
+        },
+        {
+            "version": "1.10.0",
+            "description": "Return WorkForm to Partner, and Major file Fix",
+            "date": "2024-08-26"
+        },
+        {
+            "version": "1.9.14",
+            "description": "Created Files Check",
+            "date": "2024-08-21"
+        },
+        {
+            "version": "1.9.13",
+            "description": "Report on Payments Columns",
+            "date": "2024-08-20"
+        },
+        {
+            "version": "1.9.12",
+            "description": "Fixed search in Payment Dispatch",
+            "date": "2024-08-12"
+        },
         {
             "version": "1.9.11",
             "description": "Changes Export Supervision and Changes on Possibility re-send publication on Confirmed Productions",

@@ -79,9 +79,9 @@ class Main extends Component
             <div class='card card-light'>
             <div class='card-body'>
             <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p> 
+            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
             </div>
-            </div>  
+            </div>
             ",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Atribua!',

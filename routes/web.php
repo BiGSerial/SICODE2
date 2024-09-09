@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, ImpersonationController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ServicesController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -100,6 +100,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
 
     Route::get('/workreports', 'workreports')->name('workreport');
+    Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
 });
@@ -110,17 +111,6 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/transfer', 'survey_transfer')->name('transprod');
     Route::get('/intern_returns', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');
-});
-
-
-
-Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->name('main.viability');
-    Route::get('/todo-viability', 'viability')->name('todo.viability');
-    // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
-    Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
-    Route::get('/workreport', 'workreport')->name('report.workreport');
-    Route::get('/workedlist', 'workedlist')->name('report.workedlist');
 });
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
@@ -143,6 +133,22 @@ Route::middleware('auth')->group(function () {
 });
 
 
+// Partners Route's
+Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
+    Route::get('/', 'main')->name('main.viability');
+    Route::get('/todo-viability', 'viability')->name('todo.viability');
+    // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
+    Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
+    Route::get('/workreport', 'workreport')->name('report.workreport');
+    Route::get('/workedlist', 'workedlist')->name('report.workedlist');
+    Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
+});
+
+
+// Files Controller Manager
+Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function () {
+    Route::get('/', 'main')->name('main');
+});
 
 Route::get('/info', function () {
     return phpinfo();

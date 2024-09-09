@@ -6,6 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -549,7 +550,9 @@ class Main extends Component
 
             // RuleBuilder::applyRules($query, $this->service->Status);
 
-            $query->whereHas('WorkForm')
+            $query->whereHas('WorkForm', function ($sq) {
+                $sq->where('rejected', false);
+            })
                 ->whereHas('Orders', function ($q) {
                     $q->where('statusSist', 'LIKE', 'LIB%')
                         ->whereHas('Operations', function ($sq) {
@@ -625,12 +628,24 @@ class Main extends Component
                 });
         }
 
-        $query->with('Productions.User')
-            // ->orderBy('type_note', 'DESC')
-            ->orderBy('work_dt_created', 'ASC')
-            ->select('notes.*', 'work_reports.created_at as work_dt_created');
+        // Adicionar o cálculo da coluna 'prazo_final' usando as regras de 'type_note' e 'mesalization'
+        $query->select(
+            'notes.*',
+            'work_reports.created_at as work_dt_created',
+            DB::raw("
+    CASE
+        WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+        WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+        ELSE NULL
+    END as prazo_final
+")
+        );
 
-        return $query;
+        // Adicionar a ordenação pela coluna 'prazo_final'
+        $query->with('Productions.User')
+            ->orderBy('prazo_final', 'ASC');
+
+            return $query;
     }
 
     public function getBaseProperty()

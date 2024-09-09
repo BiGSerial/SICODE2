@@ -17,14 +17,24 @@ class Search extends Component
         'search' => ['except' => '', 'as' => 's'],
     ];
 
+    protected $listeners = [
+        'update_list' => '$refresh',
+    ];
+
     public function Search()
     {
 
     }
 
+
+
+
     public function getBuscarProperty()
     {
-        return Note::where('note', trim($this->search))->with(['Productions' => function ($query) {
+        return Note::where(function ($q) {
+            $q->where('note', trim($this->search))
+                ->orWhereRelation('Orders', 'ordem', trim($this->search));
+        })->with(['Productions' => function ($query) {
             $query->where('rejected', false);
         }])->first();
     }

@@ -20,6 +20,6 @@ class Andresscompany extends Model
 
     public function Company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class)->withTrashed();
     }
 }

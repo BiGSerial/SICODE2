@@ -12,6 +12,8 @@ class Returned extends Component
 {
     use WithFileUploads;
 
+    public $action;
+
     protected $listeners = [
         'update_list' => '$refresh'
     ];
@@ -31,21 +33,25 @@ class Returned extends Component
 
     public function getListsProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            $q->where('engineer', true)
-                ->where(function ($q) {
-                    $q->where('rejected', true)
-                    ->orwhere('approved', true);
-                })->where('hired', false);
-        })
-            ->with(['Viabilities' => function ($query) {
-                $query->where('engineer', true)
-                ->where(function ($q) {
-                    $q->where('rejected', true)
-                    ->orwhere('approved', true);
-                })->where('hired', false)
-                ->with('Company', 'User', 'Form', 'Comments.User', 'Reclaims.production');
-            }, 'Files'])->paginate(50);
+        // return Note::whereRelation('Viabilities', function ($q) {
+        //     $q->where('engineer', true)
+        //         ->where(function ($q) {
+        //             $q->where('rejected', true)
+        //             ->orwhere('approved', true);
+        //         })->where('hired', false);
+        // })
+        //     ->with(['Viabilities' => function ($query) {
+        //         $query->where('engineer', true)
+        //         ->where(function ($q) {
+        //             $q->where('rejected', true)
+        //             ->orwhere('approved', true);
+        //         })->where('hired', false)
+        //         ->with('Company', 'User', 'Form', 'Comments.User', 'Reclaims.production');
+        //     }, 'Files'])->paginate(50);
+
+        return Note::whereRelation('viabilities', function ($q) {
+            $q->whereHas('reclaims');
+        })->paginate(50);
     }
 
 

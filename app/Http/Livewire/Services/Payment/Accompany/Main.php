@@ -2,14 +2,17 @@
 
 namespace App\Http\Livewire\Services\Payment\Accompany;
 
+use App\Exports\Services\ServicePaymentStack;
 use App\Models\{File, Note, Production, Service, User};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
+use Maatwebsite\Excel\Concerns\Exportable;
 
 class Main extends Component
 {
     use WithPagination;
+    use Exportable;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -46,6 +49,7 @@ class Main extends Component
         'refresh_list'       => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
+        'checkOpen'
     ];
 
     public function mount($service)
@@ -59,6 +63,11 @@ class Main extends Component
         if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
             $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
         }
+    }
+
+    public function export_excel()
+    {
+        return (new ServicePaymentStack($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
     }
 
     public function blockWaiting($status)
@@ -223,15 +232,15 @@ class Main extends Component
             })
             ->with(['Note' => function ($query) {
                 $query->orderBy('dt_status', 'asc');
-            }])
-            ->paginate($this->perPage);
+            }]);
+
     }
 
     // Rules Days Left
     public function deadline(Note $note)
     {
         $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
 
@@ -248,7 +257,7 @@ class Main extends Component
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
         return view('livewire.services.payment.accompany.main', [
-            'lists' => $this->lists,
+            'lists' => $this->lists->paginate($this->perPage),
         ]);
     }
 }

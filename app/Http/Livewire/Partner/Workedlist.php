@@ -61,6 +61,15 @@ class Workedlist extends Component
 
             if (Storage::disk('local')->exists($file->path)) {
                 return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
             }
         }
     }
@@ -78,21 +87,24 @@ class Workedlist extends Component
         $query = WorkReport::Query();
 
 
-        $query->where('company_id', Auth()->User()->Employee->Contract->company->id);
+        $query->where('rejected', false)
+            ->when(!Auth()->User()->superadm, function ($q) {
+                $q->where('company_id', Auth()->User()->Employee->Contract->company->id);
+            });
 
 
         if (($this->date_in || $this->date_out)) {
 
             if ($this->date_in && !$this->date_out) {
-                $query->whereDate('created_at', '>=', $this->date_in);
+                $query->whereDate('informed_at', '>=', $this->date_in);
             }
 
             if (!$this->date_in && $this->date_out) {
-                $query->whereDate('created_at', '<=', $this->date_out);
+                $query->whereDate('informed_at', '<=', $this->date_out);
             }
 
             if ($this->date_in && $this->date_out) {
-                $query->whereBetween('created_at', [$this->date_in, $this->date_out]);
+                $query->whereBetween('informed_at', [$this->date_in, $this->date_out]);
             }
         }
 

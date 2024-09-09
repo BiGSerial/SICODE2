@@ -32,11 +32,11 @@ class Prodtransfer extends Model
 
     public function From()
     {
-        return $this->belongsTo(User::class, 'from', 'id');
+        return $this->belongsTo(User::class, 'from', 'id')->withTrashed();
     }
 
     public function To()
     {
-        return $this->belongsTo(User::class, 'to', 'id');
+        return $this->belongsTo(User::class, 'to', 'id')->withTrashed();
     }
 }

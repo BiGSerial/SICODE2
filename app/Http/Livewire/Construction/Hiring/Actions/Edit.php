@@ -16,6 +16,8 @@ class Edit extends Component
     public ?Note $note = null;
     public $companies;
     public $users;
+    public $rehiring = false;
+    public $newsend = false;
 
     public $user_s;
     public $company_s;
@@ -29,6 +31,15 @@ class Edit extends Component
     {
         $this->users = User::where('engineer', true)->orderBy('name')->get();
         $this->companies = Company::orderBy('name')->get();
+    }
+
+    public function recontratar()
+    {
+        if ($this->rehiring) {
+            $this->rehiring = false;
+        } else {
+            $this->rehiring = true;
+        }
     }
 
     public function editHiring(Note $note)
@@ -48,6 +59,8 @@ class Edit extends Component
 
     public function toAlterViability()
     {
+
+
         if ($this->user_s == '' || $this->company_s == '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -118,8 +131,13 @@ class Edit extends Component
 
     public function alter_viability()
     {
+
+
+
         if ($this->note->Viabilities->where('completed', false)->count()) {
+
             DB::beginTransaction();
+
             $error = false;
             foreach ($this->note->Viabilities->where('completed', false) as $viability) {
                 try {
@@ -131,36 +149,76 @@ class Edit extends Component
 
                 } catch (\Throwable $th) {
                     $error = true;
-                    DB::rollback();
-                    break;
                 }
             }
+        } elseif ($this->rehiring) {
 
-            if (!$error) {
 
-                DB::commit();
 
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'Alterado com sucesso!.',
-                    'timer'    => 5000,
-                ]);
+            DB::beginTransaction();
 
-                $this->closeAll();
+            $error = false;
 
-                $this->emitUp('refresh_list');
+            foreach ($this->note->Viabilities as $viability) {
+                try {
 
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'OOOPS! Algo deu errado.',
-                    'timer'    => 5000,
-                ]);
-                return;
+                    $viability->update([
+                        'engineer_id' => $this->user_s,
+                        'company_id' => $this->company_s,
+                        'rehired' => $this->rehiring,
+                        'sended_at' => $this->newsend ? date('Y-m-d H:i:s') : $viability->sended_at,
+                        'tacit' => $this->newsend ? false : $viability->tacit,
+                        'approved' => $this->newsend ? false : $viability->approved,
+                        'rejected' => $this->newsend ? false : $viability->rejected,
+                        'status' => $this->newsend ? 1 : $viability->status,
+                        'tacit_at' => $this->newsend ? null : $viability->tacit_at,
+                        'completed_at' => $this->newsend ? null : $viability->completed_at,
+                        'replica' => $this->newsend ? false : $viability->replica,
+                        'treplica' => $this->newsend ? false : $viability->treplica,
+                        'inActivity' => $this->newsend ? false : $viability->inActivity,
+                        'returned_at' => $this->newsend ? null : $viability->returned_at,
+
+
+                    ]);
+
+
+
+
+                } catch (\Throwable $th) {
+                    $error = true;
+                }
             }
         }
+
+        if (!$error) {
+
+            DB::commit();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Alterado com sucesso!.',
+                'timer'    => 5000,
+            ]);
+
+            $this->closeAll();
+
+            $this->emitUp('refresh_list');
+
+        } else {
+
+            DB::rollback();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OOOPS! Algo deu errado.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
+
     }
 
     public function downloadFile($id)
@@ -180,6 +238,8 @@ class Edit extends Component
         $this->dispatchBrowserEvent('hideModal');
         $this->user_s = null;
         $this->company_s = null;
+        $this->rehiring = false;
+        $this->newsend = false;
 
     }
 

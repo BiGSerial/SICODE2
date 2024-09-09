@@ -5,6 +5,8 @@ namespace App\Http\Livewire\Files;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Production;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -168,6 +170,8 @@ class Fileservices extends Component
 
         if (count($this->files)) {
 
+            DB::beginTransaction();
+
             foreach ($this->files as $index => $file) {
 
                 $tempPath = $file->getRealPath();
@@ -192,7 +196,7 @@ class Fileservices extends Component
 
                     $caminho = $file->store('/arquivos/projeto');
 
-                    if ($caminho) {
+                    if (Storage::exists($caminho)) {
 
                         $this->production->Files()->create([
                             'note_id'   => $this->production->note_id,
@@ -203,6 +207,22 @@ class Fileservices extends Component
                             'ext'       => $file->getClientOriginalExtension(),
                         ]);
 
+                    } else {
+
+                        DB::rollBack();
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'warning',
+                            'title'    => 'ERRO AO SALVAR',
+                            'html'     => '<div class="card bg-primary text-white"><div class="card-body">
+                                <p class="fw-bold">Ocorreu um erro ao salvar um dos, ou o arquivo. Aparentemente não foi concluído o upload. Remova-o(os) da lista e tente novamente. </p>
+
+                                </div></div>',
+
+                        ]);
+
+                        return;
                     }
 
                 }
@@ -210,6 +230,7 @@ class Fileservices extends Component
             }
         }
 
+        DB::commit();
 
         $this->emitUp('clean');
         $this->emitUp('refresh_accomany');

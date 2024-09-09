@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Dispatchs\Payment;
 
 use App\Custom\RuleBuilder;
-use App\Exports\DispatchDesenhoMain;
+use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use Carbon\Carbon;
@@ -86,11 +86,26 @@ class Main extends Component
 
     public $not_assigned = false;
 
+    public $typeNote = '';
+
+
+    // Filters
+    private $filter_group = 'payments';
+    private $filters;
+
     protected $listeners = [
         'refresh_dispatch'  => '$refresh',
+        'refresh_list'      => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch'  => 'confirmed_att',
+    ];
+
+    protected $queryString = [
+        'search'   => ['except' => '', 'as' => 'buscar'],
+        'page'     => ['except' => 1, 'as' => 'p'],
+        'perPage'  => ['as' => 'pp'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
 
     public function mount($service)
@@ -98,52 +113,23 @@ class Main extends Component
 
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+    }
 
-        $this->group1_l = $this->lists->orderBy('group1')->get()->pluck('group1')->unique();
-        $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
-        $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->gotoPage(1);
 
-        session_start();
-
-        if (isset($_SESSION['filtro']['desenho']) && $_SESSION['filtro']['desenho']) {
-            if (isset($_SESSION['filtro']['desenho']['rubrica'])) {
-                $this->rubrica_s = $_SESSION['filtro']['desenho']['rubrica'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['city'])) {
-                $this->city_s = $_SESSION['filtro']['desenho']['city'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['district'])) {
-                $this->district_s = $_SESSION['filtro']['desenho']['district'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['region'])) {
-                $this->region_s = $_SESSION['filtro']['desenho']['region'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['group1'])) {
-                $this->group1_s = $_SESSION['filtro']['desenho']['group1'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['group2'])) {
-                $this->group2_s = $_SESSION['filtro']['desenho']['group2'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['group5'])) {
-                $this->group5_s = $_SESSION['filtro']['desenho']['group5'];
-            }
-        }
     }
 
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchPaymentMain($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         } else {
             $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
 
-            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchPaymentMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         }
     }
 
@@ -183,7 +169,7 @@ class Main extends Component
     public function deadline(Note $note)
     {
         $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
 
@@ -500,7 +486,7 @@ class Main extends Component
 
     public function buscarMulti()
     {
-
+ 
         if ($this->advanceSearch) {
 
             $this->gotoPage(1);
@@ -525,6 +511,9 @@ class Main extends Component
         }
 
         if (count($this->multiSearch)) {
+
+            $this->gotoPage(1);
+
             $this->closeall();
         }
     }
@@ -540,104 +529,101 @@ class Main extends Component
 
     public function getListsProperty()
     {
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+
         $query = Note::query();
 
-        if (count($this->multiSearch)) {
-            $query->whereIn('note', $this->multiSearch)
-                ->orWhereRelation('Orders', function ($q) {
-                    $q->whereIn('ordem', $this->multiSearch);
-                });
-        } else {
 
-            // RuleBuilder::applyRules($query, $this->service->Status);
+        // RuleBuilder::applyRules($query, $this->service->Status);
 
-            $query->whereHas('WorkForm', function ($q) {
-                $q->when(isset($this->filters['company']), function ($sq) {
-                    return $sq->where(function ($query) {
-                        $query->whereIn('company_id', $this->filters['company'])
-                            ->orWhereNull('company_id');
+        $query->whereHas('WorkForm', function ($q) {
+            $q->when(isset($this->filters['company']), function ($sq) {
+                return $sq->where(function ($query) {
+                    $query->whereIn('company_id', $this->filters['company'])
+                        ->orWhereNull('company_id');
+                });
+            });
+        })
+            ->whereHas('Orders', function ($q) {
+                $q->where('statusSist', 'LIKE', 'LIB%')
+                    ->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0030')
+                            ->where('status', 'like', 'CONF%');
+                    })
+                    ->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0040')
+                            ->where(function ($q) {
+                                $q->where('status', 'like', 'CONF%')
+                                    ->orWhere('status', 'like', 'CNPA%');
+                            });
+                    })
+                    ->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0050')
+                            ->where('status', 'like', 'LIB%');
                     });
-                });
-            })
-                ->whereHas('Orders', function ($q) {
-                    $q->where('statusSist', 'LIKE', 'LIB%')
-                        ->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0030')
-                                ->where('status', 'like', 'CONF%');
-                        })
-                        ->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0040')
-                                ->where(function ($q) {
-                                    $q->where('status', 'like', 'CONF%')
-                                        ->orWhere('status', 'like', 'CNPA%');
-                                });
-                        })
-                        ->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0050')
-                                ->where('status', 'like', 'LIB%');
-                        });
-                });
+            });
 
-            if ($this->not_assigned) {
-                $query->where(function ($q) {
-                    $q->doesntHave('Productions')
-                        ->orWhereDoesntHave('Productions', function ($subquery) {
-                            $subquery->where('service_id', $this->service->uuid)
-                                ->where('confirmed', false);
-                        });
-                });
-            }
-
-            $query->when($this->search, function ($q, $s) {
-                $this->gotoPage(1);
-
-                return $q->where(function ($query) use ($s) {
-                    $query->where('note', 'like', '%' . $s . '%')
-                        ->orWhere('material', 'like', '%' . $s . '%')
-                        ->orWhere('numPedido', 'like', '%' . $s . '%')
-                        ->orWhereRelation('Orders', 'ordem', 'like', '%' . $s . '%');
-                });
-            })->when($this->rubrica_s, function ($q) {
-                return $q->where(function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s)
-                        ->orWhereNull('rubrica');
-                });
-            })
-                ->when($this->note_type, function ($q) {
-                    return $q->where(function ($query) {
-                        $query->where('type_note', $this->note_type)
-                            ->orWhereNull('type_note');
+        if ($this->not_assigned) {
+            $query->where(function ($q) {
+                $q->doesntHave('Productions')
+                    ->orWhereDoesntHave('Productions', function ($subquery) {
+                        $subquery->where('service_id', $this->service->uuid)
+                            ->where('confirmed', false);
                     });
-                })
-                ->when($this->group1_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group1', $this->group1_s)
-                            ->orWhere('group1', '')
-                            ->orWhere('group1', null);
-                    });
-                })
-                ->when($this->group2_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group2', $this->group2_s)
-                            ->orWhere('group2', '')
-                            ->orWhere('group2', null);
-                    });
-                })
-                ->when($this->group5_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group5', $this->group5_s)
-                            ->orWhere('group5', '')
-                            ->orWhere('group5', null);
-                    });
-                })
-                ->when($this->base, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('nexp', $this->base)
-                            ->orWhere('nexp', '')
-                            ->orWhere('nexp', null);
-                    });
-                });
+            });
         }
+
+
+        if (count($this->multiSearch)) {
+            $query->where(function ($sq) {
+                $sq->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });
+            });
+        } elseif ($this->search) {
+            $query->where(function ($query) {
+                $query->where('note', 'like', '%' . $this->search . '%')
+                    ->orWhere('material', 'like', '%' . $this->search . '%')
+                    ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                    ->orWhereRelation('Orders', 'ordem', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        // $query->when($this->search, function ($q, $s) {
+        //     $this->gotoPage(1);
+
+        //     return $q->where(function ($query) use ($s) {
+        //         $query->where('note', 'like', '%' . $s . '%')
+        //             ->orWhere('material', 'like', '%' . $s . '%')
+        //             ->orWhere('numPedido', 'like', '%' . $s . '%')
+        //             ->orWhereRelation('Orders', 'ordem', 'like', '%' . $s . '%');
+        //     });
+        // });
+
+        $query->when(isset($this->filters['rubrica']), function ($q) {
+            return $q->where(function ($query) {
+                $query->whereIn('rubrica', $this->filters['rubrica'])
+                    ->orWhereNull('rubrica');
+            });
+        })->when(isset($this->filters['city']), function ($q) {
+            return $q->where(function ($query) {
+                $query->whereIn('lexp', $this->filters['city'])
+                    ->orWhereNull('lexp');
+            });
+        })->when($this->typeNote, function ($q) {
+            $q->where('type_note', $this->typeNote);
+        });
+
+
 
         $query->with('Productions.User')
             ->orderBy('type_note', 'DESC')

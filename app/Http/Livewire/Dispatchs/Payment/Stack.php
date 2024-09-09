@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Dispatchs\Payment;
 
 use App\Exports\DispatchDesenhoStack;
+use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use Carbon\Carbon;
@@ -153,11 +154,11 @@ class Stack extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoStack($this->exports->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchPaymentStack($this->exports->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
         } else {
             $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
 
-            return (new DispatchDesenhoStack($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchPaymentStack($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportControledPayment.xlsx');
         }
     }
 
@@ -886,7 +887,7 @@ class Stack extends Component
     public function deadline(Note $note)
     {
         $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->created_at : null;
+        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
 

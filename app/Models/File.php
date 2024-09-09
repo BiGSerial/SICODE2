@@ -16,6 +16,9 @@ class File extends Model
         'file_name',
         'path',
         'ext',
+        'noexists',
+        'original_name',
+        'suspicious',
     ];
 
     public function Note()
@@ -25,7 +28,7 @@ class File extends Model
 
     public function User()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     public function Service()

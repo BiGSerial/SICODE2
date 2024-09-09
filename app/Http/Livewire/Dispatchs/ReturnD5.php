@@ -162,8 +162,11 @@ class ReturnD5 extends Component
 
     public function getListsProperty()
     {
+
+
+
         return Reclaim::Where('service_id', $this->service->uuid)
-                    ->when($this->filterUser, function($q){
+                    ->when($this->filterUser, function ($q) {
                         $q->WhereRelation('Production', 'user_id', $this->filterUser);
                     })
                     ->Where('completed', false)

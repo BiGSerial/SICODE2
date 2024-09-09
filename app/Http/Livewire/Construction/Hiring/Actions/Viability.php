@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Models\Viability as ModelsViability;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -311,7 +312,7 @@ class Viability extends Component
 
                         $caminho = $file->store('/arquivos');
 
-                        if ($caminho) {
+                        if (Storage::exists($caminho)) {
 
                             $created_viab->Files()->create([
                                 'note_id'    => $order['order']['note']['id'],
@@ -321,6 +322,21 @@ class Viability extends Component
                                 'path'       => $caminho,
                                 'ext'        => $file->getClientOriginalExtension(),
                             ]);
+                        } else {
+                            DB::rollBack();
+
+                            $this->dispatchBrowserEvent('swal', [
+                                'position' => 'center',
+                                'icon'     => 'warning',
+                                'title'    => 'ERRO AO SALVAR',
+                                'html'     => '<div class="card bg-primary text-white"><div class="card-body">
+                                <p class="fw-bold">Ocorreu um erro ao salvar um dos, ou o arquivo. Aparentemente não foi concluído o upload. Remova-o(os) da lista e tente novamente. </p>
+
+                                </div></div>',
+
+                            ]);
+
+                            return;
                         }
                     }
                 } else {
