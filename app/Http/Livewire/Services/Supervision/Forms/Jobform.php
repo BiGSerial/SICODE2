@@ -256,7 +256,6 @@ class Jobform extends Component
                 'completed_at' => date('Y-m-d H:i:s'),
                 'postes_u'     => $this->analise ? $this->analise->postes : null,
                 'completed'    => true,
-                'confirmed'    => true,
                 'priority'     => false,
 
             ]);

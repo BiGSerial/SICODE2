@@ -37,6 +37,7 @@ class Usuario extends Component
         'user.Registration' => 'string|max:80',
         'company' => 'required|exists:companies,id',
         'contract' => 'required|exists:contracts,id',
+        'user.company_id' => 'required|string|max:255',
         'user.superadm' => 'boolean',
         'user.admin' => 'boolean',
         'user.management' => 'boolean',
@@ -44,13 +45,13 @@ class Usuario extends Component
         'user.operator' => 'boolean',
         'user.user' => 'boolean',
         'user.onlyparner' => 'boolean',
+        'user.contract' => 'boolean',
         'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 
     public function mount()
     {
         $this->companyList = Company::orderBy('name')->get();
-
     }
 
     public function openUser($user)
@@ -63,6 +64,12 @@ class Usuario extends Component
         if ($this->user) {
             // dd($this->user);
 
+            if (!$this->user->company_id) {
+                $this->user->company_id = isset($this->user->Employee->Contract->company->id) ? $this->user->Employee->Contract->company->id : null;
+                $this->user->save();
+            }
+
+            $this->contractList = Contract::where('company_id', $this->user->company_id)->get();
             $this->company = isset($this->user->Employee->Contract->company->id) ? $this->user->Employee->Contract->company->id : '';
             $this->contract = isset($this->user->Employee->Contract->id) ? $this->user->Employee->Contract->id : '';
 
@@ -74,6 +81,12 @@ class Usuario extends Component
         $this->emitSelf('refreshuser');
 
     }
+
+    public function updatedUserCompanyId()
+    {
+        $this->contractList = Contract::where('company_id', $this->user->company_id)->get();
+    }
+
 
     public function newUser()
     {
@@ -163,8 +176,10 @@ class Usuario extends Component
 
         if (count($this->temporaryServices)) {
             foreach ($this->temporaryServices as $service) {
-                ServiceUser::updateOrCreate(
-                    ['user_id' => $this->user->id],
+                $this->user->ToServices()->updateOrCreate(
+                    [
+                        'service_id' => $service['service_id'],
+                    ],
                     $service
                 );
             }
@@ -179,6 +194,7 @@ class Usuario extends Component
     public function resetPassword()
     {
         $this->user->password = Hash::make(123456);
+        $this->user->first_pass = true;
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -211,10 +227,6 @@ class Usuario extends Component
 
     public function render()
     {
-        $this->contractList = Contract::when($this->company, function ($q) {
-            $q->where('company_id', $this->company);
-        })->get();
-
         if ($this->contract && $contract = Contract::findOrFail($this->contract)) {
             $this->serviceList = $contract->services;
         } else {

@@ -39,6 +39,7 @@ class User extends Authenticatable
         'bypassprod',
         'engineer',
         'onlyparner',
+        'company_id',
     ];
 
     /**
@@ -64,6 +65,11 @@ class User extends Authenticatable
     public function Employee()
     {
         return $this->hasOne(Employee::class);
+    }
+
+    public function Company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function Priorities()

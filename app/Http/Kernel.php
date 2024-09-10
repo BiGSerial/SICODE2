@@ -45,6 +45,11 @@ class Kernel extends HttpKernel
         ],
     ];
 
+    protected $routeMiddleware = [
+        // Outros middlewares
+        'check.service.dispatch' => \App\Http\Middleware\CheckServiceOrDispatchPermission::class,
+    ];
+
     /**
      * The application's middleware aliases.
      *
@@ -66,4 +71,6 @@ class Kernel extends HttpKernel
         'verified'         => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'admin'            => \App\Http\Middleware\AdminMiddleware::class,
     ];
+
+
 }

@@ -65,7 +65,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     Route::get('/services', 'services')->name('services');
 });
 
-Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('can:user')->group(function () {
+Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')   ->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
@@ -74,7 +74,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
 });
 
-Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->middleware('can:user')->group(function () {
+Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
@@ -86,6 +86,14 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
     Route::prefix('/responser')->name('responser.')->group(function () {
         Route::get('/', 'responser_main')->name('main');
     });
+});
+
+Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
+    Route::get('/main', 'survey_main')->name('main');
+    Route::get('/stack', 'survey_stack')->name('stack');
+    Route::get('/transfer', 'survey_transfer')->name('transprod');
+    Route::get('/intern_returns', 'returnD5')->name('d5');
+    Route::get('/map_info', 'survey_map')->name('mapinfo');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {
@@ -105,13 +113,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
 });
 
-Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('can:operator')->group(function () {
-    Route::get('/main', 'survey_main')->name('main');
-    Route::get('/stack', 'survey_stack')->name('stack');
-    Route::get('/transfer', 'survey_transfer')->name('transprod');
-    Route::get('/intern_returns', 'returnD5')->name('d5');
-    Route::get('/map_info', 'survey_map')->name('mapinfo');
-});
+
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
     Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');

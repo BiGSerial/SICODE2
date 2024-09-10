@@ -5,13 +5,13 @@
     <x-show-loading />
     <!-- Modal para Criar/Editar Usuário -->
 
-    <div wire:ignore.self class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel"
+    <div wire:ignore.self class="modal fade" id="userMassEditModal" tabindex="-1" aria-labelledby="userModalLabel"
         aria-hidden="true">
-        @if ($this->user)
+        @if ($this->users)
             <div class="modal-dialog modal-lg">
                 <div class="modal-content edp-bg-gray">
                     <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                        <h5 class="modal-title" id="userModalLabel">Criar/Editar Usuário</h5>
+                        <h5 class="modal-title" id="userModalLabel">EDITAR USUARIOS EM MASSA</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -19,28 +19,14 @@
 
                         <!-- Seção 1: Dados do Usuário -->
                         <div class="mb-3">
-                            <h6 class="text-primary">Dados do Usuário</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="email"
-                                        wire:model.defer="user.email" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="matricula" class="form-label">Matrícula</label>
-                                    <input type="text" class="form-control" id="matricula"
-                                        wire:model.defer="user.Registration">
-                                </div>
-                            </div>
+                            <h6 class="text-primary">Dados Gerais</h6>
+                            <h5>Total Usuarios Afetados: {{ $users->count() }} <span class="text-danger">(Usuarios
+                                    Removidos são Ignorados)</span></h5>
                             <div class="row mt-3">
-                                <div class="col-md-6">
-                                    <label for="nome" class="form-label">Nome</label>
-                                    <input type="text" class="form-control" id="nome"
-                                        wire:model.defer="user.name" required>
-                                </div>
+
                                 <div class="col-md-6">
                                     <label for="empresa" class="form-label">Empresa</label>
-                                    <select class="form-select" id="empresa" wire:model="user.company_id" required>
+                                    <select class="form-select" id="empresa" wire:model="company" required>
                                         <option value="" selected>Selecione a Empresa</option>
                                         @if ($companyList)
                                             @foreach ($companyList as $cList)
@@ -65,7 +51,7 @@
                                 <div class="col-md-6 d-flex align-items-center">
                                     <div class="form-check mt-4">
                                         <input class="form-check-input" type="checkbox" id="contratado"
-                                            wire:model.defer="user.contract">
+                                            wire:model.defer="permissions.contract">
                                         <label class="form-check-label" for="contratado">
                                             Contratado (Terceirizado)
                                         </label>
@@ -81,24 +67,24 @@
                                 <div class="col-md-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="superAdmin"
-                                            wire:model.defer="user.superadm">
+                                            wire:model.defer="permissions.superadm">
                                         <label class="form-check-label" for="superAdmin">Super Admin</label>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="admin"
-                                            wire:model.defer="user.admin">
+                                            wire:model.defer="permissions.admin">
                                         <label class="form-check-label" for="admin">Admin</label>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="gerente"
-                                            wire:model.defer="user.management">
+                                            wire:model.defer="permissions.management">
                                         <label class="form-check-label" for="gerente">Gerente</label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="engenheiro"
-                                            wire:model="user.engineer">
+                                            wire:model="permissions.engineer">
                                         <label class="form-check-label" for="engenheiro">Engenheiro</label>
                                     </div>
                                     <div class="form-check">
@@ -107,19 +93,19 @@
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="operador"
-                                            wire:model.defer="user.operator">
+                                            wire:model.defer="permissions.operator">
                                         <label class="form-check-label" for="operador">Operador</label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="user"
-                                            wire:model.defer="user.user">
+                                            wire:model.defer="permissions.user">
                                         <label class="form-check-label" for="user">Usuario</label>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="empreiteira"
-                                            wire:model.defer="user.onlyparner">
+                                            wire:model.defer="permissions.onlyparner">
                                         <label class="form-check-label" for="empreiteira">Empreiteira (Visão
                                             Exclusiva)</label>
                                     </div>
@@ -129,7 +115,8 @@
 
                         <!-- Seção 3: Adicionar Serviços -->
                         <div class="mb-3">
-                            <h6 class="text-primary">Adicionar Atividade</h6>
+                            <h6 class="text-primary">Adicionar Atividade <span class="text-danger">(Todos usuários
+                                    terão as mesmas permissões)</span></h6>
                             <div class="row">
                                 <div class="col-md-10">
                                     <select class="form-select" id="servicosDisponiveis"
@@ -155,40 +142,7 @@
                                     </div>
                                     <table class="table table-sm table-condensed table-striped">
                                         <tbody>
-                                            @if ($this->user->ToServices->count())
-                                                @foreach ($this->user->ToServices as $toService)
-                                                    <tr wire:key='service-{{ $toService->id }}'>
-                                                        <td>{{ $toService->Service->service }}</td>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input
-                                                                    class="form-check-input border border-1 border-secondary"
-                                                                    type="checkbox" id="service"
-                                                                    wire:click.prevent="ServiceOption({{ $toService->id }}, 'service')"
-                                                                    @checked($toService->service)>
-                                                                <label class="form-check-label"
-                                                                    for="engenheiro">Serviço</label>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input
-                                                                    class="form-check-input  border border-1 border-secondary"
-                                                                    type="checkbox" id="dispatch"t
-                                                                    wire:click.prevent="ServiceOption({{ $toService->id }}, 'dispatch')"
-                                                                    @checked($toService->dispatch)>
-                                                                <label class="form-check-label"
-                                                                    for="engenheiro">Despacho</label>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <i class="ri-delete-bin-line fs-5 text-danger cursor-pointer"
-                                                                wire:click="removeService({{ $toService->id }})"
-                                                                title="Excluir" style="cursor: pointer;"></i>
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            @elseif(count($this->temporaryServices))
+                                            @if (count($this->temporaryServices))
                                                 @foreach ($this->temporaryServices as $index => $tempService)
                                                     @php
                                                         $service = Service::where(
@@ -239,46 +193,9 @@
                             </div>
                         </div>
 
-                        <!-- Seção 4: Região de Controle -->
-                        @if ($this->user->engineer)
-                            <div class="mb-3">
-                                <h6 class="text-primary">Região de Controle (Engenheiro)</h6>
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="norte">
-                                            <label class="form-check-label" for="norte">Norte</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="centroNorte">
-                                            <label class="form-check-label" for="centroNorte">Centro Norte</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="centroSul">
-                                            <label class="form-check-label" for="centroSul">Centro Sul</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="sul">
-                                            <label class="form-check-label" for="sul">Sul</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-
                     </div>
                     <div class="modal-footer edp-bg-sprucegreen-100">
-                        <button type="button" class="btn btn-warning" wire:click.prevent="resetPassword"><i
+                        <button type="button" class="btn btn-warning" wire:click.prevent="toResetMassPassword"><i
                                 class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="saveUser"
