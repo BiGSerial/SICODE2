@@ -102,7 +102,8 @@
                                         <label class="form-check-label" for="engenheiro">Engenheiro</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="responsavel">
+                                        <input class="form-check-input" type="checkbox" id="responsavel"
+                                            wire:model.defer="permissions.responsible">>
                                         <label class="form-check-label" for="responsavel">Responsável</label>
                                     </div>
                                     <div class="form-check">

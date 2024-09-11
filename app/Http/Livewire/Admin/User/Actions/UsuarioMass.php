@@ -20,6 +20,7 @@ class UsuarioMass extends Component
     public $serviceList;
     public $serviceSelect;
     public $temporaryServices = [];
+    public $changePermission = false;
 
     public $permissions = [
         'company_id' => false,
@@ -56,6 +57,10 @@ class UsuarioMass extends Component
         'permissions.user' => 'boolean',
         'permissions.onlyparner' => 'boolean',
         'permissions.contract' => 'boolean',
+        'permissions.responsible' => 'boolean',
+        'temporaryServices.*.service'  => 'boolean',
+        'temporaryServices.*.dispatch'  => 'boolean',
+
     ];
 
 
@@ -107,8 +112,8 @@ class UsuarioMass extends Component
 
         $this->temporaryServices[] = [
             'service_id' => $this->serviceSelect,
-            'service' => 0,
-            'dispatch' => 0,
+            'service' => false,
+            'dispatch' => false,
         ];
 
         $this->emitSelf('refreshuser');
@@ -146,7 +151,7 @@ class UsuarioMass extends Component
             'title'         => 'Confirmar Alterações em Massa',
             'msg'           => "Você está prestes a alterar {$this->users->count()} usuários. <p>Deseja Continuar?</p> ",
             'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Reinicie!',
+            'btnOktxt'      => 'Sim, Altere!',
             'btnCanceltxt'  => 'Não, Cancele',
             'action'        => 'confirmAlterUser',
             'cancel_titulo' => 'Cancelado!',
@@ -181,25 +186,39 @@ class UsuarioMass extends Component
 
                     $user->ToServices()->delete();
 
+
+
                     foreach ($this->temporaryServices as $service) {
+
                         $user->ToServices()->updateOrCreate(
                             [
                                 'service_id' => $service['service_id'],
                             ],
-                            $service
+                            [
+                                'service' => $service['service'],
+                                'dispatch' => $service['dispatch'],
+                            ]
                         );
                     }
+
+
                 }
 
-                $user->company_id  = $this->company;
-                $user->superadm = $this->permissions['superadm'];
-                $user->admin = $this->permissions['admin'];
-                $user->management = $this->permissions['management'];
-                $user->engineer = $this->permissions['engineer'];
-                $user->operator = $this->permissions['operator'];
-                $user->user = $this->permissions['user'];
-                $user->contract = $this->permissions['contract'];
-                $user->onlyparner = $this->permissions['onlyparner'];
+                if ($this->changePermission) {
+
+
+                    $user->company_id  = $this->company;
+                    $user->superadm = $this->permissions['superadm'];
+                    $user->admin = $this->permissions['admin'];
+                    $user->management = $this->permissions['management'];
+                    $user->engineer = $this->permissions['engineer'];
+                    $user->operator = $this->permissions['operator'];
+                    $user->user = $this->permissions['user'];
+                    $user->contract = $this->permissions['contract'];
+                    $user->onlyparner = $this->permissions['onlyparner'];
+                }
+
+
 
                 $user->save();
 

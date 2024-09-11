@@ -40,6 +40,7 @@ class User extends Authenticatable
         'engineer',
         'onlyparner',
         'company_id',
+        'responsible',
     ];
 
     /**

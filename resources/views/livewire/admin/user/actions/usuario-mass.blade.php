@@ -49,7 +49,7 @@
                                     </select>
                                 </div>
                                 <div class="col-md-6 d-flex align-items-center">
-                                    <div class="form-check mt-4">
+                                    <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="contratado"
                                             wire:model.defer="permissions.contract">
                                         <label class="form-check-label" for="contratado">
@@ -62,7 +62,16 @@
 
                         <!-- Seção 2: Permissões de Usuário -->
                         <div class="mb-3">
-                            <h6 class="text-primary">Permissões de Usuário</h6>
+
+
+                            <h6 class="text-primary">Permissões de Usuário <span class="text-danger align-middle"><input
+                                        class="form-check-input align-middle" type="checkbox" id="contratado"
+                                        wire:model.defer="changePermission"> Permitir
+                                    Mudanças</span>
+                            </h6>
+
+
+
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-check">
@@ -88,7 +97,8 @@
                                         <label class="form-check-label" for="engenheiro">Engenheiro</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="responsavel">
+                                        <input class="form-check-input" type="checkbox" id="responsavel"
+                                            wire:model.defer="permissions.responsible">>
                                         <label class="form-check-label" for="responsavel">Responsável</label>
                                     </div>
                                     <div class="form-check">
@@ -158,7 +168,7 @@
                                                                     <input
                                                                         class="form-check-input border border-1 border-secondary"
                                                                         type="checkbox" id="service"
-                                                                        wire:model.defer="temporaryServices.{{ $index }}.service">
+                                                                        wire:model="temporaryServices.{{ $index }}.service">
                                                                     <label class="form-check-label"
                                                                         for="engenheiro">Serviço</label>
                                                                 </div>
@@ -199,7 +209,7 @@
                                 class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="saveUser"
-                            wire:click.prevent='Save'>Salvar</button>
+                            wire:click.prevent='toSave'>Salvar</button>
                     </div>
                 </div>
             </div>

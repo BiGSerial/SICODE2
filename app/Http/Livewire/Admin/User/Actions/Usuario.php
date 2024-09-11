@@ -46,6 +46,7 @@ class Usuario extends Component
         'user.user' => 'boolean',
         'user.onlyparner' => 'boolean',
         'user.contract' => 'boolean',
+        'user.responsible' => 'boolean',
         'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 
@@ -121,8 +122,8 @@ class Usuario extends Component
 
             $this->temporaryServices[] = [
                 'service_id' => $this->serviceSelect,
-                'service' => 0,
-                'dispatch' => 0,
+                'service' => false,
+                'dispatch' => false,
             ];
 
         }
@@ -176,11 +177,15 @@ class Usuario extends Component
 
         if (count($this->temporaryServices)) {
             foreach ($this->temporaryServices as $service) {
+
                 $this->user->ToServices()->updateOrCreate(
                     [
                         'service_id' => $service['service_id'],
                     ],
-                    $service
+                    [
+                        'service' => $service['service'],
+                        'dispatch' => $service['dispatch'],
+                    ]
                 );
             }
         }

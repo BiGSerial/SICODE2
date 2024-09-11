@@ -22,8 +22,13 @@
                         wire:click.prevent="$emitTo('admin.user.actions.usuario', 'newUser')"><i
                             class="ri-user-add-line align-middle"></i> Novo
                         Usuário</button>
-                    <button type="button" class="btn btn-primary"><i
-                            class="ri-file-excel-2-line align-middle"></i></button>
+                    <button type="button" class="btn btn-primary" wire:click.prevent="export_excel"
+                        wire:loading.attr="disabled" wire:target="export_excel"><i
+                            class="ri-file-excel-2-line align-middle" wire:loading.remove></i>
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"
+                            wire:loading></span>
+
+                    </button>
                 </div>
             </div>
             <div class="card-body my-0">
@@ -36,8 +41,14 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <input type="text" class="form-control" placeholder="Buscar usuário..." wire:model="search">
+                    <div class="col-md-4 ">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Buscar usuário..."
+                                wire:model="search">
+                            <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
+                                    class="ri-checkbox-multiple-blank-line"></i></button>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -99,6 +110,13 @@
                                                 data-bs-title="ENGENHEIRO"
                                                 data-bs-content="Tem informações aos serviços que foi colocado como Responsável"><i
                                                     class="ri-user-2-fill text-info fs-5"></i></span>
+                                        @endif
+                                        @if ($theUser->responsible)
+                                            <span class="user-subhead me-2" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="left"
+                                                data-bs-title="RESPONSÁVEL"
+                                                data-bs-content="Tem informações aos serviços que foi colocado como Responsável"><i
+                                                    class="ri-user-2-fill text-primary fs-5"></i></span>
                                         @endif
                                         @if ($theUser->operator)
                                             <span class="user-subhead me-2" tabindex="0" data-bs-toggle="popover"
@@ -192,6 +210,29 @@
             </div>
         </div>
 
+    </div>
+
+    {{-- MODALS --}}
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    BUSCAR MULTI-USUÁRIOS
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="preText"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="multiSearch">OK</button>
+                </div>
+            </div>
+
+        </div>
 
     </div>
 

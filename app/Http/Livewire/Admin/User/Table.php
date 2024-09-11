@@ -2,11 +2,14 @@
 
 namespace App\Http\Livewire\Admin\User;
 
+use App\Exports\Reports\UserListExport;
+use App\Helpers\TextFormatter;
 use App\Models\{Company, User};
 use Livewire\{Component, WithPagination};
 
 class Table extends Component
 {
+    use TextFormatter;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -31,6 +34,10 @@ class Table extends Component
 
     public $selectedCompany;
 
+    public $preText;
+
+    public $multiSearch = [];
+
     public ?User $master = null;
 
     protected $listeners = [
@@ -42,6 +49,7 @@ class Table extends Component
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'pag'],
+        'selectedCompany'    => ['except' => '', 'as' => 'empresa'],
     ];
 
     public function mount()
@@ -60,6 +68,27 @@ class Table extends Component
 
     }
 
+    public function multiSearch()
+    {
+        if ($this->preText) {
+            $this->search = '';
+            $this->multiSearch = $this->formatTextToArray($this->preText);
+            $this->gotoPage(1);
+        }
+
+        $this->dispatchBrowserEvent('hideModal');
+    }
+
+    public function updatedSearch()
+    {
+        if ($this->search) {
+            $this->multiSearch = [];
+            $this->preText = '';
+            $this->gotoPage(1);
+        }
+
+    }
+
     public function refreshAll()
     {
         $this->selected = [];
@@ -72,10 +101,6 @@ class Table extends Component
     }
 
 
-    public function updatedSearch()
-    {
-        $this->gotoPage(1);
-    }
 
     public function checkAllSelect($items)
     {
@@ -115,6 +140,15 @@ class Table extends Component
 
     }
 
+    public function export_excel()
+    {
+        if (!count($this->selected)) {
+            return (new UserListExport($this->user->get()))->download(date('YmdHis-') . '_users_list.xlsx');
+        } else {
+            return (new UserListExport($this->user->find($this->selected)))->download(date('YmdHis-') . '_users_list.xlsx');
+        }
+    }
+
 
     public function getUserProperty()
     {
@@ -134,9 +168,13 @@ class Table extends Component
             ->when($this->selectedCompany, function ($q, $s) {
                 return $q->whererelation('Employee.Contract', 'company_id', $s);
             })
+            ->when($this->multiSearch, function ($q) {
+                $q->whereIn('id', $this->multiSearch)
+                    ->orWhereIn('email', $this->multiSearch);
+            })
             ->with('Employee.Contract.Company', 'Watchdog')
-            ->orderBy('name')
-            ->paginate($this->perPage);
+            ->orderBy('name');
+
     }
 
     public function render()
@@ -144,7 +182,7 @@ class Table extends Component
         $this->companies = Company::orderBy('name')->get();
 
         return view('livewire.admin.user.table', [
-            'users_l' => $this->user,
+            'users_l' => $this->user->paginate($this->perPage),
         ]);
     }
 }
