@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Admin\User\Actions;
 
+use App\Models\City;
 use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Service;
@@ -19,8 +20,17 @@ class Usuario extends Component
     public $contract;
     public $serviceList;
     public $serviceSelect;
+    public $regionList;
+    public $region;
+    public $cities;
+    public $city;
+    public $companySelect;
+
+
+
 
     public $temporaryServices = [];
+    public $temporaryCompanies = [];
 
 
 
@@ -53,12 +63,17 @@ class Usuario extends Component
     public function mount()
     {
         $this->companyList = Company::orderBy('name')->get();
+        $this->cities = City::orderBy('cidade')->get();
+        $this->regionList = City::orderBy('regiao')->distinct()->pluck('regiao');
+    }
+
+    public function updatedRegion()
+    {
+
     }
 
     public function openUser($user)
     {
-
-
         $this->user = User::findOrFail($user['id']);
 
 
@@ -111,6 +126,36 @@ class Usuario extends Component
                 [
                     'service' => 0,
                     'dispatch' => 0,
+                ]
+            );
+        } else {
+            if (collect($this->temporaryServices)->contains('service_id', $this->serviceSelect)) {
+
+                return;
+            }
+
+
+            $this->temporaryServices[] = [
+                'service_id' => $this->serviceSelect,
+                'service' => false,
+                'dispatch' => false,
+            ];
+
+        }
+
+        $this->emitSelf('refreshuser');
+    }
+
+    public function addCompany()
+    {
+
+        if ($this->user->Companies->count()) {
+            $this->user->Companies()->updateOrCreate(
+                [
+                    'company_id' => $this->companySelect
+                ],
+                [
+                    'company_id' => $this->companySelect,
                 ]
             );
         } else {
