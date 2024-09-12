@@ -76,7 +76,7 @@
             </div>
         </div>
 
-        <div class="mb-3 mx-1">
+        {{-- <div class="mb-3 mx-1">
             <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
                 data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas MMGD"
                 data-bs-content="<p>Ao clicar, Apenas as notas de MMGD estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
@@ -91,7 +91,7 @@
                 </button>
 
             </div>
-        </div>
+        </div> --}}
     </div>
 
     <div class="row">
@@ -142,9 +142,11 @@
                                 <th scope="col" class="fw-bold">numPedido</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Grp1</th>
-                                <th scope="col" class="fw-bold">Grp2</th>
                                 @can('management')
+                                    <th scope="col" class="fw-bold">Grp1</th>
+
+                                    <th scope="col" class="fw-bold">Grp2</th>
+
                                     <th scope="col" class="fw-bold">Descrição</th>
                                 @endcan
 
@@ -172,7 +174,9 @@
                                     //         ->first();
                                     // }
 
-                                    $count = $list->Productions->where('service_id', $service->uuid)->where('noinconsistency', false);
+                                    $count = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('noinconsistency', false);
 
                                     if ($count->count()) {
                                         if ($count->last()->dt_note == $list->dt_status || !$count->last()->confirmed) {
@@ -201,15 +205,15 @@
                                 @endphp
                                 {{-- @dump($list->Productions) --}}
                                 <tr
-                                    class="align-middle 
-                                @if ($block) @if ($production->status == 1) 
+                                    class="align-middle
+                                @if ($block) @if ($production->status == 1)
                                     table-warning
                                     @elseif ($production->status == 2)
                                     table-primary
                                     @elseif ($production->status == 5 && !$production->confirmed)
                                     table-success
                                     @elseif ($production->status == 5 && $production->confirmed)
-                                    table-danger 
+                                    table-danger
                                     @else
                                     table-primary @endif @endif">
 
@@ -228,9 +232,11 @@
                                     <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
                                     <td class="fw-light">{{ $list->rubrica }}</td>
                                     <td class="fw-light">{{ $list->lexp }}</td>
-                                    <td class="fw-light">{{ $list->group1 }}</td>
-                                    <td class="fw-light">{{ $list->group2 }}</td>
                                     @can('management')
+                                        <td class="fw-light">{{ $list->group1 }}</td>
+
+                                        <td class="fw-light">{{ $list->group2 }}</td>
+
                                         <td class="fw-light">{{ $list->material }}</td>
                                     @endcan
 
@@ -239,7 +245,7 @@
                                     <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}
                                     </td>
                                     <td scope="col"
-                                        class="text-center 
+                                        class="text-center
                                         @if ($list->days_left < 0) text-bg-secondary
                                         @elseif($list->days_left >= 0 && $list->days_left < 6)
                                         table-danger

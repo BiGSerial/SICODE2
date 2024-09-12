@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOV as Edp_depcBaseOV;
 use App\Models\{Bancoupdate, HistoricNote, Note};
 use Carbon\Carbon;
@@ -34,6 +35,8 @@ class BaseOV extends Command
         $DaysAgo   = Carbon::now()->subDays($this->option('days'));
         $chunkSize = 500;
 
+        $log = new RegistroJson('upd_baseOV', $this->options());
+
         if ($this->option('full')) {
             $chunkSize = 1000;
         }
@@ -52,6 +55,8 @@ class BaseOV extends Command
         // $totalRecords = Edp_depcBaseOV::where('ultimoStatus', 1)->count();
         $progressBar = new ProgressBar($this->output, $totalRecords);
 
+        $log->setTotal($totalRecords);
+
         $progressBar->setFormat('%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
         $progressBar->start($totalRecords);
@@ -64,7 +69,7 @@ class BaseOV extends Command
             ->when($this->option('prazos'), function ($q) {
                 return $q->where('numStat', '<', 98);
             })
-            ->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
+            ->chunk($chunkSize, function ($records) use ($progressBar, &$count, &$log) {
 
                 $historic = null;
 
@@ -146,7 +151,9 @@ class BaseOV extends Command
                                 }
 
                             } catch (\Throwable $th) {
-                                dd($th->getMessage());
+
+                                $log->setErrorMessage($th->getMessage());
+
                             }
 
                         }
@@ -194,7 +201,8 @@ class BaseOV extends Command
                             }
 
                         } catch (\Throwable $th) {
-                            dd($th->getMessage());
+                            $log->setErrorMessage($th->getMessage());
+
                         }
                     }
 
@@ -208,55 +216,62 @@ class BaseOV extends Command
                 $count['tins']++;
             });
 
+
+        $log->setUpdated($count['upd']);
+        $log->setCreated($count['ins']);
+        $log->save();
+
         // Registra atualizações
         Bancoupdate::Create([
             'last_update' => date('Y-m-d H:i:s'),
-            'error'       => $count['errors'],
-            'inserts'     => $count['ins'],
-            'updates'     => $count['upd'],
+            'error'       => $log->getErrors(),
+            'inserts'     => $log->getCreated(),
+            'updates'     => $log->getUpdated(),
         ]);
 
         Bancoupdate::whereDate('created_at', '<', Carbon::now()->subDays(30))->delete();
 
-        $filePath = base_path('registroUpdate.json');
 
-        if (!file_exists($filePath)) {
 
-            $registroUpdate[] = [
-                'tarefa'     => 'BaseOV',
-                'options'    => $this->option(),
-                'total'      => $totalRecords,
-                'updated'    => $count['upd'],
-                'created'    => $count['ins'],
-                'notupdated' => '',
-                'erros'      => $count['errors'],
-                'date'       => date('Y-m-d H:i:s'),
-            ];
+        // $filePath = base_path('registroUpdate.json');
 
-        } else {
+        // if (!file_exists($filePath)) {
 
-            $registroUpdate = json_decode(file_get_contents($filePath), true);
+        //     $registroUpdate[] = [
+        //         'tarefa'     => 'BaseOV',
+        //         'options'    => $this->option(),
+        //         'total'      => $totalRecords,
+        //         'updated'    => $count['upd'],
+        //         'created'    => $count['ins'],
+        //         'notupdated' => '',
+        //         'erros'      => $count['errors'],
+        //         'date'       => date('Y-m-d H:i:s'),
+        //     ];
 
-            $registroUpdate[] = [
-                'tarefa'     => 'BaseOV',
-                'options'    => $this->option(),
-                'total'      => $totalRecords,
-                'updated'    => $count['upd'],
-                'created'    => $count['ins'],
-                'notupdated' => '',
-                'erros'      => $count['errors'],
-                'date'       => date('Y-m-d H:i:s'),
-            ];
+        // } else {
 
-        }
+        //     $registroUpdate = json_decode(file_get_contents($filePath), true);
 
-        $registroUpdate = array_filter($registroUpdate, function ($item) {
-            $date = DateTime::createFromFormat('Y-m-d H:i:s', $item['date']);
+        //     $registroUpdate[] = [
+        //         'tarefa'     => 'BaseOV',
+        //         'options'    => $this->option(),
+        //         'total'      => $totalRecords,
+        //         'updated'    => $count['upd'],
+        //         'created'    => $count['ins'],
+        //         'notupdated' => '',
+        //         'erros'      => $count['errors'],
+        //         'date'       => date('Y-m-d H:i:s'),
+        //     ];
 
-            return $date && $date->diff(new DateTime())->days <= 15;
-        });
+        // }
 
-        file_put_contents($filePath, json_encode($registroUpdate));
+        // $registroUpdate = array_filter($registroUpdate, function ($item) {
+        //     $date = DateTime::createFromFormat('Y-m-d H:i:s', $item['date']);
+
+        //     return $date && $date->diff(new DateTime())->days <= 15;
+        // });
+
+        // file_put_contents($filePath, json_encode($registroUpdate));
 
         $progressBar->finish();
         $this->info('Data transfer completed.');

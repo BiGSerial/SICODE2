@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseCosts;
 use App\Models\Order;
 use Illuminate\Console\Command;
@@ -38,8 +39,11 @@ class BaseCostsUpd extends Command
             $progressBar = new ProgressBar($output, $ordens->count());
             $progressBar->start();
 
+            $log = new RegistroJson('upd_costs_mot', $this->option());
+            $log->setTotal($ordens->count());
+
             // Processa as ordens em chunks de 500
-            Order::whereIn('ordem', $ordens)->chunk(500, function ($orders) use ($progressBar) {
+            Order::whereIn('ordem', $ordens)->chunk(500, function ($orders) use ($progressBar, &$log) {
                 // Obtém todas as ordens atuais do chunk
                 $orderOrdens = $orders->pluck('ordem')->toArray();
 
@@ -54,8 +58,12 @@ class BaseCostsUpd extends Command
                     $order = $orders->where('ordem', $cost->ordem)->first();
 
                     if ($order) {
-                        $order->moaberto = $cost->MOAberta;
-                        $order->save(); // Salva a ordem atualizada
+                        try {
+                            $order->moaberto = $cost->MOAberta;
+                            $order->save(); // Sa
+                        } catch (\Throwable $th) {
+                            $log->setErrorMessage($th->getMessage());
+                        }
                     }
 
                     $progressBar->advance();

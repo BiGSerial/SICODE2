@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\{BaseOrder as Edp_depcBaseOrder, City};
 use App\Models\Note;
 use Illuminate\Console\Command;
@@ -31,6 +32,9 @@ class BaseOrder extends Command
         $totalRecords = Edp_depcBaseOrder::count();
         $cities       = City::get();
 
+        $log = new RegistroJson('upd_baseOrder', $this->option());
+        $log->setTotal($totalRecords);
+
         $progressBar = new ProgressBar($this->output, $totalRecords);
 
         $progressBar->setFormat('<bg=blue;fg=white>UPDATE ORDERS: %current%/%max% </><fg=white;options=bold> [%cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%');
@@ -47,7 +51,7 @@ class BaseOrder extends Command
         $count['cloop'] = 0;
         $count['nf']    = 0;
 
-        Edp_depcBaseOrder::chunk($chunkSize, function ($origins) use (&$progressBar, &$count, $cities) {
+        Edp_depcBaseOrder::chunk($chunkSize, function ($origins) use (&$progressBar, &$count, $cities, &$log) {
 
             $originNotes = $origins->pluck('ovNota')->unique()->map(function ($item) {
                 return (string) intval($item);
@@ -96,36 +100,42 @@ class BaseOrder extends Command
                 }
 
                 if ($note) {
-                    $order = $note->orders()->updateOrCreate(
-                        ['ordem' => $origin->ordem],
-                        [
-                            'descricao'     => $origin->descricao,
-                            'locInstalacao' => $origin->locInstalacao,
-                            'cenPlan'       => $origin->cenPlan,
-                            'prioridade'    => $origin->prioridade,
-                            'statusSist'    => $origin->statusSist,
-                            'statusUser'    => $origin->statusUser,
-                            'cenTrab'       => $origin->cenTrab,
-                            'gpm'           => $origin->gpm,
-                            'custPlanejado' => $origin->custPlanejado,
-                            'custRealizado' => $origin->custRealizado,
-                            'modifPor'      => $origin->modifPor,
-                            'pep'           => $origin->pep,
-                            'conjunto'      => $origin->conjunto,
-                            'denConjunto'   => $origin->denConjunto,
-                            'dtEntrada'     => $origin->dtEntrada,
-                        ]
-                    );
 
-                    if ($order->wasRecentlyCreated) {
+                    try {
+                        $order = $note->orders()->updateOrCreate(
+                            ['ordem' => $origin->ordem],
+                            [
+                                'descricao'     => $origin->descricao,
+                                'locInstalacao' => $origin->locInstalacao,
+                                'cenPlan'       => $origin->cenPlan,
+                                'prioridade'    => $origin->prioridade,
+                                'statusSist'    => $origin->statusSist,
+                                'statusUser'    => $origin->statusUser,
+                                'cenTrab'       => $origin->cenTrab,
+                                'gpm'           => $origin->gpm,
+                                'custPlanejado' => $origin->custPlanejado,
+                                'custRealizado' => $origin->custRealizado,
+                                'modifPor'      => $origin->modifPor,
+                                'pep'           => $origin->pep,
+                                'conjunto'      => $origin->conjunto,
+                                'denConjunto'   => $origin->denConjunto,
+                                'dtEntrada'     => $origin->dtEntrada,
+                            ]
+                        );
 
-                        $count['ctd']++;
+                        if ($order->wasRecentlyCreated) {
 
-                    } else {
+                            $count['ctd']++;
 
-                        $count['upd']++;
+                        } else {
 
+                            $count['upd']++;
+
+                        }
+                    } catch (\Throwable $th) {
+                        $log->setErrorMessage($th->getMessage());
                     }
+
 
                 } else {
                     $count['nf']++;
@@ -143,6 +153,11 @@ class BaseOrder extends Command
             unset($originNotes);
 
         });
+
+        $log->setCreated($count['ctd']);
+        $log->setUpdated($count['upd']);
+        $log->setNoteUpdated($count['nf']);
+        $log->save();
 
         unset($count);
 

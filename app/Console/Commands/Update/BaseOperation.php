@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\{BaseOperation as Edp_depcBaseOperation, City};
 use App\Models\Order;
 use Illuminate\Console\Command;
@@ -31,7 +32,8 @@ class BaseOperation extends Command
         $totalRecords = Order::Where('statusSist', 'Not Like', 'ENT%')->Where('statusSist', 'Not Like', 'ENC%')->count();
         $cities       = City::get();
 
-
+        $log = new RegistroJson('upd_baseOperation', $this->option());
+        $log->setTotal($totalRecords);
 
         $progressBar = new ProgressBar($this->output, $totalRecords * 6, 0.2);
 
@@ -51,7 +53,7 @@ class BaseOperation extends Command
         $count['cloop'] = 0;
         $count['nf']    = 0;
 
-        Order::Where('statusSist', 'Not Like', 'ENT%')->Where('statusSist', 'Not Like', 'ENC%')->chunk($chunkSize, function ($orders) use (&$progressBar, &$count) {
+        Order::Where('statusSist', 'Not Like', 'ENT%')->Where('statusSist', 'Not Like', 'ENC%')->chunk($chunkSize, function ($orders) use (&$progressBar, &$count, &$log) {
 
             $originOrders = $orders->pluck('ordem')->unique();
             $operations   = Edp_depcBaseOperation::whereIn('ordem', $originOrders)->get();
@@ -92,28 +94,32 @@ class BaseOperation extends Command
                 // }
 
                 if ($order) {
-                    $operation = $order->Operations()->updateOrCreate(
-                        ['operacao' => $operation->operacao],
-                        [
-                            'descOperacao'    => $operation->descOperacao,
-                            'inicioPlanejado' => $operation->inicioPlanejado,
-                            'fimPlanejado'    => $operation->fimPlanejado,
-                            'inicioReal'      => $operation->inicioReal,
-                            'fimReal'         => $operation->fimReal,
-                            'status'          => $operation->status,
-                            'notaOv'          => $operation->notaOv,
-                            'cenPlan'         => $operation->cenPlan,
-                            'cenTrab'         => $operation->cenTrab,
-                            'txtCenTrab'      => $operation->txtCenTrab,
-                        ]
-                    );
+                    try {
+                        $operation = $order->Operations()->updateOrCreate(
+                            ['operacao' => $operation->operacao],
+                            [
+                                'descOperacao'    => $operation->descOperacao,
+                                'inicioPlanejado' => $operation->inicioPlanejado,
+                                'fimPlanejado'    => $operation->fimPlanejado,
+                                'inicioReal'      => $operation->inicioReal,
+                                'fimReal'         => $operation->fimReal,
+                                'status'          => $operation->status,
+                                'notaOv'          => $operation->notaOv,
+                                'cenPlan'         => $operation->cenPlan,
+                                'cenTrab'         => $operation->cenTrab,
+                                'txtCenTrab'      => $operation->txtCenTrab,
+                            ]
+                        );
 
-                    if ($operation->wasRecentlyCreated) {
+                        if ($operation->wasRecentlyCreated) {
 
-                        $count['ctd']++;
-                    } else {
+                            $count['ctd']++;
+                        } else {
 
-                        $count['upd']++;
+                            $count['upd']++;
+                        }
+                    } catch (\Throwable $th) {
+                        $log->setErrorMessage($th->getMessage());
                     }
                 } else {
                     $count['nf']++;
@@ -128,6 +134,11 @@ class BaseOperation extends Command
                 $progressBar->advance();
             }
         });
+
+        $log->setCreated($count['ctd']);
+        $log->setUpdated($count['upd']);
+        $log->setNoteUpdated($count['nf']);
+        $log->save();
 
         unset($count);
 

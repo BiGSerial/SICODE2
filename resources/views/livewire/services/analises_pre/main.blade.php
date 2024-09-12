@@ -121,9 +121,11 @@
                                 <th scope="col" class="fw-bold">numPedido</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Grp1</th>
-                                <th scope="col" class="fw-bold">Grp2</th>
                                 @can('management')
+                                    <th scope="col" class="fw-bold">Grp1</th>
+
+                                    <th scope="col" class="fw-bold">Grp2</th>
+
                                     <th scope="col" class="fw-bold">Descrição</th>
                                 @endcan
                                 <th scope="col" class="fw-bold">Status</th>
@@ -150,7 +152,9 @@
                                     //         ->first();
                                     // }
 
-                                    $count = $list->Productions->where('service_id', $service->uuid)->where('noinconsistency', false);
+                                    $count = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('noinconsistency', false);
                                     $return = $list->Productions
                                         ->where('service_id', $service->uuid)
                                         ->where('completed', true)
@@ -184,15 +188,15 @@
 
                                 {{-- @dump($list->Productions) --}}
                                 <tr
-                                    class="align-middle 
-                                @if ($block) @if ($production->status == 1) 
+                                    class="align-middle
+                                @if ($block) @if ($production->status == 1)
                                     table-warning
                                     @elseif ($production->status == 2)
                                     table-primary
                                     @elseif ($production->status == 5 && !$production->confirmed)
                                     table-success
                                     @elseif ($production->status == 5 && $production->confirmed)
-                                    table-danger 
+                                    table-danger
                                     @else
                                     table-primary @endif @endif">
                                     @can('management')
@@ -212,16 +216,17 @@
                                     <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
                                     <td class="fw-light">{{ $list->rubrica }}</td>
                                     <td class="fw-light">{{ $list->lexp }}</td>
-                                    <td class="fw-light">{{ $list->group1 }}</td>
-                                    <td class="fw-light">{{ $list->group2 }}</td>
                                     @can('management')
+                                        <td class="fw-light">{{ $list->group1 }}</td>
+                                        <td class="fw-light">{{ $list->group2 }}</td>
+
                                         <td class="fw-light">{{ $list->material }}</td>
                                     @endcan
                                     <td class="fw-light">{{ $list->nstats }}</td>
                                     <td class="fw-light">{{ $list->pze }}</td>
                                     <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}</td>
                                     <td scope="col"
-                                        class="text-center 
+                                        class="text-center
                                         @if ($list->days_left < 0) text-bg-secondary
                                         @elseif($list->days_left >= 0 && $list->days_left < 6)
                                         table-danger

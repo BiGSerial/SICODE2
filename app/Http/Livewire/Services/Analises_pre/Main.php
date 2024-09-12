@@ -66,9 +66,9 @@ class Main extends Component
             <div class='card card-light'>
             <div class='card-body'>
             <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p> 
+            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
             </div>
-            </div>  
+            </div>
             ",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Atribua!',
@@ -184,9 +184,9 @@ class Main extends Component
 
         $query->when($this->search, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%');
+                $query->where('note', 'like', '%' . $s . '%');
+                // ->orWhere('material', 'like', '%' . $s . '%')
+                // ->orWhere('numPedido', 'like', '%' . $s . '%');
             });
         });
 

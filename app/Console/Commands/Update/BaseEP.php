@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\{BaseEP as Edp_depcBaseEP, Gpm};
 use App\Models\Note;
 use Carbon\Carbon;
@@ -41,6 +42,9 @@ class BaseEP extends Command
 
         $totalRecords = Edp_depcBaseEP::count();
 
+        $log = new RegistroJson('upd_baseEP', $this->option());
+        $log->setTotal($totalRecords);
+
         // $totalRecords = Edp_depcBaseOV::where('ultimoStatus', 1)->count();
         $progressBar = new ProgressBar($this->output, $totalRecords);
 
@@ -49,7 +53,7 @@ class BaseEP extends Command
         $progressBar->start($totalRecords);
 
         // Edp_depcBaseOV::where('ultimoStatus', 1)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
-        Edp_depcBaseEP::chunk($chunkSize, function ($records) use ($progressBar, &$count) {
+        Edp_depcBaseEP::chunk($chunkSize, function ($records) use ($progressBar, &$count, &$log) {
 
             $historic = null;
 
@@ -124,7 +128,7 @@ class BaseEP extends Command
                             }
 
                         } catch (\Throwable $th) {
-                            dd($th->getMessage());
+                            $log->setErrorMessage($th->getMessage());
                         }
 
                     }
@@ -177,7 +181,7 @@ class BaseEP extends Command
                         }
 
                     } catch (\Throwable $th) {
-                        dd($th->getMessage());
+                        $log->setErrorMessage($th->getMessage());
                     }
                 }
 
@@ -198,61 +202,9 @@ class BaseEP extends Command
         $cancelNotes = Note::where('type_note', 1)->where('updated_at', '<', $limiteTempo)->update(['centerjob' => 'LIMBO', 'nstats' => 99]);
         $this->info('NOTAS CANCELADAS: '.$cancelNotes);
 
-
-
-
-
-
-
-        $filePath = base_path('registroUpdate.json');
-
-        if (!file_exists($filePath)) {
-
-            $registroUpdate[] = [
-                'tarefa'     => 'BaseEP',
-                'options'    => $this->option(),
-                'total'      => $totalRecords,
-                'updated'    => $count['upd'],
-                'created'    => $count['ins'],
-                'notupdated' => '',
-                'erros'      => $count['errors'],
-                'date'       => date('Y-m-d H:i:s'),
-            ];
-
-        } else {
-
-            $registroUpdate = json_decode(file_get_contents($filePath), true);
-
-            $registroUpdate[] = [
-                'tarefa'     => 'BaseEP',
-                'options'    => $this->option(),
-                'total'      => $totalRecords,
-                'updated'    => $count['upd'],
-                'created'    => $count['ins'],
-                'notupdated' => '',
-                'erros'      => $count['errors'],
-                'date'       => date('Y-m-d H:i:s'),
-            ];
-
-        }
-
-        $registroUpdate = array_filter($registroUpdate, function ($item) {
-            $date = DateTime::createFromFormat('Y-m-d H:i:s', $item['date']);
-
-            return $date && $date->diff(new DateTime())->days <= 15;
-        });
-
-        file_put_contents($filePath, json_encode($registroUpdate));
-
-        // Registra atualizações
-        // Bancoupdate::Create([
-        //     'last_update' => date('Y-m-d H:i:s'),
-        //     'error' => $count['errors'],
-        //     'inserts' => $count['ins'],
-        //     'updates' => $count['upd']
-        // ]);
-
-        // Bancoupdate::whereDate('created_at', '<', Carbon::now()->subDays(30))->delete();
+        $log->setCreated($count['ins']);
+        $log->setUpdated($count['upd']);
+        $log->save();
 
         $progressBar->finish();
         $this->info('Data transfer completed.');

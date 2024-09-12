@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Console\Command;
@@ -42,6 +43,9 @@ class TacitLogic extends Command
                             ->get();
 
         if ($viabilitiesToUpdate) {
+
+            $log = new RegistroJson('check_tacit', $this->options());
+            $log->setTotal($viabilitiesToUpdate->count());
 
             $progressBar = new ProgressBar($this->output, $viabilitiesToUpdate->count());
             $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%%');
@@ -108,6 +112,7 @@ class TacitLogic extends Command
                 }
             }
 
+            $log->save();
 
             return;
         }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\{BaseEP, BaseOV};
 use App\Models\Production;
 use Carbon\Carbon;
@@ -36,6 +37,9 @@ class ConfirmProd extends Command
         $productions = Production::where('completed', true)->where('noinconsistency', false)->where('confirmed', false)->with('Note', 'Service', 'User')->get();
 
         // $progressBar = new ProgressBar($this->output);
+
+        $log = new RegistroJson('confirm_prod', $this->option());
+        $log->setTotal($productions->count());
 
         if ($productions->count()) {
             // $progressBar->setFormat('%current%/%max% [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
@@ -121,7 +125,10 @@ class ConfirmProd extends Command
 
             }
 
+
             $this->info('FINISHED CHECK... ' . Production::where('completed', true)->where('confirmed', false)->with('Note', 'Service')->count());
         }
+
+        $log->save();
     }
 }

@@ -4,274 +4,197 @@ namespace App\Custom;
 
 class RegistroJson
 {
-    protected $filePath;
+    private $last_id;
+    private $filepath;
+    private $task;
+    private $options;
+    private $total;
+    private $updated;
+    private $created;
+    private $noteUpdated;
+    private $errors;
+    private $erroMsg;
+    private $datetime_init;
 
-    protected $data;
 
-    protected $record;
-
-    protected $perPage;
-
-    protected $currentPage;
-
-    protected $limit;
-
-    public function __construct($filePath)
+    public function __construct(string $task, $options = null, $total = null, $created = null, $updated = null, $noteUpdated = null)
     {
-        $this->filePath = $filePath;
-
-        if (!file_exists($this->filePath)) {
-            $this->createFile();
-        }
-
-        $this->data = $this->all();
+        $this->last_id = null;
+        $this->filepath = base_path('registroUpdate.json');
+        $this->task = $task;
+        $this->options = $options;
+        $this->total = $total;
+        $this->created = $created;
+        $this->updated = $updated;
+        $this->noteUpdated = $noteUpdated;
+        $this->errors = 0;
+        $this->datetime_init = date('Y-m-d H:i:s');
+        $this->erroMsg = [];
     }
 
-    private function createFile()
+    // Getters
+    public function getLastId()
     {
-        $defaultData = [];
-        file_put_contents($this->filePath, json_encode($defaultData, JSON_PRETTY_PRINT));
+        return $this->last_id;
     }
 
-    public function all()
+
+    public function getFilepath()
     {
-        return json_decode(file_get_contents($this->filePath), true);
+        return $this->filepath;
     }
 
-    private function save()
+    public function getTask()
     {
-        file_put_contents($this->filePath, json_encode($this->data, JSON_PRETTY_PRINT));
+        return $this->task;
     }
 
-    public function select($fields = [])
+    public function getOptions()
     {
-        if (empty($fields)) {
-            return $this;
-        }
-
-        $this->data = array_map(function ($item) use ($fields) {
-            return array_intersect_key($item, array_flip($fields));
-        }, $this->data);
-
-        return $this;
+        return $this->options;
     }
 
-    public function find($id)
+    public function getTotal()
     {
-        $data = $this->all();
-
-        foreach ($data as $item) {
-            if ($item['id'] == $id) {
-                return $this->model($id);
-            }
-        }
-
-        return null;
+        return $this->total;
     }
 
-    public function delete($id)
+    public function getUpdated()
     {
-        foreach ($this->data as $key => $item) {
-            if ($item['id'] == $id) {
-                unset($this->data[$key]);
-                $this->save();
-
-                break;
-            }
-        }
+        return $this->updated;
     }
 
-    public function create($newData)
+    public function getCreated()
     {
-        $newData['id'] = $this->generateId();
-        $this->data[]  = $newData;
-        $this->save();
-
-        return $this->find($newData['id']);
+        return $this->created;
     }
 
-    public function model($id)
+    public function getNoteUpdated()
     {
-        $data = $this->find($id);
-
-        if ($data) {
-            return new RegistroModel($data, $this);
-        }
-
-        return null;
+        return $this->noteUpdated;
     }
 
-    public function update($id, $updatedData)
+    public function getErrors()
     {
-        foreach ($this->data as $key => $item) {
-            if ($item['id'] == $id) {
-                $this->data[$key] = array_merge($item, $updatedData);
-                $this->save();
-
-                break;
-            }
-        }
+        return $this->errors;
     }
 
-    public function where($field, $operator, $value = null)
+    public function getDatetimeInit()
     {
-        if (func_num_args() == 2) {
-            $value    = $operator;
-            $operator = '=';
-        }
-
-        $this->data = array_filter($this->data, function ($item) use ($field, $operator, $value) {
-            if (!isset($item[$field])) {
-                return false;
-            }
-
-            switch ($operator) {
-                case '>':
-                    return $item[$field] > $value;
-                case '<':
-                    return $item[$field] < $value;
-                case '>=':
-                    return $item[$field] >= $value;
-                case '<=':
-                    return $item[$field] <= $value;
-                case '!=':
-                    return $item[$field] != $value;
-                case '=':
-                default:
-                    return $item[$field] == $value;
-            }
-        });
-
-        return $this;
+        return $this->datetime_init;
     }
 
-    public function first()
-    {
-        $record = reset($this->data);
 
-        return $record ? $this->model($record['id']) : null;
+    // Setters
+    public function setFilepath($filepath)
+    {
+        $this->filepath = $filepath;
     }
 
-    public function __get($name)
+    public function setTask($task)
     {
-        if ($this->record && array_key_exists($name, $this->record)) {
-            return $this->record[$name];
-        }
-
-        return false;
+        $this->task = $task;
     }
 
-    public function count()
+    public function setOptions($options)
     {
-        return count($this->data);
+        $this->options = $options;
     }
 
-    public function orderBy($field, $direction = 'ASC')
+    public function setTotal($total)
     {
-        usort($this->data, function ($a, $b) use ($field, $direction) {
-            if (!isset($a[$field]) || !isset($b[$field])) {
-                return 0;
-            }
-
-            if ($a[$field] == $b[$field]) {
-                return 0;
-            }
-
-            if ($direction === 'DESC') {
-                return ($a[$field] < $b[$field]) ? 1 : -1;
-            }
-
-            return ($a[$field] < $b[$field]) ? -1 : 1;
-        });
-
-        return $this;
+        $this->total = $total;
     }
 
-    public function paginate($perPage = 15)
+    public function setUpdated($updated)
     {
-        $this->perPage     = $perPage;
-        $this->currentPage = 1;
-
-        return $this;
+        $this->updated = $updated;
     }
 
-    public function page($page)
+    public function setCreated($created)
     {
-        $this->currentPage = $page;
-
-        return $this;
+        $this->created = $created;
     }
 
-    public function paginateData()
+    public function setNoteUpdated($noteUpdated)
     {
-        $start = ($this->currentPage - 1) * $this->perPage;
-
-        return array_slice($this->data, $start, $this->perPage);
+        $this->noteUpdated = $noteUpdated;
     }
 
-    public function get()
+    public function setDatetimeInit($datetime_init)
     {
-        $models = [];
-
-        foreach ($this->data as $record) {
-            $models[] = $this->model($record['id']);
-        }
-
-        return $models;
+        $this->datetime_init = $datetime_init;
     }
 
-    public function links()
+    public function setErrorMessage($erroMsg)
     {
-        if (!$this->perPage) {
-            return null;
-        }
-
-        $totalPages = ceil(count($this->data) / $this->perPage);
-        $links      = [];
-
-        for ($i = 1; $i <= $totalPages; $i++) {
-            $links[] = "Página {$i}";
-        }
-
-        return implode(' | ', $links);
+        $this->erroMsg[] = $erroMsg;
+        $this->errors++;
     }
 
-    private function generateId()
-    {
-        return time();
-    }
-}
-
-class RegistroModel
-{
-    protected $data;
-
-    protected $parent;
-
-    public function __construct($data, RegistroJson $parent)
-    {
-        $this->data   = $data;
-        $this->parent = $parent;
-    }
-
-    public function update($updatedData)
-    {
-        $this->data = array_merge($this->data, $updatedData);
-
-        return $this;
-    }
 
     public function save()
     {
-        $this->parent->update($this->data['id'], $this->data);
+        if (!file_exists($this->getFilepath())) {
+            // Inicia o array com o primeiro registro e o id 1904, por exemplo
+            $newId = 1; // Começa com 1, ou pode iniciar com qualquer outro número
 
-        return $this;
+            $registroUpdate[$newId] = [
+                'tarefa'     => $this->task,
+                'options'    => $this->options,
+                'total'      => $this->total,
+                'updated'    => $this->updated,
+                'created'    => $this->created,
+                'noteupdated' => $this->noteUpdated,
+                'erros'      => $this->errors,
+                'errosMSGs'      => $this->erroMsg,
+                'date_inicio' => $this->datetime_init,
+                'date_fim'   => date('Y-m-d H:i:s'),
+            ];
+
+            // Define o last_id como 1
+            $this->last_id = $newId;
+
+        } else {
+
+            $registroUpdate = json_decode(file_get_contents($this->getFilepath()), true);
+
+
+            $registroUpdate = array_filter($registroUpdate, function ($registro) {
+                return strtotime($registro['date_fim']) >= strtotime('-15 days');
+            });
+
+
+            $lastId = !empty($registroUpdate) ? max(array_keys($registroUpdate)) : 0;
+
+            if ($this->last_id !== $lastId) {
+                // Define o próximo ID
+                $newId = $lastId + 1;
+            } else {
+                $newId = $this->last_id;
+            }
+
+
+
+            $registroUpdate[$newId] = [
+                'tarefa'     => $this->task,
+                'options'    => $this->options,
+                'total'      => $this->total,
+                'updated'    => $this->updated,
+                'created'    => $this->created,
+                'noteupdated' => $this->noteUpdated,
+                'erros'      => $this->errors,
+                'errosMSGs'      => $this->erroMsg,
+                'date_inicio' => $this->datetime_init,
+                'date_fim'   => date('Y-m-d H:i:s'),
+            ];
+
+            // Define o last_id como o novo ID
+            $this->last_id = $newId;
+        }
+
+        // Salva o conteúdo atualizado no arquivo JSON
+        file_put_contents($this->getFilepath(), json_encode($registroUpdate));
     }
 
-    public function delete()
-    {
-        $this->parent->delete($this->data['id']);
-    }
-
-    // Adicione outros métodos conforme necessário
 }
