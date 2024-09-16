@@ -37,9 +37,6 @@ class BaseOV extends Command
 
         $log = new RegistroJson('upd_baseOV', $this->options());
 
-        if ($this->option('full')) {
-            $chunkSize = 1000;
-        }
 
         $count = ['upd' => 0, 'ins' => 0, 'tins' => 1, 'errors' => 0];
 
@@ -59,7 +56,7 @@ class BaseOV extends Command
 
         $progressBar->setFormat('%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
-        $progressBar->start($totalRecords);
+        $progressBar->start();
 
         // Edp_depcBaseOV::where('ultimoStatus', 1)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
         Edp_depcBaseOV::where('ultimoStatus', 1)

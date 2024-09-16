@@ -238,6 +238,6 @@
 
     {{-- Livewire Components --}}
     @livewire('admin.user.actions.usuario', key('users'))
-    @livewire('admin.user.actions.usuario-mass', key('users-mass'))
+    @livewire('admin.user.actions.usuario-mass', key('the_users-mass'))
     @livewire('admin.user.delete', key('delete-user'))
 </div>

@@ -247,17 +247,17 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                 Centro Integrado de Projetos - Espirito Santo<br>
                 Laravel Framework v{{ app()->version() }}<br>
                 PHP v{{ phpversion() }}<br>
-                @livewire('status.bancosicode')
+                @livewire('status.bancosicode', key('banco-sicode'))
                 @if (env('APP_QA'))
                     <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
                 @endif
-                @livewire('watchdog')
+                @livewire('watchdog', key('whatdog-sicode'))
             </div>
 
         </footer>
 
 
-        @livewire('components.modal.priority')
+        @livewire('components.modal.priority', 'model-priority')
 
 
 

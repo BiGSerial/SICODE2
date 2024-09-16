@@ -16,6 +16,8 @@ class Table extends Component
 
     public $users;
 
+    public ?User $userCompany = null;
+
     public $perPage = 30;
 
     public $show_update = false;
@@ -55,6 +57,16 @@ class Table extends Component
     public function mount()
     {
         $this->master = User::first();
+
+        if (!Auth()->User()->contract) {
+            $this->companies = Company::orderBy('name')->get();
+        } elseif (Auth()->User()->Companies->count()) {
+
+            $this->userCompany = auth()->user();
+            $this->companies = $this->userCompany->Companies()->get();
+        } else {
+            $this->companies = Company::where('id', Auth()->User()->company_id)->orderBy('name')->get();
+        }
     }
 
     public function update_user($id)
@@ -153,10 +165,17 @@ class Table extends Component
     public function getUserProperty()
     {
         return User::when(
-            !Auth()->User()->superadm,
+            Auth()->User()->contract,
             function ($q) {
-                return $q->where('superadm', false)
-                    ->whererelation('Employee.Contract', 'company_id', Auth()->User()->Employee->Contract->company_id);
+                if (Auth()->User()->Companies->count()) {
+                    return $q->whereRelation('Employee.Contract.company', function ($sq) {
+                        return $sq->WhereIn('id', Auth()->User()->Companies->pluck('id'));
+                    });
+                } else {
+                    return $q->whereRelation('Employee.Contract.company', function ($sq) {
+                        return $sq->WhereIn('id', Auth()->User()->Employee->Contract->company->id);
+                    });
+                }
             },
             function ($q) {
                 return $q->withTrashed();
@@ -179,7 +198,7 @@ class Table extends Component
 
     public function render()
     {
-        $this->companies = Company::orderBy('name')->get();
+
 
         return view('livewire.admin.user.table', [
             'users_l' => $this->user->paginate($this->perPage),

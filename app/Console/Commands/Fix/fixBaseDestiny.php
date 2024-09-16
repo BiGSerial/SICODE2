@@ -5,6 +5,7 @@ namespace App\Console\Commands\Fix;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\Note;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
@@ -29,163 +30,116 @@ class fixBaseDestiny extends Command
      */
     public function handle()
     {
-        $output = new ConsoleOutput();
+        $sts_repair = [];
+        $lostNote = [];
 
-        $listStatus = BaseOV::select('numStat')
-            ->orderBy('numStat')
-            ->distinct()
-            ->get()
-            ->pluck('numStat')
-            ->toArray();
+        // Executar o comando de limpar terminal
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Se for Windows
+            system('cls');
+        } else {
+            // Se for Unix (Linux, macOS)
+            system('clear');
+        }
 
-        if (count($listStatus)) {
+        system('cls');
 
-            $progressBar = new ProgressBar($output, count($listStatus));
-            $progressBar->setFormat(" %current%/%max% [%bar%] %percent:3s%% %extra%\n %process% %message%");
+        $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHEKING INTEGRITY DB...</>');
 
-            $toFix     = [];
-            $noteToFix = [];
+        // $status = Service::orderBy('status')->get();
 
-            $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHECKING INTEGRITY DB...</>', 'process');
-            $progressBar->setMessage("<fg=white;options=bold>[0/0]</>", 'extra');
+        $this->info('<bg=blue;fg=white> INFO </>  READING ORIGIN DB...');
 
-            $progressBar->start();
+        $origins = BaseOV::Where('ultimoStatus', 1)
+            ->select('numStat', DB::raw('count(*) as count'))
+            ->groupBy('numStat')
+            ->get();
+        $this->info('<bg=green;fg=white> DONE </> ORIGIN DB DONE...');
 
-            foreach ($listStatus as $status) {
-                $origin = BaseOV::where('numStat', $status)->where('ultimoStatus', 1)->count();
-                $destiny = Note::where('nstats', $status)->where('type_note', 2)->count();
+        $error = 0;
 
-                if ($origin != $destiny) {
-                    $diff = $origin - $destiny;
+        $this->info('<bg=blue;fg=white> INFO </> INIT COMPARING DBs ORIGIN WITH DESTINY...');
 
-                    $progressBar->setMessage("<bg=red;fg=white> FAIL </> <fg=white;options=bold>INCONSISTENCY... O: {$origin} => D: {$destiny} | DIFF: {$diff}</>", 'message');
+        $destinies = Note::Where('type_note', 2)
+            ->select('nstats', DB::raw('count(*) as count'))
+            ->groupBy('nstats')
+            ->get();
 
-                    $toFix[] = [
-                        'status'  => $status,
-                        'origin'  => $origin,
-                        'destiny' => $destiny,
-                        'diff'    => $origin - $destiny,
-                        'force'   => false,
-                    ];
-                } else {
-                    $progressBar->setMessage('<bg=green;fg=white> DONE </> <fg=white;options=bold>STATUS OK: </>' . $status);
-                }
-
-                $progressBar->advance();
-            }
-
-            if (count($toFix)) {
-                $progressBar->setMessage('<bg=blue;fg=white> INFO </> <fg=white;options=bold>LOOKING FOR FIX: </>', 'process');
-                $progressBar->start(count($toFix));
-
-                foreach ($toFix as $fix) {
-                    $conta_nota = 0;
-                    $total      = $fix['diff'] + count($noteToFix);
-
-                    BaseOV::where('numStat', $fix['status'])
-                        ->where('ultimoStatus', 1)
-                        ->chunk(10000, function ($origin) use ($fix, &$noteToFix, &$progressBar, &$conta_nota, $total) {
-                            $conta_nota += $origin->count();
-                            $progressBar->setMessage("<fg=white;options=bold>STATUS </>".$fix['status'], 'message');
-
-                            $diff = "";
-                            $origin_c = $origin->pluck('OV')->toArray();
-                            $destiny_c = Note::whereIn('note', $origin_c)->where('nstats', $fix['status'])->get()->pluck('note')->toArray();
-
-                            if (count($origin_c) != count($destiny_c)) {
-
-                                if (count($origin_c) > count($destiny_c)) {
-                                    $diff = array_diff($destiny_c, $origin_c);
-                                } else {
-                                    $diff = array_diff($origin_c, $destiny_c);
-                                }
-
-                            }
-
-                            if ($diff) {
-
-                                if (is_array($diff)) {
-
-                                    foreach ($diff as $differ) {
-                                        $noteToFix[] = $differ;
-                                    }
-
-                                } else {
-
-                                    $noteToFix[] = $diff;
-
-                                }
-                            }
-
-                            $count = count($noteToFix);
-                            $progressBar->setMessage("<fg=white;options=bold>[{$count}/{$total}][Count:{$conta_nota}/{$fix['origin']}]</>", 'extra');
-                            $progressBar->display();
-
-                            if ($count >= $total) {
-                                return false;
-                            }
-                        });
-
-                    $progressBar->advance();
-                }
-            }
-
-            if (count($noteToFix)) {
-                $progressBar->setMessage('<bg=red;fg=white> WORKING </><fg=white;options=bold> FIXING DATABASE WAITING FOR...</>', 'extra');
-                $progressBar->setMessage('', 'message');
-                $progressBar->display();
-
-                $noteToFix = array_unique($noteToFix);
-
-                $origins = BaseOV::whereIn('OV', $noteToFix)->where('ultimoStatus', 1)->get();
-
-                $progressBar->start(count($noteToFix));
-
-                if ($origins) {
-                    foreach ($origins as $origin) {
-                        $chk = Note::updateOrCreate(
-                            ['note' => $origin->OV],
-                            [
-                                'created_by' => $origin->criadoPor,
-                                'dt_created' => "{$origin->dtCriacao} {$origin->hrCriacao}",
-                                'dt_status' => $origin->dhStat,
-                                'user' => $origin->usuario,
-                                'value' => $origin->valorLiq,
-                                'currency' => $origin->moeda,
-                                'eq_venda' => $origin->eqVenda,
-                                'numPedido' => $origin->numPedido,
-                                'client' => $origin->emissorOV,
-                                'group1' => $origin->grpCliente1,
-                                'group2' => $origin->grpCliente2,
-                                'group3' => $origin->grpCliente3,
-                                'group4' => $origin->grpCliente4,
-                                'group5' => $origin->grpCliente5,
-                                'pze' => $origin->PzE,
-                                'num_material' => $origin->numMaterial,
-                                'material' => $origin->material,
-                                'nexp' => $origin->numExp,
-                                'lexp' => $origin->localExp,
-                                'pep' => $origin->PEP,
-                                'nstats' => $origin->numStat,
-                                'status' => $origin->status,
-                                'days' => $origin->dias,
-                                'transaction' => $origin->transicao,
-                                'validar_prazo' => $origin->considerarPrazo,
-                                'rubrica' => $origin->rubrica,
-                                'pze_tratado' => $origin->PzETratado,
-                                'days_stat' => $origin->diasNoStatus,
-                                'pze_parecer' => $origin->parecerPrazo,
-                                'days_left' => $origin->diasPVencimento,
-                                'type_note' => 2,
-                            ]
-                        );
-
-                        $progressBar->advance();
+        if ($origins && $destinies) {
+            $this->info('<bg=blue;fg=white> INFO </> COMPARING DBs ...');
+            foreach ($origins as $origin) {
+                if ($destiny = $destinies->where('nstats', $origin->numStat)->first()) {
+                    if ($origin->count != $destiny->count) {
+                        $sts_repair[] = [
+                            'status' => $origin->numStat,
+                            'origin' => $origin->count,
+                            'destiny' => $destiny->count
+                        ];
                     }
                 }
             }
 
-            $progressBar->finish();
+            if (count($sts_repair)) {
+                $this->info('<bg=blue;fg=white> INFO </> FOUND STATUS INCINSISTENCY ... '. count($sts_repair));
+                unset($destinies);
+                unset($origins);
+
+                foreach ($sts_repair as $repair) {
+
+                    if ($repair['status'] < 98 && BaseOv::where('numStat', $repair['status'])->Where('ultimoStatus', 1)->count() < 500) {
+                        $ovs = BaseOv::Where('ultimoStatus', 1)->where('numStat', intval($repair['status']))->get()->pluck('OV')->toArray();
+
+
+
+                        if ($ovs) {
+                            $notes = Note::Where('type_note', 2)->where('nstats', $repair['status'])->pluck('note')->toArray();
+
+                            $diff_notes = array_diff($notes, $ovs);
+
+                            foreach ($diff_notes as $note) {
+                                $lostNote[] = $note;
+                            }
+
+                            $diff_notes = array_diff($ovs, $notes);
+
+                            foreach ($diff_notes as $note) {
+                                $lostNote[] = $note;
+                            }
+
+
+                        }
+
+
+
+                        $this->info('<bg=blue;fg=white> INFO </> FINISH STATUS ...'.$repair['status']);
+                    } else {
+                        $total = $repair['origin'] - $repair['destiny'];
+
+                        if ($total < 0) {
+                            $total *= -1;
+
+                            Note::Where('type_note', 2)->where('nstats', $repair['status'])->chunk(500, function($destinies) use ($repair){
+                                $origins = BaseOv::Where('ultimoStatus', 1)->where('numStat', $repair['status'])->wehreIn('OV', $destinies->pluck('note'))->get();
+
+                                if ($origins->count() != $destinies->count()) {
+                                    # code...
+                                }
+
+                            });
+                        }
+                    }
+
+                }
+            }
+
+            if ($lostNote) {
+                $this->info('<bg=blue;fg=white> INFO </> SHOWING MISSES NOTES ...');
+                foreach ($lostNote as $note) {
+                    $this->info('<bg=blue;fg=white> NOTE </> ' . $note);
+                }
+            } else {
+                $this->info('<bg=blue;fg=white> INFO </> NADA ENCONTRADO ...');
+            }
         }
     }
 

@@ -152,7 +152,7 @@
                                 <div class="d-flex align-items-center">
                                     <i class="{{ $service->icon }} text-primary"></i>
                                     <span>{{ mb_strtoupper($service->service) }}</span>
-                                    @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
+                                    @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu-count-services-' . $service->uuid))
                                 </div>
                             </a>
                         </li>
@@ -234,7 +234,7 @@
                             <div class="d-flex align-items-center">
                                 <i class="{{ $service->icon }} text-primary"></i>
                                 <span>{{ mb_strtoupper($service->service) }}</span>
-                                @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
+                                @livewire('components.count.countnotes', ['service' => $service->uuid], key('count-notes-construction' . $service->uuid))
                             </div>
                         </a>
                     </li>

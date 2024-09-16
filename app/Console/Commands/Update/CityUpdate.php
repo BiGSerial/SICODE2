@@ -2,16 +2,12 @@
 
 namespace App\Console\Commands\Update;
 
-use App\Models\Edp_depc\BaseOV;
-use App\Models\{City, HistoricNote, Note};
+use App\Models\{City};
 use App\Models\Edp_depc\City as OriginCity;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Helper\ProgressBar;
 
-class Fixbase extends Command
+class CityUpdate extends Command
 {
     /**
      * The name and signature of the console command.

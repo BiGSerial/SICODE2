@@ -13,7 +13,8 @@ use Livewire\Component;
 
 class Usuario extends Component
 {
-    public ?User $user = null;
+    public $user;
+    public ?User $userCompany = null;
     public $companyList;
     public $company;
     public $contractList;
@@ -25,6 +26,11 @@ class Usuario extends Component
     public $cities;
     public $city;
     public $companySelect;
+
+    // public $newUser;
+    public $temporaryPassword;
+    public $temporaryFirstPass;
+
 
 
 
@@ -60,9 +66,26 @@ class Usuario extends Component
         'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 
+    protected $casts = [
+        'superadm' => 'boolean',
+        'admin' => 'boolean',
+        'management' => 'boolean',
+        // Outros campos booleanos
+    ];
+
     public function mount()
     {
-        $this->companyList = Company::orderBy('name')->get();
+        if (!Auth()->User()->contract) {
+            $this->companyList = Company::orderBy('name')->get();
+        } elseif (Auth()->User()->Companies->count()) {
+
+            $this->userCompany = auth()->user();
+            $this->companyList = $this->userCompany->Companies()->get();
+        } else {
+            $this->companyList = Company::where('id', Auth()->User()->company_id)->orderBy('name')->get();
+        }
+
+
         $this->cities = City::orderBy('cidade')->get();
         $this->regionList = City::orderBy('regiao')->distinct()->pluck('regiao');
     }
@@ -109,7 +132,10 @@ class Usuario extends Component
 
 
         $this->user = new User();
-        $this->user->password = Hash::make(123456);
+
+        $this->temporaryPassword = Hash::make(123456);
+        $this->temporaryFirstPass = 1;
+
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'userModal',
         ]);
@@ -149,32 +175,36 @@ class Usuario extends Component
     public function addCompany()
     {
 
-        if ($this->user->Companies->count()) {
-            $this->user->Companies()->updateOrCreate(
-                [
-                    'company_id' => $this->companySelect
-                ],
-                [
-                    'company_id' => $this->companySelect,
-                ]
-            );
-        } else {
-            if (collect($this->temporaryServices)->contains('service_id', $this->serviceSelect)) {
-
-                return;
-            }
-
-
-            $this->temporaryServices[] = [
-                'service_id' => $this->serviceSelect,
-                'service' => false,
-                'dispatch' => false,
-            ];
-
-        }
+        $this->user->companies()->syncWithoutDetaching([
+            $this->companySelect
+        ]);
 
         $this->emitSelf('refreshuser');
     }
+
+
+    public function removeCompany($company_id)
+    {
+
+
+        if ($this->user->companies()->where('company_id', $company_id)->exists()) {
+            $this->user->companies()->detach($company_id);
+
+            $this->emitSelf('refreshuser');
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SEM EMPRESA PARA DESASSOCIAR',
+                'html'    => 'A Empresa selecionada não existe ou ja ',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+    }
+
 
     public function ServiceOption($id, $column)
     {
@@ -206,6 +236,12 @@ class Usuario extends Component
 
     public function Save()
     {
+
+        if ($this->temporaryFirstPass) {
+            $this->user->password = $this->temporaryPassword;
+            $this->user->first_pass = $this->temporaryFirstPass;
+        }
+
         $this->user->save();
 
         if ($this->user->Employee) {
@@ -222,16 +258,17 @@ class Usuario extends Component
 
         if (count($this->temporaryServices)) {
             foreach ($this->temporaryServices as $service) {
-
-                $this->user->ToServices()->updateOrCreate(
-                    [
-                        'service_id' => $service['service_id'],
-                    ],
-                    [
-                        'service' => $service['service'],
-                        'dispatch' => $service['dispatch'],
-                    ]
-                );
+                if ($service['service_id']) {
+                    $this->user->ToServices()->updateOrCreate(
+                        [
+                            'service_id' => $service['service_id'],
+                        ],
+                        [
+                            'service' => $service['service'],
+                            'dispatch' => $service['dispatch'],
+                        ]
+                    );
+                }
             }
         }
 
@@ -243,8 +280,10 @@ class Usuario extends Component
 
     public function resetPassword()
     {
-        $this->user->password = Hash::make(123456);
-        $this->user->first_pass = true;
+        $this->temporaryPassword = Hash::make(123456);
+        $this->temporaryFirstPass = 1;
+
+        // dd($this->user);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -271,6 +310,9 @@ class Usuario extends Component
         $this->temporaryServices = [];
 
         $this->user = null;
+
+        $this->temporaryPassword = null;
+        $this->temporaryFirstPass = null;
 
         $this->dispatchBrowserEvent('hideModal');
     }

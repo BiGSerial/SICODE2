@@ -5,17 +5,17 @@
     <x-show-loading />
     <!-- Modal para Criar/Editar Usuário -->
 
-    <div wire:ignore.self class="modal fade" id="userMassEditModal" tabindex="-1" aria-labelledby="userModalLabel"
-        aria-hidden="true">
-        @if ($this->users)
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content edp-bg-gray">
-                    <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                        <h5 class="modal-title" id="userModalLabel">EDITAR USUARIOS EM MASSA</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
+    <div wire:ignore.self wire:key='modal_mass_user' class="modal fade" id="userMassEditModal" tabindex="-1"
+        aria-labelledby="userModalLabel" aria-hidden="true">
 
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content edp-bg-gray">
+                <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
+                    <h5 class="modal-title" id="userModalLabel">EDITAR USUARIOS EM MASSA</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @if ($this->users)
 
                         <!-- Seção 1: Dados do Usuário -->
                         <div class="mb-3">
@@ -161,7 +161,7 @@
                                                         )->first();
                                                     @endphp
                                                     @if ($service)
-                                                        <tr>
+                                                        <tr wire:key='service_list_{{ $index }}'>
                                                             <td>{{ $service->service }}</td>
                                                             <td>
                                                                 <div class="form-check">
@@ -202,27 +202,27 @@
 
                             </div>
                         </div>
-
-                    </div>
-                    <div class="modal-footer edp-bg-sprucegreen-100">
-                        <button type="button" class="btn btn-warning" wire:click.prevent="toResetMassPassword"><i
-                                class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="saveUser"
-                            wire:click.prevent='toSave'>Salvar</button>
-                    </div>
+                    @endif
+                </div>
+                <div class="modal-footer edp-bg-sprucegreen-100">
+                    <button type="button" class="btn btn-warning" wire:click.prevent="toResetMassPassword"><i
+                            class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="saveUser"
+                        wire:click.prevent='toSave'>Salvar</button>
                 </div>
             </div>
-        @endif
+        </div>
+
     </div>
+
+    <script>
+        // Capturando o evento de fechamento do modal
+        document.getElementById('userModal').addEventListener('hidden.bs.modal', () => {
+
+            Livewire.emitTo('admin.user.actions.usuario', 'closeAll');
+        });
+    </script>
 
 
 </div>
-
-<script>
-    // Capturando o evento de fechamento do modal
-    document.getElementById('userModal').addEventListener('hidden.bs.modal', () => {
-
-        Livewire.emitTo('admin.user.actions.usuario', 'closeAll');
-    });
-</script>

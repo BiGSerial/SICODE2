@@ -46,7 +46,7 @@ class ProductionLog extends Command
 
         $productions = Production::where('d5', false)->whereDate('updated_at', '>=', Carbon::now()->subDays($days))
             ->with('Note', 'User', 'Company', 'Service')
-            ->chunk(1000, function ($chunk) use ($progressBar) {
+            ->chunk(500, function ($chunk) use ($progressBar) {
                 foreach ($chunk as $production) {
                     $check = SicodeSqlProduction::updateOrCreate(
                         ['production_id' => $production->id],
@@ -58,7 +58,7 @@ class ProductionLog extends Command
                             'att_by' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->name : 'Desconhecido',
                             'company_att' => $production->att_by ? $production->load('Att.Employee.Contract.company')->Att->Employee->Contract->company->name : 'Desconhecido',
                             'service' => $production->Service->service,
-                            'note' => $production->Note->note,
+                            'note' => $production->Note ? $production->Note->note : 'desconhecido',
                             'status' => Notestatus::status($production->status)->status,
                             'dispatch_at' => $production->dispatch_at,
                             'att_at' => $production->att_at,
@@ -75,7 +75,7 @@ class ProductionLog extends Command
                             'conf_manual' => $production->conf_manual,
                             'reje_manual' => $production->rejected,
                             'dhstats' => $production->dt_note,
-                            'type_note' => $production->Note->type_note,
+                            'type_note' => $production->Note ? $production->Note->type_note : 3,
                             'eo' => $production->eo,
                             'iproject' => $production->iproject,
                             'cadastro' => $production->cadastro,
