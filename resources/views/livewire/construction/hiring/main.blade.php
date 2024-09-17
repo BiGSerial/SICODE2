@@ -154,6 +154,8 @@
 
     @if (!$lists->count())
 
+        @dd($lists);
+
         <div class="card">
             <div class="card-body">
                 <h3 class="text-center">NENHUM REGISTRO ENCONTRADO</h3>
@@ -251,8 +253,8 @@
                                         @checked($this->checkAllSelect($lists))>
 
                                 </th>
-                                <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Nota</th>
+                                <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Files</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
                                 <th scope="col" class="fw-bold">denConjunto</th>
@@ -273,7 +275,7 @@
                                     $block = false;
                                     $viability = '';
                                     $status = '';
-                                    $days_left = (new DaysLeft($list->Note))->getDaysLeft();
+                                    $days_left = (new DaysLeft($list))->getDaysLeft();
                                     $waiting = false;
 
                                     if ($list->Viabilities->count()) {
@@ -315,8 +317,8 @@
                                     }
 
                                     if (
-                                        $list->Note->Waitings->count() &&
-                                        $list->Note->Waitings->where('complete', false)->count()
+                                        $list->Waitings->count() &&
+                                        $list->Waitings->where('complete', false)->count()
                                     ) {
                                         $block = true;
                                         $waiting = true;
@@ -333,38 +335,61 @@
                                             type="checkbox" wire:model.defer="selected" value="{{ $list->id }}"
                                             @disabled($block)>
                                     </td>
-                                    <td class="fw-bold align-middle">{{ $list->ordem }}</td>
-                                    <td
-                                        class="align-middle @if ($list->Note->type_note == 2 && $list->Note->Orders->count() > 1) text-danger fw-bold @endif">
-                                        {{ $list->Note->note }}
+                                    <td class="fw-bold align-middle">{{ $list->note }}</td>
+                                    <td class="align-middle">
+                                        @if ($list->Orders->isNotEmpty())
+                                            @foreach ($list->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                                <p class="py-0">{{ $order->ordem }}</p>
+                                            @endforeach
+                                        @endif
                                     </td>
                                     <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <x-files.select-download-list :files='$list->Note->Files' />
+                                        <x-files.select-download-list :files='$list->Files' />
 
                                     </td>
-                                    <td class="align-middle">{{ $list->Note->rubrica }}</td>
+                                    <td class="align-middle">{{ $list->rubrica }}</td>
                                     <td class="align-middle">{{ $list->denConjunto }}</td>
-                                    <td class="align-middle">{{ $list->Note->lexp }}</td>
+                                    <td class="align-middle">{{ $list->lexp }}</td>
                                     <td class="align-middle">{{ $list->statusSist }}
                                     </td>
                                     <td class="align-middle">
-                                        @if ($list->Note->type_note == 1)
-                                            {{ $list->Note->centerjob }}
-                                        @elseif($list->Note->type_note == 2)
-                                            {{ $list->Note->nstats }}
+                                        @if ($list->type_note == 1)
+                                            {{ $list->centerjob }}
+                                        @elseif($list->type_note == 2)
+                                            {{ $list->nstats }}
                                         @else
                                             ---
                                         @endif
                                     </td>
                                     <td class="align-middle">
-                                        {{-- @if ($list->Operations->count())
-                                            @dump($list->Operations->where('operacao', '0010'))
-                                        @endif --}}
-                                        {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->status : '___') : '---' }}
+                                        @if ($list->Orders->isNotEmpty())
+                                            @foreach ($list->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                                <p class="py-0">
+                                                    {{ $order->Operations->isNotEmpty() ? ($order->Operations->where('operacao', '0010')->first() ? explode(' ', $order->Operations->where('operacao', '0010')->first()->status)[0] : '---') : '---' }}
+                                                </p>
+                                            @endforeach
+                                        @else
+                                            ---
+                                        @endif
+
                                     </td>
                                     <td class="align-middle">
-                                        {{ $list->Operations->count() ? ($list->Operations->where('operacao', '0010')->first() ? $list->Operations->where('operacao', '0010')->first()->cenTrab : '___') : '---' }}
+                                        @if ($list->Orders->isNotEmpty())
+                                            @foreach ($list->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                                <p class="py-0">
+                                                    {{ $order->Operations->isNotEmpty() ? ($order->Operations->where('operacao', '0010')->first() ? $order->Operations->where('operacao', '0010')->first()->cenTrab : '---') : '---' }}
+                                                </p>
+                                            @endforeach
+                                        @else
+                                            ---
+                                        @endif
                                     </td>
                                     <td class="text-center align-middle
                                     @if ($days_left < 0) text-bg-secondary
@@ -416,7 +441,7 @@
 
                                     @endphp
                                     <td
-                                        class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center overflow-hidden">
+                                        class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center overflow-hidden text-center">
                                         <div class="progress-bg text-center"
                                             style="width: {{ $percent }}%;
                                                  @if ($percent > 100.0) background-color: #969595;
@@ -433,9 +458,21 @@
                                     <td class="text-break align-middle text-center">
                                         @if ($block)
                                             @if (!$waiting)
-                                                <span
-                                                    class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}"
-                                                    style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($list->Viabilities->last()->status)->status) }}</span>
+                                                @if ($list->Orders->isNotEmpty())
+                                                    @foreach ($list->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                                        <p class="py-0">
+
+                                                            <span
+                                                                class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($order->Operations->where('operacao', '0010')->first()->status)->colorbg }}"
+                                                                style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($order->Operations->where('operacao', '0010')->first()->status)->status) }}</span>
+
+                                                        </p>
+                                                    @endforeach
+                                                @else
+                                                    ---
+                                                @endif
                                             @elseif ($waiting)
                                                 <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
                                             @else
@@ -676,7 +713,8 @@
                                                         <i class="bx bx-trash text-danger fs-4 align-middle"
                                                             wire:click.prevent="delete_note({{ $register['id'] }})"
                                                             style="cursor: pointer;" wire:loading.attr="disabled"
-                                                            wire:target='delete_note({{ $register['id'] }})'></i>
+                                                            wire:target='delete_note({{ $register['id'] }})'>
+                                                        </i>
                                                     </td>
                                                 </tr>
                                             @endforeach
