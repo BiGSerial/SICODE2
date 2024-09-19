@@ -160,53 +160,34 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para Exportar!',
-                'timer' => 2500,
-            ]);
-
-            return;
+            return (new ExportDDSupervision())->exportDD($this->lists->get(), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
         }
 
-        return (new ExportDDSupervision())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+        return (new ExportDDSupervision())->exportDD($this->lists->whereIn('id', $this->selected)->get(), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
     }
 
-    // public function updatedSelectall($val)
-    // {
-
-    //     $idsToKeep = $this->filteredLists->pluck('id')->toArray();
-
-    //     if ($val) {
-    //         // Adicionar os IDs ausentes de $selected
-    //         foreach ($idsToKeep as $id) {
-    //             if (!in_array($id, $this->selected)) {
-    //                 $this->selected[] = $id;
-    //             }
-    //         }
-    //     } else {
-    //         // Criar um novo array $selected com os IDs que devem ser mantidos
-    //         $newSelected = [];
-    //         foreach ($this->selected as $id) {
-    //             if (!in_array($id, $idsToKeep)) {
-    //                 $newSelected[] = $id;
-    //             }
-    //         }
-    //         $this->selected = $newSelected;
-    //     }
-    // }
 
     public function setSelectAll()
     {
 
         if ($this->selectAll) {
+
             // Adicionar os IDs que cumprem as regras à lista de selecionados
             foreach ($this->lists as $item) {
                 $id = $item->id;
                 if (!in_array($id, $this->selected)) {
-                    $production = $item->Production ? $item->Production->where('id_service', $this->service->uuid)->where('completed', false)->count() : false;
 
+                    $production = !$item->Productions->isEmpty() ? $item->Productions()
+                                                                    ->where(function ($q) {
+                                                                        $q->Where('service_id', $this->service->uuid)
+                                                                        ->where('completed', false);
+                                                                    })->orWhere(function ($q) use ($item) {
+                                                                        if ($item->note_type == 2) {
+                                                                            $q->Where('service_id', $this->service->uuid)
+                                                                            ->where('dt_note', $item->dt_status);
+                                                                        }
+                                                                    })->count()
+                                                                    : null;
 
                     if (!$production) {
                         $this->selected[] = $id;
@@ -1038,7 +1019,7 @@ class Main extends Component
             ->orderBy('work_dt_created', 'ASC')
             ->select('notes.*', 'work_reports.created_at as work_dt_created');
 
-        return $query->paginate($this->perPage);
+        return $query;
     }
 
     public function getBaseProperty()
@@ -1080,19 +1061,6 @@ class Main extends Component
 
     public function render()
     {
-        // $this->filteredLists = $this->lists->filter(function ($list) {
-
-        //     return !$list->Productions
-        //         ->where('status_note', $list->nstats)
-        //         ->where('dt_note', $list->dt_status)
-        //         ->first();
-        // });
-
-        // if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-        //     $this->selectall = true;
-        // } else {
-        //     $this->selectall = false;
-        // }
 
         if (!Auth()->User()->contract) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();
@@ -1110,31 +1078,12 @@ class Main extends Component
             })
             ->orderBy('name')->get();
 
-        // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
-        // // Municipios Filtros
-        // $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
-
-        // $this->district_l = City::when($this->region_s, function ($q) {
-        //     return $q->whereIn('regiao', $this->region_s);
-        // })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-
-        // $this->city_l = City::when($this->region_s, function ($q) {
-        //     return $q->whereIn('regiao', $this->region_s);
-        // })
-        //     ->when($this->district_s, function ($q) {
-        //         return $q->whereIn('baseConstrucao', $this->district_s);
-        //     })
-        //     ->select('rdMunicipio', 'cidade', 'municipio')
-        //     ->distinct()
-        //     ->orderBy('cidade')
-        //     ->groupBy('rdMunicipio', 'cidade', 'municipio')
-        //     ->get();
 
 
 
         return view('livewire.dispatchs.supervision.main', [
-            'lists' => $this->lists,
+            'lists' => $this->lists->paginate($this->perPage),
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first()
         ]);
     }
