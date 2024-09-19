@@ -55,7 +55,7 @@ class Updatelog extends Component
     public function getPaginatedLogsProperty()
     {
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
-        $items = $this->logUpdates->forPage($currentPage, $this->perPage);
+        $items = $this->logUpdates->sortByDesc('date_inicio')->forPage($currentPage, $this->perPage);
         return new LengthAwarePaginator($items, $this->logUpdates->count(), $this->perPage, $currentPage, [
             'path' => LengthAwarePaginator::resolveCurrentPath(),
         ]);
