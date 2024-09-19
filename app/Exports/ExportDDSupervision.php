@@ -20,7 +20,7 @@ class ExportDDSupervision implements FromView, WithEvents, WithProperties
 
     public function exportDD($notes, $service)
     {
-        $this->exports = Note::orderBy('type_note', 'DESC')->with('Wpas')->orderBy('days_left')->find($notes);
+        $this->exports = $notes;
         $this->service = $service;
 
         return $this;
@@ -44,7 +44,7 @@ class ExportDDSupervision implements FromView, WithEvents, WithProperties
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:Q1')->applyFromArray([
+                $event->sheet->getStyle('A1:V1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)

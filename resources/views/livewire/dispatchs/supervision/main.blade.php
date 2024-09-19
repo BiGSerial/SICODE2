@@ -141,16 +141,13 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
+                <table class="table table-sm table-striped">
                     <thead class="table-dark">
                         <tr>
                             <th>
                                 <input class="form-check-input" type="checkbox" wire:model.defer="selectAll"
                                     wire:click="setSelectAll()">
                             </th>
-                            {{-- @can('management')
-                                    <th scope="col" class="fw-bold">Note</th>
-                                @endcan --}}
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">DD</th>
@@ -166,7 +163,6 @@
                             <th scope="col" class="fw-bold text-center">Grp5</th>
                             <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
-                            {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
                             <th scope="col" class="fw-bold text-center">Dias Pilha</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
                             <th scope="col" class="fw-bold text-center"></th>
@@ -351,18 +347,17 @@
 
                                 <td class="fw-bold text-center">
 
-                                    @can('operator')
-                                        @if (!isset($block))
-                                            <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
-                                                style="cursor: pointer;"
-                                                wire:click.prevent="get_single_note({{ $list->id }})"
-                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Despachar esta Nota/OV"></i>
-                                        @else
-                                            <span style="font-size: 11px">{{ $lastCompany }}</span>
-                                        @endif
-                                    @endcan
+
+                                    @if (!isset($block))
+                                        <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                            style="cursor: pointer;"
+                                            wire:click.prevent="get_single_note({{ $list->id }})"
+                                            data-bs-toggle="tooltip" data-bs-placement="top"
+                                            data-bs-custom-class="custom-tooltip"
+                                            data-bs-title="Despachar esta Nota/OV"></i>
+                                    @else
+                                        <span style="font-size: 11px">{{ $lastCompany }}</span>
+                                    @endif
 
                                 </td>
                             </tr>

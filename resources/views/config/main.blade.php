@@ -17,7 +17,10 @@
 @section('content')
     <div class="container-fluid mt-5">
         <div class="row mt-5">
-            <div class="col-8"></div>
+
+            <div class="col-8">
+                @livewire('config.system.updatelog', key('systemLogUpdates'))
+            </div>
             <div class="col-4">
                 @livewire('config.system.sysspecs', key('systemSpecs'))
             </div>

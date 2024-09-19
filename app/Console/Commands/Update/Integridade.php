@@ -60,7 +60,8 @@ class Integridade extends Command
 
         foreach ($origins as $origin) {
 
-            $destiny = Note::Where('nstats', $origin->numStat)->where('type_note', 2)->count();
+            $destiny = Note::where('nstats', $origin->numStat)->where('type_note', 2)->count();
+
 
             if ($destiny && $origin->count != $destiny) {
                 $this->info('<bg=red;fg=yellow> FAIL </> <fg=yellow;options=underscore;options=bold> INTEGRITY ERROR IN STATUS ' . $origin->numStat . ' ORIGIN: ' . $origin->count . ' DESTINY: ' . $destiny . ' </>');

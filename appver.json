@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.7",
+    "appver": "1.10.8",
     "historic": [
+        {
+            "version": "1.10.8",
+            "description": "Updated Supervision and LogUpdate",
+            "date": "2024-09-19"
+        },
         {
             "version": "1.10.7",
             "description": "Add Export Excel on Intern Return",

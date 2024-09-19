@@ -1,5 +1,7 @@
 @php
     use App\Helpers\DaysLeft;
+    use App\Custom\Notestatus;
+
 @endphp
 
 <table>
@@ -22,6 +24,11 @@
             <th>STATUS</th>
             <th>CENTRO DE TRABALHO</th>
             <th>PRAZO REAL</th>
+            <th>SITUAÇAO</th>
+            <th>USUARIO</th>
+            <th>EMPRESA</th>
+            <th>DESPACHANTE</th>
+            <th>DATA DESPACHO</th>
         </tr>
     </thead>
     <tbody>
@@ -58,7 +65,7 @@
                     @if ($export->rubrica == 'Acompanhamento')
                         ACOMPANHAMENTO
                     @else
-                        {{ mb_strtoupper($service) }}
+                        {{ mb_strtoupper($service->service) }}
                     @endif
 
                 </td>
@@ -70,6 +77,47 @@
                 <td>{{ $export->nstats }}</td>
                 <td>{{ $export->centerjob }}</td>
                 <td>{{ (new DaysLeft($export))->getDaysLeft() }}</td>
+                @php
+                    $production = null;
+
+                    if (
+                        !$export->Productions->isEmpty() &&
+                        $export->Productions
+                            ->where('service_id', $service->uuid)
+                            ->where('completed', false)
+                            ->count()
+                    ) {
+                        $production = $export->Productions
+                            ->where('service_id', $service->uuid)
+                            ->where('completed', false)
+                            ->last();
+                    }
+                @endphp
+                <td>
+                    @if ($production)
+                        {{ Notestatus::status($production->status)->status }}
+                    @endif
+                </td>
+                <td>
+                    @if ($production)
+                        {{ $production->User->name }}
+                    @endif
+                </td>
+                <td>
+                    @if ($production)
+                        {{ $production->Company->name }}
+                    @endif
+                </td>
+                <td>
+                    @if ($production)
+                        {{ $production->Dispatcher->name }}
+                    @endif
+                </td>
+                <td>
+                    @if ($production)
+                        {{ $production->dispatch_at }}
+                    @endif
+                </td>
             </tr>
         @endforeach
     </tbody>
