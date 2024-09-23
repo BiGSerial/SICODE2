@@ -341,7 +341,7 @@
                                             @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                <p class="py-0">{{ $order->ordem }}</p>
+                                                <p class="py-0 my-0">{{ $order->ordem }}</p>
                                             @endforeach
                                         @endif
                                     </td>
@@ -369,7 +369,7 @@
                                             @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                <p class="py-0">
+                                                <p class="py-0 my-0">
                                                     {{ $order->Operations->isNotEmpty() ? ($order->Operations->where('operacao', '0010')->first() ? explode(' ', $order->Operations->where('operacao', '0010')->first()->status)[0] : '---') : '---' }}
                                                 </p>
                                             @endforeach
@@ -380,12 +380,28 @@
                                     </td>
                                     <td class="align-middle">
                                         @if ($list->Orders->isNotEmpty())
+                                            @php
+                                                $empresa = '';
+                                            @endphp
                                             @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                <p class="py-0">
-                                                    {{ $order->Operations->isNotEmpty() ? ($order->Operations->where('operacao', '0010')->first() ? $order->Operations->where('operacao', '0010')->first()->cenTrab : '---') : '---' }}
-                                                </p>
+                                                @php
+                                                    $empresa_2 = $order->Operations->isNotEmpty()
+                                                        ? ($order->Operations->where('operacao', '0010')->first()
+                                                            ? $order->Operations->where('operacao', '0010')->first()
+                                                                ->cenTrab
+                                                            : '---')
+                                                        : '---';
+                                                @endphp
+                                                @if ($empresa != $empresa_2)
+                                                    @php
+                                                        $empresa = $empresa_2;
+                                                    @endphp
+                                                    <p class="py-0 my-0">
+                                                        {{ $empresa_2 }}
+                                                    </p>
+                                                @endif
                                             @endforeach
                                         @else
                                             ---
@@ -462,7 +478,7 @@
                                                     @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                        <p class="py-0">
+                                                        <p class="py-0 my-0">
 
                                                             <span
                                                                 class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($order->Operations->where('operacao', '0010')->first()->status)->colorbg }}"

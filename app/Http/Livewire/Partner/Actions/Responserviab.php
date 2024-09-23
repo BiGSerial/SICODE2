@@ -3,12 +3,13 @@
 namespace App\Http\Livewire\Partner\Actions;
 
 use App\Models\Note;
+use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Responserviab extends Component
 {
-    public ?Note $note = null;
+    public ?Viability $viability = null;
     public $decision;
     public $responser;
 
@@ -18,11 +19,11 @@ class Responserviab extends Component
     ];
 
 
-    public function getInfoResponse(Note $note)
+    public function getInfoResponse(Viability $viability)
     {
-        $this->note = $note;
+        $this->viability = $viability;
 
-        if ($this->note) {
+        if ($this->viability) {
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'modal_resp_viability',
             ]);
@@ -89,55 +90,53 @@ class Responserviab extends Component
             $this->responser .= "\n\n >> EMPRESA PARCEIRA CONCORDA COM SEGUIMENTO PARA CONTRATAÇÃO. <<";
 
 
-            if ($this->note->Viabilities->count()) {
+            if ($this->viability) {
 
-                foreach ($this->note->Viabilities as $viability) {
-                    DB::beginTransaction();
+                DB::beginTransaction();
 
-                    try {
-                        // Atualize a viabilidade
-                        $viability->update([
-                            'approved' => true,
-                            'rejected' => false,
-                            'treplica' => true,
-                            'completed' => $viability->hired ? true : false,
-                            'completed_at' => $viability->hired ? date('Y-m-d H:i:s') : null,
-                            'status' => $viability->hired ? 9 : 6,
-                        ]);
+                try {
+                    // Atualize a viabilidade
+                    $this->viability->update([
+                        'approved' => true,
+                        'rejected' => false,
+                        'treplica' => true,
+                        'completed' => $this->viability->hired ? true : false,
+                        'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                        'status' => $this->viability->hired ? 9 : 6,
+                    ]);
 
-                        // Crie um novo comentário e associe-o à viabilidade
-                        $viability->Comments()->create([
-                            'user_id' => auth()->user()->id,
-                            'message' => $this->responser ?? null,
+                    // Crie um novo comentário e associe-o à viabilidade
+                    $this->viability->Comments()->create([
+                        'user_id' => auth()->user()->id,
+                        'message' => $this->responser ?? null,
 
-                        ]);
+                    ]);
 
-                        DB::commit();
+                    DB::commit();
 
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'success',
-                            'title'    => 'Contestação Aceita',
-                            'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
-                            'timer'    => 5000,
-                        ]);
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'success',
+                        'title'    => 'Contestação Aceita',
+                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                        'timer'    => 5000,
+                    ]);
 
-                        $this->emitUp('refresh_list');
-                        $this->clean();
+                    $this->emitUp('refresh_list');
+                    $this->clean();
 
-                    } catch (\Throwable $th) {
-                        DB::rollback();
+                } catch (\Throwable $th) {
+                    DB::rollback();
 
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'danger',
-                            'title'    => 'Erro',
-                            'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada..',
-                            'timer'    => 5000,
-                        ]);
-                        $this->clean();
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'danger',
+                        'title'    => 'Erro',
+                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada..',
+                        'timer'    => 5000,
+                    ]);
+                    $this->clean();
 
-                    }
                 }
             }
         }
@@ -147,50 +146,48 @@ class Responserviab extends Component
             // Acrescenta decisão da Empreiteira a mensagem postada.
             $this->responser .= "\n\n >> EMPRESA PARCEIRA MANTÉM A REJEIÇÃO DA VIABILIDADE TÉCNICA APRESENTADA. <<";
 
-            if ($this->note->Viabilities->count()) {
-                foreach ($this->note->Viabilities as $viability) {
-                    DB::beginTransaction();
+            if ($this->Viabilities) {
+                DB::beginTransaction();
 
-                    try {
-                        // Atualize a viabilidade
-                        $viability->update([
-                            'approved' => false,
-                            'treplica' => true,
-                            'status' => 4,
-                        ]);
+                try {
+                    // Atualize a viabilidade
+                    $this->viability->update([
+                        'approved' => false,
+                        'treplica' => true,
+                        'status' => 4,
+                    ]);
 
-                        // Crie um novo comentário e associe-o à viabilidade
-                        $viability->Comments()->create([
-                            'user_id' => auth()->user()->id,
-                            'message' => $this->responser ?? null,
+                    // Crie um novo comentário e associe-o à viabilidade
+                    $this->viability->Comments()->create([
+                        'user_id' => auth()->user()->id,
+                        'message' => $this->responser ?? null,
 
-                        ]);
+                    ]);
 
-                        DB::commit();
+                    DB::commit();
 
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'success',
-                            'title'    => 'Contestação Mantida',
-                            'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
-                            'timer'    => 5000,
-                        ]);
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'success',
+                        'title'    => 'Contestação Mantida',
+                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                        'timer'    => 5000,
+                    ]);
 
-                        $this->emitUp('refresh_list');
-                        $this->clean();
+                    $this->emitUp('refresh_list');
+                    $this->clean();
 
-                    } catch (\Throwable $th) {
-                        DB::rollback();
+                } catch (\Throwable $th) {
+                    DB::rollback();
 
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'danger',
-                            'title'    => 'Erro',
-                            'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
-                            'timer'    => 5000,
-                        ]);
-                        $this->clean();
-                    }
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'danger',
+                        'title'    => 'Erro',
+                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
+                        'timer'    => 5000,
+                    ]);
+                    $this->clean();
                 }
             }
 
@@ -258,7 +255,7 @@ class Responserviab extends Component
     public function clean()
     {
         $this->dispatchBrowserEvent('hideModal');
-        $this->note = null;
+        $this->viability = null;
     }
 
     public function render()

@@ -37,10 +37,10 @@ class Viability extends Model
         'rehired'
     ];
 
-    public function Order()
-    {
-        return $this->belongsTo(Order::class);
-    }
+    // public function Order()
+    // {
+    //     return $this->belongsTo(Order::class);
+    // }
 
     public function Company()
     {
@@ -77,8 +77,21 @@ class Viability extends Model
         return $this->belongsToMany(File::class);
     }
 
+    public function Note()
+    {
+        return $this->belongsTo(Note::class);
+    }
+
+
+
+    // Prazo de Viabilidade
     public function Days()
     {
         return $this->hasMany(Daysviab::class);
+    }
+
+    public function getDays(): int
+    {
+        return $this->Days()->sum('days');
     }
 }

@@ -82,7 +82,8 @@ class Note extends Model
 
     public function Viabilities()
     {
-        return $this->hasManyThrough(Viability::class, Order::class);
+        // return $this->hasManyThrough(Viability::class, Order::class);
+        return $this->hasMany(Viability::class);
     }
 
     public function Waitings()

@@ -323,7 +323,15 @@
                                 @foreach ($lists->Viabilities as $viab)
                                     <tr>
                                         <td class="aligh-middle"></td>
-                                        <td class="aligh-middle">{{ $viab->Order->ordem }}</td>
+                                        <td class="aligh-middle">
+                                            @if ($viab->Note->Orders->isNotEmpty())
+                                                @foreach ($viab->Note->Orders->filter(function ($order) {
+        return strpos($order->Operations->where('operacao', '0010')->first()->status, 'CONF') === 0;
+    }) as $order)
+                                                    {{ $order->ordem }}
+                                                @endforeach
+                                            @endif
+                                        </td>
                                         <td class="aligh-middle">{{ $viab->User->name }}</td>
                                         <td class="aligh-middle">{{ $viab->hired ? 'SIM' : 'NÃO' }}</td>
                                         <td class="aligh-middle">{{ $viab->tacit ? 'SIM' : 'NÃO' }}</td>

@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\parner\exportExcel;
 use App\Models\Edp_depc\City;
-use App\Models\{File, Note};
+use App\Models\{File, Note, Viability};
 use Illuminate\Support\Facades\{Crypt, Storage};
 use Livewire\{Component, WithPagination};
 use ZipArchive;
@@ -63,7 +63,7 @@ class Todoviability extends Component
     public function export_excel()
     {
 
-        return (new  exportExcel($this->lists->get()->sortBy(function ($note) {
+        return (new exportExcel($this->lists->get()->sortBy(function ($note) {
             // Acessar a primeira 'Viability' e o campo 'sended_at'
             return $note->Viabilities->first()->sended_at ?? null;
         })))->download(date('YmdHis-') . 'exportViabilityParner.xlsx');
@@ -144,47 +144,45 @@ class Todoviability extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::Query();
+        $query = Viability::query();
 
-        $query->whereRelation('Viabilities', function ($q) {
-            $q->where('canceled', false)
-                ->where('completed', false)
-                ->where('tacit', false);
-            if (!Auth()->User()->superadm) {
+        $query->where('canceled', false)
+            ->where('completed', false)
+            ->where('tacit', false);
 
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
+        if (!auth()->user()->superadm) {
+            $companyId = auth()->user()->employee->contract->company->id ?? null;
 
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
+            if ($companyId) {
+                $query->where('company_id', $companyId);
+            } else {
+                $query->whereNull('company_id');
             }
-        })->with(['Viabilities' => function ($query) {
-            $query->where('tacit', false)
-                ->where('canceled', false)
+        }
 
-                ->where('completed', false);
-        }, 'Files']);
+        $query->with(['Note', 'Files']);
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->Where('note', 'like', "%$this->search%")
-                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+                $q->whereRelation('Note', 'note', 'like', "%{$this->search}%")
+                    ->orWhereRelation('Note.Orders', 'ordem', 'like', "%{$this->search}%");
             });
         }
 
         if (isset($this->filter['rubrica'])) {
-
-            $query->whereIn('rubrica', $this->filter['rubrica']);
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
         }
 
         if (isset($this->filter['city'])) {
-
-            $query->whereIn('lexp', $this->filter['city']);
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
         }
 
         return $query;
+
     }
 
     public function inActivityUpdade()
@@ -209,7 +207,7 @@ class Todoviability extends Component
 
     public function checkInActivity($item)
     {
-        return isset($item->Viabilities->last()->inActivity) ? $item->Viabilities->last()->inActivity : false;
+        return isset($item->inActivity) ? $item->inActivity : false;
     }
 
     public function render()

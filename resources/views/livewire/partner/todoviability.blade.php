@@ -2,6 +2,7 @@
     use App\Custom\Viabilitiesstatus;
     use App\Custom\Notestatus;
     use Carbon\Carbon;
+    use App\Helpers\DaysLeft;
 @endphp
 
 @push('css')
@@ -162,21 +163,20 @@
                         </tr>
                     </thead>
                     <tbody class="table-group-divider">
-                        @foreach ($lists->sortBy(function ($note) {
-        // Acessar a primeira 'Viability' e o campo 'sended_at'
-        return $note->Viabilities->first()->sended_at ?? null;
-    }) as $index => $list)
+                        @foreach ($lists->sortBy(function ($viability) {
+        // Acessar o campo 'sended_at' da Viability
+        return $viability->sended_at ?? null;
+    }) as $index => $viability)
                             @php
                                 $status = null;
 
-                                $dueDate = $list->Viabilities->count()
-                                    ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
-                                    : null;
+                                $dueDate = Carbon::parse($viability->sended_at)->addDays($viability->getDays() + 7);
+
                                 $today = Carbon::now();
                                 $daysDifference = 0;
 
                                 if ($dueDate) {
-                                    $daysDifference = $dueDate ? $today->diffInDays($dueDate) : null;
+                                    $daysDifference = $today->diffInDays($dueDate);
 
                                     if ($dueDate->isBefore($today)) {
                                         $daysDifference *= -1;
@@ -202,148 +202,96 @@
 
                                 $block = null;
                                 $color = 'grey';
-                                $days_left = 0;
+                                $days_left = (new DaysLeft($viability->Note))->getDaysLeft();
+                                $count = 0;
 
-                                // Dias Restantes
-                                if ($list->type_note == 1) {
-                                    if ($list->mesalization && $list->mesalization != 'erro') {
-                                        preg_match('/\d+\/\d+/', $list->mesalization, $matches);
+                                if ($viability->approved) {
+                                    $count++;
+                                    $block = [
+                                        'color' => 'success',
+                                        'command' => true,
+                                    ];
 
-                                        if (!empty($matches)) {
-                                            [$mes, $ano] = explode('/', $matches[0]);
+                                    $color = 'green';
+                                } elseif ($viability->rejected) {
+                                    $count++;
+                                    $block = [
+                                        'color' => 'danger',
+                                        'command' => true,
+                                    ];
 
-                                            if ($mes >= 1) {
-                                                $data = "{$ano}-{$mes}-28 23:59:59";
-
-                                                $hoje = Carbon::now();
-
-                                                $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
-
-                                                $days_left = $hoje->diffInDays($dataCarbon, false);
-                                            } else {
-                                                $data = "{$ano}-12-28 23:59:59";
-
-                                                $hoje = Carbon::now();
-
-                                                $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
-
-                                                $days_left = $hoje->diffInDays($dataCarbon, false);
-                                            }
-                                        }
-                                    }
-                                } elseif ($list->type_note == 2) {
-                                    $days_left = $list->days_left;
+                                    $color = 'red';
                                 }
 
-                                if ($list->Viabilities->count()) {
-                                    $count = 0;
-
-                                    foreach ($list->Viabilities as $order) {
-                                        if ($order->approved) {
-                                            $count++;
-
-                                            $block = [
-                                                'color' => 'green',
-                                                'command' => true,
-                                            ];
-
-                                            $color = 'green';
-                                        } elseif ($order->rejected) {
-                                            $count++;
-
-                                            $block = [
-                                                'color' => 'danger',
-                                                'command' => true,
-                                            ];
-
-                                            $color = 'red';
-                                        }
-
-                                        if (($order->rejected || $order->approved) && !$order->completed) {
-                                            $status = [
-                                                'color' => 'text-bg-primary',
-                                                'info' => 'EM AVALIAÇÂO',
-                                            ];
-                                        }
-                                    }
-
-                                    if ($count == $list->Viabilities->count()) {
-                                        $block = array_merge($block, ['command' => false]);
-                                    }
+                                if (($viability->rejected || $viability->approved) && !$viability->completed) {
+                                    $status = [
+                                        'color' => 'text-bg-primary',
+                                        'info' => 'EM AVALIAÇÂO',
+                                    ];
                                 }
 
                                 $color = '';
 
-                                if (
-                                    $list->Viabilities->last()->approved &&
-                                    !$list->Viabilities->last()->rejected &&
-                                    !$list->Viabilities->last()->tacit
-                                ) {
+                                if ($viability->approved && !$viability->rejected && !$viability->tacit) {
                                     $color = 'green';
-                                } elseif (
-                                    !$list->Viabilities->last()->approved &&
-                                    $list->Viabilities->last()->rejected &&
-                                    !$list->Viabilities->last()->tacit
-                                ) {
+                                } elseif (!$viability->approved && $viability->rejected && !$viability->tacit) {
                                     $color = 'red';
-                                } elseif ($list->Viabilities->last()->tacit) {
+                                } elseif ($viability->tacit) {
                                     $color = 'yellow';
                                 }
 
                                 $tcolor = '';
 
-                                if ($list->Viabilities->last()->hired) {
+                                if ($viability->hired) {
                                     $tcolor = 'table-success';
                                 }
-
                             @endphp
-                            <tr wire:key="viability-{{ $list->id }}"
-                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})"
+                            <tr wire:key="viability-{{ $viability->id }}"
+                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $viability }})"
                                 style="cursor: pointer; border-left: 8px solid {{ $color }};"
                                 data-bs-toggle="tooltip" data-bs-placement="left"
                                 data-bs-title="Duplo Clique para mais Opções">
                                 <td>
                                 </td>
-                                <td class="text-center align-middle">{{ $list->note }}</td>
+                                <td class="text-center align-middle">{{ $viability->Note->note }}</td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    <x-files.select-download-list :files='$list->Files' />
+                                    <x-files.select-download-list :files='$viability->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->Viabilities->count())
-                                        @foreach ($list->Viabilities as $viab)
+                                    @if ($viability->Note->Orders->isNotEmpty())
+                                        @foreach ($viability->Note->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
                                             <p class="p-0 m-1">
-                                                {{ $viab->Order->ordem }}
+                                                {{ $order->ordem }}
                                             </p>
                                         @endforeach
                                     @endif
                                 </td>
 
                                 <td class="text-center align-middle">
-                                    {{ $list->Viabilities->first()->hired ? 'SIM' : 'NÃO' }}</td>
+                                    {{ $viability->hired ? 'SIM' : 'NÃO' }}</td>
                                 <td class="text-center align-middle fw-bold">
-                                    {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
+                                    {{ Carbon::parse($viability->sended_at)->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-danger fw-bold">
-                                    @php
-                                        $days = $list->Viabilities->last()->Days->sum('days');
-                                    @endphp
-                                    {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7 + $days)->format('d/m/Y') }}
+                                    {{ $dueDate->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-primary fw-bold">
-                                    {{ Carbon::parse($list->Viabilities->last()->sended_at)->addDays($days_left)->format('d/m/Y') }}
+                                    {{ Carbon::parse($viability->sended_at)->addDays($days_left)->format('d/m/Y') }}
                                 </td>
-                                <td class="text-center align-middle">{{ $list->rubrica }}</td>
+                                <td class="text-center align-middle">{{ $viability->Note->rubrica }}</td>
                                 <td class="text-center align-middle">
-                                    {{ $cities->Where('rdMunicipio', $list->nexp)->first() ? $cities->Where('rdMunicipio', $list->nexp)->first()->regiao : '' }}
+                                    {{ $cities->Where('rdMunicipio', $viability->Note->nexp)->first() ? $cities->Where('rdMunicipio', $viability->Note->nexp)->first()->regiao : '' }}
                                 </td>
-                                <td class="text-center align-middle">{{ $list->lexp }}</td>
+                                <td class="text-center align-middle">{{ $viability->Note->lexp }}</td>
 
                                 <td class="text-center align-middle"><span
-                                        class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
+                                        class="badge {{ Viabilitiesstatus::status($viability->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability->status)->status }}</span>
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->Viabilities->last()->status == 5)
+                                    @if ($viability->status == 5)
                                         <span class="badge text-bg-danger blink">Requer Ação</span>
                                     @endif
                                 </td>
@@ -355,12 +303,12 @@
                                         data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
                                         data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
 
-                                    @if (!$block || $block['command'])
+                                    @if (!$block || !$block['command'])
                                         <i class="bx bxs-badge-check text-success fs-4 me-2" style="cursor: pointer;"
-                                            wire:click.prevent="openForms({{ $list->id }})" role="group"
+                                            wire:click.prevent="openForms({{ $viability->id }})" role="group"
                                             aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
                                             data-bs-trigger="hover focus" data-bs-placement="right"
-                                            data-bs-title="Encerrar Atividaede"
+                                            data-bs-title="Encerrar Atividade"
                                             data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
                                     @endif
 
@@ -368,8 +316,8 @@
                                 <td class="align-middle">
 
                                     <input class="form-check-input border border-secondary" type="checkbox"
-                                        wire:click.prevent="putInActvity({{ $list->id }})"
-                                        @checked($this->checkInActivity($list))>
+                                        wire:click.prevent="putInActivity({{ $viability->id }})"
+                                        @checked($this->checkInActivity($viability))>
                                 </td>
                             </tr>
                         @endforeach
