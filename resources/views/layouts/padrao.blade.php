@@ -294,8 +294,6 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
         window.addEventListener('torrada', function(e) {
 
-
-
             showToast(createToast(e.detail.menssage, ' text-bg-' + e.detail.status));
 
         });

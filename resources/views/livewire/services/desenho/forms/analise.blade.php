@@ -133,6 +133,11 @@
                                 </div>
                                 <div class="form-check form-check-inline col-2">
                                     <input class="form-check-input border border-1 border-secondary" type="checkbox"
+                                        wire:model.defer="cad" value="cad">
+                                    <label class="form-check-label" for="inlineCheckbox1">AutoCad</label>
+                                </div>
+                                <div class="form-check form-check-inline col-2">
+                                    <input class="form-check-input border border-1 border-secondary" type="checkbox"
                                         wire:model="cadastro" value="cadastro">
                                     <label class="form-check-label" for="inlineCheckbox1">Cadastro</label>
                                 </div>

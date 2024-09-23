@@ -14,6 +14,7 @@
             <th>Rubrica</th>
             <th>TipoNota</th>
             <th>Nota</th>
+            <th>DOE</th>
             <th>Grp2</th>
             <th>Descricao</th>
             <th>Municipio</th>
@@ -28,6 +29,7 @@
             <th>ODS</th>
             <th>EO</th>
             <th>iProject</th>
+            <th>CAD</th>
             <th>Cadastro</th>
             <th>Postes Cadastro</th>
             <th>Postes</th>
@@ -49,6 +51,7 @@
                 <td>{{ $export->Note->rubrica }}</td>
                 <td>{{ $export->Note->type_note }}</td>
                 <td>{{ $export->Note->note }}</td>
+                <td>{{ $export->Note->doe ? 'SIM' : 'NÃO' }}</td>
                 <td>{{ $export->Note->group2 }}</td>
                 <td>{{ $export->Note->material }}</td>
                 <td>{{ $export->Note->lexp }}</td>
@@ -84,6 +87,7 @@
                 <td>{{ $export->ods ? $export->ods : '---' }}</td>
                 <td>{{ $export->eo ? 'SIM' : 'NÃO' }}</td>
                 <td>{{ $export->iproject ? 'SIM' : 'NÃO' }}</td>
+                <td>{{ $export->cad ? 'SIM' : 'NÃO' }}</td>
                 <td>{{ $export->cadastro ? 'SIM' : 'NÃO' }}</td>
                 <td>{{ $export->postes_c ? $export->postes_c : '--' }}</td>
                 <td>{{ $export->postes_u ? $export->postes_u : '--' }}</td>
