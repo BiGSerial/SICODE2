@@ -387,6 +387,9 @@
                 </div>
 
                 <div class="modal-footer edp-bg-sprucegreen-100">
+                    @if ($this->user)
+                        @livewire('admin.user.actions.user-access-info', ['email' => $this->user->email, 'password' => '123456', 'url' => 'http//edpbr1204/es/'], key('user-Copy-' . $this->user->id))
+                    @endif
                     <button type="button" class="btn btn-warning" wire:click.prevent="resetPassword"><i
                             class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

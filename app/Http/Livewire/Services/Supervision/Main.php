@@ -3,7 +3,8 @@
 namespace App\Http\Livewire\Services\Supervision;
 
 use App\Exports\ProductionServiceExport;
-use App\Models\{Production, Service, User};
+use App\Models\{File, Production, Service, User};
+use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -163,6 +164,25 @@ class Main extends Component
         // }
 
         $this->emit('refresh_service');
+    }
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
     }
 
     public function getListsProperty()

@@ -96,6 +96,8 @@ class Analise extends Component
 
     public $eo;
 
+    public $cad;
+
     public $preresult;
 
 
@@ -145,6 +147,7 @@ class Analise extends Component
             $this->cadastro   = $this->production->cadastro;
             $this->iproject   = $this->production->iproject;
             $this->eo         = $this->production->eo;
+            $this->cad         = $this->production->cad;
             $this->postes_c   = $this->production->postes_c;
             $this->preresult  = $this->analise->preresult;
 
@@ -376,6 +379,10 @@ class Analise extends Component
                 $this->info .= "iProject \n";
             }
 
+            if ($this->cad) {
+                $this->info .= "AutoCad \n";
+            }
+
             if ($this->cadastro) {
                 $this->info .= "Acerto Cadastro: \n";
                 $this->info .= 'POSTES: ' . $this->postes_c . "\n";
@@ -537,6 +544,7 @@ class Analise extends Component
                 'cadastro'     => $this->cadastro ? true : false,
                 'iproject'     => $this->iproject ? true : false,
                 'eo'           => $this->eo ? true : false,
+                'cad'          => $this->cad ? true : false,
                 'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
                 'completed'    => true,
                 'confirmed'    => false,
@@ -687,6 +695,7 @@ class Analise extends Component
         $this->cadastro      = false;
         $this->iproject      = false;
         $this->eo            = false;
+        $this->cad           = false;
 
     }
 

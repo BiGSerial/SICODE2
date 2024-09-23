@@ -265,6 +265,7 @@ class SelectOptions
             (object)['reason' => 'ADS', 'value' => 'ADS'],
             (object)['reason' => 'Asbuilt', 'value' => 'ASBUILT'],
             (object)['reason' => 'Croqui', 'value' => 'CROQUI'],
+            (object)['reason' => 'Ficha Téc. de Viabilidade', 'value' => 'FTVEO'],
             (object)['reason' => 'Imagem', 'value' => 'IMAGEM'],
             (object)['reason' => 'Lista', 'value' => 'LISTA'],
             (object)['reason' => 'Projeto', 'value' => 'PROJETO'],
@@ -274,17 +275,17 @@ class SelectOptions
 
     // Desenho Draws Conclusions
     public static function getDrawConclusions()
-{
-    return [
-        (object)['reason' => '10 - EM CONTATO COM CLIENTE', 'value' => 'EM CONTATO COM CLIENTE'],
-        (object)['reason' => '20 - DEPENDE DE ORGÃO EXTERNO', 'value' => 'DEPENDE DE ORGAO EXTERNO'],
-        (object)['reason' => '22 - PROCESSO PARA MEDIÇÃO', 'value' => 'PROCESSO PARA MEDICAO'],
-        (object)['reason' => '27 - RETORNADO LEVANTAMENTO', 'value' => 'RETORNADO LEVANTAMENTO'],
-        (object)['reason' => '47 - EXECUÇÃO DE OBRAS DA EMPRESA', 'value' => 'EXECUCAO DE OBRAS DA EMPRESA'],
-        (object)['reason' => '50 - EXECUÇÃO DE OBRAS CUSTO EMPRESA', 'value' => 'EXECUCAO DE OBRAS CUSTO EMPRESA'],
-        (object)['reason' => '68 - ORÇAMENTO ESTIMADO', 'value' => 'ORÇAMENTO ESTIMADO'],
-        (object)['reason' => '70 - ORÇAMENTO PRÉVIO', 'value' => 'ORÇAMENTO PRÉVIO'],
-        (object)['reason' => '99 - ARQUIVADO', 'value' => 'ARQUIVADO'],
-    ];
-}
+    {
+        return [
+            (object)['reason' => '10 - EM CONTATO COM CLIENTE', 'value' => 'EM CONTATO COM CLIENTE'],
+            (object)['reason' => '20 - DEPENDE DE ORGÃO EXTERNO', 'value' => 'DEPENDE DE ORGAO EXTERNO'],
+            (object)['reason' => '22 - PROCESSO PARA MEDIÇÃO', 'value' => 'PROCESSO PARA MEDICAO'],
+            (object)['reason' => '27 - RETORNADO LEVANTAMENTO', 'value' => 'RETORNADO LEVANTAMENTO'],
+            (object)['reason' => '47 - EXECUÇÃO DE OBRAS DA EMPRESA', 'value' => 'EXECUCAO DE OBRAS DA EMPRESA'],
+            (object)['reason' => '50 - EXECUÇÃO DE OBRAS CUSTO EMPRESA', 'value' => 'EXECUCAO DE OBRAS CUSTO EMPRESA'],
+            (object)['reason' => '68 - ORÇAMENTO ESTIMADO', 'value' => 'ORÇAMENTO ESTIMADO'],
+            (object)['reason' => '70 - ORÇAMENTO PRÉVIO', 'value' => 'ORÇAMENTO PRÉVIO'],
+            (object)['reason' => '99 - ARQUIVADO', 'value' => 'ARQUIVADO'],
+        ];
+    }
 }

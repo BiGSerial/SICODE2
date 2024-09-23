@@ -50,6 +50,7 @@ class Production extends Model
         'block_wpa',
         'noinconsistency',
         'd5',
+        'cad',
     ];
 
     public function Note()

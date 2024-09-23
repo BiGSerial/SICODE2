@@ -115,6 +115,7 @@
                                 <th scope="col">Company</th>
                                 <th scope="col">Serviço</th>
                                 <th scope="col">Nota</th>
+                                <th scope="col">DOE</th>
                                 <th scope="col">Grp2</th>
                                 <th scope="col">Inicio</th>
                                 <th scope="col">Fim</th>
@@ -132,6 +133,7 @@
                                     <td>{{ explode(' ', $list->Company->name)[0] }}</td>
                                     <td>{{ $list->Service->service }}</td>
                                     <td>{{ $list->Note->note }}</td>
+                                    <td>{{ $list->Note->doe ? 'SIM' : 'NÃO' }}</td>
                                     <td>{{ $list->Note->group2 }}</td>
                                     <td>
                                         @if ($list->att_at)
