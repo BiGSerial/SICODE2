@@ -65,7 +65,7 @@ class Analise extends Component
 
     public $service_type;
 
-    public $limit_pause = 10;
+    public $limit_pause = 50;
 
     public $production;
 
@@ -179,7 +179,7 @@ Localização do imóvel: {$this->endereco} - em conformidade com a informada no
 Documento Apresentado: {$this->documento}
 
 *****
-Documentação válida para dar continuidade ao levantamento de campo; 
+Documentação válida para dar continuidade ao levantamento de campo;
 Necessário informar a universalização no croqui/SAP para definição do custo;
 *****
 
@@ -204,10 +204,10 @@ Providenciar:
 Croqui, fotos, GPS, parecer técnico e análise de risco, se necessário.
 ****
 
-Documentação válida para dar continuidade ao levantamento de campo. 
+Documentação válida para dar continuidade ao levantamento de campo.
 Necessário informar a universalização no croqui/SAP para definição do custo.
 
-Instalação: {$this->ninst};         
+Instalação: {$this->ninst};
 Coordenada: Lat {$this->lat} / Lon {$this->lon};
 Alim: {$this->alimentador};
 Tel.:
@@ -262,7 +262,7 @@ __________________________________________________
                 'html'     => "Você atingiu o limite máximo de pausas. Não é possível interromper esta nota. \n
                     <p class='text-bg-light mt-2 p-2'>
                         É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada. 
+                        adequada.
                     </p>
                 ",
             ]);
@@ -301,7 +301,7 @@ __________________________________________________
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                        Uma vez encerrado, essa operação nao poderá ser desfeita. 
+                        Uma vez encerrado, essa operação nao poderá ser desfeita.
                         <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                     </div>
                 </div>
