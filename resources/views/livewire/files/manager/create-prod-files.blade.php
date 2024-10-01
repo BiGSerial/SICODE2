@@ -15,21 +15,58 @@
             <div class="card-body">
 
                 <!-- Tipo de Envio -->
-                <div class="mb-3 col-mb-6">
-                    <label for="upload_type" class="form-label">Tipo de Envio <span
-                            class="text-danger fw-bold">*</span></label>
-                    <select class="form-select border-secondary @error('uploadType') is-invalid @enderror"
-                        id="upload_type" wire:model="uploadType" required style="max-width: 350px;">
-                        <option value="" selected>Selecione o tipo de envio</option>
-                        @foreach (SelectOptions::getFilesType() as $fileType)
-                            <option value="{{ $fileType->value }}">{{ $fileType->reason }}</option>
-                        @endforeach
-                    </select>
-                    @error('uploadType')
-                        <div class="invalid-feedback">
-                            {{ $message }}
+                <div class="row">
+                    <div class="mb-3 col-md-6 col-xl-4">
+                        <label for="upload_type" class="form-label">Tipo de Envio <span
+                                class="text-danger fw-bold">*</span>
+                            <i class="ri-question-fill text-primary fs-4 align-middle" style="cursor: pointer;"
+                                data-bs-toggle="collapse" data-bs-target="#showUseType" aria-expanded="false"
+                                aria-controls="showUseType"></i></label>
+                        <select class="form-select border-secondary @error('uploadType') is-invalid @enderror"
+                            id="upload_type" wire:model="uploadType" required style="max-width: 350px;">
+                            <option value="" selected>Selecione o tipo de envio</option>
+                            @foreach (SelectOptions::getFilesType() as $fileType)
+                                <option value="{{ $fileType->value }}">{{ $fileType->reason }}</option>
+                            @endforeach
+                        </select>
+                        @error('uploadType')
+                            <div class="invalid-feedback">
+                                {{ $message }}
+                            </div>
+                        @enderror
+                    </div>
+                    <div class="mb-3 col-md-6 col-xl-8">
+                        <div class="collapse" id="showUseType">
+                            <div class="card card-body">
+                                <h5 class="fw-bold mb-3">Instruções para Upload de Arquivos</h5>
+                                <p>
+                                    Para cada tipo de arquivo que você deseja enviar, é necessário selecionar o
+                                    <strong>Tipo de
+                                        Envio</strong> correspondente.
+                                </p>
+                                <p><strong>Exemplo:</strong><br>
+                                    Suponha que você tenha 4 arquivos para enviar: 2 de projeto, 1 de ADS e 1 de Ficha
+                                    Técnica de Viabilidade.
+                                </p>
+                                <ol>
+                                    <li>Selecione o tipo <strong>‘Projeto’</strong> no campo de Tipo de Envio.</li>
+                                    <li>Clique em <strong>Escolher Arquivos</strong> e envie os 2 arquivos de projeto
+                                        (você pode enviar um de cada vez).</li>
+                                    <li>Depois, selecione o tipo <strong>‘ADS’</strong> e envie o arquivo ADS.</li>
+                                    <li>Por fim, selecione o tipo <strong>‘Ficha Técnica Viab’</strong> e envie o
+                                        arquivo correspondente.</li>
+                                </ol>
+                                <p>
+                                    <strong>Importante:</strong> A ordem dos arquivos não é relevante, mas é fundamental
+                                    que você selecione o tipo correto para cada arquivo antes de fazer o upload.
+                                </p>
+                                <p class="text-danger fw-bold">
+                                    Lembre-se: os arquivos enviados serão auditados.
+                                </p>
+                            </div>
+
                         </div>
-                    @enderror
+                    </div>
                 </div>
 
 

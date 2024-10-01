@@ -157,16 +157,13 @@
                             <th scope="col" class="text-center align-middle">Regiao</th>
                             <th scope="col" class="text-center align-middle">Municipio</th>
                             <th scope="col" class="text-center align-middle">Status</th>
-                            <th scope="col" class="text-center align-middle">Acao</th>
+                            <th scope="col" class="text-center align-middle">Empreiteira</th>
                             <th scope="col" class="text-center align-middle"></th>
                             <th scope="col" class="text-center align-middle"></th>
                         </tr>
                     </thead>
                     <tbody class="table-group-divider">
-                        @foreach ($lists->sortBy(function ($viability) {
-        // Acessar o campo 'sended_at' da Viability
-        return $viability->sended_at ?? null;
-    }) as $index => $viability)
+                        @foreach ($lists as $index => $viability)
                             @php
                                 $status = null;
 
@@ -290,25 +287,21 @@
                                 <td class="text-center align-middle"><span
                                         class="badge {{ Viabilitiesstatus::status($viability->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability->status)->status }}</span>
                                 </td>
-                                <td class="text-center align-middle">
-                                    @if ($viability->status == 5)
-                                        <span class="badge text-bg-danger blink">Requer Ação</span>
-                                    @endif
-                                </td>
+                                <td class="text-center align-middle">{{ $viability->Company->name }}</span></td>
                                 <td class="text-center align-middle">
 
-                                    <i class="bx bx-printer text-primary fs-4 me-2" role="group"
+                                    {{-- <i class="bx bx-printer text-primary fs-4 me-2" role="group"
                                         aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
                                         data-bs-trigger="hover focus" data-bs-placement="right"
                                         data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
-                                        data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i>
+                                        data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i> --}}
 
                                     @if (!$block || !$block['command'])
                                         <i class="bx bxs-badge-check text-success fs-4 me-2" style="cursor: pointer;"
-                                            wire:click.prevent="openForms({{ $viability->id }})" role="group"
-                                            aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                                            data-bs-trigger="hover focus" data-bs-placement="right"
-                                            data-bs-title="Encerrar Atividade"
+                                            wire:click.prevent="$emitTo('partner.forms.return-viability', 'openViability', '{{ $viability->id }}')"
+                                            role="group" aria-label="Basic example" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="right" data-bs-title="Encerrar Atividade"
                                             data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
                                     @endif
 
@@ -346,4 +339,5 @@
 
     {{-- Livewire Components --}}
     @livewire('partner.actions.responserviab', key('reesponser_modal_viab'))
+    @livewire('partner.forms.return-viability', key('responser_viab_form'))
 </div>

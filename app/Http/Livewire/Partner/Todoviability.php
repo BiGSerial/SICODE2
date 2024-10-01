@@ -148,15 +148,18 @@ class Todoviability extends Component
 
         $query->where('canceled', false)
             ->where('completed', false)
-            ->where('tacit', false);
+            ->where('tacit', false)
+            ->where('rejected', false);
 
         if (!auth()->user()->superadm) {
-            $companyId = auth()->user()->employee->contract->company->id ?? null;
 
-            if ($companyId) {
-                $query->where('company_id', $companyId);
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+                });
             } else {
-                $query->whereNull('company_id');
+                $query->where('company_id', Auth()->user()->Company->id);
             }
         }
 

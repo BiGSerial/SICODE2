@@ -54,7 +54,7 @@ class Viability extends Model
 
     public function Engineer()
     {
-        return $this->belongsTo(User::class, 'engineer_id');
+        return $this->belongsTo(User::class, 'engineer_id')->withTrashed();
     }
 
     public function Form()
@@ -81,6 +81,13 @@ class Viability extends Model
     {
         return $this->belongsTo(Note::class);
     }
+
+    public function Justification()
+    {
+        return $this->hasOne(TacitComment::class);
+    }
+
+
 
 
 

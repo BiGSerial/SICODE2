@@ -12,8 +12,26 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.todo.viability') }}" class="nav-item text-white">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>À Viabilizar</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>À Viabilizar </span>
                                 @livewire('partner.count.todoviabilitycount', key('count-viab'))
+                            </a>
+                        </li>
+                    </div>
+
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('partner.rejected.viability') }}" class="nav-item text-white">
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Em Tratativa </span>
+                                @livewire('partner.count.rejectedanswercount', key('answer-count-viab'))
+                            </a>
+                        </li>
+                    </div>
+
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('partner.tacit.viability') }}" class="nav-item text-white">
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Tácitas a Justificar </span>
+                                @livewire('partner.count.tacitcount', key('answer-count-tacit'))
                             </a>
                         </li>
                     </div>

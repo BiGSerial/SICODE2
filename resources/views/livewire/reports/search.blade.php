@@ -322,30 +322,30 @@
                             <tbody>
                                 @foreach ($lists->Viabilities as $viab)
                                     <tr>
-                                        <td class="aligh-middle"></td>
-                                        <td class="aligh-middle">
+                                        <td class="align-middle"></td>
+                                        <td class="align-middle">
                                             @if ($viab->Note->Orders->isNotEmpty())
                                                 @foreach ($viab->Note->Orders->filter(function ($order) {
         return strpos($order->Operations->where('operacao', '0010')->first()->status, 'CONF') === 0;
     }) as $order)
-                                                    {{ $order->ordem }}
+                                                    <p class="my-0 my-0">{{ $order->ordem }}</p>
                                                 @endforeach
                                             @endif
                                         </td>
-                                        <td class="aligh-middle">{{ $viab->User->name }}</td>
-                                        <td class="aligh-middle">{{ $viab->hired ? 'SIM' : 'NÃO' }}</td>
-                                        <td class="aligh-middle">{{ $viab->tacit ? 'SIM' : 'NÃO' }}</td>
-                                        <td class="aligh-middle">
+                                        <td class="align-middle">{{ $viab->User->name }}</td>
+                                        <td class="align-middle">{{ $viab->hired ? 'SIM' : 'NÃO' }}</td>
+                                        <td class="align-middle">{{ $viab->tacit ? 'SIM' : 'NÃO' }}</td>
+                                        <td class="align-middle">
                                             {{ $viab->hired ? date('d/m/Y H:i:s', strToTime($viab->hired_at)) : '---' }}
                                         </td>
-                                        <td class="aligh-middle">
+                                        <td class="align-middle">
                                             {{ date('d/m/Y H:i:s', strToTime($viab->sended_at)) }}</td>
-                                        <td class="aligh-middle">
-                                            {{ $viab->returned_at ? date('d/m/Y H:i:s', strToTime($viab->sended_at)) : '---' }}
+                                        <td class="align-middle">
+                                            {{ $viab->returned_at ? date('d/m/Y H:i:s', strToTime($viab->returned_at)) : '---' }}
                                         </td>
-                                        <td class="aligh-middle">{{ $viab->Engineer->name }}</td>
-                                        <td class="aligh-middle">{{ $viab->Company->name }}</td>
-                                        <td class="aligh-middle">{{ $viab->Form ? $viab->Form->responsible : '---' }}
+                                        <td class="align-middle">{{ $viab->Engineer->name }}</td>
+                                        <td class="align-middle">{{ $viab->Company->name }}</td>
+                                        <td class="align-middle">{{ $viab->Form ? $viab->Form->responsible : '---' }}
                                         </td>
                                     </tr>
                                 @endforeach

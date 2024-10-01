@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
 use ZipArchive;
 
-class Main extends Component
+class Main_bkp extends Component
 {
     use WithFileUploads;
     use WithPagination;

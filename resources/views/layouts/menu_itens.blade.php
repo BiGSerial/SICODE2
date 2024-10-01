@@ -168,12 +168,29 @@
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
-            RESPONSÁVEL
+            ENGENHARIA
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
             style="background-color: #dbd8d8; width: 300px;">
             <li><a class="dropdown-item"
                     href="{{ route('construction.responser.main', ['service' => $service->uuid]) }}"><i
+                        class="ri-eye-fill align-middle text-info"></i> VIABILIDADE</a>
+            </li>
+
+        </ul>
+    </li>
+@endif
+
+
+@if (Auth())
+    <li class="nav-item dropdown mx-2">
+        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            RESPONSÁVEL
+        </a>
+        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
+            style="background-color: #dbd8d8; width: 300px;">
+            <li><a class="dropdown-item" href="{{ route('responsible.main') }}"><i
                         class="ri-eye-fill align-middle text-info"></i> VIABILIDADE</a>
             </li>
 

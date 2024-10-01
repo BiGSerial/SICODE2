@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\parner\exportExcel;
 use App\Models\Edp_depc\City;
-use App\Models\{File, Note};
+use App\Models\{File, Note, Viability};
 use Illuminate\Support\Facades\{Crypt, Storage};
 use Livewire\{Component, WithPagination};
 use ZipArchive;
@@ -141,61 +141,50 @@ class Histviab extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        // dd($_SESSION['filter']);
 
-        $query = Note::Query();
+        $query = Viability::Query()
+                    ->where('completed', true);
 
-        $query->whereRelation('Viabilities', function ($q) {
+        if (!auth()->user()->superadm) {
 
-            $q->where('completed', true);
-
-            if (!Auth()->User()->superadm) {
-
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
-
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+                });
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
-            if ($this->dateBy && ($this->date_in || $this->date_out)) {
-
-                if ($this->date_in && !$this->date_out) {
-                    $q->whereDate($this->dateBy, '>=', $this->date_in);
-                }
-
-                if (!$this->date_in && $this->date_out) {
-                    $q->whereDate($this->dateBy, '<=', $this->date_out);
-                }
-
-                if ($this->date_in && $this->date_out) {
-                    $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
-                }
-            }
-
-            $q->orderBy('sended_at');
-        })
-            ->with(['Viabilities' => function ($query) {
-                $query->where('completed', true)
-                    ->orderBy('sended_at')
-                    ->with('Order', 'Form', 'Comments.User');
-            }, 'Files']);
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->Where('note', 'like', "%$this->search%")
-                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
             });
         }
 
-        if (isset($this->filter['city'])) {
+        if ($this->date_in || $this->date_out) {
+            $query->where(function ($q) {
+                if ($this->date_in && !$this->date_out) {
 
-            $query->whereIn('lexp', $this->filter['city']);
+                    $q->where($this->dateBy, '>=', $this->date_in);
+
+                } elseif (!$this->date_in && $this->date_out) {
+
+                    $q->where($this->dateBy, '<=', $this->date_out);
+
+                } elseif ($this->date_in && $this->date_out) {
+
+                    $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
+                }
+            });
         }
 
-        return $query;
+
+
+        return $query->orderBy('completed_at', 'DESC');
     }
 
     public function render()

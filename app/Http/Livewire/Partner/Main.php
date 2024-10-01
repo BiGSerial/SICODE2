@@ -2,60 +2,64 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Models\Note;
+use App\Models\Viability;
 use Livewire\Component;
 
 class Main extends Component
 {
     public function getCountCompletedProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', true)
+
+        $query = Viability::Query()
+                    ->where('completed', true)
                     ->whereYear('completed_at', date('Y'))
                     ->whereMonth('completed_at', date('m'));
+        ;
 
+        if (!auth()->user()->superadm) {
 
-            if (!Auth()->User()->superadm) {
-
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
-
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+                });
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
 
-        })->count();
+        return $query->count();
+
+
     }
 
 
     public function getEvolutionCompletedProperty()
     {
         $actual = $this->countCompleted;
-        $past = Note::whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', true)
+
+        $query = Viability::Query()
+                    ->where('completed', true)
                     ->whereYear('completed_at', date('Y'))
                     ->whereMonth('completed_at', date('m') - 1);
+        ;
 
-            if (!Auth()->User()->superadm) {
+        if (!auth()->user()->superadm) {
 
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
 
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
-        })->count();
 
-        if ($past != 0) {
-            return round((($actual - $past) / $past) * 100, 2);
+
+
+        if ($query->count() != 0) {
+            return round((($actual - $query->count()) / $query->count()) * 100, 2);
         } else {
             return $actual;
         }
@@ -63,76 +67,80 @@ class Main extends Component
 
     public function getCountViabilityProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', false)
+
+        $query = Viability::Query()
+                    ->where('completed', false)
+                    ->where('approved', false)
+                    ->where('rejected', false)
                     ->whereYear('sended_at', date('Y'))
                     ->whereMonth('sended_at', date('m'));
+        ;
 
-            if (!Auth()->User()->superadm) {
+        if (!auth()->user()->superadm) {
 
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
 
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
 
-        })->count();
+        return $query->count();
+
+
     }
 
     public function getCountTacitProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', true)
+        $query = Viability::Query()
+                    ->where('completed', true)
                     ->where('tacit', true)
                     ->whereYear('completed_at', date('Y'))
                     ->whereMonth('completed_at', date('m'));
+        ;
 
-            if (!Auth()->User()->superadm) {
+        if (!auth()->user()->superadm) {
 
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
 
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
 
-        })->count();
+        return $query->count();
+
+
     }
 
     public function getEvolutionTacitProperty()
     {
         $actual = $this->countTacit;
-        $past = Note::whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', true)
+
+        $query = Viability::Query()
+                    ->where('completed', true)
                     ->where('tacit', true)
                     ->whereYear('completed_at', date('Y'))
                     ->whereMonth('completed_at', date('m') - 1);
+        ;
 
-            if (!Auth()->User()->superadm) {
+        if (!auth()->user()->superadm) {
 
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
 
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
-        })->count();
 
-        if ($past != 0) {
-            return round((($actual - $past) / $past) * 100, 2);
+        if ($query->count() != 0) {
+            return round((($actual - $query->count()) / $query->count()) * 100, 2);
         } else {
             return $actual;
         }
@@ -143,26 +151,30 @@ class Main extends Component
 
     public function getCountResponsersProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            return $q->whereYear('sended_at', date('Y'))
+
+        $query = Viability::Query()
+                    ->where('completed', false)
+                    ->whereYear('sended_at', date('Y'))
                     ->whereMonth('sended_at', date('m'))
                     ->where('rejected', true)
                     ->whereIn('status', [4, 10, 12]);
+        ;
 
-            if (!Auth()->User()->superadm) {
+        if (!auth()->user()->superadm) {
 
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
-
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+                });
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
             }
+        }
 
-        })
-        ->count();
+
+        return $query->count();
+
     }
 
 

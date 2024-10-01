@@ -38,4 +38,14 @@ class PartnerController extends Controller
     {
         return view('partner.workedRejectedList');
     }
+
+    public function rejectedViabList()
+    {
+        return view('partner.RejectList');
+    }
+
+    public function tacitViabList()
+    {
+        return view('partner.tacit_list');
+    }
 }

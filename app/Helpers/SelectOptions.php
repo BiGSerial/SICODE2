@@ -262,14 +262,14 @@ class SelectOptions
     public static function getFilesType()
     {
         return [
-            (object)['reason' => 'ADS', 'value' => 'ADS'],
-            (object)['reason' => 'Asbuilt', 'value' => 'ASBUILT'],
-            (object)['reason' => 'Croqui', 'value' => 'CROQUI'],
-            (object)['reason' => 'Ficha Téc. de Viabilidade', 'value' => 'FTVEO'],
-            (object)['reason' => 'Imagem', 'value' => 'IMAGEM'],
-            (object)['reason' => 'Lista', 'value' => 'LISTA'],
-            (object)['reason' => 'Projeto', 'value' => 'PROJETO'],
-            (object)['reason' => 'Outros...', 'value' => 'OUTROS'],
+            (object)['reason' => 'ADS (Atestado de Serviço)', 'value' => 'ADS'],
+            (object)['reason' => 'ASBUILT (Projeto Conforme Construído)', 'value' => 'ASBUILT'],
+            (object)['reason' => 'CROQUI (Projeto a mão ou anotações)', 'value' => 'CROQUI'],
+            (object)['reason' => 'FICHA VIAB TECNICA', 'value' => 'FTVEO'],
+            (object)['reason' => 'IMAGEM', 'value' => 'IMAGEM'],
+            (object)['reason' => 'LISTA (Clientes BT0, etc..)', 'value' => 'LISTA'],
+            (object)['reason' => 'PROJETO (Projeto EO, CAD... Sem Anot. a Mão)', 'value' => 'PROJETO'],
+            (object)['reason' => 'OUTROS...', 'value' => 'OUTROS'],
         ];
     }
 

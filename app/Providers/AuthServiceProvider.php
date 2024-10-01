@@ -23,40 +23,23 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('superadm', function (User $user) {
-            return ($user->superadm)
-                ? Response::allow()
-                : Response::deny('Você precisa ser Super Administrador para acessar');
-        });
+        $roles = [
+            'superadm' => 'Você precisa ser Super Administrador para acessar',
+            'admin' => 'Você precisa ser Administrador para acessar',
+            'management' => 'Você precisa ser Gerente para acessar',
+            'engineer' => 'Você precisa ser Engenheiro para acessar',
+            'operator' => 'Você precisa ser Operador para acessar',
+            'user' => 'Você precisa ser Usuário para acessar',
+            'responsible' => 'Você precisa ser Usuário Responsável para acessar',
+        ];
 
-        Gate::define('admin', function (User $user) {
-            return ($user->admin || $user->superadm)
-                ? Response::allow()
-                : Response::deny('Você precisa ser Administrador para acessar');
-        });
+        foreach ($roles as $role => $message) {
+            Gate::define($role, function (User $user) use ($role, $message) {
+                return ($user->$role || $user->superadm)
+                    ? Response::allow()
+                    : Response::deny($message);
+            });
+        }
 
-        Gate::define('management', function (User $user) {
-            return ($user->management || $user->superadm)
-                ? Response::allow()
-                : Response::deny('Você precisa ser Gerente para acessar');
-        });
-
-        Gate::define('engineer', function (User $user) {
-            return ($user->engineer || $user->superadm)
-                ? Response::allow()
-                : Response::deny('Você precisa ser Engenheiro para acessar');
-        });
-
-        Gate::define('operator', function (User $user) {
-            return ($user->operator || $user->superadm)
-                ? Response::allow()
-                : Response::deny('Você precisa ser Operador para acessar');
-        });
-
-        Gate::define('user', function (User $user) {
-            return ($user->user || $user->superadm)
-                ? Response::allow()
-                : Response::deny('Você precisa ser Usuário para acessar');
-        });
     }
 }

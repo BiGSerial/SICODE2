@@ -30,4 +30,9 @@ class Form extends Model
     {
         return $this->belongsTo(Viability::class);
     }
+
+    public function User()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
