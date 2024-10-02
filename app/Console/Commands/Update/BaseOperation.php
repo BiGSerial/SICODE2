@@ -7,6 +7,7 @@ use App\Models\Edp_depc\{BaseOperation as Edp_depcBaseOperation, City};
 use App\Models\Operation;
 use App\Models\Order;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class BaseOperation extends Command
@@ -30,6 +31,12 @@ class BaseOperation extends Command
      */
     public function handle()
     {
+
+        // $this->removeDuplicate();
+
+
+
+
         $totalRecords = Order::where('statusSist', 'Not Like', 'ENT%')
                              ->where('statusSist', 'Not Like', 'ENC%')
                              ->count();
@@ -82,12 +89,9 @@ class BaseOperation extends Command
 
                         $orderOperations = $operationsByOrdem->get($trimmedOrdem);
 
-                        $upsertData = [];
-                        $uniqueKeys = [];
-
                         foreach ($orderOperations as $operation) {
 
-                            $upsertData[] = [
+                            $data = [
                                 'order_id'         => $order->id,
                                 'operacao'         => $operation->operacao,
                                 'descOperacao'     => $operation->descOperacao,
@@ -102,44 +106,24 @@ class BaseOperation extends Command
                                 'txtCenTrab'       => $operation->txtCenTrab,
                             ];
 
-                            // Collect unique keys for existing records check
-                            $uniqueKeys[] = [
-                                'order_id' => $order->id,
-                                'operacao' => $operation->operacao,
+                            $uniqueAttributes = [
+                                'order_id' => $data['order_id'],
+                                'operacao' => $data['operacao'],
                             ];
-                        }
 
-                        // Fetch existing operations for these unique keys
-                        $existingOperations = Operation::where('order_id', $order->id)
-                            ->whereIn('operacao', collect($uniqueKeys)->pluck('operacao'))
-                            ->get()
-                            ->keyBy(function ($item) {
-                                return $item->order_id . '-' . $item->operacao;
-                            });
+                            $updateAttributes = $data;
+                            unset($updateAttributes['order_id'], $updateAttributes['operacao']);
 
-                        // Determine created and updated counts
-                        foreach ($upsertData as $data) {
-                            $key = $data['order_id'] . '-' . $data['operacao'];
-                            if ($existingOperations->has($key)) {
-                                $count['upd']++;
-                            } else {
-                                $count['ctd']++;
+                            try {
+                                $operationModel = Operation::updateOrCreate($uniqueAttributes, $updateAttributes);
+                                if ($operationModel->wasRecentlyCreated) {
+                                    $count['ctd']++;
+                                } else {
+                                    $count['upd']++;
+                                }
+                            } catch (\Throwable $th) {
+                                $log->setErrorMessage($th->getMessage());
                             }
-                        }
-
-                        $uniqueBy = ['order_id', 'operacao'];
-                        $updateColumns = [
-                            'descOperacao', 'inicioPlanejado', 'fimPlanejado', 'inicioReal', 'fimReal',
-                            'status', 'notaOv', 'cenPlan', 'cenTrab', 'txtCenTrab'
-                        ];
-
-
-                        dd($upsertData);
-
-                        try {
-                            Operation::upsert($upsertData, $uniqueBy, $updateColumns);
-                        } catch (\Throwable $th) {
-                            $log->setErrorMessage($th->getMessage());
                         }
 
                     } else {
@@ -162,6 +146,53 @@ class BaseOperation extends Command
         $log->setCreated($count['ctd']);
         $log->setUpdated($count['upd']);
         $log->setNoteUpdated($count['nf']);
+        $log->save();
+
+        $progressBar->finish();
     }
+
+
+    public function removeDuplicate()
+    {
+
+        // Step 1: Find duplicates based on order_id and operacao
+        $duplicates = DB::table('operations')
+            ->select('order_id', 'operacao', DB::raw('COUNT(*) as count'))
+            ->groupBy('order_id', 'operacao')
+            ->having('count', '>', 1)
+            ->get();
+
+        $totalDuplicates = $duplicates->count();
+        echo "Found {$totalDuplicates} sets of duplicates.\n";
+
+        if ($totalDuplicates === 0) {
+            echo "No duplicates found. Exiting.\n";
+            exit;
+        }
+
+        $counter = 0;
+
+        foreach ($duplicates as $duplicate) {
+            // Fetch all duplicate records
+            $records = Operation::where('order_id', $duplicate->order_id)
+                ->where('operacao', $duplicate->operacao)
+                ->orderBy('id', 'desc') // Assuming the highest ID is the most recent
+                ->get();
+
+            // Keep the first record and delete the rest
+            $recordsToDelete = $records->slice(1); // All except the first record
+            $idsToDelete = $recordsToDelete->pluck('id')->toArray();
+
+            // Delete the duplicate records
+            Operation::whereIn('id', $idsToDelete)->delete();
+
+            $counter++;
+            echo "Processed duplicate group {$counter} of {$totalDuplicates}.\n";
+        }
+
+        echo "Duplicate removal complete.\n";
+
+    }
+
 
 }
