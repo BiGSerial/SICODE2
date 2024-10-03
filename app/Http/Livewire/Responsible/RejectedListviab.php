@@ -99,7 +99,7 @@ class RejectedListviab extends Component
 
     public function render()
     {
-        return view('Livewire.partner.rejected-list', [
+        return view('livewire.responsible.rejected-listviab', [
             'lists' => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
             'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),
         ]);

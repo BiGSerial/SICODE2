@@ -2,6 +2,8 @@
 
 namespace App\Http\Livewire\Responsible\Actions;
 
+use App\Models\Production;
+use App\Models\Service;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -11,16 +13,36 @@ class ViabRespResponsible extends Component
     public ?Viability $viability = null;
     public $decision;
     public $responser;
+    public $serviceList;
+
+    public $service;
+    public $options;
+    public $production;
+    public $show = false;
+    public $text;
+
 
     protected $listeners = [
         'getInfoResponse',
-        'confirm_response'
+        'confirm_response',
+        'd1c6b8f9b3a1d0a2e3f4b5c6d7e8f9a0' => 'confirmed_response',
+        'd41d8cd98f00b204e9800998ecf8427e' => 'deny_response',
+    ];
+
+
+    protected $messages = [
+        'decision.required' => 'Por favor, selecione uma decisão.',
+        'responser.required' => 'Por favor, forneça uma resposta.',
+        'responser.min' => 'A resposta deve ter no mínimo 10 caracteres.',
+        'options.required' => 'Por favor, selecione uma opção quando a decisão for Concordar.',
+        'service.required' => 'Por favor, selecione um serviço quando a opção for Devolver.',
     ];
 
 
     public function getInfoResponse(Viability $viability)
     {
         $this->viability = $viability;
+        $this->serviceList = Service::where('canReturn', true)->orderBy('service')->get();
 
         if ($this->viability) {
             $this->dispatchBrowserEvent('showModal', [
@@ -29,30 +51,101 @@ class ViabRespResponsible extends Component
         }
     }
 
-    public function toResponser()
+    public function updatedService($uuid)
     {
-        if (!trim($this->responser) ||  !$this->decision) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Informar Decisão e Texto são obrigatórios',
-                'timer'    => 2500,
-            ]);
+        if ($uuid) {
+            $this->production = Production::where('service_id', $uuid)->get()->last();
 
-            return;
+            if (!$this->production) {
+                $this->show = true;
+                $this->text = '<h5 class="text-center">USUÁRIO NÃO ENCONTRADO</h5>
+                                                                    <p>
+                                                                        Não foi encontrado um usário para retono direto.
+                                                                        Porém, o projeto será retornado para o POOL de
+                                                                        atividades do serviço selecionado e
+                                                                        um responsável pela atividade poderá direcionar
+                                                                        a um usuário possível.
+                                                                    </p>
+                ';
+            } else {
+                $this->show = false;
+            }
 
-        } elseif (strlen(trim($this->responser)) < 10) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Um breve resumo é obrigatório.',
-                'timer'    => 2500,
-            ]);
+        } else {
+            $this->production = null;
+        }
+    }
 
-            return;
+    public function updatedOptions($value)
+    {
+        if ($value !== 'DEVOLVER') {
+            $this->production = null;
+            $this->show = false;
+        } else {
+            $this->show = false;
+            $this->text = '<h5 class="text-center">USUÁRIO NÃO ENCONTRADO</h5>
+                                                                <p>
+                                                                    Não foi encontrado um usário para retono direto.
+                                                                    Porém, o projeto será retornado para o POOL de
+                                                                    atividades do serviço selecionado e
+                                                                    um responsável pela atividade poderá direcionar
+                                                                    a um usuário possível.
+                                                                </p>
+            ';
         }
 
-        if ($this->isTextValid($this->responser)) {
+        if ($value === 'EXECUTADA') {
+            $this->show = true;
+            $this->text = '<h5 class="text-center">OBRA JA EXECUTADA</h5>
+                                                                <p>
+                                                                    O Sistema irá encerrar esta viabilidade como realizado.
+                                                                </p>
+                                                                <p>O Fluxo continuará nas etapas seguintes confome as situações oriundas do SAP.</p>
+            ';
+        } elseif ($value === 'LIBERAR') {
+            $this->show = true;
+            $this->text = '<h5 class="text-center">LIBERAR PARA CONTRATAÇÃO</h5>
+                                                                <p>
+                                                                    Liberar a viabilidade para continuar com a contratação. (Caso ainda não tenha sido contratada, caso contrário, so será encerrado a viabilidade normalmente.)
+                                                                </p>
+
+
+
+            ';
+        } elseif ($value === 'RETORNAR') {
+            $this->show = true;
+            $this->text = '<h5 class="text-center">LIBERAR NOVA VIABILIDADE</h5>
+                                                                <p>
+                                                                    A Viabilidade será retornado para a parceira para realizar novamente a viabilidade técnica. A data de envio será alterada para este momento com novo prazo de até 21 dias para conclusão.
+                                                                </p>
+
+                                                                  ';
+        }
+
+    }
+
+
+
+    public function toResponser()
+    {
+        $this->validate([
+            'decision' => 'required',
+            'responser' => 'required|min:10',
+        ]);
+
+        if ($this->decision === 'CONCORDAR') {
+
+            $this->validate([
+                'options' => 'required',
+            ]);
+
+
+            if ($this->options === 'DEVOLVER') {
+                $this->validate([
+                    'service' => 'required',
+                ]);
+            }
+
 
             $this->dispatchBrowserEvent('alertar', [
                 'title'         => 'VIABILIDADE RESPOSTA',
@@ -60,24 +153,41 @@ class ViabRespResponsible extends Component
                 'icon'          => 'question',
                 'btnOktxt'      => 'Sim, Continue!',
                 'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'confirm_response',
+                'action'        => 'd41d8cd98f00b204e9800998ecf8427e',
                 // 'chave'         => '',
                 'cancel_titulo' => 'Cancelado!',
                 'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
             ]);
 
             return;
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'ERRO DE TEXTO.',
-                'html'    => 'Um texto válido é obrigatório para entendimento entre as partes. Gentileza corrigir o texto e tentar novamente.',
-                'timer'    => 5000,
+        }
+
+
+
+        if ($this->decision === 'DISCORDAR') {
+
+
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'VIABILIDADE RESPOSTA',
+                'msg'           => "Você diz <strong>{$this->decision}</strong> com(da) decisão. Deseja Continuar o Envio?",
+                'icon'          => 'question',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'd41d8cd98f00b204e9800998ecf8427e',
+                // 'chave'         => '',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
             ]);
 
             return;
         }
+
+
+    }
+
+    public function deny_response()
+    {
 
     }
 
@@ -192,6 +302,67 @@ class ViabRespResponsible extends Component
 
         }
 
+
+    }
+
+    public function confirm_deny()
+    {
+        if ($this->decision === 'CONCORDAR') {
+
+            // Acrescenta decisão da Empreiteira a mensagem postada.
+            $this->responser .= "\n\n >> EMPRESA PARCEIRA CONCORDA COM SEGUIMENTO PARA CONTRATAÇÃO. <<";
+
+
+            if ($this->viability) {
+
+                DB::beginTransaction();
+
+                try {
+                    // Atualize a viabilidade
+                    $this->viability->update([
+                        'approved' => true,
+                        'rejected' => false,
+                        'replica' => true,
+                        'completed' => $this->viability->hired ? true : false,
+                        'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                        'status' => $this->viability->hired ? 9 : 6,
+                    ]);
+
+                    // Crie um novo comentário e associe-o à viabilidade
+                    $this->viability->Comments()->create([
+                        'user_id' => auth()->user()->id,
+                        'message' => $this->responser ?? null,
+
+                    ]);
+
+                    DB::commit();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'success',
+                        'title'    => 'Contestação Aceita',
+                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                        'timer'    => 5000,
+                    ]);
+
+                    $this->emitUp('refresh_list');
+                    $this->clean();
+
+                } catch (\Throwable $th) {
+                    DB::rollback();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'danger',
+                        'title'    => 'Erro',
+                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada..',
+                        'timer'    => 5000,
+                    ]);
+                    $this->clean();
+
+                }
+            }
+        }
 
     }
 

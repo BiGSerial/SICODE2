@@ -101,4 +101,24 @@ class Viability extends Model
     {
         return $this->Days()->sum('days');
     }
+
+    public function addDays(int $limit, int $days, string $reason = null)
+    {
+        if ($this->getDays() + $days > $limit) {
+            $days = $limit - $this->getDays();
+
+            if ($days <= 0) {
+                return;
+            }
+
+        } elseif ($this->getDays() + $days < 0) {
+            $days = $this->getDays() * -1;
+        }
+
+        return $this->Days()->Create([
+            'days' => $days,
+            'user_id' => auth()->user()->id,
+            'reason' => $reason
+            ]);
+    }
 }

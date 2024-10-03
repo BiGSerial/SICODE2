@@ -153,19 +153,21 @@ class ViabList extends Component
 
         if (!auth()->user()->superadm) {
 
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->where(function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
+            // if (Auth()->user()->Companies->isNotEmpty()) {
+            //     $query->where(function ($q) {
+            //         $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+            //         ->orWhere('company_id', Auth()->user()->Company->id);
+            //     });
+            // } else {
+            //     $query->where('engineer_id', Auth()->user()->id);
+            // }
+
+            $query->where('engineer_id', Auth()->user()->id);
         }
 
         $query->with(['Note', 'Files']);
 
-        if ($this->search) {
+        if ($this->search = trim($this->search)) {
             $query->where(function ($q) {
                 $q->whereRelation('Note', 'note', 'like', "%{$this->search}%")
                     ->orWhereRelation('Note.Orders', 'ordem', 'like', "%{$this->search}%");
@@ -188,25 +190,7 @@ class ViabList extends Component
 
     }
 
-    public function inActivityUpdade()
-    {
-        return $this->inActivity = Note::whereRelation('Viabilities', function ($q) {
-            $q->where('canceled', false)
-                ->where('inActivity', true)
-                ->where('completed', false)
-                ->where('tacit', false);
 
-            if (!Auth()->User()->superadm) {
-
-                $companyId = auth()->user()->Employee->Contract->Company->id ?? null;
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                } else {
-                    $q->where('company_id', null);
-                }
-            }
-        })->get()->pluck('id')->toArray();
-    }
 
     public function checkInActivity($item)
     {

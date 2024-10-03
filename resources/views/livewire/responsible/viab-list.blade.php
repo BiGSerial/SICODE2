@@ -273,7 +273,13 @@
                                     {{ Carbon::parse($viability->sended_at)->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-danger fw-bold">
-                                    {{ $dueDate->format('d/m/Y') }}
+                                    <span>
+                                        {{ $dueDate->format('d/m/Y') }}@if (!$viability->completed && Carbon::parse($viability->sended_at)->diffInDays(Carbon::now()) <= 21)
+                                            <i class="ri-map-pin-time-line align-middle text-primary fw-bold"
+                                                data-bs-toggle="tooltip" data-bs-placement="top" title="Adicionar Tempo"
+                                                wire:click.prevent="$emitTo('responsible.actions.add-time-to-viab', 'addTime', '{{ $viability->id }}')"></i>
+                                        @endif
+                                    </span>
                                 </td>
                                 <td class="text-center align-middle text-primary fw-bold">
                                     {{ Carbon::parse($viability->sended_at)->addDays($days_left)->format('d/m/Y') }}
@@ -289,7 +295,6 @@
                                 </td>
                                 <td class="text-center align-middle">{{ $viability->Company->name }}</span></td>
                                 <td class="text-center align-middle text-danger fw-bold">
-
                                     {{ Carbon::parse($viability->sended_at)->diffForHumans(['short' => false, 'syntax' => Carbon::DIFF_ABSOLUTE]) }}
                                 </td>
 
@@ -320,5 +325,6 @@
 
     {{-- Livewire Components --}}
     @livewire('partner.actions.responserviab', key('reesponser_modal_viab'))
-    @livewire('partner.forms.return-viability', key('responser_viab_form'))
+    @livewire('responsible.actions.add-time-to-viab', key('addTimeToViab'))
+
 </div>

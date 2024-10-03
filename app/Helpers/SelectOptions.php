@@ -80,10 +80,37 @@ class SelectOptions
 
     public static function getResponserOptions()
     {
+        // Não alterar os valoes dem VALUE, pois é usado como referencia de ação;
         return [
             (object)['info' => 'Selecione Resposta', 'value' => ''],
             (object)['info' => 'CONCORDAR', 'value' => 'CONCORDAR'],
             (object)['info' => 'DISCORDAR', 'value' => 'DISCORDAR'],
+        ];
+    }
+
+    public static function getResponserDestiniesOptions()
+    {
+        // Não alterar os valoes dem VALUE, pois é usado como referencia de ação;
+        return [
+            (object)['info' => 'Selecione Resposta', 'value' => ''],
+            (object)['info' => 'RETORNAR', 'value' => 'DEVOLVER'],
+            (object)['info' => 'OBRA JA EXECUTADA', 'value' => 'EXECUTADA'],
+            (object)['info' => 'LIBERAR PARA CONTRATAR', 'value' => 'LIBERAR'],
+            // (object)['info' => 'LIBERAR', 'value' => 'SEGUIR'],
+            
+            (object)['info' => 'NOVA VIABILIDADE', 'value' => 'RETORNAR'],
+        ];
+    }
+
+    public static function getReturnInterOptionsResponse()
+    {
+        // Não alterar os valoes dem VALUE, pois é usado como referencia de ação;
+        return [
+            (object)['info' => 'Selecione Resposta', 'value' => ''],
+            (object)['info' => 'RETORNAR PARA ETAPA PROJETO', 'value' => 'DEVOLVER'],
+            (object)['info' => 'LIBERAR PARA CONTRATAR', 'value' => 'LIBERAR'],
+            (object)['info' => 'LIBERAR', 'value' => 'SEGUIR'],
+            (object)['info' => 'NOVA VIABILIDADE', 'value' => 'RETORNAR'],
         ];
     }
 

@@ -8,6 +8,7 @@
 <div>
     <x-show-loading />
 
+
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
@@ -48,7 +49,6 @@
             <h3>NENHUMA VIABILIDADE EM TRATATIVA</h3>
         </div>
     @endif
-
 
     @if ($myLists->count())
         <div class="card mb-2 edp-bg-gray">
@@ -206,12 +206,13 @@
                                 <td class="text-center align-middle text-danger">
                                     {{ Carbon::parse($myViab->updated_at)->diffForHumans() }}</td>
                                 <td class="text-center align-middle"> <i
-                                        class="ri-play-circle-line text-success fs-4 me-2" style="cursor: pointer;"
-                                        wire:click.prevent="$emitTo('partner.actions.viab-response', 'getResponse', '{{ $myViab->id }}')"
+                                        class="ri-play-circle-line @if ($myViab->treplica) text-danger @else text-success @endif fs-4 me-2"
+                                        style="cursor: pointer;"
+                                        wire:click.prevent="$emitTo('responsible.actions.viab-resp-responsible', 'getInfoResponse', '{{ $myViab->id }}')"
                                         role="group" aria-label="Basic example" tabindex="0"
                                         data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
                                         data-bs-title="Responder Viabilidade"
-                                        data-bs-content="<p>Tréplica ao questionamento da Viabilidade.</p>"></i></td>
+                                        data-bs-content="<p>Réplica ao questionamento da Viabilidade.</p>"></i></td>
                         @endforeach
                     </tbody>
                 </table>
@@ -427,6 +428,5 @@
 
 
     {{-- Componentes Livewire --}}
-    @livewire('partner.actions.viab-response', key('actions-viab-response'))
-
+    @livewire('responsible.actions.viab-resp-responsible', key('viab-resp-responsible'))
 </div>
