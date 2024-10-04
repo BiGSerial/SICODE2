@@ -70,7 +70,7 @@ class User extends Authenticatable
 
     public function Company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class)->withTrashed();
     }
 
     public function Priorities()

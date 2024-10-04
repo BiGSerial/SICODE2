@@ -94,6 +94,7 @@ class ViabiliyLog extends Command
                             'tacit' => $viability->tacit,
                             'hired' => $viability->hired,
                             'completed_at' => $viability->completed_at,
+                            'sended_at' => $viability->sended_at,
                             'returned_at' => $viability->returned_at,
                             'hired_at' => $viability->hired_at,
                             'tacit_at' => $viability->tacit_at,
