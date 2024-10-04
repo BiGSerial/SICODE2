@@ -54,7 +54,7 @@ class Viability extends Model
 
     public function Engineer()
     {
-        return $this->belongsTo(User::class, 'engineer_id');
+        return $this->belongsTo(User::class, 'engineer_id')->withTrashed();
     }
 
     public function Form()

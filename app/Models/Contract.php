@@ -19,7 +19,7 @@ class Contract extends Model
 
     public function company()
     {
-        return $this->belongsTo(Company::class)->withTrashed()->withTrashed();
+        return $this->belongsTo(Company::class)->withTrashed();
     }
 
     public function services()

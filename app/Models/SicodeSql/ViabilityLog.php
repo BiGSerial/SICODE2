@@ -39,5 +39,6 @@ class ViabilityLog extends Model
         'ri_finished_at',
         'ri_service',
         'ri_category',
+        'sended_at',
     ];
 }
