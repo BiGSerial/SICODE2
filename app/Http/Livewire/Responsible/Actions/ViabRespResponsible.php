@@ -25,8 +25,8 @@ class ViabRespResponsible extends Component
     protected $listeners = [
         'getInfoResponse',
         'confirm_response',
-        'd1c6b8f9b3a1d0a2e3f4b5c6d7e8f9a0' => 'confirmed_response',
-        'd41d8cd98f00b204e9800998ecf8427e' => 'deny_response',
+        'd1c6b8f9b3a1d0a2e3f4b5c6d7e8f9a0' => 'confirm_response',
+        'd41d8cd98f00b204e9800998ecf8427e' => 'confirm_deny',
     ];
 
 
@@ -54,7 +54,7 @@ class ViabRespResponsible extends Component
     public function updatedService($uuid)
     {
         if ($uuid) {
-            $this->production = Production::where('service_id', $uuid)->get()->last();
+            $this->production = Production::where('note_id', $this->viability->note_id)->where('service_id', $uuid)->get()->last();
 
             if (!$this->production) {
                 $this->show = true;
@@ -153,7 +153,7 @@ class ViabRespResponsible extends Component
                 'icon'          => 'question',
                 'btnOktxt'      => 'Sim, Continue!',
                 'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'd41d8cd98f00b204e9800998ecf8427e',
+                'action'        => 'd1c6b8f9b3a1d0a2e3f4b5c6d7e8f9a0',
                 // 'chave'         => '',
                 'cancel_titulo' => 'Cancelado!',
                 'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
@@ -186,17 +186,14 @@ class ViabRespResponsible extends Component
 
     }
 
-    public function deny_response()
-    {
-
-    }
 
     public function confirm_response()
     {
         if ($this->decision === 'CONCORDAR') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n >> EMPRESA PARCEIRA CONCORDA COM SEGUIMENTO PARA CONTRATAÇÃO. <<";
+            $this->responser .= "\n\n >> O RESPONSÁVEL CONCORDA COM QUESTIONAMENTO. <<";
+
 
 
             if ($this->viability) {
@@ -204,22 +201,175 @@ class ViabRespResponsible extends Component
                 DB::beginTransaction();
 
                 try {
-                    // Atualize a viabilidade
-                    $this->viability->update([
-                        'approved' => true,
-                        'rejected' => false,
-                        'treplica' => true,
-                        'completed' => $this->viability->hired ? true : false,
-                        'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
-                        'status' => $this->viability->hired ? 9 : 6,
-                    ]);
 
-                    // Crie um novo comentário e associe-o à viabilidade
-                    $this->viability->Comments()->create([
-                        'user_id' => auth()->user()->id,
-                        'message' => $this->responser ?? null,
+                    if ($this->options === 'DEVOLVER') {
 
-                    ]);
+                        $this->responser .= "\n\n >> O RESPONSÁVEL DEVOLVEU PARA ETAPA DE PROJETO. <<";
+
+                        // Atualize a viabilidade
+                        $this->viability->update([
+                            'approved' => false,
+                            'rejected' => true,
+                            'treplica' => true,
+                            'completed' => $this->viability->hired ? true : false,
+                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'status' => 10,
+                        ]);
+
+                        // Crie um novo comentário e associe-o à viabilidade
+                        $this->viability->Comments()->create([
+                            'user_id' => auth()->user()->id,
+                            'message' => $this->responser ?? null,
+                            'dismissed' => false,
+                            'granted' => true,
+
+                        ]);
+
+                        if ($this->service) {
+
+                            $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->get()->last();
+                            // Verifica se o usuário foi excluído
+                            if ($production  && $production ->User->trashed()) {
+
+                                $reclaim = $this->viability->Reclaims()->create([
+                                    'note_id' => $production->note_id,
+                                    'service_id' => $this->service,
+                                    'category' => 'RESOLUÇAO DE VIABILIDADE',
+                                ]);
+
+                                if ($reclaim) {
+                                    $reclaim->Comments()->create([
+                                        'user_id' => auth()->user()->id,
+                                        'message' => $this->responser ?? null,
+                                        'dismissed' => false,
+                                        'granted' => true,
+                                    ]);
+                                }
+
+                            } else {
+                                $pro = Production::create([
+                                    'note_id' => $production->note_id,
+                                    'service_id' => $this->service,
+                                    'user_id' => $production->user_id,
+                                    'company_id' => $production->company_id,
+                                    'dispatch_by' => Auth()->user()->id,
+                                    'dispatch_at' => date('Y-m-d H:i:s'),
+                                    'att_by' => Auth()->user()->id,
+                                    'att_at' => date('Y-m-d H:i:s'),
+                                    'status' => 2,
+                                    'd5' => true,
+                                    'dt_note' => $production->dt_note,
+                                    'status_note' => $production->Note->nstats,
+                                    'centroTrab' => $production->centroTrab,
+                                ]);
+
+                                if ($pro) {
+                                    $reclaim = $this->viability->Reclaims()->create([
+                                        'note_id' => $production->note_id,
+                                        'service_id' => $this->service,
+                                        'production_id' => $pro->id,
+                                        'category' => 'RESOLUÇAO DE VIABILIDADE',
+                                    ]);
+
+
+                                    if ($reclaim) {
+                                        $reclaim->Comments()->create([
+                                            'user_id' => auth()->user()->id,
+                                            'message' => $this->responser ?? null,
+                                            'dismissed' => false,
+                                            'granted' => true,
+                                        ]);
+
+
+                                        $this->viability->update([
+                                            'status' => 11,
+                                        ]);
+                                    }
+                                }
+
+
+                            }
+                        }
+                    }
+
+
+                    if ($this->options === 'EXECUTADA') {
+                        $this->responser .= "\n\n >> O RESPONSÁVEL INFORMA OBRA CONCLUÍDA. <<";
+
+                        $this->viability->update([
+                            'approved' => true,
+                            'rejected' => false,
+                            'treplica' => true,
+                            'completed' => $this->viability->hired ? true : false,
+                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'status' => $this->viability->hired ? 9 : 6,
+                        ]);
+
+                        // Crie um novo comentário e associe-o à viabilidade
+                        $this->viability->Comments()->create([
+                            'user_id' => auth()->user()->id,
+                            'message' => $this->responser ?? null,
+                            'dismissed' => false,
+                            'granted' => true,
+
+                        ]);
+
+                    }
+
+                    if ($this->options === 'LIBERAR') {
+
+                        $this->responser .= "\n\n >> O RESPONSÁVEL LIBEROU PARA CONTRATAÇÂO. <<";
+
+                        $this->viability->update([
+                            'approved' => true,
+                            'rejected' => false,
+                            'treplica' => true,
+                            'completed' => $this->viability->hired ? true : false,
+                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'status' => $this->viability->hired ? 9 : 6,
+                        ]);
+
+                        // Crie um novo comentário e associe-o à viabilidade
+                        $this->viability->Comments()->create([
+                            'user_id' => auth()->user()->id,
+                            'message' => $this->responser ?? null,
+                            'dismissed' => false,
+                            'granted' => true,
+
+                        ]);
+                    }
+
+
+                    if ($this->options === 'RETORNAR') {
+
+                        $this->responser .= "\n\n >> O RESPONSÁVEL RETORNOU PARA REFAZER A VIABILIDADE. <<";
+
+                        $this->viability->update([
+                            'approved' => false,
+                            'rejected' => false,
+                            'treplica' => false,
+                            'replica' => false,
+                            'sended_at' => date('Y-m-d H:i:s'),
+                            'completed' => false,
+                            'completed_at' => null,
+                            'returned_at' => null,
+                            'tacit' => false,
+                            'tacit_at' => null,
+                            'status' => 1,
+
+                        ]);
+
+                        $this->viability->Days()->delete();
+
+                        // Crie um novo comentário e associe-o à viabilidade
+                        $this->viability->Comments()->create([
+                            'user_id' => auth()->user()->id,
+                            'message' => $this->responser ?? null,
+                            'dismissed' => false,
+                            'granted' => true,
+
+                        ]);
+                    }
 
                     DB::commit();
 
@@ -231,7 +381,7 @@ class ViabRespResponsible extends Component
                         'timer'    => 5000,
                     ]);
 
-                    $this->emitUp('refresh_list');
+                    $this->emitUp('refresh');
                     $this->clean();
 
                 } catch (\Throwable $th) {
@@ -241,65 +391,13 @@ class ViabRespResponsible extends Component
                         'position' => 'center',
                         'icon'     => 'danger',
                         'title'    => 'Erro',
-                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada..',
-                        'timer'    => 5000,
+                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada.. <br><br> ' . $th->getMessage(),
+
                     ]);
                     $this->clean();
 
                 }
             }
-        }
-
-        if ($this->decision === 'DISCORDAR') {
-
-            // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n >> EMPRESA PARCEIRA MANTÉM A REJEIÇÃO DA VIABILIDADE TÉCNICA APRESENTADA. <<";
-
-            if ($this->Viabilities) {
-                DB::beginTransaction();
-
-                try {
-                    // Atualize a viabilidade
-                    $this->viability->update([
-                        'approved' => false,
-                        'treplica' => true,
-                        'status' => 4,
-                    ]);
-
-                    // Crie um novo comentário e associe-o à viabilidade
-                    $this->viability->Comments()->create([
-                        'user_id' => auth()->user()->id,
-                        'message' => $this->responser ?? null,
-
-                    ]);
-
-                    DB::commit();
-
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'success',
-                        'title'    => 'Contestação Mantida',
-                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
-                        'timer'    => 5000,
-                    ]);
-
-                    $this->emitUp('refresh_list');
-                    $this->clean();
-
-                } catch (\Throwable $th) {
-                    DB::rollback();
-
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'danger',
-                        'title'    => 'Erro',
-                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realiazada..',
-                        'timer'    => 5000,
-                    ]);
-                    $this->clean();
-                }
-            }
-
         }
 
 
@@ -307,10 +405,10 @@ class ViabRespResponsible extends Component
 
     public function confirm_deny()
     {
-        if ($this->decision === 'CONCORDAR') {
+        if ($this->decision === 'DISCORDAR') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n >> EMPRESA PARCEIRA CONCORDA COM SEGUIMENTO PARA CONTRATAÇÃO. <<";
+            $this->responser .= "\n\n <br><br> >> RESPONSÁVEL DISCORDOU DO QUESTIONAMENTO. <<";
 
 
             if ($this->viability) {
@@ -320,18 +418,20 @@ class ViabRespResponsible extends Component
                 try {
                     // Atualize a viabilidade
                     $this->viability->update([
-                        'approved' => true,
-                        'rejected' => false,
+                        'approved' => false,
+                        'rejected' => true,
                         'replica' => true,
-                        'completed' => $this->viability->hired ? true : false,
-                        'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
-                        'status' => $this->viability->hired ? 9 : 6,
+                        // 'completed' => $this->viability->hired ? true : false,
+                        // 'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                        'status' => 5,
                     ]);
 
                     // Crie um novo comentário e associe-o à viabilidade
                     $this->viability->Comments()->create([
                         'user_id' => auth()->user()->id,
                         'message' => $this->responser ?? null,
+                        'dismissed' => true,
+                        'granted' => false,
 
                     ]);
 
@@ -340,12 +440,12 @@ class ViabRespResponsible extends Component
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'success',
-                        'title'    => 'Contestação Aceita',
-                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                        'title'    => 'Contestação Rejeitada',
+                        'html'      => 'Foi rejeitado com sucesso a contestação do parceiro.',
                         'timer'    => 5000,
                     ]);
 
-                    $this->emitUp('refresh_list');
+                    $this->emitUp('refresh');
                     $this->clean();
 
                 } catch (\Throwable $th) {
@@ -426,6 +526,11 @@ class ViabRespResponsible extends Component
     {
         $this->dispatchBrowserEvent('hideModal');
         $this->viability = null;
+        $this->decision = null;
+        $this->responser = null;
+        $this->service = null;
+        $this->options = null;
+        $this->show = false;
     }
 
     public function render()

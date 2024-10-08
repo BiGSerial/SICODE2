@@ -25,4 +25,9 @@ class ResponsibleController extends Controller
     {
         return view('responsible.rejectedViabList');
     }
+
+    public function justified_viab()
+    {
+        return view('responsible.justifyViab');
+    }
 }

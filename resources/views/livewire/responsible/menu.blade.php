@@ -25,7 +25,7 @@
                             </a>
                         </li>
                         <li>
-                            <a href="" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('responsible.justified_viab') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> AVALIAÇÃO DE JUSTIFICATIVA</span>
                             </a>
                         </li>

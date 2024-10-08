@@ -87,10 +87,20 @@ class Workedlist extends Component
         $query = WorkReport::Query();
 
 
-        $query->where('rejected', false)
-            ->when(!Auth()->User()->superadm, function ($q) {
-                $q->where('company_id', Auth()->User()->Employee->Contract->company->id);
-            });
+        $query->where('rejected', false);
+
+
+        if (!auth()->user()->superadm) {
+
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+                });
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
+            }
+        }
 
 
         if (($this->date_in || $this->date_out)) {

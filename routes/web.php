@@ -127,6 +127,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/viab_list', 'viab_list')->name('viab_list');
         Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');
         Route::get('/reject_viab', 'viab_reject')->name('rejecte_viab');
+        Route::get('/justified_viab', 'justified_viab')->name('justified_viab');
+
     });
 
 
@@ -141,6 +143,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
         Route::get('/rejected_viab_list', 'rejectedViabList')->name('rejected.viability');
         Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
+        Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
 
     });
 

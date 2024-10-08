@@ -48,4 +48,9 @@ class PartnerController extends Controller
     {
         return view('partner.tacit_list');
     }
+
+    public function declaredEquipment()
+    {
+        return view('partner.workequipment');
+    }
 }

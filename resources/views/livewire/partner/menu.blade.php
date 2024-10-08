@@ -78,6 +78,11 @@
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Informadas</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('partner.declared.equipment') }}" class="nav-item text-white">
+                                <i class="ri-device-line fw-light fs-5"></i> <span>Equipamentos Declarados</span>
+                            </a>
+                        </li>
                     </div>
 
 

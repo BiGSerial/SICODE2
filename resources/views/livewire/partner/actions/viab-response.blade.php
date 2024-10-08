@@ -83,7 +83,7 @@
                                                     <tr>
                                                         <td class="text-end align-middle fw-bold">Comentário:</td>
                                                         <td class="align-middle text-start fw-bold">
-                                                            {{ $comment->message }}</td>
+                                                            {!! $comment->message !!}</td>
                                                     </tr>
 
                                                     <tr>

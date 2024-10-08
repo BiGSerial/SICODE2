@@ -154,7 +154,7 @@
 
     @if (!$lists->count())
 
-        @dd($lists);
+
 
         <div class="card">
             <div class="card-body">

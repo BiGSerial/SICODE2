@@ -149,7 +149,8 @@ class Todoviability extends Component
         $query->where('canceled', false)
             ->where('completed', false)
             ->where('tacit', false)
-            ->where('rejected', false);
+            ->where('rejected', false)
+            ->where('visible_partner', false);
 
         if (!auth()->user()->superadm) {
 
@@ -184,7 +185,7 @@ class Todoviability extends Component
             });
         }
 
-        return $query;
+        return $query->orderBy('sended_at', 'asc');
 
     }
 
@@ -205,6 +206,7 @@ class Todoviability extends Component
                     $q->where('company_id', null);
                 }
             }
+
         })->get()->pluck('id')->toArray();
     }
 

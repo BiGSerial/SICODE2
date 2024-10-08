@@ -79,7 +79,7 @@ class TacitJustify extends Component
                 [
                 'user_id' => auth()->id(),
                 'justification' => $this->description,
-                'justify_at' => now(),
+                'justified_at' => now(),
                 ]
             );
 
