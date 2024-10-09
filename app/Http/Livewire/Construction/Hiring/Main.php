@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringListExport;
 use App\Models\{Company, File, HiringWaiting, Note, Order, Production, Reclaim, Service, User, Viability};
-use Carbon\Carbon;
+
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
 use ZipArchive;
@@ -191,7 +191,6 @@ class Main extends Component
             // }
 
             if ($this->multiSearch) {
-
 
                 // $query->whereIn('ordem', $this->multiSearch);
                 $query->where(function ($q) {
@@ -980,7 +979,7 @@ class Main extends Component
                         'category' => $this->category,
                     ]);
 
-                    $comment = $reclaim->Comments()->create([
+                    $reclaim->Comments()->create([
                         'user_id' => Auth()->user()->id,
                         'message' => $this->comment
                     ]);

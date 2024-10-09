@@ -11,10 +11,12 @@
             <th scope="col">Ordem</th>
             <th scope="col">Nota</th>
             <th scope="col">Contratado</th>
+            <th scope="col">Tácito</th>
             <th scope="col">Enviado Em</th>
             <th scope="col">Contratado Em</th>
             <th scope="col">Viabilizado Em</th>
             <th scope="col">Completado em</th>
+            <th scope="col">Vencimento Tácito</th>
             <th scope="col">Responsável</th>
             <th scope="col">Empreiteira</th>
             <th scope="col">Status</th>
@@ -28,6 +30,7 @@
                 <td class="align-middlw">{{ $list->Order->ordem }}</td>
                 <td class="align-middlw">{{ $list->Order->Note->note }}</td>
                 <td class="align-middlw">{{ $list->hired ? 'SIM' : 'NÃO' }}</td>
+                <td class="align-middlw">{{ $list->tacit ? 'SIM' : 'NÃO' }}</td>
                 <td class="align-middlw">
                     {{ $list->sended_at ? date('d/m/Y', strToTime($list->sended_at)) : '---' }}
                 </td>
@@ -39,6 +42,9 @@
                 </td>
                 <td class="align-middlw">
                     {{ $list->completed_at ? date('d/m/Y', strToTime($list->completed_at)) : '---' }}
+                </td>
+                <td class="align-middlw">
+                    {{ $list->tacit_at ? date('d/m/Y', strToTime($list->tacit_at)) : '---' }}
                 </td>
                 <td class="align-middlw">{{ isset($list->Engineer->name) ? $list->Engineer->name : '---' }}</td>
                 <td class="align-middlw">{{ isset($list->Company->name) ? $list->Company->name : '---' }}</td>

@@ -65,7 +65,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     Route::get('/services', 'services')->name('services');
 });
 
-Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->group(function () {
+Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')   ->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
@@ -74,7 +74,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
 });
 
-Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->group(function () {
+Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
@@ -88,7 +88,7 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
     });
 });
 
-Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->group(function () {
+Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/main', 'survey_main')->name('main');
     Route::get('/stack', 'survey_stack')->name('stack');
     Route::get('/transfer', 'survey_transfer')->name('transprod');
