@@ -90,7 +90,7 @@ class User extends Authenticatable
 
     public function Companies()
     {
-        return $this->belongsToMany(Company::class)->withTrashed();
+        return $this->belongsToMany(Company::class, 'company_user')->withTrashed();
     }
 
     public function d5Return()

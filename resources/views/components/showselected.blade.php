@@ -9,7 +9,7 @@
                 padding: 10px;
                 background-color: #143f47;
                 border-radius: 5px;
-                z-index: 9999;
+                z-index: 1;
             }
 
             .my-bread-box h5,

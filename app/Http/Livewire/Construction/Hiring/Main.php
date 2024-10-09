@@ -102,6 +102,44 @@ class Main extends Component
         return $this->selectAll;
     }
 
+
+    public function go_att_mass()
+    {
+        if (!$this->action) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Selecione uma ação para continuar.',
+                'timer'    => 10000,
+            ]);
+
+            return;
+        }
+
+        if (!count($this->selected)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Selecione pelo menos um registro para continuar.',
+                'timer'    => 10000,
+            ]);
+
+            return;
+        }
+
+
+        if ($this->action == 'viabilizar') {
+
+            $this->emitTo('construction.hiring.actions.viability', 'getNotes', $this->selected);
+        }
+
+        if ($this->action == 'ri') {
+            dd('RI');
+        }
+    }
+
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
@@ -139,7 +177,7 @@ class Main extends Component
                     ->where(function ($q) {
                         $q->whereRelation('Operations', function ($sq) {
                             $sq->where('operacao', '0010')
-                                ->where('status', 'not like', 'CONF%');
+                                ->where('status', 'like', 'ABER%');
                         });
                     });
         });

@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring\Actions;
 
 use App\Models\Company;
 use App\Models\File;
-use App\Models\Order;
+use App\Models\Note;
 use App\Models\User;
 use App\Models\Viability as ModelsViability;
 use Illuminate\Support\Facades\DB;
@@ -16,381 +16,128 @@ class Viability extends Component
 {
     use WithFileUploads;
 
-    public $uploadsfiles = [];
-    public $toViabilities = [];
-    public $orders;
-    public $hiring = false;
-
+    public $notes;
     public $companies;
-    public $company;
+    public $company_id;
+    public $responsible_id;
 
-    public $users;
-    public $user;
-    public $searchUser;
-
+    public $responsibles;
+    public $toViabilities = [];
 
     protected $listeners = [
-        'go_viability' => 'go_viability',
-        'conf_viability' => 'confirm_viability',
-        'closeModal' => 'cancelarViab',
+        'getNotes',
+        'closeAll'
     ];
 
-    public function go_viability(array $orders_id)
+    protected $rules = [
+        'company_id' => 'required',
+        'responsible_id' => 'required',
+        'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+    ];
+
+    protected $messages = [
+        'company_id.required' => 'Selecione a empresa',
+        'responsible_id.required' => 'Selecione o responsável',
+        'toViabilities.*.temp_files.files.*.file' => 'O arquivo deve ser um documento',
+        'toViabilities.*.temp_files.files.*.max' => 'O arquivo deve ter no máximo 10MB',
+        'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+    ];
+
+    public function mount()
     {
-        $this->cleanAll();
+        $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
 
-        // dd($orders_id);
+    }
 
-        $this->orders = Order::with('Note.Files')->whereIn('id', $orders_id)->get();
+    public function getNotes($notes_id)
+    {
+        $this->notes = Note::whereIn('id', $notes_id)
+                ->with([
+                'files' => function ($q) {
+                    $q->where('file_name', 'like', 'PROJETO%');
+                },
+                'orders' => function ($q) {
+                    $q->where('statusSist', 'not like', 'ENC%')
+                      ->where('statusSist', 'not like', 'ENT%');
+                }
+                ])
+                ->get();
 
-        if ($this->orders->isNotEmpty()) {
-            foreach ($this->orders as $order) {
-                $this->toViabilities[] = [
-                    'order' => $order->toArray(),
-                    'files'  => [],
-                    'hasFiles' => $order->Note->Files->isNotEmpty(),
-                ];
-            }
-
+        if ($this->notes->count()) {
+            $this->mountViabilities($this->notes);
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'modal_viability',
+                'id' => "modal_viability",
             ]);
         }
     }
 
-    public function updatedUploadsfiles()
+    public function updatedCompanyId($company_id)
     {
-        if (count($this->uploadsfiles) && count($this->toViabilities)) {
-
-            foreach ($this->uploadsfiles as $file) {
-
-                $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $hasOrdered = false;
-                $hasRelation = false;
-
-                foreach ($this->toViabilities as $index => $viability) {
-
-                    if (strpos($fileNameWithoutExtension, $viability['order']['note']['note']) !== false) {
-
-                        $hasRelation = true;
-
-                        if (empty($viability['files']) && !$hasOrdered && !$this->toViabilities[$index]['hasFiles']) {
-                            $this->toViabilities[$index]['files'][] = $file;
-                            $hasOrdered = true;
-                        } elseif (empty($viability['files']) && $hasOrdered && !$this->toViabilities[$index]['hasFiles']) {
-                            $this->toViabilities[$index]['hasFiles'] = true;
-                        } else {
-
-                            $fileExisting = false;
-
-                            foreach ($viability['files'] as $index2 => $existingFile) {
-                                $existingFileNameWithoutExtension = pathinfo($existingFile->getClientOriginalName(), PATHINFO_FILENAME);
-                                if ($fileNameWithoutExtension === $existingFileNameWithoutExtension) {
-                                    $fileExisting = true;
-                                    break;
-                                }
-                            }
-
-                            if (!$fileExisting) {
-                                $this->toViabilities[$index]['files'][] = $file;
-                                $hasOrdered = true;
-                            }
-                        }
-                    }
-                }
-
-                if (!$hasRelation) {
-
-                    $tempPath = $file->getRealPath();
-
-                    if ($tempPath && file_exists($tempPath)) {
-                        unlink($tempPath);
-                    }
-                }
-            }
-        }
+        $this->responsibles = User::whereRelation('Companies', 'id', $company_id)->where('responsible', true)->select('id', 'name')->orderBy('name')->get();
     }
 
 
-
-    public function cancel()
+    private function mountViabilities($notes)
     {
-        if (count($this->toViabilities) > 0) {
-            foreach ($this->toViabilities as $index => $viability) {
-                if (count($viability['files'])) {
-                    foreach ($viability['files'] as $index2 => $file) {
-                        $tempPath = $file->getRealPath();
-                        if ($tempPath && file_exists($tempPath)) {
-                            unlink($tempPath);
-                        }
-
-                        unset($this->toViabilities[$index]['files'][$index2]);
-                    }
-                }
-            }
+        foreach ($notes as $note) {
+            $this->toViabilities[$note->id] = [
+                'company_id' => $this->company_id,
+                'responsible_id' => $this->responsible_id,
+                'contratar' => false,
+                'reter' => false,
+                'note' => $note,
+                'temp_files' => [],
+            ];
         }
     }
 
-    public function deleteFile($index, $index2)
-    {
-        if ($this->toViabilities[$index]['files'][$index2]) {
-            $tempPath = $this->toViabilities[$index]['files'][$index2]->getRealPath();
-            if ($tempPath && file_exists($tempPath)) {
-                unlink($tempPath);
-            }
-            unset($this->toViabilities[$index]['files'][$index2]);
-        }
-    }
-
-    public function deleteRegister($index)
-    {
-        if (isset($this->toViabilities[$index]['files'])) {
-            if (count($this->toViabilities[$index]['files'])) {
-                foreach ($this->toViabilities[$index]['files'] as $index2 => $file) {
-                    $tempPath = $file->getRealPath();
-                    if ($tempPath && file_exists($tempPath)) {
-                        unlink($tempPath);
-                    }
-
-                    unset($this->toViabilities[$index]['files'][$index2]);
-                }
-            }
-
-            if (count($this->toViabilities) == 1) {
-                unset($this->toViabilities[$index]);
-                $this->toViabilities = [];
-                $this->dispatchBrowserEvent('hideModal');
-            } else {
-                unset($this->toViabilities[$index]);
-            }
-        }
-    }
-
-    public function getTheusersProperty()
-    {
-        $query = User::Query();
-
-        if (trim($this->searchUser)) {
-            $query->where('name', 'like', "%" . $this->searchUser . "%");
-        }
-
-        return $query->where('engineer', true)->orderBy('name')->get();
-    }
-
-
-    public function goViability()
+    public function toViability()
     {
 
-        if (!$this->user || !$this->company) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'SEM ORIENTAÇÃO DE DESTINO',
-                'html'     => 'É obrigatório a indicação da empreiteira e o responsável pela obra antes de enviar para viabilidade.',
+        $validate = $this->validate();
 
-            ]);
 
-            return;
-        }
-
-        if (count($this->toViabilities) > 0) {
-            foreach ($this->toViabilities as $viability) {
-                if (isset($viability['files']) && !count($viability['files']) && !$viability['hasFiles']) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'ARQUIVO FALTANTE',
-                        'html'     => 'Existem ORDEM sem arquivo anexado, ou sem regitro de arquivo. Verifique e tente novamente.',
-                        'timer'    => 5000,
-                    ]);
-
-                    return;
-                }
-            }
-        }
-
-        $company = Company::find($this->company);
-        $user = User::find($this->user);
-
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => "ENVIAR VIABILIDADE",
-            'msg'           => "
-                <p>Deseja enviar <span class='fw-bold'>" . count($this->toViabilities) . "</span> obra(s) para <span class='fw-bold'>{$company->name}</span>?</p>
-                <div class='card'>
-                    <div class='card-body text-left'>
-                        <p class='fw-bold'>Responsável:<span class='fw-normal'> {$user->name}</span></p>
-                    </div>
-                </div>
-            ",
-            'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Envie!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'conf_viability',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma Ordem foi Enviada!',
-
-        ]);
-
-        return;
-    }
-
-    public function confirm_viability()
-    {
-
-        // dd($this->toViabilities);
-
-        if (empty($this->toViabilities)) {
+        if (!$validate) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'ERRO PROCESSO',
-                'html'     => 'A variável do sistema está vazia',
+                'title'    => 'ERRO',
+                'html'     => 'TEM PROBLEMA DE VALIDADE.',
+                'timer'    => 10000,
+            ]);
+        }
 
+
+        if (count($this->toViabilities) <= 0) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Ocorreu algum erro interno onde não foi possível recuperar a lista, tente novamente.',
+                'timer'    => 10000,
             ]);
 
             return;
         }
 
-        DB::beginTransaction();
+        dd($this->toViabilities);
 
-        foreach ($this->toViabilities as $order) {
-
-            // dd($order['order']['id'], );
-
-            if (!count($order['files']) && !$order['hasFiles']) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'ERRO PROCESSO',
-                    'html'     => 'Aquivos nao encontrado. Verifique as informações e tente novamente. Todos os processos foram cancelados.',
-
-                ]);
-
-                DB::rollback();
-
-                return;
-            }
-
-            $checkExistsViability = ModelsViability::where('order_id', $order['order']['id'])
-                ->where(function ($query) {
-                    $query->where('hired', false)
-                        ->orWhere('completed', false);
-                })
-                ->count();
-
-            if (!$checkExistsViability) {
-
-                $created_viab = ModelsViability::Create([
-                    'note_id'     => Order::find($order['order']['id'])->note_id,
-                    'order_id'    => $order['order']['id'],
-                    'company_id'  => $this->company,
-                    'user_id'     => Auth()->User()->id,
-                    'engineer_id' => $this->user,
-                    'sended_at'   => date('Y-m-d H:i:s'),
-                    'hired'       => $this->hiring ? true : false,
-                    'hired_at'    => $this->hiring ? date('Y-m-d H:i:s') : null,
-                    'status'      => 1,
-                ]);
-
-                if ($created_viab) {
-
-                    foreach ($order['files'] as $index => $file) {
-
-                        $folhas = count($order['files']);
-
-                        $newName = "PROJETO_" . $order['order']['note']['note'] . "_F"
-                            . str_pad(++$index, 2, '0', STR_PAD_LEFT) . "-"
-                            . str_pad($folhas, 2, '0', STR_PAD_LEFT);
-
-                        $version = File::where('file_name', 'like', "%" . $newName . "%")->count();
-
-                        $newName = $newName . "_rev" . $version . "." . $file->getClientOriginalExtension();
-
-                        $caminho = "";
-
-                        // dd($newName);
-
-                        $caminho = $file->store('/arquivos');
-
-                        if (Storage::exists($caminho)) {
-
-                            $created_viab->Files()->create([
-                                'note_id'    => $order['order']['note']['id'],
-                                'user_id'    => Auth()->User()->id,
-                                'service_id' => null,
-                                'file_name'  => $newName,
-                                'path'       => $caminho,
-                                'ext'        => $file->getClientOriginalExtension(),
-                            ]);
-                        } else {
-                            DB::rollBack();
-
-                            $this->dispatchBrowserEvent('swal', [
-                                'position' => 'center',
-                                'icon'     => 'warning',
-                                'title'    => 'ERRO AO SALVAR',
-                                'html'     => '<div class="card bg-primary text-white"><div class="card-body">
-                                <p class="fw-bold">Ocorreu um erro ao salvar um dos, ou o arquivo. Aparentemente não foi concluído o upload. Remova-o(os) da lista e tente novamente. </p>
-
-                                </div></div>',
-
-                            ]);
-
-                            return;
-                        }
-                    }
-                } else {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'error',
-                        'title'    => 'ERRO PROCESSO',
-                        'html'     => 'Não foi possível viabilizar aguma das Ordens. Tente novamente. PROCESSOS CANCELADOS',
-
-                    ]);
-
-                    DB::rollback();
-
-                    return;
-                }
-            }
-        }
-
-        DB::commit();
-
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'VIABILIDAED ENVIADA COM SUCESSO',
-        ]);
-
-        $this->cleanAll();
-        $this->dispatchBrowserEvent('hideModal');
-
-        $this->emitUp('goClean');
-        $this->emitUp('refresh_list');
     }
 
-    public function cleanAll()
+    public function closeAll()
     {
-        $this->company = "";
-        $this->user = "";
-        $this->orders = null;
-    }
-
-    public function cancelarViab()
-    {
-        $this->cancel();
-        $this->cleanAll();
         $this->toViabilities = [];
-        $this->emitUp('goClean');
-        $this->emitUp('refresh_list');
+        $this->notes = null;
+        $this->company_id = null;
+        $this->responsible_id = null;
+        $this->resetErrorBag();
+        $this->resetValidation();
     }
+
+
 
     public function render()
     {
-        $this->users = $this->theusers;
-        $this->companies = Company::orderBy('name')->get();
-
         return view('livewire.construction.hiring.actions.viability');
     }
 }

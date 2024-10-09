@@ -30,6 +30,6 @@ class Company extends Model
 
     public function Users()
     {
-        return $this->belongsToMany(User::class)->withTrashed();
+        return $this->belongsToMany(User::class, 'company_user')->withTrashed();
     }
 }

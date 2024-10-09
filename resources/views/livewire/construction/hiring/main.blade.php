@@ -190,10 +190,8 @@
                         <div class="row">
                             <select class="form-select my-0 py-0 me-2 col" wire:model="action">
                                 <option value="" selected>Selecionar Ação</option>
-                                <option value="">Pausar</option>
-                                <option value="1">Viabilizar</option>
-                                {{-- <option value="2">Contratar</option> --}}
-                                <option value="3">Retorno Interno</option>
+                                <option value="viabilizar">Viabilizar</option>
+                                <option value="ri">Retorno Interno</option>
                             </select>
                             <button class="btn btn-sm btn-primary me-2 col-1" wire:click.prevent='go_att_mass'
                                 @disabled(!$action) wire:target="go_att_mass" wire:loading.attr="disabled"
@@ -257,7 +255,7 @@
                                 <th scope="col" class="fw-bold">Ordem</th>
                                 <th scope="col" class="fw-bold">Files</th>
                                 <th scope="col" class="fw-bold">Rubrica</th>
-                                <th scope="col" class="fw-bold">denConjunto</th>
+                                <th scope="col" class="fw-bold">Material</th>
                                 <th scope="col" class="fw-bold">Municipio</th>
                                 <th scope="col" class="fw-bold">Status Ordem</th>
                                 <th scope="col" class="fw-bold">Status OV/NOTA</th>
@@ -351,9 +349,20 @@
 
                                     </td>
                                     <td class="align-middle">{{ $list->rubrica }}</td>
-                                    <td class="align-middle">{{ $list->denConjunto }}</td>
+                                    <td class="align-middle">{{ $list->material }}</td>
                                     <td class="align-middle">{{ $list->lexp }}</td>
-                                    <td class="align-middle">{{ $list->statusSist }}
+                                    <td class="align-middle">
+                                        @if ($list->Orders->isNotEmpty())
+                                            @foreach ($list->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                                <p class="py-0 my-0">
+                                                    {{ explode(' ', $order->statusSist)[0] }}
+                                                </p>
+                                            @endforeach
+                                        @else
+                                            ---
+                                        @endif
                                     </td>
                                     <td class="align-middle">
                                         @if ($list->type_note == 1)

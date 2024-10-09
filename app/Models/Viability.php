@@ -87,6 +87,11 @@ class Viability extends Model
         return $this->hasOne(TacitComment::class);
     }
 
+    public function Orders()
+    {
+        return $this->belongsToMany(Order::class, 'order_viability');
+    }
+
 
 
 
