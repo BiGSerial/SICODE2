@@ -10,6 +10,7 @@
             <th>Empresa</th>
             <th>Usuario</th>
             <th>Empresa</th>
+            <th>Status</th>
             <th>Serviço</th>
             <th>Rubrica</th>
             <th>TipoNota</th>
@@ -43,10 +44,11 @@
     <tbody>
         @foreach ($exports as $export)
             <tr>
-                <td>{{ isset($export->Dispatcher->name) ? $export->Dispatcher->name : 'Desconhecido' }}</td>
+                <td>{{ isset($export->Dispatcher->name) ? $export->Dispatcher->name : '' }}</td>
                 <td>{{ explode(' ', $export->Dispatcher->Employee->Contract->company->name)[0] }}</td>
-                <td>{{ isset($export->User->name) ? $export->User->name : 'Desconhecido' }}</td>
+                <td>{{ isset($export->User->name) ? $export->User->name : '' }}</td>
                 <td>{{ explode(' ', $export->Company->name)[0] }}</td>
+                <td>{{ Notestatus::status($export->status)->status }}</td>
                 <td>{{ $export->Service->service }}</td>
                 <td>{{ $export->Note->rubrica }}</td>
                 <td>{{ $export->Note->type_note }}</td>

@@ -16,7 +16,7 @@ class ConfirmProd extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:confirm_prod';
+    protected $signature = 'sicode:confirm_prod {--days=1 : Number of days to check for confirmation}';
 
     /**
      * The console command description.

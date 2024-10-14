@@ -34,7 +34,15 @@ class RemoveViabDuplicate extends Command
                 $viab->update([
                     'note_id' => $viab->Order->note_id,
                 ]);
+
+
+                $viability = Viability::where('note_id', $viab->Order->note_id)->orderBy('id', 'asc')->first();
+
+                if ($viability) {
+                    $viability->Orders()->syncWithoutDetaching([$viab->Order->id]);
+                }
             }
+
         });
 
         $duplicates = Viability::select('note_id', DB::raw('MIN(id) as min_id'), DB::raw('GROUP_CONCAT(id) as ids'))
