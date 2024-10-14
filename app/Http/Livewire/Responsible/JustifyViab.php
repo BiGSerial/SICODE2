@@ -48,6 +48,20 @@ class JustifyViab extends Component
             ->where('viabilities.tacit', true)
             ->orderBy('tacit_comments.justified_at', 'desc');
 
+
+            if (!auth()->user()->superadm) {
+
+
+            // if (Auth()->user()->Companies->isNotEmpty()) {
+            //     $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
+            // } else {
+            //     $query->where('company_id', Auth()->user()->Company->id);
+            // }
+
+            $query->where('engineer_id', Auth()->user()->id);
+
+        }
+
         return $query->select('viabilities.*', 'tacit_comments.justified_at as comment_justified_at');
     }
 

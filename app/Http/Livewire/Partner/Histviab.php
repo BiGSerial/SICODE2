@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Exports\parner\exportExcel;
+use App\Exports\Viability\HistoricReport;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note, Viability};
 use Illuminate\Support\Facades\{Crypt, Storage};
@@ -51,10 +52,7 @@ class Histviab extends Component
     public function export_excel()
     {
 
-        return (new exportExcel($this->lists->get()->sortBy(function ($note) {
-            // Acessar a primeira 'Viability' e o campo 'sended_at'
-            return $note->Viabilities->first()->sended_at ?? null;
-        })))->download(date('YmdHis-') . 'HistViabExport.xlsx');
+        return (new HistoricReport($this->lists->orderBy('sended_at')->get()))->download(date('YmdHis-') . 'HistViabExport.xlsx');
     }
 
     public function updatedPerPage()

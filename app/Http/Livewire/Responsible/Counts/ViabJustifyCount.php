@@ -11,13 +11,18 @@ class ViabJustifyCount extends Component
     {
         $query = Viability::query();
 
-        $query->join('tacit_comments', 'viabilities.id', '=', 'tacit_comments.viability_id')
-            ->where('tacit_comments.granted', false)
-            ->where('tacit_comments.dismissed', false)
-            ->where('viabilities.tacit', true)
-            ->orderBy('tacit_comments.justified_at', 'desc');
+        $query->whereRelation('Justification', function ($query) {
+            $query->where('granted', false)
+            ->where('dismissed', false)
+            ->orderBy('justified_at', 'desc');
+        })->where('tacit', true);
 
-        return $query->select('viabilities.*', 'tacit_comments.justified_at as comment_justified_at')->count();
+        if (!auth()->user()->superadm) {
+
+            $query->where('engineer_id', Auth()->user()->id);
+        }
+
+        return $query->count();
     }
 
     public function render()

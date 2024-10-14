@@ -12,6 +12,7 @@
                         <li>
                             <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> VIABILIDADE EM ESPERA</span>
+                                @livewire('responsible.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
                             </a>
                         </li>
                         <li>
@@ -29,6 +30,7 @@
                         <li>
                             <a href="{{ route('responsible.justified_viab') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> AVALIAÇÃO DE JUSTIFICATIVA</span>
+                                {{-- @livewire('responsible.counts.viab-justify-count', key('viab-justify-count')) --}}
                             </a>
                         </li>
                         <li>
