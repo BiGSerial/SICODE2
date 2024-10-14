@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Services\Levantamento\Forms;
 
-use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
+use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production, Reclaim};
 use Carbon\Carbon;
 use Livewire\Component;
 
@@ -410,6 +410,26 @@ class Analise extends Component
                 'info'       => "Usuário {$user} encerrou a Nota/OV.",
                 'status'     => 5,
             ]);
+
+            //Encerrar RI Caso existir
+            if ($this->production->d5) {
+                $d5 = Reclaim::where('production_id', $this->production->id)->first();
+
+                if ($d5) {
+                    $d5->update([
+                        'completed' => true,
+                        'completed_at' => date('Y-m-d H:i:s'),
+                    ]);
+
+                    if ($d5->Viabilities->count()) {
+                        foreach ($d5->Viabilities as $viab) {
+                            $viab->update([
+                                'status' => 13
+                            ]);
+                        }
+                    }
+                }
+            }
 
             if ($this->hasFile) {
                 $this->emitTo('files.manager.create-prod-files', 'saveFiles');
