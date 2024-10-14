@@ -63,6 +63,7 @@
                                     <th scope="col">Município</th>
                                     <th scope="col">Arquivos</th>
                                     <th scope="col"></th>
+                                    <th scope="col"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -117,6 +118,11 @@
                                                     @enderror
                                                 @endif
                                             </td>
+
+                                            <td>
+                                                <button class="btn btn-sm btn-danger"
+                                                    wire:click.prevent="removeViability({{ $key }})">Remover</button>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 @endif
@@ -125,7 +131,7 @@
                     </div>
                 </div>
                 <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" wire:click.prevent="closeAll">Cancelar</button>
                     <button type="button" class="btn btn-primary" wire:click.prevent="toViability">Enviar</button>
                 </div>
             </div>

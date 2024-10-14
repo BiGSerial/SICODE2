@@ -177,18 +177,15 @@
         <div class="card">
             <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
                 <div class="row justify-content-end">
-                    <div class="col">
-                        <h4 class="my-0 align-middle">LISTA PARA {{ mb_strtoupper($service->service) }}
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
+                    <div class="col align-middle">
+                        <h4 class="my-0 py-0 align-middle">LISTA PARA {{ mb_strtoupper($service->service) }}
+
                         </h4>
                     </div>
                     <div class="col">
-                        <div class="row">
-                            <select class="form-select my-0 py-0 me-2 col" wire:model="action">
+                        <div class="row align-middle">
+                           
+                            <select class="form-select form-select-sm my-0 py-0 me-2 col" wire:model="action">
                                 <option value="" selected>Selecionar Ação</option>
                                 <option value="viabilizar">Viabilizar</option>
                                 <option value="ri">Retorno Interno</option>
@@ -214,7 +211,7 @@
                                     <span class="visually-hidden">Loading...</span>
                                 </div>
                             </button>
-                            <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:target="downloadZip"
+                            {{-- <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:target="downloadZip"
                                 wire:loading.attr="disabled" wire:click.prevent='downloadZip' data-bs-toggle="tooltip"
                                 data-bs-placement="top" data-bs-title="Fazer Download dos Arquivos ZIP"><i
                                     class="bx bx-cloud-download fs-3 m-0 align-middle" wire:target="downloadZip"
@@ -223,8 +220,8 @@
                                     wire:target="downloadZip" wire:loading>
                                     <span class="visually-hidden">Loading...</span>
                                 </div>
-                            </button>
-                            <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:click.prevent='copyClipboard'
+                            </button> --}}
+                            {{-- <button class="btn btn-sm btn-primary me-2 col-1 p-1" wire:click.prevent='copyClipboard'
                                 wire:target="copyClipboard" wire:loading.attr="disabled" data-bs-toggle="tooltip"
                                 data-bs-placement="top"
                                 data-bs-title="Copiar Selecionados para área de Transferência"><i
@@ -234,189 +231,187 @@
                                     wire:target="copyClipboard" wire:loading>
                                     <span class="visually-hidden">Loading...</span>
                                 </div>
-                            </button>
+                            </button> --}}
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
 
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>
-                                    <input class="form-check-input border border-secondary" type="checkbox"
-                                        wire:model.defer="selectAll" wire:click="setSelectAll()"
-                                        @checked($this->checkAllSelect($lists))>
+            <div class="table-responsive">
 
-                                </th>
-                                <th scope="col" class="fw-bold">Nota</th>
-                                <th scope="col" class="fw-bold">Ordem</th>
-                                <th scope="col" class="fw-bold">Files</th>
-                                <th scope="col" class="fw-bold">Rubrica</th>
-                                <th scope="col" class="fw-bold">Material</th>
-                                <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Status Ordem</th>
-                                <th scope="col" class="fw-bold">Status OV/NOTA</th>
-                                <th scope="col" class="fw-bold">Status OP10</th>
-                                <th scope="col" class="fw-bold">Centro OP10</th>
-                                <th scope="col" class="fw-bold">Prazo Restante</th>
-                                <th scope="col" class="fw-bold">Dias Viab</th>
-                                <th scope="col" class="fw-bold">Situação</th>
+                <table class="table table-sm table-striped table-condensed">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>
+                                <input class="form-check-input border border-secondary" type="checkbox"
+                                    wire:model.defer="selectAll" wire:click="setSelectAll()"
+                                    @checked($this->checkAllSelect($lists))>
 
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $block = false;
-                                    $viability = '';
-                                    $status = '';
-                                    $days_left = (new DaysLeft($list))->getDaysLeft();
-                                    $waiting = false;
+                            </th>
+                            <th scope="col" class="fw-bold text-center">Nota</th>
+                            <th scope="col" class="fw-bold text-center">Ordem</th>
+                            <th scope="col" class="fw-bold text-center">Files</th>
+                            <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Material</th>
+                            <th scope="col" class="fw-bold text-center">Municipio</th>
+                            <th scope="col" class="fw-bold text-center">Status Ordem</th>
+                            <th scope="col" class="fw-bold text-center">Status OV/NOTA</th>
+                            <th scope="col" class="fw-bold text-center">Status OP10</th>
+                            <th scope="col" class="fw-bold text-center">Centro OP10</th>
+                            <th scope="col" class="fw-bold text-center">Prazo Restante</th>
+                            <th scope="col" class="fw-bold text-center">Dias Viab</th>
+                            <th scope="col" class="fw-bold text-center">Situação</th>
 
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            @php
+                                $block = false;
+                                $viability = '';
+                                $status = '';
+                                $days_left = (new DaysLeft($list))->getDaysLeft();
+                                $waiting = false;
+
+                                if ($list->Viabilities->count()) {
                                     if ($list->Viabilities->count()) {
-                                        if ($list->Viabilities->count()) {
-                                            $viability = $list->Viabilities->last();
+                                        $viability = $list->Viabilities->last();
 
-                                            $block = true;
+                                        $block = true;
 
-                                            if ($viability->approved) {
-                                                $status = [
-                                                    'info' => 'Aprovado',
-                                                    'color_text' => 'text-bg-succes',
-                                                    'table' => 'table-success',
-                                                ];
-                                            } elseif ($viability->rejected && !$viability->approved) {
-                                                $status = [
-                                                    'info' => 'Rejeitado',
-                                                    'color_text' => 'text-bg-danger',
-                                                    'table' => 'table-danger',
-                                                ];
-                                            } elseif (
-                                                $viability->canceled &&
-                                                !$viability->rejected &&
-                                                !$viability->approved
-                                            ) {
-                                                $status = [
-                                                    'info' => 'Cancelado',
-                                                    'color_text' => 'text-bg-secondary',
-                                                    'table' => 'table-secondary',
-                                                ];
-                                            } else {
-                                                $status = [
-                                                    'info' => 'Em Viabilidade',
-                                                    'color_text' => 'text-bg-primary',
-                                                    'table' => 'table-primary',
-                                                ];
-                                            }
+                                        if ($viability->approved) {
+                                            $status = [
+                                                'info' => 'Aprovado',
+                                                'color_text' => 'text-bg-succes',
+                                                'table' => 'table-success',
+                                            ];
+                                        } elseif ($viability->rejected && !$viability->approved) {
+                                            $status = [
+                                                'info' => 'Rejeitado',
+                                                'color_text' => 'text-bg-danger',
+                                                'table' => 'table-danger',
+                                            ];
+                                        } elseif (
+                                            $viability->canceled &&
+                                            !$viability->rejected &&
+                                            !$viability->approved
+                                        ) {
+                                            $status = [
+                                                'info' => 'Cancelado',
+                                                'color_text' => 'text-bg-secondary',
+                                                'table' => 'table-secondary',
+                                            ];
+                                        } else {
+                                            $status = [
+                                                'info' => 'Em Viabilidade',
+                                                'color_text' => 'text-bg-primary',
+                                                'table' => 'table-primary',
+                                            ];
                                         }
                                     }
+                                }
 
-                                    if (
-                                        $list->Waitings->count() &&
-                                        $list->Waitings->where('complete', false)->count()
-                                    ) {
-                                        $block = true;
-                                        $waiting = true;
-                                    }
+                                if ($list->Waitings->count() && $list->Waitings->where('complete', false)->count()) {
+                                    $block = true;
+                                    $waiting = true;
+                                }
 
-                                @endphp
+                            @endphp
 
-                                <tr wire:key='{{ $list->id }}'
-                                    class=" fade-in
+                            <tr wire:key='{{ $list->id }}'
+                                class=" fade-in text-center
                                     @if ($block && !$waiting) {{ $status['table'] }} @endif
                                     @if ($block && $waiting) table-secondary @endif
                                     ">
-                                    <td class="align-middle"><input class="form-check-input border border-secondary"
-                                            type="checkbox" wire:model.defer="selected" value="{{ $list->id }}"
-                                            @disabled($block)>
-                                    </td>
-                                    <td class="fw-bold align-middle">{{ $list->note }}</td>
-                                    <td class="align-middle">
-                                        @if ($list->Orders->isNotEmpty())
-                                            @foreach ($list->Orders->filter(function ($order) {
+                                <td class="align-middle"><input class="form-check-input border border-secondary"
+                                        type="checkbox" wire:model.defer="selected" value="{{ $list->id }}"
+                                        @disabled($block)>
+                                </td>
+                                <td class="fw-bold align-middle">{{ $list->note }}</td>
+                                <td class="align-middle">
+                                    @if ($list->Orders->isNotEmpty())
+                                        @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                <p class="py-0 my-0">{{ $order->ordem }}</p>
-                                            @endforeach
-                                        @endif
-                                    </td>
-                                    <td class="align-middle">
-                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <x-files.select-download-list :files='$list->Files' />
+                                            <p class="py-0 my-0">{{ $order->ordem }}</p>
+                                        @endforeach
+                                    @endif
+                                </td>
+                                <td class="align-middle">
+                                    {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                    {{-- <x-files.select-download-list :files='$list->Files' /> --}}
+                                    <x-select-download-project-only :files='$list->Files' :filtro="'PROJETO'" />
 
-                                    </td>
-                                    <td class="align-middle">{{ $list->rubrica }}</td>
-                                    <td class="align-middle">{{ $list->material }}</td>
-                                    <td class="align-middle">{{ $list->lexp }}</td>
-                                    <td class="align-middle">
-                                        @if ($list->Orders->isNotEmpty())
-                                            @foreach ($list->Orders->filter(function ($order) {
+                                </td>
+                                <td class="align-middle">{{ $list->rubrica }}</td>
+                                <td class="align-middle">{{ $list->material }}</td>
+                                <td class="align-middle">{{ $list->lexp }}</td>
+                                <td class="align-middle">
+                                    @if ($list->Orders->isNotEmpty())
+                                        @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                <p class="py-0 my-0">
-                                                    {{ explode(' ', $order->statusSist)[0] }}
-                                                </p>
-                                            @endforeach
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-                                    <td class="align-middle">
-                                        @if ($list->type_note == 1)
-                                            {{ $list->centerjob }}
-                                        @elseif($list->type_note == 2)
-                                            {{ $list->nstats }}
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-                                    <td class="align-middle">
-                                        @if ($list->Orders->isNotEmpty())
-                                            @foreach ($list->Orders->filter(function ($order) {
+                                            <p class="py-0 my-0">
+                                                {{ explode(' ', $order->statusSist)[0] }}
+                                            </p>
+                                        @endforeach
+                                    @else
+                                        ---
+                                    @endif
+                                </td>
+                                <td class="align-middle">
+                                    @if ($list->type_note == 1)
+                                        {{ $list->centerjob }}
+                                    @elseif($list->type_note == 2)
+                                        {{ $list->nstats }}
+                                    @else
+                                        ---
+                                    @endif
+                                </td>
+                                <td class="align-middle">
+                                    @if ($list->Orders->isNotEmpty())
+                                        @foreach ($list->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                <p class="py-0 my-0">
-                                                    {{ $order->Operations->isNotEmpty() ? ($order->Operations->where('operacao', '0010')->first() ? explode(' ', $order->Operations->where('operacao', '0010')->first()->status)[0] : '---') : '---' }}
-                                                </p>
-                                            @endforeach
-                                        @else
-                                            ---
-                                        @endif
+                                            <p class="py-0 my-0">
+                                                {{ $order->Operations->isNotEmpty() ? ($order->Operations->where('operacao', '0010')->first() ? explode(' ', $order->Operations->where('operacao', '0010')->first()->status)[0] : '---') : '---' }}
+                                            </p>
+                                        @endforeach
+                                    @else
+                                        ---
+                                    @endif
 
-                                    </td>
-                                    <td class="align-middle">
-                                        @if ($list->Orders->isNotEmpty())
+                                </td>
+                                <td class="align-middle">
+                                    @if ($list->Orders->isNotEmpty())
+                                        @php
+                                            $empresa = '';
+                                        @endphp
+                                        @foreach ($list->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
                                             @php
-                                                $empresa = '';
+                                                $empresa_2 = $order->Operations->isNotEmpty()
+                                                    ? ($order->Operations->where('operacao', '0010')->first()
+                                                        ? $order->Operations->where('operacao', '0010')->first()
+                                                            ->cenTrab
+                                                        : '---')
+                                                    : '---';
                                             @endphp
-                                            @foreach ($list->Orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
+                                            @if ($empresa != $empresa_2)
                                                 @php
-                                                    $empresa_2 = $order->Operations->isNotEmpty()
-                                                        ? ($order->Operations->where('operacao', '0010')->first()
-                                                            ? $order->Operations->where('operacao', '0010')->first()
-                                                                ->cenTrab
-                                                            : '---')
-                                                        : '---';
+                                                    $empresa = $empresa_2;
                                                 @endphp
-                                                @if ($empresa != $empresa_2)
-                                                    @php
-                                                        $empresa = $empresa_2;
-                                                    @endphp
-                                                    <p class="py-0 my-0">
-                                                        {{ $empresa_2 }}
-                                                    </p>
-                                                @endif
-                                            @endforeach
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-                                    <td class="text-center align-middle
+                                                <p class="py-0 my-0">
+                                                    {{ $empresa_2 }}
+                                                </p>
+                                            @endif
+                                        @endforeach
+                                    @else
+                                        ---
+                                    @endif
+                                </td>
+                                <td class="text-center align-middle
                                     @if ($days_left < 0) text-bg-secondary
                                     @elseif($days_left >= 0 && $days_left < 6)
                                     table-danger
@@ -425,50 +420,54 @@
                                     @else
                                         table-success @endif
                                 "
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                        data-bs-placement="top" data-bs-title="Prazo Restante"
-                                        data-bs-content="
+                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="top" data-bs-title="Prazo Restante"
+                                    data-bs-content="
                             <p>Os prazos contados já foram expurgados os tempos em status não contabilizáveis.</p>
                             <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                             <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                             <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                             "
-                                        style="z-index: 9999;">
-                                        {{ $days_left }}</td>
-                                    {{-- <td class="align-middle text-center">
+                                    style="z-index: 9999;">
+                                    {{ $days_left }}</td>
+                                {{-- <td class="align-middle text-center">
                                         @if ($block)
                                             {{ Carbon::parse($list->Viabilities->first()->sended_at)->diffInDays(Carbon::now()) }}
                                         @endif
 
 
                                     </td> --}}
-                                    @php
+                                @php
 
-                                        $days = '';
-                                        $percent = '';
+                                    $days = '';
+                                    $percent = '';
+                                    $somaDays = $list->Viabilities->isNotEmpty()
+                                        ? $list->Viabilities->last()->getDays()
+                                        : 0;
+                                    $totalDays = 7 + $somaDays;
 
-                                        if ($block && !$waiting) {
-                                            if (
-                                                isset($list->Viabilities->first()->returned_at) &&
-                                                $list->Viabilities->first()->returned_at
-                                            ) {
-                                                $days = Carbon::parse(
-                                                    $list->Viabilities->first()->sended_at,
-                                                )->diffInDays(Carbon::parse($list->Viabilities->first()->returned_at));
-                                            } else {
-                                                $days = Carbon::parse(
-                                                    $list->Viabilities->first()->sended_at,
-                                                )->diffInDays(Carbon::now());
-                                            }
-                                            $percent = round(($days / 7) * 100, 1);
+                                    if ($block && !$waiting) {
+                                        if (
+                                            isset($list->Viabilities->last()->returned_at) &&
+                                            $list->Viabilities->last()->returned_at
+                                        ) {
+                                            $days = Carbon::parse($list->Viabilities->last()->sended_at)->diffInDays(
+                                                Carbon::parse($list->Viabilities->last()->returned_at),
+                                            );
+                                        } else {
+                                            $days = Carbon::parse($list->Viabilities->last()->sended_at)->diffInDays(
+                                                Carbon::now(),
+                                            );
                                         }
+                                        $percent = round(($days / $totalDays) * 100, 1);
+                                    }
 
-                                    @endphp
-                                    <td
-                                        class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center overflow-hidden text-center">
-                                        <div class="progress-bg text-center"
-                                            style="width: {{ $percent }}%;
+                                @endphp
+                                <td
+                                    class="progress-cell border-bottom border-start border-end border-3 align-middle justify-content-center overflow-hidden text-center">
+                                    <div class="progress-bg text-center"
+                                        style="width: {{ $percent }}%;
                                                  @if ($percent > 100.0) background-color: #969595;
                                                  @elseif ($percent > 80.0 && $percent <= 100.0) background-color: #FBC4C4;
                                                 @elseif($percent > 70.0 && $percent <= 80.0)
@@ -476,42 +475,32 @@
                                                 @else
                                                     background-color: #85CAF9; @endif
                                             ">
-                                        </div>
-                                        <span class="text-center progress-text fw-bold">{{ $days }}
-                                        </span>
-                                    </td>
-                                    <td class="text-break align-middle text-center">
-                                        @if ($block)
-                                            @if (!$waiting)
-                                                @if ($list->Orders->isNotEmpty())
-                                                    @foreach ($list->Orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
-                                                        <p class="py-0 my-0">
-
-                                                            <span
-                                                                class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($order->Operations->where('operacao', '0010')->first()->status)->colorbg }}"
-                                                                style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($order->Operations->where('operacao', '0010')->first()->status)->status) }}</span>
-
-                                                        </p>
-                                                    @endforeach
-                                                @else
-                                                    ---
-                                                @endif
-                                            @elseif ($waiting)
-                                                <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
-                                            @else
-                                                DESCONHECIDO
-                                            @endif
+                                    </div>
+                                    <span class="text-center progress-text fw-bold">{{ $days }}
+                                    </span>
+                                </td>
+                                <td class="text-break align-middle text-center">
+                                    @if ($block)
+                                        @if (!$waiting)
+                                            <p class="py-0 my-0">
+                                                <span
+                                                    class="badge text-wrap aling-middle {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }}"
+                                                    style="width: 6rem;">{{ mb_strToUpper(Viabilitiesstatus::status($list->Viabilities->last()->status)->status) }}</span>
+                                            </p>
+                                        @else
+                                            <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
                                         @endif
-                                    </td>
+                                    @elseif ($waiting)
+                                        <span class="badge text-wrap text-bg-danger">EM ESPERA (RI)</span>
+                                    @endif
+                                </td>
 
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+
         </div>
         <div class="row">
             <div class="col-6">
@@ -560,341 +549,12 @@
 
     </div>
 
-    <div wire:ignore.self class="modal fade" id="viability_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
 
-
-        <div class="modal-dialog modal-lg">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h4 class="my-auto fw-bold">
-                        @if ($action == 1)
-                            VIABILIDADE
-                        @elseif ($action == 2)
-                            CONTRATAÇÃO
-                        @elseif ($action == 3)
-                            INTERROMPER
-                        @else
-                            AÇÃO DESCONHECIDA
-                        @endif
-
-                    </h4>
-                </div>
-
-                <div class="modal-body"> {{-- Inicio Modal Body --}}
-
-                    <div class="card">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-start">
-                            <h4 class="my-auto">Dados de Envio</h4>
-                        </div>
-                        <div class="card-body d-flex justify-content-between">
-                            <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione a Empreiteira</label>
-                                <select class="form-select" wire:model.defer="company_s">
-                                    <option>----</option>
-                                    @if ($companies)
-                                        @foreach ($companies as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-
-                                </select>
-
-
-                            </div>
-                            <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione o Responsável
-                                    Responsável</label>
-                                <select class="form-select" wire:model.defer="engineer_s">
-
-                                    @if ($engineers)
-                                        <option>----</option>
-                                        @foreach ($engineers as $engineer)
-                                            <option value="{{ $engineer->id }}">{{ $engineer->name }}</option>
-                                        @endforeach
-                                    @endif
-
-                                </select>
-
-
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
-                            <h4 class="my-auto">Arquivos</h4>
-                            <button class="btn btn-sm btn-primary"
-                                onclick="document.getElementById('file-input').click()">Add</button>
-
-                        </div>
-
-                        <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-                            x-on:livewire-upload-finish="isUploading = false"
-                            x-on:livewire-upload-error="isUploading = false"
-                            x-on:livewire-upload-progress="progress = $event.detail.progress">
-
-                            <form wire:submit.prevent="saveFile">
-                                <input type="file" id="file-input" multiple wire:model="files" hidden>
-                                {{-- <button type="submit" id="id-submit"></button> --}}
-                            </form>
-
-                            <div x-show="isUploading" class="mb-3">
-                                {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                    x-bind:style="`width: ${progress}%`">
-                                    <span class="align-middle" x-text="`${progress}%`"></span>
-                                </div> --}}
-                                <div class="progress" role="progressbar" aria-label="Danger example"
-                                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                                    style="width: 100%; border-radius: 0;">
-                                    <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
-                                        x-text="`${progress}%`">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card-body " id="drop-area">
-                            <div class="row g-1 justify-content-between mb-3">
-
-                                @if (count($show_existing_files))
-                                    @foreach ($show_existing_files as $file)
-                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
-                                            <div class="p-1 m-0 border-end border-secondary"><i
-                                                    class="bx bxs-file-{{ $file['ext'] }} text-success fs-4"></i>
-                                            </div>
-                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
-                                            </div>
-                                            <div class="p-1 m-0 border-start border-secondary">
-                                                <i class="ri-file-cloud-line text-succes fs-4"></i>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @endif
-
-                                @if (count($show_files))
-                                    @foreach ($show_files as $file)
-                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
-                                            <div class="p-1 m-0 border-end border-secondary"><i
-                                                    class="bx bxs-file-{{ $file['ext'] }} @if ($file['chk']) text-success
-                                                    @else text-danger @endif fs-4 align-middle"></i>
-                                            </div>
-                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
-                                            </div>
-                                            <div class="p-1 m-0 border-start border-secondary"><i
-                                                    class="bx bx-trash text-danger fs-4 align-middle"
-                                                    wire:click.prevent="delete_file({{ $file['id'] }})"
-                                                    style="cursor: pointer;"></i>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @elseif (!count($show_files) && !count($show_existing_files))
-                                    <h4 class="fs-4 fw-bold my-auto text-center">SEM ARQUIVOS</h4>
-                                @endif
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div class="card">
-
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
-                            <h4 class="my-auto">Ordens/Ovs</h4>
-
-
-                        </div>
-
-
-
-
-                        <div class="card-body ">
-                            @if ($show_registers)
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-condensed table-striped">
-                                        <thead class="table-dark">
-
-                                            <th scope="col">Ordem</th>
-                                            <th scope="col">Note</th>
-                                            <th scope="col">File</th>
-                                            <th scope="col"></th>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($show_registers as $register)
-                                                <tr>
-
-                                                    <td>{{ $register['order'] }}</td>
-                                                    <td>{{ $register['note'] }}</td>
-                                                    <td class="fw-bold">
-                                                        @if (isset($show_files[$register['file_index']]) && !$register['file_online'])
-                                                            {{ $show_files[$register['file_index']]['name'] }}
-                                                        @elseif ($register['file_online'])
-                                                            Aquivo Existente
-                                                        @else
-                                                            Sem Arquivo
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        <i class="bx bx-trash text-danger fs-4 align-middle"
-                                                            wire:click.prevent="delete_note({{ $register['id'] }})"
-                                                            style="cursor: pointer;" wire:loading.attr="disabled"
-                                                            wire:target='delete_note({{ $register['id'] }})'>
-                                                        </i>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                        </div>
-
-                    </div>
-
-
-
-
-
-
-
-
-                    {{-- <div class="mb-3">
-                        <label for="search" class="form-label">Observações</label>
-                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"></textarea>
-                    </div> --}}
-
-                </div> {{-- Fim Modal Body --}}
-
-
-
-                <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
-                    @if ($action == 1)
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="true"
-                                id="flexCheckIndeterminate" wire:model.defer="hiring">
-                            <label class="form-check-label" for="flexCheckIndeterminate">
-                                CONTRATADO
-                            </label>
-                        </div>
-                    @endif
-                    <button type="button" class="btn btn-primary" wire:click.prevent="to_viability">Enviar</button>
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div wire:ignore.self class="modal fade" id="return_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-lg ">
-            <div class="modal-content bg-light">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA SERVIÇOS</h5>
-                </div>
-                <div class="modal-body  edp-bg-stategrey-50">
-
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label for="category" class="form-label">Selecione o Motivo <span
-                                    class="text-danger fw-bold">*</span></label>
-                            <select class="form-select" id="category" wire:model.defer='category'>
-                                <option value="" selected>Selecione...</option>
-                                @foreach (SelectOptions::getReclaimsOptions() as $option)
-                                    <option value="{{ $option->value }}">{{ $option->info }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col">
-                            <label for="service_s" class="form-label">Selecione o Serviço <span
-                                    class="text-danger fw-bold">*</span></label>
-                            <select class="form-select" id="service_s" wire:model.debounce.500ms="service_s">
-                                <option value="" selected>Selecione...</option>
-                                @if ($this->services)
-                                    @foreach ($this->services as $serv)
-                                        @if ($serv->canReturn)
-                                            <option value="{{ $serv->uuid }}">{{ $serv->service }}</option>
-                                        @endif
-                                    @endforeach
-                                @endif
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col">
-                            <div class="mb-3">
-                                <label for="comment" class="form-label">Mensagem <span
-                                        class="text-danger fw-bold">*</span></label>
-                                <textarea name="message" class="form-control shadow" id="" cols="30" rows="5"
-                                    wire:model.defer="comment" placeholder="Informe os Detalhes do retorno..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row edp-bg-sprucegreen-70 text-edp-verde py-1">
-                        <h5 class="modal-title" id="exampleModalLabel">RETORNO PARA
-                            {{ $this->services->where('uuid', $service_s)->first() ? mb_strToUpper($this->services->where('uuid', $service_s)->first()->service) : 'SERVIÇOS' }}
-                            ({{ $show_returns ? $show_returns->count() : '' }})</h5>
-                    </div>
-                    <div class="mx-0 px-0 border-botton border-2 border-secondary rounded mb-3"
-                        style="
-                        overflow: auto;
-                        max-height: 200px;
-
-                        scrollbar-width: thin; /* para Firefox */
-                        scrollbar-color: rgb(16, 16, 16) rgb(161, 161, 160); /* para Firefox */
-                        ">
-                        <table class="table bordered table-sm table-condensed table-striped-columns mx-0 px-0">
-                            <thead class="sticky-top table-success">
-                                <tr class="text-center">
-                                    <th>Note</th>
-                                    <th>Rubrica</th>
-                                    <th>Localidade</th>
-                                    <th>Ultimo Usuario</th>
-                                    <th>Data Conclusao</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                @if ($show_returns && $show_returns->count())
-                                    @foreach ($show_returns as $register)
-                                        <tr class="text-center">
-                                            <td>{{ $register->note }}</td>
-                                            <td>{{ $register->rubrica }}</td>
-                                            <td>{{ $register->lexp }}</td>
-                                            @if ($service_s && $register->Productions->Where('completed', true)->Where('service_id', $service_s)->last())
-                                                <td>{{ $register->Productions->Where('completed', true)->Where('service_id', $service_s)->last()->User->name }}
-                                                </td>
-                                                <td>{{ date('d/m/Y', strToTime($register->Productions->Where('completed', true)->Where('service_id', $service_s)->last()->completed_at)) }}
-                                                </td>
-                                            @else
-                                                <td>-</td>
-                                                <td>-</td>
-                                            @endif
-
-                                        </tr>
-                                    @endforeach
-                                @endif
-                            </tbody>
-
-                        </table>
-
-                    </div>
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
-                    <button class="btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn btn-primary" wire:click.prevent="go_return">Enviar</button>
-                </div>
-            </div>
-        </div>
-
-    </div>
 
 
     {{-- Livewire Componentes --}}
     @livewire('construction.hiring.actions.viability', key('Viability-modal'))
+    @livewire('construction.hiring.actions.go-waiting', key('go-waiting'))
 
 
 
@@ -912,5 +572,16 @@ SEM DADOS
         </textarea>
 
 
+    {{-- <script>
+        // Capturando o evento de fechamento do modal
+        document.getElementById('return_modal').addEventListener('hidden.bs.modal', () => {
 
+            // Emitindo o evento para o componente pai
+            // Livewire.emitTo('construction.hiring.main', 'closeAll');
+            Livewire.emitTo('construction.hiring.main', 'closeAll');
+            // Livewire.emitTo('construction.hiring.actions.go-waiting', 'closeAll');
+
+
+        });
+    </script> --}}
 </div>

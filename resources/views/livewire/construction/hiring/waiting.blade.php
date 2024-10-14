@@ -10,53 +10,81 @@
             <h4 class="fs-4">EM ESPERA PARA RESOLUÇÃO</h4>
         </div>
         <div class="card-body py-0 mt-3">
-            <div class="mb-3 d-flex justify-content-end">
-                <div class="form-check form-check-inline">
+            <div class="mb-3 d-flex flex-wrap align-items-center justify-content-end">
+                <!-- Grupo de Entrada de Texto -->
+                <div class="input-group input-group-sm my-2 flex-nowrap col">
+                    <input type="text" class="form-control" placeholder="Buscar Multi-Notas"
+                        aria-label="Buscar Multi-Notas" aria-describedby="button-addon2" wire:model='search'>
+                    <button class="btn btn-outline-secondary" wire:click.prevent="openMultiNotas" type="button"
+                        id="button-addon2" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Buscar Multi-notas">
+                        <i class="ri-checkbox-multiple-blank-line"></i>
+                    </button>
+                </div>
+
+                <!-- Radios Inline -->
+                <div class="form-check form-check-inline my-2 ms-2">
                     <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
                     <label class="form-check-label" for="inlineRadio1">Nota</label>
                 </div>
-                <div class="form-check form-check-inline">
+                <div class="form-check form-check-inline my-2">
                     <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
-                    <label class="form-check-label" for="inlineRadio1">OV</label>
+                    <label class="form-check-label" for="inlineRadio2">OV</label>
                 </div>
-                <div class="form-check form-check-inline">
+                <div class="form-check form-check-inline my-2">
                     <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
-                    <label class="form-check-label" for="inlineRadio1">Ambos</label>
+                    <label class="form-check-label" for="inlineRadio3">Ambos</label>
                 </div>
-                <select name="" id="" class="form-select form-select-sm ms-2 me-2"
-                    style="max-width: 200px;" wire:model="cjobes">
-                    <option value="" selected>Centro Trabalho</option>
-                    @if ($centerJobs)
-                        @foreach ($centerJobs as $cjob)
-                            <option value="{{ $cjob->cenTrab }}">{{ $cjob->cenTrab }}</option>
-                        @endforeach
-                    @endif
-                </select>
-                <select name="" id="" class="form-select form-select-sm ms-5" style="max-width: 200px;"
-                    wire:model="action">
-                    <option value="" selected>Selecione uma Ação</option>
-                    <option value="1">Viabilizar</option>
-                </select>
-                <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='go_att_mass'
-                    @disabled(!$action) wire:target="go_att_mass" wire:loading.attr="disabled"
-                    data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Executar"><i
-                        class="bx bx-send fs-4 m-0 align-middle" wire:target="go_att_mass" wire:loading.remove></i>
-                    <div class="spinner-border spinner-border-sm" role="status" wire:target="go_att_mass" wire:loading>
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </button>
 
-                <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='copyClipboard'
-                    wire:target="copyClipboard" wire:loading.attr="disabled" data-bs-toggle="tooltip"
-                    data-bs-placement="top" data-bs-title="Copiar Selecionados para área de Transferência"><i
-                        class="bx bxs-copy-alt fs-4 m-0 align-middle" wire:target="copyClipboard"
-                        wire:loading.remove></i>
-                    <div class="spinner-border spinner-border-sm" role="status" wire:target="copyClipboard"
-                        wire:loading>
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </button>
+                <!-- Select Centro Trabalho -->
+                <div class="my-2 col-12 col-md-auto ms-2">
+                    <select name="" id="" class="form-select form-select-sm" wire:model="cjobes">
+                        <option value="" selected>Centro Trabalho</option>
+                        @if ($centerJobs)
+                            @foreach ($centerJobs as $cjob)
+                                <option value="{{ $cjob->cenTrab }}">{{ $cjob->cenTrab }}</option>
+                            @endforeach
+                        @endif
+                    </select>
+                </div>
+
+                <!-- Select Ação -->
+                <div class="my-2 col-12 col-md-auto ms-2">
+                    <select name="" id="" class="form-select form-select-sm" wire:model="action">
+                        <option value="" selected>Selecione uma Ação</option>
+                        <option value="1">Viabilizar</option>
+                    </select>
+                </div>
+
+                <!-- Botão Executar -->
+                <div class="my-2 col-md-auto ms-2">
+                    <button class="btn btn-sm btn-primary" wire:click.prevent='go_att_mass' @disabled(!$action)
+                        wire:target="go_att_mass" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                        data-bs-placement="top" data-bs-title="Executar">
+                        <i class="bx bx-send fs-4 m-0 align-middle" wire:target="go_att_mass" wire:loading.remove></i>
+                        <div class="spinner-border spinner-border-sm" role="status" wire:target="go_att_mass"
+                            wire:loading>
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Botão Copiar Selecionados -->
+                <div class="my-2 col-md-auto ms-2">
+                    <button class="btn btn-sm btn-primary" wire:click.prevent='copyClipboard'
+                        wire:target="copyClipboard" wire:loading.attr="disabled" data-bs-toggle="tooltip"
+                        data-bs-placement="top" data-bs-title="Copiar Selecionados para área de Transferência">
+                        <i class="bx bxs-copy-alt fs-4 m-0 align-middle" wire:target="copyClipboard"
+                            wire:loading.remove></i>
+                        <div class="spinner-border spinner-border-sm" role="status" wire:target="copyClipboard"
+                            wire:loading>
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </button>
+                </div>
             </div>
+
+
         </div>
         <div class="row mx-3">
             <div class="col-6">
@@ -71,7 +99,10 @@
         </div>
         <table class="table table-sm table-condensed table-striped-columns table-hover">
             <thead>
-                <th class="text-center"><input type="checkbox" class="form-checkbox" wire:model="selectAll"></th>
+                <th class="text-center">
+                    <input class="form-check-input border border-secondary" type="checkbox" wire:model.defer="selectAll"
+                        wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
+                </th>
                 <th scope="col" class="text-center">Nota</th>
                 <th scope="col" class="text-center">Files</th>
                 <th scope="col" class="text-center">Rubrica</th>
@@ -92,8 +123,8 @@
                             <td class="text-center aling-middle">
 
                                 @if ($list->Reclaim && $list->Reclaim->completed)
-                                    <input type="checkbox" class="form-checkbox" wire:model.defer="selected"
-                                        value="{{ $list->Note->id }}">
+                                    <input class="form-check-input border border-secondary" type="checkbox"
+                                        wire:model.defer="selected" value="{{ $list->id }}">
                                 @endif
 
 
@@ -101,7 +132,8 @@
                             <td class="text-center aling-middle fw-bold">{{ $list->Note->note }}</td>
                             <td class="text-center align-middle">
                                 {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                <x-files.select-download-list :files='$list->Note->Files' />
+                                {{-- <x-files.select-download-list :files='$list->Note->Files' /> --}}
+                                <x-select-download-project-only :files='$list->Note->Files' :filtro="'PROJETO'" />
 
                             </td>
                             <td class="text-center aling-middle">{{ $list->Note->rubrica }}</td>
@@ -168,228 +200,38 @@
         </div>
     </div>
 
+    {{-- MODALS --}}
+    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1"
+        aria-labelledby="exampleModalLabel" aria-hidden="true">
 
 
-    {{-- Modals --}}
-
-    <div wire:ignore.self class="modal fade" id="viability_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-
-
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog">
 
             <div class="modal-content edp-bg-stategrey-50">
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h4 class="my-auto fw-bold">
-                        @if ($action == 1)
-                            VIABILIDADE
-                        @elseif ($action == 2)
-                            CONTRATAÇÃO
-                        @elseif ($action == 3)
-                            INTERROMPER
-                        @else
-                            AÇÃO DESCONHECIDA
-                        @endif
-
-                    </h4>
+                    Buscar Multi-Notas
                 </div>
-
-                <div class="modal-body"> {{-- Inicio Modal Body --}}
-
-                    <div class="card">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-start">
-                            <h4 class="my-auto">Dados de Envio</h4>
-                        </div>
-                        <div class="card-body d-flex justify-content-between">
-                            <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione a Empreiteira</label>
-                                <select class="form-select" wire:model.defer="company_s">
-                                    <option>----</option>
-                                    @if ($companies)
-                                        @foreach ($companies as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-
-                                </select>
-
-
-                            </div>
-                            <div class="mb-3 col-5">
-                                <label for="form-label" class="text-secondary">Selecione o Engenheiro
-                                    Responsável</label>
-                                <select class="form-select" wire:model.defer="engineer_s">
-                                    @if ($engineers)
-                                        <option>----</option>
-                                        @foreach ($engineers as $engineer)
-                                            <option value="{{ $engineer->id }}">{{ $engineer->name }}</option>
-                                        @endforeach
-                                    @endif
-
-                                </select>
-
-
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
-                            <h4 class="my-auto">Arquivos</h4>
-                            <button class="btn btn-sm btn-primary"
-                                onclick="document.getElementById('file-input').click()">Add</button>
-
-                        </div>
-
-                        <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-                            x-on:livewire-upload-finish="isUploading = false"
-                            x-on:livewire-upload-error="isUploading = false"
-                            x-on:livewire-upload-progress="progress = $event.detail.progress">
-
-                            <form wire:submit.prevent="saveFile">
-                                <input type="file" id="file-input" multiple wire:model="files" hidden>
-                                {{-- <button type="submit" id="id-submit"></button> --}}
-                            </form>
-
-                            <div x-show="isUploading" class="mb-3">
-                                {{-- <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                    x-bind:style="`width: ${progress}%`">
-                                    <span class="align-middle" x-text="`${progress}%`"></span>
-                                </div> --}}
-                                <div class="progress" role="progressbar" aria-label="Danger example"
-                                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                                    style="width: 100%; border-radius: 0;">
-                                    <span class="progress-bar bg-danger" x-bind:style="`width: ${progress}%`"
-                                        x-text="`${progress}%`">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card-body " id="drop-area">
-                            <div class="row g-1 justify-content-between mb-3">
-
-                                @if (count($show_existing_files))
-                                    @foreach ($show_existing_files as $file)
-                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
-                                            <div class="p-1 m-0 border-end border-secondary"><i
-                                                    class="bx bxs-file-{{ $file['ext'] }} text-success fs-4"></i>
-                                            </div>
-                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
-                                            </div>
-                                            <div class="p-1 m-0 border-start border-secondary">
-                                                <i class="ri-file-cloud-line text-succes fs-4"></i>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @endif
-
-                                @if (count($show_files))
-                                    @foreach ($show_files as $file)
-                                        <div class="col-6 border border-secondary d-flex justify-content-between p-0">
-                                            <div class="p-1 m-0 border-end border-secondary"><i
-                                                    class="bx bxs-file-{{ $file['ext'] }} @if ($file['chk']) text-success
-                                                    @else text-danger @endif fs-4 align-middle"></i>
-                                            </div>
-                                            <div class="p-1 m-0 text-center no-wrap">{{ $file['name'] }}</i>
-                                            </div>
-                                            <div class="p-1 m-0 border-start border-secondary"><i
-                                                    class="bx bx-trash text-danger fs-4 align-middle"
-                                                    wire:click.prevent="delete_file({{ $file['id'] }})"
-                                                    style="cursor: pointer;"></i>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @elseif (!count($show_files) && !count($show_existing_files))
-                                    <h4 class="fs-4 fw-bold my-auto text-center">SEM ARQUIVOS</h4>
-                                @endif
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div class="card">
-
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
-                            <h4 class="my-auto">Ordens/Ovs</h4>
-
-
-                        </div>
-
-
-
-
-                        <div class="card-body ">
-                            @if ($show_registers)
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-condensed table-striped">
-                                        <thead class="table-dark">
-
-                                            <th scope="col">Ordem</th>
-                                            <th scope="col">Note</th>
-                                            <th scope="col">File</th>
-                                            <th scope="col"></th>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($show_registers as $register)
-                                                <tr>
-
-                                                    <td>{{ $register['order'] }}</td>
-                                                    <td>{{ $register['note'] }}</td>
-                                                    <td class="fw-bold">
-                                                        @if (isset($show_files[$register['file_index']]) && !$register['file_online'])
-                                                            {{ $show_files[$register['file_index']]['name'] }}
-                                                        @elseif ($register['file_online'])
-                                                            Aquivo Existente
-                                                        @else
-                                                            Sem Arquivo
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        <i class="bx bx-trash text-danger fs-4 align-middle"
-                                                            wire:click.prevent="delete_note({{ $register['id'] }})"
-                                                            style="cursor: pointer;" wire:loading.attr="disabled"
-                                                            wire:target='delete_note({{ $register['id'] }})'></i>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                        </div>
-
-                    </div>
-
-
-
-
-
-
-
-
-                    {{-- <div class="mb-3">
-                        <label for="search" class="form-label">Observações</label>
-                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"></textarea>
-                    </div> --}}
-
-                </div> {{-- Fim Modal Body --}}
-
-
-
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click.prevent="to_viability">Enviar</button>
-                </div>
 
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
             </div>
 
         </div>
 
     </div>
 
+
+
     {{-- Fim Modals --}}
 
-    @livewire('construction.hiring.actions.waitinghiring')
+    @livewire('construction.hiring.actions.waitinghiring', key('waitinghiring'));
+
+
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->
     <textarea id="clipboard-data" style="display: none;">
@@ -401,4 +243,6 @@
 SEM DADOS
 @endif
     </textarea>
+
+
 </div>

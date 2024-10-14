@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\User;
+use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -13,9 +14,9 @@ use ZipArchive;
 
 class Edit extends Component
 {
-    public ?Note $note = null;
+    public ?Viability $viability = null;
     public $companies;
-    public $users;
+    public $users = [];
     public $rehiring = false;
     public $newsend = false;
 
@@ -29,8 +30,19 @@ class Edit extends Component
 
     public function mount()
     {
-        $this->users = User::where('engineer', true)->orderBy('name')->get();
+        $this->users = User::where('responsible', true)->select('id', 'name')->orderBy('name')->get();
         $this->companies = Company::orderBy('name')->get();
+    }
+
+    public function updatedCompanyS($company_s)
+    {
+        $this->users = User::whereHas('Companies', function ($query) use ($company_s) {
+            $query->where('companies.id', $company_s);
+        })
+        ->where('users.responsible', true)
+        ->select('id', 'name')
+        ->orderBy('name')
+        ->get();
     }
 
     public function recontratar()
@@ -42,14 +54,16 @@ class Edit extends Component
         }
     }
 
-    public function editHiring(Note $note)
+    public function editHiring(Viability $viability)
     {
-        $this->note = $note;
+        $this->viability = $viability;
 
-        if ($this->note) {
+        if ($this->viability) {
 
-            $this->user_s = isset($this->note->Viabilities->last()->Engineer->id) ? $this->note->Viabilities->last()->Engineer->id : '';
-            $this->company_s = isset($this->note->Viabilities->last()->Company->id) ? $this->note->Viabilities->last()->Company->id : '';
+
+
+            $this->user_s = isset($this->viability->Engineer->id) ? $this->viability->Engineer->id : '';
+            $this->company_s = isset($this->viability->Company->id) ? $this->viability->Company->id : '';
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'modal_edit_hiring',
@@ -71,8 +85,8 @@ class Edit extends Component
             return;
         }
 
-        $oldUser = isset($this->note->Viabilities->last()->Engineer->id) ? $this->note->Viabilities->last()->Engineer->name : null;
-        $oldCompany = isset($this->note->Viabilities->last()->Company->id) ? $this->note->Viabilities->last()->Company->name : null;
+        $oldUser = isset($this->viability->Engineer->id) ? $this->viability->Engineer->name : null;
+        $oldCompany = isset($this->viability->Company->id) ? $this->viability->Company->name : null;
 
 
 
@@ -132,92 +146,99 @@ class Edit extends Component
     public function alter_viability()
     {
 
-
-
-        if ($this->note->Viabilities->where('completed', false)->count()) {
+        if (!$this->viability->completed) {
 
             DB::beginTransaction();
 
-            $error = false;
-            foreach ($this->note->Viabilities->where('completed', false) as $viability) {
-                try {
+            try {
 
-                    $viability->update([
-                        'engineer_id' => $this->user_s,
-                        'company_id' => $this->company_s,
-                    ]);
+                $this->viability->update([
+                    'engineer_id' => $this->user_s,
+                    'company_id' => $this->company_s,
+                ]);
 
-                } catch (\Throwable $th) {
-                    $error = true;
-                }
+                DB::commit();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'Alterado com sucesso!.',
+                    'timer'    => 5000,
+                ]);
+
+                $this->closeAll();
+
+                $this->emitUp('refresh_list');
+
+
+            } catch (\Throwable $th) {
+
+                DB::rollback();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'OOOPS! Algo deu errado.',
+                    'timer'    => 5000,
+                ]);
+
+                return;
             }
+
         } elseif ($this->rehiring) {
 
-
-
             DB::beginTransaction();
 
-            $error = false;
+            try {
 
-            foreach ($this->note->Viabilities as $viability) {
-                try {
+                $this->viability->update([
+                    'engineer_id' => $this->user_s,
+                    'company_id' => $this->company_s,
+                    'rehired' => $this->rehiring,
+                    'sended_at' => $this->newsend ? date('Y-m-d H:i:s') : $this->viability->sended_at,
+                    'tacit' => $this->newsend ? false : $this->viability->tacit,
+                    'approved' => $this->newsend ? false : $this->viability->approved,
+                    'rejected' => $this->newsend ? false : $this->viability->rejected,
+                    'status' => $this->newsend ? 1 : $this->viability->status,
+                    'tacit_at' => $this->newsend ? null : $this->viability->tacit_at,
+                    'completed_at' => $this->newsend ? null : $this->viability->completed_at,
+                    'replica' => $this->newsend ? false : $this->viability->replica,
+                    'treplica' => $this->newsend ? false : $this->viability->treplica,
+                    'inActivity' => $this->newsend ? false : $this->viability->inActivity,
+                    'returned_at' => $this->newsend ? null : $this->viability->returned_at,
 
-                    $viability->update([
-                        'engineer_id' => $this->user_s,
-                        'company_id' => $this->company_s,
-                        'rehired' => $this->rehiring,
-                        'sended_at' => $this->newsend ? date('Y-m-d H:i:s') : $viability->sended_at,
-                        'tacit' => $this->newsend ? false : $viability->tacit,
-                        'approved' => $this->newsend ? false : $viability->approved,
-                        'rejected' => $this->newsend ? false : $viability->rejected,
-                        'status' => $this->newsend ? 1 : $viability->status,
-                        'tacit_at' => $this->newsend ? null : $viability->tacit_at,
-                        'completed_at' => $this->newsend ? null : $viability->completed_at,
-                        'replica' => $this->newsend ? false : $viability->replica,
-                        'treplica' => $this->newsend ? false : $viability->treplica,
-                        'inActivity' => $this->newsend ? false : $viability->inActivity,
-                        'returned_at' => $this->newsend ? null : $viability->returned_at,
+                ]);
+
+                DB::commit();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'Alterado com sucesso!.',
+                    'timer'    => 5000,
+                ]);
+
+                $this->closeAll();
+
+                $this->emitUp('refresh_list');
 
 
-                    ]);
+            } catch (\Throwable $th) {
+                DB::rollback();
 
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'OOOPS! Algo deu errado.',
+                    'timer'    => 5000,
+                ]);
 
-
-
-                } catch (\Throwable $th) {
-                    $error = true;
-                }
+                return;
             }
+
         }
 
-        if (!$error) {
 
-            DB::commit();
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Alterado com sucesso!.',
-                'timer'    => 5000,
-            ]);
-
-            $this->closeAll();
-
-            $this->emitUp('refresh_list');
-
-        } else {
-
-            DB::rollback();
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'OOOPS! Algo deu errado.',
-                'timer'    => 5000,
-            ]);
-
-            return;
-        }
 
     }
 

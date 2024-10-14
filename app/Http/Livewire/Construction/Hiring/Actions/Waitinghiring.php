@@ -3,104 +3,154 @@
 namespace App\Http\Livewire\Construction\Hiring\Actions;
 
 use App\Models\Company;
+use App\Models\File;
 use App\Models\HiringWaiting;
+use App\Models\Note;
 use App\Models\Order;
 use App\Models\User;
-use App\Models\Viability;
+use App\Models\Viability as ModelsViability;
+use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Waitinghiring extends Component
 {
-    public $orders;
-    public $orderSelected = [];
-    public $selectAllorder;
+    use WithFileUploads;
 
-    public $company;
-    public $user;
-    public $hiring = false;
+    public $notes;
+    public $companies;
+    public $company_id;
+    public $responsible_id;
 
+    public $responsibles;
+    public $toViabilities = [];
 
     protected $listeners = [
-        'getOrders',
-        'conf_viability' => 'confirm_viability'
+        'getNotes',
+        'closeAll',
+        'd1b5f6f9e5e1c1e8e4e8e5e8e5e8e5e8' => 'goViability',
     ];
 
-    public function cancelarViab()
-    {
-        $this->orders = '';
-        $this->orderSelected = [];
-        $this->selectAllorder = false;
-        $this->company = "";
-        $this->user = "";
-        $this->hiring = false;
+    protected $rules = [
+        'company_id' => 'required',
+        'responsible_id' => 'required',
+        'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+    ];
 
-        $this->emitUp('cleanAll');
+    protected $messages = [
+        'company_id.required' => 'Selecione a empresa',
+        'responsible_id.required' => 'Selecione o responsável',
+        'toViabilities.*.temp_files.files.*.file' => 'O arquivo deve ser um documento',
+        'toViabilities.*.temp_files.files.*.max' => 'O arquivo deve ter no máximo 10MB',
+        'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+    ];
+
+    public function mount()
+    {
+        $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
 
     }
 
-    public function getOrders($orders_id)
+    public function getNotes($waitings_id)
     {
-        $this->orders = Order::whereIn('id', $orders_id)
-                    ->with(['Operations' => function ($q) {
-                        $q->where('operacao', '0010');
-                    }])
-                    ->orderBy('note_id')
-                    ->with('Note.Files')
-                    ->get();
+        // $this->notes = Note::whereIn('id', $notes_id)
+        //         ->with([
+        //         'files' => function ($q) {
+        //             $q->where('file_name', 'like', 'PROJETO%');
+        //         },
+        //         'orders' => function ($q) {
+        //             $q->where('statusSist', 'not like', 'ENC%')
+        //               ->where('statusSist', 'not like', 'ENT%');
+        //         }
+        //         ])
+        //         ->get();
 
+        $waitings = HiringWaiting::whereIn('id', $waitings_id)
+                                ->with([
+                                    'note' => function ($q) {
+                                        $q->with([
+                                            'files' => function ($q) {
+                                                $q->where('file_name', 'like', 'PROJETO%');
+                                            },
+                                            'orders' => function ($q) {
+                                                $q->where('statusSist', 'not like', 'ENC%')
+                                                  ->where('statusSist', 'not like', 'ENT%');
+                                            }
+                                        ]);
+                                    }
+                                ])
+                                ->get();
 
-        if ($this->orders) {
+        if ($waitings->count()) {
+            $this->mountViabilities($waitings);
             $this->dispatchBrowserEvent('showModal', [
-                'id' => "modal_toviability",
+                'id' => "modal_viability",
             ]);
         }
     }
 
-    public function goViability()
+    public function updatedCompanyId($company_id)
     {
-        if (!$this->user || !$this->company) {
+        $this->responsibles = User::whereHas('Companies', function ($query) use ($company_id) {
+            $query->where('companies.id', $company_id);
+        })
+                                    ->where('users.responsible', true)
+                                    ->select('id', 'name')
+                                    ->orderBy('name')
+                                    ->get();
+    }
+
+
+    private function mountViabilities($waitings)
+    {
+        foreach ($waitings as $waiting) {
+            $this->toViabilities[$waiting->id] = [
+                'company_id' => $this->company_id,
+                'responsible_id' => $this->responsible_id,
+                'contratar' => false,
+                'reter' => false,
+                'note' => $waiting->Note,
+                'waiting' => $waiting,
+                'temp_files' => [],
+            ];
+        }
+    }
+
+    public function toViability()
+    {
+
+        $validate = $this->validate();
+
+
+        if (!$validate) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'SEM ORIENTAÇÃO DE DESTINO',
-                'html'     => 'É obrigatório a indicação da empreiteira e o responsável pela obra antes de enviar para viabilidade.',
-
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'TEM PROBLEMA DE VALIDADE.',
+                'timer'    => 10000,
             ]);
-
-            return;
         }
 
-        if (empty($this->orderSelected)) {
+
+        if (count($this->toViabilities) <= 0) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'ORDEM(NS) NAO SELECIONADA(S)',
-                'html'     => 'Não foi(ram) selecionada(s), nenhuma ordem(ns) para envio a Vaibilidade.',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Ocorreu algum erro interno onde não foi possível recuperar a lista, tente novamente.',
                 'timer'    => 10000,
             ]);
 
             return;
         }
 
-        //Confirma se realmente todos as Notas possuem arquivos.
-        foreach ($this->orders->whereIn('id', $this->orderSelected) as $order) {
-            if (!$order->Note->Files->isNotEmpty()) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'SEM ARQUIVOS',
-                    'html'     => 'Existem NOTAS/OVs sem arquivo sendo enviado. Gentileza verificar e tentar novamente.',
-                    'timer'    => 10000,
-                ]);
+        $count = count($this->toViabilities);
 
-                return;
-            }
-        }
-
-        $company = Company::find($this->company)->name;
-        $user = User::find($this->user)->name;
-        $count = $this->orders->whereIn('id', $this->orderSelected)->count();
+        $company = Company::find($this->company_id)->name;
+        $user = User::find($this->responsible_id)->name;
 
         $this->dispatchBrowserEvent('alertar', [
             'title'         => "ENVIAR VIABILIDADE",
@@ -115,112 +165,154 @@ class Waitinghiring extends Component
             'icon'          => 'question',
             'btnOktxt'      => 'Sim, Envie!',
             'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'conf_viability',
+            'action'        => 'd1b5f6f9e5e1c1e8e4e8e5e8e5e8e5e8',
+            'confirm'       => 'Sim envie',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma Ordem foi Enviada!',
 
         ]);
 
         return;
+
     }
 
-    public function confirm_viability()
+    public function removeViability($key)
     {
-        if (empty($this->orderSelected) || !$this->orders) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'SEM FONTE DE ORIGEM',
-                'html'     => 'Por algum motivo, os dados NÃO EXISTEM ou FORAM perdidos. Verifique novamente os dados e tente novamente.',
-                'timer'    => 10000,
-            ]);
-
-            return;
+        if (isset($this->toViabilities[$key])) {
+            unset($this->toViabilities[$key]);
         }
+
+        if (count($this->toViabilities) <= 0) {
+            $this->closeAll();
+        }
+    }
+
+
+    public function goViability()
+    {
+        $note = '';
 
         DB::beginTransaction();
 
-        $error = false;
-
-        foreach ($this->orders->whereIn('id', $this->orderSelected) as $order) {
-
-            $ifExistingViab = Viability::where('order_id', $order->id)->count();
+        try {
+            foreach ($this->toViabilities as $toViability) {
 
 
-            if (!$ifExistingViab) {
+                $hiring = HiringWaiting::find($toViability['waiting']['id']);
 
-                try {
-
-                    $viability = Viability::Create([
-                        'order_id'    => $order->id,
-                        'company_id'  => $this->company,
-                        'user_id'     => Auth()->User()->id,
-                        'engineer_id' => $this->user,
-                        'sended_at'   => date('Y-m-d H:i:s'),
-                        'hired'       => $this->hiring ? true : false,
-                        'hired_at'    => $this->hiring ? date('Y-m-d H:i:s') : null,
-                        'status'      => 1,
+                if ($hiring) {
+                    $hiring->update([
+                        'complete' => true,
                     ]);
 
-                } catch (\Throwable $th) {
-                    $error = true;
+                    $hiring->save();
+
+                } else {
+                    throw new Exception("Um ou mais registros não foram encontrados", 1);
+                }
+
+
+
+                $viability = ModelsViability::create([
+                    'note_id'    => $toViability['note']['id'],
+                    'user_id'    => Auth()->User()->id,
+                    'company_id' => $this->company_id,
+                    'engineer_id' => $this->responsible_id,
+                    'sended_at' => $toViability['reter'] ? null : now(),
+                    'visible_partner' => $toViability['reter'] ? true : false,
+                    'hired'  => $toViability['contratar'] ? true : false,
+                    'hire_at' => $toViability['contratar'] ? now() : null,
+                    'status' => $toViability['reter'] ? 16 : 1,
+                    ]);
+
+                $orders = Order::where('statusSist', 'NOT LIKE', 'ENC%')
+                                ->where('statusSist', 'NOT LIKE', 'ENT%')
+                                ->where('note_id', $toViability['note']['id'])
+                                ->get();
+
+                if ($orders->count()) {
+                    foreach ($orders as $order) {
+                        $viability->orders()->syncWithoutDetaching([$order->id]);
+                    }
+                } else {
+                    throw new Exception("Um ou mais registros não possue(m) Ordem(ns) válida(s) para contratação", 1);
+                }
+
+                if (isset($toViability['temp_files']['files']) && count($toViability['temp_files']['files']) > 0) {
+
+                    $note = Note::find($toViability['note']['id']);
+
+                    if ($note->exists()) {
+                        foreach ($toViability['temp_files']['files'] as $index => $file) {
+                            $new_name = 'PROJETO_DESE_'.$note->note.'_F'.str_pad($index + 1, 2, '0', STR_PAD_LEFT).'-'.str_pad(count($toViability['temp_files']['files']), 2, '0', STR_PAD_LEFT);
+                            $rev = File::where('file_name', 'like', $new_name."%")->count();
+
+                            $caminho = $file->store('/arquivos/PROJETO');
+
+                            if (Storage::exists($caminho)) {
+
+                                File::create([
+                                    'note_id' => $note->id,
+                                    'user_id' => Auth()->User()->id,
+                                    'service_id' => null,
+                                    'file_name' => $new_name."_Rev-".$rev,
+                                    'original_name' => $file->getClientOriginalName(),
+                                    'path' => $caminho,
+                                    'ext' => $file->extension(),
+                                    'suspicious' => 0,
+                                    'noexists' => false,
+                                ]);
+                            } else {
+                                throw new Exception("Um ou mais arquivos não foram salvos corretamente", 1);
+                            }
+                        }
+                    }
                 }
 
             }
-        }
-
-        $waitinglistRegs = $this->orders->whereIn('id', $this->orderSelected)->pluck('note_id')->toArray();
-
-        $completeWaitingList = HiringWaiting::WhereIn('note_id', $waitinglistRegs)
-                                        ->update([
-                                            'complete' => true
-                                        ]);
-
-        if ($error) {
-
-            DB::rollback();
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'ERRO ENVIAR VIABILIDADE',
-                'html'     => 'Encontramos problemas ao tentar registrar a viabilidade. Verifique os dados e tente novamente.',
-                'timer'    => 10000,
-            ]);
-
-            return;
-        } else {
 
             DB::commit();
-
-            $this->cancelarViab();
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'success',
-                'title'    => 'VIABILIDAE ENVIADA',
-                'timer'    => 2500,
+                'title'    => 'SUCESSO',
+                'html'     => 'A Viabilidade foi enviada com sucesso.',
+                'timer'    => 5000,
             ]);
 
-            return;
+            $this->closeAll();
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Ocorreu um erro ao tentar enviar a viabilidade, tente novamente.<br><br>'.$th->getMessage(),
+                // 'timer'    => 10000,
+            ]);
         }
+
+
+
     }
 
-    public function getCompaniesProperty()
+    public function closeAll()
     {
-        return Company::select('id', 'name')->orderBy('name')->get();
-    }
+        $this->toViabilities = [];
+        $this->notes = null;
+        $this->company_id = null;
+        $this->responsible_id = null;
+        $this->resetErrorBag();
+        $this->resetValidation();
 
-    public function getUsersProperty()
-    {
-        return User::where('engineer', true)->select('id', 'name')->orderBy('name')->get();
+        $this->emitUp('cleanAll');
+        $this->dispatchBrowserEvent('hideModal');
     }
 
     public function render()
     {
-        return view('livewire.construction.hiring.actions.waitinghiring', [
-            'companies' => $this->companies,
-            'users' => $this->users
-        ]);
+        return view('livewire.construction.hiring.actions.waitinghiring');
     }
 }

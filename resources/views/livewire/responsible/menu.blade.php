@@ -17,11 +17,13 @@
                         <li>
                             <a href="{{ route('responsible.viab_list') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> EM VIABILIDADE</span>
+
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.rejecte_viab') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> EM TRATATIVA</span>
+                                @livewire('responsible.counts.in-work-count', key('in-work-count'))
                             </a>
                         </li>
                         <li>
@@ -30,7 +32,7 @@
                             </a>
                         </li>
                         <li>
-                            <a href="" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('responsible.viab_hist') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> HISTÓRICO</span>
                             </a>
                         </li>

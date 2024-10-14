@@ -2,18 +2,14 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
-use App\Http\Livewire\Construction\Hiring\Actions\Waitinghiring;
+
 use App\Models\Company;
 use App\Models\File;
 use App\Models\HiringWaiting;
 use App\Models\Note;
 use App\Models\Operation;
-use App\Models\Order;
-use App\Models\Production;
-use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\User;
-use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -86,10 +82,9 @@ class Waiting extends Component
     public $clipboardData = [];
 
 
-
-
     protected $listeners = [
         'refresh_list' => '$refresh',
+        'refresh' => '$refresh',
         'confirm_viability' => 'confirm_viability',
         'cleanAll' => 'closeall',
         'giveBack' => 'giveBack',
@@ -118,27 +113,101 @@ class Waiting extends Component
         $this->services  = Service::orderBy('service')->get();
     }
 
-    public function updatedSelectAll($value)
-    {
-        if ($value) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($this->lists as $list) {
 
-                if (!in_array($list->Note->id, $this->selected) && $list->Reclaim->completed) {
-                    $this->selected[] = $list->Note->id;
+    public function buscarMulti()
+    {
+
+        if ($this->advanceSearch) {
+
+
+
+            $this->gotoPage(1);
+
+
+            $this->multiSearch = explode("\n", $this->advanceSearch);
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
+            }
+
+            $this->multiSearch = array_map('trim', $this->multiSearch);
+        }
+
+
+
+
+
+
+
+        if (count($this->multiSearch)) {
+
+            $limpar = [];
+
+            foreach ($this->multiSearch as $value) {
+                if ($value) {
+                    $limpar[] = $value;
+                }
+            }
+
+            $this->multiSearch = $limpar;
+            $this->search = '';
+            $this->dispatchBrowserEvent('hideModal');
+            $this->closeAll();
+        }
+    }
+
+    // Lógica para selecionar todos os registros
+    public function setSelectAll()
+    {
+
+        if ($this->selectAll) {
+            // Adicionar os IDs que cumprem as regras à lista de selecionados
+            foreach ($this->lists as $item) {
+                $id = $item->id;
+
+                if (!in_array($id, $this->selected)) {
+                    if ($item->Reclaim->completed) {
+                        $this->selected[] = $id;
+                    }
                 }
             }
         } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $this->lists->pluck('Note.id')->toArray())) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
+            // Remover os IDs de $selected que estão presentes em $this->lists
+            $visibleIds = $this->lists->pluck('id')->toArray();
+            $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
+                return !in_array($id, $visibleIds);
+            });
         }
+
+    }
+
+    public function openMultiNotas()
+    {
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => "modal_multi_notas",
+        ]);
+    }
+
+
+    // Lógiva para verificar se todos os registros estão selecionados
+    public function checkAllSelect($items)
+    {
+
+        $items = $items->filter(function ($item) {
+            return $item->Reclaim->completed;
+        })->pluck('id')->toArray();
+
+        $this->selectAll = empty(array_diff($items, $this->selected));
+
+        return $this->selectAll;
     }
 
     public function go_att_mass()
@@ -156,42 +225,33 @@ class Waiting extends Component
             return;
         }
 
-        $orders = Order::WhereRelation('Note', function ($q) {
-            $q->whereIn('id', $this->selected);
-        })->get()->pluck('id')->toArray();
 
-        $this->emit('getOrders', $orders);
+
+        $this->emitTo('construction.hiring.actions.waitinghiring', 'getNotes', $this->selected);
+
     }
 
     public function copyClipboard()
     {
         if (count($this->selected)) {
+            $notes = Note::with('Orders.Operations', 'Files')
+            ->whereIn('id', HiringWaiting::whereIn('id', $this->selected)->pluck('note_id'))
+            ->orderBy('type_note', 'DESC')
+            ->orderBy('days_left')
+            ->orderBy('note')
+            ->get();
 
-
-
-            $orders = Order::join('notes', 'orders.note_id', '=', 'notes.id')->with('Operations', 'Note.Files')
-                ->select('orders.*', 'notes.id as myNote_id', 'notes.days_left as myDayLeft', 'notes.type_note as myTypeNote', 'notes.note as myNote')
-                ->orderBy('myTypeNote', 'DESC')
-                ->orderBy('myDayLeft')
-                ->orderBy('myNote')
-                ->whereRelation('Note', function ($q) {
-                    $q->whereIn('note_id', $this->selected);
-                })->get();
-
-            if ($orders) {
-
-
-
-                foreach ($orders as $order) {
-
-                    $this->clipboardData[] = [
-                        $order->ordem,
-                        $order->Note->note,
-                        $order->pep ?? ''
-                    ];
+            if ($notes) {
+                foreach ($notes as $note) {
+                    foreach ($note->Orders->filter(function ($order) {
+                        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+                    }) as $order) {
+                        $this->clipboardData[] = [
+                            $order->ordem,
+                            $order->Note->note,
+                        ];
+                    }
                 }
-
-                // dd($this->clipboardData);
 
                 $this->dispatchBrowserEvent('copyToBoard', $this->clipboardData);
 
@@ -301,6 +361,26 @@ class Waiting extends Component
             ->when($this->typeNote, function ($query) {
                 $query->whereHas('Note', function ($subquery) {
                     $subquery->where('type_note', $this->typeNote);
+                });
+            })
+            ->when($this->search, function ($query) {
+
+                $this->advanceSearch = '';
+                $this->multiSearch = [];
+
+                $query->whereHas('Note', function ($subquery) {
+                    $subquery->where('note', 'like', '%' . $this->search . '%')
+                        ->orWhereRelation('Orders', 'ordem', 'like', '%' . $this->search . '%');
+                });
+
+            })
+            ->when($this->multiSearch, function ($query) {
+                $query->whereHas('Note', function ($subquery) {
+                    $subquery->whereIn('note', $this->multiSearch)
+                            ->orWhereRelation('Orders', function ($q) {
+                                $q->whereIn('ordem', $this->multiSearch);
+                            });
+
                 });
             })
             ->orderBy('created_at')

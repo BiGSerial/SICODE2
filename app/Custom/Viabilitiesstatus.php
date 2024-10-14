@@ -122,6 +122,13 @@ class Viabilitiesstatus
                 'colorbg' => 'text-bg-warning',
                 'color'   => 'warning',
             ],
+            // 16
+            [
+                'status'  => 'Aguardando Despacho',
+                'icon'    => 'bx bxs-badge-dollar',
+                'colorbg' => 'text-bg-warning',
+                'color'   => 'warning',
+            ],
 
         ];
 

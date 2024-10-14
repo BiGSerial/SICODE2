@@ -20,26 +20,8 @@
                         <li>
                             <a href="{{ route('construction.accompany', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>MEU CONTROLE
-                                    {{ mb_strToUpper($service->service) }}</span>
+                                <i class="bi bi-circle"></i> <span>À CONTRATAR</span>
                                 @livewire('construction.hiring.counts.countmycontrol', key('count-control'))
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('construction.returned', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>RETORNO VIABILIDADE
-                                    {{ mb_strToUpper($service->service) }}</span>
-                                @livewire('construction.hiring.counts.returnviab', key('count-return'))
-                            </a>
-                        </li>
-
-                        <li>
-                            <a href="{{ route('construction.waiting', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>EM ESPERA
-                                    {{ mb_strToUpper($service->service) }}</span>
-                                {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
                             </a>
                         </li>
 
@@ -49,6 +31,24 @@
                                 <i class="bi bi-circle"></i> <span>OBRAS CONTRATADAS</span>
                             </a>
                         </li>
+                        {{-- <li>
+                            <a href="{{ route('construction.returned', ['service' => $service->uuid]) }}"
+                                class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span>RETORNO VIABILIDADE
+                                    {{ mb_strToUpper($service->service) }}</span>
+                                @livewire('construction.hiring.counts.returnviab', key('count-return'))
+                            </a>
+                        </li> --}}
+
+                        <li>
+                            <a href="{{ route('construction.waiting', ['service' => $service->uuid]) }}"
+                                class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span>AGUARDANDO RETORNO INTERNO</span>
+                                @livewire('construction.hiring.counts.count-return')
+                            </a>
+                        </li>
+
+
 
                     </div>
                 </ul>

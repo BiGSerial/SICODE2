@@ -53,9 +53,23 @@ class ProductionControlExport implements FromView, WithEvents, WithProperties
                     ],
                 ]);
 
-                $event->sheet->autoSize();
+                // Formata as colunas A e B como números inteiros
+                $highestRow = $event->sheet->getHighestRow();
+
+                $event->sheet->getStyle('A2:A' . $highestRow)
+                    ->getNumberFormat()
+                    ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER);
+                $event->sheet->getStyle('B2:B' . $highestRow)
+                    ->getNumberFormat()
+                    ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER);
+
+                // Ajusta automaticamente o tamanho das colunas
+                foreach (range('A', 'P') as $column) {
+                    $event->sheet->getDelegate()->getColumnDimension($column)->setAutoSize(true);
+                }
             },
         ];
+
     }
 
     public function view(): View

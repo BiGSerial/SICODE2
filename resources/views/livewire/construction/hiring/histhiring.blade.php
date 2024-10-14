@@ -2,6 +2,8 @@
     use App\Custom\Viabilitiesstatus;
     use App\Custom\Notestatus;
     use Carbon\Carbon;
+    use App\Helpers\DaysLeft;
+
 @endphp
 
 @push('css')
@@ -23,15 +25,11 @@
 
         @keyframes growDown {
             from {
-
                 transform: scaleY(0);
-                /* Escala vertical inicial: 0 */
             }
 
             to {
-
                 transform: scaleY(1);
-                /* Escala vertical final: 1 (sem mudança de tamanho) */
             }
         }
 
@@ -121,13 +119,13 @@
     {{-- END SearchBar and Filters --}}
 
     {{-- START LIST --}}
-    @if (!$lists->count())
+    @if ($lists->isEmpty())
         <div class="text-center my-5 py-3">
             <h3>NENHUMA ATIVIDADE ENCONTRADA</h3>
         </div>
     @endif
 
-    @if ($lists->count())
+    @if ($lists->isNotEmpty())
         {{-- Paginador --}}
         <div class="row mt-3">
             <div class="col-6">
@@ -160,17 +158,13 @@
                         <th scope="col" class="text-center align-middle">Municipio</th>
                         <th scope="col" class="text-center align-middle">Status</th>
                         <th scope="col" class="text-center align-middle"></th>
-
-
                     </thead>
                     <tbody class="table-group-divider">
                         @foreach ($lists as $index => $list)
                             @php
                                 $status = null;
 
-                                $dueDate = $list->Viabilities->count()
-                                    ? Carbon::parse($list->Viabilities->last()->sended_at)->addDays(7)
-                                    : null;
+                                $dueDate = Carbon::parse($list->sended_at)->addDays($list->getDays() + 7);
                                 $today = Carbon::now();
                                 $daysDifference = 0;
 
@@ -202,96 +196,57 @@
                                 $block = null;
                                 $color = 'grey';
                                 $days_left = 0;
-
+                                $days_left = (new DaysLeft($list->Note))->getDaysLeft();
                                 // Dias Restantes
-                                if ($list->type_note == 1) {
-                                    if ($list->mesalization && $list->mesalization != 'erro') {
-                                        preg_match('/\d+\/\d+/', $list->mesalization, $matches);
 
-                                        if (!empty($matches)) {
-                                            [$mes, $ano] = explode('/', $matches[0]);
-
-                                            if ($mes >= 1) {
-                                                $data = "{$ano}-{$mes}-28 23:59:59";
-
-                                                $hoje = Carbon::now();
-
-                                                $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
-
-                                                $days_left = $hoje->diffInDays($dataCarbon, false);
-                                            } else {
-                                                $data = "{$ano}-12-28 23:59:59";
-
-                                                $hoje = Carbon::now();
-
-                                                $dataCarbon = Carbon::createFromFormat('Y-m-d H:i:s', $data);
-
-                                                $days_left = $hoje->diffInDays($dataCarbon, false);
-                                            }
-                                        }
-                                    }
-                                } elseif ($list->type_note == 2) {
-                                    $days_left = $list->days_left;
-                                }
-
-                                if ($list->Viabilities->count()) {
+                                if ($list->count()) {
                                     $count = 0;
 
-                                    foreach ($list->Viabilities as $order) {
-                                        if ($order->approved) {
-                                            $count++;
+                                    if ($list->approved) {
+                                        $count++;
 
-                                            $block = [
-                                                'color' => 'green',
-                                                'command' => true,
-                                            ];
+                                        $block = [
+                                            'color' => 'green',
+                                            'command' => true,
+                                        ];
 
-                                            $color = 'green';
-                                        } elseif ($order->rejected) {
-                                            $count++;
+                                        $color = 'green';
+                                    } elseif ($list->rejected) {
+                                        $count++;
 
-                                            $block = [
-                                                'color' => 'danger',
-                                                'command' => true,
-                                            ];
+                                        $block = [
+                                            'color' => 'danger',
+                                            'command' => true,
+                                        ];
 
-                                            $color = 'red';
-                                        }
-
-                                        if (($order->rejected || $order->approved) && !$order->completed) {
-                                            $status = [
-                                                'color' => 'text-bg-primary',
-                                                'info' => 'EM AVALIAÇÂO',
-                                            ];
-                                        }
+                                        $color = 'red';
                                     }
 
-                                    if ($count == $list->Viabilities->count()) {
+                                    if (($list->rejected || $list->approved) && !$list->completed) {
+                                        $status = [
+                                            'color' => 'text-bg-primary',
+                                            'info' => 'EM AVALIAÇÂO',
+                                        ];
+                                    }
+
+                                    if ($count) {
                                         $block = array_merge($block, ['command' => false]);
                                     }
                                 }
 
                                 $color = '';
 
-                                if (
-                                    $list->Viabilities->last()->approved &&
-                                    !$list->Viabilities->last()->rejected &&
-                                    !$list->Viabilities->last()->tacit
-                                ) {
+                                if ($list->approved && !$list->rejected && !$list->tacit) {
                                     $color = 'green';
-                                } elseif (
-                                    !$list->Viabilities->last()->approved &&
-                                    $list->Viabilities->last()->rejected &&
-                                    !$list->Viabilities->last()->tacit
-                                ) {
+                                } elseif (!$list->approved && $list->rejected && !$list->tacit) {
                                     $color = 'red';
-                                } elseif ($list->Viabilities->last()->tacit) {
+                                } elseif ($list->tacit) {
                                     $color = 'yellow';
                                 }
 
                                 $tcolor = '';
 
-                                if ($list->Viabilities->last()->hired) {
+                                if ($list->hired) {
                                     $tcolor = 'table-success';
                                 }
 
@@ -301,42 +256,47 @@
                                 style="cursor: pointer; border-left: 8px solid {{ $color }};">
                                 <td>
                                 </td>
-                                <td class="text-center align-middle">{{ $list->note }}</td>
+                                <td class="text-center align-middle">{{ $list->Note->note }}</td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    <x-files.select-download-list :files='$list->Files' />
+                                    <x-files.select-download-list :files='$list->Note->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->Viabilities->count())
-                                        @foreach ($list->Viabilities as $viab)
-                                            <p class="p-0 m-1">
-                                                {{ $viab->Order->ordem }}
-                                            </p>
+                                    @if ($list->Orders->isNotEmpty())
+                                        @foreach ($list->Orders as $order)
+                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
+                                    @else
+                                        @if ($list->Note->Orders->isNotEmpty())
+                                            @foreach ($list->Note->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                            @endforeach
+                                        @endif
                                     @endif
                                 </td>
 
-
                                 <td class="text-center align-middle fw-bold">
-                                    {{ Carbon::parse($list->Viabilities->last()->sended_at)->format('d/m/Y') }}
+                                    {{ Carbon::parse($list->sended_at)->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-success fw-bold">
-                                    {{ isset($list->Viabilities->last()->hired_at) ? Carbon::parse($list->Viabilities->last()->hired_at)->format('d/m/Y') : '---' }}
+                                    {{ isset($list->hired_at) ? Carbon::parse($list->hired_at)->format('d/m/Y') : '---' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ isset($list->Viabilities->last()->Company) ? $list->Viabilities->last()->Company->name : '---' }}
+                                    {{ isset($list->Company) ? $list->Company->name : '---' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ isset($list->Viabilities->last()->Engineer) ? $list->Viabilities->last()->Engineer->name : '---' }}
+                                    {{ isset($list->Engineer) ? $list->Engineer->name : '---' }}
                                 </td>
-                                <td class="text-center align-middle">{{ $list->rubrica }}</td>
+                                <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
                                 <td class="text-center align-middle">
-                                    {{ $cities->Where('rdMunicipio', $list->nexp)->first() ? $cities->Where('rdMunicipio', $list->nexp)->first()->regiao : '' }}
+                                    {{ $cities->Where('rdMunicipio', $list->Note->nexp)->first() ? $cities->Where('rdMunicipio', $list->Note->nexp)->first()->regiao : '' }}
                                 </td>
-                                <td class="text-center align-middle">{{ $list->lexp }}</td>
+                                <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
 
                                 <td class="text-center align-middle"><span
-                                        class="badge {{ Viabilitiesstatus::status($list->Viabilities->last()->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($list->Viabilities->last()->status)->status }}</span>
+                                        class="badge {{ Viabilitiesstatus::status($list->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($list->status)->status }}</span>
                                 </td>
                                 <td class="align-middle text-center">
                                     <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
@@ -348,8 +308,6 @@
                     </tbody>
                 </table>
             </div>
-
-
         </div>
 
         {{-- Paginador --}}

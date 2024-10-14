@@ -2,18 +2,18 @@
 
 namespace App\Http\Livewire\Construction\Hiring\Counts;
 
-use App\Models\Note;
+use App\Models\Viability;
 use Livewire\Component;
 
 class Countmycontrol extends Component
 {
     public function getCountProperty()
     {
-        return Note::whereRelation('Viabilities', function ($q) {
-            return $q->where('completed', false)
-                    ->where('hired', false)
-                    ->where('user_id', Auth()->User()->id);
-        })->count();
+        return Viability::where('completed', false)
+                ->where('hired', false)
+                ->where('approved', true)
+                ->where('rejected', false)
+                ->count();
 
     }
 

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
+use App\Models\Viability;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -86,46 +87,39 @@ class Histhiring extends Component
 
     public function getListsProperty()
     {
-        $query = Note::query();
+        $query = Viability::query();
 
-        $query->whereRelation('Viabilities', function ($q) {
-            $q->where('hired', true);
+        $query->where('hired', true);
 
-            if ($this->dateBy && ($this->date_in || $this->date_out)) {
+        if ($this->dateBy && ($this->date_in || $this->date_out)) {
 
-                if ($this->date_in && !$this->date_out) {
-                    $q->whereDate($this->dateBy, '>=', $this->date_in);
-                }
-
-                if (!$this->date_in && $this->date_out) {
-                    $q->whereDate($this->dateBy, '<=', $this->date_out);
-                }
-
-                if ($this->date_in && $this->date_out) {
-                    $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
-                }
+            if ($this->date_in && !$this->date_out) {
+                $query->whereDate($this->dateBy, '>=', $this->date_in);
             }
 
-            $q->orderBy('sended_at', 'DESC');
-        });
+            if (!$this->date_in && $this->date_out) {
+                $query->whereDate($this->dateBy, '<=', $this->date_out);
+            }
+
+            if ($this->date_in && $this->date_out) {
+                $query->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
+            }
+        }
+
+        $query->orderBy('sended_at', 'DESC');
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->Where('note', 'like', "%$this->search%")
-                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+                $q->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
+                    ->orWhereRelation('Note.Orders', 'ordem', 'like', '%' . $this->search . '%');
             });
         }
 
         if (isset($this->filter['city'])) {
-
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with(['Viabilities' => function ($query) {
-            $query->where('hired', true)
-                ->with('Company', 'User', 'Form', 'Comments.User');
-        }, 'Files']);
-
+        $query->with(['Company', 'User', 'Form', 'Comments.User', 'Files']);
 
         return $query->paginate($this->perPage);
     }

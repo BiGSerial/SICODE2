@@ -149,7 +149,8 @@ class ViabList extends Component
         $query->where('canceled', false)
             ->where('completed', false)
             ->where('tacit', false)
-            ->where('rejected', false);
+            ->where('rejected', false)
+            ->where('visible_partner', false);
 
         if (!auth()->user()->superadm) {
 
@@ -186,7 +187,7 @@ class ViabList extends Component
             });
         }
 
-        return $query;
+        return $query->orderBy('sended_at', 'asc');
 
     }
 

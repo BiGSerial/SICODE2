@@ -5,8 +5,10 @@ namespace App\Http\Livewire\Construction\Hiring\Actions;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\Note;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\Viability as ModelsViability;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -26,7 +28,8 @@ class Viability extends Component
 
     protected $listeners = [
         'getNotes',
-        'closeAll'
+        'closeAll',
+        'd1b5f6f9e5e1c1e8e4e8e5e8e5e8e5e8' => 'goViability',
     ];
 
     protected $rules = [
@@ -73,7 +76,13 @@ class Viability extends Component
 
     public function updatedCompanyId($company_id)
     {
-        $this->responsibles = User::whereRelation('Companies', 'id', $company_id)->where('responsible', true)->select('id', 'name')->orderBy('name')->get();
+        $this->responsibles = User::whereHas('Companies', function ($query) use ($company_id) {
+            $query->where('companies.id', $company_id);
+        })
+                                    ->where('users.responsible', true)
+                                    ->select('id', 'name')
+                                    ->orderBy('name')
+                                    ->get();
     }
 
 
@@ -120,7 +129,138 @@ class Viability extends Component
             return;
         }
 
-        dd($this->toViabilities);
+        $count = count($this->toViabilities);
+
+        $company = Company::find($this->company_id)->name;
+        $user = User::find($this->responsible_id)->name;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "ENVIAR VIABILIDADE",
+            'msg'           => "
+                <p>Deseja enviar <span class='fw-bold'>{$count}</span> obra(s) para <span class='fw-bold'>{$company}</span>?</p>
+                <div class='card'>
+                    <div class='card-body text-left'>
+                        <p class='fw-bold'>Responsável:<span class='fw-normal'> {$user}</span></p>
+                    </div>
+                </div>
+            ",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Envie!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'd1b5f6f9e5e1c1e8e4e8e5e8e5e8e5e8',
+            'confirm'       => 'Sim envie',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma Ordem foi Enviada!',
+
+        ]);
+
+        return;
+
+    }
+
+    public function removeViability($key)
+    {
+        if (isset($this->toViabilities[$key])) {
+            unset($this->toViabilities[$key]);
+        }
+
+        if (count($this->toViabilities) <= 0) {
+            $this->closeAll();
+        }
+    }
+
+
+    public function goViability()
+    {
+        $note = '';
+
+        DB::beginTransaction();
+
+        try {
+            foreach ($this->toViabilities as $toViability) {
+
+                $viability = ModelsViability::create([
+                    'note_id'    => $toViability['note']['id'],
+                    'user_id'    => Auth()->User()->id,
+                    'company_id' => $this->company_id,
+                    'engineer_id' => $this->responsible_id,
+                    'sended_at' => $toViability['reter'] ? null : now(),
+                    'visible_partner' => $toViability['reter'] ? true : false,
+                    'hired'  => $toViability['contratar'] ? true : false,
+                    'hire_at' => $toViability['contratar'] ? now() : null,
+                    'status' => $toViability['reter'] ? 16 : 1,
+                    ]);
+
+                $orders = Order::where('statusSist', 'NOT LIKE', 'ENC%')
+                                ->where('statusSist', 'NOT LIKE', 'ENT%')
+                                ->where('note_id', $toViability['note']['id'])
+                                ->get();
+
+                if ($orders->count()) {
+                    foreach ($orders as $order) {
+                        $viability->orders()->syncWithoutDetaching([$order->id]);
+                    }
+                } else {
+                    throw new Exception("Um ou mais registros não possue(m) Ordem(ns) válida(s) para contratação", 1);
+                }
+
+                if (isset($toViability['temp_files']['files']) && count($toViability['temp_files']['files']) > 0) {
+
+                    $note = Note::find($toViability['note']['id']);
+
+                    if ($note->exists()) {
+                        foreach ($toViability['temp_files']['files'] as $index => $file) {
+                            $new_name = 'PROJETO_DESE_'.$note->note.'_F'.str_pad($index + 1, 2, '0', STR_PAD_LEFT).'-'.str_pad(count($toViability['temp_files']['files']), 2, '0', STR_PAD_LEFT);
+                            $rev = File::where('file_name', 'like', $new_name."%")->count();
+
+                            $caminho = $file->store('/arquivos/PROJETO');
+
+                            if (Storage::exists($caminho)) {
+
+                                File::create([
+                                    'note_id' => $note->id,
+                                    'user_id' => Auth()->User()->id,
+                                    'service_id' => null,
+                                    'file_name' => $new_name."_Rev-".$rev,
+                                    'original_name' => $file->getClientOriginalName(),
+                                    'path' => $caminho,
+                                    'ext' => $file->extension(),
+                                    'suspicious' => 0,
+                                    'noexists' => false,
+                                ]);
+                            } else {
+                                throw new Exception("Um ou mais arquivos não foram salvos corretamente", 1);
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            DB::commit();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'SUCESSO',
+                'html'     => 'A Viabilidade foi enviada com sucesso.',
+                'timer'    => 5000,
+            ]);
+
+            $this->closeAll();
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ERRO',
+                'html'     => 'Ocorreu um erro ao tentar enviar a viabilidade, tente novamente.<br><br>'.$th->getMessage(),
+                // 'timer'    => 10000,
+            ]);
+        }
+
+
 
     }
 
@@ -132,6 +272,9 @@ class Viability extends Component
         $this->responsible_id = null;
         $this->resetErrorBag();
         $this->resetValidation();
+
+        $this->emitUp('closeAll');
+        $this->dispatchBrowserEvent('hideModal');
     }
 
 

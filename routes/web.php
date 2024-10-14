@@ -128,6 +128,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
         Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');
         Route::get('/reject_viab', 'viab_reject')->name('rejecte_viab');
         Route::get('/justified_viab', 'justified_viab')->name('justified_viab');
+        Route::get('/viab_historico', 'viab_hist')->name('viab_hist');
 
     });
 

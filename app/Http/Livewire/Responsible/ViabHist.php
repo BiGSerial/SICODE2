@@ -1,15 +1,17 @@
 <?php
 
-namespace App\Http\Livewire\Partner;
+namespace App\Http\Livewire\Responsible;
 
 use App\Exports\parner\exportExcel;
-use App\Models\Edp_depc\City;
-use App\Models\{File, Note, Viability};
-use Illuminate\Support\Facades\{Crypt, Storage};
-use Livewire\{Component, WithPagination};
-use ZipArchive;
+use App\Exports\Viability\HistoricReport;
+use App\Models\City;
+use App\Models\File;
+use App\Models\Viability;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Component;
+use Livewire\WithPagination;
 
-class Histviab extends Component
+class ViabHist extends Component
 {
     use WithPagination;
 
@@ -50,11 +52,7 @@ class Histviab extends Component
 
     public function export_excel()
     {
-
-        return (new exportExcel($this->lists->get()->sortBy(function ($note) {
-            // Acessar a primeira 'Viability' e o campo 'sended_at'
-            return $note->Viabilities->first()->sended_at ?? null;
-        })))->download(date('YmdHis-') . 'HistViabExport.xlsx');
+        return (new HistoricReport($this->lists->orderBy('sended_at', 'DESC')->get()))->download(date('YmdHis-') . 'HistViabExport.xlsx');
     }
 
     public function updatedPerPage()
@@ -81,46 +79,7 @@ class Histviab extends Component
         }
     }
 
-    public function openForms($id)
-    {
-        if ($id) {
 
-            return redirect()->route('forms.viability', ['id' => Crypt::encrypt($id)]);
-        }
-    }
-
-    public function downloadZip()
-    {
-        if (count($this->files_selected)) {
-            $files = File::find($this->files_selected);
-
-            if ($files) {
-                $zipFile = 'Arquivos-Lote-' . hash('crc32', time()) . '.zip';
-                $zip     = new ZipArchive();
-                $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-
-                foreach ($files as $file) {
-                    $content = Storage::get($file->path);
-                    $zip->addFromString($file->file_name . '.' . $file->ext, $content);
-                }
-
-                $zip->close();
-
-                $this->files_selected = [];
-
-                return response()->download($zipFile)->deleteFileAfterSend(true);
-            }
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nenhum Arquivo foi selecionado para Download',
-                'timer'    => 5000,
-            ]);
-
-            return;
-        }
-    }
 
     public function cleanAll()
     {
@@ -191,7 +150,7 @@ class Histviab extends Component
 
     public function render()
     {
-        return view('livewire.partner.histviab', [
+        return view('livewire.responsible.viab-hist', [
             'lists'  => $this->lists->paginate($this->perPage),
             'cities' => $this->cities,
         ]);

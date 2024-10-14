@@ -1,13 +1,16 @@
 <?php
 
-namespace App\Exports;
+namespace App\Exports\Viability;
 
-use Illuminate\Contracts\View\View;
-use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithEvents, WithProperties};
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class HiringListExport implements FromView, WithEvents, WithProperties
+class HistoricReport implements FromView, WithEvents, WithProperties
 {
     use Exportable;
 
@@ -18,9 +21,11 @@ class HiringListExport implements FromView, WithEvents, WithProperties
         $this->data = $data;
     }
 
-    public function getData()
+    public function view(): \Illuminate\Contracts\View\View
     {
-        return $this->data;
+        return view('exports.viability.historic-report', [
+            'data' => $this->data
+        ]);
     }
 
     public function properties(): array
@@ -41,7 +46,7 @@ class HiringListExport implements FromView, WithEvents, WithProperties
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:N1')->applyFromArray([
+                $event->sheet->getStyle('A1:K1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -50,20 +55,19 @@ class HiringListExport implements FromView, WithEvents, WithProperties
                         'fillType'   => Fill::FILL_SOLID,
                         'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
                     ],
+
                 ]);
 
                 $event->sheet->getStyle('A:B')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('L:L')->getNumberFormat()->setFormatCode('@');
+                $event->sheet->getStyle('A:K')->applyFromArray([
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER, // Centralizado horizontalmente
+                        'vertical'   => Alignment::VERTICAL_CENTER,   // Centralizado verticalmente
+                    ],
+                ]);
+                // $event->sheet->getStyle('L:L')->getNumberFormat()->setFormatCode('@');
                 $event->sheet->autoSize();
             },
         ];
-    }
-
-    public function view(): view
-    {
-
-        return view('exports.hiring.hiringlistexport', [
-            'lists' => $this->getData(),
-        ]);
     }
 }

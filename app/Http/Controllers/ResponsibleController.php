@@ -30,4 +30,9 @@ class ResponsibleController extends Controller
     {
         return view('responsible.justifyViab');
     }
+
+    public function viab_hist()
+    {
+        return view('responsible.viahist');
+    }
 }
