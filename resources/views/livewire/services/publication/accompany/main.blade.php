@@ -124,10 +124,13 @@
                                 @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
                                     @php
                                         $daysLeft = new DaysLeft($list->Note);
+                                        $formBlock = $list->Note->WorkForm->rejected
+                                            ? $list->Note->WorkForm->rejected
+                                            : false;
                                     @endphp
                                     <tr wire:key="work-{{ $list->id }}"
                                         wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
-                                        class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
+                                        class="align-middle text-center align-middle @if ($list->block) table-primary @elseif ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif">
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                             {{ $list->Note->note }}
@@ -197,13 +200,18 @@
 
                                         <td class="fw-light text-center">
 
-                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                            @if ($formBlock)
+                                                <span class="badge text-bg-warning text-wrap p-1">INFORME EM
+                                                    REVISÃO</span>
+                                            @else
+                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                            @endif
                                         </td>
                                         <td class="fw-bold fs-5">
 
-                                            @if (!$list->block && !$this->blockWaiting($list->status))
+                                            @if (!$list->block && !$this->blockWaiting($list->status) && !$formBlock)
                                                 @if (!$list->completed)
                                                     <span class="d-inline-block" data-bs-toggle="tooltip"
                                                         data-bs-placement="top" data-bs-custom-class="custom-tooltip"
@@ -225,13 +233,15 @@
                                                 @endif
                                             @endif
 
-                                            <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Devolver Informe">
-                                                <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
-                                                    style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                    wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
-                                            </span>
+                                            @if (!$formBlock)
+                                                <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                    data-bs-title="Devolver Informe">
+                                                    <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                        style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
+                                                </span>
+                                            @endif
                                         </td>
 
 

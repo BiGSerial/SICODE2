@@ -179,7 +179,15 @@
                                         <tr class="align-middle @if ($list->priority) table-danger @endif">
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                                {{ $list->Note->note }}
+                                                @if ($list->d5)
+                                                    <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
+                                                        wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
+                                                        {{ $list->Note->note }}
+                                                    </span>
+                                                @else
+                                                    {{ $list->Note->note }}
+                                                @endif
+
                                                 <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
@@ -358,6 +366,7 @@
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprodlev', key('Transfer_production'))
     @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('services.desenho.actions.responserinfo', key('responser_info_return'))
 
     <div wire:init="checkOpen"></div>
 

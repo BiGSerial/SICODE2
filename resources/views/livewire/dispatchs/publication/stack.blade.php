@@ -450,8 +450,11 @@
                     </thead>
                     <tbody>
                         @foreach ($lists as $list)
+                            @php
+                                $formBlock = $list->Note->WorkForm->rejected ? $list->Note->WorkForm->rejected : false;
+                            @endphp
                             <tr wire:key="line-{{ $list->id }}"
-                                class="align-middle text-center
+                                class="align-middle text-center  @if ($formBlock) table-dark text-danger @endif
                                     @if ($list->block) table-primary @endif
 
                                     ">
@@ -541,10 +544,14 @@
                                     {{ $daysLeft->getLastDate() }}
                                 </td>
                                 <td class="fw-light text-center">
+                                    @if ($formBlock)
+                                        <span class="badge text-bg-info text-wrap p-1">INFORME EM REVISAO</span>
+                                    @else
+                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                    @endif
 
-                                    <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                        wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                        style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                 </td>
                                 <td class="fw-bold fs-5">
 
