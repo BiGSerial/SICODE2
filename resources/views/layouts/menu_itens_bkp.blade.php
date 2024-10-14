@@ -99,95 +99,15 @@
 
     $projeto = false;
     $construction = false;
-    $dispatch_project = false;
-    $dispatch_construction = false;
+    $projetos = Auth()->user()->Employee->Contract->services->where('project', true);
+    $constructions = Auth()->user()->Employee->Contract->services->where('construction', true);
 
-    $service_project = false;
-    $service_construction = false;
-
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where(function ($q) {
-                $q->whereRelation('Service', 'project', true);
-            })
-    ) {
+    if (isset(Auth()->user()->Employee->Contract) && Auth()->user()->Employee->Contract->service) {
         $projeto = true;
     }
 
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where(function ($q) {
-                $q->where(function ($sq) {
-                    $sq->where('service', true)->orWhere('dispatch', true);
-                })->whereRelation('Service', 'construction', true);
-            })
-    ) {
+    if (isset(Auth()->user()->Employee->Contract) && Auth()->user()->Employee->Contract->construction) {
         $construction = true;
-    }
-
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where(function ($q) {
-                $q->where(function ($sq) {
-                    $sq->where('service', true)->orWhere('dispatch', true);
-                })->whereRelation('Service', 'project', true);
-            })
-    ) {
-        $projeto = true;
-    }
-
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where('dispatch', true)
-            ->where(function ($q) {
-                $q->whereRelation('Service', 'project', true);
-            })
-    ) {
-        $dispatch_project = true;
-    }
-
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where('dispatch', true)
-            ->where(function ($q) {
-                $q->whereRelation('Service', 'construction', true);
-            })
-    ) {
-        $dispatch_construction = true;
-    }
-
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where('service', true)
-            ->where(function ($q) {
-                $q->whereRelation('Service', 'project', true);
-            })
-    ) {
-        $service_project = true;
-    }
-
-    if (
-        Auth()->User()->ToServices->count() &&
-        Auth()
-            ->User()
-            ->ToServices->where('service', true)
-            ->where(function ($q) {
-                $q->whereRelation('Service', 'construction', true);
-            })
-    ) {
-        $service_construction = true;
     }
 
 @endphp
@@ -203,119 +123,39 @@
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
             style="background-color: #dbd8d8; width: 300px;">
             @can('operator')
-                @if ($dispatch_project && Auth()->User()->ToServices->count())
-                    @foreach (Auth()->User()->ToServices as $service)
-                        @if ($service->dispatch && $service->Service->project)
+                @if ($projetos->count())
+                    @foreach ($projetos->sortBy('service') as $service)
+                        @if ($service->pivot->dispatch)
                             @once
                                 <li style="background-color: #ffffff; color: white;">
                                     <h6 class="dropdown-header">DESPACHOS</h6>
                                 </li>
                             @endonce
                             <li><a class="dropdown-item"
-                                    href="{{ route('dispatch.main', ['service' => $service->service_id]) }}"><i
-                                        class="{{ $service->Service->icon }} align-middle text-danger"></i>{{ mb_strToUpper($service->Service->service) }}</a>
+                                    href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"><i
+                                        class="{{ $service->icon }} align-middle text-danger"></i>{{ mb_strToUpper($service->service) }}</a>
                             </li>
                         @endif
                     @endforeach
                 @endif
             @endcan
-
-
-
-
             @can('user')
                 <li>
                     <hr class="dropdown-divider">
                 </li>
-                @if ($service_project && Auth()->User()->ToServices->count())
-                    @foreach (Auth()->User()->ToServices as $service)
-                        @if ($service->service && $service->Service->project)
-                            @once
-                                <li style="background-color: #ffffff; color: white;">
-                                    <h6 class="dropdown-header">SERVIÇOS</h6>
-                                </li>
-                            @endonce
-                            <li><a class="dropdown-item"
-                                    href="{{ route('services.main', ['service' => $service->service_id]) }}">
-                                    <div class="d-flex align-items-center">
-                                        <i class="{{ $service->Service->icon }} text-primary"></i>
-                                        <span>{{ mb_strtoupper($service->Service->service) }}</span>
-                                        @livewire('components.count.countnotes', ['service' => $service->service_id], key('menu' . $service->service_id))
-                                    </div>
-                                </a>
-                            </li>
-                        @endif
-                    @endforeach
-                @endif
-            @endcan
-
-        </ul>
-    </li>
-@endif
-
-@if ($construction)
-    <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-            data-bs-toggle="dropdown" aria-expanded="false">
-            CONSTRUÇÃO
-        </a>
-        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
-            style="background-color: #dbd8d8; width: 300px;">
-
-            @can('operator')
-                @if ($dispatch_construction && Auth()->User()->ToServices->count())
-                    @can('management')
-                        @once
-                            <li style="background-color: #ffffff; color: white;">
-                                <h6 class="dropdown-header">CONTROLE</h6>
-                            </li>
-                        @endonce
-                        <li><a class="dropdown-item"
-                                href="{{ route('construction.responser.main', ['service' => $service->service_id]) }}"><i
-                                    class=" align-middle text-info"></i>ACOMPANHAMENTO CONTRATAÇÃO</a>
+                @if ($projetos->count())
+                    <li style="background-color: #ffffff; color: white;">
+                        <h6 class="dropdown-header">SERVIÇOS</h6>
+                    </li>
+                    @foreach ($projetos as $service)
+                        <li><a class="dropdown-item" href="{{ route('services.main', ['service' => $service->uuid]) }}">
+                                <div class="d-flex align-items-center">
+                                    <i class="{{ $service->icon }} text-primary"></i>
+                                    <span>{{ mb_strtoupper($service->service) }}</span>
+                                    @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu-count-services-' . $service->uuid))
+                                </div>
+                            </a>
                         </li>
-                    @endcan
-                    @foreach (Auth()->User()->ToServices as $service)
-                        @if ($service->dispatch && $service->Service->construction)
-                            @once
-                                <li style="background-color: #ffffff; color: white;">
-                                    <h6 class="dropdown-header">DESPACHOS</h6>
-                                </li>
-                            @endonce
-                            <li><a class="dropdown-item"
-                                    href="{{ route('dispatch.main', ['service' => $service->service_id]) }}"><i
-                                        class="{{ $service->Service->icon }} align-middle text-danger"></i>{{ mb_strToUpper($service->Service->service) }}</a>
-                            </li>
-                        @endif
-                    @endforeach
-                @endif
-            @endcan
-
-
-
-
-            @can('user')
-                <li>
-                    <hr class="dropdown-divider">
-                </li>
-                @if ($service_construction && Auth()->User()->ToServices->count())
-                    @foreach (Auth()->User()->ToServices as $service)
-                        @if ($service->service && $service->Service->construction)
-                            @once
-                                <li style="background-color: #ffffff; color: white;">
-                                    <h6 class="dropdown-header">SERVIÇOS</h6>
-                                </li>
-                            @endonce
-                            <li><a class="dropdown-item"
-                                    href="{{ route('services.main', ['service' => $service->service_id]) }}">
-                                    <div class="d-flex align-items-center">
-                                        <i class="{{ $service->Service->icon }} text-primary"></i>
-                                        <span>{{ mb_strtoupper($service->Service->service) }}</span>
-                                        @livewire('components.count.countnotes', ['service' => $service->service_id], key('menu' . $service->service_id))
-                                    </div>
-                                </a>
-                            </li>
-                        @endif
                     @endforeach
                 @endif
             @endcan
@@ -328,12 +168,29 @@
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
-            RESPONSÁVEL
+            ENGENHARIA
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
             style="background-color: #dbd8d8; width: 300px;">
             <li><a class="dropdown-item"
-                    href="{{ route('construction.responser.main', ['service' => $service->service_id]) }}"><i
+                    href="{{ route('construction.responser.main', ['service' => $service->uuid]) }}"><i
+                        class="ri-eye-fill align-middle text-info"></i> VIABILIDADE</a>
+            </li>
+
+        </ul>
+    </li>
+@endif
+
+
+@if (Auth())
+    <li class="nav-item dropdown mx-2">
+        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            RESPONSÁVEL
+        </a>
+        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
+            style="background-color: #dbd8d8; width: 300px;">
+            <li><a class="dropdown-item" href="{{ route('responsible.main') }}"><i
                         class="ri-eye-fill align-middle text-info"></i> VIABILIDADE</a>
             </li>
 
@@ -343,7 +200,7 @@
 
 
 
-{{-- @if ($construction)
+@if ($construction)
     <li class="nav-item dropdown mx-2">
         <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
@@ -394,7 +251,7 @@
                             <div class="d-flex align-items-center">
                                 <i class="{{ $service->icon }} text-primary"></i>
                                 <span>{{ mb_strtoupper($service->service) }}</span>
-                                @livewire('components.count.countnotes', ['service' => $service->uuid], key('menu' . $service->uuid))
+                                @livewire('components.count.countnotes', ['service' => $service->uuid], key('count-notes-construction' . $service->uuid))
                             </div>
                         </a>
                     </li>
@@ -404,7 +261,7 @@
 
         </ul>
     </li>
-@endif --}}
+@endif
 
 
 

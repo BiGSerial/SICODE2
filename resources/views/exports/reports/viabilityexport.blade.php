@@ -27,8 +27,22 @@
             <tr>
                 <td class="align-middlw">{{ $list->User->name }}</td>
                 <td class="align-middlw">{{ $list->User->Employee->Contract->Company->name }}</td>
-                <td class="align-middlw">{{ $list->Order->ordem }}</td>
-                <td class="align-middlw">{{ $list->Order->Note->note }}</td>
+                <td class="align-middlw">
+                    @if ($list->Orders->count())
+                        @foreach ($list->Orders as $order)
+                            <p class="my-0 py-0">{{ $order->ordem }}</p>
+                        @endforeach
+                    @else
+                        @if ($list->Note->Orders->isNotEmpty())
+                            @foreach ($list->Note->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
+                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+                            @endforeach
+                        @endif
+                    @endif
+                </td>
+                <td class="align-middlw">{{ $list->Note->note }}</td>
                 <td class="align-middlw">{{ $list->hired ? 'SIM' : 'NÃO' }}</td>
                 <td class="align-middlw">{{ $list->tacit ? 'SIM' : 'NÃO' }}</td>
                 <td class="align-middlw">
