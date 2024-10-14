@@ -85,7 +85,12 @@
                             </td>
                             <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
                             <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
-                            <td class="text-center align-middle">{{ $list->category }}</td>
+                            <td class="text-center align-middle" style="cursor: pointer; color: inherit;"
+                                wire:dblclick="$emitTo('dispatchs.common.reclaim-info', 'getInfoResponse', '{{ $list->id }}')"
+                                onmouseover="this.style.color='blue';" onmouseout="this.style.color='inherit';"
+                                data-bs-toggle="tooltip" data-bs-placement="top" title="Duplo clique para detalhes">
+                                {{ $list->category }}
+                            </td>
                             <td class="text-center align-middle">
                                 {{ Carbon::parse($list->created_at)->format('d/m/Y H:i') }}
                             </td>
@@ -143,6 +148,7 @@
     {{-- Livewires Components Functions --}}
     @livewire('dispatchs.users.richange-user', key('change-users-intern-return'))
     @livewire('dispatchs.users.riatt-user', ['service' => $service], key('att-users-intern-return'))
+    @livewire('dispatchs.common.reclaim-info', key('reclaim-info-intern-return'))
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->
     <textarea id="clipboard-data" style="display: none;">

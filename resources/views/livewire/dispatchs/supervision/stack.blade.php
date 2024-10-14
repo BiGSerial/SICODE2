@@ -616,6 +616,10 @@
                                                 @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
                                                 @livewire('production.actions.delete', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
                                                 {{-- @livewire('audits.prodbutton', ['prod' => $list->id, 'service' => $this->service->uuid], key('audit-' . $list->id)) --}}
+                                                <li><a class="dropdown-item" href="#"
+                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"><i
+                                                            class="ri-user-shared-fill text-primary align-middle"></i>
+                                                        Devolver Informe</a></li>
                                             </ul>
                                         </div>
                                     @endif
@@ -814,6 +818,7 @@
     {{-- END MODALS --}}
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('production.return.return-work', key('returnWorkfomr'))
 
 </div>
 
