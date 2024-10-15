@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <div>
 
@@ -146,7 +147,7 @@
                             <th scope="col" class="fw-bold text-center">Retorno</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th class="align-middle text-center">Prazo Pagamento</th>
-                            <th scope="col" class="fw-bold text-center">Situação</th>
+                            <th scope="col" class="fw-bold text-center">Dt Vencimento</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
                     </thead>
@@ -427,14 +428,24 @@
                                 </td>
 
 
-                                <td class="fw-light text-center">
-                                    @if ($list->pze_parecer === 'Vencido')
-                                        <span class="badge text-bg-danger">VENCIDO</span>
-                                    @elseif ($list->pze_parecer === 'Não vencido')
-                                        <span class="badge text-bg-success">EM PRAZO</span>
-                                    @else
-                                        <span class="badge text-bg-secondary">DESCONHECIDO</span>
-                                    @endif
+                                @php
+                                    $daysLeft = new DaysLeft($list);
+                                    $prazoClass = '';
+
+                                    if ($daysLeft->getDaysLeft() < 0) {
+                                        $prazoClass = 'text-bg-danger';
+                                    } elseif ($daysLeft->getDaysLeft() > 15) {
+                                        $prazoClass = 'text-bg-success';
+                                    } else {
+                                        $prazoClass = 'text-bg-warning';
+                                    }
+                                @endphp
+
+                                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                <td scope="col" class="text-center">
+                                    {{ $daysLeft->getLastDate() }}
+
+
                                 </td>
 
 

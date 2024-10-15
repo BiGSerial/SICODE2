@@ -304,6 +304,28 @@ class Usuario extends Component
         ]);
     }
 
+    public function copyClipboarder()
+    {
+        $text = "
+        SISTEMA SICODE - ACESSO DO USUARIO
+        =====================================\n
+        NOME: {$this->user->name}\n
+        EMAIL: {$this->user->email}\n
+        SENHA: 123456\n
+        SERVIDOR: http://edpbr1204/es/\n
+        =====================================\n
+        ";
+
+
+
+        $this->dispatchBrowserEvent('copyToBoard', ['text' => $text]);
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => "Copiado para a área de transferência",
+        ]);
+    }
+
     public function closeAll()
     {
 

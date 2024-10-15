@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.9",
+    "appver": "1.10.10",
     "historic": [
+        {
+            "version": "1.10.10",
+            "description": "Fix Class conflict in Hiring dispatch directory, and major fixes.",
+            "date": "2024-10-15"
+        },
         {
             "version": "1.10.9",
             "description": "Fixed files and Major bugs reported",

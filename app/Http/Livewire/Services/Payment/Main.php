@@ -7,6 +7,7 @@ use Livewire\{Component, WithPagination};
 use App\Services\Payment\NoteFilter;
 use App\Helpers\TextFormatter;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class Main extends Component
 {
@@ -212,16 +213,11 @@ class Main extends Component
     {
         $query = $this->noteFilter->filter($this->search, $this->filter_group);
 
-
-
         if ($this->not_assigned && isset($this->service)) {
             $query->whereDoesntHave('Productions', function ($sq) {
                 $sq->where('service_id', $this->service->uuid);
-
             });
         }
-
-
 
         $query->when($this->multiSearch, function ($q) {
             $q->whereIn('note', $this->multiSearch)
@@ -229,22 +225,36 @@ class Main extends Component
                     $q->whereIn('ordem', $this->multiSearch);
                 });
         })
-            ->when($this->typeNote, function ($q) {
-                $q->where('type_note', $this->typeNote);
-            })
-            ->with(['WorkForm' => function ($q) {
-                $q->orderBy('informed_at', 'asc');
-            }]);
+        ->when($this->typeNote, function ($q) {
+            $q->where('type_note', $this->typeNote);
+        })
+        ->with(['WorkForm' => function ($q) {
+            $q->orderBy('informed_at', 'asc');
+        }]);
 
-
-
+        // Realizando o join com `work_reports` e `orders` e somando `moaberto`
         $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-        ->select('notes.*', 'work_reports.informed_at as wCreated_at')
-        ->orderBy('wCreated_at', 'asc');
+            ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
+            ->select(
+                'notes.id',
+                'notes.note',
+                'notes.lexp',
+                'notes.mesalization',
+                'notes.days_left',
+                'notes.type_note',
+                'work_reports.created_at as wCreated_at',
+                DB::raw('SUM(orders.moaberto) as total_moaberto')
+            )
+            ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note')
+            ->orderBy('wCreated_at', 'asc')
+            ->orderBy('total_moaberto', 'desc');
 
-
+        // Debugando o resultado para checar a consulta
+        // dd($query->paginate(5));
 
         return $query->paginate($this->perPage);
+
+
     }
 
     // Rules Days Left

@@ -13,7 +13,6 @@
 @endsection
 
 @section('menu')
-    {{-- @include('services.analises_pre.menu') --}}
     @include('dispatchs.menu')
 @endsection
 
