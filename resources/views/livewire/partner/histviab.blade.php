@@ -274,8 +274,16 @@
                                     <x-files.select-download-list :files='$viability->Note->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($viability->count())
-                                        @foreach ($viability->Note->Orders as $order)
+                                    @if ($viability->Orders->isNotEmpty())
+                                        @foreach ($viability->Orders as $order)
+                                            <p class="p-0 m-1">
+                                                {{ $order->ordem }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($viability->Note->Orders->isNotEmpty())
+                                        @foreach ($viability->Note->Orders->filter(function ($order) {
+        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
+    }) as $order)
                                             <p class="p-0 m-1">
                                                 {{ $order->ordem }}
                                             </p>

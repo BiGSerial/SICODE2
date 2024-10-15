@@ -142,6 +142,9 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
     Route::get('/reject_viab', 'viab_reject')->name('rejecte_viab');
     Route::get('/justified_viab', 'justified_viab')->name('justified_viab');
     Route::get('/viab_historico', 'viab_hist')->name('viab_hist');
+    Route::get('/informe_obra', 'inform_obra')->name('inform_obra');
+    Route::get('/worked_list', 'inform_list')->name('inform_list');
+    Route::get('/intern_return', 'intern_return')->name('intern_return');
 
 });
 
@@ -155,6 +158,9 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/workreport', 'workreport')->name('report.workreport');
     Route::get('/workedlist', 'workedlist')->name('report.workedlist');
     Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
+    Route::get('/rejected_viab_list', 'rejectedViabList')->name('rejected.viability');
+    Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
+    Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
 });
 
 

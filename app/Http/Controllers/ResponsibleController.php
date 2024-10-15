@@ -35,4 +35,19 @@ class ResponsibleController extends Controller
     {
         return view('responsible.viahist');
     }
+
+    public function inform_obra()
+    {
+        return view('responsible.workinform');
+    }
+
+    public function inform_list()
+    {
+        return view('responsible.workinformList');
+    }
+
+    public function intern_return()
+    {
+        return view('responsible.returnInternList');
+    }
 }
