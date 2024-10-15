@@ -7,6 +7,7 @@ use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -486,7 +487,7 @@ class Main extends Component
 
     public function buscarMulti()
     {
- 
+
         if ($this->advanceSearch) {
 
             $this->gotoPage(1);
@@ -625,9 +626,22 @@ class Main extends Component
 
 
 
-        $query->with('Productions.User')
-            ->orderBy('type_note', 'DESC')
-            ->orderBy('days_left');
+        $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
+        ->select(
+            'notes.id',
+            'notes.note',
+            'notes.lexp',
+            'notes.mesalization',
+            'notes.days_left',
+            'notes.type_note',
+            'notes.nstats',
+            'work_reports.created_at as wCreated_at',
+            DB::raw('SUM(orders.moaberto) as total_moaberto')
+        )
+        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'notes.nstats')
+        ->orderBy('wCreated_at', 'asc')
+        ->orderBy('total_moaberto', 'desc');
 
         return $query;
     }

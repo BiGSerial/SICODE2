@@ -17,6 +17,9 @@
 
 @section('content')
     @livewire('admin.user.table')
+    <textarea id="clipboard-data" style="display: none;">
+asdasdasdsad
+    </textarea>
 @endsection
 
 @push('css')
@@ -266,5 +269,29 @@
                 }
             })
         });
+    </script>
+
+    <script>
+        window.addEventListener('copyToBoard', function(e) {
+
+
+
+
+            copyToClipboard(e.detail.text)
+        });
+
+
+
+        function copyToClipboard(data) {
+            const textToCopy = data;
+            const textarea = document.createElement('textarea');
+            textarea.textContent = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+
+        }
     </script>
 @endpush

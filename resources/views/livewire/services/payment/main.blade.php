@@ -148,7 +148,9 @@
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
+
                             <th class="align-middle text-center">Prazo Pagamento</th>
+                            <th class="align-middle text-center">Data Vencimento</th>
 
                             <th class="align-middle text-center"></th>
                         </tr>
@@ -294,6 +296,26 @@
                                     {{ $daysLeft }}
                                 </td>
 
+                                @php
+                                    $daysLeft = new DaysLeft($list);
+                                    $prazoClass = '';
+
+                                    if ($daysLeft->getDaysLeft() < 0) {
+                                        $prazoClass = 'text-bg-danger';
+                                    } elseif ($daysLeft->getDaysLeft() > 15) {
+                                        $prazoClass = 'text-bg-success';
+                                    } else {
+                                        $prazoClass = 'text-bg-warning';
+                                    }
+                                @endphp
+
+                                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                <td scope="col" class="text-center">
+                                    {{ $daysLeft->getLastDate() }}
+
+
+                                </td>
+
                                 <td class="fw-bold text-center">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
@@ -324,6 +346,7 @@
                             <td></td>
                             <td class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
+                            <td></td>
                             <td></td>
                             <td></td>
                             <td></td>

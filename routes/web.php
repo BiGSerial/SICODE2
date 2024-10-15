@@ -106,7 +106,6 @@ Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.'
 Route::prefix('/reports')->controller(ReportsController::class)->name('reports.')->middleware('auth')->group(function () {
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
-
     Route::get('/workreports', 'workreports')->name('workreport');
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');

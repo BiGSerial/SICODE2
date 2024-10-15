@@ -236,6 +236,11 @@
 
     </div>
 
+    <!-- Exibir os dados do clipboard com formatação para Excel -->
+    <textarea id="clipboard-data" style="display: none;">
+
+    </textarea>
+
     {{-- Livewire Components --}}
     @livewire('admin.user.actions.usuario', key('users'))
     @livewire('admin.user.actions.usuario-mass', key('the_users-mass'))
@@ -251,7 +256,7 @@
         </div>
     </div>
 
-    <script>
+    {{-- <script>
         window.addEventListener('copyToClipboardTxt', event => {
             navigator.clipboard.writeText(event.detail.text)
                 .then(() => {
@@ -262,7 +267,7 @@
                     console.error('Failed to copy text:', err);
                 });
         });
-    </script>
+    </script> --}}
 
 
 
