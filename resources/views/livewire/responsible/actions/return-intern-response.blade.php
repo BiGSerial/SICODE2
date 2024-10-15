@@ -320,7 +320,7 @@
                                                     @if ($viability->Reclaims->last()->completed)
                                                         <tr>
                                                             <td class="text-end fw-bold  col-3">Serviço:</td>
-                                                            <td class="col">
+                                                            <td class="col text-uppercase fw-bold">
                                                                 {{ $viability->Reclaims->last()->service->service }}
                                                             </td>
                                                         </tr>
@@ -365,7 +365,34 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="text-end fw-bold  col-3">Responsável:</td>
+                                                            <td class="text-end fw-bold  col-3">Resultado:</td>
+                                                            <td class="col align-middle">
+                                                                @if ($viability->Reclaims->last()->Production && $viability->Reclaims->last()->Production->Analise)
+                                                                    @php
+                                                                        $texts = [];
+
+                                                                        if (
+                                                                            $viability->Reclaims->last()->Production
+                                                                                ->Analise->info
+                                                                        ) {
+                                                                            $texts = explode(
+                                                                                "\n",
+                                                                                $viability->Reclaims->last()->Production
+                                                                                    ->Analise->info,
+                                                                            );
+                                                                        }
+                                                                    @endphp
+
+                                                                    @foreach ($texts as $text)
+                                                                        <p class="my-0 py-0 mx-2">{{ $text }}
+                                                                        </p>
+                                                                    @endforeach
+
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold  col-3">Atendido Por:</td>
                                                             <td class="col align-middle">
                                                                 @if ($viability->Reclaims->last()->Production)
                                                                     <p class="my-1 py-0">

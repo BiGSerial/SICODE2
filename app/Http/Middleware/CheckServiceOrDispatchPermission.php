@@ -10,6 +10,11 @@ class CheckServiceOrDispatchPermission
 {
     public function handle(Request $request, Closure $next, $type)
     {
+
+        // if (Auth::user()->superadm) {
+        //     return $next($request);
+        // }
+
         $user = Auth::user();
         $serviceId = $request->route('service');
         $type = $request->segment(1);
@@ -21,12 +26,16 @@ class CheckServiceOrDispatchPermission
         //     return $next($request);
         // }
 
+
+
+
+
         // Busca o relacionamento de serviços do usuário
         $servicePermission = $user->ToServices->firstWhere('service_id', $serviceId);
 
         if (!$servicePermission) {
             // Se não há serviço correspondente, bloqueia
-            abort(403, 'Você não tem permissão para acessar esta página.');
+            abort(403, 'Você não tem permissão para realizar serviço em '.$servicePermission->Service->service);
         }
 
         // Verifica a permissão com base no tipo de rota (services, construction, dispatch)
