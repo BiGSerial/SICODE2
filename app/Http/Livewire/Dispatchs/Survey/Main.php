@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Survey;
 
 use App\Custom\RuleBuilder;
 use App\Exports\ExportDDExcel;
+use App\Exports\Reports\SurveyListExport;
 use App\Models\Bancoupdate;
 use App\Models\Company;
 use App\Models\Edp_depc\City;
@@ -142,18 +143,13 @@ class Main extends Component
 
     public function export_excel()
     {
-        if (!count($this->selected)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para Exportar!',
-                'timer' => 2500,
-            ]);
-
-            return;
+        if (count($this->selected) > 0) {
+            return (new SurveyListExport(Note::whereIn($this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportSelectedSurvey.xlsx');
+        } else {
+            return (new SurveyListExport($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportAllSurvey.xlsx');
         }
 
-        return (new ExportDDExcel())->exportDD($this->selected, $this->service->service)->download(date('YmdHis-').'exportDD.xlsx');
+
     }
 
     public function updatedSelectall($val)
@@ -322,7 +318,7 @@ class Main extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
 
             foreach ($linhas as $linha) {
 
@@ -443,7 +439,7 @@ class Main extends Component
 
                     $user = Auth()->User()->name;
 
-                    if(trim($this->user_s)) {
+                    if (trim($this->user_s)) {
                         $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                     } else {
                         $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
@@ -465,7 +461,7 @@ class Main extends Component
 
                         $wpa = Wpa::where('note_id', $note->id)->where('dd', $this->additionalData[$key])->whereNull('production_id')->first();
 
-                        if($wpa) {
+                        if ($wpa) {
                             $wpa->update([
                                  'production_id' => $production->id,
                              ]);
@@ -503,7 +499,7 @@ class Main extends Component
 
                     $user = Auth()->User()->name;
 
-                    if(trim($this->user_s)) {
+                    if (trim($this->user_s)) {
                         $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                     } else {
                         $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
@@ -575,15 +571,15 @@ class Main extends Component
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            if(!count($this->multiSearch)) {
+            if (!count($this->multiSearch)) {
                 $this->multiSearch = explode(" ", $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
+            if (!count($this->multiSearch)) {
                 $this->multiSearch = explode(",", $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
+            if (!count($this->multiSearch)) {
                 $this->multiSearch = explode(";", $this->advanceSearch);
             }
 
@@ -623,7 +619,7 @@ class Main extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
             $count = 0;
             $ok = 0;
 
@@ -632,19 +628,19 @@ class Main extends Component
                 if ($linha) {
                     $coluna = explode("\t", $linha);
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $coluna = explode(";", $linha);
                     }
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $coluna = explode(" ", $linha);
                     }
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $coluna = explode(",", $linha);
                     }
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
                             'icon' => 'warning',
@@ -1014,7 +1010,7 @@ class Main extends Component
                     ->orderBy('type_note', 'DESC')
                     ->orderBy('days_left');
 
-        return $query->paginate($this->perPage);
+        return $query;
     }
 
     public function getBaseProperty()
@@ -1056,7 +1052,7 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->filter(function ($list) {
+        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
 
             return !$list->Productions
                     ->where('status_note', $list->nstats)
@@ -1110,7 +1106,7 @@ class Main extends Component
 
 
         return view('livewire.dispatchs.survey.main', [
-            'lists' => $this->lists,
+            'lists' => $this->lists->paginate($this->perPage),
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first()
         ]);
     }
