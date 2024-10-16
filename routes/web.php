@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -135,6 +135,20 @@ Route::middleware('auth')->group(function () {
 
 
 Route::prefix('/responsible')->controller(ResponsibleController::class)->middleware(['can:responsible'])->name('responsible.')->group(function () {
+    Route::get('/', 'main')->name('main');
+    Route::get('/viab_list', 'viab_list')->name('viab_list');
+    Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');
+    Route::get('/reject_viab', 'viab_reject')->name('rejecte_viab');
+    Route::get('/justified_viab', 'justified_viab')->name('justified_viab');
+    Route::get('/viab_historico', 'viab_hist')->name('viab_hist');
+    Route::get('/informe_obra', 'inform_obra')->name('inform_obra');
+    Route::get('/worked_list', 'inform_list')->name('inform_list');
+    Route::get('/intern_return', 'intern_return')->name('intern_return');
+
+});
+
+
+Route::prefix('/engineers')->controller(EngineerController::class)->middleware(['can:engineer'])->name('engineers.')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/viab_list', 'viab_list')->name('viab_list');
     Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');

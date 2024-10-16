@@ -48,7 +48,7 @@ class Viability extends Component
 
     public function mount()
     {
-        $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
+        $this->companies = Company::WhereRelation('contracts', 'construction', true)->WhereRelation('contracts', 'service', false)->Select('id', 'name')->orderBy('name')->get();
 
     }
 
@@ -76,13 +76,17 @@ class Viability extends Component
 
     public function updatedCompanyId($company_id)
     {
-        $this->responsibles = User::whereHas('Companies', function ($query) use ($company_id) {
-            $query->where('companies.id', $company_id);
+
+
+        $this->responsibles = User::whereHas('companies', function ($query) use ($company_id) {
+            $query->where('companies.id', trim($company_id));
         })
-                                    ->where('users.responsible', true)
-                                    ->select('id', 'name')
-                                    ->orderBy('name')
-                                    ->get();
+        ->where('responsible', true)
+        ->select('id', 'name')
+        ->orderBy('name')
+        ->get();
+
+        
     }
 
 

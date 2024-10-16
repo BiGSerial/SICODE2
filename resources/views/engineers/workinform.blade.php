@@ -6,7 +6,7 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
             <li class="breadcrumb-item">Engenharia</li>
-            <li class="breadcrumb-item" aria-current="page">Avaliação de Justificativa</li>
+            <li class="breadcrumb-item" aria-current="page">INFORME DE OBRAS</li>
         </ol>
     </nav>
 @endsection
@@ -16,7 +16,7 @@
 @endsection
 
 @section('content')
-    @livewire('engineers.justify-viab', key('engineers-justify-viab'))
+    @livewire('engineers.forms.workreports', key('workreports'))
 @endsection
 
 @push('script')
