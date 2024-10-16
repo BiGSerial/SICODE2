@@ -144,7 +144,7 @@ class Main extends Component
     public function export_excel()
     {
         if (count($this->selected) > 0) {
-            return (new SurveyListExport(Note::whereIn($this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportSelectedSurvey.xlsx');
+            return (new SurveyListExport(Note::whereIn('id', $this->selected)->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportSelectedSurvey.xlsx');
         } else {
             return (new SurveyListExport($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportAllSurvey.xlsx');
         }
