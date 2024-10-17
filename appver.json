@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.10",
+    "appver": "1.10.11",
     "historic": [
+        {
+            "version": "1.10.11",
+            "description": "Fix: Created script to fix Notes in Local Database with Remote Database",
+            "date": "2024-10-17"
+        },
         {
             "version": "1.10.10",
             "description": "Fix Class conflict in Hiring dispatch directory, and major fixes.",

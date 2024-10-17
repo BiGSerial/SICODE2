@@ -16,7 +16,7 @@ class fixBaseDestiny extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:fix_destinyBase';
+    protected $signature = 'sicode:fix_destinyBase {--status=} {--ov=}';
 
     /**
      * The console command description.
@@ -30,51 +30,75 @@ class fixBaseDestiny extends Command
      */
     public function handle()
     {
+        $status = $this->option('status');
+        $ov = $this->option('ov');
 
-        $statsToFix = [];
-        $ovToFix = [];
+        if ($status) {
+            // Do something if 'status' exists
+            $origins = BaseOV::where('numStat', $status)->where('ultimoStatus', 1)->get();
+            $destinys = Note::where('nstats', $status)->where('type_note', 2)->get();
 
-        $status = BaseOv::select('numStat')->distinct()->get()->pluck('numStat')->toArray();
+            $originValues = $origins->pluck('OV')->toArray();
+            $destinyValues = $destinys->pluck('note')->toArray();
 
-        foreach ($status as $stat) {
-            $count_o = BaseOV::where('numStat', $stat)->count();
-            $count_n = Note::where('nstats', $stat)->count();
-            $this->info('Status: ' . $stat . ' - BaseOV: ' . $count_o . ' - Note: ' . $count_n);
-
-
-
-            if (($count_o < $count_n) && $stat < 98) {
-
-                $statsToFix[] = $stat;
+            if (count($originValues) > count($destinyValues)) {
+                $missingInDestiny = array_diff($originValues, $destinyValues);
+                $this->info("Values in origins but not in destinys: " . implode(', ', $missingInDestiny));
+            } else {
+                $missingInOrigin = array_diff($destinyValues, $originValues);
+                $this->info("Values in destinys but not in origins: " . implode(', ', $missingInOrigin));
             }
         }
 
-        if (count($statsToFix) > 0) {
-            foreach ($statsToFix as $stat) {
-                Note::where('nstats', $stat)->where('type_note', 2)->chunk(500, function ($notes) use (&$ovToFix, $stat) {
-                    $origins = BaseOV::where('numStat', $stat)->where('ultimoStatus', 1)->get();
+        if ($ov) {
 
-                    if ($origins->count() < 500) {
-                        $originIds = $origins->pluck('OV')->toArray();
-                        $notesToFix = $notes->filter(function ($note) use ($originIds) {
-                            return !in_array($note->note, $originIds);
-                        });
 
-                        foreach ($notesToFix as $note) {
-                            $ovToFix[] = $note;
-                        }
-                    }
-                });
+            $this->info("Updating OV: {$ov}");
+
+            $origin = BaseOV::where('OV', $ov)->where('ultimoStatus', 1)->first();
+            $destiny = Note::where('note', $ov)->where('type_note', 2)->first();
+
+            try {
+                $destiny->update([
+                    'created_by'    => $origin->criadoPor,
+                    'dt_created'    => "{$origin->dtCriacao} {$origin->hrCriacao}",
+                    'dt_status'     => $origin->dhStat,
+                    'user'          => $origin->usuario,
+                    'value'         => $origin->valorLiq,
+                    'currency'      => $origin->moeda,
+                    'eq_venda'      => $origin->eqVenda,
+                    'numPedido'     => $origin->numPedido,
+                    'client'        => $origin->emissorOV,
+                    'group1'        => $origin->grpCliente1,
+                    'group2'        => $origin->grpCliente2,
+                    'group3'        => $origin->grpCliente3,
+                    'group4'        => $origin->grpCliente4,
+                    'group5'        => $origin->grpCliente5,
+                    'pze'           => $origin->PzE,
+                    'num_material'  => $origin->numMaterial,
+                    'material'      => $origin->material,
+                    'nexp'          => $origin->numExp,
+                    'lexp'          => $origin->localExp ?? $destiny->lexp,
+                    'pep'           => $origin->PEP,
+                    'nstats'        => $origin->numStat,
+                    'status'        => $origin->status,
+                    'days'          => $origin->dias,
+                    'transaction'   => $origin->transicao,
+                    'validar_prazo' => $origin->considerarPrazo,
+                    'rubrica'       => $origin->rubrica,
+                    'pze_tratado'   => $origin->PzETratado,
+                    'days_stat'     => $origin->diasNoStatus,
+                    'pze_parecer'   => $origin->parecerPrazo,
+                    'days_left'     => $origin->diasPVencimento,
+                    'type_note'     => 2,
+                ]);
+
+                $this->info("OV: {$ov} updated successfully.");
+            } catch (\Throwable $th) {
+                $this->error("Error updating OV: {$ov}");
+                $this->error($th->getMessage());
             }
         }
-
-
-        if (count($ovToFix) > 0) {
-            dd($ovToFix);
-        } else {
-            $this->info('Nothing to fix');
-        }
-
     }
 
 }
