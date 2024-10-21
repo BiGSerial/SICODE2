@@ -55,8 +55,22 @@
                         <table class="table table-sm table-condensed table-striped">
                             <thead>
                                 <tr class="align-middle text-center">
-                                    <th scope="col">Contratar</th>
-                                    <th scope="col">Reter</th>
+                                    <th scope="">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input border-secondary"
+                                                id="contratar" wire:model="hiringAll" wire:click="selectAllHiring"
+                                                @checked($this->checkAllHiringSelected()) />
+                                            <label class="form-check-label">Contratar</label>
+                                        </div>
+                                    </th>
+                                    <th scope="">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input border-secondary"
+                                                id="reter" wire:model="reteinAll" wire:click="selectAllRetain"
+                                                @checked($this->checkAllRetainSelected()) />
+                                            <label class="form-check-label">Reter</label>
+                                        </div>
+                                    </th>
                                     <th scope="col">Obra</th>
                                     <th scope="col">Ordens</th>
                                     <th scope="col">Rubrica</th>
@@ -70,10 +84,12 @@
                                 @if (count($toViabilities))
                                     @foreach ($toViabilities as $key => $viability)
                                         <tr class="align-middle text-center">
-                                            <td><input type="checkbox" name="contratar" id="contratar"
+                                            <td><input type="checkbox" class="form-check-input border-secondary"
+                                                    id="contratar"
                                                     wire:model="toViabilities.{{ $key }}.contratar" /></td>
-                                            <td><input type="checkbox" name="reter" id="reter"
-                                                    wire:model="toViabilities.{{ $key }}.reter"></td>
+                                            <td><input type="checkbox" class="form-check-input border-secondary"
+                                                    id="reter" wire:model="toViabilities.{{ $key }}.reter">
+                                            </td>
 
                                             <td>{{ $viability['note']['note'] }}</td>
                                             <td>

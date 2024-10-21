@@ -19,7 +19,7 @@
 @endsection
 
 @section('content')
-    @livewire('partner.rejected-list', key('rejected_list'))
+    @livewire('partner.viab-rejected-list', key('viab-rejected-list'))
 @endsection
 
 @push('script')

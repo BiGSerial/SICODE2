@@ -6,7 +6,7 @@ use App\Models\Viability;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class Rejectedlist extends Component
+class ViabRejectedList extends Component
 {
     use WithPagination;
 
@@ -95,7 +95,7 @@ class Rejectedlist extends Component
 
     public function render()
     {
-        return view('Livewire.partner.rejectedlist', [
+        return view('livewire.partner.viab-rejected-list', [
             'lists' => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
             'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),
         ]);

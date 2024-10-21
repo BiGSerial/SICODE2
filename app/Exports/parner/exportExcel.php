@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class exportExcel implements FromView, WithEvents, WithProperties
@@ -60,6 +61,10 @@ class exportExcel implements FromView, WithEvents, WithProperties
                     'fill' => [
                         'fillType'   => Fill::FILL_SOLID,
                         'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical'   => Alignment::VERTICAL_CENTER,
                     ],
                 ]);
 

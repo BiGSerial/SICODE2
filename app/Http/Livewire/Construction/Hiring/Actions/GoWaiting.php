@@ -210,7 +210,7 @@ class GoWaiting extends Component
 
             }
 
-            // DB::commit();
+            DB::commit();
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

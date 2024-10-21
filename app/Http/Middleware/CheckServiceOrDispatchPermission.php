@@ -21,13 +21,15 @@ class CheckServiceOrDispatchPermission
 
 
 
-        // Verifica se o usuário é SUPERADM
-        // if ($user->superadm) {
-        //     return $next($request);
-        // }
+        //Verifica se o usuário é SUPERADM
+        if ($user->superadm) {
+            return $next($request);
+        }
 
 
-
+        if ($user->ToServices->isEmpty()) {
+            abort(403, 'Você não tem permissão para realizar nenhum serviço ou despacho no sistema. Por favor, entre em contato com o administrador do SICODE ou seu Responsável.');
+        }
 
 
         // Busca o relacionamento de serviços do usuário

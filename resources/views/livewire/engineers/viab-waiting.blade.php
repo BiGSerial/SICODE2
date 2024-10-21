@@ -12,14 +12,24 @@
         <div class="card-body py-0 mt-3">
             <div class="mb-3 d-flex flex-wrap align-items-center justify-content-end">
                 <!-- Grupo de Entrada de Texto -->
-                <div class="input-group input-group-sm my-2 flex-nowrap col">
-                    <input type="text" class="form-control" placeholder="Buscar Multi-Notas"
-                        aria-label="Buscar Multi-Notas" aria-describedby="button-addon2" wire:model='search'>
+                <div class="input-group input-group-sm my-2 flex-nowrap col-8 col-md-auto">
+                    <input type="text" class="form-control" placeholder="Buscar Notas" aria-label="Buscar Multi"
+                        aria-describedby="button-addon2" wire:model='search'>
                     <button class="btn btn-outline-secondary" wire:click.prevent="openMultiNotas" type="button"
                         id="button-addon2" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Buscar Multi-notas">
                         <i class="ri-checkbox-multiple-blank-line"></i>
                     </button>
+                </div>
+
+                <div class="my-2 ms-2 flex-nowrap col-12 col-md-auto">
+                    <input type="date" class="form-control form-control-sm border-success" wire:model='dtStart'
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Data de Entrada Inicial">
+                </div>
+
+                <div class="my-2 ms-2 flex-nowrap col-12 col-md-auto">
+                    <input type="date" class="form-control form-control-sm border-danger" wire:model='dtEnd'
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Data de Entrada Final">
                 </div>
 
                 <!-- Radios Inline -->
@@ -73,7 +83,7 @@
                 </div>
 
                 <!-- Botão Copiar Selecionados -->
-                <div class="my-2 col-md-auto ms-2">
+                {{-- <div class="my-2 col-md-auto ms-2">
                     <button class="btn btn-sm btn-primary" wire:click.prevent='copyClipboard'
                         wire:target="copyClipboard" wire:loading.attr="disabled" data-bs-toggle="tooltip"
                         data-bs-placement="top" data-bs-title="Copiar Selecionados para área de Transferência">
@@ -84,7 +94,7 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                     </button>
-                </div>
+                </div> --}}
             </div>
 
 
@@ -112,17 +122,55 @@
                         {{-- <input class="form-check-input border border-secondary" type="checkbox"
                             wire:model.defer="selectAll" wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))> --}}
                     </th>
-                    <th scope="col" class="text-center">Nota</th>
-                    <th scope="col" class="text-center">Ordens</th>
+                    <th scope="col" class="text-center">
+                        <span href="#" wire:click.prevent="sortBy('Note.note')"
+                            style="cursor: pointer;">Nota</span>
+                        @if ($sortField == 'Note.note')
+                            <i class="bx bx-sort-{{ $sortDirection == 'asc' ? 'up' : 'down' }}"></i>
+                        @endif
+                    </th>
+                    <th scope="col" class="text-center">
+                        Ordens
+
+                    </th>
                     <th scope="col" class="text-center">Files</th>
-                    <th scope="col" class="text-center">Rubrica</th>
-                    <th scope="col" class="text-center">Municipio</th>
-                    <th scope="col" class="text-center">Empreiteira</th>
-                    <th scope="col" class="text-center">Data Entrada</th>
-                    <th scope="col" class="text-center">Retorno Estimado</th>
-                    <th scope="col" class="text-center">MOA</th>
-                    <th scope="col" class="text-center">Em Espera</th>
-                    <th scope="col" class="text-center">Status</th>
+                    <th scope="col" class="text-center">
+                        Rubrica
+                    </th>
+                    <th scope="col" class="text-center">
+                        Municipio
+                    </th>
+                    <th scope="col" class="text-center">
+                        Empreiteira
+                    </th>
+                    <th scope="col" class="text-center">
+                        <span href="#" wire:click.prevent="sortBy('created_at')" style="cursor: pointer;">Data
+                            Entrada</span>
+                        @if ($sortField == 'created_at')
+                            <i class="bx bx-sort-{{ $sortDirection == 'asc' ? 'up' : 'down' }}"></i>
+                        @endif
+                    </th>
+                    <th scope="col" class="text-center">
+                        <span href="#" wire:click.prevent="sortBy('created_at')"
+                            style="cursor: pointer;">Retorno Estimado</span>
+                        @if ($sortField == 'created_at')
+                            <i class="bx bx-sort-{{ $sortDirection == 'asc' ? 'up' : 'down' }}"></i>
+                        @endif
+                    </th>
+                    <th scope="col" class="text-center">
+                        <span wire:click.prevent="sortBy('orders_sum_moaberto')" style="cursor: pointer;">MOA</span>
+                        @if ($sortField == 'orders_sum_moaberto')
+                            <i class="bx bx-sort-{{ $sortDirection == 'asc' ? 'up' : 'down' }}"></i>
+                        @endif
+                    </th>
+                    <th scope="col" class="text-center">
+                        Em Espera
+
+                    </th>
+                    <th scope="col" class="text-center">
+                        Status
+
+                    </th>
                     {{-- <th scope="col" class="text-center"></th> --}}
                 </thead>
                 <tbody class="table-group-divider">
@@ -141,7 +189,7 @@
                                 </td>
                                 <td class="text-center aling-middle fw-bold">{{ $list->Note->note }}</td>
                                 <td class="text-center aling-middle fw-bold">
-                                    @if ($list->Orders->count())
+                                    @if ($list->Orders->isNotEmpty())
                                         @foreach ($list->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
@@ -173,14 +221,20 @@
                                     {{ Carbon::parse($dueDate)->format('d/m/Y H:i') }}
                                 </td>
                                 <td class="text-center aling-middle">
-                                    @if ($list->Note->Orders->isNotEmpty())
-                                        @foreach ($list->Note->Orders->filter(function ($order) {
+                                    @if ($list->Orders->isNotEmpty())
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format($list->orders_sum_moaberto, 2, ',', '.') }}
+                                        </p>
+                                    @else
+                                        @if ($list->Note->Orders->isNotEmpty())
+                                            @foreach ($list->Note->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                            <p class="my-0 py-0">
-                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </p>
-                                        @endforeach
+                                                <p class="my-0 py-0">
+                                                    R$ {{ number_format($order->moaberto, 2, ',', '.') }}
+                                                </p>
+                                            @endforeach
+                                        @endif
                                     @endif
 
                                 </td>

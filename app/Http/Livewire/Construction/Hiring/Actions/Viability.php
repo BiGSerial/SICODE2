@@ -26,6 +26,9 @@ class Viability extends Component
     public $responsibles;
     public $toViabilities = [];
 
+    public $hiringAll = false;
+    public $retainAll = false;
+
     protected $listeners = [
         'getNotes',
         'closeAll',
@@ -86,7 +89,7 @@ class Viability extends Component
         ->orderBy('name')
         ->get();
 
-        
+
     }
 
 
@@ -103,6 +106,66 @@ class Viability extends Component
             ];
         }
     }
+
+    public function selectAllHiring($value)
+    {
+        if (count($this->toViabilities) > 0 && $value) {
+            foreach ($this->toViabilities as $key => $toViability) {
+                $this->toViabilities[$key]['contratar'] = true;
+            }
+
+        } else {
+            foreach ($this->toViabilities as $key => $toViability) {
+                $this->toViabilities[$key]['contratar'] = false;
+            }
+        }
+    }
+
+    public function selectAllRetain($value)
+    {
+        if (count($this->toViabilities) > 0 && $value) {
+            foreach ($this->toViabilities as $key => $toViability) {
+                $this->toViabilities[$key]['reter'] = true;
+            }
+
+        } else {
+            foreach ($this->toViabilities as $key => $toViability) {
+                $this->toViabilities[$key]['reter'] = false;
+            }
+        }
+    }
+
+    public function checkAllHiringSelected()
+    {
+
+        if (count($this->toViabilities) <= 0) {
+            return false;
+        }
+
+        foreach ($this->toViabilities as $toViability) {
+            if (!$toViability['contratar']) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function checkAllRetainSelected()
+    {
+        if (count($this->toViabilities) <= 0) {
+            return false;
+        }
+
+        foreach ($this->toViabilities as $toViability) {
+            if (!$toViability['reter']) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 
     public function toViability()
     {

@@ -2,7 +2,6 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
-
 use App\Models\Company;
 use App\Models\File;
 use App\Models\HiringWaiting;
@@ -249,6 +248,7 @@ class Waiting extends Component
                         $this->clipboardData[] = [
                             $order->ordem,
                             $order->Note->note,
+                            $order->Note->pep,
                         ];
                     }
                 }

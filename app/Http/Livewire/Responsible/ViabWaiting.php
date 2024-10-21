@@ -39,6 +39,13 @@ class ViabWaiting extends Component
     public $company_id;
 
 
+    public $dtStart;
+    public $dtEnd;
+
+    // Orderenação
+    public $sortField = 'created_at';
+    public $sortDirection = 'desc';
+
     // Seleção
     public $selectAll = false;
     public $selected = [];
@@ -63,13 +70,23 @@ class ViabWaiting extends Component
     public function getListsProperty()
     {
         $query = Viability::query()
-            ->where('completed', false)
-            ->where('visible_partner', true)
-            ->when($this->cjobes, function ($query) {
-                $query->whereHas('Note.Orders.Operations', function ($subquery) {
-                    $subquery->where('cenTrab', $this->cjobes)->where('operacao', '0010');
-                });
+        ->with('Note', 'Orders', 'Company', 'Engineer')
+        ->where('completed', false)
+        ->when($this->dtStart, function ($query) {
+            $query->where('created_at', '>=', $this->dtStart . ' 00:00:00');
+        })
+        ->when($this->dtEnd, function ($query) {
+            $query->where('created_at', '<=', $this->dtEnd . ' 23:59:59');
+        })
+        ->when($this->dtStart && $this->dtEnd, function ($query) {
+            $query->whereBetween('created_at', [$this->dtStart . ' 00:00:00', $this->dtEnd . ' 23:59:59']);
+        })
+        ->where('visible_partner', true)
+        ->when($this->cjobes, function ($query) {
+            $query->whereHas('Note.Orders.Operations', function ($subquery) {
+                $subquery->where('cenTrab', $this->cjobes)->where('operacao', '0010');
             });
+        });
 
         if ($this->search) {
 
@@ -117,7 +134,22 @@ class ViabWaiting extends Component
 
 
 
-        return $query->orderBy('created_at')->paginate($this->perPage);
+        // Add the sum of the 'moaberto' column from the 'orders' relation
+        $query->withSum('Orders', 'moaberto');
+
+        return $query->orderBy($this->sortField, $this->sortDirection)
+                    ->paginate($this->perPage);
+    }
+
+    public function sortBy($field)
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortDirection = 'asc';
+        }
+
+        $this->sortField = $field;
     }
 
 

@@ -41,7 +41,7 @@ class PartnerController extends Controller
 
     public function rejectedViabList()
     {
-        return view('partner.RejectList');
+        return view('partner.rejected_list');
     }
 
     public function tacitViabList()

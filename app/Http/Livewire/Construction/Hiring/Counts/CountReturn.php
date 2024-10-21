@@ -9,9 +9,7 @@ class CountReturn extends Component
 {
     public function getCountProperty()
     {
-        return HiringWaiting::where('complete', false)->whereRelation('Reclaim', function ($q) {
-            return $q->where('completed', true);
-        })->count();
+        return HiringWaiting::where('complete', false)->count();
     }
 
     public function render()

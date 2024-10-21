@@ -1,6 +1,11 @@
 {
-    "appver": "1.10.11",
+    "appver": "1.11.0",
     "historic": [
+        {
+            "version": "1.11.0",
+            "description": "IMPLEMENT: New Hiring situations and ENGINEER and OTHERS UPDATES",
+            "date": "2024-10-20"
+        },
         {
             "version": "1.10.11",
             "description": "Fix: Created script to fix Notes in Local Database with Remote Database",

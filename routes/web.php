@@ -171,7 +171,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/workreport', 'workreport')->name('report.workreport');
     Route::get('/workedlist', 'workedlist')->name('report.workedlist');
     Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
-    Route::get('/rejected_viab_list', 'rejectedViabList')->name('rejected.viability');
+    Route::get('/rejected_viability_list', 'rejectedViabList')->name('rejected.viability');
     Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
 });
