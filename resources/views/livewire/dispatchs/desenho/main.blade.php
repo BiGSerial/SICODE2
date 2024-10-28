@@ -711,7 +711,8 @@
 
                                                 <option value="" selected>Selecione um Usuário</option>
                                                 @foreach ($user_l->sortBy('name', SORT_LOCALE_STRING) as $user)
-                                                    <option value="{{ $user->id }}">{{ $user->name }}
+                                                    <option wire:key='{{ $user->id }}'
+                                                        value="{{ $user->id }}">{{ $user->name }}
                                                     </option>
                                                 @endforeach
                                             @else

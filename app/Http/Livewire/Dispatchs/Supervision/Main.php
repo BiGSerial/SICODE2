@@ -63,6 +63,9 @@ class Main extends Component
 
     public $branco = false;
 
+
+
+
     //Variáveis para DDs
     public $enter_dd;
     public $existDD;
@@ -160,10 +163,10 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new ExportDDSupervision())->exportDD($this->lists->get(), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+            return (new ExportDDSupervision())->exportDD($this->getListsProperty()->get(), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
         }
 
-        return (new ExportDDSupervision())->exportDD($this->lists->whereIn('id', $this->selected)->get(), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+        return (new ExportDDSupervision())->exportDD($this->getListsProperty()->find($this->selected), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
     }
 
 
@@ -173,7 +176,7 @@ class Main extends Component
         if ($this->selectAll) {
 
             // Adicionar os IDs que cumprem as regras à lista de selecionados
-            foreach ($this->lists as $item) {
+            foreach ($this->toLists as $item) {
                 $id = $item->id;
                 if (!in_array($id, $this->selected)) {
 
@@ -196,7 +199,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds = $this->lists->pluck('id')->toArray();
+            $visibleIds = $this->toLists->pluck('id')->toArray();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
@@ -1015,9 +1018,9 @@ class Main extends Component
         }
 
         $query->with('Productions.User', 'Wpas')
-            ->orderBy('type_note', 'DESC')
-            ->orderBy('work_dt_created', 'ASC')
-            ->select('notes.*', 'work_reports.created_at as work_dt_created');
+            ->select('notes.*', 'work_reports.created_at as work_dt_created')
+            ->orderBy('work_dt_created', 'ASC');
+
 
         return $query;
     }
@@ -1058,32 +1061,43 @@ class Main extends Component
         }
     }
 
+    public function getToListsProperty()
+    {
+        return $this->lists->paginate($this->perPage);
+    }
+
 
     public function render()
     {
 
-        if (!Auth()->User()->contract) {
-            $this->company_l = Company::orderBy('name', 'ASC')->get();
-        } else {
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where('service', true);
+            });
+        })
+            ->orderBy('name', 'ASC')
+            ->get();
 
-            $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        }
+        $this->user_l = User::whereRelation('ToServices', function ($q) {
+            $q->where('service_id', $this->service->uuid)
+                ->where('service', true);
+        })
+        ->when($this->company_s, function ($q) {
+            return $q->where(function ($q) {
+                $q->whereRelation('Company', 'company_id', $this->company_s)
+                    ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+            });
 
-
-
-
-        $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)
-            ->when($this->search_user, function ($q) {
-                return $q->where('name', 'like', "%" . $this->search_user . "%");
-            })
-            ->orderBy('name')->get();
-
-
-
+        })
+        ->when($this->search_user, function ($q) {
+            return $q->where('name', 'like', '%' . $this->search_user . '%');
+        })
+        ->orderBy('name', 'ASC')->get();
 
 
         return view('livewire.dispatchs.supervision.main', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists' => $this->toLists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first()
         ]);
     }

@@ -1,9 +1,11 @@
 <div>
     <x-show-loading />
 
-    <div class="card">
+    <div class="card" wire:ignore.self>
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="mb-0">Lista Produtividade</h3>
+            <h3 class="mb-0">Lista Produtividade <span class="fs-6 fw-bold">(De
+                    {{ date('d/m/Y', strToTime($startDate)) }} à
+                    {{ date('d/m/Y', strToTime($endDate)) }})</span></h3>
             <button class="btn btn-sm btn-secondary ml-auto" wire:click="$refresh" wire:loading.attr="disabled">
                 <i class="ri-refresh-line" wire:loading.remove></i>
                 <span wire:loading wire:target="$refresh" class="spinner-border spinner-border-sm" role="status"

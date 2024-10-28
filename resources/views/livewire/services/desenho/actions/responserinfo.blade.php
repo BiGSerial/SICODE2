@@ -202,7 +202,7 @@
                             </div>
                             <div class="col-md-6">
 
-                                @if ($production->Note->Viabilities->count() && $production->Note->Viabilities->last()->Form)
+                                @if ($production->Note->Viabilities->isNotEmpty() && $production->Note->Viabilities->last()->Form)
                                     @php
                                         $form = $production->Note->Viabilities->last()->Form;
                                     @endphp

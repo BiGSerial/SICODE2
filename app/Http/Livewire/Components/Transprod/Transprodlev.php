@@ -36,12 +36,16 @@ class Transprodlev extends Component
 
     public function getUserlistProperty()
     {
-        return User::Where('user', true)
-            ->When($this->search, function ($q, $s) {
-                return $q->where('name', 'like', '%' . $s . '%');
-            })
-            ->orderBy('Name')
-            ->get();
+        return User::whereRelation('ToServices', function ($q) {
+            $q->when($this->production, function ($q) {
+                return $q->where('service_id', $this->production->service_id)
+                ->where('service', true);
+            });
+        })
+        ->When($this->search, function ($q, $s) {
+            return $q->where('name', 'like', '%' . $s . '%');
+        })
+        ->orderBy('name', 'ASC')->get();
     }
 
     public function transfer_prod()

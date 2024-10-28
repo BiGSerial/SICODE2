@@ -75,7 +75,8 @@
                                 <dl class="row">
                                     @foreach ($lists->Orders as $order)
                                         <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">ORDEM</dt>
-                                        <dd class="col-sm-8 text-white text-uppercase">{{ $order->ordem }}</dd>
+                                        <dd class="col-sm-8 text-white text-uppercase">{{ $order->ordem }}
+                                            ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})</dd>
                                         @if ($order->Operations->count())
                                             <div class="table-responsive">
                                                 <table class="table table-condensed table-sm table-striped">
@@ -324,11 +325,24 @@
                                     <tr>
                                         <td class="align-middle"></td>
                                         <td class="align-middle">
-                                            @if ($viab->Note->Orders->isNotEmpty())
-                                                @foreach ($viab->Note->Orders->filter(function ($order) {
-        return strpos($order->Operations->where('operacao', '0010')->first()->status, 'CONF') === 0;
-    }) as $order)
-                                                    <p class="my-0 my-0">{{ $order->ordem }}</p>
+                                            @if ($viab->Orders->isNotEmpty())
+                                                @foreach ($viab->Orders as $order)
+                                                    @php
+
+                                                        $operation = $order->Operations
+                                                            ->where('operacao', '0010')
+                                                            ->first();
+                                                    @endphp
+                                                    @if ($operation && !Str::startsWith($operation->status, 'CONF'))
+                                                        <p class="my-0 text-danger">{{ $order->ordem }} <i
+                                                                class="ri-alert-line"></i>
+
+                                                        </p>
+                                                    @else
+                                                        <p class="my-0">{{ $order->ordem }}
+
+                                                        </p>
+                                                    @endif
                                                 @endforeach
                                             @endif
                                         </td>

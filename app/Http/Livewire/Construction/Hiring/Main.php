@@ -258,14 +258,17 @@ class Main extends Component
             });
         })
         ->whereHas('Orders', function ($q) {
-            $q->where('statusSist', 'not like', 'ENTE%')
-                    ->where('statusSist', 'not like', 'ENCE%')
-                    ->where(function ($q) {
-                        $q->whereRelation('Operations', function ($sq) {
-                            $sq->where('operacao', '0010')
-                                ->where('status', 'like', 'ABER%');
-                        });
+            if (!$this->allCenters) {
+                $q->where('statusSist', 'not like', 'ENTE%')
+                ->where('statusSist', 'not like', 'ENCE%')
+                ->where(function ($q) {
+                    $q->whereRelation('Operations', function ($sq) {
+                        $sq->where('operacao', '0010')
+                            ->where('status', 'like', 'ABER%');
                     });
+                });
+            }
+
         });
 
         if ($this->search) {

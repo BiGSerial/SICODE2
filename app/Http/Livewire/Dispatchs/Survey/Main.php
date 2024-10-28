@@ -1066,21 +1066,44 @@ class Main extends Component
             $this->selectall = false;
         }
 
-        if (!Auth()->User()->contract) {
-            $this->company_l = Company::orderBy('name', 'ASC')->get();
-        } else {
+        // if (!Auth()->User()->contract) {
+        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
+        // } else {
 
-            $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        }
+        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
+        // }
+
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where('service', true);
+            });
+        })
+            ->orderBy('name', 'ASC')
+            ->get();
+
+        $this->user_l = User::whereRelation('ToServices', function ($q) {
+            $q->where('service_id', $this->service->uuid)
+                ->where('service', true);
+        })
+        ->when($this->company_s, function ($q) {
+            return $q->where(function ($q) {
+                $q->whereRelation('Company', 'company_id', $this->company_s)
+                    ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+            });
+
+        })
+        ->when($this->search_user, function ($q) {
+            return $q->where('name', 'like', '%' . $this->search_user . '%');
+        })
+        ->orderBy('name', 'ASC')->get();
 
 
-
-
-        $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)
-                    ->when($this->search_user, function ($q) {
-                        return $q->where('name', 'like', "%".$this->search_user."%");
-                    })
-                    ->orderBy('name')->get();
+        // $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)
+        //             ->when($this->search_user, function ($q) {
+        //                 return $q->where('name', 'like', "%".$this->search_user."%");
+        //             })
+        //             ->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 

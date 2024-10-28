@@ -322,7 +322,7 @@ class Main extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
 
             foreach ($linhas as $linha) {
 
@@ -443,7 +443,7 @@ class Main extends Component
 
                     $user = Auth()->User()->name;
 
-                    if(trim($this->user_s)) {
+                    if (trim($this->user_s)) {
                         $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                     } else {
                         $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
@@ -465,7 +465,7 @@ class Main extends Component
 
                         $wpa = Wpa::where('note_id', $note->id)->where('dd', $this->additionalData[$key])->whereNull('production_id')->first();
 
-                        if($wpa) {
+                        if ($wpa) {
                             $wpa->update([
                                  'production_id' => $production->id,
                              ]);
@@ -503,7 +503,7 @@ class Main extends Component
 
                     $user = Auth()->User()->name;
 
-                    if(trim($this->user_s)) {
+                    if (trim($this->user_s)) {
                         $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
                     } else {
                         $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
@@ -575,15 +575,15 @@ class Main extends Component
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
-            if(!count($this->multiSearch)) {
+            if (!count($this->multiSearch)) {
                 $this->multiSearch = explode(" ", $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
+            if (!count($this->multiSearch)) {
                 $this->multiSearch = explode(",", $this->advanceSearch);
             }
 
-            if(!count($this->multiSearch)) {
+            if (!count($this->multiSearch)) {
                 $this->multiSearch = explode(";", $this->advanceSearch);
             }
 
@@ -623,7 +623,7 @@ class Main extends Component
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if($linhas && count($linhas)) {
+        if ($linhas && count($linhas)) {
             $count = 0;
             $ok = 0;
 
@@ -632,19 +632,19 @@ class Main extends Component
                 if ($linha) {
                     $coluna = explode("\t", $linha);
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $coluna = explode(";", $linha);
                     }
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $coluna = explode(" ", $linha);
                     }
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $coluna = explode(",", $linha);
                     }
 
-                    if(!(count($coluna) > 1)) {
+                    if (!(count($coluna) > 1)) {
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
                             'icon' => 'warning',
@@ -1070,21 +1070,44 @@ class Main extends Component
             $this->selectall = false;
         }
 
-        if (!Auth()->User()->contract) {
-            $this->company_l = Company::orderBy('name', 'ASC')->get();
-        } else {
+        // if (!Auth()->User()->contract) {
+        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
+        // } else {
 
-            $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        }
+        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
+        // }
+
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where('service', true);
+            });
+        })
+            ->orderBy('name', 'ASC')
+            ->get();
+
+        $this->user_l = User::whereRelation('ToServices', function ($q) {
+            $q->where('service_id', $this->service->uuid)
+                ->where('service', true);
+        })
+        ->when($this->company_s, function ($q) {
+            return $q->where(function ($q) {
+                $q->whereRelation('Company', 'company_id', $this->company_s)
+                    ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+            });
+
+        })
+        ->when($this->search_user, function ($q) {
+            return $q->where('name', 'like', '%' . $this->search_user . '%');
+        })
+        ->orderBy('name', 'ASC')->get();
 
 
-
-
-        $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)
-                    ->when($this->search_user, function ($q) {
-                        return $q->where('name', 'like', "%".$this->search_user."%");
-                    })
-                    ->orderBy('name')->get();
+        // $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)
+        //             ->when($this->search_user, function ($q) {
+        //                 return $q->where('name', 'like', "%".$this->search_user."%");
+        //             })
+        //             ->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 

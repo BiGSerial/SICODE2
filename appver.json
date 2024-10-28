@@ -1,6 +1,11 @@
 {
-    "appver": "1.11.0",
+    "appver": "1.11.1",
     "historic": [
+        {
+            "version": "1.11.1",
+            "description": "Has Updated Users Permission Selection on Dispatchs",
+            "date": "2024-10-23"
+        },
         {
             "version": "1.11.0",
             "description": "IMPLEMENT: New Hiring situations and ENGINEER and OTHERS UPDATES",

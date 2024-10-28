@@ -171,6 +171,14 @@ class GoWaiting extends Component
                             $waiting->update([
                                 'reclaim_id' => $reclaim->id,
                             ]);
+
+                            $reclaim->Comments()->Create([
+                                'user_id' => auth()->user()->id,
+                                'message' => $this->comment,
+                                'restrict' => false,
+                                'granted' => false,
+                                'dismissed' => false,
+                            ]);
                         }
 
                         if ($reclaim && !$reclaim->Production && $production['production']) {

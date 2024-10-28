@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Responsible;
 
+use App\Exports\Engineers\InterReturnExport;
 use App\Models\Viability;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -37,6 +38,10 @@ class ReturnInternList extends Component
         $this->gotoPage(1);
     }
 
+    public function export_excel()
+    {
+        return (new InterReturnExport($this->my_lists->get()))->download(date('YmdHis').'_interReturnExport.xlsx');
+    }
 
 
     public function getMyListsProperty()

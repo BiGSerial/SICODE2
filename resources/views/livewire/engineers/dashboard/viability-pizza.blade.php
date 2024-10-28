@@ -37,69 +37,38 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/scichart@3/index.min.js" crossorigin="anonymous"></script>
     <script>
-        let viabilityChart; // Declare the chart outside so it's accessible globally
-
         document.addEventListener('DOMContentLoaded', function() {
-            createGraph();
-        });
-
-        function createGraph() {
-
             let labels = @json($totalViabilityStats['labels']);
             let datas = @json($totalViabilityStats['data']);
-            const data = {
+
+            const data = [{
+                type: 'pie',
                 labels: labels,
-                datasets: [{
-                    label: 'Viability Stats',
-                    data: datas,
-                    backgroundColor: [
-                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-                        '#FF9F40', '#FFCD56', '#C9CBCF', '#36A2EB', '#FF6384'
-                    ],
-                }]
+                values: datas,
+                textinfo: 'label+percent',
+                insidetextorientation: 'radial'
+            }];
+
+            const layout = {
+                title: 'Viability Stats',
+                height: 400,
+                width: 400
             };
 
-            const ctx = document.getElementById('viabilityChart').getContext('2d');
-            viabilityChart = new Chart(ctx, { // Store the chart object in a global variable
-                type: 'pie',
-                data: data,
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(tooltipItem) {
-                                    return tooltipItem.label + ': ' + tooltipItem.raw;
-                                }
-                            }
-                        },
-
-                    }
-                },
-
-            });
-        }
-
-
-
+            Plotly.newPlot('viabilityChart', data, layout);
+        });
 
         document.addEventListener('updateGraphXX3', function(e) {
-
             console.log(e.detail.data);
 
-            // alert(data);
-            // Update the chart's labels and data
-            viabilityChart.data.labels = e.detail.labels;
-            viabilityChart.data.datasets[0].data = e.detail.data;
+            const update = {
+                labels: [e.detail.labels],
+                values: [e.detail.data]
+            };
 
-            // Update the chart with the new data
-            viabilityChart.update();
+            Plotly.restyle('viabilityChart', update);
         });
     </script>
 </div>

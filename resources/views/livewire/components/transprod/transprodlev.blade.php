@@ -10,7 +10,8 @@
                 </div>
                 <div class="modal-body">
                     @if ($transfer_view)
-                        <h4 class="text-center">TRANSFERENCIA DE TITULARIDADE DE PRODUÇÃO</h4>
+                        <h4 class="text-center">TRANSFERENCIA DE TITULARIDADE DE PRODUÇÃO
+                            {{ $production ? $production->Note->note : '' }}</h4>
                         <p
                             class="text-justify p-2 border border-1 border-secondary edp-bg-sprucegreen-100 edp-text-verde-dark my-2">
                             A transferência de produção consiste em transferir a titularidade desta produção. É
@@ -36,8 +37,10 @@
                                         $name = explode(' ', $user->name);
                                         $name = $name[0] . ' ' . end($name);
                                     @endphp
-                                    <option value="{{ $user->id }}">{{ $name }} -
+                                    <option wire:key='{{ $user->id }}' value="{{ $user->id }}">
+                                        {{ $name }} -
                                         {{ isset($user->Employee->Contract) ? explode(' ', $user->Employee->Contract->company->name)[0] : 'DESCONHECIDO' }}
+                                    </option>
                                 @endforeach
                             @endif
                         </select>

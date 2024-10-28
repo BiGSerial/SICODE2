@@ -46,14 +46,19 @@ class ViabRejectedLog extends Command
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
 
-        $forms->chunk(500)->each(function ($chunk) use ($progressBar) {
-            foreach ($chunk as $form) {
-
-                $check = ViabReject::updateOrCreate(
-                    ['form_id' => $form->id],
+        Form::where('rejected', true)
+            ->whereDate('updated_at', '>=', Carbon::now()->subDays($days))
+            ->chunk(500, function ($forms) use ($progressBar) {
+            foreach ($forms as $form) {
+                if ($form->Viability && $form->Viability->Orders->isNotEmpty()) {
+                foreach ($form->Viability->Orders as $order) {
+                    $check = ViabReject::updateOrCreate(
                     [
-                        'order' => $form->Viability->Order->ordem,
-                        'note' => $form->Viability->Order->Note->note,
+                        'form_id' => $form->id,
+                        'order' => $order->ordem,
+                    ],
+                    [
+                        'note' => $form->Viability->Note->note,
                         'responsible' => $form->responsible,
                         'company' => $form->Viability->Company->name,
                         'reason' => $form->reason,
@@ -61,20 +66,20 @@ class ViabRejectedLog extends Command
                         'created_at' => $form->created_at,
                         'updated_at' => $form->updated_at,
                     ]
-                );
+                    );
 
-
-
-                if ($check->wasRecentlyCreated) {
-                    $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> " . $form->Viability->Order->ordem . " </>";
-                } else {
-                    $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> " . $form->Viability->Order->ordem . " </>";
+                    if ($check->wasRecentlyCreated) {
+                    $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> " . $order->ordem . " </>";
+                    } else {
+                    $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> " . $order->ordem . " </>";
+                    }
+                }
                 }
 
                 $progressBar->setMessage($msg);
                 $progressBar->advance();
             }
-        });
+            });
 
         $progressBar->finish();
 

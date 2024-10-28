@@ -28,6 +28,16 @@ class Company extends Model
         return $this->hasMany(Contract::class);
     }
 
+    public function Viabilies()
+    {
+        return $this->hasMany(Viability::class);
+    }
+
+    public function toUsers()
+    {
+        return $this->hasMany(User::class);
+    }
+
     public function Users()
     {
         return $this->belongsToMany(User::class, 'company_user')->withTrashed();

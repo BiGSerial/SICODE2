@@ -45,9 +45,9 @@ class ViabiliyLog extends Command
         $progressBar->setMessage('Inserting in bulk');
 
 
-        $viabilities = Viability::whereDate('updated_at', '>=', Carbon::now()->subDays($days))
-            ->with('Order', 'User', 'Company', 'Engineer')
-            ->chunk(1000, function ($chunk) use ($progressBar) {
+        Viability::whereDate('updated_at', '>=', Carbon::now()->subDays($days))
+            ->with('Orders', 'User', 'Company', 'Engineer')
+            ->chunk(500, function ($chunk) use ($progressBar) {
                 foreach ($chunk as $viability) {
 
                     $sla_hiring = [
@@ -57,7 +57,7 @@ class ViabiliyLog extends Command
                         'ri_category' => null,
                     ];
 
-                    $waiting_hiring = HiringWaiting::where('note_id', $viability->Order->Note->id)->first();
+                    $waiting_hiring = HiringWaiting::where('note_id', $viability->Note->id)->first();
 
                     if ($waiting_hiring) {
 
@@ -72,44 +72,53 @@ class ViabiliyLog extends Command
                             $sla_hiring['ri_service'] = $waiting_hiring->Reclaim->Service->service ? $waiting_hiring->Reclaim->Service->service : null;
                         }
 
-                        $this->info('Waiting: ' . $viability->Order->Note->note);
+                        $this->info('Waiting: ' . $viability->Note->note);
+                    }
+
+                    if ($viability->Orders->isNotEmpty()) {
+                        foreach ($viability->Orders as $order) {
+                            $check = ViabilityLog::updateOrCreate(
+                                [
+                                    'viability_id' => $viability->id,
+                                    'order' => $order->ordem,
+                                ],
+                                [
+                                    'hired_by' => $viability->User->name,
+                                    'company_hiring' => $viability->User->Employee->Contract ? $viability->User->Employee->Contract->company->name : '---',
+                                    'responsible' => $viability->Engineer ? $viability->Engineer->name : 'DESCONHECIDO',
+                                    'company_responsible' => $viability->Engineer->Employee->Contract ? $viability->Engineer->Employee->Contract->company->name : '---',
+                                    'viability_by' => $viability->Form ? $viability->Form->responsible : 'NÃO VIABILIZADO',
+                                    'company_viability' => $viability->Company->name,
+                                    'note' => $viability->Note->note,
+                                    'status' => Viabilitiesstatus::status($viability->status)->status,
+                                    'completed' => $viability->completed,
+                                    'approved' => $viability->approved,
+                                    'rejected' => $viability->rejected,
+                                    'tacit' => $viability->tacit,
+                                    'hired' => $viability->hired,
+                                    'completed_at' => $viability->completed_at,
+                                    'sended_at' => $viability->sended_at,
+                                    'returned_at' => $viability->returned_at,
+                                    'hired_at' => $viability->hired_at,
+                                    'tacit_at' => $viability->tacit_at,
+                                    'ri_sended_at' => $sla_hiring['ri_sended_at'],
+                                    'ri_finished_at' => $sla_hiring['ri_finished_at'],
+                                    'ri_service' => $sla_hiring['ri_service'],
+                                    'ri_category' => $sla_hiring['ri_category'],
+                                ]
+                            );
+
+                            if ($check->wasRecentlyCreated) {
+                                $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> {$viability->Note->note} </>";
+                            } else {
+                                $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> {$viability->Note->note} </>";
+                            }
+                        }
                     }
 
 
-                    $check = ViabilityLog::updateOrCreate(
-                        ['viability_id' => $viability->id],
-                        [
-                            'hired_by' => $viability->User->name,
-                            'company_hiring' => $viability->User->Employee->Contract ? $viability->User->Employee->Contract->company->name : '---',
-                            'responsible' => $viability->Engineer ? $viability->Engineer->name : 'DESCONHECIDO',
-                            'company_responsible' => $viability->Engineer->Employee->Contract ? $viability->Engineer->Employee->Contract->company->name : '---',
-                            'viability_by' => $viability->Form ? $viability->Form->responsible : 'DESCONHECIDO',
-                            'company_viability' => $viability->Company->name,
-                            'note' => $viability->Order->Note->note,
-                            'order' => $viability->Order->ordem,
-                            'status' => Viabilitiesstatus::status($viability->status)->status,
-                            'completed' => $viability->completed,
-                            'approved' => $viability->approved,
-                            'rejected' => $viability->rejected,
-                            'tacit' => $viability->tacit,
-                            'hired' => $viability->hired,
-                            'completed_at' => $viability->completed_at,
-                            'sended_at' => $viability->sended_at,
-                            'returned_at' => $viability->returned_at,
-                            'hired_at' => $viability->hired_at,
-                            'tacit_at' => $viability->tacit_at,
-                            'ri_sended_at' => $sla_hiring['ri_sended_at'],
-                            'ri_finished_at' => $sla_hiring['ri_finished_at'],
-                            'ri_service' => $sla_hiring['ri_service'],
-                            'ri_category' => $sla_hiring['ri_category'],
-                        ]
-                    );
 
-                    if ($check->wasRecentlyCreated) {
-                        $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> {$viability->Order->Note->note} </>";
-                    } else {
-                        $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> {$viability->Order->Note->note} </>";
-                    }
+
 
                     $progressBar->setMessage($msg);
                     $progressBar->advance();
@@ -118,11 +127,11 @@ class ViabiliyLog extends Command
 
         $progressBar->finish();
 
-        if ($viabilities->isEmpty()) {
-            $this->info("<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED");
-        } else {
-            $this->info("<bg=blue;fg=white;options=bold> INFO </><fg=white;options=bold> WE HAVE FOUND {$viabilities->count()} REGISTERS AREN'T IN VIABILITY LOG");
-        }
+        // if (!$viabilities) {
+        //     $this->info("<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUNDED");
+        // } else {
+        //     $this->info("<bg=blue;fg=white;options=bold> INFO </><fg=white;options=bold> WE HAVE FOUND {$viabilities->count()} REGISTERS AREN'T IN VIABILITY LOG");
+        // }
 
         $this->info('<bg=green;fg=white> DONE </>');
     }

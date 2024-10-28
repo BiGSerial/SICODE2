@@ -18,6 +18,9 @@ class ViabilityProdList extends Component
     public function mount()
     {
         $this->companies = auth()->user()->Companies;
+        $this->startDate = now()->startOfMonth()->format('Y-m-d');
+        $this->endDate = now()->endOfMonth()->format('Y-m-d');
+
     }
 
 
@@ -30,26 +33,17 @@ class ViabilityProdList extends Component
         $query = Viability::query();
 
 
-        if ($this->startDate) {
-            $this->startDate = Carbon::parse($this->startDate)->startOfDay()->toDateTimeString();
-        }
-
-        if ($this->endDate) {
-            $this->endDate = Carbon::parse($this->endDate)->endOfDay()->toDateTimeString();
-        }
-
         if ($this->startDate && $this->endDate) {
-            $query->whereBetween('sended_at', [$this->startDate, $this->endDate]);
+            $query->whereBetween('sended_at', [Carbon::parse($this->startDate)->startOfDay()->toDateTimeString(), Carbon::parse($this->endDate)->endOfDay()->toDateTimeString()]);
         } elseif ($this->startDate) {
-            $query->where('sended_at', '>=', $this->startDate);
+            $query->where('sended_at', '>=', Carbon::parse($this->startDate)->startOfDay()->toDateTimeString());
         } elseif ($this->endDate) {
-            $query->where('sended_at', '<=', $this->endDate);
+            $query->where('sended_at', '<=', Carbon::parse($this->endDate)->endOfDay()->toDateTimeString());
         } else {
-            $this->startDate = now()->startOfMonth()->startOfDay()->toDateTimeString();
-            $this->endDate = now()->endOfMonth()->endOfDay()->toDateTimeString();
-            $query->whereBetween('sended_at', [$this->startDate, $this->endDate]);
+            $startDate = now()->startOfMonth()->startOfDay()->toDateTimeString();
+            $endDate = now()->endOfMonth()->endOfDay()->toDateTimeString();
+            $query->whereBetween('sended_at', [$startDate, $endDate]);
         }
-
 
 
         if (!auth()->user()->superadm) {

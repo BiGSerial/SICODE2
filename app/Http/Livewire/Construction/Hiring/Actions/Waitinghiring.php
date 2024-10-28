@@ -218,10 +218,10 @@ class Waitinghiring extends Component
                     'user_id'    => Auth()->User()->id,
                     'company_id' => $this->company_id,
                     'engineer_id' => $this->responsible_id,
-                    'sended_at' => $toViability['reter'] ? null : now(),
+                    'sended_at' => $toViability['reter'] ? null : date('Y-m-d H:i:s'),
                     'visible_partner' => $toViability['reter'] ? true : false,
                     'hired'  => $toViability['contratar'] ? true : false,
-                    'hire_at' => $toViability['contratar'] ? now() : null,
+                    'hired_at' => $toViability['contratar'] ? date('Y-m-d H:i:s') : null,
                     'status' => $toViability['reter'] ? 16 : 1,
                     ]);
 

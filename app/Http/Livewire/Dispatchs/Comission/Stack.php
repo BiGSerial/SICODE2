@@ -1155,7 +1155,7 @@ class Stack extends Component
         if ($this->delete) {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'Deletar Produção',
-                'msg'   => "Você está prestes a removert {$this->delete->Note->note} da produção. Esteja ciente ao fazer isso de forma inadequada poderá prejudicar a medição do usuário ou empresa. 
+                'msg'   => "Você está prestes a removert {$this->delete->Note->note} da produção. Esteja ciente ao fazer isso de forma inadequada poderá prejudicar a medição do usuário ou empresa.
                 Lembrando que a exclusão também removerá do LOG do BI. \n Deseja Continuar?",
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Remova!',
@@ -1219,11 +1219,36 @@ class Stack extends Component
             $this->selectall = false;
         }
 
-        if (!Auth()->User()->contract) {
-            $this->company_l = Company::orderBy('name', 'ASC')->get();
-        } else {
-            $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        }
+        // if (!Auth()->User()->contract) {
+        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
+        // } else {
+        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
+        // }
+
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where('service', true);
+            });
+        })
+            ->orderBy('name', 'ASC')
+            ->get();
+
+        $this->user_l = User::whereRelation('ToServices', function ($q) {
+            $q->where('service_id', $this->service->uuid)
+                ->where('service', true);
+        })
+        ->when($this->company_s, function ($q) {
+            return $q->where(function ($q) {
+                $q->whereRelation('Company', 'company_id', $this->company_s)
+                    ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+            });
+
+        })
+        // ->when($this->search_user, function ($q) {
+        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
+        // })
+        ->orderBy('name', 'ASC')->get();
 
         $this->status_l = $this->lists->pluck('status')->unique();
 
@@ -1234,7 +1259,7 @@ class Stack extends Component
                 return $q->whereIn('company_id', $this->company_fs);
             })->select('user_id')->with('User')->groupBy('user_id')->get();
 
-        $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
+        // $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 

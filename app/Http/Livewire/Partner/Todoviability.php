@@ -49,16 +49,6 @@ class Todoviability extends Component
         $this->gotoPage(1);
     }
 
-    public function putInActvity($id)
-    {
-
-        if ($id) {
-
-            foreach ((Note::find($id))->Viabilities as $viab) {
-                $viab->update(['inActivity' => !$viab->inActivity]);
-            }
-        }
-    }
 
     public function export_excel()
     {
@@ -206,6 +196,15 @@ class Todoviability extends Component
 
         })->get()->pluck('id')->toArray();
     }
+
+    public function putInActivity($id)
+    {
+        if ($viability = Viability::find($id)) {
+            $viability->inActivity = !$viability->inActivity;
+            $viability->save();
+        }
+    }
+
 
     public function checkInActivity($item)
     {

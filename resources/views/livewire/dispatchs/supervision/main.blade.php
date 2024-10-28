@@ -141,12 +141,12 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-striped">
+                <table class="table table-sm table-hover">
                     <thead class="table-dark">
                         <tr>
                             <th>
                                 <input class="form-check-input" type="checkbox" wire:model.defer="selectAll"
-                                    wire:click="setSelectAll()">
+                                    wire:click="setSelectAll()" @disabled($this->checkAllSelect($lists))>
                             </th>
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Ordem</th>
@@ -163,7 +163,7 @@
                             <th scope="col" class="fw-bold text-center">Grp5</th>
                             <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
-                            <th scope="col" class="fw-bold text-center">Dias Pilha</th>
+                            <th scope="col" class="fw-bold text-center">Dias Informe</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
@@ -315,13 +315,11 @@
                                 @endphp
                                 <td scope="col"
                                     class="text-center
-                                        @if ($days_left <= 3) table-success
-                                        @elseif($days_left > 3 && $days_left <= 6)
-                                        table-warning
-                                        @elseif($days_left > 6 && $days_left <= 8)
-                                            table-warning
+                                        @if ($days_left <= 20) text-bg-success
+                                        @elseif ($days_left >= 28)
+                                        text-bg-danger
                                         @else
-                                            table-secondary @endif
+                                        text-bg-warning @endif
                                     "
                                     tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="top" data-bs-title="Prazo Real"
@@ -488,7 +486,8 @@
                                             @if ($user_l && $user_l->count())
                                                 <option value="" selected>Selecione um Usuário</option>
                                                 @foreach ($user_l as $user)
-                                                    <option value="{{ $user->id }}">{{ $user->name }}
+                                                    <option wire:key='{{ $user->id }}'
+                                                        value="{{ $user->id }}">{{ $user->name }}
                                                     </option>
                                                 @endforeach
                                             @else

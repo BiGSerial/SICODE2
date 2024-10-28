@@ -46,7 +46,7 @@
     {{-- START LIST --}}
     @if (!$myLists->count())
         <div class="text-center my-5 py-3">
-            <h3>NENHUMA VIABILIDADE EM TRATATIVA</h3>
+            <h3>NENHUM RETORNO INTERNO EM ESPERA</h3>
         </div>
     @endif
 
@@ -55,7 +55,7 @@
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
                 <div class="row">
                     <div class="col">
-                        <h4 class="my-0">VIABILIDADE AGUARDANDO RESPOSTA</h4>
+                        <h4 class="my-0">RETORNO INTERNO CONCLUÍDO</h4>
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 

@@ -2,28 +2,31 @@
 
 namespace App\Exports;
 
-use App\Models\Note;
 use Illuminate\Contracts\View\View;
-use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithEvents, WithProperties};
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class ExportDDSupervision implements FromView, WithEvents, WithProperties
+class SupervisionDDExport implements FromView, WithEvents, WithProperties
 {
     use Exportable;
 
-    public $exports;
+    public $data;
 
-    public $service;
-
-    public function exportDD($notes, $service)
+    public function __construct($data)
     {
-        $this->exports = $notes;
-        $this->service = $service;
+        $this->data = $data;
+    }
 
-        return $this;
+    public function view(): View
+    {
+        return view('exports.supervision-dd', [
+
+        ]);
     }
 
     public function properties(): array
@@ -44,7 +47,7 @@ class ExportDDSupervision implements FromView, WithEvents, WithProperties
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:Q1')->applyFromArray([
+                $event->sheet->getStyle('A1:V1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -58,24 +61,7 @@ class ExportDDSupervision implements FromView, WithEvents, WithProperties
                 $event->sheet->getStyle('C:D')->getNumberFormat()->setFormatCode('0');
                 // $event->sheet->getStyle('L:L')->getNumberFormat()->setFormatCode('@');
                 $event->sheet->autoSize();
-
-                $event->sheet->getStyle('A:B')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
-
-                $event->sheet->getStyle('A1:Q' . $event->sheet->getHighestRow())->applyFromArray([
-                    'alignment' => [
-                        'horizontal' => Alignment::HORIZONTAL_CENTER,
-                        'vertical'   => Alignment::VERTICAL_CENTER,
-                    ],
-                ]);
             },
         ];
-    }
-
-    public function view(): View
-    {
-        return view('exports.exportddsupervision', [
-            'exports' => $this->exports,
-            'service' => $this->service,
-        ]);
     }
 }
