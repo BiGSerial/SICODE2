@@ -33,42 +33,48 @@
                 </div>
             </div>
 
-            <canvas id="viabilityChart" style="max-width: 400px; max-heigh: 400px;" wire:ignore></canvas>
+            <div id="chart"></div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/scichart@3/index.min.js" crossorigin="anonymous"></script>
+    {{-- <script src="https://cdn.jsdelivr.net/npm/scichart@3/index.min.js" crossorigin="anonymous"></script> --}}
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
+        let chart = null;
+
         document.addEventListener('DOMContentLoaded', function() {
             let labels = @json($totalViabilityStats['labels']);
             let datas = @json($totalViabilityStats['data']);
 
-            const data = [{
-                type: 'pie',
+            var options = {
+                series: datas,
+                chart: {
+                    type: 'pie',
+                    // height: 400,
+                    // width: 400
+                },
                 labels: labels,
-                values: datas,
-                textinfo: 'label+percent',
-                insidetextorientation: 'radial'
-            }];
+                colors: [
+                    '#28FF52', '#212E3E', '#225E66', '#7C9599',
+                    '#7EFF97', '#646D78', '#5b797e', '#648E94', '#A3B5B8',
+                    '#6D32FF', '#0CD3F8', '#263CC8', '#A784FF', '#6DE5FB',
+                ],
 
-            const layout = {
-                title: 'Viability Stats',
-                height: 400,
-                width: 400
             };
 
-            Plotly.newPlot('viabilityChart', data, layout);
+            chart = new ApexCharts(document.querySelector("#chart"), options);
+            chart.render();
         });
 
         document.addEventListener('updateGraphXX3', function(e) {
-            console.log(e.detail.data);
+            const newLabels = e.detail.labels; // Novos labels do evento
+            const newData = e.detail.data; // Novos dados do evento
 
-            const update = {
-                labels: [e.detail.labels],
-                values: [e.detail.data]
-            };
-
-            Plotly.restyle('viabilityChart', update);
+            // Atualiza as labels e os dados do gráfico
+            chart.updateOptions({
+                labels: newLabels
+            });
+            chart.updateSeries(newData);
         });
     </script>
 </div>

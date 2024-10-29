@@ -9,7 +9,9 @@ class SelectOptions
         return [
             (object)['info' => '(RI) ANEXAR PDF AO PROJETO', 'value' => 'ANEXAR PDF', 'needFile' => true],
             (object)['info' => '(RI) LIBERAR PROJETO NO EO', 'value' => 'LIBERAR EO', 'needFile' => false],
+            (object)['info' => '(RI) ANEXAR PDF E LIBERAR PROJETO NO EO', 'value' => 'ANEXAR E LIBERAR', 'needFile' => true],
             (object)['info' => '(RI) ALTERAÇÃO NO PROJETO', 'value' => 'ALTERAR PROJETO', 'needFile' => true],
+
         ];
     }
 
@@ -97,7 +99,7 @@ class SelectOptions
             (object)['info' => 'OBRA JA EXECUTADA', 'value' => 'EXECUTADA'],
             (object)['info' => 'LIBERAR PARA CONTRATAR', 'value' => 'LIBERAR'],
             // (object)['info' => 'LIBERAR', 'value' => 'SEGUIR'],
-            
+
             (object)['info' => 'NOVA VIABILIDADE', 'value' => 'RETORNAR'],
         ];
     }
