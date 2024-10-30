@@ -9,6 +9,7 @@
         <tr>
             <th>Note</th>
             <th>DD</th>
+            <th>DT_Created</th>
             <th>MMGD</th>
             <th>Rubrica</th>
             <th>Municipio</th>
@@ -35,6 +36,7 @@
                             {{ $data->Wpas->last()->dd }}
                         @endif
                     </td>
+                    <td>{{ Carbon::parse($data->dt_created)->format('d/m/Y') }}</td>
                     <td>{{ $data->mmgd ? 'SIM' : 'NÃO' }}</td>
                     <td>{{ $data->rubrica }}</td>
                     <td>{{ $data->lexp }}</td>

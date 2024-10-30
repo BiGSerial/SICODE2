@@ -556,7 +556,9 @@ class Main extends Component
                 return $q->where(function ($query) use ($s) {
                     $query->where('note', 'like', '%' . $s . '%')
                         ->orWhere('material', 'like', '%' . $s . '%')
-                        ->orWhere('numPedido', 'like', '%' . $s . '%');
+                        ->orWhere('numPedido', 'like', '%' . $s . '%')
+                        ->orWhere('group4', 'like', '%' . $s . '%')
+                        ->orWhere('group5', 'like', '%' . $s . '%');
                 });
             })->when($this->rubrica_s, function ($q) {
                 return $q->where(function ($query) {

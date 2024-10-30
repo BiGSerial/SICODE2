@@ -22,6 +22,11 @@ class WorkEquipment extends Component
         'perPage' => ['as' => 'pp'],
     ];
 
+    public function updatedSearch()
+    {
+        $this->gotoPage(1);
+    }
+
 
     public function getListsProperty()
     {
@@ -50,9 +55,9 @@ class WorkEquipment extends Component
                     ->orWhereRelation('WorkReport.Note', function ($q) {
                         return $q->where('note', 'like', '%' . $this->search . '%')
                             ->orWhere('lexp', 'like', '%' . $this->search . '%');
-                    })
-                    ->orWhere('pole', 'like', '%' . $this->search . '%')
-                    ->orWhere('installed', 'like', '%' . $this->search . '%');
+                    })->orWhereRelation('WorkReport.Orders', function ($q) {
+                        return $q->where('ordem', 'like', '%' . $this->search . '%');
+                    });
             });
         }
 

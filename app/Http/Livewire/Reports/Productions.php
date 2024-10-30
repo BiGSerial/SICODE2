@@ -16,7 +16,7 @@ class Productions extends Component
     public $monthYear;
     public $company;
 
-    public $service;
+    public $service = [];
 
     public $dt_init;
 
@@ -57,7 +57,7 @@ class Productions extends Component
 
     public function Export()
     {
-        return (new ProductionExport())->reports($this->lists->limit(10000)->get())->download(date('YmdHis-').'producao.xlsx');
+        return (new ProductionExport())->reports($this->lists->get())->download(date('YmdHis-').'producao.xlsx');
     }
 
     public function Search()
@@ -118,7 +118,7 @@ class Productions extends Component
         }
 
         if ($this->service) {
-            $query->where('service_id', $this->service);
+            $query->whereIn('service_id', $this->service);
         }
 
         if ($this->dt_init) {

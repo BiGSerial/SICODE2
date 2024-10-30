@@ -147,7 +147,7 @@
                                     <th scope="col" class="fw-bold">Zona</th>
                                     <th scope="col" class="fw-bold">Descrição</th>
                                     <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                    <th scope="col" class="fw-bold">Prazo Real</th>
+                                    <th scope="col" class="fw-bold">Dias Informe</th>
                                     <th scope="col" class="fw-bold">Status</th>
                                     <th scope="col" class="fw-bold"></th>
                                 </tr>
@@ -165,7 +165,7 @@
                                             : false;
 
                                         if ($dateForm) {
-                                            $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
+                                            $daysLeft = Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
                                         } else {
                                             $daysLeft = 0;
                                         }
@@ -229,23 +229,12 @@
                                         </td>
                                         <td scope="col"
                                             class="text-center
-                                        @if ($daysLeft < 0) text-bg-secondary
-                                        @elseif($daysLeft >= 0 && $daysLeft < 3)
-                                        table-danger
-                                        @elseif($daysLeft >= 3 && $daysLeft < 6)
-                                            table-warning
+                                        @if ($daysLeft <= 20) text-bg-success
+                                        @elseif ($daysLeft >= 28)
+                                        text-bg-danger
                                         @else
-                                            table-success @endif
-                                    "
-                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Prazo Real"
-                                            data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 6< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 3< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
+                                        text-bg-warning @endif
+                                    ">
                                             {{ $daysLeft }}
                                         </td>
                                         {{-- <td class="fw-light">

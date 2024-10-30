@@ -15,8 +15,9 @@
             <div class="row">
                 <div class="mb-3 col-2">
                     <label for="exampleFormControlInput1" class="form-label">Serviço</label>
-                    <select class="form-select form-select-sm" aria-label="Small select example" wire:model="service">
-                        <option value="" selected>Todos</option>
+                    <select class="form-select form-select-sm" aria-label="Small select example" wire:model="service"
+                        multiple>
+                        {{-- <option value="" selected>Todos</option> --}}
                         @if (count($service_list))
                             @foreach ($service_list as $list)
                                 <option value="{{ $list->service_id }}">{{ $list->Service->service }}</option>

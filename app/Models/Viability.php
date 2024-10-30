@@ -34,7 +34,8 @@ class Viability extends Model
         'inActivity',
         'note_id',
         'visible_partner',
-        'rehired'
+        'rehired',
+        'value',
     ];
 
     public function Order()

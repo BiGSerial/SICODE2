@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Engineers\Dashboard;
 
+use App\Models\Company;
 use App\Models\Form;
 use Livewire\Component;
 use Carbon\Carbon;
@@ -17,7 +18,8 @@ class RejectedPizza extends Component
 
     public function mount()
     {
-        $this->companies = auth()->user()->Companies;
+        $this->companies = !auth()->user()->superadm ? auth()->user()->Companies : Company::orderBy('name')->get();
+
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->endOfMonth()->format('Y-m-d');
 

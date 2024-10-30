@@ -267,9 +267,13 @@ class Viability extends Component
                                 ->get();
 
                 if ($orders->count()) {
+                    $sum = 0.0;
                     foreach ($orders as $order) {
+                        $sum += $order->moaberto;
                         $viability->orders()->syncWithoutDetaching([$order->id]);
                     }
+
+
                 } else {
                     throw new Exception("Um ou mais registros não possue(m) Ordem(ns) válida(s) para contratação", 1);
                 }

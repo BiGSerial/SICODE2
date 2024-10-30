@@ -320,16 +320,7 @@
                                         text-bg-danger
                                         @else
                                         text-bg-warning @endif
-                                    "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
-                                    data-bs-content="
-                                        <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                        <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                        <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                        <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                        <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                        ">
+                                    ">
                                     {{ $days_left }}
                                 </td>
                                 <td class="fw-light text-center">

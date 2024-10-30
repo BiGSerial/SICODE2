@@ -2,7 +2,9 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Models\File;
 use App\Models\Viability;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -79,6 +81,29 @@ class TacitList extends Component
         }
 
         return $query->orderBy('tacit_at', 'desc');
+    }
+
+    public function downloadFile($id)
+    {
+
+
+        if ($file = File::find($id)) {
+
+
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
     }
 
 

@@ -1,11 +1,9 @@
-<div wire:key='rejected_pizza_stats'>
+<div>
     <x-show-loading />
     {{-- @dump($totalViabilityStats) --}}
-    <div class="card" wire:ignore.self>
+    <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="mb-0">Situação Viabilidade <span class="fs-6 fw-bold">(De
-                    {{ date('d/m/Y', strToTime($startDate)) }} à
-                    {{ date('d/m/Y', strToTime($endDate)) }})</span></h3>
+            <h3 class="mb-0">Rejeição Motivos</h3>
             <button class="btn btn-sm btn-secondary ml-auto" wire:click="$refresh" wire:loading.attr="disabled">
                 <i class="ri-refresh-line" wire:loading.remove></i>
                 <span wire:loading wire:target="$refresh" class="spinner-border spinner-border-sm" role="status"
@@ -35,99 +33,68 @@
                 </div>
             </div>
 
-            <canvas id="rejectedChart" class="text-center" wire:ignore style="width: 100px; height: 100px"></canvas>
+            <div id="chart2"></div>
         </div>
     </div>
 
-    {{-- <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script> --}}
-    {{-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script> --}}
+    {{-- <script src="https://cdn.jsdelivr.net/npm/scichart@3/index.min.js" crossorigin="anonymous"></script> --}}
+    {{-- <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> --}}
     <script>
-        let rejectedChart;
+        let chart2 = null;
 
-        document.addEventListener('livewire:load', function() {
-            createGraph();
-        });
+        document.addEventListener('DOMContentLoaded', function() {
+            let labels = @json($totalRejectstasts['labels']);
+            let datas = @json($totalRejectstasts['data']);
+
+            var options = {
+                series: datas,
+                chart: {
+                    type: 'pie',
+                    height: 400,
+                    // width: 400,
+                    // events: {
+                    //     dataPointSelection: function(event, chartContext, config) {
+                    //         // Obtém o índice da fatia clicada
+                    //         const selectedIndex = config.dataPointIndex;
+                    //         // Obtém o nome da fatia clicada
+                    //         const selectedLabel = labels[selectedIndex];
+
+                    //         // Emite o evento para o Livewire
+                    //         // Livewire.emit('sliceClicked', selectedLabel);
+                    //         alert(selectedLabel);
+                    //     }
+                    // }
+                },
+                labels: labels,
+                colors: [
+                    '#28FF52', '#212E3E', '#225E66', '#7C9599',
+                    '#7EFF97', '#646D78', '#5b797e', '#648E94', '#A3B5B8',
+                    '#6D32FF', '#0CD3F8', '#263CC8', '#A784FF', '#6DE5FB',
+                ],
+                dropShadow: {
+                    enabled: true,
+                    blur: 5,
+                    left: 1,
+                    top: 1,
+                    opacity: 0.2
+                },
 
 
-
-        function createGraph() {
-
-            // if (rejectedChart) {
-            //     rejectedChart.destroy();
-            // }
-
-            let labels1 = @json($totalRejectstasts['labels']);
-            let datas1 = @json($totalRejectstasts['data']);
-            const data1 = {
-                labels: labels1,
-                datasets: [{
-                    label: 'Rejected Stats',
-                    data: datas1,
-                    backgroundColor: [
-                        '#28FF52', '#225E66', '#7C9599',
-                        '#7EFF97', '#646D78', '#5b797e', '#648E94', '#A3B5B8',
-                        '#6D32FF', '#263CC8', '#A784FF', '#7D8ADE'
-                    ],
-                }]
             };
 
-            const ctx1 = document.getElementById('rejectedChart').getContext('2d');
-
-            generateGraph('rejectedChart', ctx1, data1);
-        }
-
-        //     const ctx1 = document.getElementById('rejectedChart').getContext('2d');
-        //     rejectedChart = new Chart(ctx1, {
-        //         type: 'pie',
-        //         data: data1,
-        //         options: {
-        //             responsive: true,
-        //             plugins: {
-        //                 legend: {
-        //                     position: 'top',
-        //                 },
-        //                 tooltip: {
-        //                     callbacks: {
-        //                         label: function(tooltipItem) {
-        //                             return tooltipItem.label + ': ' + tooltipItem.raw;
-        //                         }
-        //                     }
-        //                 },
-        //                 datalabels: {
-        //                     formatter: (value, ctx1) => {
-        //                         let sum = ctx1.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-        //                         let percentage = ((value / sum) * 100).toFixed(2) + "%";
-        //                         return percentage;
-        //                     },
-        //                     color: '#fff',
-        //                     font: {
-        //                         weight: 'bold',
-        //                         size: 14
-        //                     },
-        //                     anchor: 'end',
-        //                     align: 'start'
-        //                 }
-        //             }
-        //         },
-
-        //     });
-        // }
+            chart2 = new ApexCharts(document.querySelector("#chart2"), options);
+            chart2.render();
+        });
 
         document.addEventListener('updateGraphXX4', function(e) {
-            console.log(e.detail.data);
+            const newLabels = e.detail.labels; // Novos labels do evento
+            const newData = e.detail.data; // Novos dados do evento
 
-            // Atualizar as labels e dados do gráfico
-            // rejectedChart.data.labels = e.detail.labels;
-            // rejectedChart.data.datasets[0].data = e.detail.data;
-
-            // Atualizar o gráfico com os novos dados
-            // rejectedChart.update();
-
-            updateGraph('rejectedChart', e.detail.data, e.detail.labels);
+            // Atualiza as labels e os dados do gráfico
+            chart2.updateOptions({
+                labels: newLabels
+            });
+            chart2.updateSeries(newData);
         });
     </script>
-
-
 </div>

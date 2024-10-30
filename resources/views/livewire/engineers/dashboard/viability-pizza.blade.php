@@ -38,7 +38,7 @@
     </div>
 
     {{-- <script src="https://cdn.jsdelivr.net/npm/scichart@3/index.min.js" crossorigin="anonymous"></script> --}}
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    {{-- <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> --}}
     <script>
         let chart = null;
 
@@ -59,6 +59,13 @@
                     '#7EFF97', '#646D78', '#5b797e', '#648E94', '#A3B5B8',
                     '#6D32FF', '#0CD3F8', '#263CC8', '#A784FF', '#6DE5FB',
                 ],
+                dropShadow: {
+                    enabled: true,
+                    top: 0,
+                    left: 0,
+                    blur: 3,
+                    opacity: 0.5
+                }
 
             };
 
