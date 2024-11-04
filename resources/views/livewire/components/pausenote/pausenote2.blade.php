@@ -1,3 +1,6 @@
+@php
+    use App\Helpers\SelectOptions;
+@endphp
 <div>
 
     <div wire:ignore.self class="modal fade" id="pauseModal" tabindex="-1" aria-labelledby="pauseModalLabel"
@@ -24,8 +27,11 @@
                                 </dl>
                             </div>
                         </div>
+
+
+
                         <div class="mb-3">
-                            <label for="exampleFormControlTextarea1" class="form-label">Motivo para Pausa<span
+                            <label for="exampleFormControlTextarea1" class="form-label">Detalhe motivo para Pausa<span
                                     class="text-danger fw-bold">*</span></label>
                             <textarea class="form-control border border-1 border-secondary" id="" rows="5"
                                 placeholder="< Obrigatório >" wire:model.defer="info"></textarea>

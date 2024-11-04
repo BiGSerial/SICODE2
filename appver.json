@@ -1,6 +1,11 @@
 {
-    "appver": "1.11.2",
+    "appver": "1.11.3",
     "historic": [
+        {
+            "version": "1.11.3",
+            "description": "Update Resume Viability Engineer Vision",
+            "date": "2024-11-04"
+        },
         {
             "version": "1.11.2",
             "description": "Update and Fix somethings",

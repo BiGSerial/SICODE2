@@ -50,4 +50,9 @@ class EngineerController extends Controller
     {
         return view('engineers.returnInternList');
     }
+
+    public function viability_reports()
+    {
+        return view('engineers.viabilityreports');
+    }
 }

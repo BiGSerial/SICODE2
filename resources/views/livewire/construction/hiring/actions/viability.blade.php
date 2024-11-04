@@ -69,96 +69,99 @@
                                                 id="reter" wire:model="reteinAll" wire:click="selectAllRetain"
                                                 @checked($this->checkAllRetainSelected()) /> --}}
                                         <label class="form-check-label">Reter</label>
-                    </div>
-                    </th>
-                    <th scope="col">Obra</th>
-                    <th scope="col">Ordens</th>
-                    <th scope="col">Rubrica</th>
-                    <th scope="col">Município</th>
-                    <th scope="col">Arquivos</th>
-                    <th scope="col"></th>
-                    <th scope="col"></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                        @if (count($toViabilities))
-                            @foreach ($toViabilities as $key => $viability)
-                                <tr class="align-middle text-center">
-                                    <td><input type="checkbox" class="form-check-input border-secondary" id="contratar"
-                                            wire:model="toViabilities.{{ $key }}.contratar" /></td>
-                                    <td><input type="checkbox" class="form-check-input border-secondary" id="reter"
-                                            wire:model="toViabilities.{{ $key }}.reter">
-                                    </td>
+                                    </th>
 
-                                    <td>{{ $viability['note']['note'] }}</td>
-                                    <td>
-                                        @if (!empty($viability['note']['orders']))
-                                            @foreach ($viability['note']['orders'] as $order)
-                                                <p class="py-0 my-0">{{ $order['ordem'] }}</p>
-                                            @endforeach
-                                        @endif
-                                    </td>
-                                    <td>{{ $viability['note']['rubrica'] }}</td>
-                                    <td>{{ $viability['note']['lexp'] }}</td>
-                                    <td>
-                                        @if (count($viability['note']['files']))
-                                            @foreach ($viability['note']['files'] as $file)
-                                                <p class="py-0 my-0">{{ $file['file_name'] }}</p>
-                                            @endforeach
-                                        @endif
-
-                                        @if (isset($viability['temp_files']['files']) && count($viability['temp_files']['files']))
-                                            @foreach ($viability['temp_files']['files'] as $file)
-                                                <p class="my-0 py-0">{{ $viability['temp_files']['typeFile'] }}
-                                                </p>
-                                                <p class="py-0 my-0">{{ $file->getClientOriginalName() }}</p>
-                                            @endforeach
-                                        @endif
-
-                                    </td>
-                                    <td>
-                                        @if (!count($viability['note']['files']))
-                                            <select wire:model="toViabilities.{{ $key }}.temp_files.typeFile"
-                                                class="form-select border-secondary">
-                                                <option value="">Selecione o tipo</option>
-                                                <option value="PROJETO">PROJETO</option>
-                                            </select>
-                                            <input type="file" class="form-control border-secondary"
-                                                @disabled(!isset($toViabilities[$key]['temp_files']['typeFile'])) name="file"
-                                                wire:model="toViabilities.{{ $key }}.temp_files.files"
-                                                multiple />
-                                            @error('toViabilities.{{ $key }}.temp_files.files')
-                                                <span class="error text-danger">{{ $message }}</span>
-                                            @enderror
-                                        @endif
-                                    </td>
-
-                                    <td>
-                                        <button class="btn btn-sm btn-danger"
-                                            wire:click.prevent="removeViability({{ $key }})">Remover</button>
-                                    </td>
+                                    </th>
+                                    <th scope="col">Obra</th>
+                                    <th scope="col">Ordens</th>
+                                    <th scope="col">Rubrica</th>
+                                    <th scope="col">Município</th>
+                                    <th scope="col">Arquivos</th>
+                                    <th scope="col"></th>
+                                    <th scope="col"></th>
                                 </tr>
-                            @endforeach
-                        @endif
-                    </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @if (count($toViabilities))
+                                    @foreach ($toViabilities as $key => $viability)
+                                        <tr class="align-middle text-center">
+                                            <td><input type="checkbox" class="form-check-input border-secondary"
+                                                    id="contratar"
+                                                    wire:model="toViabilities.{{ $key }}.contratar" /></td>
+                                            <td><input type="checkbox" class="form-check-input border-secondary"
+                                                    id="reter" wire:model="toViabilities.{{ $key }}.reter">
+                                            </td>
+
+                                            <td>{{ $viability['note']['note'] }}</td>
+                                            <td>
+                                                @if (!empty($viability['note']['orders']))
+                                                    @foreach ($viability['note']['orders'] as $order)
+                                                        <p class="py-0 my-0">{{ $order['ordem'] }}</p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                            <td>{{ $viability['note']['rubrica'] }}</td>
+                                            <td>{{ $viability['note']['lexp'] }}</td>
+                                            <td>
+                                                @if (count($viability['note']['files']))
+                                                    @foreach ($viability['note']['files'] as $file)
+                                                        <p class="py-0 my-0">{{ $file['file_name'] }}</p>
+                                                    @endforeach
+                                                @endif
+
+                                                @if (isset($viability['temp_files']['files']) && count($viability['temp_files']['files']))
+                                                    @foreach ($viability['temp_files']['files'] as $file)
+                                                        <p class="my-0 py-0">{{ $viability['temp_files']['typeFile'] }}
+                                                        </p>
+                                                        <p class="py-0 my-0">{{ $file->getClientOriginalName() }}</p>
+                                                    @endforeach
+                                                @endif
+
+                                            </td>
+                                            <td>
+                                                @if (!count($viability['note']['files']))
+                                                    <select
+                                                        wire:model="toViabilities.{{ $key }}.temp_files.typeFile"
+                                                        class="form-select border-secondary">
+                                                        <option value="">Selecione o tipo</option>
+                                                        <option value="PROJETO">PROJETO</option>
+                                                    </select>
+                                                    <input type="file" class="form-control border-secondary"
+                                                        @disabled(!isset($toViabilities[$key]['temp_files']['typeFile'])) name="file"
+                                                        wire:model="toViabilities.{{ $key }}.temp_files.files"
+                                                        multiple />
+                                                    @error('toViabilities.{{ $key }}.temp_files.files')
+                                                        <span class="error text-danger">{{ $message }}</span>
+                                                    @enderror
+                                                @endif
+                                            </td>
+
+                                            <td>
+                                                <button class="btn btn-sm btn-danger"
+                                                    wire:click.prevent="removeViability({{ $key }})">Remover</button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
-                <button type="button" class="btn btn-secondary" wire:click.prevent="closeAll">Cancelar</button>
-                <button type="button" class="btn btn-primary" wire:click.prevent="toViability">Enviar</button>
+                <div class="modal-footer edp-bg-sprucegreen-70 text-edp-verde">
+                    <button type="button" class="btn btn-secondary" wire:click.prevent="closeAll">Cancelar</button>
+                    <button type="button" class="btn btn-primary" wire:click.prevent="toViability">Enviar</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
 
-<script>
-    // Capturando o evento de fechamento do modal
-    document.getElementById('modal_viability').addEventListener('hidden.bs.modal', () => {
+    <script>
+        // Capturando o evento de fechamento do modal
+        document.getElementById('modal_viability').addEventListener('hidden.bs.modal', () => {
 
-        Livewire.emitTo('construction.hiring.actions.viability', 'closeAll');
-    });
-</script>
+            Livewire.emitTo('construction.hiring.actions.viability', 'closeAll');
+        });
+    </script>
 
 </div>

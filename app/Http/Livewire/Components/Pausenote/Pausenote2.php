@@ -14,6 +14,7 @@ class Pausenote2 extends Component
     public $limite = 100;
     public $count = 0;
     public $info;
+    public $category;
 
     protected $listeners = [
         'stop_note' => 'to_stopNote',

@@ -44,6 +44,12 @@
                                 <i class="bi bi-circle"></i> <span> HISTÓRICO</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('engineers.viabilityreports') }}" class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span>RESUMO VIABILIDADE</span>
+                                {{-- @livewire('construction.hiring.counts.count-return') --}}
+                            </a>
+                        </li>
 
                     </div>
                 </ul>

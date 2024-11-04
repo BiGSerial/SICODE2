@@ -317,4 +317,18 @@ class SelectOptions
             (object)['reason' => '99 - ARQUIVADO', 'value' => 'ARQUIVADO'],
         ];
     }
+
+
+    // Motivos PAUSE
+    public static function getPauseNotesCategory()
+    {
+        return [
+            (object)['reason' => 'CS NÃO INFORMADA', 'value' => 'CS NÃO INFORMADA'],
+            (object)['reason' => 'DEPENDE DE OUTRA OV/NOTA', 'value' => 'DEPENDE DE OUTRA OV/NOTA'],
+            (object)['reason' => 'DEPENDE DE REDESENHO', 'value' => 'DEPENDE DE REDESENHO'],
+            (object)['reason' => 'PATRIMÔNIO NÃO INFORMADO', 'value' => 'PATRIMÔNIO NÃO INFORMADO'],
+            (object)['reason' => 'TRAFO BAIXADO NA ORDEM ERRADA', 'value' => 'TRAFO BAIXADO NA ORDEM ERRADA'],
+            (object)['reason' => 'TRAFO PENDENTE DE BAIXA', 'value' => 'TRAFO PENDENTE DE BAIXA'],
+        ];
+    }
 }
