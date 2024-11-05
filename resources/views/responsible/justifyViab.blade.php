@@ -12,11 +12,11 @@
 @endsection
 
 @section('menu')
-    @livewire('engineers.menu', key('engineers-menu'))
+    @livewire('responsible.menu', key('menu'))
 @endsection
 
 @section('content')
-    @livewire('engineers.justify-viab', key('engineers-justify-viab'))
+    @livewire('responsible.justify-viab', key('justify-viab'))
 @endsection
 
 @push('script')

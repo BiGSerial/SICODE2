@@ -2,7 +2,9 @@
 
 namespace App\Http\Livewire\Reports;
 
+use App\Custom\RuleBuilder;
 use App\Exports\ProductionExport;
+use App\Models\Note;
 use App\Models\Production;
 use Carbon\Carbon;
 use Livewire\Component;
@@ -28,6 +30,8 @@ class Productions extends Component
 
     public $cities;
     public $search = false;
+
+    public $reportData = [];
 
     protected $registers;
 
@@ -59,6 +63,24 @@ class Productions extends Component
     {
         return (new ProductionExport())->reports($this->lists->get())->download(date('YmdHis-').'producao.xlsx');
     }
+
+    // public function Export2()
+    // {
+    //     if (!count($this->service)) {
+    //         $this->dispatchBrowserEvent('swal', [
+    //             'position' => 'center',
+    //             'icon'     => 'error',
+    //             'title'    => "Nenhum serviço selecionado.",
+    //             'timer'    => 2500,
+    //         ]);
+    //     }
+
+    //     foreach ($this->service as $service) {
+    //         $query = Note::query();
+
+    //         RuleBuilder::applyRules($query, $this->service->Status);
+    //     }
+    // }
 
     public function Search()
     {
