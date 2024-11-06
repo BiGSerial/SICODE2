@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Engineers;
 
+use App\Exports\Engineers\NotRealized;
 use App\Models\Company;
 use App\Models\Viability;
 use Livewire\Component;
@@ -25,6 +26,20 @@ class Viabreports extends Component
         'dt_out' => ['except' => ''],
     ];
 
+    public function exportExcel()
+    {
+        $data = $this->getViabilityProperty()->where('tacit', true)->where('completed', true)
+                ->where(function ($q) {
+                    $q->whereDoesntHave('Justification')
+                        ->orWhereHas('Justification', function ($query) {
+                            $query->where('dismissed', true);
+                        });
+                })->get();
+
+
+        return (new NotRealized($data))->download(date('Ymdhms').'_EngineersNoteOVNotRealized.xlsx');
+    }
+
     public function __construct()
     {
         $this->companies = Company::Has('Viabilies')
@@ -39,8 +54,18 @@ class Viabreports extends Component
 
     public function getResume()
     {
-        $resume['realized'] = $this->getViabilityProperty()->where('tacit', false)->where('approved', true)->sum('value');
-        $resume['notRealized'] = $this->getViabilityProperty()->where('tacit', true)->where('completed', true)->sum('value');
+        $resume['realized'] = $this->getViabilityProperty()->where('tacit', false)->where(function ($q) {
+            $q->where('rejected', true)->orWhere('approved', true);
+        })->sum('value');
+        // $resume['realized'] = $this->getViabilityProperty()->where('tacit', false)->where('approved', true)->sum('value');
+        $resume['notRealized'] = $this->getViabilityProperty()->where('tacit', true)->where('completed', true)
+        ->where(function ($q) {
+            $q->whereDoesntHave('Justification')
+                ->orWhereHas('Justification', function ($query) {
+                    $query->where('dismissed', true);
+                });
+        })
+        ->sum('value');
 
         $resume['penalty'] = $resume['notRealized'] * 0.01;
 
@@ -71,8 +96,16 @@ class Viabreports extends Component
     {
         return view('livewire.engineers.viabreports', [
             'resume' => $this->getResume(),
-            'realizeds' =>  $this->getViabilityProperty()->where('tacit', false)->where('approved', true)->paginate($this->perPage, ['*'], 'realizedPage'),
-            'notRealizeds' => $this->getViabilityProperty()->where('tacit', true)->where('approved', true)->paginate($this->perPage, ['*'], 'notRealizedPage'),
+            'realizeds' =>  $this->getViabilityProperty()->where('tacit', false)->where(function ($q) {
+                $q->where('rejected', true)->orWhere('approved', true);
+            })->paginate($this->perPage, ['*'], 'realizedPage'),
+            'notRealizeds' => $this->getViabilityProperty()->where('tacit', true)->where('completed', true)
+            ->where(function ($q) {
+                $q->whereDoesntHave('Justification')
+                    ->orWhereHas('Justification', function ($query) {
+                        $query->where('dismissed', true);
+                    });
+            })->paginate($this->perPage, ['*'], 'notRealizedPage'),
         ]);
     }
 }
