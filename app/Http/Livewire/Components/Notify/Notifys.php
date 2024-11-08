@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Components\Notify;
 
 use App\Models\Notify;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class Notifys extends Component
@@ -11,7 +12,7 @@ class Notifys extends Component
 
     public function getNotifyProperty()
     {
-        return Notify::where('user_id', Auth()->User()->id)->where('readed', false)->orderBy('created_at', 'DESC')->get();
+        return Notify::where('user_id', Auth()->User()->id)->orderBy('created_at', 'DESC')->limit(10)->get();
     }
 
     public function recognize_all()
@@ -25,14 +26,37 @@ class Notifys extends Component
 
     public function readed(Notify $notify)
     {
+
         try {
-            $notify->update(['readed' => true]);
+            if ($notify->status == 4) {
+                $notify->update(['readed' => true]);
 
-            redirect($notify->link);
+                if (Storage::disk('public')->exists($notify->link)) {
+
+                    $file = explode('/', $notify->link);
+
+                    return response()->streamDownload(function () use ($notify) {
+                        echo Storage::disk('public')->get($notify->link);
+                    }, $file[1]);
+
+                } else {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'error',
+                        'title'    => 'ARQUIVO INEXISTENTE!',
+                        'timer'    => 5000,
+                    ]);
+                    return;
+                }
+            } else {
+
+                $notify->update(['readed' => true]);
+                redirect($notify->link);
+
+            }
         } catch (\Throwable $th) {
-
+            //throw $th;
         }
-
     }
 
     public function render()

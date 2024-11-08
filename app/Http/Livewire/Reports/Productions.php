@@ -6,9 +6,14 @@ use App\Custom\RuleBuilder;
 use App\Exports\ProductionExport;
 use App\Models\Note;
 use App\Models\Production;
+use App\Models\Service;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Custom\Notestatus;
+use App\Exports\Reports\ProductionFullExport;
+use App\Jobs\ExportProductionReportJob;
+use Illuminate\Support\Facades\Auth;
 
 class Productions extends Component
 {
@@ -30,8 +35,6 @@ class Productions extends Component
 
     public $cities;
     public $search = false;
-
-    public $reportData = [];
 
     protected $registers;
 
@@ -64,23 +67,38 @@ class Productions extends Component
         return (new ProductionExport())->reports($this->lists->get())->download(date('YmdHis-').'producao.xlsx');
     }
 
-    // public function Export2()
-    // {
-    //     if (!count($this->service)) {
-    //         $this->dispatchBrowserEvent('swal', [
-    //             'position' => 'center',
-    //             'icon'     => 'error',
-    //             'title'    => "Nenhum serviço selecionado.",
-    //             'timer'    => 2500,
-    //         ]);
-    //     }
+    public function Export2()
+    {
+        if (!count($this->service)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => "Nenhum serviço selecionado.",
+                'timer'    => 2500,
+            ]);
+            return;
+        }
 
-    //     foreach ($this->service as $service) {
-    //         $query = Note::query();
+        $user = Auth::user();
+        if (!$user) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => "Erro: usuário não autenticado.",
+                'timer'    => 2500,
+            ]);
+            return;
+        }
 
-    //         RuleBuilder::applyRules($query, $this->service->Status);
-    //     }
-    // }
+        ExportProductionReportJob::dispatch($this->service, $this->monthYear, $this->dt_init, $this->dt_end, $user);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "EXPORTAÇÃO EM ANDAMENTO.",
+            'html'    => "<div class='card'><div class='card-body'><p>Seu relatório está sendo gerado, aguarde alguns instantes. Você será notificado quando o arquivo estiver pronto para download.</p> <p class='fw-bold'>Verifique sempre na sua Central de Notificação.</p></div></div>",
+        ]);
+    }
 
     public function Search()
     {

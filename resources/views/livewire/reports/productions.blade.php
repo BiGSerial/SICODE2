@@ -91,8 +91,9 @@
 
     @if ($lists)
         <div class="row">
-            <div class="col-1">
-                <button class="btn btn-sm btn-primary mb-3" wire:click.prevent='Export'>Exportar</button>
+            <div class="col-2 d-flex justify-content-start">
+                <button class="btn btn-sm btn-primary mb-3 me-2" wire:click.prevent='Export'>Exportar</button>
+                <button class="btn btn-sm btn-primary mb-3" wire:click.prevent='Export2'>Exportar2</button>
             </div>
 
             <div class="col-6">
