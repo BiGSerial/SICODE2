@@ -4,9 +4,9 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="mb-0">Rejeição Motivos</h3>
-            <button class="btn btn-sm btn-secondary ml-auto" wire:click="$refresh" wire:loading.attr="disabled">
+            <button class="btn btn-sm btn-secondary ml-auto" wire:click="upd" wire:loading.attr="disabled">
                 <i class="ri-refresh-line" wire:loading.remove></i>
-                <span wire:loading wire:target="$refresh" class="spinner-border spinner-border-sm" role="status"
+                <span wire:loading wire:target="upd" class="spinner-border spinner-border-sm" role="status"
                     aria-hidden="true"></span>
             </button>
         </div>

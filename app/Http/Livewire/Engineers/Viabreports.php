@@ -40,6 +40,21 @@ class Viabreports extends Component
         return (new NotRealized($data))->download(date('Ymdhms').'_EngineersNoteOVNotRealized.xlsx');
     }
 
+    public function updatedDtIn()
+    {
+        $this->emit('sendDtInterval', $this->dt_in, $this->dt_out);
+    }
+
+    public function updatedDtOut()
+    {
+        $this->emit('sendDtInterval', $this->dt_in, $this->dt_out);
+    }
+
+    public function updatedCompanyId()
+    {
+        $this->emit('sendCompany', $this->company_id);
+    }
+
     public function __construct()
     {
         $this->companies = Company::Has('Viabilies')

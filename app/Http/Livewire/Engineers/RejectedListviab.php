@@ -17,11 +17,12 @@ class RejectedListviab extends Component
     public $search;
 
     // Filters
-    private $filter_group = 'partner';
+    private $filter_group = 'engineer';
     private $filter;
 
     protected $listeners = [
         'refresh' => '$refresh',
+        'refresh_list' => '$refresh',
     ];
 
 
@@ -62,6 +63,27 @@ class RejectedListviab extends Component
 
         }
 
+        if (isset($this->filter['responsible']) && $this->filter['responsible']) {
+            $query->whereIn('engineer_id', $this->filter['responsible']);
+        }
+
+        if (isset($this->filter['company']) && $this->filter['company']) {
+            $query->whereIn('company_id', $this->filter['company']);
+        }
+
+        if (isset($this->filter['rubrica']) && $this->filter['rubrica']) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+
+        if (isset($this->filter['city']) && $this->filter['city']) {
+
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
+        }
+
         return $query->orderBy('updated_at');
     }
 
@@ -74,6 +96,8 @@ class RejectedListviab extends Component
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
+
+            // dd($this->filter);
         }
 
         $query = Viability::query()->where('rejected', true)
@@ -92,6 +116,28 @@ class RejectedListviab extends Component
             // $query->where('engineer_id', Auth()->user()->id);
 
         }
+
+        if (isset($this->filter['responsible']) && $this->filter['responsible']) {
+            $query->whereIn('engineer_id', $this->filter['responsible']);
+        }
+
+        if (isset($this->filter['company']) && $this->filter['company']) {
+            $query->whereIn('company_id', $this->filter['company']);
+        }
+
+        if (isset($this->filter['rubrica']) && $this->filter['rubrica']) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+
+        if (isset($this->filter['city']) && $this->filter['city']) {
+
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
+        }
+
 
         return $query->orderBy('updated_at');
     }

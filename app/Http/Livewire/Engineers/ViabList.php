@@ -25,7 +25,7 @@ class ViabList extends Component
     public $search;
 
     // Filters
-    private $filter_group = 'partner';
+    private $filter_group = 'engineer';
 
     private $filter;
 
@@ -166,7 +166,7 @@ class ViabList extends Component
             // $query->where('engineer_id', Auth()->user()->id);
         }
 
-        $query->with(['Note', 'Files']);
+        $query->with(['Note', 'Files', 'Engineer']);
 
         if ($this->search = trim($this->search)) {
             $query->where(function ($q) {
@@ -175,13 +175,22 @@ class ViabList extends Component
             });
         }
 
-        if (isset($this->filter['rubrica'])) {
+        if (isset($this->filter['responsible']) && $this->filter['responsible']) {
+            $query->whereIn('engineer_id', $this->filter['responsible']);
+        }
+
+        if (isset($this->filter['company']) && $this->filter['company']) {
+            $query->whereIn('company_id', $this->filter['company']);
+        }
+
+        if (isset($this->filter['rubrica']) && $this->filter['rubrica']) {
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('rubrica', $this->filter['rubrica']);
             });
         }
 
-        if (isset($this->filter['city'])) {
+        if (isset($this->filter['city']) && $this->filter['city']) {
+
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('lexp', $this->filter['city']);
             });

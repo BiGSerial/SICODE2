@@ -95,10 +95,12 @@
                 </div>
 
                 <div class="col-6 d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner'], key('removeAll'))
+                    @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empresa', 'group_filter' => 'engineer', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                    @livewire('components.filter.filter', ['myKey' => 'responsible', 'sendFilter' => '', 'model' => 'App\Models\User', 'column' => 'id', 'filter' => 'Responsável', 'group_filter' => 'engineer', 'values' => 'name', 'direction' => 'ASC', 'query' => 'responsible = true'], key('responsavel'))
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'engineer', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'engineer', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'engineer', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'engineer'], key('removeAll'))
                 </div>
             </div>
         </div>
@@ -157,6 +159,7 @@
                             <th scope="col" class="text-center align-middle">Regiao</th>
                             <th scope="col" class="text-center align-middle">Municipio</th>
                             <th scope="col" class="text-center align-middle">Status</th>
+                            <th scope="col" class="text-center align-middle">Responsável</th>
                             <th scope="col" class="text-center align-middle">Empreiteira</th>
                             <th scope="col" class="text-center align-middle">Tempo</th>
 
@@ -303,7 +306,11 @@
                                 <td class="text-center align-middle"><span
                                         class="badge {{ Viabilitiesstatus::status($viability->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability->status)->status }}</span>
                                 </td>
-                                <td class="text-center align-middle">{{ $viability->Company->name }}</span></td>
+                                <td class="text-center align-middle">
+                                    <p class="my-0 py-0 fw-bold">{{ $viability->Engineer->name }}</p>
+                                    <p class="my-0 py-0 text-primary">({{ $viability->Engineer->email }})</p>
+                                </td>
+                                <td class="text-center align-middle">{{ $viability->Company->name }}</td>
                                 <td class="text-center align-middle text-danger fw-bold">
                                     {{ Carbon::parse($viability->sended_at)->diffForHumans(['short' => false, 'syntax' => Carbon::DIFF_ABSOLUTE]) }}
                                 </td>

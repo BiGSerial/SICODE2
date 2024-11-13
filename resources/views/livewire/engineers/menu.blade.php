@@ -10,6 +10,12 @@
                 <ul id="viabilidade-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
+                            <a href="{{ route('engineers.main') }}" class="nav-item edp-text-verde-dark">
+                                <i class="bi bi-circle"></i> <span> DASHBOARD</span>
+
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{ route('engineers.viability_waiting') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> VIABILIDADE EM ESPERA</span>
                                 @livewire('engineers.counts.viab-in-waiting-count', key('viab-in-waiting-count'))

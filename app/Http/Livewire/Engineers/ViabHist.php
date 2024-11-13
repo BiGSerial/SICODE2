@@ -31,7 +31,7 @@ class ViabHist extends Component
     public $dateBy = 'sended_at';
 
     // Filters
-    private $filter_group = 'partner_hist';
+    private $filter_group = 'engineer';
 
     private $filter;
 
@@ -140,6 +140,27 @@ class ViabHist extends Component
 
                     $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
                 }
+            });
+        }
+
+        if (isset($this->filter['responsible']) && $this->filter['responsible']) {
+            $query->whereIn('engineer_id', $this->filter['responsible']);
+        }
+
+        if (isset($this->filter['company']) && $this->filter['company']) {
+            $query->whereIn('company_id', $this->filter['company']);
+        }
+
+        if (isset($this->filter['rubrica']) && $this->filter['rubrica']) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+
+        if (isset($this->filter['city']) && $this->filter['city']) {
+
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
             });
         }
 

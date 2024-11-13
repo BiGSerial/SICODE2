@@ -35,11 +35,11 @@ class TacitLogic extends Command
         // dd($sevenDaysAgo, $sevenDaysAgo->copy()->subDays(-10));
 
 
-        $viabilitiesToUpdate = Viability::whereNull('returned_at')
-                            ->where('sended_at', '<=', $sevenDaysAgo)
+        $viabilitiesToUpdate = Viability::where('sended_at', '<=', $sevenDaysAgo)
+                            ->where('tacit', false)
                             ->where('rejected', false)
                             ->where('approved', false)
-                            ->where('completed', false)
+                            // ->where('completed', false)
                             ->get();
 
         if ($viabilitiesToUpdate) {
@@ -50,19 +50,25 @@ class TacitLogic extends Command
             $progressBar = new ProgressBar($this->output, $viabilitiesToUpdate->count());
             $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%%');
 
+
+
             $progressBar->start();
+
+            // return;
 
             foreach ($viabilitiesToUpdate as $viability) {
 
                 $adjustedSevenDaysAgo = $sevenDaysAgo->copy()->subDays($viability->Days->sum('days'));
 
+
+
                 if ($viability->sended_at <= $adjustedSevenDaysAgo) {
 
                     $viability->update([
                         'tacit' => true,
-                        'tacit_at' => Carbon::now(),
+                        'tacit_at' => $adjustedSevenDaysAgo->format('Y-m-d H:i:s'),
                         'completed' => $viability->hired ? true : false,
-                        'completed_at' => $viability->hired ? Carbon::now() : null,
+                        'completed_at' => $viability->hired ? $adjustedSevenDaysAgo->format('Y-m-d H:i:s') : null,
                         'status' => $viability->hired ? 9 : 15,
                         'approved' => true,
                     ]);

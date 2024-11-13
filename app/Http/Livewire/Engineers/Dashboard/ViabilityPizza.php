@@ -15,6 +15,14 @@ class ViabilityPizza extends Component
     public $companies;
 
 
+    protected $listeners = [
+        'refreshViability' => '$refresh',
+        'sendDtInterval' => 'setInterval',
+        'sendCompany' => 'setCompany',
+    ];
+
+
+
     public function mount()
     {
         $this->companies = !auth()->user()->superadm ? auth()->user()->Companies : Company::whereHas('Viabilies')->orderBy('name')->get();
@@ -23,6 +31,29 @@ class ViabilityPizza extends Component
         $this->endDate = now()->endOfMonth()->format('Y-m-d');
 
     }
+
+    public function upd()
+    {
+        $this->updated();
+    }
+
+
+    public function setInterval($startDate = null, $endDate = null)
+    {
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
+
+        $this->updated();
+    }
+
+    public function setCompany($company_id = null)
+    {
+        $this->company_id = $company_id;
+
+        $this->updated();
+    }
+
+
 
     public function updated()
     {

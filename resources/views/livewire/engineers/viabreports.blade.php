@@ -32,6 +32,12 @@
     </div>
 
     <div class="row">
+        <div class="col-4">@livewire('engineers.dashboard.viability-pizza', key('viability-pizza'))</div>
+        <div class="col-4">@livewire('engineers.dashboard.rejected-pizza', key('rejected-pizza'))</div>
+
+    </div>
+
+    <div class="row">
         <div class="col-xxl-4 col-md-4">
             <div class="card info-card revenue-card">
                 <div class="card-header py-0 text-bg-success">

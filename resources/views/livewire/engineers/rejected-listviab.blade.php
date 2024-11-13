@@ -33,10 +33,12 @@
                 </div>
 
                 <div class="col-6 d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner'], key('removeAll'))
+                    @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empresa', 'group_filter' => 'engineer', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                    @livewire('components.filter.filter', ['myKey' => 'responsible', 'sendFilter' => '', 'model' => 'App\Models\User', 'column' => 'id', 'filter' => 'Responsável', 'group_filter' => 'engineer', 'values' => 'name', 'direction' => 'ASC', 'query' => 'responsible = true'], key('responsavel'))
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'engineer', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'engineer', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'engineer', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'engineer'], key('removeAll'))
                 </div>
             </div>
         </div>
