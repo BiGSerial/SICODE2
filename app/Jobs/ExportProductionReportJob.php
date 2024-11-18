@@ -10,6 +10,7 @@ use App\Models\Notify;
 use App\Models\Production;
 use App\Models\Service;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,6 +31,8 @@ class ExportProductionReportJob implements ShouldQueue
     protected $dt_end;
     public $user;
 
+    public $timeout = 60;
+
     public function __construct($services, $monthYear, $dt_init, $dt_end, $user)
     {
         $this->services = $services;
@@ -41,6 +44,7 @@ class ExportProductionReportJob implements ShouldQueue
 
     public function handle()
     {
+
         $reportData = [];
         $startDate = $this->monthYear ? Carbon::parse($this->monthYear)->startOfMonth()->format('Y-m-d 0:00:00') : null;
         $endDate = $this->monthYear ? Carbon::parse($this->monthYear)->endOfMonth()->format('Y-m-d 23:59:59') : null;
@@ -153,5 +157,17 @@ class ExportProductionReportJob implements ShouldQueue
             'Tempo_Execucao' => $production && $production->dispatch_at && $production->completed_at ? Carbon::Parse($production->dispatch_at)->diff(Carbon::parse($production->completed_at))->format('%d dias, %h horas e %i minutos') : '',
             'Status' => $production ? Notestatus::status($production->status)->status : 'Na Pilha',
         ];
+    }
+
+    public function failed(Exception $exception)
+    {
+        Notify::create([
+            'user_id' => $this->user->id,
+            'title' => 'Erro ao Gerar Relatório',
+            'info' => 'Ocorreu um erro ao gerar o relatório.<br>'. $exception->getMessage(),
+            'link' => '', // Sem link, pois o arquivo não foi gerado
+            'status' => 5,
+            'readed' => false,
+        ]);
     }
 }

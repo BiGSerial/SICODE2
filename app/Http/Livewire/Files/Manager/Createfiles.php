@@ -153,6 +153,8 @@ class Createfiles extends Component
 
             $caminho = $saveFile['file']->store('/arquivos/'. $saveFile['uploadType']);
 
+
+
             if (Storage::exists($caminho)) {
                 File::create([
                     'note_id' => $this->note->id,

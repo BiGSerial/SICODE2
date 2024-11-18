@@ -50,8 +50,8 @@
                 series: datas,
                 chart: {
                     type: 'pie',
-                    // height: 400,
-                    // width: 400
+                    height: 300,
+
                 },
                 labels: labels,
                 colors: [
@@ -65,12 +65,21 @@
                     left: 0,
                     blur: 3,
                     opacity: 0.5
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'center'
                 }
-
             };
 
             chart = new ApexCharts(document.querySelector("#chart"), options);
             chart.render();
+        });
+
+        window.addEventListener('resize', function() {
+            const chartElement = document.querySelector("#chart");
+            chartElement.style.minHeight = '250px';
+            chartElement.style.minWidth = '250px';
         });
 
         document.addEventListener('updateGraphXX3', function(e) {

@@ -32,8 +32,8 @@
 
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
-           
 
+            @livewire('components.filter.filter', ['myKey' => 'material', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'material', 'filter' => 'Material', 'group_filter' => 'analises', 'values' => 'material', 'direction' => 'ASC', 'query' => ''], key('material'))
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
             @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
@@ -55,7 +55,14 @@
                         <span class="badge text-bg-danger">OFF</span>
                     @endif
                 </button>
-
+                <button type="button" class="btn btn-secondary ms-2" wire:click.prevent="filterMMGD()">
+                    MMGD
+                    @if (!$mmgd)
+                        <span class="badge text-bg-success">Incluido</span>
+                    @else
+                        <span class="badge text-bg-danger">Não Incluido</span>
+                    @endif
+                </button>
             </div>
         </div>
 

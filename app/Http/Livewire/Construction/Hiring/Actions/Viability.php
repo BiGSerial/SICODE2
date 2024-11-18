@@ -273,7 +273,7 @@ class Viability extends Component
                         $viability->orders()->syncWithoutDetaching([$order->id]);
                     }
 
-                    $viability->value = $sum;
+                    $viability->value = $sum > 0.0 ? $sum : null;
                     $viability->save();
 
                 } else {

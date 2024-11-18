@@ -15,4 +15,9 @@ class ConfigController extends Controller
     {
         return view('config.services.main');
     }
+
+    public function jobs_view()
+    {
+        return view('config.jobs');
+    }
 }

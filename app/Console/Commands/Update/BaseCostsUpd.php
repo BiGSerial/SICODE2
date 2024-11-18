@@ -32,7 +32,7 @@ class BaseCostsUpd extends Command
     public function handle()
     {
         // Obtém todas as ordens únicas
-        $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem');
+        $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem')->toArray;
 
         if ($ordens->isNotEmpty()) {
             $output = new ConsoleOutput();

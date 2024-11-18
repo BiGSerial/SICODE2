@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Analises;
 
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
+use App\Exports\Services\analisesExport;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use Livewire\{Component, WithPagination};
@@ -84,6 +85,7 @@ class Main extends Component
     public $group5_s = [];
 
     public $not_assigned = false;
+    public $mmgd = false;
 
     // Filters
     private $filter_group = 'analises';
@@ -96,6 +98,16 @@ class Main extends Component
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch'  => 'confirmed_att',
+    ];
+
+
+
+    protected $queryString =  [
+        'search' => ['except' => ''],
+        'page' => ['except' => 1],
+        'perPage' => ['except' => 100],
+        'not_assigned' => ['except' => false],
+        'mmgd' => ['except' => false],
     ];
 
     public function mount($service)
@@ -111,14 +123,19 @@ class Main extends Component
 
     }
 
+    public function filterMMGD()
+    {
+        $this->mmgd = !$this->mmgd;
+    }
+
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new analisesExport($this->lists->with('Productions.Company'), $this->service->uuid))->download(date('YmdHis-') . 'exportAnalises.xlsx');
         } else {
-            $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
+            $notes = Note::WhereIn('id', $this->selected)->with('Productions.Company')->orderBy('days_left');
 
-            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new analisesExport($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportAnalisesSelected.xlsx');
         }
     }
 
@@ -504,8 +521,17 @@ class Main extends Component
             });
         });
 
+        if ($this->mmgd) {
+            # code...
+            $query->where('material', 'not like', '%MMGD%');
+        }
+
         if (isset($this->filter['rubrica'])) {
             $query->whereIn('rubrica', $this->filter['rubrica']);
+        }
+
+        if (isset($this->filter['material'])) {
+            $query->whereIn('material', $this->filter['material']);
         }
 
         if (isset($this->filter['city'])) {

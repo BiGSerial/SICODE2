@@ -50,20 +50,7 @@
                 series: datas,
                 chart: {
                     type: 'pie',
-                    height: 400,
-                    // width: 400,
-                    // events: {
-                    //     dataPointSelection: function(event, chartContext, config) {
-                    //         // Obtém o índice da fatia clicada
-                    //         const selectedIndex = config.dataPointIndex;
-                    //         // Obtém o nome da fatia clicada
-                    //         const selectedLabel = labels[selectedIndex];
-
-                    //         // Emite o evento para o Livewire
-                    //         // Livewire.emit('sliceClicked', selectedLabel);
-                    //         alert(selectedLabel);
-                    //     }
-                    // }
+                    height: 300,
                 },
                 labels: labels,
                 colors: [
@@ -78,8 +65,10 @@
                     top: 1,
                     opacity: 0.2
                 },
-
-
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'center'
+                }
             };
 
             chart2 = new ApexCharts(document.querySelector("#chart2"), options);

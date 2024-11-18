@@ -20,7 +20,7 @@ class ViabilityValues extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Fix Value MOA in Viability table';
 
     /**
      * Execute the console command.
@@ -31,19 +31,42 @@ class ViabilityValues extends Command
         $this->info('Starting the command...');
 
         try {
-            $total = Viability::count();
-            $this->output->progressStart($total);
+            $total = Viability::where('value', '<', 1.0)->orWhereNull('value')->count();
 
-            Viability::chunk(100, function ($viabilities) {
-                foreach ($viabilities as $viability) {
-                    $viability->update([
-                    'value' => Order::where('note_id', $viability->note_id)->sum('moaberto')
-                    ]);
-                    $this->output->progressAdvance();
-                }
-            });
 
-            $this->output->progressFinish();
+            if ($total > 0) {
+                $this->output->progressStart($total);
+                Viability::where('value', '<', 1.0)->orWhereNull('value')->chunk(500, function ($viabilities) {
+                    foreach ($viabilities as $viability) {
+
+                        $moas = Order::where('note_id', $viability->note_id)->get();
+
+
+                        $soma = 0.0;
+
+                        if (!$moas->isEmpty()) {
+                            foreach ($moas as $moa) {
+                                if ($moa->moaberto > 0.0) {
+                                    $this->info($viability->note->note . " - " . $moa->moaberto);
+                                    $soma += $moa->moaberto;
+                                }
+                            }
+                        }
+
+
+                        if ($soma > 0.0) {
+                            $this->info($viability->note->note . " - " . $soma);
+                            $viability->value = $soma;
+                            $viability->save();
+                        }
+
+                        $this->output->progressAdvance();
+                    }
+                });
+                $this->output->progressFinish();
+            }
+
+
             $this->info('Command completed successfully.');
         } catch (\Exception $e) {
             $this->error('An error occurred: ' . $e->getMessage());

@@ -63,6 +63,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
 Route::prefix('/config')->controller(ConfigController::class)->name('config.')->middleware('auth')->middleware('can:admin')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/services', 'services')->name('services');
+    Route::prefix('/system')->name('system.')->group(function () {
+        Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
+
+    });
 });
 
 Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')   ->group(function () {
