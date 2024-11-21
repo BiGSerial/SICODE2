@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Publication;
 
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
+use App\Exports\Dispatchs\PublicationExportList;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use Illuminate\Support\Facades\DB;
@@ -139,11 +140,11 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new PublicationExportList($this->getListsProperty(), $this->service))->download(date('YmdHis-') . 'PublicationExportList.xlsx');
         } else {
-            $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
 
-            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+
+            return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selected), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
         }
     }
 
@@ -642,7 +643,7 @@ class Main extends Component
         );
 
         // Adicionar a ordenação pela coluna 'prazo_final'
-        $query->with('Productions.User')
+        $query->with('Productions.User', 'Productions.Company', 'WorkForm.Company')
             ->orderBy('prazo_final', 'ASC');
 
         return $query;

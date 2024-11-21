@@ -181,6 +181,7 @@
                                     if ($count->count()) {
                                         if ($count->last()->dt_note == $list->dt_status || !$count->last()->confirmed) {
                                             $block = true;
+                                            $production = $count->last();
                                         }
 
                                         if (isset($count->last()->User->name)) {

@@ -8,8 +8,8 @@
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
-    <div class="row mb-3 justify-content-end">
-        <div class="col-1">
+    <div class="row mb-3">
+        <div class="col-2">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm border border-2 border-secondary">
                 <option value="25">25</option>
@@ -19,19 +19,7 @@
                 <option value="500">500</option>
             </select>
         </div>
-
-        <div class="col-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="text"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
-
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <label for="search" class="form-label"> </label>
+        <div class="col-md-10 d-flex mb-3 justify-content-end align-items-end pt-4">
             @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'publication', 'values' => 'name', 'direction' => 'ASC', 'query' => 'EXISTS (SELECT 1 FROM work_reports WHERE work_reports.company_id = companies.id)'], key('company'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publication', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
             @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publication', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))

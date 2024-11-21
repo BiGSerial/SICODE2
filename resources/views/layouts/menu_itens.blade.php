@@ -505,15 +505,57 @@
                     class="ri-search-eye-line align-middle text-primary"></i>NOTAS/OVS</a>
         </li>
 
-        <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
-                    class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
-        </li>
-
-        @if (!Auth()->User()->onlyparner)
-            <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
-                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+        @cannot('user')
+            <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
             </li>
-        @endif
+
+            @if (!Auth()->User()->onlyparner)
+                <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                            class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+                </li>
+            @endif
+        @elsecan('admin')
+            <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
+            </li>
+
+            @if (!Auth()->User()->onlyparner)
+                <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                            class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+                </li>
+            @endif
+        @elsecan('management')
+            <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
+            </li>
+
+            @if (!Auth()->User()->onlyparner)
+                <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                            class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+                </li>
+            @endif
+        @elsecan('responsible')
+            <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
+            </li>
+
+            @if (!Auth()->User()->onlyparner)
+                <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                            class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+                </li>
+            @endif
+        @elsecan('engineer')
+            <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
+            </li>
+
+            @if (!Auth()->User()->onlyparner)
+                <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
+                            class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
+                </li>
+            @endif
+        @endcannot
     </ul>
 
 </li>

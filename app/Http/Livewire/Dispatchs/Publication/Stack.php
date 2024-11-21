@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Dispatchs\Publication;
 
 use App\Exports\DispatchDesenhoStack;
+use App\Exports\Dispatchs\PublicationExportControl;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use Livewire\{Component, WithPagination};
@@ -152,11 +153,9 @@ class Stack extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoStack($this->exports->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new PublicationExportControl($this->getListsProperty()))->download(date('YmdHis-') . 'PublicationControlExport.xlsx');
         } else {
-            $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
-
-            return (new DispatchDesenhoStack($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new PublicationExportControl($this->getListsProperty()->whereIn('productions.id', $this->selected)))->download(date('YmdHis-') . 'PublicationControlExportSelected.xlsx');
         }
     }
 
@@ -595,7 +594,7 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with(['Note'])
+        return Production::with(['Note.Orders', 'Company', 'User'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
@@ -651,8 +650,8 @@ class Stack extends Component
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
             ->orderBy('work_dt_created', 'ASC')
-            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created')
-            ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created');
+        // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
 
@@ -959,7 +958,7 @@ class Stack extends Component
 
         return view('livewire.dispatchs.publication.stack', [
             'allList' => $this->status->get(),
-            'lists'   => $this->lists,
+            'lists'   => $this->getListsProperty()->paginate($this->perPage),
         ]);
     }
 }

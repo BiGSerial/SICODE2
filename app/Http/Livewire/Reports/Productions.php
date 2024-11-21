@@ -12,6 +12,8 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Custom\Notestatus;
 use App\Exports\Reports\ProductionFullExport;
+use App\Exports\Reports\ProductionsExportList;
+use App\Jobs\ExportProductionListJob;
 use App\Jobs\ExportProductionReportJob;
 use Illuminate\Support\Facades\Auth;
 
@@ -64,7 +66,44 @@ class Productions extends Component
 
     public function Export()
     {
-        return (new ProductionExport())->reports($this->lists->get())->download(date('YmdHis-').'producao.xlsx');
+        if ($this->getListsProperty()->toBase()->count() > 30000) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => "EXCESSO DE REGISTROS.",
+                'html'    => "<div class='card'><div class='card-body'><p>Seu relatório possui mais de 30.000 registros, por favor, filtre melhor sua busca.</p></div></div>",
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
+        return (new ProductionsExportList($this->getListsProperty()))->download(date('YmdHis-').'ProductionExportedList.xlsx');
+
+        // if ($this->getListsProperty()->toBase()->count() < 5000) {
+
+        // } else {
+
+        //     $params = [
+        //         'complete' => $this->complete,
+        //         'monthYear' => $this->monthYear,
+        //         'd5' => $this->d5,
+        //         'service' => $this->service,
+        //         'dt_init' => $this->dt_init,
+        //         'dt_end' => $this->dt_end,
+        //         'company' => $this->company,
+        //     ];
+
+        //     ExportProductionListJob::dispatch($params, auth()->user()->id);
+
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'success',
+        //         'title'    => "EXPORTAÇÃO EM ANDAMENTO.",
+        //         'html'    => "<div class='card'><div class='card-body'><p>Seu relatório está sendo gerado, aguarde alguns instantes. Você será notificado quando o arquivo estiver pronto para download.</p> <p class='fw-bold'>Verifique sempre na sua Central de Notificação.</p></div></div>",
+        //     ]);
+        // }
+
+
     }
 
     public function Export2()
