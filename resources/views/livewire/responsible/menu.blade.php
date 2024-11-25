@@ -30,7 +30,7 @@
                         <li>
                             <a href="{{ route('responsible.intern_return') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> RETORNO INTERNO</span>
-
+                                @livewire('responsible.counts.return-intern-count', key('return-intern-count'))
                             </a>
                         </li>
                         <li>

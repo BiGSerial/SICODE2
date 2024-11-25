@@ -17,9 +17,8 @@
                     </li>
 
                     {{-- <li>
-                        <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
+                        <a href="{{ route('reports.workreport') }}" class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-circle"></i> <span>LISTA DE INFORMES</span>
                         </a>
                     </li> --}}
                     <li>
