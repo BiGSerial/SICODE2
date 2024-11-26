@@ -1,6 +1,11 @@
 {
-    "appver": "1.11.3",
+    "appver": "1.11.4",
     "historic": [
+        {
+            "version": "1.11.4",
+            "description": "Inserting work reports access in publication dispatch",
+            "date": "2024-11-26"
+        },
         {
             "version": "1.11.3",
             "description": "Update Resume Viability Engineer Vision",

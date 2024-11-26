@@ -11,20 +11,31 @@
                     <li>
                         <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>PILHA LEVANTAMENTO</span>
+                            <i class="bi bi-circle"></i><span>LISTA PARA
+                                {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
+                    {{-- @endif --}}
+
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>ACOMPANHAMENTO</span>
+                            <i class="bi bi-circle"></i><span>CONTROLE DE {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
 
-
+                    <li>
+                        <a href="{{ route('reports.workreport') }}" class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-circle"></i><span>INFORMES DE OBRA</span>
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>
     </ul>
+
+    <div class="col-12">
+        @livewire('production.users.occupation', ['service_id' => $service->uuid], key('production-' . $service->uuid))
+    </div>
 
 </aside>
