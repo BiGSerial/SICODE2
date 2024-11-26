@@ -140,6 +140,14 @@
                                         <label class="form-check-label" for="user">Usuário</label>
                                     </div>
 
+                                    <input type="hidden" wire:model="user.btzero" value="0">
+                                    <!-- Campo hidden para garantir o envio de 0 -->
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="btzero"
+                                            wire:model="user.btzero" value="1">
+                                        <label class="form-check-label" for="btzero">BTZero</label>
+                                    </div>
+
                                     <input type="hidden" wire:model="user.onlyparner" value="0">
                                     <!-- Campo hidden para garantir o envio de 0 -->
                                     <div class="form-check">

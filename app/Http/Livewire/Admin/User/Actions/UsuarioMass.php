@@ -58,6 +58,7 @@ class UsuarioMass extends Component
         'permissions.onlyparner' => 'boolean',
         'permissions.contract' => 'boolean',
         'permissions.responsible' => 'boolean',
+        'permissions.btzero' => 'boolean',
         'temporaryServices.*.service'  => 'boolean',
         'temporaryServices.*.dispatch'  => 'boolean',
 

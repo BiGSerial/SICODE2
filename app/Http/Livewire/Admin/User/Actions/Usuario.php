@@ -63,6 +63,7 @@ class Usuario extends Component
         'user.onlyparner' => 'boolean',
         'user.contract' => 'boolean',
         'user.responsible' => 'boolean',
+        'user.btzero' => 'boolean',
         'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 

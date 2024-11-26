@@ -41,6 +41,7 @@ class User extends Authenticatable
         'onlyparner',
         'company_id',
         'responsible',
+        'btzero',
     ];
 
     /**

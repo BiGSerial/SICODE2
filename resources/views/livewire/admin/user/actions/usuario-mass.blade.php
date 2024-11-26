@@ -114,6 +114,11 @@
                                         <label class="form-check-label" for="user">Usuario</label>
                                     </div>
                                     <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="btzero"
+                                            wire:model.defer="permissions.btzero">
+                                        <label class="form-check-label" for="user">BTzero</label>
+                                    </div>
+                                    <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="empreiteira"
                                             wire:model.defer="permissions.onlyparner">
                                         <label class="form-check-label" for="empreiteira">Empreiteira (Visão
