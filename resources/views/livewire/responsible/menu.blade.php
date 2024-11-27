@@ -11,37 +11,38 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> VIABILIDADE EM ESPERA</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
                                 @livewire('responsible.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.viab_list') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> EM VIABILIDADE</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> EM VIABILIDADE</span>
 
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.rejecte_viab') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> EM TRATATIVA</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> EM TRATATIVA</span>
                                 @livewire('responsible.counts.in-work-count', key('in-work-count'))
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.intern_return') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> RETORNO INTERNO</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> RETORNO INTERNO</span>
                                 @livewire('responsible.counts.return-intern-count', key('return-intern-count'))
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.justified_viab') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> AVALIAÇÃO DE JUSTIFICATIVA</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> AVALIAÇÃO DE
+                                    JUSTIFICATIVA</span>
                                 {{-- @livewire('responsible.counts.viab-justify-count', key('viab-justify-count')) --}}
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.viab_hist') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> HISTÓRICO</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> HISTÓRICO</span>
                             </a>
                         </li>
 
@@ -59,12 +60,12 @@
 
                         <li>
                             <a href="{{ route('responsible.inform_obra') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> INFORME DE OBRA</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> INFORME DE OBRA</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('responsible.inform_list') }}" class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span> HISTÓRICO INFORME</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> HISTÓRICO INFORME</span>
                             </a>
                         </li>
                     </div>

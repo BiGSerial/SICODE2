@@ -135,7 +135,7 @@
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
             style="background-color: #dbd8d8; width: 300px;">
-            <li><a class="dropdown-item" href="{{ route('engineers.main') }}"><i
+            <li><a class="dropdown-item" href="{{ route('btzero.main') }}"><i
                         class="ri-eye-fill align-middle text-info"></i> BTZERO</a>
             </li>
 

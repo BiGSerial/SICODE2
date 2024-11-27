@@ -206,6 +206,14 @@ class Notestatus
                 'colorbg' => 'text-bg-info',
                 'color'   => 'info',
             ],
+            // 28
+            [
+                'status'  => 'Aguardando Comparação',
+                'icon'    => 'ri-map-pin-time-line',
+                'colorbg' => 'text-bg-info',
+                'color'   => 'info',
+            ],
+
         ];
 
         return (object) $status[$sts];

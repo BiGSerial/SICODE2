@@ -11,20 +11,21 @@
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>ATIVIDADE {{ mb_strToUpper($service->service) }}</span>
+                            <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>ATIVIDADE
+                                {{ mb_strToUpper($service->service) }}</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
 
                     {{-- <li>
                         <a href="{{ route('reports.workreport') }}" class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>LISTA DE INFORMES</span>
+                            <i class="ri-history-line fw-light text-white fs-5"></i> <span>LISTA DE INFORMES</span>
                         </a>
                     </li> --}}
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
+                            <i class="ri-history-line fw-light text-white fs-5"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>
 

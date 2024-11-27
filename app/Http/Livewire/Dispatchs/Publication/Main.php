@@ -87,8 +87,15 @@ class Main extends Component
 
     public $not_assigned = false;
 
+    private $filter_group = 'publishing';
+    private $filters;
+
+    public $btzeroform = true;
+
+
     protected $listeners = [
         'refresh_dispatch'  => '$refresh',
+        'refresh_list'      => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch'  => 'confirmed_att',
@@ -100,41 +107,6 @@ class Main extends Component
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        $this->group1_l = $this->lists->orderBy('group1')->get()->pluck('group1')->unique();
-        $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
-        $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
-
-        session_start();
-
-        if (isset($_SESSION['filtro']['desenho']) && $_SESSION['filtro']['desenho']) {
-            if (isset($_SESSION['filtro']['desenho']['rubrica'])) {
-                $this->rubrica_s = $_SESSION['filtro']['desenho']['rubrica'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['city'])) {
-                $this->city_s = $_SESSION['filtro']['desenho']['city'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['district'])) {
-                $this->district_s = $_SESSION['filtro']['desenho']['district'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['region'])) {
-                $this->region_s = $_SESSION['filtro']['desenho']['region'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['group1'])) {
-                $this->group1_s = $_SESSION['filtro']['desenho']['group1'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['group2'])) {
-                $this->group2_s = $_SESSION['filtro']['desenho']['group2'];
-            }
-
-            if (isset($_SESSION['filtro']['desenho']['group5'])) {
-                $this->group5_s = $_SESSION['filtro']['desenho']['group5'];
-            }
-        }
     }
 
     public function export_excel()
@@ -173,6 +145,11 @@ class Main extends Component
         }
     }
 
+    public function btzeroform()
+    {
+        $this->btzeroform = !$this->btzeroform;
+    }
+
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
@@ -197,49 +174,8 @@ class Main extends Component
         return $note->Productions->where('service_id', $this->service->uuid)->count();
     }
 
-    public function filter_save()
-    {
-        $this->gotoPage(1);
 
-        if (!isset($_SESSION)) {
-            session_start();
-        }
-        $_SESSION['filtro']['desenho']['rubrica']  = $this->rubrica_s;
-        $_SESSION['filtro']['desenho']['city']     = $this->city_s;
-        $_SESSION['filtro']['desenho']['district'] = $this->district_s;
-        $_SESSION['filtro']['desenho']['region']   = $this->region_s;
-        $_SESSION['filtro']['desenho']['group1']   = $this->group1_s;
-        $_SESSION['filtro']['desenho']['group2']   = $this->group2_s;
-        $_SESSION['filtro']['desenho']['group5']   = $this->group5_s;
 
-        $this->clean();
-        $this->emit('refresh_service');
-    }
-
-    public function filter_clean()
-    {
-        $this->gotoPage(1);
-
-        $this->rubrica_s  = [];
-        $this->city_s     = [];
-        $this->district_s = [];
-        $this->region_s   = [];
-        $this->group1_s   = [];
-        $this->group2_s   = [];
-        $this->group5_s   = [];
-
-        $this->multiSearch = [];
-
-        if (!isset($_SESSION)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filtro']['desenho'])) {
-            unset($_SESSION['filtro']['desenho']);
-        }
-
-        $this->emit('refresh_service');
-    }
 
     public function get_single_note($note)
     {
@@ -542,6 +478,17 @@ class Main extends Component
 
     public function getListsProperty()
     {
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+
+
         $query = Note::query()->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
 
@@ -551,24 +498,27 @@ class Main extends Component
 
             // RuleBuilder::applyRules($query, $this->service->Status);
 
-            $query->whereHas('WorkForm', function ($sq) {
-                $sq->where('rejected', false);
-            })
-                ->whereHas('Orders', function ($q) {
-                    $q->where('statusSist', 'LIKE', 'LIB%')
-                        ->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0010')
-                                ->where('status', 'like', 'CONF%');
-                        })
-                        ->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0020')
-                            ->where(function ($q) {
-                                $q->where('status', 'like', 'LIB%')
-                                    ->orWhere('status', 'like', 'CNPA%')
-                                    ->orWhere('status', 'like', 'JBFI LIB%');
-                            });
-                        });
+            $query->where(function ($q) {
+                $q->whereHas('WorkForm', function ($sq) {
+                    $sq->where('rejected', false);
+                })->when($this->btzeroform, function ($q) {
+                    return $q->orWhereHas('RamalForm');
                 });
+            })->whereHas('Orders', function ($q) {
+                $q->where('statusSist', 'LIKE', 'LIB%')
+                    ->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0010')
+                            ->where('status', 'like', 'CONF%');
+                    })
+                    ->whereHas('Operations', function ($sq) {
+                        $sq->where('operacao', '0020')
+                        ->where(function ($q) {
+                            $q->where('status', 'like', 'LIB%')
+                                ->orWhere('status', 'like', 'CNPA%')
+                                ->orWhere('status', 'like', 'JBFI LIB%');
+                        });
+                    });
+            });
 
             if ($this->not_assigned) {
                 $query->where(function ($q) {
@@ -579,6 +529,25 @@ class Main extends Component
                 });
             }
 
+
+            if (isset($this->filters['rubrica'])) {
+                $query->where(function ($query) {
+                    $query->whereIn('rubrica', $this->filters['rubrica'])
+                        ->orWhereNull('rubrica');
+                });
+            }
+
+            if (isset($this->filters['city'])) {
+                $query->where(function ($query) {
+                    $query->whereIn('lexp', $this->filters['city'])
+                        ->orWhereNull('lexp');
+                });
+            }
+
+            if ($this->note_type) {
+                $query->where('type_note', $this->note_type);
+            }
+
             $query->when($this->search, function ($q, $s) {
                 $this->gotoPage(1);
 
@@ -587,46 +556,7 @@ class Main extends Component
                         ->orWhere('material', 'like', '%' . $s . '%')
                         ->orWhere('numPedido', 'like', '%' . $s . '%');
                 });
-            })->when($this->rubrica_s, function ($q) {
-                return $q->where(function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s)
-                        ->orWhereNull('rubrica');
-                });
-            })
-                ->when($this->note_type, function ($q) {
-                    return $q->where(function ($query) {
-                        $query->where('type_note', $this->note_type)
-                            ->orWhereNull('type_note');
-                    });
-                })
-                ->when($this->group1_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group1', $this->group1_s)
-                            ->orWhere('group1', '')
-                            ->orWhere('group1', null);
-                    });
-                })
-                ->when($this->group2_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group2', $this->group2_s)
-                            ->orWhere('group2', '')
-                            ->orWhere('group2', null);
-                    });
-                })
-                ->when($this->group5_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group5', $this->group5_s)
-                            ->orWhere('group5', '')
-                            ->orWhere('group5', null);
-                    });
-                })
-                ->when($this->base, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('nexp', $this->base)
-                            ->orWhere('nexp', '')
-                            ->orWhere('nexp', null);
-                    });
-                });
+            });
         }
 
         // Adicionar o cálculo da coluna 'prazo_final' usando as regras de 'type_note' e 'mesalization'

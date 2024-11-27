@@ -12,25 +12,28 @@
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>LISTA {{ mb_strToUpper($service->service) }}</span>
+                            <i class="ri-list-check fw-light text-white fs-5"></i> <span>LISTA
+                                {{ mb_strToUpper($service->service) }}</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>ACOMPANHAMENTO</span> @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
+                            <i class="ri-eye-fill fw-light text-white fs-5"></i> <span>ACOMPANHAMENTO</span>
+                            @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
+                            <i class="ri-pause-circle-line fw-light text-white fs-5"></i> <span>LISTA DE ESPERA</span>
+                            @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
+                            <i class="ri-history-line fw-light text-white fs-5"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>
 

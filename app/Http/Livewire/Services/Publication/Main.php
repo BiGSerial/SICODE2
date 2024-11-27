@@ -36,6 +36,9 @@ class Main extends Component
 
     public $assigned_mmgd = false;
 
+    public $btzeroform = true;
+
+
     protected $queryString = [
         'search' => ['except' => '', 'as' => 'buscar'],
     ];
@@ -79,6 +82,11 @@ class Main extends Component
         } else {
             $this->assigned_mmgd = true;
         }
+    }
+
+    public function btzeroform()
+    {
+        $this->btzeroform = !$this->btzeroform;
     }
 
     public function to_accompany(Note $note)

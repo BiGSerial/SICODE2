@@ -105,4 +105,9 @@ class Note extends Model
     {
         return $this->hasOne(D5Return::class);
     }
+
+    public function RamalForm()
+    {
+        return $this->hasOne(RamalReport::class);
+    }
 }

@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -179,6 +179,11 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/rejected_viability_list', 'rejectedViabList')->name('rejected.viability');
     Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
+});
+
+Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->middleware('auth')->group(function () {
+    Route::get('/', 'main')->name('main');
+    Route::get('/btzero_report', 'btzeroReport')->name('btzeroReport');
 });
 
 

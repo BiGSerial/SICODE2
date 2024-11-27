@@ -8,9 +8,13 @@ use App\Models\Note;
 class NoteFilter
 {
     private $filters;
+    private $btzeroform;
 
-    public function filter($search, $filterGroup)
+    public function filter($search, $filterGroup, $btzeroform = true)
     {
+
+        $this->btzeroform = $btzeroform;
+
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
@@ -21,8 +25,12 @@ class NoteFilter
 
         $query = Note::query();
 
-        $query->whereHas('WorkForm', function($sq){
-            $sq->where('rejected', false);
+        $query->where(function ($q) {
+            $q->whereHas('WorkForm', function ($sq) {
+                $sq->where('rejected', false);
+            })->when($this->btzeroform, function ($q) {
+                return $q->orWhereHas('RamalForm');
+            });
         })
             ->whereHas('Orders', function ($q) {
                 $q->where('statusSist', 'LIKE', 'LIB%')
@@ -40,32 +48,39 @@ class NoteFilter
                     });
             });
 
-        $query->when($search, function ($q, $s) {
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%');
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+            $query->where('note', 'like', '%' . $search . '%')
+                ->orWhere('material', 'like', '%' . $search . '%')
+                ->orWhere('numPedido', 'like', '%' . $search . '%')
+                ->orWhere('group2', 'like', '%' . $search . '%');
             });
-        })->when(isset($this->filters['rubrica']), function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('rubrica', $this->filters['rubrica'])
-                    ->orWhereNull('rubrica');
+        }
+
+        if (isset($this->filters['rubrica'])) {
+            $query->where(function ($query) {
+            $query->whereIn('rubrica', $this->filters['rubrica'])
+                ->orWhereNull('rubrica');
             });
-        })->when(isset($this->filters['city']), function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('lexp', $this->filters['city'])
-                    ->orWhereNull('lexp');
+        }
+
+        if (isset($this->filters['city'])) {
+            $query->where(function ($query) {
+            $query->whereIn('lexp', $this->filters['city'])
+                ->orWhereNull('lexp');
             });
-        })->when(isset($this->filters['company']), function ($q) {
-            return $q->where(function ($query) {
-                $query->whereRelation('WorkForm', function ($q) {
-                    $q->whereIn('company_id', $this->filters['company']);
-                });
+        }
+
+        if (isset($this->filters['company'])) {
+            $query->whereRelation('WorkForm', function ($q) {
+            $q->whereIn('company_id', $this->filters['company']);
             });
-        });
+        }
+
+
 
         $query->with('Productions.User');
+
 
 
         return $query;

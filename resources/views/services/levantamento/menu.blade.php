@@ -11,7 +11,8 @@
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>ATIVIDADE {{ mb_strToUpper($service->service) }}</span>
+                            <i class="ri-play-circle-line fw-light text-white fs-5"></i></i> <span>ATIVIDADE
+                                {{ mb_strToUpper($service->service) }}</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
@@ -19,7 +20,7 @@
                     <li>
                         <a href="{{ route('services.hiringsurvey', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>EM VIABILIDADE</span>
+                            <i class="ri-eye-fill fw-light text-white fs-5"></i></i> <span>EM VIABILIDADE</span>
                             {{-- @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid)) --}}
                         </a>
                     </li>
@@ -27,13 +28,13 @@
                     {{-- <li>
                         <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
+                            <i class="ri-eye-fill fw-light text-white fs-5"></i></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
                         </a>
                     </li> --}}
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
+                            <i class="ri-history-line fw-light text-white fs-5"></i></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>
 
