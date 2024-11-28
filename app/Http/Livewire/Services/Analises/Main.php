@@ -231,8 +231,6 @@ class Main extends Component
 
         if ($this->assigned_mmgd) {
             $query->where('material', 'like', '%MMGD%');
-        } else {
-            $query->where('material', 'not like', '%MMGD%');
         }
 
         $query->with('Productions.User')
