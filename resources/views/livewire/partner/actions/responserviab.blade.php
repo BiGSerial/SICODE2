@@ -185,7 +185,7 @@
                                             <td class="fw-bold col-2 align-middle">PRAZO OBRA:</td>
                                             <td class="align-middle">
                                                 <span
-                                                    class="fw-bold text-primary">{{ Carbon::now()->addDays($days_left)->format('d/m/Y') }}</span>
+                                                    class="fw-bold text-primary">{{ (new DaysLeft($viability->Note))->getLastDate() }}</span>
                                             </td>
                                         </tr>
                                         <tr>

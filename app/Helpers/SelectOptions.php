@@ -234,6 +234,7 @@ class SelectOptions
             (object)['type' => 'PREFEITURA', 'nick' => 'PM VILA PAVÃO', 'agency' => 'Prefeitura Municipal de Vila Pavão'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM VILA VELHA', 'agency' => 'Prefeitura Municipal de Vila Velha'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM VITORIA', 'agency' => 'Prefeitura Municipal de Vitória'],
+            (object)['type' => 'OUTROS', 'nick' => 'OUTROS', 'agency' => 'Outros'],
         ];
 
 

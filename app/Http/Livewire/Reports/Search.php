@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Reports;
 
+use App\Models\Edp_depc\BaseOV;
 use App\Models\File;
 use App\Models\Note;
 use Illuminate\Support\Facades\Storage;
@@ -12,6 +13,7 @@ class Search extends Component
 {
     public $search;
     public $selectedFiles = [];
+    public $historico;
 
     protected $queryString = [
         'search' => ['except' => '', 'as' => 's'],
@@ -24,6 +26,11 @@ class Search extends Component
     public function Search()
     {
 
+    }
+
+    public function loadHistorico()
+    {
+        $this->historico = BaseOV::where('OV', trim($this->search))->orderBy('dhStat', 'DESC')->get();
     }
 
 
@@ -60,7 +67,7 @@ class Search extends Component
 
     public function zipFiles()
     {
-        if(!count($this->selectedFiles)) {
+        if (!count($this->selectedFiles)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -71,7 +78,7 @@ class Search extends Component
             return;
         }
 
-        if(count($this->selectedFiles)) {
+        if (count($this->selectedFiles)) {
 
 
             $files = File::WhereIn('id', $this->selectedFiles)->get();
