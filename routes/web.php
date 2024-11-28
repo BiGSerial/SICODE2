@@ -98,6 +98,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/transfer', 'survey_transfer')->name('transprod');
     Route::get('/intern_returns', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');
+    Route::get('/dashboard', 'dashboard')->name('dashboard');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {

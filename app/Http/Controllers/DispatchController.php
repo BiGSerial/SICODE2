@@ -85,4 +85,13 @@ class DispatchController extends Controller
             'service' => $service,
         ]);
     }
+
+    public function dashboard(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('dispatchs.' . $service->folder . '.dashboard', [
+            'service' => $service,
+        ]);
+    }
 }
