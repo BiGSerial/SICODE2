@@ -234,6 +234,7 @@ class SelectOptions
             (object)['type' => 'PREFEITURA', 'nick' => 'PM VILA PAVÃO', 'agency' => 'Prefeitura Municipal de Vila Pavão'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM VILA VELHA', 'agency' => 'Prefeitura Municipal de Vila Velha'],
             (object)['type' => 'PREFEITURA', 'nick' => 'PM VITORIA', 'agency' => 'Prefeitura Municipal de Vitória'],
+            (object)['type' => 'OUTROS', 'nick' => 'OUTROS', 'agency' => 'Outros'],
         ];
 
 
@@ -277,6 +278,7 @@ class SelectOptions
     {
         return [
             (object)['reason' => 'A pedido da Empreiteira', 'value' => 'A PEDIDO DA EMPREITEIRA'],
+            (object)['reason' => 'Alteração de Obra não Informada', 'value' => 'ALTERACAO DE OBRA NAO INFORMADA'],
             (object)['reason' => 'Obra depende da execução de outra', 'value' => 'OBRA DEPENDE DA EXECUCAO DE OUTRA'],
             (object)['reason' => 'Obra não executada', 'value' => 'OBRA NAO EXECUTADA'],
             (object)['reason' => 'Patrimônio de equipamento informado incorretamente', 'value' => 'PATRIMONIO DE EQUIPAMENTO INFORMADO INCORRETAMENTE'],

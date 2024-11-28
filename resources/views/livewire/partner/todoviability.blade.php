@@ -276,7 +276,7 @@
                                     {{ $dueDate->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle text-primary fw-bold">
-                                    {{ Carbon::parse($viability->sended_at)->addDays($days_left)->format('d/m/Y') }}
+                                    {{ (new DaysLeft($viability->Note))->getLastDate() }}
                                 </td>
                                 <td class="text-center align-middle">{{ $viability->Note->rubrica }}</td>
                                 <td class="text-center align-middle">

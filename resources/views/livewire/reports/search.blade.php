@@ -76,14 +76,20 @@
                                     @foreach ($lists->Orders as $order)
                                         <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">ORDEM</dt>
                                         <dd class="col-sm-8 text-white text-uppercase">{{ $order->ordem }}
-                                            ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})</dd>
+                                            ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
+                                        </dd>
                                         @if ($order->Operations->count())
-                                            <div class="table-responsive">
+                                            <div class="card p-0 edp-bg-sprucegreen-100">
+                                                <h5 class="card-header text-edp-verde">OPERAÇÕES</h5>
+
+
                                                 <table class="table table-condensed table-sm table-striped">
                                                     <thead>
                                                         <tr>
                                                             <th scope="col">Operação</th>
+                                                            <th scope="col">Descrição</th>
                                                             <th scope="col">Status</th>
+                                                            <th scope="col">CentroTrab</th>
                                                             <th scope="col">IniPlan</th>
                                                             <th scope="col">FimPlan</th>
                                                             <th scope="col">IniReal</th>
@@ -94,7 +100,10 @@
                                                         @foreach ($order->Operations->sortBy('operacao') as $operation)
                                                             <tr>
                                                                 <td>{{ $operation->operacao }}</td>
-                                                                <td>{{ $operation->status }}</td>
+                                                                <td>{{ $operation->descOperacao }}</td>
+                                                                <td>{{ isset($operation->status) ? explode(' ', $operation->status)[0] : '' }}
+                                                                </td>
+                                                                <td>{{ $operation->cenTrab }}</td>
                                                                 <td>{{ $operation->inicioPlanejado ? Carbon::parse($operation->inicioPlanejado)->format('d/m/Y') : '-' }}
                                                                 </td>
                                                                 <td>{{ $operation->fimPlanejado ? Carbon::parse($operation->fimPlanejado)->format('d/m/Y') : '-' }}
@@ -107,6 +116,7 @@
                                                         @endforeach
                                                     </tbody>
                                                 </table>
+
                                             </div>
                                         @endif
                                     @endforeach
@@ -128,9 +138,10 @@
                                     <dd class="col-6">{{ Carbon::parse($lists->created_at)->format('d/m/Y H:i:s') }}
                                     </dd>
 
-                                    <dt class="col-6">ULTIMA MOVIMENTACAO</dt>
+                                    <dt class="col-6">ULTIMA ATUALIZAÇÃO</dt>
                                     <dd class="col-6">{{ Carbon::parse($lists->updated_at)->format('d/m/Y H:i:s') }}
                                     </dd>
+
                                 </dl>
                             </div>
                         </div>
@@ -232,6 +243,49 @@
                                     <div class="card-body">
                                         <h4 class="text-center">SEM ARQUIVOS</h4>
                                     </div>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="card">
+                            <div
+                                class="card-header align-middle py-1 edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center">
+                                <h5 class="">STATUS HISTORICO</h5>
+
+                                <button class="btn btn-sm btn-primary" wire:click="loadHistorico">
+                                    Carregar
+                                </button>
+                            </div>
+
+                            @if ($historico)
+                                <div class="card-body">
+                                    <table class="table table-sm table-condensed table-striped table-hover">
+                                        <thead>
+                                            <th class="text-center">Data</th>
+
+                                            <th class="text-center">Nstats</th>
+                                            <th class="text-center">Desc</th>
+                                            <th class="text-center">Usuário</th>
+
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($historico as $hist)
+                                                <tr class="@if ($hist->ultimoStatus) table-primary @endif">
+                                                    <td class="text-center">
+                                                        {{ date('d/m/Y H:i:s', strToTime($hist->dhStat)) }}
+                                                    </td>
+                                                    <td class="text-center fw-bold">{{ $hist->numStat }}</td>
+                                                    <td class="text-center">{{ $hist->status }}</td>
+                                                    <td class="text-center">{{ $hist->transicaoUsuario }}</td>
+
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="card-body">
+                                    <h4 class="text-center">SEM HISTÓRICO CAREGADO</h4>
                                 </div>
                             @endif
                         </div>

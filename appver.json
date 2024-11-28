@@ -1,6 +1,11 @@
 {
-    "appver": "1.11.4",
+    "appver": "1.11.5",
     "historic": [
+        {
+            "version": "1.11.5",
+            "description": "Update View of Search note",
+            "date": "2024-11-28"
+        },
         {
             "version": "1.11.4",
             "description": "Inserting work reports access in publication dispatch",
