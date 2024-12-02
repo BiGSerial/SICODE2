@@ -508,7 +508,13 @@
         @if (
             !Auth()->user()->toServices->contains(function ($service) {
                     return $service->service && isset($service->Service) && $service->Service->service === 'Publicação';
-                }))
+                }) ||
+                (Auth()->user()->operator ||
+                    Auth()->user()->responsible ||
+                    Auth()->user()->engineer ||
+                    Auth()->user()->management ||
+                    Auth()->user()->admin ||
+                    Auth()->user()->superadm))
             <li><a class="dropdown-item" href="{{ route('reports.workreport') }}"><i
                         class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
             </li>
