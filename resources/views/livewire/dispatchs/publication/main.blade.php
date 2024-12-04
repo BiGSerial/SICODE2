@@ -151,6 +151,7 @@
                                 <input class="form-check-input" type="checkbox" wire:model="selectall">
                             </th>
                             <th scope="col" class="fw-bold text-center">Note</th>
+                            <th class="align-middle text-center">Inf Digitacao</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Material</th>
                             <th class="align-middle text-center">Empresa</th>
@@ -211,6 +212,13 @@
                                 <td class="fw-bold copy-text {{ $rowClass }}" data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
+
+                                <td class="fw-light {{ $rowClass }}">
+                                    @if (!$list->WorkForm && $list->RamalForm)
+                                        <i class="ri-alert-line text-danger align-middle fs-4"></i>
+                                    @endif
+
+                                </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     {{ $list->rubrica }}
                                 </td>
@@ -219,7 +227,12 @@
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">
-                                    {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
+                                  
+                                    @if ($list->WorkForm)
+                                        {{ $list->WorkForm->Company->name }}
+                                    @elseif ($list->RamalForm)
+                                        {{ $list->RamalForm->Company->name }}
+                                    @endif
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">{{ $list->lexp }}</td>

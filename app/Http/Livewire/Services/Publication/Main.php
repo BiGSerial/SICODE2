@@ -324,7 +324,18 @@ class Main extends Component
             });
         })
         // Ordenar pela coluna 'prazo_final'
-         
+        ->orderByRaw('
+            exists (
+                select 1
+                from ramal_reports
+                where ramal_reports.note_id = notes.id
+            )
+            and not exists (
+                select 1
+                from work_reports
+                where work_reports.note_id = notes.id
+            ) desc
+        ')
         ->orderBy('prazo_final', 'ASC')
         ->paginate($this->perPage);
     }

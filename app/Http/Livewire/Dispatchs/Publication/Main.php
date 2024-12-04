@@ -489,7 +489,7 @@ class Main extends Component
 
 
 
-        $query = Note::query()->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
+        $query = Note::query();
 
 
         if (count($this->multiSearch)) {
@@ -566,6 +566,8 @@ class Main extends Component
 
         }
 
+        $query->with('Productions.User', 'WorkForm', 'RamalForm');
+
         // Adicionar o cálculo da coluna 'prazo_final' usando as regras de 'type_note' e 'mesalization'
         $query->select(
             'notes.*',
@@ -578,23 +580,33 @@ class Main extends Component
                     ELSE NULL
                 END as prazo_final
             ")
-        );
-
-        // Adicionar a ordenação pela coluna 'prazo_final'
-        $query->with('Productions.Company', 'Productions.User', 'WorkForm.Company', 'RamalForm.Company', 'WorkForm.User', 'RamalForm.User')
-        ->orderByRaw('
-        exists (
-            select 1
-            from ramal_reports
-            where ramal_reports.note_id = notes.id
         )
-        and not exists (
-            select 1
-            from work_reports
-            where work_reports.note_id = notes.id
-        ) desc
-    ')
-            ->orderBy('prazo_final', 'ASC');
+        ->when($this->not_assigned, function ($q) {
+            $q->whereDoesntHave('Productions', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->whereNotNull('user_id');
+            })->orWhereHas('Productions', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where(function ($q) {
+                        $q->whereNull('user_id')
+                            ->orWhere('user_id', '');
+                    });
+            });
+        })
+        // Ordenar pela coluna 'prazo_final'
+        ->orderByRaw('
+            exists (
+                select 1
+                from ramal_reports
+                where ramal_reports.note_id = notes.id
+            )
+            and not exists (
+                select 1
+                from work_reports
+                where work_reports.note_id = notes.id
+            ) desc
+        ')
+        ->orderBy('prazo_final', 'ASC');
 
         return $query;
     }

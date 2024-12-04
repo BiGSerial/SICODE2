@@ -435,6 +435,7 @@
                                     wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                             </th>
                             <th scope="col" class="fw-bold text-center">Note</th>
+                            <th scope="col" class="fw-bold text-center">inf Digitacao</th>
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Material</th>
@@ -454,8 +455,12 @@
                                 $formBlock = $list->Note->WorkForm->rejected ? $list->Note->WorkForm->rejected : false;
                             @endphp
                             <tr wire:key="line-{{ $list->id }}"
-                                class="align-middle text-center  @if ($formBlock) table-dark text-danger @endif
-                                    @if ($list->block) table-primary @endif
+                                class="align-middle text-center
+                                @if ($formBlock) table-dark text-danger
+                                @elseif($list->block) table-primary
+                                @elseif(!$list->Note->WorkForm && $list->Note->RamalForm) table-warning
+                                @elseif(!$list->Note->WorkForm && $list->Note->RamalForm && $list->status == 28) table-info
+                                @elseif($list->Note->WorkForm && $list->Note->RamalForm && $list->status == 28) table-success @endif
 
                                     ">
                                 <td>
@@ -481,9 +486,21 @@
                                             style="cursor: pointer;"></i>
                                     @endif
                                 </td>
+                                <td class="fw-light">
+                                    @if (!$list->Note->WorkForm && $list->Note->RamalForm)
+                                        <i class="ri-alert-line text-danger align-middle fs-4"></i>
+                                    @endif
+
+                                </td>
                                 <td class="fw-bold text-success text-center">
                                     @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
                                         @foreach ($list->Note->WorkForm->Orders as $order)
+                                            <p class="py-0 my-0">
+                                                {{ $order->ordem }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($list->Note->RamalForm && $list->Note->RamalForm->Orders->count())
+                                        @foreach ($list->Note->RamalForm->Orders as $order)
                                             <p class="py-0 my-0">
                                                 {{ $order->ordem }}
                                             </p>

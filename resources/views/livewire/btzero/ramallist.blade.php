@@ -209,7 +209,7 @@
                                     {{ $list->created_at ? date('d/m/Y', strToTime($list->created_at)) : 'Desconhecido' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->Note->WorkForm && $list->Note->WorkForm->informed_at ? date('d/m/Y', strToTime($list->informed_at)) : 'Não Informado' }}
+                                    {{ $list->Note->WorkForm && $list->Note->WorkForm->informed_at ? date('d/m/Y', strToTime($list->Note->WorkForm->informed_at)) : 'Não Informado' }}
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $list->User ? $list->User->name : 'Desconhecido' }}
