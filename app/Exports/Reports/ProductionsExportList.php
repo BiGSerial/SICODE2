@@ -64,7 +64,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->lexp,
             $city ? $city->centro : '',
             $city ? $city->baseConstrucao : '',
-            Carbon::parse($row->dt_status)->format('d/m/Y H:i:s'),
+            Carbon::parse($row->dt_note)->format('d/m/Y H:i:s'),
             Carbon::parse($row->dispatch_at)->format('d/m/Y H:i:s'),
             Carbon::parse($row->att_at)->format('d/m/Y H:i:s'),
             Carbon::parse($row->completed_at)->format('d/m/Y H:i:s'),

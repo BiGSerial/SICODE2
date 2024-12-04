@@ -45,7 +45,7 @@
                     </div>
                     <div class="mb-3 col-2">
                         <label for="exampleFormControlInput1" class="form-label">Até:</label>
-                        <input type="date" class="form-control form-control-sm" wire:model.defer="dt_end"
+                        <input type="date" class="form-control form-control-sm" wire:model="dt_end"
                             min="{{ $dt_init }}">
                     </div>
                 @endif
