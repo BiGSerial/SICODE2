@@ -45,9 +45,11 @@ class SelectOptions
     public static function getPublicationOptions()
     {
         return [
+
             (object)['info' => 'LIBERAR PARA LIGAÇÃO', 'value' => 'LIBERADO PARA LIGAÇÃO'],
             (object)['info' => 'OBRA CANCELADA', 'value' => 'OBRA CANCELADA'],
             (object)['info' => 'OBRA INFORMADA INDEVIDAMENTE', 'value' => 'OBRA INFORMADA INDEVIDAMENTE'],
+            (object)['info' => 'OBRA PUBLICADA (SOLICITACAO)', 'value' => 'OBRA PUBLICADA (SOLICITACAO)'],
         ];
     }
 

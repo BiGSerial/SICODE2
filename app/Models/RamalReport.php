@@ -30,8 +30,19 @@ class RamalReport extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function User()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function Orders()
+    {
+        return $this->belongsToMany(Order::class, 'order_ramal_report');
+    }
+
     public function BtzeroEquipment()
     {
-        return $this->hasMany(BtzeroEquipment::class);
+        return $this->hasMany(BtzeroEquipment::class)->orderBy('type')->orderBy('patrimony');
+        ;
     }
 }

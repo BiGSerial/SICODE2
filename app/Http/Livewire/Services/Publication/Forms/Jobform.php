@@ -17,6 +17,7 @@ class Jobform extends Component
     protected $listeners = [
         'showProduction',
         'confirmFinish' => 'save',
+        'confirmParcial' => 'savePublish',
         'closeAll'
     ];
 
@@ -191,6 +192,37 @@ class Jobform extends Component
         ]);
     }
 
+    public function to_Publish()
+    {
+
+
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'ENCERRAMENTO PARCIAL DE SERVIÇO',
+            'msg'   => "Você está prestes encerrar parcialmente <strong>{$this->production->Note->note}</strong>.
+            <div class='card text-bg-danger mt-2'>
+                <h4 class='text-center my-2'> FAVOR NÃO CONFIRMAR A 20 NO SAP</h4>
+            </div>
+                <div class='card'>
+                    <div class='card-body'>
+                        <p class='text-justify'>Neste momento <strong>não existe confirmação de conclusão de obra</strong> por parte da parceira,
+                        por isso, confirmaremos a publicação e esta obra aguardará a emissão do Informe de Obra da Parceira.</p>
+                       <p class='text-justify'>Porém ela ficará em um status imutável até que a parceira confirme a conclusão da obra.
+                        Está obra não fará parte da restrição de novas atribuições.</p>
+                        <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO PARCIAL DO SERVIÇO?</h4>
+                    </div>
+                </div>
+            ",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Continue!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirmParcial',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Ação Cancelada.',
+
+        ]);
+    }
+
     public function save()
     {
         $this->saveForm(true);
@@ -239,6 +271,60 @@ class Jobform extends Component
                 'icon'     => 'error',
                 'title'    => 'NÃO FINALIZADO',
                 'html'     => 'Não COnseguimos encerrar a atividade, tente novamente.<br>' . $th->getMessage(),
+            ]);
+
+            return;
+        }
+    }
+
+    public function savePublish()
+    {
+        $this->saveForm(true);
+
+        DB::beginTransaction();
+
+        try {
+            $chk = $this->production->update([
+                'status'       => 28,
+                'completed_at' => date('Y-m-d H:i:s'),
+                'postes_u'     => $this->analise->postes ? $this->analise->postes : 0,
+                'completed'    => false,
+                'confirmed'    => false,
+                'priority'     => false,
+            ]);
+
+            if ($chk) {
+                $user = Auth()->User()->name;
+
+                Notetimeline::Create([
+                    'note_id'    => $this->production->note_id,
+                    'service_id' => $this->production->service_id,
+                    'user_id'    => Auth()->User()->id,
+                    'info'       => "Usuário {$user} Publicou a Nota/OV.",
+                    'status'     => 28,
+                ]);
+
+                DB::commit();
+
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'Publicado com Sucesso',
+                    'timer'    => 2500
+                ]);
+
+                $this->closeAll();
+            }
+        } catch (\Throwable $th) {
+
+            DB::rollback();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'NÃO PUBLICADO',
+                'html'     => 'Não Conseguimos publicar a atividade, tente novamente.<br>' . $th->getMessage(),
             ]);
 
             return;

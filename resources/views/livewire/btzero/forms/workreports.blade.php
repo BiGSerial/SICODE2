@@ -4,7 +4,7 @@
 <div>
     <x-show-loading />
     @if (!$this->note)
-        <div class="card mx-auto" style="max-width: 30rem;">
+        <div class="card mx-auto" style="max-width: 40rem;">
             <div class="card-body">
                 <div class="align-itens-center text-center mb-3">
                     <h5 class="fw-bold text-center">BUSCAR OBRA</h5>
@@ -17,55 +17,39 @@
                 @if ($notes && $notes->count())
                     <div>
                         <h6 class="fw-bold">SELECIONE UMA OBRA PARA INFORMAR</h6>
-                        <table class="table table-sm table-condensed table-striped">
+                        <table class="table table-sm table-condensed table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr class="text-center">
+                                    <th>Nota/OV</th>
+                                    <th>Ordens</th>
+                                    <th>INFORME EMPRETEIRA</th>
+                                    <th>INFORME DIGITAÇÃO</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach ($notes as $note)
-                                    @if (!$note->WorkForm)
-                                        <tr wire:key="{{ $note->id }}"
-                                            wire:click="toConfirmWork({{ $note }})" style="cursor: pointer;">
-                                            <td class="fw-bold align-middle">{{ $note->note }}</td>
-                                            <td class="align-middle">
-                                                @if ($note->Orders->count())
-                                                    @foreach ($note->Orders->filter(function ($order) {
+                                    <tr wire:key="{{ $note->id }}" class="text-center"
+                                        wire:click="toConfirmWork({{ $note }})" style="cursor: pointer;">
+                                        <td class="fw-bold align-middle">{{ $note->note }}</td>
+                                        <td class="align-middle">
+                                            @if ($note->Orders->count())
+                                                @foreach ($note->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                    @endforeach
-                                                @endif
-                                            </td>
-                                            <td class="align-middle">
-                                                @if ($note->Viabilities->count())
-                                                    {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
-                                                @else
-                                                    SEM INFORMAÇÔES DE VIABILIDADE
-                                                @endif
-                                            </td>
-                                            <td class="align-middle fw-bold">
-                                                {{ $note->WorkForm ? 'OBRA INFORMADA' : 'NÃO INFORMADA' }}
-                                            </td>
-                                        </tr>
-                                    @else
-                                        <tr wire:key="{{ $note->id }}">
-                                            <td class="fw-bold align-middle">{{ $note->note }}</td>
-                                            <td class="align-middle">
-                                                @if ($note->Orders->count())
-                                                    @foreach ($note->Orders as $order)
-                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                    @endforeach
-                                                @endif
-                                            </td>
-                                            <td class="align-middle">
-                                                @if ($note->Viabilities->count())
-                                                    {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
-                                                @else
-                                                    SEM INFORMAÇÔES DE VIABILIDADE
-                                                @endif
-                                            </td>
-                                            <td class="align-middle fw-bold">
-                                                {{ $note->WorkForm ? 'OBRA INFORMADA' : 'NÃO INFORMADA' }}
-                                            </td>
-                                        </tr>
-                                    @endif
+                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                @endforeach
+                                            @endif
+                                        </td>
+                                        <td
+                                            class="align-middle fw-bold @if ($note->WorkForm) text-bg-success @else text-bg-danger @endif">
+
+                                            {{ $note->WorkForm ? 'INFORMADO' : 'NÃO INFORMADO' }}
+                                        </td>
+                                        <td
+                                            class="align-middle fw-bold @if ($note->RamalForm) text-bg-success @else text-bg-danger @endif">
+                                            {{ $note->RamalForm ? 'INFORMADO' : 'NÃO INFORMADO' }}
+                                        </td>
+                                    </tr>
                                 @endforeach
                             </tbody>
                         </table>
@@ -180,7 +164,7 @@
                         @endif
 
                         @if (!empty($temp_orders))
-                            <div class="mb-3" style="max-width: 300px">
+                            {{-- <div class="mb-3" style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Data Conclusão da Obra: <span
                                         class="text-danger fw-bold">*</span></label>
                                 <input type="date" class="form-control" id="dateWork" max="{{ date('Y-m-d') }}"
@@ -188,6 +172,18 @@
                                 @error($form['date'])
                                     <span class="error">{{ $message }}</span>
                                 @enderror
+                            </div> --}}
+                            <div class="mb-3 " style="max-width: 300px">
+                                <label for="exampleFormControlInput1" class="form-label">Empreiteira <span
+                                        class="text-danger fw-bold">*</span></label>
+                                <select class="form-select" aria-label="Default select example" wire:model="company">
+                                    <option selected>Selecione</option>
+                                    @if ($companies)
+                                        @foreach ($companies as $company)
+                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                        @endforeach
+                                    @endif
+                                </select>
                             </div>
 
                             <div class="mb-3 " style="max-width: 300px">
@@ -347,7 +343,7 @@
                                 <textarea type="text" class="form-control" id="observacao" rows="4" wire:model.defer="form.observation"> </textarea>
                             </div>
 
-                            <div class="mb-3 " style="max-width: 300px">
+                            {{-- <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Houveram danos a propriedade
                                     de
                                     particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.) <span
@@ -358,16 +354,16 @@
                                     <option value="1">Sim</option>
                                     <option value="0">Não</option>
                                 </select>
-                            </div>
+                            </div> --}}
 
-                            @if ($form['damage'])
+                            {{-- @if ($form['damage'])
                                 <div class="mb-3 col-md-6">
                                     <label for="exampleFormControlInput1" class="form-label">Detalhar os Danos
                                         Causados e
                                         Previsão de reparo: <span class="text-danger fw-bold">*</span></label>
                                     <textarea type="text" class="form-control" id="description" rows="4" wire:model.defer="form.description"> </textarea>
                                 </div>
-                            @endif
+                            @endif --}}
 
                             <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Ligação foi executada do
@@ -381,7 +377,7 @@
                                 </select>
                             </div>
 
-                            <div class="mb-3 " style="max-width: 300px">
+                            {{-- <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Foram Instalados
                                     Medidores? <span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example" wire:model="meeters">
@@ -389,7 +385,7 @@
                                     <option value="1">Sim</option>
                                     <option value="0">Não</option>
                                 </select>
-                            </div>
+                            </div> --}}
 
                             @if ($meeters)
                                 <div class="col-md-6">
@@ -481,7 +477,7 @@
                                 </div>
                             @endif
 
-                            <div class="mb-3 col-md-3">
+                            {{-- <div class="mb-3 col-md-3">
                                 <label for="exampleFormControlInput1" class="form-label">Numero da DD (Ultimo
                                     Relacionado a esta obra) <span class="text-danger fw-bold">*</span></label>
                                 <input type="text" class="form-control" id="dd"
@@ -508,7 +504,7 @@
                                     informe? <span class="text-danger fw-bold">*</span></label>
                                 <input type="text" class="form-control" id="informer"
                                     wire:model.defer="form.informer">
-                            </div>
+                            </div> --}}
 
                             <button class="btn btn-sm btn-primary" type="submit">ENVIAR</button>
                             <button class="btn btn-sm btn-danger" type="reset"

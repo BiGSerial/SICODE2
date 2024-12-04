@@ -11,7 +11,16 @@
                 <ul id="viability-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('btzero.main') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Principal</span>
+
+                            </a>
+                        </li>
+                    </div>
+
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('btzero.btzeroReport') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span>Informar BTzero</span>
 
                             </a>
@@ -20,7 +29,7 @@
 
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('btzero.histInform') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>Obras Informadas
                                 </span>
 

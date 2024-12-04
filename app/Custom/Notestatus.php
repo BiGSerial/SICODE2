@@ -208,10 +208,10 @@ class Notestatus
             ],
             // 28
             [
-                'status'  => 'Aguardando Comparação',
+                'status'  => 'Publicado',
                 'icon'    => 'ri-map-pin-time-line',
-                'colorbg' => 'text-bg-info',
-                'color'   => 'info',
+                'colorbg' => 'text-bg-success',
+                'color'   => 'success',
             ],
 
         ];

@@ -185,6 +185,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
 Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/btzero_report', 'btzeroReport')->name('btzeroReport');
+    Route::get('/hist_inform', 'histInform')->name('histInform');
 });
 
 

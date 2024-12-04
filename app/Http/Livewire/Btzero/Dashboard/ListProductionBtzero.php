@@ -9,7 +9,12 @@ class ListProductionBtzero extends Component
 {
     public function getListsProperty()
     {
-        return Production::select('user_id', 'company_id', 'note_id', 'service_id', 'id', 'updated_at', 'status')->whereRelation('Note', 'rubrica', 'BT Zero')->with('Note', 'User', 'Company')->orderBy('updated_at', 'DESC')->limit(10)->get();
+        return Production::select('user_id', 'company_id', 'note_id', 'service_id', 'id', 'updated_at', 'status')
+                ->whereRelation('Note', 'rubrica', 'BT Zero')
+                ->with('Note', 'User', 'Company')
+                ->orderBy('updated_at', 'DESC')
+                ->limit(10)
+                ->get();
     }
 
 

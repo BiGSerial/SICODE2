@@ -47,7 +47,7 @@ class WorkReport extends Model
 
     public function Equipment()
     {
-        return $this->hasMany(Equipment::class);
+        return $this->hasMany(Equipment::class)->orderBy('type')->orderBy('patrimony');
     }
 
     public function Orders()

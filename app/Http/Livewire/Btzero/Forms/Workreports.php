@@ -2,8 +2,10 @@
 
 namespace App\Http\Livewire\Btzero\Forms;
 
+use App\Models\Company;
 use App\Models\Note;
 use App\Models\Order;
+use App\Models\RamalReport;
 use App\Models\WorkReport;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -17,6 +19,8 @@ class Workreports extends Component
     public $s_order;
     public bool $hasFiles = false;
 
+    public $companies;
+    public $company;
 
     public $equipment;
     public $meeters;
@@ -61,17 +65,17 @@ class Workreports extends Component
     ];
 
     protected $rules = [
-        'form.date' => 'required|date|before_or_equal:today',
+        'form.date' => 'nullable|date|before_or_equal:today',
         'form.equipment' => 'required|boolean',
-        'form.changes' => 'required|boolean',
+        'form.changes' => 'boolean',
         'form.observation' => 'nullable|string|max:5000',
-        'form.damage' => 'required|boolean',
-        'form.description' => 'required_if:form.damage,1|nullable|string|min:10|max:5000',
-        'form.connection' => 'required|boolean',
-        'form.team' => 'required|string|max:255',
-        'form.dd' => 'required|string|max:255',
-        'form.responsible' => 'required|string|max:255',
-        'form.informer' => 'required|string|max:255',
+        'form.damage' => 'nullable|boolean',
+        'form.description' => 'nullable|string|min:10|max:5000',
+        'form.connection' => 'nullable|boolean',
+        'form.team' => 'nullable|string|max:255',
+        'form.dd' => 'nullable|string|max:255',
+        'form.responsible' => 'nullable|string|max:255',
+        'form.informer' => 'nullable|string|max:255',
 
     ];
 
@@ -114,6 +118,11 @@ class Workreports extends Component
         $this->hasFiles = $hasFile;
     }
 
+    public function mount()
+    {
+        $this->companies = Company::orderBy('name')->get();
+    }
+
     public function savedFiles()
     {
         // Revebe chamado pelo Component de Arquivos;
@@ -128,7 +137,11 @@ class Workreports extends Component
     {
         if (trim($this->search)) {
 
-            $this->notes = Note::where('note', trim($this->search))->orWhereRelation('Orders', 'ordem', trim($this->search))->orderBy('note')->get();
+            $this->notes = Note::where('note', trim($this->search))
+                            ->orWhereRelation('Orders', 'ordem', trim($this->search))
+                            ->with('WorkForm', 'RamalForm')
+                            ->orderBy('note')
+                            ->get();
 
             if (!$this->notes->count()) {
                 $this->dispatchBrowserEvent('swal', [
@@ -207,59 +220,77 @@ class Workreports extends Component
             return;
         }
 
-        if ($this->form['damage'] == true && !trim($this->form['description'])) {
+        if (!$this->company) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'Erros de Validação',
-                'html'     => 'O Detalhamento dos Danos Causados é Obrigatório.',
+                'html'     => 'É Obrigatório informar a Empresa Responsável pela Obra.',
             ]);
 
             return;
         }
 
-        if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Erros de Validação',
-                'html'     => 'Os equipamentos Instalados/Desinstalados é obrigatório sua informação.',
-            ]);
+        // if ($this->form['damage'] == true && !trim($this->form['description'])) {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'warning',
+        //         'title'    => 'Erros de Validação',
+        //         'html'     => 'O Detalhamento dos Danos Causados é Obrigatório.',
+        //     ]);
 
-            return;
-        }
+        //     return;
+        // }
+
+        // if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'warning',
+        //         'title'    => 'Erros de Validação',
+        //         'html'     => 'Os equipamentos Instalados/Desinstalados é obrigatório sua informação.',
+        //     ]);
+
+        //     return;
+        // }
 
         // dd($this->form['changes'], $this->hasFiles);
 
-        if ($this->form['changes'] == true && !$this->hasFiles) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Erros de Validação',
-                'html'     => 'É obrigatório anexar o AsBuilt da Obra Executada. (apenas PDF)',
-            ]);
+        // if ($this->form['changes'] == true && !$this->hasFiles) {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'warning',
+        //         'title'    => 'Erros de Validação',
+        //         'html'     => 'É obrigatório anexar o AsBuilt da Obra Executada. (apenas PDF)',
+        //     ]);
 
-            return;
-        }
+        //     return;
+        // }
 
-        if ($this->meeters == true && empty($this->temp_meeters)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Erros de Validação',
-                'html'     => 'É obrigatório a informação dos medidores instalados.',
-            ]);
+        // if ($this->meeters == true && empty($this->temp_meeters)) {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'warning',
+        //         'title'    => 'Erros de Validação',
+        //         'html'     => 'É obrigatório a informação dos medidores instalados.',
+        //     ]);
 
-            return;
-        }
+        //     return;
+        // }
 
         DB::beginTransaction();
 
         try {
 
-            $form = WorkReport::updateOrCreate(
+            $form = RamalReport::updateOrCreate(
                 ['note_id' => $this->form['note_id']],
-                $this->form
+                [
+                    'user_id' => Auth()->User()->id,
+                    'company_id' => $this->company,
+                    'equipment' => $this->form['equipment'],
+                    'connection' => $this->form['connection'],
+                    'changes' => $this->form['changes'],
+                    'observation' => $this->form['observation'],
+                ]
             );
 
             if ($form) {
@@ -277,15 +308,15 @@ class Workreports extends Component
 
                 if ($form->equipment && !empty($this->temp_equipment)) {
                     foreach ($this->temp_equipment as $equipment) {
-                        $form->Equipment()->create($equipment);
+                        $form->BtzeroEquipment()->create($equipment);
                     }
                 }
 
-                if (!empty($this->temp_meeters)) {
-                    foreach ($this->temp_meeters as $meeter) {
-                        $form->Meeters()->create($meeter);
-                    }
-                }
+                // if (!empty($this->temp_meeters)) {
+                //     foreach ($this->temp_meeters as $meeter) {
+                //         $form->Meeters()->create($meeter);
+                //     }
+                // }
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -457,8 +488,8 @@ class Workreports extends Component
             'msg'           => '
                 <div class="card">
                     <div class="card-body text-start">
-                       <p> Você selecionou a Nota/OV ' . $note->note . ' para informar a conclusão de obra. </p>
-                        <p>É importante frisar que este canal é para informações de obras 100% concluídas. Confirmações parciais, faltantes ou conflitantes, poderá acarretar a rejeição do informe, necessitando retorno para acertos.</p>
+                       <p> Você selecionou a Nota/OV ' . $note->note . ' para informar. </p>
+                        <p>É importante lembrar que este informe irá liberar etapa de publicação.</p>
                     </div>
                 </div>
             ',

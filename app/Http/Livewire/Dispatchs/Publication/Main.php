@@ -501,10 +501,14 @@ class Main extends Component
             $query->where(function ($q) {
                 $q->whereHas('WorkForm', function ($sq) {
                     $sq->where('rejected', false);
-                })->when($this->btzeroform, function ($q) {
-                    return $q->orWhereHas('RamalForm');
                 });
-            })->whereHas('Orders', function ($q) {
+
+                if ($this->btzeroform) {
+                    $q->orWhereHas('RamalForm');
+                }
+            });
+
+            $query->whereHas('Orders', function ($q) {
                 $q->where('statusSist', 'LIKE', 'LIB%')
                     ->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0010')
@@ -512,23 +516,22 @@ class Main extends Component
                     })
                     ->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0020')
-                        ->where(function ($q) {
-                            $q->where('status', 'like', 'LIB%')
-                                ->orWhere('status', 'like', 'CNPA%')
-                                ->orWhere('status', 'like', 'JBFI LIB%');
-                        });
+                            ->where(function ($q) {
+                                $q->where('status', 'like', 'LIB%')
+                                    ->orWhere('status', 'like', 'CNPA%')
+                                    ->orWhere('status', 'like', 'JBFI LIB%');
+                            });
                     });
             });
 
-            if ($this->not_assigned) {
-                $query->where(function ($q) {
-                    $q->doesntHave('Productions')
-                        ->orWhereDoesntHave('Productions', function ($subquery) {
-                            $subquery->where('service_id', $this->service->uuid);
-                        });
+            if ($this->search) {
+                $query->where(function ($query) {
+                    $query->where('note', 'like', '%' . $this->search . '%')
+                        ->orWhere('material', 'like', '%' . $this->search . '%')
+                        ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                        ->orWhere('group2', 'like', '%' . $this->search . '%');
                 });
             }
-
 
             if (isset($this->filters['rubrica'])) {
                 $query->where(function ($query) {
@@ -544,36 +547,53 @@ class Main extends Component
                 });
             }
 
-            if ($this->note_type) {
-                $query->where('type_note', $this->note_type);
+            if (isset($this->filters['company'])) {
+                $query->whereRelation('WorkForm', function ($q) {
+                    $q->whereIn('company_id', $this->filters['company']);
+                });
             }
 
-            $query->when($this->search, function ($q, $s) {
-                $this->gotoPage(1);
-
-                return $q->where(function ($query) use ($s) {
-                    $query->where('note', 'like', '%' . $s . '%')
-                        ->orWhere('material', 'like', '%' . $s . '%')
-                        ->orWhere('numPedido', 'like', '%' . $s . '%');
+            if ($this->not_assigned) {
+                $query->where(function ($q) {
+                    $q->doesntHave('Productions')
+                        ->orWhereDoesntHave('Productions', function ($subquery) {
+                            $subquery->where('service_id', $this->service->uuid);
+                        });
                 });
-            });
+            }
+
+
+
         }
 
         // Adicionar o cálculo da coluna 'prazo_final' usando as regras de 'type_note' e 'mesalization'
         $query->select(
             'notes.*',
-            'work_reports.created_at as work_dt_created',
+            // 'work_reports.created_at as wCreated_at',
+            // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
             DB::raw("
-    CASE
-        WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
-        WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
-        ELSE NULL
-    END as prazo_final
-")
+                CASE
+                    WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                    WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                    ELSE NULL
+                END as prazo_final
+            ")
         );
 
         // Adicionar a ordenação pela coluna 'prazo_final'
-        $query->with('Productions.User', 'Productions.Company', 'WorkForm.Company')
+        $query->with('Productions.Company', 'Productions.User', 'WorkForm.Company', 'RamalForm.Company', 'WorkForm.User', 'RamalForm.User')
+        ->orderByRaw('
+        exists (
+            select 1
+            from ramal_reports
+            where ramal_reports.note_id = notes.id
+        )
+        and not exists (
+            select 1
+            from work_reports
+            where work_reports.note_id = notes.id
+        ) desc
+    ')
             ->orderBy('prazo_final', 'ASC');
 
         return $query;

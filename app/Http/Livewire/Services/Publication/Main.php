@@ -147,25 +147,46 @@ class Main extends Component
 
         $this->note = $note;
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Atribuir Tarefa',
-            'msg'   => "
-            Você deseja atribuir a NOTA/OV para você?</br></br>
-            <div class='card card-light'>
-            <div class='card-body'>
-            <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
-            </div>
-            </div>
-            ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Atribua!',
-            'btnCanceltxt'  => 'Não, Cancele!',
-            'action'        => 'confirm_accompany',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhum serviço foi atribuído.',
+        if (!$this->note->WorkForm && $this->note->RamalForm) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Atribuir Tarefa Parcial',
+                'msg'   => "
+                Você deseja atribuir a NOTA/OV para você?</br></br>
+                <div class='card text-bg-danger'>
+                <div class='card-body'>
+                <p><strong>Esta Nota/OV, necessita de publicação imediata porém não se pode confirmar a 20. Ao finalizar, a mesma permanecerá na sua pilha com status de PUBLICADO até que o Informe de Conclusão esteja disponível para o encerramento total.</p>
+                </div>
+                </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Atribua!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirm_accompany',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhum serviço foi atribuído.',
 
-        ]);
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Atribuir Tarefa',
+                'msg'   => "
+                Você deseja atribuir a NOTA/OV para você?</br></br>
+                <div class='card card-light'>
+                <div class='card-body'>
+                <p><strong>NOTA/OV estará disponível em acompanhamento como
+                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
+                </div>
+                </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Atribua!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirm_accompany',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhum serviço foi atribuído.',
+
+            ]);
+        }
     }
 
     public function add_to_accompany()
@@ -275,11 +296,12 @@ class Main extends Component
         //     ->orderBy('wCreated_at', 'ASC')
         //     ->paginate($this->perPage);
 
-        return $this->noteFilter->filter($this->search, $this->filter_group)
-        ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        return $this->noteFilter->filter($this->search, $this->filter_group, $this->btzeroform)
+        // ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+
         ->select(
             'notes.*',
-            'work_reports.created_at as wCreated_at',
+            // 'work_reports.created_at as wCreated_at',
             // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
             DB::raw("
                 CASE
@@ -302,10 +324,9 @@ class Main extends Component
             });
         })
         // Ordenar pela coluna 'prazo_final'
+         
         ->orderBy('prazo_final', 'ASC')
         ->paginate($this->perPage);
-
-
     }
 
 

@@ -48,4 +48,9 @@ class Order extends Model
     {
         return $this->belongsToMany(WorkReport::class, 'order_work_report');
     }
+
+    public function RamalReport()
+    {
+        return $this->belongsToMany(RamalReport::class, 'order_ramal_report');
+    }
 }

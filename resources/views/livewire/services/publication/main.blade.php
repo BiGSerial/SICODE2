@@ -28,22 +28,35 @@
         </div>
     </div>
 
-    <div class="btn-group">
-        <div class="mb-3 mx-1">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <p> A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus()">
-                    {{ Notestatus::status(1)->status }}
-                    @if ($not_assigned)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
-            </div>
+
+    <div class="mb-3">
+        <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+            data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas Nao Atribuidas"
+            data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
+                wire:click.prevent="filterStatus()">
+                {{ Notestatus::status(1)->status }}
+                @if ($not_assigned)
+                    <span class="badge text-bg-success">ON</span>
+                @else
+                    <span class="badge text-bg-danger">OFF</span>
+                @endif
+            </button>
+
+        </div>
+
+        <div class="btn-group ms-2" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+            data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Informadas BT Zero"
+            data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribuida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="btzeroform()">
+                Info BT Zero
+                @if ($btzeroform)
+                    <span class="badge text-bg-success">ON</span>
+                @else
+                    <span class="badge text-bg-danger">OFF</span>
+                @endif
+            </button>
+
         </div>
     </div>
 
@@ -80,6 +93,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th class="align-middle text-center">Note</th>
+                            <th class="align-middle text-center">Inf Digitacao</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
@@ -130,7 +144,19 @@
                                 @endif
 
                                 <td class="fw-light {{ $rowClass }}">
-                                    {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
+                                    @if (!$list->WorkForm && $list->RamalForm)
+                                        <i class="ri-alert-line text-danger align-middle fs-4"></i>
+                                    @endif
+
+                                </td>
+
+                                <td class="fw-light {{ $rowClass }}">
+
+                                    @if ($list->WorkForm)
+                                        {{ $list->WorkForm->Company ? $list->WorkForm->Company->name : '---' }}
+                                    @elseif ($list->RamalForm)
+                                        {{ $list->RamalForm->Company ? $list->RamalForm->Company->name : '---' }}
+                                    @endif
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">{{ $list->lexp }}</td>

@@ -15,4 +15,9 @@ class BtzeroController extends Controller
     {
         return view('btzero.btzeroreport');
     }
+
+    public function histInform()
+    {
+        return view('btzero.btzero_inform_hist');
+    }
 }

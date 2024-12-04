@@ -124,13 +124,14 @@
                                 @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
                                     @php
                                         $daysLeft = new DaysLeft($list->Note);
-                                        $formBlock = $list->Note->WorkForm->rejected
-                                            ? $list->Note->WorkForm->rejected
-                                            : false;
+                                        $formBlock =
+                                            $list->Note->WorkForm && $list->Note->WorkForm->rejected
+                                                ? $list->Note->WorkForm->rejected
+                                                : false;
                                     @endphp
                                     <tr wire:key="work-{{ $list->id }}"
-                                        wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
-                                        class="align-middle text-center align-middle @if ($list->block) table-primary @elseif ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif">
+                                        wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list->Note }})"
+                                        class="align-middle text-center align-middle @if ($list->block) table-primary @elseif ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger  @elseif (!$list->Note->WorkForm && $list->Note->RamalForm) table-warning @elseif ($list->Note->WorkForm && $list->Note->RamalForm) table-success @endif">
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                             {{ $list->Note->note }}
@@ -159,6 +160,10 @@
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
                                                     <p class="my-0 py-0">{{ $order->ordem }}</p>
                                                 @endforeach
+                                            @elseif (isset($list->Note->RamalForm) && $list->Note->RamalForm->Orders->count())
+                                                @foreach ($list->Note->RamalForm->Orders as $order)
+                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                @endforeach
                                             @endif
                                         </td>
                                         <td class="fw-light text-center align-middle">
@@ -166,10 +171,18 @@
                                             @if (isset($list->Note->WorkForm))
                                                 <span
                                                     class="badge text-bg-dark">{{ $list->Note->WorkForm->Equipment->count() }}</span>
+                                            @elseif(isset($list->Note->RamalForm))
+                                                <span
+                                                    class="badge text-bg-dark">{{ $list->Note->RamalForm->BtzeroEquipment->isNotEmpty() ? $list->Note->RamalForm->BtzeroEquipment->count() : '' }}</span>
                                             @endif
                                         </td>
                                         <td class="fw-light text-center align-middle">
-                                            {{ isset($list->Note->WorkForm) ? $list->Note->WorkForm->Company->name : '---' }}
+
+                                            @if (isset($list->Note->WorkForm))
+                                                {{ isset($list->Note->WorkForm) && $list->Note->WorkForm->Company ? $list->Note->WorkForm->Company->name : '---' }}
+                                            @elseif(isset($list->Note->RamalForm))
+                                                {{ isset($list->Note->RamalForm) && $list->Note->RamalForm->Company ? $list->Note->RamalForm->Company->name : '---' }}
+                                            @endif
                                         </td>
                                         <td class="fw-light text-center align-middle">{{ $list->Note->lexp }}</td>
                                         <td class="fw-light text-center align-middle">{{ $list->Note->material }}</td>
@@ -211,7 +224,11 @@
                                         </td>
                                         <td class="fw-bold fs-5">
 
-                                            @if (!$list->block && !$this->blockWaiting($list->status) && !$formBlock)
+                                            @if (
+                                                !$list->block &&
+                                                    !$this->blockWaiting($list->status) &&
+                                                    !$formBlock &&
+                                                    !($list->status == 28 && !$list->Note->WorkForm))
                                                 @if (!$list->completed)
                                                     <span class="d-inline-block" data-bs-toggle="tooltip"
                                                         data-bs-placement="top" data-bs-custom-class="custom-tooltip"
@@ -233,7 +250,7 @@
                                                 @endif
                                             @endif
 
-                                            @if (!$formBlock)
+                                            @if (!$formBlock && $list->Note->WorkForm)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Devolver Informe">
@@ -329,7 +346,7 @@
     @livewire('services.publication.forms.jobform', key('production'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
     @livewire('components.status.show-status', key('show_status_note'))
-
+    @livewire('btzero.view.compare-form', key('compare_form'))
     {{-- <div wire:init="checkOpen"></div> --}}
 
 </div>

@@ -32,6 +32,10 @@
                                                         @foreach ($production->Note->WorkForm->Orders as $order)
                                                             <p class="my-1 py-0">{{ $order->ordem }}</p>
                                                         @endforeach
+                                                    @elseif (isset($production->Note->RamalForm) && $production->Note->RamalForm->Orders->count())
+                                                        @foreach ($production->Note->RamalForm->Orders as $order)
+                                                            <p class="my-1 py-0">{{ $order->ordem }}</p>
+                                                        @endforeach
                                                     @endif
                                                 </td>
                                             </tr>
@@ -95,6 +99,11 @@
                                     </table>
                                 </div>
                             </div>
+
+                            <div class="card text-bg-danger">
+                                <h4 class="text-center fw-bold my-2">FAVOR NÃO CONFIRMAR A 20 NO SAP</h4>
+                            </div>
+
                             <div class="card">
                                 <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RESOLUÇÃO</h5>
                                 <div class="card-body">
@@ -127,8 +136,13 @@
                         <button type="button" class="btn btn-info" wire:click.prevent="waitingForm()">ESPERAR</button>
                         <button type="button" class="btn btn-warning"
                             wire:click="$emitTo('components.pausenote.pausenote2', 'stop_note', {{ $production }})">PAUSAR</button>
-                        <button type="button" class="btn btn-success"
-                            wire:click.prevent="to_finish()">ENCERRAR</button>
+                        @if ($production->Note->WorkForm)
+                            <button type="button" class="btn btn-success"
+                                wire:click.prevent="to_finish()">ENCERRAR</button>
+                        @elseif($production->Note->RamalForm)
+                            <button type="button" class="btn btn-success"
+                                wire:click.prevent="to_Publish()">ENCERRAR</button>
+                        @endif
                     </div>
                 </div>
             @endif
@@ -145,6 +159,4 @@
         Livewire.emitTo('services.publication.forms.jobform', 'closeAll');
 
     });
-
-   
 </script>
