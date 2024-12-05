@@ -67,18 +67,17 @@
                                         </tr>
 
                                         <tr>
-                                            <th class="bg-light text-end">Responsável pelo Informe:</th>
-                                            @php
-                                                $responsavel = 'Desconhecido';
+                                            <th class="bg-light text-end">Responsável pelo Inf. Digitação:</th>
 
-                                                if ($note->WorkForm && $note->WorkForm->responsible) {
-                                                    $responsavel = $note->WorkForm->responsible;
-                                                } elseif ($note->RamalForm && $note->RamalForm->User) {
-                                                    $responsavel = $note->RamalForm->User->name;
-                                                }
+                                            <td>{{ $note->RamalForm ? $note->RamalForm->User->name : 'Não Informado' }}
+                                            </td>
+                                        </tr>
 
-                                            @endphp
-                                            <td>{{ $responsavel }}</td>
+                                        <tr>
+                                            <th class="bg-light text-end">Responsável pelo Inf. Conclusão:</th>
+
+                                            <td>{{ $note->WorkForm ? $note->WorkForm->responsible : 'Não Informado' }}
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>
