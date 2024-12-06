@@ -547,10 +547,11 @@ class Main extends Component
 
         $query->whereHas('WorkForm', function ($q) {
             $q->when(isset($this->filters['company']), function ($sq) {
-                return $sq->where(function ($query) {
-                    $query->whereIn('company_id', $this->filters['company'])
-                        ->orWhereNull('company_id');
-                });
+                return $sq->where('rejected', false)
+                    ->where(function ($query) {
+                        $query->whereIn('company_id', $this->filters['company'])
+                            ->orWhereNull('company_id');
+                    });
             });
         })
             ->whereHas('Orders', function ($q) {
@@ -568,9 +569,13 @@ class Main extends Component
                     })
                     ->whereHas('Operations', function ($sq) {
                         $sq->where('operacao', '0050')
-                            ->where('status', 'like', 'LIB%');
+                        ->where(function ($q) {
+                            $q->where('status', 'like', 'LIB%')
+                                ->orWhere('status', 'like', 'CNPA%');
+                        });
                     });
             });
+
 
         if ($this->not_assigned) {
             $query->where(function ($q) {
