@@ -4,6 +4,26 @@
 
 <div>
     <x-show-loading />
+
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-start my-1">
+                <input type="text" class="form-control w-25 border border-secondary" placeholder="Buscar..."
+                    wire:model="search">
+
+
+                <select class="form-select form-select-sm ms-2 w-25 border border-secondary" wire:model="company">
+                    <option value="">Selecione uma opção</option>
+                    @if ($companies)
+                        @foreach ($companies as $company)
+                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                        @endforeach
+                    @endif
+                </select>
+            </div>
+        </div>
+
+    </div>
     <div class="card">
         <div class="card-header edp-bg-seoweedgreen-100 py-1">
             <h4 class="my-0 text-white">Informes Digitados sem Informes Final</h4>
@@ -36,10 +56,12 @@
 
                             @php
                                 $daysDifference = $list->WorkForm
-                                    ? Carbon::parse($list->RamalForm->created_at)->startOfDay()->diffInDays(
-                                        Carbon::parse($list->WorkForm->created_at)->startOfDay(),
-                                    )
-                                    : Carbon::parse($list->RamalForm->created_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay());
+                                    ? Carbon::parse($list->RamalForm->created_at)
+                                        ->startOfDay()
+                                        ->diffInDays(Carbon::parse($list->WorkForm->created_at)->startOfDay())
+                                    : Carbon::parse($list->RamalForm->created_at)
+                                        ->startOfDay()
+                                        ->diffInDays(Carbon::now()->startOfDay());
                             @endphp
 
                             <td class="text-center fw-bold">{{ $daysDifference }}</td>

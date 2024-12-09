@@ -74,19 +74,23 @@ class Main extends Component
     public function setSelectAll()
     {
         if ($this->selectAll) {
-            // Adicionar os IDs que cumprem as regras à lista de selecionados
-            foreach ($this->lists as $item) {
+
+
+
+            foreach ($this->lists->paginate($this->perPage) as $item) {
 
                 $id = $item->id;
 
                 if (!in_array($id, $this->selected)) {
                     $waitingsCount = $item->Waitings->where('complete', false)->count();
+                    $inViability = $item->Viabilities->where('complete', false)->count();
 
-                    if (!$waitingsCount) {
+                    if (!$waitingsCount && !$inViability) {
                         $this->selected[] = $id;
                     }
+
                 } else {
-                    $visibleIds = $this->lists->pluck('id')->toArray();
+                    $visibleIds = $this->lists->paginate($this->perPage)->pluck('id')->toArray();
                     $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                         return !in_array($id, $visibleIds);
                     });
@@ -94,7 +98,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds = $this->lists->pluck('id')->toArray();
+            $visibleIds = $this->lists->paginate($this->perPage)->pluck('id')->toArray();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
