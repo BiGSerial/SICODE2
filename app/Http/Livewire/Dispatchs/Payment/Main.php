@@ -628,6 +628,15 @@ class Main extends Component
 
         $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
         ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
+        ->leftJoinSub(
+            DB::table('operation_resps')
+                ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+                ->groupBy('note_id'),
+            'latest_operation_resps',
+            'notes.id',
+            '=',
+            'latest_operation_resps.note_id'
+        )
         ->select(
             'notes.id',
             'notes.note',
@@ -637,10 +646,11 @@ class Main extends Component
             'notes.type_note',
             'notes.nstats',
             'work_reports.created_at as wCreated_at',
-            DB::raw('SUM(orders.moaberto) as total_moaberto')
+            DB::raw('SUM(orders.moaberto) as total_moaberto'),
+            'latest_operation_resps.latest_fimLancado as fimLancado'
         )
-        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'notes.nstats')
-        ->orderBy('wCreated_at', 'asc')
+        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'notes.nstats', 'fimLancado')
+        ->orderBy('fimLancado', 'asc')
         ->orderBy('total_moaberto', 'desc');
 
         return $query;

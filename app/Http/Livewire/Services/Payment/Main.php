@@ -234,27 +234,36 @@ class Main extends Component
 
         // Realizando o join com `work_reports` e `orders` e somando `moaberto`
         $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-            ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
-            ->select(
-                'notes.id',
-                'notes.note',
-                'notes.lexp',
-                'notes.mesalization',
-                'notes.days_left',
-                'notes.type_note',
-                'work_reports.created_at as wCreated_at',
-                DB::raw('SUM(orders.moaberto) as total_moaberto')
-            )
-            ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note')
-            ->orderBy('wCreated_at', 'asc')
+        ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
+        ->leftJoinSub(
+            DB::table('operation_resps')
+                ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+                ->groupBy('note_id'),
+            'latest_operation_resps',
+            'notes.id',
+            '=',
+            'latest_operation_resps.note_id'
+        )
+        ->select(
+            'notes.id',
+            'notes.note',
+            'notes.lexp',
+            'notes.mesalization',
+            'notes.days_left',
+            'notes.type_note',
+            'work_reports.created_at as wCreated_at',
+            DB::raw('SUM(orders.moaberto) as total_moaberto'),
+            'latest_operation_resps.latest_fimLancado as fimLancado'
+        )
+            ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado')
+            ->orderBy('fimLancado', 'asc')
             ->orderBy('total_moaberto', 'desc');
 
         // Debugando o resultado para checar a consulta
         // dd($query->paginate(5));
 
         return $query->paginate($this->perPage);
-
-
+        
     }
 
     // Rules Days Left

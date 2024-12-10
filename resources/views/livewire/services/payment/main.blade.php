@@ -167,26 +167,33 @@
                                     $block = true;
                                 }
 
-                                $daysLeft = $this->deadline($list);
+                                $rowClass = '';
+
+                                if ($block) {
+                                    if ($production->status == 1) {
+                                        $rowClass = 'table-danger';
+                                    } elseif ($production->status == 2) {
+                                        $rowClass = 'table-primary';
+                                    } elseif ($production->status == 5) {
+                                        $rowClass = 'table-success';
+                                    } else {
+                                        $rowClass = 'table-primary';
+                                    }
+                                }
+
+                                $daysLeft = Carbon::parse($list->fimLancado)
+                                    ->startOfDay()
+                                    ->diffInDays(Carbon::now()->startOfDay());
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
 
-                            <tr
-                                class="align-middle text-center
-                                @if ($block) @if ($production->status == 1)
-                                    table-warning
-                                    @elseif ($production->status == 2)
-                                    table-primary
-                                    @elseif ($production->status == 5)
-                                    table-success
-                                    @else
-                                    table-primary @endif
-                                @endif">
+                            <tr class="align-middle text-center
+                                ">
 
-                                <td class="fw-light fw-bold text-center">{{ $list->note }} </td>
+                                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }} </td>
 
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -196,7 +203,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle fw-bold">
+                                <td class="text-center align-middle fw-bold {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             @php
@@ -220,7 +227,7 @@
 
                                 </td> --}}
 
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -230,7 +237,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -240,7 +247,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -250,7 +257,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -261,39 +268,38 @@
 
                                 </td>
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>
 
-                                <td class="fw-light text-center">{{ $list->lexp }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
 
                                 <td scope="col"
                                     class="text-center text-center
-                                    @if ($daysLeft < 0) table-dark
-                                    @elseif($daysLeft >= 0 && $daysLeft < 3)
-                                    table-danger
-                                    @elseif($daysLeft >= 3 && $daysLeft < 6)
-                                        table-warning
-                                    @else
-                                        table-success @endif
+                                   @if ($daysLeft <= 2) text-bg-success
+                                @elseif($daysLeft >= 5)
+                                    text-bg-danger
+                                @else
+                                text-bg-warning @endif
                                 "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                    data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
+                            <p>Prazos para Pagamentos</p>
+                            <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
+                            {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                             ">
-                                    {{ $daysLeft }}
+                                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
                                 </td>
 
                                 @php
@@ -310,13 +316,13 @@
                                 @endphp
 
                                 <!-- Prioridade de estilo da célula 'Prazo Restante' -->
-                                <td scope="col" class="text-center">
+                                <td scope="col" class="text-center {{ $rowClass }}">
                                     {{ $daysLeft->getLastDate() }}
 
 
                                 </td>
 
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $rowClass }}">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
