@@ -263,7 +263,7 @@ class Main extends Component
         // dd($query->paginate(5));
 
         return $query->paginate($this->perPage);
-        
+
     }
 
     // Rules Days Left

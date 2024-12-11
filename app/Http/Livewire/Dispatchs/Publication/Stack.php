@@ -6,6 +6,7 @@ use App\Exports\DispatchDesenhoStack;
 use App\Exports\Dispatchs\PublicationExportControl;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component
@@ -647,10 +648,23 @@ class Stack extends Component
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
+
+            ->select(
+                'productions.*',
+                'notes.dt_created as note_dt_created',
+                'work_reports.created_at as work_dt_created',
+                DB::raw("
+                CASE
+                    WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                    WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                    ELSE NULL
+                END as prazo_final
+            ")
+            )
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
-            ->orderBy('work_dt_created', 'ASC')
-            ->select('productions.*', 'notes.dt_created as note_dt_created', 'work_reports.created_at as work_dt_created');
+            ->orderBy('prazo_final', 'ASC');
+
         // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }

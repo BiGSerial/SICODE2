@@ -47,20 +47,15 @@ class NoteFilter
                         $sq->where('operacao', '0050')
                         ->where(function ($q) {
                             $q->where('status', 'like', 'LIB%')
-                                ->orWhere('status', 'like', 'CNPA%');
+                                ->orWhere('status', 'like', 'CNPA%')
+                                ->orWhere('status', 'like', 'JBFI LIB%');
                         });
                     });
             });
 
 
-        $query->when($search, function ($q, $s) {
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%');
-            });
-        })->when(isset($this->filters['rubrica']), function ($q) {
+
+        $query->when(isset($this->filters['rubrica']), function ($q) {
             return $q->where(function ($query) {
                 $query->whereIn('rubrica', $this->filters['rubrica'])
                     ->orWhereNull('rubrica');

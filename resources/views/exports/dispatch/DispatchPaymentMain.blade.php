@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\DaysLeft;
 @endphp
 <table class="table table-sm table-striped table-condensed">
     <thead class="table-dark">
@@ -20,6 +21,7 @@
             <th scope="col" class="fw-bold text-center">Retorno</th>
             <th scope="col" class="fw-bold text-center">Status</th>
             <th class="align-middle text-center">Prazo Pagamento</th>
+            <th class="align-middle text-center">Prazo Obra</th>
 
         </tr>
     </thead>
@@ -269,7 +271,10 @@
                     @else
                         table-success @endif
                 ">
-                    {{ $daysLeft }}
+                    {{ isset($list->fimLancado) ? date('d/m/Y', strtotime($list->fimLancado)) : '---' }}
+                </td>
+                <td>
+                    {{ (new DaysLeft($list))->getLastDate() }}
                 </td>
 
 
@@ -294,7 +299,7 @@
             <td></td>
             <td></td>
             <td></td>
-
+            <td></td>
         </tr>
     </tfoot>
 </table>

@@ -39,29 +39,33 @@ class DispatchPaymentMain implements FromView, WithEvents, WithProperties
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:N1')->applyFromArray([
-                    'font' => [
-                        'bold'  => true,
-                        'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
-                    ],
-                    'fill' => [
-                        'fillType'   => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
-                    ],
-                ]);
+            // Define o estilo para a primeira linha
+            $event->sheet->getStyle('A1:O1')->applyFromArray([
+                'font' => [
+                'bold'  => true,
+                'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
+                ],
+                'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
+                ],
+                'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical'   => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+            ]);
 
-                // Formata as colunas A e B para números sem casas decimais
-                $event->sheet->getStyle('A:A')
+            // Formata as colunas A e B para números sem casas decimais
+            $event->sheet->getStyle('A:A')
+            ->getNumberFormat()
+            ->setFormatCode('0');
+
+            $event->sheet->getStyle('B:B')
                 ->getNumberFormat()
                 ->setFormatCode('0');
 
-                $event->sheet->getStyle('B:B')
-                    ->getNumberFormat()
-                    ->setFormatCode('0');
-
-                // Ajusta automaticamente a largura das colunas
-                $event->sheet->autoSize();
+            // Ajusta automaticamente a largura das colunas
+            $event->sheet->autoSize();
             },
         ];
     }

@@ -542,7 +542,8 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = Note::query()->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
+        $query = Note::query()
+            ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
 
         if (count($this->multiSearch)) {

@@ -127,15 +127,17 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
+                <table class="table table-sm table-striped">
                     <thead class="table-dark">
                         <tr>
                             <th>
-                                <input class="form-check-input" type="checkbox" wire:model="selectall">
+                                <input class="form-check-input" type="checkbox" wire:model="selectall"
+                                    wire:click="setSelectAll">
                             </th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
+                            {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
                             <th class="align-middle text-center">OP50</th>
@@ -144,11 +146,11 @@
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
-                            <th scope="col" class="fw-bold text-center">Retorno</th>
-                            <th scope="col" class="fw-bold text-center">Status</th>
+
                             <th class="align-middle text-center">Prazo Pagamento</th>
-                            <th scope="col" class="fw-bold text-center">Dt Vencimento</th>
-                            <th scope="col" class="fw-bold text-center"></th>
+                            <th class="align-middle text-center">Data Vencimento</th>
+
+                            <th class="align-middle text-center"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -157,159 +159,45 @@
                         @endphp
                         @foreach ($lists as $list)
                             @php
-                                $block = 0;
-                                $exception = false;
-                                $production = '';
-                                $user = [];
+                                $block = false;
 
-                                $production = $list->Productions->where('service_id', $this->service->uuid);
+                                if ($production = $this->hasProduction($list)) {
+                                    $block = true;
+                                }
 
-                                if ($production->where('completed', false)->where('confirmed', false)->count()) {
-                                    $block = 1;
+                                $rowClass = '';
 
-                                    $lastProduction = $production
-                                        ->where('completed', false)
-                                        ->where('confirmed', false)
-                                        ->last();
-
-                                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                                    $count = $production->count();
-
-                                    $lastName = explode(' ', $lastName);
-                                    $lastName =
-                                        count($lastName) > 1 ? $lastName[0] . ' ' . end($lastName) : $lastName[0];
-
-                                    $company = explode(' ', $company)[0];
-
-                                    $user = [
-                                        'lastUser' => $lastName,
-                                        'countProd' => $count,
-                                        'status' => $status,
-                                        'company' => $company,
-                                    ];
-                                } elseif ($production->where('completed', true)->where('confirmed', false)->count()) {
-                                    $block = 2;
-
-                                    $lastProduction = $production
-                                        ->where('completed', true)
-                                        ->where('confirmed', false)
-                                        ->last();
-
-                                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                                    $count = $production->count();
-
-                                    $lastName = explode(' ', $lastName);
-                                    $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                    $company = explode(' ', $company)[0];
-
-                                    $user = [
-                                        'lastUser' => $lastName,
-                                        'countProd' => $count,
-                                        'status' => $status,
-                                        'company' => $company,
-                                    ];
-                                } elseif ($production->where('completed', true)->where('confirmed', true)->count()) {
-                                    if (
-                                        $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->where('dt_note', $list->dt_status)
-                                            ->where('noinconsistency', false)
-                                            ->where('type_note', 2)
-                                            ->count()
-                                    ) {
-                                        $block = 3;
-
-                                        $lastProduction = $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->where('dt_note', $list->dt_status)
-                                            ->where('noinconsistency', false)
-                                            ->where('type_note', 2)
-                                            ->last();
-
-                                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                                        $count = $production->count();
-
-                                        // Get First and Last name from User Name,
-                                        $lastName = explode(' ', $lastName);
-                                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                        // Get just first Company name.
-                                        $company = explode(' ', $company)[0];
-
-                                        $user = [
-                                            'lastUser' => $lastName,
-                                            'countProd' => $count,
-                                            'status' => $status,
-                                            'company' => $company,
-                                        ];
+                                if ($block) {
+                                    if ($production->status == 1) {
+                                        $rowClass = 'table-danger';
+                                    } elseif ($production->status == 2) {
+                                        $rowClass = 'table-primary';
+                                    } elseif ($production->status == 5) {
+                                        $rowClass = 'table-success';
                                     } else {
-                                        $lastProduction = $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->last();
-
-                                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                                        $count = $production->count();
-
-                                        $company = explode(' ', $company)[0];
-
-                                        $lastName = explode(' ', $lastName);
-                                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                        $user = [
-                                            'lastUser' => $lastName,
-                                            'countProd' => $count,
-                                            'status' => $status,
-                                            'company' => $company,
-                                        ];
+                                        $rowClass = 'table-primary';
                                     }
                                 }
 
-                                $daysLeft = $this->deadline($list);
+                                $daysLeft = Carbon::parse($list->fimLancado)
+                                    ->startOfDay()
+                                    ->diffInDays(Carbon::now()->startOfDay());
 
                             @endphp
+                            {{-- @dump($list->Productions) --}}
 
-
-
-                            <tr
-                                class="align-middle
-                                    @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-primary
-                                    @elseif($block == 1 && $user['lastUser'] == 'Desconhecido')
-                                        table-warning
-                                    @elseif($block == 2)
-                                        table-success
-                                    @elseif($block == 3)
-                                        table-danger @endif
-                                    ">
-                                <td>
-                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
+                            <tr class="align-middle text-center
+                                ">
+                                <td class="{{ $rowClass }}">
+                                    <input class="form-check-input border border-1 border-primary " type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
-                                        @disabled($block && !$exception)>
+                                        @disabled($block)>
                                 </td>
-                                {{-- @can('management')
-                                        <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
-                                        </td>
-                                    @endcan --}}
-                                <td class="fw-bold copy-text" data-value="{{ $list->note }}">
-                                    {{ $list->note }}
+                                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }}
                                 </td>
-                                <td class="text-center align-middle">
-                                    @if ($list->WorkForm->Orders->count())
+
+                                <td class="text-center align-middle {{ $rowClass }}">
+                                    @if ($list->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
@@ -318,7 +206,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle fw-bold">
+                                <td class="text-center align-middle fw-bold {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             @php
@@ -331,9 +219,18 @@
                                     @endif
 
                                 </td>
+                                {{-- <td class="text-center align-middle">
+                                    @if ($list->WorkForm->Orders->count())
+                                        @foreach ($list->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->statusSist }}
+                                            </p>
+                                        @endforeach
+                                    @endif
 
+                                </td> --}}
 
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -343,7 +240,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -353,7 +250,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -363,7 +260,7 @@
                                     @endif
 
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
@@ -374,59 +271,39 @@
 
                                 </td>
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
                                 </td>
 
-                                <td class="fw-light text-center">{{ $list->lexp }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light {{ $rowClass }}">
                                     {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
                                 </td>
-                                <td class="fw-light text-center" tabindex="0" data-bs-toggle="popover"
-                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                    data-bs-title="Desenhos Realizados"
-                                    data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
-                                    @if ($user)
-                                        <span class="badge text-bg-dark">{{ $user['countProd'] }}</span><br>
-                                        {{ $user['lastUser'] }}
-                                    @else
-                                        --
-                                    @endif
 
-                                </td>
-
-                                @if ($list->type_note != 1)
-                                    <td class="fw-light text-center">{{ $list->nstats }} </td>
-                                @else
-                                    <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
-                                            style="font-size: 8px;">{{ $list->nstats }}</span></td>
-                                @endif
                                 <td scope="col"
                                     class="text-center text-center
-                                    @if ($daysLeft < 0) table-dark
-                                    @elseif($daysLeft >= 0 && $daysLeft < 3)
-                                    table-danger
-                                    @elseif($daysLeft >= 3 && $daysLeft < 6)
-                                        table-warning
-                                    @else
-                                        table-success @endif
+                                   @if ($daysLeft <= 2) text-bg-success
+                                @elseif($daysLeft > 5)
+                                    text-bg-danger
+                                @else
+                                text-bg-warning @endif
                                 "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                    data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
+                            <p>A Data Corresponde 40 Parcial</p>
+                            <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
+                            {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                             ">
-                                    {{ $daysLeft }}
+                                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
                                 </td>
-
 
                                 @php
                                     $daysLeft = new DaysLeft($list);
@@ -442,20 +319,26 @@
                                 @endphp
 
                                 <!-- Prioridade de estilo da célula 'Prazo Restante' -->
-                                <td scope="col" class="text-center">
+                                <td scope="col" class="text-center {{ $rowClass }}">
                                     {{ $daysLeft->getLastDate() }}
-
-
                                 </td>
 
 
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $rowClass }}">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
                                             wire:click.prevent="get_single_note({{ $list->id }})"></i>
                                     @else
-                                        <span style="font-size: 11px">{{ $user['company'] }}</span>
+                                        @php
+                                            if (isset($production->Company->name)) {
+                                                $name = explode(' ', $production->Company->name);
+                                                $name = $name[0] . ' ' . end($name);
+                                            } else {
+                                                $name = 'DESCONHECIDO';
+                                            }
+                                        @endphp
+                                        <span style="font-size: 11px">{{ $name }}</span>
                                     @endif
 
                                 </td>
@@ -479,8 +362,9 @@
                             <td></td>
                             <td></td>
                             <td></td>
-                            <td></td>
-                            <td></td>
+
+
+
                         </tr>
                     </tfoot>
                 </table>

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Payment\Accompany;
 use App\Exports\Services\ServicePaymentStack;
 use App\Models\{File, Note, Production, Service, User};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -207,6 +208,16 @@ class Main extends Component
         }
 
         return Production::Where('service_id', $this->service->uuid)
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->leftJoinSub(
+                DB::table('operation_resps')
+                    ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+                    ->groupBy('note_id'),
+                'latest_operation_resps',
+                'notes.id',
+                '=',
+                'latest_operation_resps.note_id'
+            )
             ->when($this->user_s, function ($q) {
                 return $q->where('user_id', $this->user_s);
             }, function ($q) {
@@ -232,7 +243,12 @@ class Main extends Component
             })
             ->with(['Note' => function ($query) {
                 $query->orderBy('dt_status', 'asc');
-            }]);
+            }])
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'latest_operation_resps.latest_fimLancado as fimLancado')
+            ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
+            ->orderBy('fimLancado', 'asc')
+            ->orderBy('notes.type_note', 'DESC');
 
     }
 

@@ -284,7 +284,7 @@
                                 <td scope="col"
                                     class="text-center text-center
                                    @if ($daysLeft <= 2) text-bg-success
-                                @elseif($daysLeft >= 5)
+                                @elseif($daysLeft > 5)
                                     text-bg-danger
                                 @else
                                 text-bg-warning @endif
@@ -293,7 +293,7 @@
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                            <p>Prazos para Pagamentos</p>
+                            <p>A Data Corresponde 40 Parcial/p>
                             <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
                             <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
                             <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>

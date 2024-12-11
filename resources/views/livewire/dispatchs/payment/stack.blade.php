@@ -560,28 +560,29 @@
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                 </td>
                                 @php
-                                    $daysleft = new DaysLeft($list->note);
+                                    $daysLeft = Carbon::parse($list->fimLancado)
+                                        ->startOfDay()
+                                        ->diffInDays(Carbon::now()->startOfDay());
                                 @endphp
                                 <td scope="col"
                                     class="text-center text-center
-                                   @if ($daysLeft < 0) table-dark
-                                   @elseif($daysLeft >= 0 && $daysLeft < 3)
-                                   table-danger
-                                   @elseif($daysLeft >= 3 && $daysLeft < 6)
-                                       table-warning
-                                   @else
-                                       table-success @endif
-                               "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                @if ($daysLeft <= 2) text-bg-success
+                             @elseif($daysLeft > 5)
+                                 text-bg-danger
+                             @else
+                             text-bg-warning @endif
+                             "
+                                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                    data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                           <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                           <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                           <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                           <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                           <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                           ">
-                                    {{ $daysLeft }}
+                         <p>A Data Corresponde 40 Parcial</p>
+                         <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
+                         <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+                         <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
+                         {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+                         ">
+                                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
                                 </td>
 
                                 <td class="fw-light text-center">
@@ -652,6 +653,8 @@
                             <td></td>
                             <td class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
+                            <td></td>
+                            <td></td>
                             <td></td>
                             <td></td>
                             <td></td>
