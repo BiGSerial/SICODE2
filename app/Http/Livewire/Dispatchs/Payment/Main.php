@@ -6,6 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\Payment\NoteFilter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -109,9 +110,15 @@ class Main extends Component
         'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
 
+    protected $noteFilter;
+
+    public function boot(NoteFilter $noteFilter)
+    {
+        $this->noteFilter = $noteFilter;
+    }
+
     public function mount($service)
     {
-
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
     }
@@ -126,37 +133,65 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchPaymentMain($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
+            return (new DispatchPaymentMain($this->getListsProperty()->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         } else {
-            $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
-
-            return (new DispatchPaymentMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
+            return (new DispatchPaymentMain($this->getListsProperty()->whereIn('id', $this->selected)->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         }
     }
 
-    public function updatedSelectall($val)
+    public function hasProduction(Note $note)
+    {
+        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+
+        if ($production) {
+            return $production;
+        } else {
+            return false;
+        }
+    }
+
+    public function setSelectAll()
     {
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
 
-        if ($val) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
+        if ($this->selectall) {
+
+            foreach ($this->getListsProperty()->paginate($this->perPage) as $item) {
+                $id = $item->id;
+
+
                 if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
-                }
-            }
-        } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
 
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
+                    $production =  !$item->Productions->isEmpty() ? $item->Productions()
+                    ->where(function ($q) {
+                        $q->Where('service_id', $this->service->uuid);
+                    })->count()
+                    : null;
+
+                    if (!$production) {
+                        $this->selected[] = $id;
+                    }
+
                 }
+
             }
-            $this->selected = $newSelected;
+
+        } else {
+            $visibleIds = $this->lists->pluck('id')->toArray();
+            $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
+                return !in_array($id, $visibleIds);
+            });
         }
+    }
+
+    public function checkAllSelect($items)
+    {
+
+        $items = $items->pluck('id')->toArray();
+
+        $this->selectall = empty(array_diff($items, $this->selected));
+
+        return $this->selectall;
     }
 
     public function copy($msg)
@@ -530,123 +565,70 @@ class Main extends Component
 
     public function getListsProperty()
     {
+        $query = $this->noteFilter->filter($this->search, $this->filter_group);
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filters = $_SESSION['filter'][$this->filter_group];
-        }
-
-
-        $query = Note::query();
-
-
-        // RuleBuilder::applyRules($query, $this->service->Status);
-
-        $query->whereHas('WorkForm', function ($q) {
-            $q->when(isset($this->filters['company']), function ($sq) {
-                return $sq->where('rejected', false)
-                    ->where(function ($query) {
-                        $query->whereIn('company_id', $this->filters['company'])
-                            ->orWhereNull('company_id');
-                    });
-            });
-        })
-            ->whereHas('Orders', function ($q) {
-                $q->where('statusSist', 'LIKE', 'LIB%')
-                    ->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0030')
-                            ->where('status', 'like', 'CONF%');
-                    })
-                    ->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0040')
-                            ->where(function ($q) {
-                                $q->where('status', 'like', 'CONF%')
-                                    ->orWhere('status', 'like', 'CNPA%');
-                            });
-                    })
-                    ->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0050')
-                        ->where(function ($q) {
-                            $q->where('status', 'like', 'LIB%')
-                                ->orWhere('status', 'like', 'CNPA%');
-                        });
-                    });
-            });
-
-
-        if ($this->not_assigned) {
-            $query->where(function ($q) {
-                $q->doesntHave('Productions')
-                    ->orWhereDoesntHave('Productions', function ($subquery) {
-                        $subquery->where('service_id', $this->service->uuid)
-                            ->where('confirmed', false);
-                    });
+        if ($this->not_assigned && isset($this->service)) {
+            $query->whereDoesntHave('Productions', function ($sq) {
+                $sq->where('service_id', $this->service->uuid);
             });
         }
 
-
-        if (count($this->multiSearch)) {
-            $query->where(function ($sq) {
-                $sq->whereIn('note', $this->multiSearch)
+        if ($this->multiSearch) {
+            $query->when($this->multiSearch, function ($q) {
+                $q->whereIn('note', $this->multiSearch)
                     ->orWhereRelation('Orders', function ($q) {
                         $q->whereIn('ordem', $this->multiSearch);
                     });
             });
-        } elseif ($this->search) {
-            $query->where(function ($query) {
-                $query->where('note', 'like', '%' . $this->search . '%')
-                    ->orWhere('material', 'like', '%' . $this->search . '%')
-                    ->orWhere('numPedido', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('Orders', 'ordem', 'like', '%' . $this->search . '%');
+        } else {
+            $query->when($this->search, function ($q) {
+                $q->where('note', 'like', '%' . $this->search . '%')
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->where('ordem', 'like', '%' . $this->search . '%');
+                    });
             });
         }
 
-        // $query->when($this->search, function ($q, $s) {
-        //     $this->gotoPage(1);
 
-        //     return $q->where(function ($query) use ($s) {
-        //         $query->where('note', 'like', '%' . $s . '%')
-        //             ->orWhere('material', 'like', '%' . $s . '%')
-        //             ->orWhere('numPedido', 'like', '%' . $s . '%')
-        //             ->orWhereRelation('Orders', 'ordem', 'like', '%' . $s . '%');
-        //     });
-        // });
-
-        $query->when(isset($this->filters['rubrica']), function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('rubrica', $this->filters['rubrica'])
-                    ->orWhereNull('rubrica');
-            });
-        })->when(isset($this->filters['city']), function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('lexp', $this->filters['city'])
-                    ->orWhereNull('lexp');
-            });
-        })->when($this->typeNote, function ($q) {
+        $query->when($this->typeNote, function ($q) {
             $q->where('type_note', $this->typeNote);
-        });
+        })
+        ->with(['WorkForm' => function ($q) {
+            $q->orderBy('informed_at', 'asc');
+        }]);
 
-
-
+        // Realizando o join com `work_reports` e `orders` e somando `moaberto`
         $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
         ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
+        ->leftJoinSub(
+            DB::table('operation_resps')
+                ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+                ->groupBy('note_id'),
+            'latest_operation_resps',
+            'notes.id',
+            '=',
+            'latest_operation_resps.note_id'
+        )
         ->select(
             'notes.id',
             'notes.note',
             'notes.lexp',
+            'notes.nstats',
             'notes.mesalization',
             'notes.days_left',
             'notes.type_note',
-            'notes.nstats',
+            'notes.centerjob',
+            'notes.rubrica',
             'work_reports.created_at as wCreated_at',
-            DB::raw('SUM(orders.moaberto) as total_moaberto')
+            DB::raw('SUM(orders.moaberto) as total_moaberto'),
+            'latest_operation_resps.latest_fimLancado as fimLancado'
         )
-        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'notes.nstats')
-        ->orderBy('wCreated_at', 'asc')
-        ->orderBy('total_moaberto', 'desc');
+            ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.nstats', 'notes.rubrica', 'notes.centerjob', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado')
+            ->orderBy('fimLancado', 'asc')
+            ->orderBy('total_moaberto', 'desc');
+
+        // Debugando o resultado para checar a consulta
+        // dd($query->paginate(5));
 
         return $query;
     }
@@ -689,19 +671,19 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
+        // $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
 
-            return !$list->Productions
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
+        //     return !$list->Productions
+        //         ->where('status_note', $list->nstats)
+        //         ->where('dt_note', $list->dt_status)
+        //         ->first();
+        // });
 
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
+        // if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
+        //     $this->selectall = true;
+        // } else {
+        //     $this->selectall = false;
+        // }
 
         // if (!Auth()->User()->contract) {
         //     $this->company_l = Company::orderBy('name', 'ASC')->get();

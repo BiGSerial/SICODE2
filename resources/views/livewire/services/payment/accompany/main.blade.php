@@ -251,26 +251,30 @@
                                             {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) : '---' }}
                                         </td>
 
+                                        @php
+                                            $daysLeft = Carbon::parse($list->fimLancado)
+                                                ->startOfDay()
+                                                ->diffInDays(Carbon::now()->startOfDay());
+                                        @endphp
                                         <td scope="col"
                                             class="text-center text-center
-                                            @if ($daysLeft < 0) table-dark
-                                            @elseif($daysLeft >= 0 && $daysLeft < 3)
-                                            table-danger
-                                            @elseif($daysLeft >= 3 && $daysLeft < 6)
-                                                table-warning
-                                            @else
-                                                table-success @endif
-                                        "
-                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Prazo Real"
+                                    @if ($daysLeft <= 2) text-bg-success
+                                 @elseif($daysLeft > 5)
+                                     text-bg-danger
+                                 @else
+                                 text-bg-warning @endif
+                                 "
+                                            style="background-color: inherit;" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Prazo Pagamento"
                                             data-bs-content="
-                                    <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                    <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                    <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                    <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                    <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                    ">
-                                            {{ $daysLeft }}
+                             <p>A Data Corresponde 40 Parcial</p>
+                             <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
+                             <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+                             <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
+                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+                             ">
+                                            {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
                                         </td>
                                         <td class="fw-light text-center">
 
@@ -377,6 +381,30 @@
                 </div> --}}
             </div>
         </div>
+    </div>
+
+  
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}

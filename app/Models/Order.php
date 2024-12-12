@@ -49,8 +49,8 @@ class Order extends Model
         return $this->belongsToMany(WorkReport::class, 'order_work_report');
     }
 
-    public function RamalReport()
+    public function OperationResps()
     {
-        return $this->belongsToMany(RamalReport::class, 'order_ramal_report');
+        return $this->hasMany(OperationResp::class);
     }
 }

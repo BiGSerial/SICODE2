@@ -55,6 +55,8 @@
         <div class="mb-3">
             <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
                 data-bs-trigger="hover focus" data-bs-placement="right"
+            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                data-bs-trigger="hover focus" data-bs-placement="right"
                 data-bs-title="Exibir Apenas Notas Nao Atribuidas"
                 data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
                 <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
@@ -227,7 +229,7 @@
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">
-                                  
+
                                     @if ($list->WorkForm)
                                         {{ $list->WorkForm->Company->name }}
                                     @elseif ($list->RamalForm)

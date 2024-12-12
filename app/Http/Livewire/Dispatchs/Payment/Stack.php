@@ -7,6 +7,7 @@ use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component
@@ -599,6 +600,15 @@ class Stack extends Component
     {
         return Production::with(['Note'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->leftJoinSub(
+                DB::table('operation_resps')
+                    ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+                    ->groupBy('note_id'),
+                'latest_operation_resps',
+                'notes.id',
+                '=',
+                'latest_operation_resps.note_id'
+            )
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
             ->when($this->search, function ($q) {
@@ -649,11 +659,12 @@ class Stack extends Component
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
+
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'latest_operation_resps.latest_fimLancado as fimLancado')
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
+            ->orderBy('fimLancado', 'asc')
             ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created')
             ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
