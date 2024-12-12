@@ -383,6 +383,30 @@
         </div>
     </div>
 
+  
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))

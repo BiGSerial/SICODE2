@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Payment\Accompany;
 use App\Exports\Services\ServicePaymentStack;
 use App\Models\{File, Note, Production, Service, User};
 use Carbon\Carbon;
+use App\Helpers\TextFormatter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
@@ -14,6 +15,7 @@ class Main extends Component
 {
     use WithPagination;
     use Exportable;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -40,6 +42,11 @@ class Main extends Component
     public $production;
 
     public $note;
+
+
+    public $advanceSearch;
+
+    public $multiSearch = [];
 
     // Filters
     private $filter_group = 'payments_acc';
@@ -69,6 +76,16 @@ class Main extends Component
     public function export_excel()
     {
         return (new ServicePaymentStack($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
+    }
+
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
+            $this->dispatchBrowserEvent('hideModal');
+        } else {
+            $this->multiSearch = [];
+        }
     }
 
     public function blockWaiting($status)
@@ -218,6 +235,15 @@ class Main extends Component
                 '=',
                 'latest_operation_resps.note_id'
             )
+            ->when($this->multiSearch, function ($q) {
+                $q->whereRelation('note', function ($sq) {
+                    $sq->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });
+                });
+
+            })
             ->when($this->user_s, function ($q) {
                 return $q->where('user_id', $this->user_s);
             }, function ($q) {
