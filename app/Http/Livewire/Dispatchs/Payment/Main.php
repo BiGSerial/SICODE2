@@ -623,9 +623,22 @@ class Main extends Component
             DB::raw('SUM(orders.moaberto) as total_moaberto'),
             'latest_operation_resps.latest_fimLancado as fimLancado'
         )
-            ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.nstats', 'notes.rubrica', 'notes.centerjob', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado')
-            ->orderBy('fimLancado', 'asc')
-            ->orderBy('total_moaberto', 'desc');
+        ->groupBy(
+            'notes.id',
+            'work_reports.created_at',
+            'notes.note',
+            'notes.lexp',
+            'notes.nstats',
+            'notes.rubrica',
+            'notes.centerjob',
+            'notes.mesalization',
+            'notes.days_left',
+            'notes.type_note',
+            'fimLancado'
+        )
+        ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
+        ->orderBy('fimLancado', 'asc')
+        ->orderBy('total_moaberto', 'desc');
 
         // Debugando o resultado para checar a consulta
         // dd($query->paginate(5));

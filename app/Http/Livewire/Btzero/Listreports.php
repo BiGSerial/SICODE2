@@ -35,19 +35,49 @@ class Listreports extends Component
                 $sq->where('company_id', $this->company);
             });
         })
-        ->where(function ($q) {
-            $q->whereDoesntHave('WorkForm')
-            ->orWhereHas('WorkForm', function ($query) {
-                $query->where('created_at', '>=', now()->subDays(3));
-            });
-        })
-        ->when($this->search, function ($q) {
-            $q->where('note', 'like', '%'.$this->search.'%')
-            ->orWhereRelation('Orders', 'ordem', 'like', '%'.$this->search.'%');
-        })
-        ->with('RamalForm.Company', 'RamalForm.User', 'RamalForm.Orders', 'RamalForm.BtzeroEquipment')
-        ->paginate(30);
+            ->where(function ($q) {
+                // Exclui registros que possuem Productions com 'completed = true' e 'completed_at > 7 dias'
+                $q->whereDoesntHave('Productions', function ($query) {
+                    $query->whereHas('Service', function ($sq) {
+                        $sq->where('service', 'Produção');
+                    })
+                    ->where('completed', true)
+                    ->where('completed_at', '<', now()->subDays(7));
+                })
+                // Inclui apenas registros que atendem as condições específicas
+                ->orWhereHas('Productions', function ($query) {
+                    $query
+                    ->where(function ($subQuery) {
+                        $subQuery->where('completed_at', '>=', now()->subDays(7))
+                                    ->where('completed', false);
+                    })
+                    ->whereHas('Service', function ($sq) {
+                        $sq->where('service', 'Produção');
+                    });
+                });
+            })
+            ->join('ramal_reports', 'notes.id', '=', 'ramal_reports.note_id')
+            ->select('notes.*', 'ramal_reports.created_at as date_smc')
+            ->when($this->search, function ($q) {
+                $q->where('note', 'like', '%'.$this->search.'%')
+                    ->orWhereRelation('Orders', 'ordem', 'like', '%'.$this->search.'%');
+            })
+            ->orderBy('date_smc')
+            ->with([
+                'RamalForm.Company',
+                'RamalForm.User',
+                'RamalForm.Orders',
+                'RamalForm.BtzeroEquipment',
+                'productions' => function ($query) {
+                    $query->whereHas('Service', function ($q) {
+                        $q->where('service', 'Publicação');
+                    })->latest();
+                }
+            ])
+            ->paginate(30);
     }
+
+
 
     public function selectNote($id)
     {

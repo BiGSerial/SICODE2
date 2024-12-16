@@ -21,7 +21,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('btzero.btzeroReport') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Informar BTzero</span>
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Informar Patrimônio SMC</span>
 
                             </a>
                         </li>
@@ -30,7 +30,8 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('btzero.histInform') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>Obras Informadas
+                                <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>Patrimonios SMC
+                                    Informados
                                 </span>
 
                             </a>

@@ -1,5 +1,6 @@
 @php
     use Carbon\Carbon;
+    use App\Custom\Notestatus;
 @endphp
 
 <div>
@@ -30,6 +31,7 @@
         </div>
 
         @if ($lists)
+            {{-- @dump($lists[0]) --}}
             <table class="table table-stripped table-condensed table-sm table-hover">
                 <thead>
                     <tr class="text-center">
@@ -38,6 +40,8 @@
                         <th>Usuário</th>
                         <th>Informe Digitado</th>
                         <th>Informe Empreiteira</th>
+                        <th>Publicação</th>
+                        <th>Atualização</th>
                         <th>Dias</th>
                     </tr>
                 </thead>
@@ -52,6 +56,20 @@
                             <td>{{ $list->RamalForm ? Carbon::parse($list->RamalForm->created_at)->format('d/m/Y') : 'Não Informado' }}
                             </td>
                             <td>{{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y') : 'Não Informado' }}
+                            </td>
+                            <td>{{ $list->productions && isset($list->productions->last()->completed_at) ? Carbon::parse($list->productions->last()->completed_at)->format('d/m/Y') : 'Não Publicado' }}
+                            </td>
+                            <td>
+                                @if ($list->productions && $list->productions->last())
+                                    @if ($list->productions->last()->status == 5)
+                                        <span class="badge bg-success">Publicado</span>
+                                    @else
+                                        <span
+                                            class="badge {{ Notestatus::status($list->productions->last()->status)->colorbg }}">{{ Notestatus::status($list->productions->last()->status)->status }}</span>
+                                    @endif
+                                @else
+                                    <span class="badge bg-primary">Não Publicado</span>
+                                @endif
                             </td>
 
                             @php

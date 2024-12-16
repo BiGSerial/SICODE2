@@ -256,6 +256,7 @@ class Main extends Component
             'latest_operation_resps.latest_fimLancado as fimLancado'
         )
             ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado')
+            ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
             ->orderBy('fimLancado', 'asc')
             ->orderBy('total_moaberto', 'desc');
 

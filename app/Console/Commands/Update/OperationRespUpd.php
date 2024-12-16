@@ -49,53 +49,55 @@ class OperationRespUpd extends Command
 
             $progressbar->start();
 
-            BaseOperationResp::where("operacao", "0040")->where('confFinal', '!=', 'X')->orderBy('fimLancado', 'asc')->chunk(500, function ($operations) use (&$count, &$progressbar) {
+            BaseOperationResp::where("operacao", "0040")->where('confFinal', '!=', 'X')->orderBy('fimLancado', 'asc')
+                ->chunk(500, function ($operations) use (&$count, &$progressbar) {
 
-                $orders = Order::whereIn('ordem', $operations->pluck('ordem')->unique()->toArray())->get();
+                    $orders = Order::whereIn('ordem', $operations->pluck('ordem')->unique()->toArray())->get();
 
-                foreach ($operations as $operation) {
+                    foreach ($operations as $operation) {
 
-                    $order = $orders->where('ordem', $operation->ordem)->first();
+                        $order = $orders->where('ordem', $operation->ordem)->first();
 
-                    if ($order) {
-                        try {
-                            $chk = OperationResp::updateOrCreate(
-                                ['order_id' => $order->id,
-                                 'operacao' => $operation->operacao,
-                                 'confFinal' => $operation->confFinal,
-                                 ],
-                                [
-                                     'note_id' => $order->note_id,
-                                     'fimReal' => $operation->fimReal,
-                                     'fimLancado' => $operation->fimLancado,
-                                     'cenTrab' => $operation->cenTrab,
-                                     'txtCenTrab' => $operation->txtCenTrab,
-                                     'matriculaResp' => $operation->matriculaResp,
-                                     'nomeResp' => $operation->nomeResp,
-                                 ]
-                            );
+                        if ($order) {
+                            try {
+                                $chk = OperationResp::updateOrCreate(
+                                    [
+                                        'order_id' => $order->id,
+                                        'operacao' => $operation->operacao,
+                                        'confFinal' => $operation->confFinal,
+                                     ],
+                                    [
+                                        'note_id' => $order->note_id,
+                                        'fimReal' => $operation->fimReal,
+                                        'fimLancado' => $operation->fimLancado,
+                                        'cenTrab' => $operation->cenTrab,
+                                        'txtCenTrab' => $operation->txtCenTrab,
+                                        'matriculaResp' => $operation->matriculaResp,
+                                        'nomeResp' => $operation->nomeResp,
+                                     ]
+                                );
 
-                            if ($chk->wasRecentlyCreated) {
-                                $count['ins']++;
-                            } else {
-                                $count['upd']++;
+                                if ($chk->wasRecentlyCreated) {
+                                    $count['ins']++;
+                                } else {
+                                    $count['upd']++;
+                                }
+
+                            } catch (\Throwable $th) {
+                                $count['err']++;
+                                dd($th->getMessage());
                             }
-
-                        } catch (\Throwable $th) {
-                            $count['err']++;
-                            dd($th->getMessage());
+                        } else {
+                            $count['nf']++;
                         }
-                    } else {
-                        $count['nf']++;
-                    }
 
-                    $progressbar->setMessage($count['ins'], 'ins');
-                    $progressbar->setMessage($count['upd'], 'upd');
-                    $progressbar->setMessage($count['nf'], 'nf');
-                    $progressbar->setMessage($count['err'], 'err');
-                    $progressbar->advance();
-                }
-            });
+                        $progressbar->setMessage($count['ins'], 'ins');
+                        $progressbar->setMessage($count['upd'], 'upd');
+                        $progressbar->setMessage($count['nf'], 'nf');
+                        $progressbar->setMessage($count['err'], 'err');
+                        $progressbar->advance();
+                    }
+                });
 
 
         }
