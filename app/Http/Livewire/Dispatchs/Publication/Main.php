@@ -7,6 +7,7 @@ use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\Publication\NoteFilter;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -119,6 +120,15 @@ class Main extends Component
             return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selected), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
         }
     }
+
+
+    protected $noteFilter;
+
+    public function boot(NoteFilter $noteFilter)
+    {
+        $this->noteFilter = $noteFilter;
+    }
+
 
     public function updatedSelectall($val)
     {
@@ -478,88 +488,10 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = Note::query()
-            ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
+        return $this->noteFilter->filter($this->search, $this->filter_group, $this->btzeroform)
+        // ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
 
-
-        if (count($this->multiSearch)) {
-            $query->whereIn('note', $this->multiSearch);
-        } else {
-
-            // RuleBuilder::applyRules($query, $this->service->Status);
-
-            $query->where(function ($q) {
-                $q->whereHas('WorkForm', function ($sq) {
-                    $sq->where('rejected', false);
-                });
-
-                if ($this->btzeroform) {
-                    $q->orWhereHas('RamalForm');
-                }
-            });
-
-            $query->whereHas('Orders', function ($q) {
-                $q->where('statusSist', 'LIKE', 'LIB%')
-                    ->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0010')
-                            ->where('status', 'like', 'CONF%');
-                    })
-                    ->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0020')
-                            ->where(function ($q) {
-                                $q->where('status', 'like', 'LIB%')
-                                    ->orWhere('status', 'like', 'CNPA%')
-                                    ->orWhere('status', 'like', 'JBFI LIB%');
-                            });
-                    });
-            });
-
-            if ($this->search) {
-                $query->where(function ($query) {
-                    $query->where('note', 'like', '%' . $this->search . '%')
-                        ->orWhere('material', 'like', '%' . $this->search . '%')
-                        ->orWhere('numPedido', 'like', '%' . $this->search . '%')
-                        ->orWhere('group2', 'like', '%' . $this->search . '%');
-                });
-            }
-
-            if (isset($this->filters['rubrica'])) {
-                $query->where(function ($query) {
-                    $query->whereIn('rubrica', $this->filters['rubrica'])
-                        ->orWhereNull('rubrica');
-                });
-            }
-
-            if (isset($this->filters['city'])) {
-                $query->where(function ($query) {
-                    $query->whereIn('lexp', $this->filters['city'])
-                        ->orWhereNull('lexp');
-                });
-            }
-
-            if (isset($this->filters['company'])) {
-                $query->whereRelation('WorkForm', function ($q) {
-                    $q->whereIn('company_id', $this->filters['company']);
-                });
-            }
-
-            if ($this->not_assigned) {
-                $query->where(function ($q) {
-                    $q->doesntHave('Productions')
-                        ->orWhereDoesntHave('Productions', function ($subquery) {
-                            $subquery->where('service_id', $this->service->uuid);
-                        });
-                });
-            }
-
-
-
-        }
-
-        $query->with('Productions.User', 'WorkForm', 'RamalForm');
-
-        // Adicionar o cálculo da coluna 'prazo_final' usando as regras de 'type_note' e 'mesalization'
-        $query->select(
+        ->select(
             'notes.*',
             // 'work_reports.created_at as wCreated_at',
             // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
@@ -598,7 +530,6 @@ class Main extends Component
         ')
         ->orderBy('prazo_final', 'ASC');
 
-        return $query;
     }
 
     public function getBaseProperty()

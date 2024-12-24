@@ -54,10 +54,9 @@
         </div>
         <div class="mb-3">
             <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
+                data-bs-trigger="hover focus" data-bs-placement="right" <div class="btn-group" role="group"
+                aria-label="Basic example" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                data-bs-placement="right" data-bs-title="Exibir Apenas Notas Nao Atribuidas"
                 data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
                 <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
                     wire:click.prevent="filterStatus()">
@@ -307,8 +306,11 @@
                                             style="cursor: pointer;"
                                             wire:click.prevent="get_single_note({{ $list->id }})"></i>
                                     @else
-                                        <span
-                                            style="font-size: 11px">{{ explode(' ', $production->Company->name)[0] }}</span>
+                                        @php
+                                            $name = explode(' ', $production->User->name);
+                                            $name = $name[0] . ' ' . end($name);
+                                        @endphp
+                                        <span style="font-size: 11px">{{ $name }}</span>
                                         @if ($command)
                                             <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                                 style="cursor: pointer;"

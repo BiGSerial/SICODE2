@@ -4,7 +4,8 @@ namespace App\Http\Livewire\Btzero;
 
 use App\Models\Edp_depc\City;
 use App\Models\File;
-use App\Models\RamalReport;
+use App\Models\RamalReport; // Ensure this model exists in your application
+use App\Models\User;
 use App\Models\WorkReport;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -23,6 +24,8 @@ class Ramallist extends Component
     public $files_selected = [];
 
     public $search;
+    public $informer;
+    public $informers;
 
     // search by date
     public $date_in;
@@ -47,6 +50,11 @@ class Ramallist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+        $this->informers = User::whereIn(
+            'id',
+            RamalReport::select('user_id')->distinct()->pluck('user_id')
+        )->orderBy('name')->get();
+
     }
 
     public function cleanAll()
@@ -112,6 +120,10 @@ class Ramallist extends Component
                 $q->WhereRelation('Note', 'note', 'like', "%$this->search%")
                     ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
             });
+        }
+
+        if ($this->informer) {
+            $query->where('user_id', $this->informer);
         }
 
         if (isset($this->filter['city'])) {

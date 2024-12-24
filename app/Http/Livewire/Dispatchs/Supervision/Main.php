@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Custom\RuleBuilder;
+use App\Exports\Dispatchs\SupervisionExportList;
 use App\Exports\ExportDDExcel;
 use App\Exports\ExportDDSupervision;
 use App\Models\Bancoupdate;
@@ -163,10 +164,27 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new ExportDDSupervision())->exportDD($this->getListsProperty()->get(), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+            return (new SupervisionExportList($this->getListsProperty(), $this->service->uuid))->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
         }
 
-        return (new ExportDDSupervision())->exportDD($this->getListsProperty()->find($this->selected), $this->service)->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+        return (new SupervisionExportList($this->getListsProperty()->find($this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+    }
+
+
+    public function hasPublication(Note $note)
+    {
+        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+
+        if ($production) {
+            return $production;
+        } else {
+            return false;
+        }
+    }
+
+    public function hasPublicationCount(Note $note)
+    {
+        return $note->Productions->where('service_id', $this->service->uuid)->count();
     }
 
 

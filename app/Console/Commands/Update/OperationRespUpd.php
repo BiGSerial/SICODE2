@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOperationResp;
 use App\Models\OperationResp;
 use App\Models\Order;
@@ -47,10 +48,13 @@ class OperationRespUpd extends Command
 
         if ($operation > 0) {
 
+            $log = new RegistroJson('operation-resp-upd', $this->option());
+            $log->setTotal($operation);
+
             $progressbar->start();
 
             BaseOperationResp::where("operacao", "0040")->where('confFinal', '!=', 'X')->orderBy('fimLancado', 'asc')
-                ->chunk(500, function ($operations) use (&$count, &$progressbar) {
+                ->chunk(500, function ($operations) use (&$count, &$progressbar, &$log) {
 
                     $orders = Order::whereIn('ordem', $operations->pluck('ordem')->unique()->toArray())->get();
 
@@ -85,7 +89,7 @@ class OperationRespUpd extends Command
 
                             } catch (\Throwable $th) {
                                 $count['err']++;
-                                dd($th->getMessage());
+                                $log->setErrorMessage($th->getMessage());
                             }
                         } else {
                             $count['nf']++;
@@ -99,8 +103,13 @@ class OperationRespUpd extends Command
                     }
                 });
 
+            $log->setUpdated($count['upd']);
+            $log->setCreated($count['ins']);
+            $log->save();
 
         }
+
+
 
         $progressbar->finish();
 

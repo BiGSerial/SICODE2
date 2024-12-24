@@ -101,10 +101,10 @@ class ViabHist extends Component
         }
 
 
-        $query = Viability::Query()
-                    ->where('completed', true)
-                    ->where('approved', true)
-                    ->where('hired', true);
+        $query = Viability::Query();
+                    // ->where('completed', true)
+                    // ->where('approved', true)
+                    // ->where('hired', true);
 
         if (!auth()->user()->superadm) {
 

@@ -452,22 +452,34 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $formBlock = $list->Note->WorkForm->rejected ? $list->Note->WorkForm->rejected : false;
-                            @endphp
-                            <tr wire:key="line-{{ $list->id }}"
-                                class="align-middle text-center
-                                @if ($formBlock) table-dark text-danger
-                                @elseif($list->block) table-primary
-                                @elseif(!$list->Note->WorkForm && $list->Note->RamalForm) table-warning
-                                @elseif(!$list->Note->WorkForm && $list->Note->RamalForm && $list->status == 28) table-info
-                                @elseif($list->Note->WorkForm && $list->Note->RamalForm && $list->status == 28) table-success @endif
+                                $formBlock =
+                                    $list->Note->WorkForm && $list->Note->WorkForm->rejected
+                                        ? $list->Note->WorkForm->rejected
+                                        : false;
 
-                                    ">
-                                <td>
+                                $color = '';
+
+                                if ($formBlock) {
+                                    $color = 'table-dark text-danger';
+                                } elseif ($list->priority) {
+                                    $color = 'text-danger fw-bold';
+                                } elseif ($list->block) {
+                                    $color = 'table-primary';
+                                } elseif (!$list->Note->WorkForm && $list->Note->RamalForm) {
+                                    $color = 'table-warning';
+                                } elseif (!$list->Note->WorkForm && $list->Note->RamalForm && $list->status == 28) {
+                                    $color = 'table-info';
+                                } elseif ($list->Note->WorkForm && $list->Note->RamalForm && $list->status == 28) {
+                                    $color = 'table-success';
+                                }
+
+                            @endphp
+                            <tr wire:key="line-{{ $list->id }}" class="align-middle text-center">
+                                <td class="{{ $color }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected">
                                 </td>
-                                <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="{{ $color }}">
 
                                     @if ($list->d5)
                                         <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
@@ -486,13 +498,13 @@
                                             style="cursor: pointer;"></i>
                                     @endif
                                 </td>
-                                <td class="fw-light">
+                                <td class="fw-light {{ $color }}">
                                     @if (!$list->Note->WorkForm && $list->Note->RamalForm)
                                         <i class="ri-alert-line text-danger align-middle fs-4"></i>
                                     @endif
 
                                 </td>
-                                <td class="fw-bold text-success text-center">
+                                <td class="fw-bold {{ $color }} text-center">
                                     @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
                                         @foreach ($list->Note->WorkForm->Orders as $order)
                                             <p class="py-0 my-0">
@@ -510,24 +522,19 @@
 
 
 
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
                                     {{ $list->Note->rubrica }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
                                     {{ $list->Note->material }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
                                     {{ $list->Note->lexp }}</td>
 
 
 
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
 
                                     {{ $list->Company ? $list->Company->name : '-' }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
                                     @php
                                         $nome = $list->User ? explode(' ', $list->User->name) : '----';
                                         if (is_array($nome)) {
@@ -535,12 +542,10 @@
                                         }
                                     @endphp
                                     {{ $nome }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
                                 </td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                <td class="fw-light {{ $color }}">
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                 </td>
                                 @php
@@ -560,7 +565,7 @@
                                     style="background-color: inherit;">
                                     {{ $daysLeft->getLastDate() }}
                                 </td>
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $color }}">
                                     @if ($formBlock)
                                         <span class="badge text-bg-info text-wrap p-1">INFORME EM REVISAO</span>
                                     @else
@@ -570,7 +575,7 @@
                                     @endif
 
                                 </td>
-                                <td class="fw-bold fs-5">
+                                <td class="fw-bold fs-5 {{ $color }}">
 
                                     {{-- @if (!$list->completed)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"

@@ -53,6 +53,13 @@ class ViabRejectedList extends Component
                 ->where('completed', false)
                 ->where('status', '!=', 5);
 
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
+
         if (!auth()->user()->superadm) {
 
 
@@ -80,6 +87,13 @@ class ViabRejectedList extends Component
         $query = Viability::query()->where('rejected', true)
                 ->where('completed', false)
                 ->where('status', 5);
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
 
         if (!auth()->user()->superadm) {
 

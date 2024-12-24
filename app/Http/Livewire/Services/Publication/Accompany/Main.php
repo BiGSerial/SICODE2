@@ -80,6 +80,7 @@ class Main extends Component
 
     public function goTransferProd($prod_id)
     {
+
         $this->emit('transfer_production', $prod_id);
     }
 
@@ -201,44 +202,132 @@ class Main extends Component
             $this->filters = $_SESSION['filter'][$this->filter_group];
         }
 
-        return Production::Where('service_id', $this->service->uuid)
-            ->when($this->user_s, function ($q) {
-                return $q->where('user_id', $this->user_s);
-            }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
-            })
-            ->where('completed', false)
-            ->when($this->typeNote, function ($q) {
-                $q->whereRelation('Note', 'type_note', $this->typeNote);
-            })
-            ->when($this->search, function ($q, $s) {
-                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                    ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
-            })
-            ->when(isset($this->filters['city']), function ($q, $s) {
-                return $q->whereRelation('Note', function ($q) {
-                    $q->whereIn('lexp', $this->filters['city']);
-                });
-            })
-            ->when(isset($this->filters['rubrica']), function ($q, $s) {
-                return $q->whereRelation('Note', function ($q) {
-                    $q->whereIn('rubrica', $this->filters['rubrica']);
-                });
-            })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
-            ->paginate($this->perPage);
+        return Production::where('service_id', $this->service->uuid)
+        ->when($this->user_s, function ($q) {
+            return $q->where('user_id', $this->user_s);
+        }, function ($q) {
+            return $q->where('user_id', auth()->id());
+        })
+        ->where('completed', false)
+        ->when($this->typeNote, function ($q) {
+            $q->whereRelation('Note', 'type_note', $this->typeNote);
+        })
+        ->when($this->search, function ($q, $s) {
+            return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
+                     ->orWhereRelation('Note', 'material', 'like', '%' . $s . '%');
+        })
+        ->when(isset($this->filters['city']), function ($q) {
+            $q->whereRelation('Note', 'lexp', $this->filters['city']);
+        })
+        ->when(isset($this->filters['rubrica']), function ($q) {
+            $q->whereRelation('Note', 'rubrica', $this->filters['rubrica']);
+        })
+        ->where(function ($q) {
+
+            $q->where('status', '!=', 28)
+              ->orWhereHas('Note.WorkForm');
+        })
+
+        ->select('productions.*')
+        ->selectRaw("
+        CASE
+            WHEN (
+                SELECT COUNT(*)
+                FROM ramal_reports
+                WHERE ramal_reports.note_id = productions.note_id
+            ) > 0
+            AND (
+                SELECT COUNT(*)
+                FROM work_reports
+                WHERE work_reports.note_id = productions.note_id
+            ) = 0
+            THEN 1
+            ELSE 0
+        END as forms
+    ")
+
+
+        ->orderBy('priority', 'desc')
+        ->orderBy('d5', 'desc')
+        ->orderBy('forms', 'desc')
+
+
+        ->paginate($this->perPage);
+
+    }
+
+    public function getWaitingsProperty()
+    {
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+        return Production::where('service_id', $this->service->uuid)
+        ->when($this->user_s, function ($q) {
+            return $q->where('user_id', $this->user_s);
+        }, function ($q) {
+            return $q->where('user_id', auth()->id());
+        })
+        ->where('completed', false)
+        ->when($this->typeNote, function ($q) {
+            $q->whereRelation('Note', 'type_note', $this->typeNote);
+        })
+        ->when($this->search, function ($q, $s) {
+            return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
+                     ->orWhereRelation('Note', 'material', 'like', '%' . $s . '%');
+        })
+        ->when(isset($this->filters['city']), function ($q) {
+            $q->whereRelation('Note', 'lexp', $this->filters['city']);
+        })
+        ->when(isset($this->filters['rubrica']), function ($q) {
+            $q->whereRelation('Note', 'rubrica', $this->filters['rubrica']);
+        })
+        ->where(function ($q) {
+
+            $q->where('status', 28)
+            ->whereDoesntHave('Note.WorkForm');
+
+        })
+        ->select('productions.*')
+        ->selectRaw("
+            CASE
+                WHEN (
+                    SELECT COUNT(*)
+                    FROM ramal_reports
+                    WHERE ramal_reports.note_id = productions.note_id
+                ) > 0
+                AND (
+                    SELECT COUNT(*)
+                    FROM work_reports
+                    WHERE work_reports.note_id = productions.note_id
+                ) = 0
+                THEN 1
+                ELSE 0
+            END as forms
+        ")
+        ->orderBy('priority', 'desc')
+        ->orderBy('d5', 'desc')
+        ->orderBy('forms', 'desc')
+
+
+        ->paginate($this->perPage);
+
     }
 
     public function render()
     {
-       
+
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
         return view('livewire.services.publication.accompany.main', [
             'lists' => $this->lists,
+            'waitings' => $this->waitings,
         ]);
     }
 }

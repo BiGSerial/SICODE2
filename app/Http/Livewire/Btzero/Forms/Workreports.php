@@ -65,11 +65,12 @@ class Workreports extends Component
     ];
 
     protected $rules = [
+        'company' => 'required',
         'form.date' => 'nullable|date|before_or_equal:today',
         'form.equipment' => 'required|boolean',
-        'form.changes' => 'boolean',
+        // 'form.changes' => 'boolean',
         'form.observation' => 'nullable|string|max:5000',
-        'form.damage' => 'nullable|boolean',
+        // 'form.damage' => 'nullable|boolean',
         'form.description' => 'nullable|string|min:10|max:5000',
         'form.connection' => 'nullable|boolean',
         'form.team' => 'nullable|string|max:255',
@@ -82,6 +83,7 @@ class Workreports extends Component
     public function messages()
     {
         return [
+            'company.required' => 'O campo [Empresa] é obrigatório.',
             'form.date.required' => 'O campo [data de conclusão] é obrigatório.',
             'form.date.date' => 'O campo [data de conclusão] deve ser uma data válida.',
             'form.date.before_or_equal' => 'O campo data de conclusão deve ser uma data anterior ou igual a hoje.',
@@ -167,12 +169,12 @@ class Workreports extends Component
 
 
             $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'CONFIRMAR CONCLUSÂO OBRA ' . $this->note->note,
+                'title'         => 'CONFIRMAR INFORME DE PATRIMONIO SMC ' . $this->note->note,
                 'msg'           => '
                     <div class="card">
                         <div class="card-body text-start">
-                           <p>Você está preste a confirmar a obra ' . $this->note->note . '. Reforçamos que a confirmação PARCIAL da obra poderá acarretar atrasos, incluindo qualquer recursos oriundo em depedência deste informa.</p>
-                           <h4>Gostaria realmente de confirmar a conclusão desta OBRA?</h4>
+                           <p>Você está preste a confirmar os patrimônios para a obra ' . $this->note->note . '. Este procedimento liberará a etapa de Publicação. Porém a mesma não terá confirmação da 20 até o informe de conclusão da Obra.</p>
+                           <h4>Gostaria realmente de confirmar o informe de patrimônios para esta OBRA?</h4>
                         </div>
                     </div>
                 ',
@@ -376,7 +378,7 @@ class Workreports extends Component
 
         if (!empty($this->model_equipment)) {
             foreach ($this->model_equipment as $key => $value) {
-                if (!isset($value) || $value == '') {
+                if ((!isset($value) || $value == '') && $key != 'pole') {
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'warning',
@@ -484,12 +486,12 @@ class Workreports extends Component
         $this->preNote = $note;
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'INFORMAR OBRA ' . $note->note,
+            'title'         => 'INFORMAR EQUIPAMENTOS PARA ' . $note->note,
             'msg'           => '
                 <div class="card">
                     <div class="card-body text-start">
                        <p> Você selecionou a Nota/OV ' . $note->note . ' para informar. </p>
-                        <p>É importante lembrar que este informe irá liberar etapa de publicação.</p>
+                        <p>É importante lembrar que este informe de equipamentos irá liberar a etapa de publicação.</p>
                     </div>
                 </div>
             ',

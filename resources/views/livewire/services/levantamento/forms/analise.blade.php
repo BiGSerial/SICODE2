@@ -27,7 +27,10 @@
 
 
 
+@php
+    use App\Helpers\SelectOptions;
 
+@endphp
 
 <div>
 
@@ -100,13 +103,10 @@
                             <label for="inputPassword" class="col-sm-12 col-form-label">Conclusão:</label>
                             <select class="form-select border border-secondary" aria-label="Default select example"
                                 wire:model="conclusion">
-                                <option value="0" selected>Selecione</option>
-                                {{-- <option value="DEPENDE DE ORGAO EXTERNO">DEPENDE DE ORGÃO EXTERNO</option> --}}
-                                <option value="EM CONTATO COM CLIENTE">10 - EM CONTATO COM CLIENTE</option>
-                                <option value="RETORNADO ANALISE">21 - RETORNADO PARA ANÁLISE</option>
-                                <option value="ENVIADO AO DESENHO/ORÇAMENTO">28 - ENVIADO AO DESENHO/ORÇAMENTO</option>
-                                {{-- <option value="INSPECAO REJEITADA">INSPEÇÃO REJEITADA</option>
-                                <option value="INSPECAO REJEITADA">INSPEÇÃO APROVADA</option> --}}
+                                <option value="" selected>Selecione</option>
+                                @foreach (SelectOptions::getSurveyConclusions() as $option)
+                                    <option value="{{ $option->value }}">{{ $option->reason }}</option>
+                                @endforeach
                             </select>
                         </div>
 

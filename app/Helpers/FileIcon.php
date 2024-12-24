@@ -6,7 +6,7 @@ use Hamcrest\Core\IsTypeOf;
 
 class FileIcon
 {
-    public static function getIcon(string $ext)
+    public static function getIcon($ext)
     {
 
 
@@ -19,8 +19,6 @@ class FileIcon
                 return (object)['icon' => 'bx bxs-file-pdf text-danger'];
                 break;
             case "xls":
-                return (object)['icon' => 'ri-file-excel-line text-success'];
-                break;
             case "xlsx":
                 return (object)['icon' => 'ri-file-excel-line text-success'];
                 break;

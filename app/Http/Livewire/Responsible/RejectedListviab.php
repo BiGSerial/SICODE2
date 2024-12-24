@@ -51,6 +51,13 @@ class RejectedListviab extends Component
                 ->where('completed', false)
                 ->where('status', '!=', 4);
 
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
+
         if (!auth()->user()->superadm) {
 
             // if (Auth()->user()->Companies->isNotEmpty()) {
@@ -61,6 +68,8 @@ class RejectedListviab extends Component
 
             $query->where('engineer_id', Auth()->user()->id);
         }
+
+
 
         return $query->orderBy('updated_at');
     }
@@ -80,6 +89,13 @@ class RejectedListviab extends Component
                 ->where('completed', false)
                 ->where('status', 4);
 
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
+
         if (!auth()->user()->superadm) {
 
 
@@ -92,6 +108,8 @@ class RejectedListviab extends Component
             $query->where('engineer_id', Auth()->user()->id);
 
         }
+
+
 
         return $query->orderBy('updated_at');
     }

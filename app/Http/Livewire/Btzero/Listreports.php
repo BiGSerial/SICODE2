@@ -35,6 +35,42 @@ class Listreports extends Component
                 $sq->where('company_id', $this->company);
             });
         })
+        ->where(function ($q) {
+            $q->where(function ($sq) {
+                $sq->where(function ($innerQ) {
+                    $innerQ->whereDoesntHave('Productions', function ($query) {
+                        $query->whereRelation('Service', function ($sq) {
+                            $sq->where('service', 'Publicação');
+                        })
+                        ->where('completed', true)
+                        ->where('completed_at', '<', now()->subDays(7));
+                    });
+                })->whereHas('WorkForm');
+            })
+            ->orWhereDoesntHave('WorkForm');
+        })
+        ->when($this->search, function ($q) {
+            $q->where('note', 'like', '%'.$this->search.'%')
+                ->orWhereRelation('Orders', 'ordem', 'like', '%'.$this->search.'%');
+        })
+        ->join('ramal_reports', 'notes.id', '=', 'ramal_reports.note_id')
+        ->select('notes.*', 'ramal_reports.created_at as date_smc')
+        ->with(['productions' => function ($query) {
+            $query->whereHas('Service', function ($q) {
+                $q->where('service', 'Publicação');
+            })->latest();
+        }])
+        ->orderBy('date_smc')
+        ->paginate(30);
+    }
+
+    public function getListsPropertyBKP()
+    {
+        return Note::whereHas('RamalForm', function ($q) {
+            $q->when($this->company, function ($sq) {
+                $sq->where('company_id', $this->company);
+            });
+        })
             ->where(function ($q) {
                 // Exclui registros que possuem Productions com 'completed = true' e 'completed_at > 7 dias'
                 $q->whereDoesntHave('Productions', function ($query) {
@@ -76,6 +112,7 @@ class Listreports extends Component
             ])
             ->paginate(30);
     }
+
 
 
 

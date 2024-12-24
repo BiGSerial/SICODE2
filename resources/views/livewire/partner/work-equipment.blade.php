@@ -204,7 +204,7 @@
                                     {{ $list->WorkReport->informer }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ Carbon::parse($list->WorkReport->informer_at)->format('d/m/Y H:i:s') }}
+                                    {{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}
                                 </td>
                             </tr>
                         @endforeach

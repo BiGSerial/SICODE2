@@ -595,9 +595,9 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with(['Note.Orders', 'Company', 'User'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
+        return Production::join('notes', 'productions.note_id', '=', 'notes.id')
             // ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
+            // ->join('ramal_reports', 'ramal_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
             ->when($this->search, function ($q) {
@@ -652,17 +652,36 @@ class Stack extends Component
             ->select(
                 'productions.*',
                 'notes.dt_created as note_dt_created',
-                'work_reports.created_at as work_dt_created',
+                DB::raw("(SELECT created_at FROM work_reports WHERE work_reports.note_id = productions.note_id LIMIT 1) AS work_dt_created"),
+                // 'work_reports.created_at as work_dt_created',
                 DB::raw("
                 CASE
                     WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
                     WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
                     ELSE NULL
                 END as prazo_final
-            ")
+                "),
+                DB::raw("
+                    CASE
+                        WHEN (
+                            SELECT COUNT(*)
+                            FROM ramal_reports
+                            WHERE ramal_reports.note_id = productions.note_id
+                        ) > 0
+                        AND (
+                            SELECT COUNT(*)
+                            FROM work_reports
+                            WHERE work_reports.note_id = productions.note_id
+                        ) = 0
+                        THEN 1
+                        ELSE 0
+                    END as forms
+                ")
             )
+            ->with('Note.Orders', 'Company', 'User')
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
+            ->orderBy('forms', 'DESC')
             ->orderBy('prazo_final', 'ASC');
 
         // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
@@ -671,8 +690,7 @@ class Stack extends Component
 
     public function getExportsProperty()
     {
-        return Production::with(['Note'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
+        return Production::join('notes', 'productions.note_id', '=', 'notes.id')
             ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
@@ -894,7 +912,7 @@ class Stack extends Component
 
     public function render()
     {
-
+        // dd($this->lists->count());
 
         // if (!Auth()->User()->contract) {
         //     $this->company_l = Company::orderBy('name', 'ASC')->get();

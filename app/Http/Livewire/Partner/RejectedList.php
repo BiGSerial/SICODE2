@@ -51,6 +51,13 @@ class Rejectedlist extends Component
                 ->where('completed', false)
                 ->where('status', '!=', 5);
 
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
+
         if (!auth()->user()->superadm) {
 
 
@@ -60,6 +67,8 @@ class Rejectedlist extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
+
+
 
         return $query->orderBy('updated_at');
     }
@@ -78,6 +87,13 @@ class Rejectedlist extends Component
         $query = Viability::query()->where('rejected', true)
                 ->where('completed', false)
                 ->where('status', 5);
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
 
         if (!auth()->user()->superadm) {
 

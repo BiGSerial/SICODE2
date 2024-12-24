@@ -2,7 +2,9 @@
 
 namespace App\Http\Livewire\Btzero\View;
 
+use App\Models\File;
 use App\Models\Note;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class CompareForm extends Component
@@ -25,6 +27,8 @@ class CompareForm extends Component
             ]);
         }
     }
+
+
 
     public function render()
     {

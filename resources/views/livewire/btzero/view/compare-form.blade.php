@@ -1,4 +1,6 @@
 <div>
+
+
     <x-show-loading />
     <div wire:ignore.self class="modal fade" id="modal_compareForm" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
@@ -17,13 +19,21 @@
                             </div>
                             <div class="card-body p-0">
                                 <table class="table table-hover table-borderless mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:15%"></th>
+                                            <th style="width:35%"></th>
+                                            <th style="width:15%"></th>
+                                            <th style="width:35%"></th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
                                         <tr>
-                                            <th class="bg-light text-end" style="width: 25%;">Nota/OV:</th>
+                                            <td class="fw-bold text-end" style="widtd: 25%;">Nota/OV:</td>
                                             <td>{{ $note->note }}</td>
                                         </tr>
                                         <tr>
-                                            <th class="bg-light text-end">Ordem:</th>
+                                            <td class="fw-bold text-end">Ordem:</td>
                                             <td>
                                                 @if ($note->WorkForm && $note->WorkForm->Orders->isNotEmpty())
 
@@ -45,12 +55,11 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <th class="bg-light text-end">Rubrica:</th>
+                                            <td class="fw-bold text-end">Rubrica:</td>
                                             <td>{{ $note->rubrica }}</td>
                                         </tr>
                                         <tr>
-                                            <th class="bg-light text-end">Município:</th>
-                                            <td class="text-uppercase">{{ $note->lexp }}</td>
+
                                         </tr>
                                         <tr>
                                             @php
@@ -62,21 +71,46 @@
                                                     $empreiteira = $note->RamalForm->Company->name;
                                                 }
                                             @endphp
-                                            <th class="bg-light text-end">Empreiteira:</th>
+                                            <td class="fw-bold text-end">Empreiteira:</td>
                                             <td class="text-uppercase">{{ $empreiteira }}</td>
                                         </tr>
 
                                         <tr>
-                                            <th class="bg-light text-end">Responsável pelo Inf. Digitação:</th>
+                                            <td class="fw-bold text-end">Resp. Inf SMC:</td>
 
                                             <td>{{ $note->RamalForm ? $note->RamalForm->User->name : 'Não Informado' }}
+                                            </td>
+                                            <td class="fw-bold text-end">Resp Inf. Conclusao:</td>
+
+                                            <td>{{ $note->WorkForm ? $note->WorkForm->responsible : 'Não Informado' }}
                                             </td>
                                         </tr>
 
                                         <tr>
-                                            <th class="bg-light text-end">Responsável pelo Inf. Conclusão:</th>
+                                            <td class="fw-bold text-end">Data Inf SMC:</td>
 
-                                            <td>{{ $note->WorkForm ? $note->WorkForm->responsible : 'Não Informado' }}
+                                            <td>{{ $note->RamalForm ? date('d/m/Y', strToTime($note->RamalForm->created_at)) : 'Não Informado' }}
+                                            </td>
+                                            <td class="fw-bold text-end">Data Inf. Conclusao:</td>
+
+                                            <td>{{ $note->WorkForm ? date('d/m/Y', strToTime($note->WorkForm->created_at)) : 'Não Informado' }}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold text-end"></td>
+
+                                            <td>
+                                            </td>
+                                            <td class="fw-bold text-end">Alteração Projeto:</td>
+
+                                            <td>
+                                                @if ($note->WorkForm && $note->WorkForm->changes)
+                                                    <span class="badge bg-danger">Sim</span>
+                                                @elseif($note->WorkForm && !$note->WorkForm->changes)
+                                                    <span class="badge bg-primary">Não</span>
+                                                @else
+                                                    <span class="badge bg-secondary">Não Informado</span>
+                                                @endif
                                             </td>
                                         </tr>
                                     </tbody>
@@ -84,11 +118,17 @@
                             </div>
                         </div>
 
+
+
+                        @livewire('components.files.show-files-pool', ['files' => $note->Files], key('filesView-' . $note->id))
+
+
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="card shadow-lg">
                                     <div class="card-header bg-success text-white py-1 my-0">
-                                        <h5 class="card-title py-0 my-0">Informe Digitação</h5>
+                                        <h5 class="card-title py-0 my-0">Informe SMC</h5>
                                     </div>
                                     @if ($note->RamalForm)
                                         <div class="card-body p-1">
@@ -102,10 +142,44 @@
                                         </div>
                                     @else
                                         <div class="card-body p-1">
-                                            <h5 class="text-center">SEM INFORME DE DIGITAÇÂO</h5>
+                                            <h5 class="text-center">SEM INFORME DE SMC</h5>
                                         </div>
                                     @endif
                                 </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card shadow-lg">
+                                    <div class="card-header bg-primary text-white py-1 my-0">
+                                        <h5 class="card-title py-0 my-0">Informe Conclusão</h5>
+                                    </div>
+                                    @if ($note->WorkForm)
+                                        <div class="card-body p-1">
+                                            <p>{{ $note->WorkForm->observation }}</p>
+                                        </div>
+                                        <div class="card-footer">
+                                            <p class="text-muted my-0 py-0">Data de Digitação:
+                                                {{ $note->WorkForm->created_at->format('d/m/Y H:i:s') }}</p>
+                                            <p class="text-muted my-0 py-0">User:
+                                                {{ $note->WorkForm->responsible }}</p>
+                                        </div>
+                                    @else
+                                        <div class="card-body p-1">
+                                            <h5 class="text-center">SEM INFORME DE CONCLUSÃO</h5>
+                                        </div>
+                                    @endif
+                                </div>
+
+
+
+                            </div>
+                        </div>
+
+
+
+
+
+                        <div class="row">
+                            <div class="col-md-6">
 
                                 <div class="card shadow-lg">
                                     <div class="card-header bg-success text-white  py-1 my-0">
@@ -145,36 +219,15 @@
                                         </table>
                                     @else
                                         <div class="card-body p-1">
-                                            <h5 class="text-center">SEM INFORME DE DIGITAÇÂO</h5>
+                                            <h5 class="text-center">SEM INFORME DE SMC</h5>
                                         </div>
                                     @endif
                                 </div>
-
                             </div>
                             <div class="col-md-6">
-                                <div class="card shadow-lg">
-                                    <div class="card-header bg-success text-white py-1 my-0">
-                                        <h5 class="card-title py-0 my-0">Informe Conclusão</h5>
-                                    </div>
-                                    @if ($note->WorkForm)
-                                        <div class="card-body p-1">
-                                            <p>{{ $note->WorkForm->observation }}</p>
-                                        </div>
-                                        <div class="card-footer">
-                                            <p class="text-muted my-0 py-0">Data de Digitação:
-                                                {{ $note->WorkForm->created_at->format('d/m/Y H:i:s') }}</p>
-                                            <p class="text-muted my-0 py-0">User:
-                                                {{ $note->WorkForm->responsible }}</p>
-                                        </div>
-                                    @else
-                                        <div class="card-body p-1">
-                                            <h5 class="text-center">SEM INFORME DE CONCLUSÃO</h5>
-                                        </div>
-                                    @endif
-                                </div>
 
                                 <div class="card shadow-lg">
-                                    <div class="card-header bg-success text-white  py-1 my-0">
+                                    <div class="card-header bg-primary text-white  py-1 my-0">
                                         <h5 class="card-title py-0 my-0">Equipamentos Declarados</h5>
                                     </div>
                                     @if ($note->WorkForm && $note->WorkForm->Equipment->isNotEmpty())

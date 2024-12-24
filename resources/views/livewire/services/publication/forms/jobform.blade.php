@@ -100,9 +100,11 @@
                                 </div>
                             </div>
 
-                            <div class="card text-bg-danger">
-                                <h4 class="text-center fw-bold my-2">FAVOR NÃO CONFIRMAR A 20 NO SAP</h4>
-                            </div>
+                            @if ($production->Note->RamalForm && !$production->Note->WorkForm)
+                                <div class="card text-bg-danger">
+                                    <h4 class="text-center fw-bold my-2">FAVOR NÃO CONFIRMAR A 20 NO SAP</h4>
+                                </div>
+                            @endif
 
                             <div class="card">
                                 <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RESOLUÇÃO</h5>
@@ -150,13 +152,15 @@
     </div>
     {{-- Livewire Components --}}
     @livewire('components.pausenote.pausenote2', key('PauseNotes2'))
+
+    <script>
+        // Capturando o evento de fechamento do modal
+        document.getElementById('formProductionModal').addEventListener('hidden.bs.modal', () => {
+
+            document.getElementById('formProductionModal').removeAttribute('data-backdrop');
+            Livewire.emitTo('services.publication.forms.jobform', 'closeAll');
+
+        });
+    </script>
 </div>
-<script>
-    // Capturando o evento de fechamento do modal
-    document.getElementById('formProductionModal').addEventListener('hidden.bs.modal', () => {
-
-        document.getElementById('formProductionModal').removeAttribute('data-backdrop');
-        Livewire.emitTo('services.publication.forms.jobform', 'closeAll');
-
-    });
-</script>
+>

@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, TesteController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -186,6 +186,14 @@ Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->
     Route::get('/', 'main')->name('main');
     Route::get('/btzero_report', 'btzeroReport')->name('btzeroReport');
     Route::get('/hist_inform', 'histInform')->name('histInform');
+});
+
+// System Manager
+Route::prefix('/system')->controller(SystemController::class)->name('system.')->middleware('auth')->middleware('can:superadm')->group(function () {
+    Route::get('/', 'commands')->name('main');
+    Route::post('/commands/execute', 'execute')->name('artisan.execute');
+    Route::get('/commands/status/{pid}', 'checkStatus')->name('artisan.status');
+
 });
 
 

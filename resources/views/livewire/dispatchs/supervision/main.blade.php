@@ -141,7 +141,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-hover">
+                <table class="table table-sm table-condensed table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -171,70 +171,38 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $block = null;
-                                $lastUser = '';
-                                $lastCompany = '';
+                                $block = 0;
+                                $command = 0;
 
-                                $count = $list->Productions
-                                    ->where('service_id', $service->uuid)
-                                    ->where('noinconsistency', false);
-
-                                $count2 = $list->Productions
-                                    ->where('service_id', $service->uuid)
-                                    ->where('completed', true);
-
-                                if ($count2->count()) {
-                                    // $lastUser = $list->Productions
-                                    //     ->where('service_id', $service->uuid)
-                                    //     ->where('completed', true)
-                                    //     ->last()->User->name;
-
-                                    $lastUser = $count2->last()->User->name;
-
-                                    $lastUser = explode(' ', $lastUser);
-                                    $lastUser = $lastUser[0] . ' ' . end($lastUser);
-                                }
-
-                                if ($count->count()) {
-                                    $production = $count->load('Company')->last();
-
-                                    if (isset($production->Company->name)) {
-                                        $lastCompany = explode(' ', $production->Company->name);
-                                        $lastCompany = mb_strtoupper($lastCompany[0]);
+                                if ($production = $this->hasPublication($list)) {
+                                    if ($production->confirmed) {
+                                        $block = 4;
+                                        $command = 1;
+                                    } elseif ($production->completed) {
+                                        $block = 3;
+                                    } elseif ($production->status == 1) {
+                                        $block = 2;
                                     } else {
-                                        $lastCompany = 'Desconhecido';
-                                    }
-
-                                    if ($production->dt_note == $list->dt_status || !$production->confirmed) {
-                                        $block = true;
-                                    }
-
-                                    // $block = true;
-
-                                    $chave = array_search($list->id, $selected);
-
-                                    if ($chave !== false) {
-                                        unset($selected[$chave]);
-                                        $selected = $selected;
+                                        $block = 1;
                                     }
                                 }
 
+                                // Cores das linhas com base no status
+                                $rowClass = '';
+                                if ($block == 4) {
+                                    $rowClass = 'table-danger';
+                                } elseif ($block == 3) {
+                                    $rowClass = 'table-success';
+                                } elseif ($block == 2) {
+                                    $rowClass = 'table-warning';
+                                } elseif ($block == 1) {
+                                    $rowClass = 'table-primary';
+                                }
                             @endphp
 
 
-                            <tr
-                                class="align-middle
-                                    @if ($block) @if ($production->status == 1)
-                                        table-warning
-                                        @elseif ($production->status == 2)
-                                        table-primary
-                                        @elseif ($production->status == 5 && !$production->confirmed)
-                                        table-success
-                                        @elseif ($production->status == 5 && $production->confirmed)
-                                        table-danger
-                                        @else
-                                        table-primary @endif @endif">
-                                <td>
+                            <tr class="align-middle">
+                                <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
                                         @disabled($block)>
@@ -243,10 +211,11 @@
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
+                                <td class="fw-bold copy-text text-center {{ $rowClass }}"
+                                    data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
@@ -255,21 +224,22 @@
                                         ---
                                     @endif
                                 </td>
-                                <td class="fw-bold text-danger text-center">
+                                <td class="fw-bold text-danger {{ $rowClass }} text-center">
                                     {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}
                                 </td>
-                                <td class="fw-bold text-danger text-center">
+                                <td class="fw-bold text-danger {{ $rowClass }} text-center">
                                     {{ $list->mmgd ? 'MMGD' : '' }}
                                 </td>
-                                <td class="fw-bold text-primary text-center">
+                                <td class="fw-bold text-primary {{ $rowClass }} text-center">
                                     {{ isset($list->postes) ? $list->postes : '---' }}
                                 </td>
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->format('d/m/Y H:i:s') : '---' }}
                                 </td>
-                                <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
-                                <td class="fw-light text-center">{{ $list->rubrica }}</td>
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
+                                    {{ mb_strtoupper($list->numPedido) }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->rubrica }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     @if (!empty($list->lexp))
                                         {{ $list->lexp }}
                                     @else
@@ -279,33 +249,43 @@
                                             <button class="btn btn-sm btn-secondary"
                                                 wire:click.prevent="$emit('editMunicipio', '{{ $list->id }}')">Edit</button>
                                         </span>
-
                                     @endif
 
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group1 }}</td>
-                                <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->group1 }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">
+                                    {{ $list->group2 ? $list->group2 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}
+                                <td class="fw-light text-center {{ $rowClass }}">
+                                    {{ $list->group4 ? $list->group4 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group5 ? $list->group5 : '_____' }}
+                                <td class="fw-light text-center {{ $rowClass }}">
+                                    {{ $list->group5 ? $list->group5 : '_____' }}
                                 </td>
 
 
 
-                                <td class="fw-light text-center" tabindex="2" data-bs-toggle="popover"
-                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                <td class="fw-light text-center {{ $rowClass }}" tabindex="2"
+                                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Levantamentos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
-                                    @if ($count2->count())
-                                        <span class="badge text-bg-dark">{{ $count2->count() }}</span><br>
-                                        {{ $lastUser }}
+                                    @if ($count = $this->hasPublicationCount($list))
+                                        @php
+                                            if ($production && $production->User) {
+                                                $name = explode(' ', $production->User->name);
+                                                $name = $name[0] . ' ' . end($name);
+                                            } else {
+                                                $name = 'Desconhecido';
+                                            }
+                                        @endphp
+                                        <span class="badge text-bg-dark">{{ $count }}</span><br>
+                                        {{ $name }}
                                     @else
                                         --
                                     @endif
                                 </td>
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
                                 {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
                                 @php
@@ -323,7 +303,7 @@
                                     ">
                                     {{ $days_left }}
                                 </td>
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->pze_parecer === 'Vencido')
                                         <span class="badge text-bg-danger">VENCIDO</span>
                                     @elseif ($list->pze_parecer === 'Não vencido')
@@ -334,10 +314,10 @@
                                 </td>
 
 
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $rowClass }}">
 
 
-                                    @if (!isset($block))
+                                    @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
                                             wire:click.prevent="get_single_note({{ $list->id }})"
@@ -345,7 +325,19 @@
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="Despachar esta Nota/OV"></i>
                                     @else
-                                        <span style="font-size: 11px">{{ $lastCompany }}</span>
+                                        @php
+                                            if ($production && $production->Company) {
+                                                $name = explode(' ', $production->Company->name)[0];
+                                            } else {
+                                                $name = 'Desconhecido';
+                                            }
+                                        @endphp
+                                        <span style="font-size: 11px">{{ $name }}</span>
+                                        @if ($command)
+                                            <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                                style="cursor: pointer;"
+                                                wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                        @endif
                                     @endif
 
                                 </td>

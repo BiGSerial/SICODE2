@@ -16,15 +16,8 @@ class Count extends Component
 
     public function getCountProperty()
     {
-        return Prodtransfer::where('service_id', $this->service_id)
-            ->whereRelation('Production', 'completed', false)
-            ->where(function ($q) {
-                return $q->where('from', Auth()->User()->id)
-                    ->where('read_from', false);
-            })->orWhere(function ($q) {
-                return $q->where('to', Auth()->User()->id)
-                    ->where('read_to', false);
-            })->count();
+        return Prodtransfer::where('service_id', $this->service_id)->where('to', Auth()->user()->id)->where('read_to', false)->count();
+
     }
 
     public function render()

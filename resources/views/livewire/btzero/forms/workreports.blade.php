@@ -64,7 +64,7 @@
             <div class="container">
                 <div class="card edp-bg-gray">
                     <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                        <h4>INFORME DE ENTREGA DE OBRA</h4>
+                        <h4>INFORME DE PATRIMONIO SMC</h4>
                     </div>
                     <div class="card-body">
 
@@ -212,7 +212,7 @@
                                                         <label for="exampleFormControlInput1" class="form-label">Tipo
                                                             de
                                                             Equipamento:</label>
-                                                        <select class="form-select"
+                                                        <select class="form-select border border-scondary border-1"
                                                             aria-label="Default select example" id="type"
                                                             wire:model.defer="model_equipment.type">
                                                             <option value="" selected>Selecione</option>
@@ -226,13 +226,15 @@
                                                     <div class="mb-3 col-md-3">
                                                         <label for="exampleFormControlInput1"
                                                             class="form-label">Patrimônio:</label>
-                                                        <input type="text" class="form-control" id="patrimony"
+                                                        <input type="text"
+                                                            class="form-control border border-scondary border-1"
+                                                            id="patrimony"
                                                             wire:model.defer="model_equipment.patrimony">
                                                     </div>
                                                     <div class="mb-3 col-md-3">
                                                         <label for="exampleFormControlInput1"
                                                             class="form-label">Movimento:</label>
-                                                        <select class="form-select"
+                                                        <select class="form-select border border-scondary border-1"
                                                             aria-label="Default select example"
                                                             wire:model.defer="model_equipment.installed">
                                                             <option selected>Selecione</option>
@@ -243,7 +245,7 @@
                                                     <div class="mb-3 col-md-4">
                                                         <label for="exampleFormControlInput1" class="form-label">Fases
                                                             Ligadas:</label>
-                                                        <select class="form-select"
+                                                        <select class="form-select border border-scondary border-1"
                                                             aria-label="Default select example" id="fases"
                                                             wire:model.defer="model_equipment.fases">
                                                             <option selected>Selecione</option>
@@ -257,8 +259,9 @@
                                                     <div class="mb-3 col-md-3">
                                                         <label for="exampleFormControlInput1" class="form-label">Poste
                                                             Referencial:</label>
-                                                        <input type="text" class="form-control" id="pole"
-                                                            wire:model.defer="model_equipment.pole">
+                                                        <input type="text"
+                                                            class="form-control border border-scondary border-1"
+                                                            id="pole" wire:model.defer="model_equipment.pole">
                                                     </div>
                                                     <div class="mb-3 col-md-3">
 
@@ -319,7 +322,7 @@
                                 </div>
                             @endif
 
-                            <div class="mb-3 " style="max-width: 300px">
+                            {{-- <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Houve Alterações no
                                     projeto? <span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select" aria-label="Default select example"
@@ -335,7 +338,7 @@
 
                                     @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
                                 </div>
-                            @endif
+                            @endif --}}
 
                             <div class="mb-3 col-md-6">
                                 <label for="exampleFormControlInput1" class="form-label">Observações (Desligamento
@@ -365,7 +368,7 @@
                                 </div>
                             @endif --}}
 
-                            <div class="mb-3 " style="max-width: 300px">
+                            {{-- <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Ligação foi executada do
                                     momento
                                     da obra? <span class="text-danger fw-bold">*</span></label>
@@ -375,7 +378,7 @@
                                     <option value="1">Sim</option>
                                     <option value="0">Não</option>
                                 </select>
-                            </div>
+                            </div> --}}
 
                             {{-- <div class="mb-3 " style="max-width: 300px">
                                 <label for="exampleFormControlInput1" class="form-label">Foram Instalados
@@ -387,7 +390,7 @@
                                 </select>
                             </div> --}}
 
-                            @if ($meeters)
+                            {{-- @if ($meeters)
                                 <div class="col-md-6">
                                     <div class="clear-fix">
                                         <div class="card">
@@ -475,7 +478,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            @endif
+                            @endif --}}
 
                             {{-- <div class="mb-3 col-md-3">
                                 <label for="exampleFormControlInput1" class="form-label">Numero da DD (Ultimo

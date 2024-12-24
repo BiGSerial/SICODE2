@@ -101,7 +101,20 @@
                         wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Data Final">
                 </div>
+                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                    <select name="date_out" id="date_out" class="form-select border border-secondary"
+                        wire:model="informer" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title='Informado por'>
+                        <option value="">---</option>
+                        @if ($informers)
+                            @foreach ($informers as $informer)
+                                <option value="{{ $informer->id }}">{{ $informer->name }}</option>
+                            @endforeach
 
+                        @endif
+
+                    </select>
+                </div>
                 {{-- <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
                     <select name="" id="" class="form-select border border-secondary"
                         wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
@@ -153,7 +166,7 @@
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
                 <div class="row">
                     <div class="col">
-                        <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">OBRAS INFORMADAS</h4>
+                        <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">PATRIOMÔNIOS SMC INFORMADOS</h4>
                     </div>
                     {{-- <div class="col-3 d-flex justify-content-end">
 
@@ -171,8 +184,8 @@
                             <th class="text-center" scope="col">Ordens</th>
                             <th class="text-center" scope="col">Rubrica</th>
                             <th class="text-center" scope="col">Files</th>
-                            <th class="text-center" scope="col">Equipamentos Dig</th>
-                            <th class="text-center" scope="col">Equipamentos Emp</th>
+                            <th class="text-center" scope="col">Equip SMC</th>
+                            <th class="text-center" scope="col">Equip Obra</th>
                             <th class="text-center" scope="col">Digitado em</th>
                             <th class="text-center" scope="col">Informado em</th>
                             <th class="text-center" scope="col">Digitador</th>

@@ -84,6 +84,13 @@ class RejectedListviab extends Component
             });
         }
 
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
+
         return $query->orderBy('updated_at');
     }
 
@@ -135,6 +142,13 @@ class RejectedListviab extends Component
 
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('lexp', $this->filter['city']);
+            });
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
             });
         }
 

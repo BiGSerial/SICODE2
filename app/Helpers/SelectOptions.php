@@ -159,6 +159,8 @@ class SelectOptions
         ];
     }
 
+
+
     // OPÇÕES DE ORGÃO EXTERNO
 
     public static function getProtocolReasons()
@@ -319,6 +321,18 @@ class SelectOptions
             (object)['reason' => '68 - ORÇAMENTO ESTIMADO', 'value' => 'ORÇAMENTO ESTIMADO'],
             (object)['reason' => '70 - ORÇAMENTO PRÉVIO', 'value' => 'ORÇAMENTO PRÉVIO'],
             (object)['reason' => '99 - ARQUIVADO', 'value' => 'ARQUIVADO'],
+        ];
+    }
+
+    // Motivos para Levantamento
+    public static function getSurveyConclusions()
+    {
+        return [
+            (object)['reason' => '10 - EM CONTATO COM CLIENTE', 'value' => 'EM CONTATO COM CLIENTE', 'block' => false],
+            (object)['reason' => '21 - RETORNADO PARA ANÁLISE', 'value' => 'RETORNADO ANALISE', 'block' => false],
+            (object)['reason' => '28 - ENVIADO AO DESENHO/ORÇAMENTO', 'value' => 'ENVIADO AO DESENHO/ORÇAMENTO', 'block' => false],
+            (object)['reason' => '50 - EXECUÇÃO DE OBRAS CUSTO EMPRESA', 'value' => 'EXECUCAO DE OBRAS CUSTO EMPRESA'],
+            (object)['reason' => '70 - ORÇAMENTO PRÉVIO', 'value' => 'ORÇAMENTO PRÉVIO'],
         ];
     }
 

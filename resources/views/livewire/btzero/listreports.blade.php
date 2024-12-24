@@ -49,7 +49,9 @@
                     @foreach ($lists as $list)
                         <tr class="text-center @if ($list->id == $selected) table-primary @elseif ($list->RamalForm && $list->WorkForm) table-success @endif"
                             wire:dblClick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list }})"
-                            wire:click="selectNote({{ $list->id }})" style="cursor: pointer;">
+                            style="cursor: pointer;" data-bs-toggle="tooltip" data-bs-placement="left"
+                            data-bs-title="Duplo Clique para abrir a comparação">
+
                             <td class="fw-bold">{{ $list->note }}</td>
                             <td>{{ $list->RamalForm ? $list->RamalForm->Company->name : '---' }}</td>
                             <td>{{ $list->RamalForm ? $list->RamalForm->User->name : '---' }}</td>

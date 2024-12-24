@@ -32,15 +32,19 @@ class BaseCostsUpd extends Command
     public function handle()
     {
         // Obtém todas as ordens únicas
-        $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem')->toArray;
+        $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem')->toArray();
 
-        if ($ordens->isNotEmpty()) {
-            $output = new ConsoleOutput();
-            $progressBar = new ProgressBar($output, $ordens->count());
-            $progressBar->start();
+        if (count($ordens) > 0) {
 
             $log = new RegistroJson('upd_costs_mot', $this->option());
-            $log->setTotal($ordens->count());
+            $log->setTotal(count($ordens));
+
+
+            $output = new ConsoleOutput();
+            $progressBar = new ProgressBar($output, count($ordens));
+            $progressBar->start();
+
+
 
             // Processa as ordens em chunks de 500
             Order::whereIn('ordem', $ordens)->chunk(500, function ($orders) use ($progressBar, &$log) {
