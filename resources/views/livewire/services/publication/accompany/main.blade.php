@@ -134,12 +134,24 @@
                                             $list->Note->WorkForm && $list->Note->WorkForm->rejected
                                                 ? $list->Note->WorkForm->rejected
                                                 : false;
+
+                                        $class = '';
+                                        if ($list->block) {
+                                            $class = 'table-primary';
+                                        } elseif ($list->priority) {
+                                            $class = 'table-danger fw-bold';
+                                        } elseif ($formBlock) {
+                                            $class = 'table-warning text-danger';
+                                        } elseif (!$list->Note->WorkForm && $list->Note->RamalForm) {
+                                            $class = 'table-warning';
+                                        } elseif ($list->Note->WorkForm && $list->Note->RamalForm) {
+                                            $class = 'table-success';
+                                        }
                                     @endphp
                                     <tr wire:key="work-{{ $list->id }}"
                                         wire:dblclick="showForm({{ $list }})"
-                                        class="align-middle text-center align-middle @if ($list->block) table-primary @elseif ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger  @elseif (!$list->Note->WorkForm && $list->Note->RamalForm) table-warning @elseif ($list->Note->WorkForm && $list->Note->RamalForm) table-success @endif">
-                                        <td
-                                            class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                        class="align-middle text-center align-middle ">
+                                        <td class="fw-bold {{ $class }}">
                                             {{ $list->Note->note }}
                                             <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                 style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
@@ -160,12 +172,12 @@
                                                 <i class="ri-alert-line text-danger align-middle fs-4"></i>
                                             @endif
                                         </td>
-                                        <td class="align-middle">
+                                        <td class="align-middle {{ $class }}">
                                             {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                             <x-files.select-download-list :files='$list->Note->Files' />
 
                                         </td>
-                                        <td class="fw-light text-center align-middle">
+                                        <td class="fw-light text-center align-middle {{ $class }}">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
                                                     <p class="my-0 py-0">{{ $order->ordem }}</p>
@@ -176,7 +188,7 @@
                                                 @endforeach
                                             @endif
                                         </td>
-                                        <td class="fw-light text-center align-middle">
+                                        <td class="fw-light text-center align-middle {{ $class }}">
 
                                             @if (isset($list->Note->WorkForm))
                                                 <span
@@ -186,7 +198,7 @@
                                                     class="badge text-bg-dark">{{ $list->Note->RamalForm->BtzeroEquipment->isNotEmpty() ? $list->Note->RamalForm->BtzeroEquipment->count() : '' }}</span>
                                             @endif
                                         </td>
-                                        <td class="fw-light text-center align-middle">
+                                        <td class="fw-light text-center align-middle {{ $class }}">
 
                                             @if (isset($list->Note->WorkForm))
                                                 {{ isset($list->Note->WorkForm) && $list->Note->WorkForm->Company ? $list->Note->WorkForm->Company->name : '---' }}
@@ -194,12 +206,14 @@
                                                 {{ isset($list->Note->RamalForm) && $list->Note->RamalForm->Company ? $list->Note->RamalForm->Company->name : '---' }}
                                             @endif
                                         </td>
-                                        <td class="fw-light text-center align-middle">{{ $list->Note->lexp }}</td>
-                                        <td class="fw-light text-center align-middle">{{ $list->Note->material }}</td>
-                                        <td class="fw-light text-center align-middle">
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            {{ $list->Note->lexp }}</td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            {{ $list->Note->material }}</td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
                                             {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                         </td>
-                                        <td class="fw-light text-center align-middle">
+                                        <td class="fw-light text-center align-middle {{ $class }}">
                                             {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->informed_at) : '---' }}
                                         </td>
                                         @php
@@ -221,7 +235,7 @@
                                             {{ $daysLeft->getLastDate() }}
                                         </td>
 
-                                        <td class="fw-light text-center">
+                                        <td class="fw-light text-center {{ $class }}">
 
                                             @if ($formBlock)
                                                 <span class="badge text-bg-warning text-wrap p-1">INFORME EM
@@ -232,7 +246,7 @@
                                                     style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                             @endif
                                         </td>
-                                        <td class="fw-bold fs-5">
+                                        <td class="fw-bold fs-5 {{ $class }}">
 
                                             @if (
                                                 !$list->block &&
@@ -363,8 +377,7 @@
                                     <tr wire:key="work-{{ $list->id }}"
                                         wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list->Note }})"
                                         class="align-middle text-center align-middle @if ($list->block) table-primary @elseif ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger  @elseif (!$list->Note->WorkForm && $list->Note->RamalForm) table-warning @elseif ($list->Note->WorkForm && $list->Note->RamalForm) table-success @endif">
-                                        <td
-                                            class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                        <td class="fw-bold {{ $class }}">
                                             {{ $list->Note->note }}
                                             <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                 style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
