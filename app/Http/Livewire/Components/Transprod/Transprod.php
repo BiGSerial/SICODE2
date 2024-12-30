@@ -99,7 +99,7 @@ class Transprod extends Component
                 'user_id' => $transfer->to,
                 'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
                 'info'    => 'O usuário ' . Auth()->User()->name . ' deseja transferir para você a nota/ov ' . $this->production->Note->note . ' em ' . $this->production->Service->service,
-                'status'  => 4,
+                'status'  => 3,
                 'link'    => $url,
             ]);
 
