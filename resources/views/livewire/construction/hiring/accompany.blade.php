@@ -112,12 +112,14 @@
                 <th scope="col" class="text-center">Rubrica</th>
                 <th scope="col" class="text-center">Municipio</th>
                 <th scope="col" class="text-center">CentroTrab</th>
+                <th scope="col" class="text-center">Empreiteira</th>
+                <th scope="col" class="text-center">Responsável</th>
                 <th scope="col" class="text-center">Data Envio</th>
                 <th scope="col" class="text-center">Data Esperado</th>
                 <th scope="col" class="text-center">Data Retorno</th>
                 <th scope="col" class="text-center">Em Atividade</th>
                 <th scope="col" class="text-center">Status</th>
-                {{-- <th scope="col" class="text-center"></th> --}}
+                <th scope="col" class="text-center"></th>
             </thead>
             <tbody class="table-group-divider">
                 @if ($lists)
@@ -167,6 +169,12 @@
                                 @endif
                             </td>
                             <td class="text-center aling-middle">
+                                {{ $list->Company ? $list->Company->name : '---' }}
+                            </td>
+                            <td class="text-center aling-middle">
+                                {{ $list->Engineer ? $list->Engineer->name : '---' }}
+                            </td>
+                            <td class="text-center aling-middle">
                                 {{ Carbon::parse($list->sended_at)->format('d/m/Y H:i') }}
                             </td>
                             <td class="text-center aling-middle">
@@ -199,6 +207,10 @@
                                     data-bs-content="Excluir registro de Espera" style="cursor: pointer;"
                                     wire:click.prevent="cancelWaiting({{ $list->id }})"></i>
                             </td> --}}
+                            <td class="align-middle text-center">
+                                <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
+                                    wire:click.prevent="$emitTo('construction.hiring.actions.edit', 'edit_hiring', {{ $list->id }})"></i>
+                            </td>
                         </tr>
                     @endforeach
                 @endif
@@ -244,14 +256,14 @@
     </div>
 
 
-    
+
 
 
 
     {{-- Fim Modals --}}
     {{--
     @livewire('construction.hiring.actions.waitinghiring', key('waitinghiring')); --}}
-
+    @livewire('construction.hiring.actions.edit', key('hiring-edit'))
 
 
     <!-- Exibir os dados do clipboard com formatação para Excel -->

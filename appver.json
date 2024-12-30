@@ -1,6 +1,11 @@
 {
-    "appver": "1.12.0",
+    "appver": "1.12.1",
     "historic": [
+        {
+            "version": "1.12.1",
+            "description": "Include Edit in To Hiring List",
+            "date": "2024-12-30"
+        },
         {
             "version": "1.12.0",
             "description": "Implement Inform from SMC",
