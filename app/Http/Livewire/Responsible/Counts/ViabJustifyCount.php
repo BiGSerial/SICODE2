@@ -11,11 +11,25 @@ class ViabJustifyCount extends Component
     {
         $query = Viability::query();
 
-        $query->whereRelation('Justification', function ($query) {
+        $query->whereHas('Justification', function ($query) {
             $query->where('granted', false)
             ->where('dismissed', false)
             ->orderBy('justified_at', 'desc');
         })->where('tacit', true);
+
+
+        if (!auth()->user()->superadm) {
+
+
+            // if (Auth()->user()->Companies->isNotEmpty()) {
+            //     $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
+            // } else {
+            //     $query->where('company_id', Auth()->user()->Company->id);
+            // }
+
+            $query->where('engineer_id', Auth()->user()->id);
+
+        }
 
         if (!auth()->user()->superadm) {
 
@@ -27,6 +41,8 @@ class ViabJustifyCount extends Component
 
     public function render()
     {
+
+
         return view('livewire.responsible.counts.viab-justify-count', [
             'count' => $this->count
         ]);

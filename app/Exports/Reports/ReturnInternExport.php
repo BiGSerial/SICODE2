@@ -69,7 +69,7 @@ class ReturnInternExport implements FromView, WithEvents, WithProperties
     {
 
         return view('exports.reports.returnInterntxport', [
-            'lists' => $this->getData(),
+            'lists' => $this->data,
         ]);
     }
 }

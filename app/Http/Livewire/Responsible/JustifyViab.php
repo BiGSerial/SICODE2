@@ -3,7 +3,9 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Models\City;
+use App\Models\File;
 use App\Models\Viability;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -38,18 +40,41 @@ class JustifyViab extends Component
         $this->gotoPage(1);
     }
 
+    public function downloadFile($id)
+    {
+
+
+        if ($file = File::find($id)) {
+
+
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
+    }
+
     public function getListsProperty()
     {
         $query = Viability::query();
 
-        $query->join('tacit_comments', 'viabilities.id', '=', 'tacit_comments.viability_id')
-            ->where('tacit_comments.granted', false)
-            ->where('tacit_comments.dismissed', false)
-            ->where('viabilities.tacit', true)
-            ->orderBy('tacit_comments.justified_at', 'desc');
+        $query->whereHas('Justification', function ($query) {
+            $query->where('granted', false)
+            ->where('dismissed', false)
+            ->orderBy('justified_at', 'desc');
+        })->where('tacit', true);
 
 
-            if (!auth()->user()->superadm) {
+        if (!auth()->user()->superadm) {
 
 
             // if (Auth()->user()->Companies->isNotEmpty()) {
@@ -62,7 +87,8 @@ class JustifyViab extends Component
 
         }
 
-        return $query->select('viabilities.*', 'tacit_comments.justified_at as comment_justified_at');
+        // return $query->select('viabilities.*', 'tacit_comments.justified_at as comment_justified_at');
+        return $query;
     }
 
 

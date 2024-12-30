@@ -88,6 +88,8 @@
                             </div>
                         </div>
 
+                        @livewire('components.files.show-files-pool', ['files' => $form->Note->Files], key('filesView-' . $form->id))
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="card">

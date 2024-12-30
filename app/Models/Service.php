@@ -36,6 +36,11 @@ class Service extends Model
             ->withTimestamps();
     }
 
+    public function Wpas()
+    {
+        return $this->hasMany(Wpa::class, 'service_id', 'uuid');
+    }
+
     public function Status()
     {
         return $this->hasMany(AuxiliarService::class, 'service_id', 'uuid');

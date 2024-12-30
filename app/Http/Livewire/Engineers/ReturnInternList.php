@@ -3,7 +3,9 @@
 namespace App\Http\Livewire\Engineers;
 
 use App\Exports\Engineers\InterReturnExport;
+use App\Models\File;
 use App\Models\Viability;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -43,6 +45,25 @@ class ReturnInternList extends Component
     public function export_excel()
     {
         return (new InterReturnExport($this->my_lists->get()))->download(date('YmdHis').'_inter_returnExport.xlsx');
+    }
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
     }
 
 

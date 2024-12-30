@@ -28,7 +28,7 @@ class Notifys extends Component
     {
 
         try {
-            if ($notify->status == 4) {
+            if ($notify->status === 4) {
                 $notify->update(['readed' => true]);
 
                 if (Storage::disk('public')->exists($notify->link)) {
@@ -51,6 +51,11 @@ class Notifys extends Component
             } else {
 
                 $notify->update(['readed' => true]);
+
+                if ($notify->link == null) {
+                    return;
+                }
+
                 redirect($notify->link);
 
             }

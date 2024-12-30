@@ -30,7 +30,7 @@ class TacitLogic extends Command
      */
     public function handle()
     {
-        $sevenDaysAgo = Carbon::now()->subDays(7)->startOfDay();
+        $sevenDaysAgo = Carbon::now()->subDays(7)->endOfDay();
 
         // dd($sevenDaysAgo, $sevenDaysAgo->copy()->subDays(-10));
 
@@ -58,17 +58,18 @@ class TacitLogic extends Command
 
             foreach ($viabilitiesToUpdate as $viability) {
 
-                $adjustedSevenDaysAgo = $sevenDaysAgo->copy()->subDays($viability->Days->sum('days'));
 
 
+                $adjustedSevenDaysAgo = $sevenDaysAgo->copy()->subDays($viability->Days->sum('days'))->endOfDay();
+                $totalDays = $viability->Days->sum('days') + 7;
 
                 if ($viability->sended_at <= $adjustedSevenDaysAgo) {
 
                     $viability->update([
                         'tacit' => true,
-                        'tacit_at' => $adjustedSevenDaysAgo->format('Y-m-d H:i:s'),
+                        'tacit_at' => Carbon::parse($viability->sended_at)->addDays($totalDays)->endOfDay()->format('Y-m-d H:i:s'),
                         'completed' => $viability->hired ? true : false,
-                        'completed_at' => $viability->hired ? $adjustedSevenDaysAgo->format('Y-m-d H:i:s') : null,
+                        'completed_at' => $viability->hired ? Carbon::parse($viability->sended_at)->addDays($totalDays)->endOfDay()->format('Y-m-d H:i:s') : null,
                         'status' => $viability->hired ? 9 : 15,
                         'approved' => true,
                     ]);

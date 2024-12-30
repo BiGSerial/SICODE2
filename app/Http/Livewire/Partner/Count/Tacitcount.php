@@ -16,7 +16,7 @@ class Tacitcount extends Component
         ->where('completed', true)
         ->where('tacit', true);
 
-        if (!auth()->user()->superadmin) {
+        if (!auth()->user()->superadm) {
 
             if (Auth()->user()->Companies->isNotEmpty()) {
                 $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());

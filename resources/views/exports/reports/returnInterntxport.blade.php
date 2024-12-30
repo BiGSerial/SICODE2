@@ -40,14 +40,14 @@
                         @if ($list->Waiting)
                             {{ $list->Waiting->User->name }}
                         @elseif ($list->Viabilities->count())
-                            {{ $list->Viabilities->last()->User->name }}
+                            {{ $list->Viabilities->last()->Engineer->name }}
                         @endif
                     </td>
                     <td class="text-center align-middle">
                         @if ($list->Waiting)
                             {{ $list->Waiting->User ? $list->Waiting->User->Employee->Contract->company->name : '' }}
                         @elseif ($list->Viabilities->count())
-                            {{ $list->Viabilities->last()->User ? $list->Viabilities->last()->User->Employee->Contract->company->name : '' }}
+                            {{ $list->Viabilities->last()->Engineer ? $list->Viabilities->last()->Engineer->Employee->Contract->company->name : '' }}
                         @endif
                     </td>
                     <td class="text-center align-middle">{{ $list->category }}</td>
@@ -65,8 +65,7 @@
                     </td>
                     <td class="text-center align-middle">
                         @if ($list->Production)
-                            <span class="badge {{ Notestatus::status($list->Production->status)->colorbg }}">
-                                {{ Notestatus::status($list->Production->status)->status }}</span>
+                            {{ Notestatus::status($list->Production->status)->status }}
                         @else
                             <span class="badge text-bg-secondary">
                                 Aguardando Atribuição</span>

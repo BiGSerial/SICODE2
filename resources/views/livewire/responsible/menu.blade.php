@@ -18,7 +18,7 @@
                         <li>
                             <a href="{{ route('responsible.viab_list') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span> EM VIABILIDADE</span>
-
+                                @livewire('responsible.counts.in-viability', key('in-viability'))
                             </a>
                         </li>
                         <li>
@@ -37,7 +37,7 @@
                             <a href="{{ route('responsible.justified_viab') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span> AVALIAÇÃO DE
                                     JUSTIFICATIVA</span>
-                                {{-- @livewire('responsible.counts.viab-justify-count', key('viab-justify-count')) --}}
+                                @livewire('responsible.counts.viab-justify-count', key('viab-justify-count'))
                             </a>
                         </li>
                         <li>

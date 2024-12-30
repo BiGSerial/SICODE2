@@ -253,7 +253,8 @@
                                 <td class="text-center align-middle">{{ $viability->Note->note }}</td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    <x-files.select-download-list :files='$viability->Files' />
+                                    <x-files.select-download-list :files='$viability->Note->Files' />
+                                    {{ $viability->Note->Files ? $viability->Note->Files->count() : '' }}
                                 </td>
                                 <td class="text-center align-middle">
                                     @if ($viability->Note->Orders->isNotEmpty())

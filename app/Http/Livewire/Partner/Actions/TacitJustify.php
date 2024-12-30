@@ -83,12 +83,15 @@ class TacitJustify extends Component
                 ]
             );
 
-            DB::commit();
+
 
 
             if ($this->hasFile) {
                 $this->emitTo('files.manager.create-gen-files', 'saveFiles');
             }
+
+
+            DB::commit();
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -123,7 +126,7 @@ class TacitJustify extends Component
             $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
         }
 
-        $this->emitUp('refresh');
+        $this->emitUp('refresh_list');
         $this->dispatchBrowserEvent('hideModal');
 
     }

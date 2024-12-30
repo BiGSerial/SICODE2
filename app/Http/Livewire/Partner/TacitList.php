@@ -22,6 +22,8 @@ class TacitList extends Component
     private $filter_group = 'partner';
     private $filter;
 
+    protected $listeners = ['refresh_list' => '$refresh'];
+
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -52,7 +54,7 @@ class TacitList extends Component
             ->where('completed', true)
             ->where('tacit', true);
 
-        if (!auth()->user()->superadmin) {
+        if (!auth()->user()->superadm) {
 
             if (Auth()->user()->Companies->isNotEmpty()) {
                 $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
@@ -80,7 +82,7 @@ class TacitList extends Component
             });
         }
 
-        return $query->orderBy('tacit_at', 'desc');
+        return $query->orderBy('tacit_at');
     }
 
     public function downloadFile($id)

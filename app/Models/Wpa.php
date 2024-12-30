@@ -12,6 +12,7 @@ class Wpa extends Model
     protected $fillable = [
         'production_id',
         'note_id',
+        'service_id',
         'dd',
         'sector',
         'workcenter',
@@ -29,6 +30,11 @@ class Wpa extends Model
     public function Production()
     {
         return $this->belongsTo(Production::class);
+    }
+
+    public function Service()
+    {
+        return $this->belongsTo(Service::class, 'service_id', 'uuid');
     }
 
     public function Note()

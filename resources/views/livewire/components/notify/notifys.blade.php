@@ -30,8 +30,8 @@
                         $status = NotifyStatus::getStatus($notify->status);
                     @endphp
                     @if ($notify->readed)
-                        <a href="" class="nav-link" wire:click.prevent="readed({{ $notify->id }})"
-                            style="background-color: #d3d3d3">
+                        <a wire:key='{{ $notify->id }}' href="" class="nav-link"
+                            wire:click.prevent="readed({{ $notify->id }})" style="background-color: #d3d3d3">
                             <li class="notification-item">
                                 <i class="{{ $status->icon }} {{ $status->color }}"></i>
                                 <div>
@@ -42,7 +42,8 @@
                             </li>
                         </a>
                     @else
-                        <a href="" class="nav-link" wire:click.prevent="readed({{ $notify->id }})">
+                        <a wire:key='{{ $notify->id }}' href="" class="nav-link"
+                            wire:click.prevent="readed({{ $notify->id }})">
                             <li class="notification-item">
                                 <i class="{{ $status->icon }} {{ $status->color }}"></i>
                                 <div>

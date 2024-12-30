@@ -24,7 +24,7 @@
                         <li>
                             <a href="{{ route('engineers.viab_list') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> EM VIABILIDADE</span>
-
+                                @livewire('engineers.counts.in-viability', key('in-viability'))
                             </a>
                         </li>
                         <li>
@@ -42,7 +42,7 @@
                         <li>
                             <a href="{{ route('engineers.justified_viab') }}" class="nav-item edp-text-verde-dark">
                                 <i class="bi bi-circle"></i> <span> AVALIAÇÃO DE JUSTIFICATIVA</span>
-                                {{-- @livewire('engineers.counts.viab-justify-count', key('viab-justify-count')) --}}
+                                @livewire('engineers.counts.viab-justify-count', key('viab-justify-count'))
                             </a>
                         </li>
                         <li>

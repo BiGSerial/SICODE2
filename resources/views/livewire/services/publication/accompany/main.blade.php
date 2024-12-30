@@ -136,7 +136,7 @@
                                                 : false;
                                     @endphp
                                     <tr wire:key="work-{{ $list->id }}"
-                                        wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list->Note }})"
+                                        wire:dblclick="showForm({{ $list }})"
                                         class="align-middle text-center align-middle @if ($list->block) table-primary @elseif ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger  @elseif (!$list->Note->WorkForm && $list->Note->RamalForm) table-warning @elseif ($list->Note->WorkForm && $list->Note->RamalForm) table-success @endif">
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">

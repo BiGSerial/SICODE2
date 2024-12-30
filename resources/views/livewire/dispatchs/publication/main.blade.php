@@ -307,8 +307,13 @@
                                             wire:click.prevent="get_single_note({{ $list->id }})"></i>
                                     @else
                                         @php
-                                            $name = explode(' ', $production->User->name);
-                                            $name = $name[0] . ' ' . end($name);
+                                            if ($production && $production->User) {
+                                                $name = explode(' ', $production->User->name);
+                                                $name = $name[0] . ' ' . end($name);
+                                            } else {
+                                                $name = 'SEM USUARIO';
+                                            }
+
                                         @endphp
                                         <span style="font-size: 11px">{{ $name }}</span>
                                         @if ($command)

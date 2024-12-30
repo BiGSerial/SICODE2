@@ -1,6 +1,4 @@
 <div>
-
-
     <x-show-loading />
     <div wire:ignore.self class="modal fade" id="modal_compareForm" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
@@ -13,7 +11,109 @@
                 </div>
                 <div class="modal-body">
                     @if ($note)
-                        <div class="card shadow-lg">
+
+                        <div class="card">
+                            <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">INFORMAÇÕES</h5>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-condensed table-striped-columns">
+
+                                    <tbody>
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">NOTA/OV:</td>
+                                            <td class="align-middle fw-bold">{{ $note->note }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">ORDEM:</td>
+                                            <td class="align-middle">
+                                                @if ($note->Orders->count())
+                                                    @foreach ($note->Orders as $order)
+                                                        <p class="my-1 py-0">{{ $order->ordem }}</p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">RUBRICA:</td>
+                                            <td class="align-middle text-uppercase">{{ $note->rubrica }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">MUNICIPIO:</td>
+                                            <td class="align-middle text-uppercase">{{ $note->lexp }}</td>
+                                        </tr>
+
+                                        <tr>
+                                            <td class="fw-bold col-2 align-middle">EMPREITEIRA:</td>
+                                            <td class="align-middle text-uppercase">
+                                                @if ($note->WorkForm)
+                                                    {{ $note->WorkForm->Company->name }}
+                                                @elseif($note->RamalForm)
+                                                    {{ $note->RamalForm->Company->name }}
+                                                @else
+                                                    Desconhecido
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr class="table-success">
+                                            <td class="fw-bold col-2 align-middle">DATA DO INFORME SMC:</td>
+                                            <td class="align-middle">
+                                                @if ($note->RamalForm)
+                                                    {{ isset($note->RamalForm->created_at) ? date('d/m/Y H:i:s', strToTime($note->RamalForm->created_at)) : '' }}
+                                                @else
+                                                    Não Informado
+                                                @endif
+
+                                            </td>
+                                        </tr>
+
+
+                                        <tr class="table-success">
+                                            <td class="fw-bold col-2 align-middle">RESPONSÁVEL PELO INFORME SMC:</td>
+                                            <td class="align-middle text-uppercase">
+                                                {{ $note->RamalForm ? $note->RamalForm->User->name : 'Não Informado' }}
+                                            </td>
+                                        </tr>
+
+                                        <tr class="table-primary">
+                                            <td class="fw-bold col-2 align-middle">MUDANÇA NO PROJETO:</td>
+                                            <td class="align-middle text-uppercase">
+                                                @if ($note->WorkForm)
+                                                    {{ $note->WorkForm->Company->name }}
+                                                @else
+                                                    Não Informado
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <td class="fw-bold col-2 align-middle">DATA DE EXECUÇÃO:</td>
+                                            <td class="align-middle text-uppercase">
+                                                {{ $note->WorkForm ? date('d/m/Y', strToTime($note->WorkForm->date)) : 'Não Informado' }}
+                                            </td>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <td class="fw-bold col-2 align-middle">DATA DO INFORME:</td>
+                                            <td class="align-middle text-uppercase">
+                                                {{ isset($note->workForm->informed_at) ? date('d/m/Y H:i:s', strToTime($note->workForm->informed_at)) : 'Não Informado' }}
+
+                                            </td>
+                                        </tr>
+
+                                        <tr class="table-primary">
+                                            <td class="fw-bold col-2 align-middle">ENCARREGADO RESPONSÁVEL:</td>
+                                            <td class="align-middle text-uppercase">
+                                                {{ $note->WorkForm ? $note->WorkForm->responsible : 'Não Informado' }}
+                                            </td>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <td class="fw-bold col-2 align-middle">RESPONSÁVEL PELO INFORME:</td>
+                                            <td class="align-middle text-uppercase">
+                                                {{ $note->WorkForm ? $note->WorkForm->informer : 'Não Informado' }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {{-- <div class="card shadow-lg">
                             <div class="card-header bg-success text-white  py-1 my-0">
                                 <h5 class="card-title mb-0  py-0 my-0">Informações</h5>
                             </div>
@@ -30,7 +130,7 @@
                                     <tbody>
                                         <tr>
                                             <td class="fw-bold text-end" style="widtd: 25%;">Nota/OV:</td>
-                                            <td>{{ $note->note }}</td>
+                                            <td>{{ $note }}</td>
                                         </tr>
                                         <tr>
                                             <td class="fw-bold text-end">Ordem:</td>
@@ -116,7 +216,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
+                        </div> --}}
 
 
 

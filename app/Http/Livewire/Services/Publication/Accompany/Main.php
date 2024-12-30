@@ -78,6 +78,15 @@ class Main extends Component
         }
     }
 
+    public function showForm(Production $production)
+    {
+        if ($production->Note->RamalForm) {
+            $this->emitTo('btzero.view.compare-form', 'showCompareForm', $production->Note);
+        } elseif ($production->Note->WorkForm) {
+            $this->emitTo('partner.show.show-work-form', 'show_form', $production->Note->WorkForm);
+        }
+    }
+
     public function goTransferProd($prod_id)
     {
 
