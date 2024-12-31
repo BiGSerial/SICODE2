@@ -45,4 +45,9 @@ class RamalReport extends Model
         return $this->hasMany(BtzeroEquipment::class)->orderBy('type')->orderBy('patrimony');
         ;
     }
+
+    public function ReturnRamal()
+    {
+        return $this->hasMany(ReturnRamal::class);
+    }
 }
