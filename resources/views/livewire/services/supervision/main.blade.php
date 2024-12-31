@@ -136,6 +136,7 @@
                             <thead class="table-dark">
                                 <tr class="text-center align-middle">
                                     <th scope="col" class="fw-bold">Note</th>
+                                    <th scope="col" class="fw-bold">Ordens</th>
                                     <th scope="col" class="fw-bold">DD</th>
                                     <th scope="col" class="fw-bold">Files</th>
                                     <th scope="col" class="fw-bold">MMGD</th>
@@ -171,8 +172,12 @@
                                         }
 
                                     @endphp
-                                    <tr
-                                        class="align-middle text-center @if ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif">
+                                    <tr wire:key='{{ $list->id }}'
+                                        wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm->id }})"
+                                        class="align-middle text-center @if ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif"
+                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover"
+                                        data-bs-placement="left"
+                                        data-bs-content="Duplo Clique para mais informações.">
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                             {{ $list->Note->note }}
@@ -189,6 +194,14 @@
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                                     data-bs-title="Exibir Prioridade"
                                                     data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                            @endif
+                                        </td>
+                                        <td
+                                            class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                            @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->isNotEmpty())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <p class="py-0 my-0">{{ $order->ordem }}</p>
+                                                @endforeach
                                             @endif
                                         </td>
                                         <td
@@ -358,6 +371,7 @@
     @livewire('components.transprod.transprodlev', key('Transfer_production'))
     @livewire('services.supervision.forms.jobform', key('JobForm'))
     @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('partner.show.show-work-form', key('WorkFormCompany'))
 
     {{-- <div wire:init="checkOpen"></div> --}}
 
