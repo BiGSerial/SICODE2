@@ -4,7 +4,7 @@
 
 <div>
     <x-show-loading />
-    <div wire:ignore.self class="modal fade" id="returnWorkform" tabindex="-1" aria-labelledby="returnWorkformLabel"
+    <div wire:ignore.self class="modal fade" id="returnRamalform" tabindex="-1" aria-labelledby="returnWorkformLabel"
         aria-hidden="true">
         <div class="modal-dialog">
             @if ($production)
@@ -19,10 +19,9 @@
                             <h5 class="card-header edp-bg-sprucegreen-70 text-edp-verde">Atenção</h5>
                             <div class="card-body">
                                 <p>
-                                    Ao retornar este informe, a produção será descartada, e a OBRA ficará oculta até que
-                                    a empreiteira reenvie o informe. Esta ação pode interromper processos dependentes. A
-                                    devolução será registrada em seu perfil, por isso, seja criterioso no detalhamento
-                                    do motivo (obrigatório).
+                                    Ao retornar este informe, A Obra ficará oculta na sua lista, porém continuará
+                                    atribuído a você a atividade. Assim que houver
+                                    um retorno do digitador, ela voltará a aparecer na sua lista.
                                 </p>
                             </div>
                         </div>
@@ -34,14 +33,14 @@
                                 <select class="form-select" aria-label="Default select example"
                                     wire:model.defer="returnWork.category" required>
                                     <option value="" selected>Selecione</option>
-                                    @foreach (SelectOptions::getReasonPublication() as $category)
+                                    @foreach (SelectOptions::getReasonSmcPublication() as $category)
                                         <option value="{{ $category->value }}">{{ $category->reason }}</option>
                                     @endforeach
                                 </select>
                             </div>
                             <div class="mb-3">
                                 <label for="exampleFormControlInput1" class="form-label">Detalhe a instrução ao
-                                    Parceiro: <strong class="text-danger">*</strong></label>
+                                    Digitador: <strong class="text-danger">*</strong></label>
                                 <textarea class="form-control" placeholder="Detalhe o motivo de retorno" rows="3"
                                     wire:model.defer="returnWork.text_obs" required></textarea>
                             </div>

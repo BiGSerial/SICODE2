@@ -47,21 +47,56 @@
                 </thead>
                 <tbody>
                     @foreach ($lists as $list)
-                        <tr class="text-center @if ($list->id == $selected) table-primary @elseif ($list->RamalForm && $list->WorkForm) table-success @endif"
+                        @php
+                            $daysDifference = $list->WorkForm
+                                ? Carbon::parse($list->RamalForm->created_at)
+                                    ->startOfDay()
+                                    ->diffInDays(Carbon::parse($list->WorkForm->created_at)->startOfDay())
+                                : Carbon::parse($list->RamalForm->created_at)
+                                    ->startOfDay()
+                                    ->diffInDays(Carbon::now()->startOfDay());
+
+                            $daysRowClass = '';
+
+                            if ($daysDifference > 3) {
+                                $daysRowClass = 'text-bg-danger';
+                            } elseif ($daysDifference > 2) {
+                                $daysRowClass = 'text-bg-warning';
+                            } elseif ($daysDifference > 1) {
+                                $daysRowClass = 'text-bg-info';
+                            } else {
+                                $daysRowClass = 'text-bg-success';
+                            }
+
+                            $rowClass = '';
+
+                            if ($list->rejected) {
+                                $rowClass = 'table-warning';
+                            } elseif ($list->RamalForm && $list->WorkForm) {
+                                $rowClass = 'table-success';
+                            }
+
+                        @endphp
+                        <tr class="text-center"
                             wire:dblClick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list }})"
                             style="cursor: pointer;" data-bs-toggle="tooltip" data-bs-placement="left"
                             data-bs-title="Duplo Clique para abrir a comparação">
 
-                            <td class="fw-bold">{{ $list->note }}</td>
-                            <td>{{ $list->RamalForm ? $list->RamalForm->Company->name : '---' }}</td>
-                            <td>{{ $list->RamalForm ? $list->RamalForm->User->name : '---' }}</td>
-                            <td>{{ $list->RamalForm ? Carbon::parse($list->RamalForm->created_at)->format('d/m/Y') : 'Não Informado' }}
+                            <td class="fw-bold {{ $rowClass }}">{{ $list->note }}</td>
+                            <td class="{{ $rowClass }}">
+                                {{ $list->RamalForm ? $list->RamalForm->Company->name : '---' }}</td>
+                            <td class="{{ $rowClass }}">
+                                {{ $list->RamalForm ? $list->RamalForm->User->name : '---' }}</td>
+                            <td class="{{ $rowClass }}">
+                                {{ $list->RamalForm ? Carbon::parse($list->RamalForm->created_at)->format('d/m/Y') : 'Não Informado' }}
                             </td>
-                            <td>{{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y') : 'Não Informado' }}
+                            <td class="{{ $rowClass }}">
+                                {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y') : 'Não Informado' }}
                             </td>
-                            <td>{{ $list->productions && isset($list->productions->last()->completed_at) ? Carbon::parse($list->productions->last()->completed_at)->format('d/m/Y') : 'Não Publicado' }}
+                            <td class="{{ $rowClass }}">
+                                {{ $list->productions && isset($list->productions->last()->completed_at) ? Carbon::parse($list->productions->last()->completed_at)->format('d/m/Y') : 'Não Publicado' }}
                             </td>
-                            <td>
+                            <td class="{{ $rowClass }}">
                                 @if ($list->productions && $list->productions->last())
                                     @if ($list->productions->last()->status == 5)
                                         <span class="badge bg-success">Publicado</span>
@@ -74,17 +109,9 @@
                                 @endif
                             </td>
 
-                            @php
-                                $daysDifference = $list->WorkForm
-                                    ? Carbon::parse($list->RamalForm->created_at)
-                                        ->startOfDay()
-                                        ->diffInDays(Carbon::parse($list->WorkForm->created_at)->startOfDay())
-                                    : Carbon::parse($list->RamalForm->created_at)
-                                        ->startOfDay()
-                                        ->diffInDays(Carbon::now()->startOfDay());
-                            @endphp
 
-                            <td class="text-center fw-bold">{{ $daysDifference }}</td>
+
+                            <td class="text-center fw-bold {{ $daysRowClass }}">{{ $daysDifference }}</td>
 
                         </tr>
                     @endforeach

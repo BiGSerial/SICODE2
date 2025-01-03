@@ -33,6 +33,12 @@
                                             </td>
                                         </tr>
                                         <tr>
+                                            <td class="fw-bold col-2 align-middle">MATERIAL:</td>
+                                            <td class="align-middle fw-bold">
+                                                {{ $note->material }}
+                                            </td>
+                                        </tr>
+                                        <tr>
                                             <td class="fw-bold col-2 align-middle">RUBRICA:</td>
                                             <td class="align-middle text-uppercase">{{ $note->rubrica }}</td>
                                         </tr>

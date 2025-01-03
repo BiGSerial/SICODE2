@@ -274,6 +274,16 @@
                                                 @endif
                                             @endif
 
+                                            @if ($list->Note->RamalForm)
+                                                <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                    data-bs-title="Devolver Informe">
+                                                    <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                        style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                        wire:click.prevent="$emitTo('production.return.return-ramal-work', 'toReturn', {{ $list }})"></i>
+                                                </span>
+                                            @endif
+
                                             @if (!$formBlock && $list->Note->WorkForm)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
@@ -595,6 +605,7 @@
     @livewire('production.return.return-work', key('returnWorkfomr'))
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('btzero.view.compare-form', key('compare_form'))
+    @livewire('production.return.return-ramal-work', key('returnRamalWorkfomr'))
     {{-- <div wire:init="checkOpen"></div> --}}
 
 

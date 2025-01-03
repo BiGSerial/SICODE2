@@ -223,7 +223,7 @@ class Main extends Component
         })
         ->when($this->search, function ($q, $s) {
             return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                     ->orWhereRelation('Note', 'material', 'like', '%' . $s . '%');
+                 ->orWhereRelation('Note', 'material', 'like', '%' . $s . '%');
         })
         ->when(isset($this->filters['city']), function ($q) {
             $q->whereRelation('Note', 'lexp', $this->filters['city']);
@@ -232,35 +232,32 @@ class Main extends Component
             $q->whereRelation('Note', 'rubrica', $this->filters['rubrica']);
         })
         ->where(function ($q) {
-
             $q->where('status', '!=', 28)
               ->orWhereHas('Note.WorkForm');
         })
-
+        ->whereDoesntHave('Note.RamalForm', function ($q) {
+            $q->where('rejected', true);
+        })
         ->select('productions.*')
         ->selectRaw("
         CASE
             WHEN (
-                SELECT COUNT(*)
-                FROM ramal_reports
-                WHERE ramal_reports.note_id = productions.note_id
+            SELECT COUNT(*)
+            FROM ramal_reports
+            WHERE ramal_reports.note_id = productions.note_id
             ) > 0
             AND (
-                SELECT COUNT(*)
-                FROM work_reports
-                WHERE work_reports.note_id = productions.note_id
+            SELECT COUNT(*)
+            FROM work_reports
+            WHERE work_reports.note_id = productions.note_id
             ) = 0
             THEN 1
             ELSE 0
         END as forms
-    ")
-
-
+        ")
         ->orderBy('priority', 'desc')
         ->orderBy('d5', 'desc')
         ->orderBy('forms', 'desc')
-
-
         ->paginate($this->perPage);
 
     }

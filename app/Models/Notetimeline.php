@@ -18,6 +18,7 @@ class Notetimeline extends Model
         'system',
         'production_id',
         'return_stop',
+        'category',
     ];
 
     public function Note()

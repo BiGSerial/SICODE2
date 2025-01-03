@@ -36,7 +36,10 @@ class NoteFilter
         });
 
         $query->whereHas('Orders', function ($q) {
-            $q->where('statusSist', 'LIKE', 'LIB%')
+            $q->where(function ($sq) {
+                $sq->where('statusSist', 'LIKE', 'LIB%')
+                    ->orWhere('statusSist', 'LIKE', 'ABER%');
+            })
                 ->whereHas('Operations', function ($sq) {
                     $sq->where('operacao', '0010')
                         ->where('status', 'like', 'CONF%');

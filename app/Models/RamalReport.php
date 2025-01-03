@@ -18,6 +18,9 @@ class RamalReport extends Model
         'connection',
         'observation',
         'retry',
+        'rejected',
+        'rejected_at',
+        'informed_at',
     ];
 
     public function Note()

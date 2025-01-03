@@ -292,6 +292,20 @@ class SelectOptions
         ];
     }
 
+    public static function getReasonSmcPublication()
+    {
+        return [
+            (object)['reason' => 'A pedido da Digitação', 'value' => 'A PEDIDO DA DIGITACAO'],
+            (object)['reason' => 'Alteração de Obra não Informada', 'value' => 'ALTERACAO DE OBRA NAO INFORMADA'],
+            // (object)['reason' => 'Obra depende da execução de outra', 'value' => 'OBRA DEPENDE DA EXECUCAO DE OUTRA'],
+            (object)['reason' => 'Obra não executada', 'value' => 'OBRA NAO EXECUTADA'],
+            (object)['reason' => 'Patrimônio de equipamento informado incorretamente', 'value' => 'PATRIMONIO DE EQUIPAMENTO INFORMADO INCORRETAMENTE'],
+            (object)['reason' => 'Patrimônio de equipamento não informado', 'value' => 'PATRIMONIO DE EQUIPAMENTO NAO INFORMADO'],
+            (object)['reason' => 'Trafo não atendido', 'value' => 'TRAFO NAO ATENDIDO'],
+            // (object)['reason' => 'Trafo pendente de DE-PARA', 'value' => 'TRAFO PENDENTE DE DE-PARA'],
+        ];
+    }
+
 
     // FIles Type Options
     public static function getFilesType()
