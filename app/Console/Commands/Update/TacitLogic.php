@@ -60,10 +60,10 @@ class TacitLogic extends Command
 
 
 
-                $adjustedSevenDaysAgo = $sevenDaysAgo->copy()->subDays($viability->Days->sum('days'))->endOfDay();
+                $adjustedSevenDaysAgo = $sevenDaysAgo->copy()->subDays($viability->Days->sum('days'))->startOfDay();
                 $totalDays = $viability->Days->sum('days') + 7;
 
-                if ($viability->sended_at <= $adjustedSevenDaysAgo) {
+                if ($viability->sended_at < $adjustedSevenDaysAgo) {
 
                     $viability->update([
                         'tacit' => true,
