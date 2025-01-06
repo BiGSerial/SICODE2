@@ -138,11 +138,11 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchDesenhoMain($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         } else {
             $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
 
-            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchDesenhoMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         }
     }
 

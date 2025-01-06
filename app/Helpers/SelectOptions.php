@@ -343,6 +343,7 @@ class SelectOptions
     {
         return [
             (object)['reason' => '10 - EM CONTATO COM CLIENTE', 'value' => 'EM CONTATO COM CLIENTE', 'block' => false],
+            (object)['reason' => '20 - DEPENDE DE ORGÃO EXTERNO', 'value' => 'DEPENDE DE ORGAO EXTERNO', 'block' => false],
             (object)['reason' => '21 - RETORNADO PARA ANÁLISE', 'value' => 'RETORNADO ANALISE', 'block' => false],
             (object)['reason' => '28 - ENVIADO AO DESENHO/ORÇAMENTO', 'value' => 'ENVIADO AO DESENHO/ORÇAMENTO', 'block' => false],
             (object)['reason' => '50 - EXECUÇÃO DE OBRAS CUSTO EMPRESA', 'value' => 'EXECUCAO DE OBRAS CUSTO EMPRESA'],

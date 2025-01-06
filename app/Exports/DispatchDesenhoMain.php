@@ -12,10 +12,12 @@ class DispatchDesenhoMain implements FromView, WithEvents, WithProperties
     use Exportable;
 
     public $data;
+    public $service;
 
-    public function __construct($data)
+    public function __construct($data, $service)
     {
         $this->data = $data;
+        $this->service = $service;
     }
 
     public function properties(): array
@@ -36,7 +38,7 @@ class DispatchDesenhoMain implements FromView, WithEvents, WithProperties
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:P1')->applyFromArray([
+                $event->sheet->getStyle('A1:U1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -56,6 +58,7 @@ class DispatchDesenhoMain implements FromView, WithEvents, WithProperties
     {
         return view('exports.dispatch.dispatchDesenhoMain', [
             'lists' => $this->data,
+            'service' => $this->service,
         ]);
     }
 }
