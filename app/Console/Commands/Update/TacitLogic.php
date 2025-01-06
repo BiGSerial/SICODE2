@@ -30,12 +30,12 @@ class TacitLogic extends Command
      */
     public function handle()
     {
-        $sevenDaysAgo = Carbon::now()->subDays(7)->endOfDay();
+        $sevenDaysAgo = Carbon::now()->subDays(7)->startOfDay();
 
         // dd($sevenDaysAgo, $sevenDaysAgo->copy()->subDays(-10));
 
 
-        $viabilitiesToUpdate = Viability::where('sended_at', '<=', $sevenDaysAgo)
+        $viabilitiesToUpdate = Viability::where('sended_at', '<', $sevenDaysAgo)
                             ->where('tacit', false)
                             ->where('rejected', false)
                             ->where('approved', false)

@@ -1,3 +1,6 @@
+@php
+    use App\Custom\Notestatus;
+@endphp
 <table class="table table-sm table-striped table-condensed">
     <thead class="table-dark">
         <tr>
@@ -22,6 +25,11 @@
             <th scope="col" class="fw-bold text-center">Status</th>
             <th scope="col" class="fw-bold text-center">Prazo Real</th>
             <th scope="col" class="fw-bold text-center">Situação</th>
+            <th scope="col" class="fw-bold text-center">Usuario</th>
+            <th scope="col" class="fw-bold text-center">Empresa</th>
+            <th scope="col" class="fw-bold text-center">Status</th>
+            <th scope="col" class="fw-bold text-center">Dispatch_at</th>
+            <th scope="col" class="fw-bold text-center">Completed_at</th>
         </tr>
     </thead>
     <tbody>
@@ -30,6 +38,22 @@
                 $block = null;
                 $lastUser = '';
                 $lastCompany = '';
+
+                $productions = $list->Productions->where('service_id', $service);
+
+                if ($productions && $productions->count()) {
+                    $company = $productions->last()->Company ? $productions->last()->Company->name : 'Desconhecido';
+                    $user = $productions->last()->User ? $productions->last()->User->name : 'Desconhecido';
+                    $status = Notestatus::status($productions->last()->status)->status;
+                    $Completed = $productions->last()->completed_at;
+                    $dispatch = $productions->last()->dispatch_at;
+                } else {
+                    $company = '';
+                    $user = '';
+                    $status = '';
+                    $Completed = '';
+                    $dispatch = '';
+                }
 
             @endphp
 
@@ -114,6 +138,11 @@
                         <span class="badge text-bg-secondary">DESCONHECIDO</span>
                     @endif
                 </td>
+                <td class="fw-light text-center">{{ $user }}</td>
+                <td class="fw-light text-center">{{ $company }}</td>
+                <td class="fw-light text-center">{{ $status }}</td>
+                <td class="fw-light text-center">{{ $dispatch }}</td>
+                <td class="fw-light text-center">{{ $Completed }}</td>
 
 
 
