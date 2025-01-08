@@ -331,8 +331,8 @@
                                             wire:click.prevent="get_single_note({{ $list->id }})"></i>
                                     @else
                                         @php
-                                            if (isset($production->Company->name)) {
-                                                $name = explode(' ', $production->Company->name);
+                                            if (isset($production->User->name)) {
+                                                $name = explode(' ', $production->User->name);
                                                 $name = $name[0] . ' ' . end($name);
                                             } else {
                                                 $name = 'DESCONHECIDO';

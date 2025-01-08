@@ -160,7 +160,7 @@
                             <th class="align-middle text-center">Data Execução</th>
                             <th class="align-middle text-center">Data Informe</th>
                             <th class="align-middle text-center">Dias Pilha</th>
-                            <th scope="col" class="fw-bold text-center">Retorno</th>
+                            {{-- <th scope="col" class="fw-bold text-center">Retorno</th> --}}
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th class="align-middle text-center">Dt Vencimento</th>
                             <th scope="col" class="fw-bold text-center"></th>
@@ -248,7 +248,7 @@
                                 <td scope="col" class="text-center {{ $rowClass }}">
                                     {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false) : '---' }}
                                 </td>
-                                <td class="fw-light {{ $rowClass }} text-center" tabindex="0"
+                                {{-- <td class="fw-light {{ $rowClass }} text-center" tabindex="0"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Desenhos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
@@ -271,7 +271,7 @@
                                         --
                                     @endif
 
-                                </td>
+                                </td> --}}
 
                                 @if ($list->type_note != 1)
                                     <td class="fw-light {{ $rowClass }} text-center">{{ $list->nstats }} </td>
