@@ -1,6 +1,11 @@
 {
-    "appver": "1.12.1",
+    "appver": "1.13.0",
     "historic": [
+        {
+            "version": "1.13.0",
+            "description": "Make return SMC inform from Publication. And Major Fixes like Transfer blocked prod in list",
+            "date": "2025-01-08"
+        },
         {
             "version": "1.12.1",
             "description": "Include Edit in To Hiring List",

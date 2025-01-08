@@ -264,6 +264,9 @@ class Workreports extends Component
 
             if ($form) {
 
+                $form->informed_at = date('Y-m-d H:i:s');
+                $form->save();
+
                 if (!empty($this->temp_orders)) {
 
                     $ordersId = [];

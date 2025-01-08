@@ -323,6 +323,7 @@ class Stack extends Component
                         'att_at'     => date('Y-m-d H:i:s'),
                         'status'     => $this->user_s ? 2 : 1,
                         'completed'  => false,
+                        'block'      => false,
                     ])) {
 
                         if (trim($this->user_s)) {

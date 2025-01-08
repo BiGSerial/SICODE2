@@ -792,6 +792,7 @@ class Stack extends Component
                         'att_by'     => Auth()->User()->id,
                         'att_at'     => date('Y-m-d H:i:s'),
                         'status'     => 2,
+                        'block'      => false,
                     ])) {
 
                         $user = Auth()->User()->name;

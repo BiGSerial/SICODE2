@@ -12,7 +12,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('btzero.main') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Principal</span>
+                                <i class="ri-bank-line text-white fw-light fs-5"></i> <span>Principal</span>
 
                             </a>
                         </li>
@@ -21,7 +21,18 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('btzero.btzeroReport') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Informar Patrimônio SMC</span>
+                                <i class="ri-information-line text-white fw-light fs-5"></i> <span>Informar Patrimônio
+                                    SMC</span>
+
+                            </a>
+                        </li>
+                    </div>
+
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('btzero.smcRejecteds') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-close-circle-line text-white fw-light fs-5"></i> <span>Informes SMC
+                                    Rejeitados</span> @livewire('btzero.count.return-ramal-count', key('return-ramal-count'))
 
                             </a>
                         </li>
@@ -30,7 +41,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('btzero.histInform') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>Patrimonios SMC
+                                <i class="ri-list-check fw-light text-white fs-5"></i> <span>Patrimonios SMC
                                     Informados
                                 </span>
 

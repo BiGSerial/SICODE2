@@ -20,6 +20,28 @@ class Translist extends Component
     public function mount(Service $service)
     {
         $this->service = $service;
+
+    }
+
+    public function fixTransfer()
+    {
+        $transfers = Prodtransfer::where('status', 19)
+            ->where(function ($q) {
+                $q->whereRelation('Production', 'completed', true);
+            })->orWhere(function ($q) {
+                $q->doesntHave('Production');
+            })
+            ->get();
+
+        if ($transfers) {
+            $transfers->each(function ($transfer) {
+                $transfer->update([
+                    'status' => 22,
+                    'read_to' => true,
+                    'read_from' => true,
+                ]);
+            });
+        }
     }
 
     public function getTransferProperty()
@@ -204,6 +226,8 @@ class Translist extends Component
 
     public function render()
     {
+        $this->fixTransfer();
+
         return view('livewire.components.transprod.translist', [
             'lists' => $this->transfer,
         ]);

@@ -292,6 +292,7 @@ class Workreports extends Component
                     'connection' => $this->form['connection'],
                     'changes' => $this->form['changes'],
                     'observation' => $this->form['observation'],
+                    'informed_at' => date('Y-m-d H:i:s'),
                 ]
             );
 

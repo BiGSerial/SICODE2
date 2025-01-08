@@ -186,6 +186,7 @@ Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->
     Route::get('/', 'main')->name('main');
     Route::get('/btzero_report', 'btzeroReport')->name('btzeroReport');
     Route::get('/hist_inform', 'histInform')->name('histInform');
+    Route::get('/smc_rejecteds', 'SmcRejecteds')->name('smcRejecteds');
 });
 
 // System Manager

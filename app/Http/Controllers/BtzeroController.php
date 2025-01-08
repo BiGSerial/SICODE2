@@ -16,6 +16,11 @@ class BtzeroController extends Controller
         return view('btzero.btzeroreport');
     }
 
+    public function SmcRejecteds()
+    {
+        return view('btzero.ramal_rejected_list');
+    }
+
     public function histInform()
     {
         return view('btzero.btzero_inform_hist');

@@ -946,26 +946,43 @@ class Main extends Component
         $query->whereHas('WorkForm', function ($sq) {
             $sq->where('rejected', false);
         })
-            ->whereHas('Orders', function ($q) {
-                $q->where('statusSist', 'LIKE', 'LIB%')
-                    ->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0010')
-                            ->where('status', 'like', 'CONF%');
-                    })->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0030')
-                            ->where(function ($sq) {
-                                $sq->where('status', 'like', 'CNPA%')
-                                    ->orWhere('status', 'like', 'LIB%')
+        ->whereHas('Orders', function ($q) {
+            $q->where('statusSist', 'LIKE', 'LIB%')
+                ->where(function ($sq) {
+                    $sq->where(function ($q1) {
+                        $q1->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0010')
+                                ->where('status', 'like', 'CONF%');
+                        })->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0030')
+                                ->where(function ($sq) {
+                                    $sq->where('status', 'like', 'CNPA%')
+                                        ->orWhere('status', 'like', 'LIB%')
+                                        ->orwhere('status', 'like', 'JBFI LIB%');
+                                });
+                        })->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0040')
+                                ->where(function ($sq) {
+                                    $sq->where('status', 'like', 'LIB%')
                                     ->orwhere('status', 'like', 'JBFI LIB%');
-                            });
-                    })->whereHas('Operations', function ($sq) {
-                        $sq->where('operacao', '0040')
-                            ->where(function ($sq) {
-                                $sq->where('status', 'like', 'LIB%')
-                                ->orwhere('status', 'like', 'JBFI LIB%');
-                            });
+                                });
+                        });
+                    })
+                    ->orWhere(function ($q2) {
+                        $q2->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0010')
+                                ->where('status', 'like', 'CONF%');
+                        })->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0030')
+                                ->where('status', 'like', 'CONF%');
+                        })->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0040')
+                                ->where('status', 'like', 'LIB%');
+                        });
                     });
-            });
+
+                });
+        });
 
         if (strlen($this->search)) {
             $this->gotoPage(1);

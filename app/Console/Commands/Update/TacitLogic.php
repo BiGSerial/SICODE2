@@ -67,9 +67,9 @@ class TacitLogic extends Command
 
                     $viability->update([
                         'tacit' => true,
-                        'tacit_at' => Carbon::parse($viability->sended_at)->addDays($totalDays)->endOfDay()->format('Y-m-d H:i:s'),
+                        'tacit_at' => date('Y-m-d H:i:s'),
                         'completed' => $viability->hired ? true : false,
-                        'completed_at' => $viability->hired ? Carbon::parse($viability->sended_at)->addDays($totalDays)->endOfDay()->format('Y-m-d H:i:s') : null,
+                        'completed_at' => $viability->hired ? date('Y-m-d H:i:s') : null,
                         'status' => $viability->hired ? 9 : 15,
                         'approved' => true,
                     ]);

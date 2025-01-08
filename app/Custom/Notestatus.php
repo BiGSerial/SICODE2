@@ -84,8 +84,8 @@ class Notestatus
             [
                 'status'  => 'Retorno',
                 'icon'    => 'ri-arrow-left-circle-line',
-                'colorbg' => 'text-bg-dark',
-                'color'   => 'gray-200',
+                'colorbg' => 'text-bg-primary',
+                'color'   => 'primary',
             ],
             // 11
             [
