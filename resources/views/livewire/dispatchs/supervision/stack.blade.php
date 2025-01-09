@@ -477,7 +477,7 @@
 
                                 </td>
                                 <td
-                                    class="fw-light text-center align-middle @if ($list->priority) text-danger fw-bold @endif">
+                                    class="fw-light text-center align-middle @if ($list->priority) text-danger fw-bold @endif" wire:click="">
                                     @if ($list->Wpas->count())
                                         @php
                                             $wpa = WpaStatus::status(
@@ -820,6 +820,7 @@
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
+    
 
 </div>
 

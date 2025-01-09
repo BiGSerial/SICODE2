@@ -473,12 +473,14 @@
                                     </td>
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        @if ($list->Wpas->count())
+                                        @if ($list->wpas->count())
                                             @php
+                                                $wpas = $list->wpas->last();
+
                                                 $wpa = WpaStatus::status(
-                                                    $list->Wpas()->get()->last()->stats,
-                                                    $list->Wpas()->get()->last()->execstats,
-                                                    $list->Wpas()->get()->last()->completed_at,
+                                                    $wpas->stats,
+                                                    $wpas->execstats,
+                                                    $wpas->completed_at,
                                                 );
                                             @endphp
                                             <i
@@ -817,6 +819,8 @@
     {{-- END MODALS --}}
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
+
+
 
 </div>
 

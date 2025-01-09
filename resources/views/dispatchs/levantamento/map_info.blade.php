@@ -34,8 +34,8 @@
         <div class="row">
             <div class="col-8">
                 <div class="card">
-                    <div class="card-body">
-                        <div id="map-container"></div>
+                    <div class="card-body p-0">
+                        <div class="p-0 m-0" id="map-container"></div>
                     </div>
                 </div>
             </div>

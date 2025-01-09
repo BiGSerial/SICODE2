@@ -945,7 +945,7 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with(['Note'])
+        return Production::with('Note', 'Wpas')
         ->join('notes', 'productions.note_id', '=', 'notes.id')
         ->where('confirmed', false)
         ->where('service_id', $this->service->uuid)

@@ -124,7 +124,7 @@
                 <strong>Status:</strong> ${marcador.status}<br>
                 <strong>Coordenada:</strong> [${marcador.coordenadas[0]}, ${marcador.coordenadas[1]}]<br>
                 (${marcador.nstat},  ${marcador.estat})<br>
-                
+
                 `);
 
                 marcadorLeaflet.on('click', function(e) {
@@ -142,7 +142,7 @@
 
             console.log(distancia);
 
-            var nivelDeZoom = distancia > 10000 ? 8 : 15;
+            var nivelDeZoom = distancia > 10000 ? 8 : 20;
 
             map.setView(bounds.getCenter(), nivelDeZoom);
 
