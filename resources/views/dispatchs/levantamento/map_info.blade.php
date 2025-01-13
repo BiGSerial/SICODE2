@@ -23,7 +23,7 @@
 @section('content')
     <style>
         #map-container {
-            height: 600px;
+            height: 800px;
 
             /* Altura desejada para o mapa */
             overflow: hidden;
@@ -33,7 +33,7 @@
     <div class="container-fluid mt-4">
         <div class="row">
             <div class="col-8">
-                <div class="card">
+                <div class="card ">
                     <div class="card-body p-0">
                         <div class="p-0 m-0" id="map-container"></div>
                     </div>

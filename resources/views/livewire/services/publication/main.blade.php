@@ -111,7 +111,12 @@
                                 if ($production = $this->hasPublication($list)) {
                                     if ($production->confirmed) {
                                         $block = 4;
-                                    } elseif ($production->completed) {
+                                    } elseif (
+                                        $production->completed ||
+                                        ($production->Note->RamalForm &&
+                                            !$production->Note->WorkForm &&
+                                            $production->status == 28)
+                                    ) {
                                         $block = 3;
                                     } elseif ($production->status == 1) {
                                         $block = 2;

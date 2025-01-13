@@ -2,80 +2,50 @@
     use App\Custom\WpaStatus;
 @endphp
 <div>
-    <x-show-loading />
-    <div class="card mb-1">
+    <div class="card">
         <div class="card-header">Buscar</div>
         <div class="card-body">
             <div class="d-flex justify-content-center">
-                <input type="text" class="form-control w-50" placeholder="Pesquisar..." wire:model.defer="search">
+                <input type="text" class="form-control w-50" placeholder="Pesquisar..." wire:model="search">
                 <button class="btn btn-primary ms-2" wire:click.prevent="toSearch">Pesquisar</button>
             </div>
         </div>
     </div>
-
     @if ($lists->count())
-        <div class="position-relative mb-2" style="height: calc(100vh - 350px);">
-            <div class="table-responsive h-100" style="overflow-y: auto; scrollbar-width: thin;">
-                <table class="table table-condensed table-striped table-hover">
-                    <thead>
-                        <tr class='sticky-top' style="z-index: 1; top: 0;">
-                            <th>Note</th>
-                            <th>DD</th>
-                            <th>Service</th>
-                            <th>User</th>
-                            <th>Status</th>
+        <div class="table-responsive">
+            <table class="table table-condensed table-striped">
+                <theader>
+                    <tr>
+                        <th>Note</th>
+                        <th>DD</th>
+                        <th>Servico</th>
+                        <th>Usuario</th>
+                        <th>Status</th>
+                    </tr>
+                </theader>
+                <tbody>
+                    @foreach ($lists as $list)
+                        <tr wire:click.prevent="pegarCoordenadaNota({{ $list->id }})">
+                            <td>{{ $list->Note->note }}</td>
+                            <td>{{ $list->dd }}</td>
+                            <td>{{ $list->Production->Service ? $list->Production->Service->service : '' }}</td>
+                            <td>{{ $list->Production->User ? $list->Production->User->name : '' }}</td>
+                            <td class="{{ WpaStatus::status($list->stats, $list->execstats)->bg_color }}">
+                                {{ WpaStatus::status($list->stats, $list->execstats)->info }}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($lists as $list)
-                            <tr wire:click.prevent="pegarCoordenadaNota({{ $list->id }})" style="cursor: pointer;">
-                                <td>{{ $list->Note->note }}</td>
-                                @php
-                                    if ($list->Wpas) {
-                                        $dd = isset($list->Wpas->last()->dd) ? $list->Wpas->last()->dd : 'N/A';
-                                        $exec = isset($list->Wpas->last()->execstats)
-                                            ? $list->Wpas->last()->execstats
-                                            : 0;
-                                        $stats = isset($list->Wpas->last()->stats) ? $list->Wpas->last()->stats : 0;
-                                        $time = isset($list->Wpas->last()->completed_at)
-                                            ? $list->Wpas->last()->completed_at
-                                            : null;
-                                    } else {
-                                        $dd = 'N/A';
-                                        $exec = 0;
-                                        $stats = 0;
-                                        $time = null;
-                                    }
-                                @endphp
-                                <td>{{ $dd }}</td>
-                                <td>{{ $list->Service ? $list->Service->service : '' }}</td>
-                                @php
-                                    if ($list->User) {
-                                        $name = explode(' ', $list->User->name);
-                                        $name = $name[0] . ' ' . end($name);
-                                    } else {
-                                        $name = 'N/A';
-                                    }
-                                @endphp
-                                <td>{{ $name }}</td>
-                                <td class="{{ WpaStatus::status($stats, $exec)->bg_color }}">
-                                    {{ WpaStatus::status($stats, $exec, $time)->info }}
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
+
         {{ $lists->links() }}
-        <div class="d-flex justify-content-between mt-2">
-            <div>
-                Exibindo {{ $lists->count() }} de {{ $lists->total() }} registros
-            </div>
-        </div>
+
+
+
+
 
     @endif
-    {{-- <button wire:click.prevent="teste">Teste</button> --}}
+    <button wire:click.prevent="teste">Teste</button>
 
     {{-- <script>
         var map;
