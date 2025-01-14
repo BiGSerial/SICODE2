@@ -160,15 +160,24 @@
                         @foreach ($lists as $list)
                             @php
                                 $block = false;
+                                $command = false;
 
                                 if ($production = $this->hasProduction($list)) {
                                     $block = true;
+
+                                    if ($production->confirmed) {
+                                        $command = true;
+                                    } else {
+                                        $command = false;
+                                    }
                                 }
 
                                 $rowClass = '';
 
                                 if ($block) {
-                                    if ($production->status == 1) {
+                                    if ($production->confirmed) {
+                                        $rowClass = 'table-danger';
+                                    } elseif ($production->status == 1) {
                                         $rowClass = 'table-danger';
                                     } elseif ($production->status == 2) {
                                         $rowClass = 'table-primary';
@@ -323,21 +332,23 @@
                                     {{ $daysLeft->getLastDate() }}
                                 </td>
 
-
+                                @php
+                                    if (isset($production->User->name)) {
+                                        $name = explode(' ', $production->User->name);
+                                        $name = $name[0] . ' ' . end($name);
+                                    } else {
+                                        $name = 'DESCONHECIDO';
+                                    }
+                                @endphp
                                 <td class="fw-bold text-center {{ $rowClass }}">
-                                    @if (!$block)
+                                    @if (!$block || $command)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
                                             wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                        @if ($command)
+                                            <p style="font-size: 11px">{{ $name }}</p>
+                                        @endif
                                     @else
-                                        @php
-                                            if (isset($production->User->name)) {
-                                                $name = explode(' ', $production->User->name);
-                                                $name = $name[0] . ' ' . end($name);
-                                            } else {
-                                                $name = 'DESCONHECIDO';
-                                            }
-                                        @endphp
                                         <span style="font-size: 11px">{{ $name }}</span>
                                     @endif
 
