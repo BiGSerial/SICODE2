@@ -1,6 +1,11 @@
 {
-    "appver": "1.13.1",
+    "appver": "1.13.2",
     "historic": [
+        {
+            "version": "1.13.2",
+            "description": "Fix Att Payment",
+            "date": "2025-01-14"
+        },
         {
             "version": "1.13.1",
             "description": "Fix Consult of Publication",
