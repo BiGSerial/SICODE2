@@ -42,7 +42,7 @@ class ProductionControlExport implements FromView, WithEvents, WithProperties
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:P1')->applyFromArray([
+                $event->sheet->getStyle('A1:Q1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -64,7 +64,7 @@ class ProductionControlExport implements FromView, WithEvents, WithProperties
                     ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER);
 
                 // Ajusta automaticamente o tamanho das colunas
-                foreach (range('A', 'P') as $column) {
+                foreach (range('A', 'Q') as $column) {
                     $event->sheet->getDelegate()->getColumnDimension($column)->setAutoSize(true);
                 }
             },

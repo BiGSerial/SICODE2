@@ -1,6 +1,11 @@
 {
-    "appver": "1.13.0",
+    "appver": "1.13.1",
     "historic": [
+        {
+            "version": "1.13.1",
+            "description": "Fix Consult of Publication",
+            "date": "2025-01-14"
+        },
         {
             "version": "1.13.0",
             "description": "Make return SMC inform from Publication. And Major Fixes like Transfer blocked prod in list",
