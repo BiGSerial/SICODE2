@@ -26,13 +26,17 @@ class NoteFilter
         $query = Note::query();
 
         $query->where(function ($q) {
-            $q->whereHas('WorkForm', function ($sq) {
-                $sq->where('rejected', false);
-            });
 
-            if ($this->btzeroform) {
-                $q->orWhereHas('RamalForm');
-            }
+            $q->where(function ($wq) {
+                $wq->whereHas('WorkForm', function ($sq) {
+                    $sq->where('rejected', false);
+                })->orWhere(function ($sq) {
+                    if ($this->btzeroform) {
+                        $sq->doesntHave('WorkForm')
+                       ->whereHas('RamalForm');
+                    }
+                });
+            });
         });
 
         $query->whereHas('Orders', function ($q) {

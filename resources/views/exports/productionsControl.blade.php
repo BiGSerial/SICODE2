@@ -3,6 +3,7 @@
     use Carbon\CarbonInterval;
     use App\Custom\Notestatus;
     use App\Custom\WpaStatus;
+    use App\Models\Notetimeline;
 @endphp
 <table>
     <thead>
@@ -24,6 +25,7 @@
             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
             <th scope="col" class="fw-bold text-center">Prazo Real</th>
             <th scope="col" class="fw-bold text-center">Status</th>
+            <th scope="col" class="fw-bold text-center">Desc Status</th>
         </tr>
     </thead>
     <tbody>
@@ -97,7 +99,7 @@
                     {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                 </td>
                 <td scope="col"
-                    class="text-center 
+                    class="text-center
                 @if ($list->Note->days_left < 0) text-bg-secondary
                 @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
                 table-danger
@@ -115,6 +117,23 @@
                     @else
                         {{ Notestatus::status($list->status)->status }}
                     @endif
+                </td>
+                @php
+                    if (
+                        $status = Notetimeline::where('note_id', $list->note_id)
+                            ->where('service_id', $list->service_id)
+                            ->where('status', $list->status)
+                            ->orderBy('created_at', 'DESC')
+                            ->with('User')
+                            ->first()
+                    ) {
+                        $info = $status->info;
+                    } else {
+                        $info = '';
+                    }
+                @endphp
+                <td>
+                    {{ $info }}
                 </td>
             </tr>
         @endforeach
