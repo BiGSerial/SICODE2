@@ -110,4 +110,9 @@ class Note extends Model
     {
         return $this->hasOne(RamalReport::class);
     }
+
+    public function Partials()
+    {
+        return $this->hasMany(Partial::class);
+    }
 }

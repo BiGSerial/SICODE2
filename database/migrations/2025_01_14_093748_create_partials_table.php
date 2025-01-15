@@ -17,6 +17,7 @@ return new class () extends Migration {
             $table->foreignUuid('user_id')->nullable();
             $table->text('observation')->nullable();
             $table->text('engineer_info')->nullable();
+            $table->decimal('value')->nullable();
             $table->boolean('allow')->default(false);
             $table->boolean('deny')->default(false);
             $table->boolean('payment')->default(false);

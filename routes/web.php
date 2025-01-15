@@ -180,6 +180,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/rejected_viability_list', 'rejectedViabList')->name('rejected.viability');
     Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
+    Route::get('/partialreport', 'partialreport')->name('report.partial');
 });
 
 Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->middleware('auth')->group(function () {
