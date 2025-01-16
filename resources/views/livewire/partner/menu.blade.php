@@ -21,7 +21,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.rejected.viability') }}" class="nav-item text-white">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Em Tratativa </span>
+                                <i class="ri-tools-fill fw-light fs-5"></i> <span>Em Tratativa </span>
                                 @livewire('partner.count.rejectedanswercount', key('answer-count-viab'))
                             </a>
                         </li>
@@ -30,7 +30,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.tacit.viability') }}" class="nav-item text-white">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span>Tácitas a Justificar </span>
+                                <i class="ri-timer-flash-fill fw-light fs-5"></i> <span>Tácitas a Justificar </span>
                                 @livewire('partner.count.tacitcount', key('answer-count-tacit'))
                             </a>
                         </li>
@@ -56,33 +56,64 @@
             </li>
 
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#contracts-nav" data-bs-toggle="collapse" href="#">
-                    <i class="ri-award-fill"></i><span>Informes</span><i class="bi bi-chevron-down ms-auto"></i>
+                <a class="nav-link collapsed" data-bs-target="#conclusion-nav" data-bs-toggle="collapse" href="#">
+                    <i class="ri-information-fill text-success"></i><span>Informes Conclusão</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
                 </a>
 
-                <ul id="contracts-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <ul id="conclusion-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.report.workreport') }}" class="nav-item text-white">
-                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informar Obras</span>
+                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informar Conclusão de
+                                    Obras</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('partner.report.rejectedWorked') }}" class="nav-item text-white">
-                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informe
+                                <i class="ri-user-voice-fill fw-light fs-5"></i> <span>Informe Conclusão
                                     Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
-                                <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Informadas</span>
+                                <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Concluídas Informadas</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('partner.declared.equipment') }}" class="nav-item text-white">
-                                <i class="ri-device-line fw-light fs-5"></i> <span>Equipamentos Declarados</span>
+                                <i class="ri-device-line fw-light fs-5"></i> <span>Equipamentos Obras Concluídas
+                                    Declarados</span>
                             </a>
                         </li>
+                    </div>
+
+
+                </ul>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#partial-nav" data-bs-toggle="collapse" href="#">
+                    <i class="ri-information-line text-danger"></i><span>Informes Parcial</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
+                </a>
+
+                <ul id="partial-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('partner.report.partial') }}" class="nav-item text-white">
+                                <i class="ri-user-voice-line fw-light fs-5 text-warning"></i> <span>Informar
+                                    Parcialmente
+                                    Obras</span>
+                            </a>
+                        </li>
+
+                        {{-- <li>
+                            <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
+                                <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Parciais Informadas</span>
+                            </a>
+                        </li> --}}
+
                     </div>
 
 
