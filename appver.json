@@ -1,6 +1,11 @@
 {
-    "appver": "1.13.2",
+    "appver": "1.13.3",
     "historic": [
+        {
+            "version": "1.13.3",
+            "description": "fix filter supervision",
+            "date": "2025-01-16"
+        },
         {
             "version": "1.13.2",
             "description": "Fix Att Payment",
