@@ -429,7 +429,7 @@
                 @endif
 
 
-                @if ($lists->WorkForm || $lists->RamalForm)
+                @if ($lists->WorkForm || $lists->RamalForm || $lists->Partials)
                     <div class="table-responsive">
                         <h5 class="edp-bg-sprucegreen-100 edp-text-verde-dark py-1 px-3 my-0 fw-bold">INFORMES DE OBRA
                         </h5>
@@ -452,6 +452,64 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                @if ($lists->Partials && $lists->Partials->count())
+                                    @foreach ($lists->Partials as $partial)
+                                        <tr wire:click="" wire:key="{{ $partial->id }}" style="cursor: pointer;">
+                                            <td class="text-center align-middle text-bg-warning">
+                                                PARCIAL
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                @if ($partial->Orders->count())
+                                                    @foreach ($partial->Orders as $order)
+                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                --
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                ---
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                ---
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                {{ $partial->responsible ? $partial->responsible : 'Desconhecido' }}
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                ---
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                {{ $partial->created_at ? date('d/m/Y', strToTime($partial->created_at)) : 'Desconhecido' }}
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                ---
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                ---
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                @if ($partial->deny)
+                                                    <span class="badge text-bg-danger">REJEITADO</span>
+                                                @elseif ($partial->allow)
+                                                    @if (!$partial->Supervision)
+                                                        <span class="badge text-bg-info">EM FISCALIZAÇÃO</span>
+                                                    @elseif ($partial->payment)
+                                                        <span class="badge text-bg-info">EM PAGAMENTO</span>
+                                                    @elseif ($partial->complete)
+                                                        <span class="badge text-bg-success">PAGO</span>
+                                                    @endif
+                                                @else
+                                                    <span class="badge text-bg-info">EM APROVAÇÃO</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                ---
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endif
                                 @if ($lists->RamalForm)
                                     <tr wire:click="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $lists }})"
                                         wire:key="{{ $lists->RamalForm->id }}" style="cursor: pointer;">

@@ -23,6 +23,7 @@ return new class () extends Migration {
             $table->boolean('deny')->default(false);
             $table->boolean('payment')->default(false);
             $table->boolean('supervision')->default(false);
+            $table->boolean('complete')->default(false);
             $table->uuid('engineer_id')->nullable();
             $table->uuid('supervision_id')->nullable();
             $table->uuid('payment_id')->nullable();

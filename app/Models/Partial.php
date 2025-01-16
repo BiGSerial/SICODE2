@@ -25,6 +25,8 @@ class Partial extends Model
         'decision_at',
         'payment_at',
         'supervision_at',
+        'complete',
+        'responsible'
     ];
 
     public function Note()
@@ -62,5 +64,10 @@ class Partial extends Model
         return $this->belongsTo(User::class, 'payment_id');
     }
 
-    
+    public function Orders()
+    {
+        return $this->belongsToMany(Order::class, 'order_partial');
+    }
+
+
 }

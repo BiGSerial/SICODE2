@@ -8,8 +8,11 @@ class Ads
 {
     public string $note;
     public string $company;
+    public string $contract;
+    public string $center;
+    public string $deposit;
     public bool $partial;
-    public float $value;
+
     public $spreadsheet;
 
     private bool $exists = false;
@@ -17,25 +20,28 @@ class Ads
     public function __construct(string $path)
     {
         try {
-
-            $this->spreadsheet = IOFactory::load($path);
+            // Configurar o filtro de leitura
+            $reader = IOFactory::createReader('Xlsx');
+            $reader->setReadFilter(new ADSReadFilter());
+            $this->spreadsheet = $reader->load($path);
 
             if (
                 !$this->spreadsheet->sheetNameExists('ADS') ||
                 !$this->spreadsheet->sheetNameExists('Check-list')
             ) {
-                throw new \Exception("O Arquivo não parece ser uma ADS Válida..");
+                $this->setExists(false);
             }
 
-            $this->spreadsheet->setActiveSheetIndex(0);
-            $sheet = $this->spreadsheet->getActiveSheet();
+            $sheet = $this->spreadsheet->getSheetByName('Check-list');
 
             if ($sheet) {
-
                 $this->note = trim($sheet->getCell('G4')->getCalculatedValue());
                 $this->company = trim($sheet->getCell('G5')->getCalculatedValue());
-                $this->partial = $sheet->getCell('W7')->getValue() <> '' ? true : false;
-                $this->value = (float) trim($sheet->getCell('Q13')->getCalculatedValue());
+                $this->contract = trim($sheet->getCell('G6')->getCalculatedValue());
+                $this->center = trim($sheet->getCell('G7')->getCalculatedValue());
+                $this->deposit = trim($sheet->getCell('G8')->getCalculatedValue());
+                $this->partial = $sheet->getCell('W7')->getValue() ? true : false;
+
 
                 $this->setExists(true);
             } else {
@@ -43,7 +49,7 @@ class Ads
             }
 
         } catch (\Exception $e) {
-            throw new \Exception("Não foi possível carregar o arquivo: " . $e->getMessage());
+            $this->setExists(false);
         }
 
     }
@@ -57,6 +63,36 @@ class Ads
     public function exist()
     {
         return $this->exists;
+    }
+    // Métodos GET
+    public function getNote(): string
+    {
+        return $this->note ?? '';
+    }
+
+    public function getCompany(): string
+    {
+        return $this->company ?? '';
+    }
+
+    public function getContract(): string
+    {
+        return $this->contract ?? '';
+    }
+
+    public function getCenter(): string
+    {
+        return $this->center ?? '';
+    }
+
+    public function getDeposit(): string
+    {
+        return $this->deposit ?? '';
+    }
+
+    public function getPartial(): bool
+    {
+        return $this->partial ?? false;
     }
 
 

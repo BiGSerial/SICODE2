@@ -53,4 +53,9 @@ class Order extends Model
     {
         return $this->hasMany(OperationResp::class);
     }
+
+    public function Partials()
+    {
+        return $this->belongsToMany(Partial::class, 'order_partial');
+    }
 }
