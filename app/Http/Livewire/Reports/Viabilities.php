@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Reports;
 
 use App\Exports\ProductionExport;
 use App\Exports\Reports\viabilityexport;
+use App\Exports\Reports\viabilityQueryExport;
 use App\Models\Production;
 use App\Models\Viability;
 use Carbon\Carbon;
@@ -19,9 +20,12 @@ class Viabilities extends Component
     public $dt_init;
     public $dt_end;
 
+    public $all = false;
+
     public function Export()
     {
-        return (new viabilityexport($this->lists->limit(5000)->get()))->download(date('YmdHis-') . 'exportViabilityHiring.xlsx');
+        // return (new viabilityexport($this->lists->limit(5000)->get()))->download(date('YmdHis-') . 'exportViabilityHiring.xlsx');
+        return (new viabilityQueryExport($this->getListsProperty()->with('Company', 'User', 'Note', 'Engineer')->get()->toArray()))->download(date('YmdHis-') . 'exportViabilityHiring.xlsx');
     }
 
     public function getListsProperty()
