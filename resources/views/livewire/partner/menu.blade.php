@@ -108,15 +108,13 @@
                             </a>
                         </li>
 
-                        {{-- <li>
-                            <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
+                        <li>
+                            <a href="{{ route('partner.report.partiallist') }}" class="nav-item text-white">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Parciais Informadas</span>
                             </a>
-                        </li> --}}
+                        </li>
 
                     </div>
-
-
                 </ul>
             </li>
         </ul>

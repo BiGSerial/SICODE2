@@ -69,5 +69,10 @@ class Partial extends Model
         return $this->belongsToMany(Order::class, 'order_partial');
     }
 
+    public function Files()
+    {
+        return $this->belongsToMany(File::class, 'file_partial');
+    }
+
 
 }

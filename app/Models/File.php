@@ -50,4 +50,9 @@ class File extends Model
     {
         return $this->belongsToMany(Viability::class);
     }
+
+    public function Parcials()
+    {
+        return $this->belongsToMany(Partial::class, 'file_partial');
+    }
 }

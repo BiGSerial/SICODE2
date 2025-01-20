@@ -3,8 +3,11 @@
 namespace App\Custom\Partial;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
 
-class Ads
+class Ads implements WithCalculatedFormulas
 {
     public string $note;
     public string $company;
@@ -19,6 +22,7 @@ class Ads
 
     public function __construct(string $path)
     {
+        
         try {
             // Configurar o filtro de leitura
             $reader = IOFactory::createReader('Xlsx');

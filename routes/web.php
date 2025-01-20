@@ -181,6 +181,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
     Route::get('/partialreport', 'partialreport')->name('report.partial');
+    Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
 });
 
 Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->middleware('auth')->group(function () {

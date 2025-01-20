@@ -151,7 +151,7 @@ class Createfiles extends Component
         foreach ($this->tempFiles as $saveFile) {
             $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
 
-            $caminho = $saveFile['file']->store('/arquivos/'. $saveFile['uploadType']);
+            $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
 
 
 

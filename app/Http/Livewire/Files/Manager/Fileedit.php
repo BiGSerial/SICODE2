@@ -107,7 +107,7 @@ class Fileedit extends Component
 
         if ($this->newFile) {
 
-            $path = $this->newFile->store("/".dirname($this->file->path));
+            $path = $this->newFile->storeAs("/".dirname($this->file->path, 1), $this->file->file_name . '.' . $this->newFile->getClientOriginalExtension());
 
             if (Storage::exists($path)) {
                 if (Storage::exists($this->file->path)) {

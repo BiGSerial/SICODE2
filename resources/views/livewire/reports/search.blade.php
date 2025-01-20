@@ -439,6 +439,7 @@
                                 <tr>
                                     <th class="text-center" scope="col">Tipo</th>
                                     <th class="text-center" scope="col">Ordens</th>
+                                    <th class="text-center" scope="col">Empresa</th>
                                     <th class="text-center" scope="col">Equipamentos</th>
                                     <th class="text-center" scope="col">Alteração</th>
                                     <th class="text-center" scope="col">Equipe WPA</th>
@@ -464,6 +465,9 @@
                                                         <p class="my-0 py-0">{{ $order->ordem }}</p>
                                                     @endforeach
                                                 @endif
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                {{ $partial->Company->name }}
                                             </td>
                                             <td class="text-center align-middle">
                                                 --
@@ -524,6 +528,9 @@
                                             @endif
                                         </td>
                                         <td class="text-center align-middle">
+                                            {{ $lists->RamalForm->Company->name }}
+                                        </td>
+                                        <td class="text-center align-middle">
                                             {!! $lists->RamalForm->BtzeroEquipment->count()
                                                 ? "<span class='badge text-bg-dark'>" . $lists->RamalForm->BtzeroEquipment->count() . '</span>'
                                                 : '' !!}
@@ -565,7 +572,7 @@
                                     <tr wire:click="$emitTo('partner.show.show-work-form', 'show_form', {{ $lists->WorkForm }})"
                                         wire:key="{{ $lists->WorkForm->id }}" style="cursor: pointer;">
                                         <td class="text-center align-middle text-bg-primary">
-                                            CONCLUSÃO
+                                            FINAL
                                         </td>
                                         <td class="text-center align-middle">
                                             @if ($lists->WorkForm->Orders->count())
@@ -573,6 +580,9 @@
                                                     <p class="my-0 py-0">{{ $order->ordem }}</p>
                                                 @endforeach
                                             @endif
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            {{ $lists->WorkForm->Company->name }}
                                         </td>
                                         <td class="text-center align-middle">
                                             {!! $lists->WorkForm->Equipment->count()

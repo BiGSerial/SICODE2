@@ -182,10 +182,10 @@ class Partialreport extends Component
 
                 }
 
-                $caminho = $this->file->store('/arquivos/informes/');
+                $caminho = $this->file->storeAs('/arquivos/ADS/', $newName.'.'.$this->file->getClientOriginalExtension());
 
                 if (Storage::exists($caminho)) {
-                    File::create([
+                    $partial->Files()->create([
                         'note_id' => $this->note->id,
                         'user_id' => Auth()->User()->id,
                         'service_id' => null,

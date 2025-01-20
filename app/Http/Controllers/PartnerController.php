@@ -58,4 +58,9 @@ class PartnerController extends Controller
     {
         return view('partner.partialform');
     }
+
+    public function partialreportlist()
+    {
+        return view('partner.partial_list');
+    }
 }
