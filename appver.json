@@ -1,6 +1,11 @@
 {
-    "appver": "1.13.3",
+    "appver": "1.13.4",
     "historic": [
+        {
+            "version": "1.13.4",
+            "description": "Fix Report Viability from Query",
+            "date": "2025-01-20"
+        },
         {
             "version": "1.13.3",
             "description": "fix filter supervision",
