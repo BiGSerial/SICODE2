@@ -35,7 +35,7 @@
     </ul>
 
     <div class="col-12">
-        @livewire('production.users.occupation', ['service_id' => $service->uuid], key('production-' . $service->uuid))
+        @livewire('production.users.occupation-construction', ['service_id' => $service->uuid], key('production-' . $service->uuid))
     </div>
 
 </aside>

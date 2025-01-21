@@ -1,6 +1,16 @@
 {
-    "appver": "1.13.4",
+    "appver": "1.13.6",
     "historic": [
+        {
+            "version": "1.13.6",
+            "description": "Fix info Error in View Supervision Stack",
+            "date": "2025-01-21"
+        },
+        {
+            "version": "1.13.5",
+            "description": "\"Change Filter Exclude Publication Status complete from Occupation component\"",
+            "date": "2025-01-21"
+        },
         {
             "version": "1.13.4",
             "description": "Fix Report Viability from Query",

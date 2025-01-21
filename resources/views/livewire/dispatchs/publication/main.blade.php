@@ -3,7 +3,35 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
+
 <div>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <style>
+        #exemple {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        #exemple th,
+        #exemple td {
+            padding: 8px;
+            text-align: center;
+            /* border: 1px solid #ddd; */
+        }
+
+        #exemple tbody tr {
+            position: relative;
+            transition: transform 0.5s ease, box-shadow 0.3s ease;
+        }
+
+        /* Linha elevada (sombra para parecer "flutuando") */
+        #exemple tbody tr.moving {
+            z-index: 10;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+
+
 
     <x-show-loading />
 
@@ -145,7 +173,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
+                <table id="exemple" class="table table-sm table-striped table-condensed">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -155,6 +183,7 @@
                             <th class="align-middle text-center">Inf Digitacao</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Material</th>
+                            <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
@@ -208,7 +237,8 @@
 
 
 
-                            <tr class="align-middle text-center">
+                            <tr class="align-middle text-center" id="note-{{ $list->id }}"
+                                wire:key="{{ $list->id }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
@@ -230,6 +260,9 @@
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     {{ $list->material }}
+                                </td>
+                                <td class="fw-light {{ $rowClass }}">
+                                    {{ $list->numPedido }}
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">
@@ -519,5 +552,94 @@
 
 
     {{-- END MODALS --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const table = document.querySelector('#exemple');
+            const headers = table.querySelectorAll('th');
+            let currentSortColumn = null;
+            let currentSortOrder = 'asc';
+
+            headers.forEach((header, index) => {
+                header.addEventListener('click', () => {
+                    const tbody = table.querySelector('tbody');
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                    // Alterna a ordem de classificação
+                    if (currentSortColumn === index) {
+                        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSortColumn = index;
+                        currentSortOrder = 'asc';
+                    }
+
+                    // Verifica se a coluna é numérica
+                    const isNumericColumn = !isNaN(rows[0].cells[index].innerText);
+
+                    // Ordena os elementos
+                    const sortedRows = rows.slice().sort((rowA, rowB) => {
+                        const cellA = rowA.cells[index].innerText.trim();
+                        const cellB = rowB.cells[index].innerText.trim();
+
+                        if (isNumericColumn) {
+                            return currentSortOrder === 'asc' ?
+                                parseFloat(cellA) - parseFloat(cellB) :
+                                parseFloat(cellB) - parseFloat(cellA);
+                        } else {
+                            return currentSortOrder === 'asc' ?
+                                cellA.localeCompare(cellB) :
+                                cellB.localeCompare(cellA);
+                        }
+                    });
+
+                    // Realiza a animação das linhas
+                    animateRows(tbody, rows, sortedRows);
+                });
+            });
+
+            /**
+             * Anima as linhas com efeito de elevação e deslocamento
+             */
+            function animateRows(tbody, originalRows, sortedRows) {
+                const originalOrder = originalRows.map(row => row.getBoundingClientRect());
+                const sortedOrder = sortedRows.map(row => row.getBoundingClientRect());
+
+                // Aplica deslocamento às linhas
+                originalRows.forEach((row, index) => {
+                    const offset = sortedOrder[index].top - originalOrder[index].top;
+                    if (offset !== 0) {
+                        row.style.transform = `translateY(${offset}px)`;
+                    }
+                });
+
+                // Eleva a linha que está sendo movimentada
+                const movingRow = sortedRows.find((row, index) => originalRows[index] !== row);
+                if (movingRow) {
+                    movingRow.classList.add('moving');
+                }
+
+                // Finaliza a animação
+                setTimeout(() => {
+                    originalRows.forEach(row => {
+                        row.style.transform = ''; // Reseta o transform
+                    });
+
+                    // Reordena no DOM
+                    sortedRows.forEach(row => {
+                        tbody.appendChild(row);
+                    });
+
+                    // Remove a classe de elevação
+                    if (movingRow) {
+                        movingRow.classList.remove('moving');
+                    }
+                }, 500); // Tempo da animação
+            }
+        });
+    </script>
+
+
+
+
+
 
 </div>
