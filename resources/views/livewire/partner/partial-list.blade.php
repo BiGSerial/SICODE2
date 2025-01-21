@@ -38,7 +38,7 @@
             <div class="card-header">
                 Lista de Obras Parciais Informadas
             </div>
-            <table class="table">
+            <table class="table table-sm table-striped table-hover">
                 <thead>
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
@@ -58,16 +58,36 @@
                             <td>
                                 @if ($list->Orders)
                                     @foreach ($list->Orders as $order)
-                                        <p class="my-0 py-0">{{ $order->order }}</p>
+                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
                                     @endforeach
                                 @endif
                             </td>
                             <td>{{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}</td>
-                            <td>{{ $list->  }}</td>
-                            <td>{{ $list->dta_fiscalizacao }}</td>
-                            <td>{{ $list->dta_pagamento }}</td>
-                            <td>{{ $list->status }}</td>
-                            <td>{{ $list->finalizado }}</td>
+                            <td class="@if (!$list->allow && !$list->deny) text-bg-info fw-bold @endif">
+                                @if (!$list->allow && !$list->deny)
+                                    {{ Carbon::parse($list->created_at)->diffInDays() }}
+                                @else
+                                    {{ $list->decision_at ? Carbon::parse($list->decision_at)->format('d/m/Y H:i:s') : '---' }}
+                                @endif
+                            </td>
+                            <td class="@if ($list->allow && !$list->supervision) text-bg-info fw-bold @endif">
+                                @if ($list->allow && !$list->supervision)
+                                    {{ Carbon::parse($list->decision_at)->diffInDays() }}
+                                @else
+                                    {{ $list->supervision_at ? Carbon::parse($list->supervision_at)->format('d/m/Y H:i:s') : '---' }}
+                                @endif
+                            </td>
+                            <td class="@if ($list->supervision && !$list->payment) text-bg-info fw-bold @endif">
+                                @if ($list->supervision && !$list->payment)
+                                    {{ Carbon::parse($list->supervision_at)->diffInDays() }}
+                                @else
+                                    {{ $list->payment_at ? Carbon::parse($list->payment_at)->format('d/m/Y H:i:s') : '---' }}
+                                @endif
+                            </td>
+
+                            <td class="{{ $this->partialStatus($list)['color'] }} fs-6 fw-bold">
+                                {{ $this->partialStatus($list)['status'] }}</td>
+                            <td>{{ $list->complete ? 'SIM' : '' }}</td>
                         </tr>
                     @endforeach
                 </tbody>

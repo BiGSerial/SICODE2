@@ -34,10 +34,10 @@ class Partial extends Model
         return $this->belongsTo(Note::class);
     }
 
-    public function Order()
-    {
-        return $this->belongsToMany(Order::class, 'order_partial');
-    }
+    // public function Order()
+    // {
+    //     return $this->belongsToMany(Order::class, 'order_partial');
+    // }
 
     public function Company()
     {

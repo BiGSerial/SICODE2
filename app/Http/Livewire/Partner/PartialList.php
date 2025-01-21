@@ -39,6 +39,45 @@ class PartialList extends Component
         return $query->orderBy('created_at', 'desc')->paginate($this->perPage);
     }
 
+    public function partialStatus(Partial $partial): array
+    {
+        $status = [
+            'status' => '',
+            'color' => '',
+        ];
+
+        if ($partial) {
+            if ($partial->deny) {
+                $status = [
+                    'status' => 'REJEITADO',
+                    'color' => 'text-bg-danger',
+                ];
+            } elseif ($partial->payment && $partial->allow) {
+                $status = [
+                    'status' => 'PAGO',
+                    'color' => 'text-bg-success',
+                ];
+            } elseif ($partial->supervision && !$partial->payment) {
+                $status = [
+                    'status' => 'EM PAGAMENTO',
+                    'color' => 'text-bg-info',
+                ];
+            } elseif ($partial->allow && !$partial->supervision) {
+                $status = [
+                    'status' => 'EM FISCALIZAÇÃO',
+                    'color' => 'text-bg-info',
+                ];
+            } else {
+                $status = [
+                    'status' => 'AVALIAÇÃO',
+                    'color' => 'text-bg-warning',
+                ];
+            }
+        }
+
+        return $status;
+    }
+
 
     public function render()
     {
