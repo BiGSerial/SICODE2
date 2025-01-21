@@ -6,7 +6,7 @@ use App\Models\{Company, Production, Service, User};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
-class Occupation extends Component
+class OccupationConstruction extends Component
 {
     public $service;
 
@@ -42,12 +42,25 @@ class Occupation extends Component
         ->join('productions', 'users.id', '=', 'productions.user_id')
         ->join('employees', 'users.id', '=', 'employees.user_id')
         ->join('notes', 'productions.note_id', '=', 'notes.id')
+        ->leftJoin('ramal_reports', 'notes.id', '=', 'ramal_reports.note_id')
+        ->leftJoin('work_reports', 'notes.id', '=', 'work_reports.note_id')
         ->where('productions.service_id', $this->service->uuid)
         ->when(Auth()->user()->contract, function ($q) {
             return $q->where('productions.company_id', Auth()->user()->employee->contract->company_id);
         })
         ->when($this->company_s, function ($q) {
             return $q->where('productions.company_id', $this->company_s);
+        })
+        ->where(function ($subQuery) {
+            $subQuery->where(function ($q1) {
+                $q1->where('productions.status', '!=', 28)
+                ->WhereNull('ramal_reports.id')
+                ->WhereNotNull('work_reports.id');
+            })->orWhere(function ($q2) {
+                $q2->where('productions.status', '=', 28)
+                ->WhereNotNull('ramal_reports.id')
+                ->WhereNotNull('work_reports.id');
+            });
         })
         ->where('productions.completed', false)
         ->where(function ($q) {
@@ -59,9 +72,9 @@ class Occupation extends Component
         ->selectRaw('SUM(CASE WHEN notes.type_note = 2 THEN 1 ELSE 0 END) as ov')
         ->selectRaw('SUM(CASE WHEN notes.type_note = 1 THEN 1 ELSE 0 END) as notes')
         ->groupBy('users.id', 'users.name')
-        ->orderBy('registros', 'desc')
-        ->orderBy('ov', 'desc')
-        ->orderBy('notes', 'desc')
+        ->OrderBy('registros', 'desc')
+        ->OrderBy('ov', 'desc')
+        ->OrderBy('notes', 'desc')
         ->get();
 
         // $query = Production::with(['User', 'Note'])
@@ -109,7 +122,7 @@ class Occupation extends Component
             ->orderBy('name')
             ->get();
 
-        return view('livewire.production.users.occupation', [
+        return view('livewire.production.users.occupation-construction', [
             'lists' => $this->lists,
         ]);
     }
