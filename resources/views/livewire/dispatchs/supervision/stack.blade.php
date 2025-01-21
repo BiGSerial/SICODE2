@@ -435,7 +435,10 @@
                         @foreach ($lists as $list)
                             @php
                                 $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm->informed_at : null;
-                                $formBlock = $list->Note->WorkForm->rejected ? $list->Note->WorkForm->rejected : false;
+                                $formBlock =
+                                    $list->Note->WorkForm && $list->Note->WorkForm->rejected
+                                        ? $list->Note->WorkForm->rejected
+                                        : false;
 
                                 if ($dateForm) {
                                     $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
@@ -476,8 +479,8 @@
                                     @endif
 
                                 </td>
-                                <td
-                                    class="fw-light text-center align-middle @if ($list->priority) text-danger fw-bold @endif" wire:click="">
+                                <td class="fw-light text-center align-middle @if ($list->priority) text-danger fw-bold @endif"
+                                    wire:click="">
                                     @if ($list->Wpas->count())
                                         @php
                                             $wpa = WpaStatus::status(
@@ -820,7 +823,7 @@
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
-    
+
 
 </div>
 
