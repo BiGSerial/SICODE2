@@ -54,12 +54,12 @@ class Partial extends Model
         return $this->belongsTo(User::class, 'engineer_id');
     }
 
-    public function Supervision()
+    public function Supervisor()
     {
         return $this->belongsTo(User::class, 'supervision_id');
     }
 
-    public function Payment()
+    public function Payer()
     {
         return $this->belongsTo(User::class, 'payment_id');
     }

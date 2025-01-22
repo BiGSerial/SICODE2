@@ -2,29 +2,31 @@
     use Carbon\Carbon;
 @endphp
 <div>
-    {{-- If your happiness depends on money, you will never be happy with yourself. --}}
+
+    <x-show-loading />
     <div class="card">
         <div class="card-header">
             Pesquisa
         </div>
         <div class="card-body">
-            <form>
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label for="searchText" class="form-label">Buscar</label>
-                        <input type="text" class="form-control" id="searchText" placeholder="Digite a Nota/OV/Ordem/DR">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="startDate" class="form-label">Data de Início</label>
-                        <input type="date" class="form-control" id="startDate">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="endDate" class="form-label">Data de Fim</label>
-                        <input type="date" class="form-control" id="endDate">
-                    </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="searchText" class="form-label">Buscar</label>
+                    <input type="text" class="form-control" id="searchText" placeholder="Digite a Nota/OV/Ordem/DR"
+                        wire:model.defer="search">
                 </div>
-                <button type="submit" class="btn btn-primary">Pesquisar</button>
-            </form>
+                <div class="col-md-4 mb-3">
+                    <label for="startDate" class="form-label">Data de Início</label>
+                    <input type="date" class="form-control" id="startDate" wire:model.defer="dt_in">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="endDate" class="form-label">Data de Fim</label>
+                    <input type="date" class="form-control" id="endDate" wire:model.defer="dt_out">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" wire:click.prevent="pesquisar">Pesquisar</button>
+
         </div>
     </div>
 
@@ -53,7 +55,8 @@
                 </thead>
                 <tbody>
                     @foreach ($lists as $list)
-                        <tr class="text-center">
+                        <tr class="text-center" style="cursor: pointer;"
+                            wire:click.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
                             <td>
                                 @if ($list->Orders)
@@ -94,4 +97,6 @@
             </table>
         </div>
     @endif
+
+    @livewire('partner.show.show-partial-info', key('show_partial_info'))
 </div>

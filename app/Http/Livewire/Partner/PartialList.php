@@ -4,14 +4,29 @@ namespace App\Http\Livewire\Partner;
 
 use App\Models\Partial;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class PartialList extends Component
 {
+    use WithPagination;
+    protected $paginationTheme = 'bootstrap';
+
     public $search;
     public $perPage = 50;
 
     public $dt_in;
     public $dt_out;
+
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'dt_in' => ['except' => '', 'as' => 'in'],
+        'dt_out' => ['except' => '', 'as' => 'out'],
+    ];
+
+    public function pesquisar()
+    {
+        $this->resetPage();
+    }
 
 
     public function getListsProperty()
