@@ -23,48 +23,89 @@
                             <div class="card-header bg-primary text-white">
                                 Informações da Nota
                             </div>
-                            <div class="card-body">
-                                <p class="py-1 my-0"><strong>Cliente:</strong> {{ mb_strToUpper($form->Note->client) }}
-                                </p>
-                                <p class="py-1 my-0"><strong>Nota:</strong> {{ $form->Note->note }}</p>
-                                <p class="py-1 my-0"><strong>Rubrica:</strong> {{ mb_strToUpper($form->Note->rubrica) }}
-                                </p>
-                                <p class="py-1 my-0"><strong>Municipio:</strong> {{ mb_strToUpper($form->Note->lexp) }}
-                                </p>
-                                <p class="py-1 my-0"><strong>Material:</strong>
-                                    {{ mb_strToUpper($form->Note->material) }}</p>
-                                <p class="py-1 my-0"><strong>Status:</strong>
-                                    {{ $form->Note->type_note == 2 ? $form->Note->nstats : $form->Note->centerjob }}</p>
-                            </div>
+
+                            <table class="table table-striped-columns table-condensed">
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Cliente:</strong></td>
+                                    <td>{{ mb_strToUpper($form->Note->client) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Nota:</strong></td>
+                                    <td>{{ $form->Note->note }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Rubrica:</strong></td>
+                                    <td>{{ mb_strToUpper($form->Note->rubrica) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Municipio:</strong></td>
+                                    <td>{{ mb_strToUpper($form->Note->lexp) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Material:</strong></td>
+                                    <td>{{ mb_strToUpper($form->Note->material) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Status:</strong></td>
+                                    <td>{{ $form->Note->type_note == 2 ? $form->Note->nstats : $form->Note->centerjob }}
+                                    </td>
+                                </tr>
+                            </table>
+
                         </div>
 
-                        <div class="card mb-3">
-                            <div class="card-header bg-secondary text-white">
-                                Informações do Pedido Parcial
+                        <div
+                            class="card mb-3 @if ($form->allow) text-bg-success @elseif ($form->deny) text-bg-danger @endif">
+                            <div class="card-header text-white">
+                                Informações do Pedido Parcial @if ($form->allow)
+                                    (APROVADO)
+                                @elseif ($form->deny)
+                                    (REJEITADO)
+                                @endif
                             </div>
-                            <div class="card-body">
-                                <p class="py-1 my-0"><strong>Empresa:</strong>
-                                    {{ mb_strToUpper($form->Company->name) }}</p>
-                                <p class="py-1 my-0"><strong>Data de Envio:</strong>
-                                    {{ Carbon::parse($form->created_at)->format('d/m/Y H:i:s') }}</p>
-                                <p class="py-1 my-0"><strong>Data da Aprovação:</strong>
-                                    {{ $form->allow || $form->deny ? Carbon::parse($form->decision_at)->format('d/m/Y H:i:s') : 'EM APROVAÇÃO' }}
-                                </p>
-                                <p class="py-1 my-0"><strong>Nome do Aprovador:</strong>
-                                    {{ $form->allow || $form->deny ? $form->Engineer->name : '---' }}</p>
-                                <p class="py-1 my-0"><strong>Data de Fiscalização:</strong>
-                                    {{ ($form->allow && $form->supervision ? Carbon::parse($form->supervision_at)->format('d/m/Y H:i:s') : $form->allow && !$form->supervision) ? 'EM FISCALIZAÇÃO' : '---' }}
-                                </p>
-                                <p class="py-1 my-0"><strong>Fiscalizador:</strong>
-                                    {{ $form->allow && $form->supervision ? $form->supervisor->name : '---' }}</p>
-                                </p>
-                                <p class="py-1 my-0"><strong>Data de Pagamento:</strong>
-                                    {{ ($form->supervision && $form->supervision ? Carbon::parse($form->payment_at)->format('d/m/Y H:i:s') : $form->supervision && !$form->payment) ? 'EM PAGAMENTO' : '---' }}
-                                </p>
-                                </p>
-                                <p class="py-1 my-0"><strong>Pagador:</strong>
-                                    {{ $form->supervision && $form->payment ? $form->payer->name : '---' }}</p>
-                            </div>
+                            <table class="table table-striped-columns table-condensed">
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Empresa:</strong></td>
+                                    <td>{{ mb_strToUpper($form->Company->name) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Valor Ads:</strong></td>
+                                    <td class="fs-6 fw-bold">
+                                        {{ 'R$ ' . number_format($form->value, 2, ',', '.') }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Data de Envio:</strong></td>
+                                    <td>{{ Carbon::parse($form->created_at)->format('d/m/Y H:i:s') }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Data da Decisão:</strong></td>
+                                    <td>{{ $form->allow || $form->deny ? Carbon::parse($form->decision_at)->format('d/m/Y H:i:s') : 'EM APROVAÇÃO' }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Responsável Decisão:</strong></td>
+                                    <td>{{ $form->allow || $form->deny ? $form->Engineer->name : '---' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Data de Fiscalização:</strong>
+                                    </td>
+                                    <td>{{ $form->allow ? ($form->supervision ? Carbon::parse($form->supervision_at)->format('d/m/Y H:i:s') : 'EM FISCALIZAÇÃO') : '---' }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Fiscalizador:</strong></td>
+                                    <td>{{ $form->allow && $form->supervision ? $form->supervisor->name : '---' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Data de Pagamento:</strong></td>
+                                    <td>{{ $form->supervision ? ($form->payment ? Carbon::parse($form->payment_at)->format('d/m/Y H:i:s') : 'EM PAGAMENTO') : '---' }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end" style="width: 25%"><strong>Pagador:</strong></td>
+                                    <td>{{ $form->supervision && $form->payment ? $form->payer->name : '---' }}</td>
+                                </tr>
+                            </table>
                         </div>
 
                         @if ($form->Files)

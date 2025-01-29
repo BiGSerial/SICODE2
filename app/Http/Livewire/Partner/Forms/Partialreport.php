@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Partialreport extends Component
 {
@@ -26,6 +27,7 @@ class Partialreport extends Component
     public $process = false;
     public $responsible;
     public $observation;
+    public $amount;
 
     protected $theAds = null;
 
@@ -72,6 +74,7 @@ class Partialreport extends Component
         $this->process = false;
 
         $path = $this->file->getRealPath();
+
 
         $this->theAds = new Ads($path);
 
@@ -121,13 +124,36 @@ class Partialreport extends Component
     {
         if (trim($this->responsible) == '') {
             $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'SEM RESPONSÁVEL',
+            'html'     => "INSIRA O NOME DO RESPONSAVEL POR ESTE INFORME.",
+            ]);
+            return;
+        }
+
+        if (trim($this->amount)) {
+            if (str_contains($this->amount, ',') && str_contains($this->amount, '.')) {
+                if (strpos($this->amount, ',') > strpos($this->amount, '.')) {
+                    // Format: 1.234,56 -> convert to 1234.56
+                    $this->amount = str_replace('.', '', $this->amount);
+                    $this->amount = str_replace(',', '.', $this->amount);
+                } else {
+                    // Format: 1,234.56 -> convert to 1234.56
+                    $this->amount = str_replace(',', '', $this->amount);
+                }
+            } elseif (str_contains($this->amount, ',')) {
+                // Format: 1234,56 -> convert to 1234.56
+                $this->amount = str_replace(',', '.', $this->amount);
+            }
+            // If only dot exists, keep as is
+        } else {
+            $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'SEM RESPONSÁVEL',
-                'html'     => "INSIRA O NOME DO RESPONSAVEL POR ESTE INFORME.",
-
-            ]);
-
+                'title'    => 'VALOR ADS NÃO INFORMADO',
+                'html'     => "INSIRA O VALOR DA ADS PARCIAL.",
+                ]);
             return;
         }
 
@@ -168,6 +194,7 @@ class Partialreport extends Component
                     'user_id' => Auth()->User()->id,
                     'observation' => $this->observation,
                     'responsible' => $this->responsible,
+                    'value' => $this->amount ? $this->amount : 0.00,
                 ]
             );
 
@@ -236,7 +263,7 @@ class Partialreport extends Component
                 'html'     => '<div class="card bg-primary text-white"><div class="card-body">
                             <p class="fw-bold">Ocoreu algum problema ao tentar registrar o envio do Informe parcial. Revvise as operações e tente novamente.</p>
 
-                            </div></div>',
+                            </div></div>'.$th->getMessage(),
 
             ]);
 

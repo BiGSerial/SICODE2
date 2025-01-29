@@ -7,7 +7,7 @@
                     <i class="bi bi-menu-button-wide"></i><span>VIABILIDADE</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="viabilidade-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <ul id="viabilidade-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
@@ -54,7 +54,7 @@
                     <i class="bi bi-menu-button-wide"></i><span>INFORMES</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="informes-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <ul id="informes-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
 
 

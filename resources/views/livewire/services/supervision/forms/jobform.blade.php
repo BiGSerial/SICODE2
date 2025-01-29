@@ -28,8 +28,12 @@
                                             <tr>
                                                 <td class="fw-bold col-2 align-middle">ORDEM:</td>
                                                 <td class="align-middle">
-                                                    @if (isset($production->Note->WorkForm) && $production->Note->WorkForm->Orders->count())
+                                                    @if ($production->Note->WorkForm && $production->Note->WorkForm->Orders->count())
                                                         @foreach ($production->Note->WorkForm->Orders as $order)
+                                                            <p class="my-1 py-0">{{ $order->ordem }}</p>
+                                                        @endforeach
+                                                    @elseif($production->partial)
+                                                        @foreach ($production->Note->Partials->last()->Orders as $order)
                                                             <p class="my-1 py-0">{{ $order->ordem }}</p>
                                                         @endforeach
                                                     @endif
@@ -49,8 +53,10 @@
                                                 <td class="fw-bold col-2 align-middle text-uppercase">MUDANÇA NO
                                                     PROJETO:</td>
                                                 <td class="align-middle">
-                                                    @if (isset($production->Note->WorkForm))
+                                                    @if ($production->Note->WorkForm)
                                                         {{ $production->Note->WorkForm->changes ? 'SIM' : 'NÃO' }}
+                                                    @elseif ($production->partial)
+                                                        Fiscalização Parcial
                                                     @endif
 
                                                 </td>
@@ -59,8 +65,10 @@
                                                 <td class="fw-bold col-2 align-middle text-uppercase">Data Informada:
                                                 </td>
                                                 <td class="align-middle">
-                                                    @if (isset($production->Note->WorkForm))
+                                                    @if ($production->Note->WorkForm)
                                                         {{ date('d/m/Y', strToTime($production->Note->WorkForm->date)) }}
+                                                    @elseif ($production->partial)
+                                                        {{ date('d/m/Y', strToTime($production->Note->Partials->last()->created_at)) }}
                                                     @endif
 
                                                 </td>
@@ -70,6 +78,8 @@
                                                 <td class="align-middle">
                                                     @if (isset($production->Note->WorkForm))
                                                         {{ date('d/m/Y H:i:s', strToTime($production->Note->WorkForm->informed_at)) }}
+                                                    @elseif ($production->partial)
+                                                        Não Aplica
                                                     @endif
                                                 </td>
                                             </tr>
@@ -79,6 +89,8 @@
                                                 <td class="align-middle">
                                                     @if (isset($production->Note->WorkForm))
                                                         {{ $production->Note->WorkForm->team }}
+                                                    @elseif ($production->partial)
+                                                        Não Aplica
                                                     @endif
                                                 </td>
                                             </tr>
@@ -88,6 +100,8 @@
                                                 <td class="align-middle">
                                                     @if (isset($production->Note->WorkForm))
                                                         {{ $production->Note->WorkForm->responsible }}
+                                                    @elseif ($production->partial)
+                                                        {{ $production->Note->Partials->last()->responsible }}
                                                     @endif
                                                 </td>
                                             </tr>
@@ -96,7 +110,12 @@
                                 </div>
                             </div>
                             <div class="card">
-                                <h4 class="card-header">Resultado da Fiscalização</h4>
+                                <h4 class="card-header">Resultado da Fiscalização @if ($production->partial)
+                                        (PARCIAL)
+                                    @endif
+                                </h4>
+
+
                                 <div class="card-body">
 
                                     <div class="mb-3 col-2">

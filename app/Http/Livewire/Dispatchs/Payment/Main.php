@@ -598,7 +598,7 @@ class Main extends Component
         }]);
 
         // Realizando o join com `work_reports` e `orders` e somando `moaberto`
-        $query->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        $query->leftJoin('work_reports', 'notes.id', '=', 'work_reports.note_id')
         ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
         ->leftJoinSub(
             DB::table('operation_resps')

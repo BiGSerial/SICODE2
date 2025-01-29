@@ -51,6 +51,7 @@ class Production extends Model
         'noinconsistency',
         'd5',
         'cad',
+        'partial',
     ];
 
     public function Note()

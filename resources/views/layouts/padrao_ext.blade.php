@@ -374,7 +374,49 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                 var bootstrapToast = new bootstrap.Toast(toast);
                 bootstrapToast.show();
             }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const localStorageKey = 'activeMenu'; // Chave única para o menu ativo
+
+                // Restaurar o estado do menu ativo
+                const activeMenuId = localStorage.getItem(localStorageKey);
+                if (activeMenuId) {
+                    const activeMenu = document.querySelector(activeMenuId);
+                    const activeLink = document.querySelector(`.nav-link[data-bs-target="${activeMenuId}"]`);
+                    if (activeMenu) {
+                        activeMenu.classList.add('show'); // Expande o menu
+                        activeLink?.classList.remove('collapsed'); // Remove a classe de colapso
+                    }
+                }
+
+                // Adicionar evento de clique em todos os links com submenu
+                document.querySelectorAll('.nav-link[data-bs-toggle="collapse"]').forEach(function(link) {
+                    link.addEventListener('click', function() {
+                        const targetId = link.getAttribute('data-bs-target');
+                        const targetElement = document.querySelector(targetId);
+
+                        // Fechar o menu atualmente ativo
+                        const previouslyActiveId = localStorage.getItem(localStorageKey);
+                        if (previouslyActiveId && previouslyActiveId !== targetId) {
+                            const previouslyActiveMenu = document.querySelector(previouslyActiveId);
+                            const previouslyActiveLink = document.querySelector(
+                                `.nav-link[data-bs-target="${previouslyActiveId}"]`);
+                            previouslyActiveMenu?.classList.remove('show');
+                            previouslyActiveLink?.classList.add('collapsed');
+                        }
+
+                        // Salvar o novo menu ativo no localStorage
+                        if (targetElement.classList.contains('show')) {
+                            localStorage.removeItem(localStorageKey); // Remove o estado ativo
+                        } else {
+                            localStorage.setItem(localStorageKey, targetId); // Define o novo ativo
+                        }
+                    });
+                });
+            });
         </script>
+
+
 
         @stack('script')
 

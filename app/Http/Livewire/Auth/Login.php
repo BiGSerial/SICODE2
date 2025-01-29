@@ -42,7 +42,7 @@ class Login extends Component
 
         $remember = $this->remember;
 
-        dd($remember);
+        // dd($remember);
 
         if (Auth::attempt($credentials, $remember)) {
             session()->regenerate();

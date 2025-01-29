@@ -194,8 +194,8 @@ class Main extends Component
         })->orderBy('name')->get();
 
         // Obtém a lista de produções com os filtros e relações especificados
-        return Production::with(['Note.WorkForm'])
-            ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
+        return Production::with('Note.WorkForm', 'Note.Partials')
+            ->leftjoin('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             ->where('productions.service_id', $this->service->uuid)
             ->when($this->user_s, function ($query) {
                 return $query->where('productions.user_id', $this->user_s);
@@ -211,6 +211,7 @@ class Main extends Component
                 $query->orderBy('dt_status', 'asc');
             }])
             ->orderBy('priority', 'DESC')
+            ->orderBy('partial', 'DESC')
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('att_at', 'DESC')
             ->orderBy('status', 'ASC')

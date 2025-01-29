@@ -15,6 +15,7 @@ use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Wpa;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use PhpParser\Node\Expr\Empty_;
@@ -345,17 +346,41 @@ class Main extends Component
             $para = (Company::find($this->company_s))->name;
         }
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title' =>  'Confirmar Despachar',
-            'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Despache!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => "confirm_dispatch",
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+        $partial = Note::whereIn('id', $this->selected)->whereHas('Partials', function ($q) {
+            $q->where('allow', true)
+                ->where('supervision', false);
+        })->count();
 
-        ]);
+
+        if ($partial > 0) {
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title' =>  'Confirmar Despachar',
+                'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}. <p class='py-2 my-3 text-bg-danger'> <strong>Atenção:</strong> Existem Notas/OVs Parciais para Fiscalização neste remessa.</strong></p>",
+                'icon' => 'warning',
+                'btnOktxt' => 'Sim, Despache!',
+                'btnCanceltxt' => 'Não, Cancele',
+                'action' => "confirm_dispatch",
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' =>  'Confirmar Despachar',
+                'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
+                'icon' => 'warning',
+                'btnOktxt' => 'Sim, Despache!',
+                'btnCanceltxt' => 'Não, Cancele',
+                'action' => "confirm_dispatch",
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+
+            ]);
+        }
+
+
+
     }
 
     public function add_dd()
@@ -466,12 +491,24 @@ class Main extends Component
             }
         }
 
+        DB::beginTransaction();
+
+        $erros = [];
 
         if ($this->type == "2") {
 
             foreach ($this->notes as $key => $note) {
 
-                $erros = [];
+                if ($note->Partials && $note->Partials->last()->allow && !$note->Partials->last()->supervision) {
+                    $partial = 1;
+
+                } else {
+                    $partial = 0;
+                }
+
+
+
+
 
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
                     $production = Production::create([
@@ -487,6 +524,7 @@ class Main extends Component
                         'att_at' => date('Y-m-d H:i:s'),
                         'status' => 2,
                         'centroTrab' => $note->centerjob,
+                        'partial' => $partial,
                     ]);
 
                     $user = Auth()->User()->name;
@@ -532,6 +570,17 @@ class Main extends Component
         } else {
             foreach ($this->notes as $key => $note) {
 
+                if ($note->Partials && $note->Partials->last()->allow && !$note->Partials->last()->supervision) {
+                    $partial = 1;
+
+                } else {
+                    $partial = 0;
+                }
+
+
+
+
+
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
                     $production = Production::create([
                         'note_id' => $note->id,
@@ -543,6 +592,7 @@ class Main extends Component
                         'dispatch_at' => date('Y-m-d H:i:s'),
                         'status' => 1,
                         'centroTrab' => $note->centerjob,
+                        'partial' => $partial,
                     ]);
 
                     $user = Auth()->User()->name;
@@ -569,12 +619,25 @@ class Main extends Component
             }
         }
 
+        if ($erros) {
+            DB::rollBack();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'OOPS!, Ocorreram erros ao atribuir as Notas/OVs',
+                'timer' => 2500,
+            ]);
+        }
+
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon' => 'success',
             'title' => 'Notas Despachadas com sucesso!',
             'timer' => 2500,
         ]);
+
+        DB::commit();
 
         $this->closeall();
         $this->emit('refresh_dispatch');
@@ -940,49 +1003,65 @@ class Main extends Component
         }
 
         $query = Note::query()
-            ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
+        ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
-
-        $query->whereHas('WorkForm', function ($sq) {
-            $sq->where('rejected', false);
-        })
-        ->whereHas('Orders', function ($q) {
-            $q->where('statusSist', 'LIKE', 'LIB%')
-                ->where(function ($sq) {
-                    $sq->where(function ($q1) {
-                        $q1->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0010')
-                                ->where('status', 'like', 'CONF%');
-                        })->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0030')
-                                ->where(function ($sq) {
-                                    $sq->where('status', 'like', 'CNPA%')
-                                        ->orWhere('status', 'like', 'LIB%')
-                                        ->orwhere('status', 'like', 'JBFI LIB%');
-                                });
-                        })->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0040')
-                                ->where(function ($sq) {
-                                    $sq->where('status', 'like', 'LIB%')
-                                    ->orwhere('status', 'like', 'JBFI LIB%');
-                                });
-                        });
+        $query->where(function ($q) {
+            $q->orwhere(function ($sq) {
+                $sq->whereHas('Partials', function ($q2) {
+                    $q2->where('supervision', false)
+                        ->where('allow', true);
+                })
+                ->whereDoesntHave('WorkForm');
+            })->orWhere(function ($sq) {
+                $sq->where(function ($q) {
+                    $q->whereHas('WorkForm', function ($sq) {
+                        $sq->where('rejected', false);
                     })
-                    ->orWhere(function ($q2) {
-                        $q2->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0010')
-                                ->where('status', 'like', 'CONF%');
-                        })->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0030')
-                                ->where('status', 'like', 'CONF%');
-                        })->whereHas('Operations', function ($sq) {
-                            $sq->where('operacao', '0040')
-                                ->where('status', 'like', 'LIB%');
+                    ->where(function ($q) {
+                        $q->whereHas('Orders', function ($q) {
+                            $q->where('statusSist', 'LIKE', 'LIB%')
+                            ->where(function ($sq) {
+                                $sq->where(function ($q1) {
+                                    $q1->whereHas('Operations', function ($sq) {
+                                        $sq->where('operacao', '0010')
+                                        ->where('status', 'like', 'CONF%');
+                                    })->whereHas('Operations', function ($sq) {
+                                        $sq->where('operacao', '0030')
+                                        ->where(function ($sq) {
+                                            $sq->where('status', 'like', 'CNPA%')
+                                            ->orWhere('status', 'like', 'LIB%')
+                                            ->orwhere('status', 'like', 'JBFI LIB%');
+                                        });
+                                    })->whereHas('Operations', function ($sq) {
+                                        $sq->where('operacao', '0040')
+                                        ->where(function ($sq) {
+                                            $sq->where('status', 'like', 'LIB%')
+                                            ->orwhere('status', 'like', 'JBFI LIB%');
+                                        });
+                                    });
+                                })
+                                ->orWhere(function ($q2) {
+                                    $q2->whereHas('Operations', function ($sq) {
+                                        $sq->where('operacao', '0010')
+                                        ->where('status', 'like', 'CONF%');
+                                    })->whereHas('Operations', function ($sq) {
+                                        $sq->where('operacao', '0030')
+                                        ->where('status', 'like', 'CONF%');
+                                    })->whereHas('Operations', function ($sq) {
+                                        $sq->where('operacao', '0040')
+                                        ->where('status', 'like', 'LIB%');
+                                    });
+                                });
+
+                            });
                         });
                     });
-
                 });
+            });
         });
+        //     ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
+
+
 
         if (strlen($this->search)) {
             $this->gotoPage(1);
@@ -1031,7 +1110,6 @@ class Main extends Component
             });
         }
 
-
         if ($this->not_assigned) {
             $query->where(function ($q) {
                 $q->doesntHave('Productions')
@@ -1042,8 +1120,6 @@ class Main extends Component
             });
         }
 
-        // dd($this->filter['city']);
-
         if (isset($this->filter['rubrica'])) {
             $query->whereIn('rubrica', $this->filter['rubrica']);
         }
@@ -1052,10 +1128,9 @@ class Main extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with('Productions.User', 'Wpas')
+        $query->with('Productions.User', 'Wpas', 'Partials')
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC');
-
 
         return $query;
     }

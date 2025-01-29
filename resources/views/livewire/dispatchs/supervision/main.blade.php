@@ -148,6 +148,7 @@
                                 <input class="form-check-input" type="checkbox" wire:model.defer="selectAll"
                                     wire:click="setSelectAll()" @disabled($this->checkAllSelect($lists))>
                             </th>
+                            <th scope="col" class="fw-bold text-center">Tipo</th>
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">DD</th>
@@ -173,6 +174,7 @@
                             @php
                                 $block = 0;
                                 $command = 0;
+                                $partial = false;
 
                                 if ($production = $this->hasPublication($list)) {
                                     if ($production->confirmed) {
@@ -184,6 +186,12 @@
                                         $block = 2;
                                     } else {
                                         $block = 1;
+                                    }
+                                }
+
+                                if ($list->Partials->count()) {
+                                    if ($list->Partials->last()->allow && !$list->Partials->last()->supervision) {
+                                        $partial = true;
                                     }
                                 }
 
@@ -211,6 +219,10 @@
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
+                                <td
+                                    class="fw-bold copy-text text-center @if ($partial) table-warning @else table-success @endif">
+                                    {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                </td>
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">
                                     {{ $list->note }}
@@ -218,6 +230,10 @@
                                 <td class="text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         @foreach ($list->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                        @endforeach
+                                    @elseif ($list->Partials->count())
+                                        @foreach ($list->Partials->last()->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
                                     @else
@@ -234,7 +250,11 @@
                                     {{ isset($list->postes) ? $list->postes : '---' }}
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->format('d/m/Y H:i:s') : '---' }}
+                                    @if ($list->WorkForm)
+                                        {{ Carbon::parse($list->WorkForm->informed_at)->format('d/m/Y') }}
+                                    @elseif ($list->Partials)
+                                        {{ Carbon::parse($list->Partials->last()->created_at)->format('d/m/Y') }}
+                                    @endif
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     {{ mb_strtoupper($list->numPedido) }}</td>
@@ -289,9 +309,18 @@
                                     {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
                                 {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
                                 @php
-                                    $days_left = $list->WorkForm
-                                        ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false)
-                                        : 0;
+                                    $days_left = 0;
+                                    if ($list->WorkForm) {
+                                        $days_left = Carbon::parse($list->WorkForm->informed_at)->diffInDays(
+                                            Carbon::now(),
+                                            false,
+                                        );
+                                    } elseif ($list->Partials) {
+                                        $days_left = Carbon::parse($list->Partials->last()->created_at)->diffInDays(
+                                            Carbon::now(),
+                                            false,
+                                        );
+                                    }
                                 @endphp
                                 <td scope="col"
                                     class="text-center

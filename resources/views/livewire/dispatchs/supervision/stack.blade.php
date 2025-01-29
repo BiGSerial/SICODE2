@@ -414,6 +414,7 @@
                                 <input class="form-check-input" type="checkbox" wire:model="selectAll"
                                     wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                             </th>
+                            <th scope="col" class="fw-bold text-center">Tipo</th>
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">DD</th>
                             <th scope="col" class="fw-bold text-center">stsDD</th>
@@ -434,11 +435,21 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
+                                $partial = false;
                                 $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm->informed_at : null;
                                 $formBlock =
                                     $list->Note->WorkForm && $list->Note->WorkForm->rejected
                                         ? $list->Note->WorkForm->rejected
                                         : false;
+
+                                if ($list->Note->Partials->count()) {
+                                    if (
+                                        $list->Note->Partials->last()->allow &&
+                                        !$list->Note->Partials->last()->supervision
+                                    ) {
+                                        $partial = true;
+                                    }
+                                }
 
                                 if ($dateForm) {
                                     $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
@@ -456,6 +467,11 @@
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected">
                                 </td>
+                                <td
+                                    class="fw-bold copy-text text-center @if ($partial) tableg-warning @else table-success @endif">
+                                    {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                </td>
+
                                 <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                     {{ $list->Note->note }}
                                     <span class="copy-text" data-value="{{ $list->Note->note }}"

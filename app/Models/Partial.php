@@ -26,7 +26,8 @@ class Partial extends Model
         'payment_at',
         'supervision_at',
         'complete',
-        'responsible'
+        'responsible',
+        'value'
     ];
 
     public function Note()
@@ -39,37 +40,37 @@ class Partial extends Model
     //     return $this->belongsToMany(Order::class, 'order_partial');
     // }
 
-    public function Company()
+    public function company()
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function User()
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function Engineer()
+    public function engineer()
     {
-        return $this->belongsTo(User::class, 'engineer_id');
+        return $this->belongsTo(User::class, 'engineer_id', 'id');
     }
 
-    public function Supervisor()
+    public function supervisor()
     {
-        return $this->belongsTo(User::class, 'supervision_id');
+        return $this->belongsTo(User::class, 'supervision_id', 'id');
     }
 
-    public function Payer()
+    public function payer()
     {
-        return $this->belongsTo(User::class, 'payment_id');
+        return $this->belongsTo(User::class, 'payment_id', 'id');
     }
 
-    public function Orders()
+    public function orders()
     {
         return $this->belongsToMany(Order::class, 'order_partial');
     }
 
-    public function Files()
+    public function files()
     {
         return $this->belongsToMany(File::class, 'file_partial');
     }

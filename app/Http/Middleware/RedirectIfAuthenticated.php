@@ -24,7 +24,7 @@ class RedirectIfAuthenticated
 
         if (Auth::check()) {
 
-            dd(Auth()->User());
+            // dd(Auth()->User());
 
             $user = User::with('Employee.Contract')->find(Auth()->User()->id);
 

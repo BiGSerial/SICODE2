@@ -137,6 +137,8 @@
                     <thead class="table-dark">
                         <tr>
                             <th class="align-middle text-center">Nota</th>
+                            <th class="align-middle text-center">Tipo</th>
+
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
@@ -167,6 +169,14 @@
                                     $block = true;
                                 }
 
+                                if ($partial = $list->Partials ? $list->Partials->last() : false) {
+                                    if ($partial->allow && $partial->supervision && !$partial->payment) {
+                                        $partial = true;
+                                    }
+                                } else {
+                                    $partial = false;
+                                }
+
                                 $rowClass = '';
 
                                 if ($block) {
@@ -192,10 +202,19 @@
                                 ">
 
                                 <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }} </td>
+                                <td
+                                    class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">
+                                    {{ $partial ? 'PARCIAL' : 'FINAL' }} </td>
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->Orders->count())
+                                    @if ($list->WorkForm)
                                         @foreach ($list->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->ordem }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($list->Partials)
+                                        @foreach ($list->Partials->last()->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
                                             </p>
@@ -204,15 +223,28 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($list->WorkForm->Orders->count())
-                                        @foreach ($list->WorkForm->Orders as $order)
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                        {{-- @foreach ($list->WorkForm->Orders as $order)
                                             @php
                                                 $soma += $order->moaberto;
                                             @endphp
                                             <p class="my-0 py-0">
                                                 R$ {{ number_format($order->moaberto, 2, ',', '.') }}
                                             </p>
-                                        @endforeach
+                                        @endforeach --}}
+                                        @php
+                                            $soma += $list->total_moaberto;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
+                                        </p>
+                                    @elseif ($list->Partials)
+                                        @php
+                                            $soma += $list->Partials->last()->value;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format($list->Partials->last()->value, 2, ',', '.') }}
+                                        </p>
                                     @endif
 
                                 </td>
@@ -228,7 +260,7 @@
                                 </td> --}}
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
@@ -238,7 +270,7 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
@@ -248,7 +280,7 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
@@ -258,8 +290,14 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
                                         @foreach ($list->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($list->Partials)
+                                        @foreach ($list->Partials->last()->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
@@ -269,7 +307,11 @@
                                 </td>
 
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
+                                    @if ($list->WorkForm)
+                                        {{ $list->WorkForm->Company->name }}
+                                    @elseif ($list->Partials)
+                                        {{ $list->Partials->last()->Company->name }}
+                                    @endif
                                 </td>
 
                                 <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
@@ -278,7 +320,13 @@
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
-                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
+                                    @if ($list->WorkForm)
+                                        {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
+                                    @elseif ($list->Partials)
+                                        {{ date('d/m/Y H:i:s', strToTime($list->Partials->last()->created_at)) }}
+                                    @endif
+
+
                                 </td>
 
                                 <td scope="col"
@@ -349,6 +397,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
+                            <td></td>
                             <td></td>
                             <td class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>

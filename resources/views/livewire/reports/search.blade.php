@@ -382,12 +382,14 @@
                                             @if ($viab->Orders->isNotEmpty())
                                                 @foreach ($viab->Orders as $order)
                                                     @php
-
                                                         $operation = $order->Operations
                                                             ->where('operacao', '0010')
                                                             ->first();
                                                     @endphp
-                                                    @if ($operation && !Str::startsWith($operation->status, 'CONF'))
+
+                                                    @dump(segundosParaData(now()->timestamp))
+
+                                                    @if ($operation && !Str::startsWith($operation->status, 'CONF') && $viab->hired_at < now()->subHours(24))
                                                         <p class="my-0 text-danger">{{ $order->ordem }} <i
                                                                 class="ri-alert-line"></i>
 
@@ -455,7 +457,8 @@
                             <tbody>
                                 @if ($lists->Partials && $lists->Partials->count())
                                     @foreach ($lists->Partials as $partial)
-                                        <tr wire:click="" wire:key="{{ $partial->id }}" style="cursor: pointer;">
+                                        <tr wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
+                                            wire:key="{{ $partial->id }}" style="cursor: pointer;">
                                             <td class="text-center align-middle text-bg-warning">
                                                 PARCIAL
                                             </td>
@@ -497,19 +500,21 @@
                                                 @if ($partial->deny)
                                                     <span class="badge text-bg-danger">REJEITADO</span>
                                                 @elseif ($partial->allow)
-                                                    @if (!$partial->Supervision)
+                                                    @if (!$partial->supervision)
                                                         <span class="badge text-bg-info">EM FISCALIZAÇÃO</span>
-                                                    @elseif ($partial->payment)
+                                                    @elseif (!$partial->payment)
                                                         <span class="badge text-bg-info">EM PAGAMENTO</span>
                                                     @elseif ($partial->complete)
                                                         <span class="badge text-bg-success">PAGO</span>
+                                                    @else
+                                                        <span class="badge text-bg-secondary">DESCONHECIDO</span>
                                                     @endif
                                                 @else
                                                     <span class="badge text-bg-info">EM APROVAÇÃO</span>
                                                 @endif
                                             </td>
                                             <td class="text-center align-middle">
-                                                ---
+                                                {{ $partial->created_at ? date('d/m/Y', strToTime($partial->created_at)) : 'Desconhecido' }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -564,7 +569,7 @@
                                             @endif
                                         </td>
                                         <td class="text-center align-middle">
-                                            {{ $lists->RamalForm->informed_at ? date('d/m/Y', strToTime($lists->RamalForm->informed_at)) : 'Desconhecido' }}
+                                            {{ $lists->RamalForm->created_at ? date('d/m/Y', strToTime($lists->RamalForm->created_at)) : 'Desconhecido' }}
                                         </td>
                                     </tr>
                                 @endif
@@ -649,4 +654,5 @@
     @livewire('files.manager.fileedit', key('file-edit'))
     @livewire('files.manager.createfiles', key('create-files'))
     @livewire('btzero.view.compare-form', key('compare_form'))
+    @livewire('partner.show.show-partial-info', key('partial_info'))
 </div>

@@ -31,25 +31,25 @@
     </div>
 
 
-    @if (!$lists)
-        <div class="card mt-4">
-            <h4 class="text-center">SEM INFORMES PARCIAL</h4>
+    @if (!$lists->count())
+        <div class="card my-2 py-4">
+            <h4 class="text-center my-0 py-0">SEM INFORMES PARCIAL PARA APROVAÇÃO</h4>
         </div>
     @else
         <div class="card mt-4">
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
-                Lista de Obras Parciais Informadas
+                LISTA DE OBRAS PARCIAIS AGUARDANDO APROVAÇÂO.
             </div>
             <table class="table table-sm table-striped table-hover">
                 <thead>
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
                         <th scope="col">Ordem</th>
+                        <th scope="col">Empreiteira</th>
                         <th scope="col">Dta Envio</th>
                         <th scope="col">Dt Aprovação</th>
                         <th scope="col">Dt Fiscalizacao</th>
                         <th scope="col">Dt Pagamento</th>
-                        <th scope="col">Valor Ads</th>
                         <th scope="col">Status</th>
                         <th scope="col">Finalizado</th>
                     </tr>
@@ -57,7 +57,7 @@
                 <tbody>
                     @foreach ($lists as $list)
                         <tr class="text-center" style="cursor: pointer;"
-                            wire:click.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
+                            wire:click.prevent="$emitTo('engineers.actions.check-partial', 'show_form', {{ $list->id }})">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
                             <td>
                                 @if ($list->Orders)
@@ -66,7 +66,12 @@
                                     @endforeach
                                 @endif
                             </td>
+                            @php
+                                $company = $list->Company ? $list->Company->name : 'Desconhecido';
+
+                            @endphp
                             <td>{{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}</td>
+                            <td>{{ $company }}</td>
                             <td class="@if (!$list->allow && !$list->deny) text-bg-info fw-bold @endif">
                                 @if (!$list->allow && !$list->deny)
                                     {{ Carbon::parse($list->created_at)->diffInDays() }}
@@ -88,8 +93,7 @@
                                     {{ $list->payment_at ? Carbon::parse($list->payment_at)->format('d/m/Y H:i:s') : '---' }}
                                 @endif
                             </td>
-                            <td class="fs-6 fw-bold">
-                                {{ 'R$ ' . number_format($list->value, 2, ',', '.') }}</td>
+
                             <td class="{{ $this->partialStatus($list)['color'] }} fs-6 fw-bold">
                                 {{ $this->partialStatus($list)['status'] }}</td>
                             <td>{{ $list->complete ? 'SIM' : '' }}</td>
@@ -100,5 +104,5 @@
         </div>
     @endif
 
-    @livewire('partner.show.show-partial-info', key('show_partial_info'))
+    @livewire('engineers.actions.check-partial', key('check_partial'))
 </div>

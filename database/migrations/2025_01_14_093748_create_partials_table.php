@@ -41,20 +41,9 @@ return new class () extends Migration {
     public function down(): void
     {
 
-        // Desabilitar as verificações de chave estrangeira temporariamente
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-
-        // Remover as chaves estrangeiras
-        Schema::table('partials', function (Blueprint $table) {
-            $table->dropForeign(['note_id']);
-            $table->dropForeign(['company_id']);
-            $table->dropForeign(['user_id']);
-        });
-
         // Agora, você pode excluir a tabela
         Schema::dropIfExists('partials');
 
-        // Reabilitar as verificações de chave estrangeira
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
     }
 };

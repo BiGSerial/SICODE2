@@ -8,7 +8,7 @@
                     <i class="bi bi-chevron-down ms-auto"></i>
                 </a>
                 {{-- Para deixar o Dropdown Aberto, acrescemte 'show' na classe --}}
-                <ul id="viability-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <ul id="viability-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('partner.todo.viability') }}" class="nav-item text-white">

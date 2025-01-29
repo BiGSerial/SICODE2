@@ -33,18 +33,19 @@
 
     @if (!$lists)
         <div class="card mt-4">
-            <h4 class="text-center">SEM INFORMES PARCIAL</h4>
+            <h4 class="text-center">SEM HISTÓRICO INFORMES PARCIAL</h4>
         </div>
     @else
         <div class="card mt-4">
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
-                Lista de Obras Parciais Informadas
+                Histórico de Obras Parciais Informadas
             </div>
             <table class="table table-sm table-striped table-hover">
                 <thead>
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
                         <th scope="col">Ordem</th>
+                        <th scope="col">Empreiteira</th>
                         <th scope="col">Dta Envio</th>
                         <th scope="col">Dt Aprovação</th>
                         <th scope="col">Dt Fiscalizacao</th>
@@ -66,6 +67,11 @@
                                     @endforeach
                                 @endif
                             </td>
+                            @php
+                                $company = $list->Company ? $list->Company->name : 'Desconhecido';
+
+                            @endphp
+                            <td class='fw-bold'>{{ $company }}</td>
                             <td>{{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}</td>
                             <td class="@if (!$list->allow && !$list->deny) text-bg-info fw-bold @endif">
                                 @if (!$list->allow && !$list->deny)

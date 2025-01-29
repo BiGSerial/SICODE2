@@ -241,6 +241,16 @@
                                                 placeholder="Insira o nome do responsável">
                                         </td>
                                     </tr>
+
+                                    <tr>
+                                        <td class="align-middle text-end" style="width: 150px;">Valor da ADS R$
+                                            <strong class="text-danger">*</strong>:
+                                        </td>
+                                        <td class="align-middle fw-bold">
+                                            <input type="decimal" class="form-control aling-middle money"
+                                                wire:model.defer="amount" placeholder="0,00">
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>

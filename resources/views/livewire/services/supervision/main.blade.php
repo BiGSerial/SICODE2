@@ -135,6 +135,7 @@
                         <table class="table table-sm table-striped table-condensed">
                             <thead class="table-dark">
                                 <tr class="text-center align-middle">
+                                    <th scope="col" class="fw-bold">Tipo</th>
                                     <th scope="col" class="fw-bold">Note</th>
                                     <th scope="col" class="fw-bold">Ordens</th>
                                     <th scope="col" class="fw-bold">DD</th>
@@ -157,13 +158,9 @@
                                 @foreach ($lists as $list)
                                     @php
 
-                                        $dateForm = isset($list->Note->WorkForm)
-                                            ? $list->Note->WorkForm->informed_at
-                                            : null;
+                                        $dateForm = $list->Note->WorkForm ? $list->Note->WorkForm->informed_at : null;
 
-                                        $formBlock = $list->Note->WorkForm->rejected
-                                            ? $list->Note->WorkForm->rejected
-                                            : false;
+                                        $formBlock = $list->Note->WorkForm ? $list->Note->WorkForm->rejected : false;
 
                                         if ($dateForm) {
                                             $daysLeft = Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
@@ -173,11 +170,23 @@
 
                                     @endphp
                                     <tr wire:key='{{ $list->id }}'
-                                        wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm->id }})"
+                                        @if ($list->Note->WorkForm) wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm->id }})"
+                                        @elseif ($list->partial)
+                                        wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->Note->Partials->last() }})" @endif
                                         class="align-middle text-center @if ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif"
                                         tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover"
                                         data-bs-placement="left"
                                         data-bs-content="Duplo Clique para mais informações.">
+                                        @php
+                                            if ($list->partial) {
+                                                $colorCell = 'table-warning';
+                                            } else {
+                                                $colorCell = 'table-success';
+                                            }
+                                        @endphp
+                                        <td class="{{ $colorCell }} fw-bold">
+                                            {{ $list->partial ? 'Parcial' : 'Final' }}
+                                        </td>
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                             {{ $list->Note->note }}
@@ -372,6 +381,7 @@
     @livewire('services.supervision.forms.jobform', key('JobForm'))
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
+    @livewire('partner.show.show-partial-info', key('PartialInfo'))
 
     {{-- <div wire:init="checkOpen"></div> --}}
 

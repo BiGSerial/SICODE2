@@ -164,6 +164,8 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/worked_list', 'inform_list')->name('inform_list');
     Route::get('/intern_return', 'intern_return')->name('intern_return');
     Route::get('/viability_reports', 'viability_reports')->name('viabilityreports');
+    Route::get('/waiting_inform_parc', 'waiting_parc')->name('info.parcial');
+    Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
 
 });
 

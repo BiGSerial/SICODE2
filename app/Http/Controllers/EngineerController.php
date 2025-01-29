@@ -55,4 +55,14 @@ class EngineerController extends Controller
     {
         return view('engineers.viabilityreports');
     }
+
+    public function waiting_parc()
+    {
+        return view('engineers.parcial_inform_waiting');
+    }
+
+    public function hist_parc()
+    {
+        return view('engineers.parcial_hist');
+    }
 }

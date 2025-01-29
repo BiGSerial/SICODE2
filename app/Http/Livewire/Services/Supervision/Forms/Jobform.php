@@ -221,25 +221,51 @@ class Jobform extends Component
             $alert = "";
         }
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'ENCERRAMENTO DE SERVIÇO',
-            'msg'   => "Você está prestes encerrar <strong>{$this->production->Note->note}</strong>.
-                <div class='card'>
-                    <div class='card-body'>
-                        Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                        Uma vez encerrado, essa operação nao poderá ser desfeita.
-                        <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
-                    </div>
-                </div>
-            ".$alert,
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Continue!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirmFinish',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Ação Cancelada.',
 
-        ]);
+
+        if ($this->production->partial) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENCERRAMENTO DE SERVIÇO PARCIAL',
+                'msg'   => "Você está prestes encerrar fiscalização Parcial de <strong>{$this->production->Note->note}</strong>.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
+                            Uma vez encerrado, essa operação nao poderá ser desfeita.
+                            <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
+                        </div>
+                    </div>
+                ".$alert,
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirmFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
+
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENCERRAMENTO DE SERVIÇO',
+                'msg'   => "Você está prestes encerrar <strong>{$this->production->Note->note}</strong>.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
+                            Uma vez encerrado, essa operação nao poderá ser desfeita.
+                            <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
+                        </div>
+                    </div>
+                ".$alert,
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirmFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
+
+            ]);
+        }
+
+
     }
 
     public function save()
@@ -259,6 +285,20 @@ class Jobform extends Component
                 'priority'     => false,
 
             ]);
+
+            // Se for parcial, encerra a supervisão da parcial e libera para pagamento.
+            if ($this->production->partial) {
+                if ($partial = $this->production->Note->Partials->last()) {
+
+                    if ($partial->allow && !$partial->supervision && !$partial->payment) {
+                        $partial->update([
+                            'supervision' => true,
+                            'supervision_at' => date('Y-m-d H:i:s'),
+                            'supervision_id' => Auth()->User()->id,
+                        ]);
+                    }
+                }
+            }
 
             if ($this->d5 == '1') {
                 $d5 = D5Return::create([
