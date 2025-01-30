@@ -3,7 +3,37 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
+
 <div>
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .exibir {
+            animation: fadeIn 0.5s forwards;
+        }
+
+        .remover {
+            animation: fadeOut 0.5s forwards;
+        }
+    </style>
 
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
@@ -94,6 +124,24 @@
             </div>
         </div> --}}
     </div>
+
+    <ul class="nav nav-tabs mb-3 border-bottom border-light" wire:poll.60s='count'>
+        <li class="nav-item">
+            <a class="nav-link @if (!$partials) active @endif" aria-current="page" href="#"
+                wire:click="$set('partials', false)">TOTAL @if ($count['total'])
+                    <span class="badge text-bg-danger">{{ $count['total'] }}</span>
+                @endif
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @if ($partials) active @endif" href="#"
+                wire:click="$set('partials', true)">PARCIAL @if ($count['partials'])
+                    <span class="badge text-bg-danger">{{ $count['partials'] }}</span>
+                @endif
+            </a>
+        </li>
+
+    </ul>
 
     <div class="row">
 
@@ -201,7 +249,8 @@
                             <tr class="align-middle text-center
                                 ">
 
-                                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }} </td>
+                                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }}
+                                </td>
                                 <td
                                     class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">
                                     {{ $partial ? 'PARCIAL' : 'FINAL' }} </td>

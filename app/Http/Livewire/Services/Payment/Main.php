@@ -36,11 +36,18 @@ class Main extends Component
 
     public $typeNote;
 
+    public $partial = false;
+    public $partials = false;
+
     //Botão de  nao atribuído.
     public $not_assigned = false;
 
     public $assigned_mmgd = false;
 
+    public $count = [
+        'total'    => 0,
+        'partials' => 0,
+    ];
     // Filters
     private $filter_group = 'payments';
 
@@ -54,6 +61,7 @@ class Main extends Component
     protected $queryString = [
         'search' => ['except' => '', 'as' => 'buscar'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
+        'partials' => ['except' => false, 'as' => 'parciais'],
     ];
 
     protected $noteFilter;
@@ -64,10 +72,48 @@ class Main extends Component
     }
 
 
+
+    public function count()
+    {
+        $this->partials = !$this->partials;
+
+        $query = $this->noteFilter->filter($this->search, $this->filter_group, $this->partials);
+
+        $query->whereDoesntHave('Productions', function ($sq) {
+            $sq->where('service_id', $this->service->uuid);
+        });
+
+        $count = $query->count();
+
+        if (!$this->partials) {
+            $this->count['total'] = $count;
+        } else {
+            $this->count['partials'] = $count;
+        }
+
+        $this->partials = !$this->partials;
+
+        $query = $this->noteFilter->filter($this->search, $this->filter_group, $this->partials);
+
+        $query->whereDoesntHave('Productions', function ($sq) {
+            $sq->where('service_id', $this->service->uuid);
+        });
+
+        $count = $query->count();
+
+        if (!$this->partials) {
+            $this->count['total'] = $count;
+        } else {
+            $this->count['partials'] = $count;
+        }
+    }
+
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+
+        $this->count();
     }
 
     public function copy($msg)
@@ -101,25 +147,58 @@ class Main extends Component
     {
         $this->note = $note;
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Atribuir Tarefa',
-            'msg'   => "
-            Você deseja atribuir a NOTA/OV para você?</br></br>
-            <div class='card card-light'>
-            <div class='card-body'>
-            <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
-            </div>
-            </div>
-            ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Atribua!',
-            'btnCanceltxt'  => 'Não, Cancele!',
-            'action'        => 'confirm_accompany',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhum serviço foi atribuído.',
+        if ($partial = $this->note->Partials && !$this->note->WorkForm ? $this->note->Partials->last() : null) {
+            if ($partial && $partial->allow && $partial->supervision && !$partial->payment) {
+                $this->partial = true;
+            }
+        } else {
+            $this->partial = false;
+        }
 
-        ]);
+        if ($this->partial) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Atribuir Tarefa',
+                'msg'   => "
+                Você deseja atribuir a NOTA/OV (PARCIAL) para você?</br></br>
+                <div class='card card-light'>
+                <div class='card-body'>
+                <p><strong>NOTA/OV estará disponível em acompanhamento como
+                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
+                </div>
+                </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Atribua!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirm_accompany',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhum serviço foi atribuído.',
+
+            ]);
+
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Atribuir Tarefa',
+                'msg'   => "
+                Você deseja atribuir a NOTA/OV para você?</br></br>
+                <div class='card card-light'>
+                <div class='card-body'>
+                <p><strong>NOTA/OV estará disponível em acompanhamento como
+                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
+                </div>
+                </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Atribua!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirm_accompany',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhum serviço foi atribuído.',
+
+            ]);
+        }
+
+
     }
 
     public function add_to_accompany()
@@ -158,6 +237,7 @@ class Main extends Component
             'att_at'      => date('Y-m-d H:i:s'),
             'status'      => 2,
             'dhstats'     => $this->note->dt_status,
+            'partial'     => $this->partial,
         ]);
 
         if ($production) {
@@ -211,7 +291,7 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = $this->noteFilter->filter($this->search, $this->filter_group);
+        $query = $this->noteFilter->filter($this->search, $this->filter_group, $this->partials);
 
         if ($this->not_assigned && isset($this->service)) {
             $query->whereDoesntHave('Productions', function ($sq) {
