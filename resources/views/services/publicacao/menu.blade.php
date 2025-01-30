@@ -8,12 +8,12 @@
             </a>
             <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
-                    <li>
+                    {{-- <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
                             <i class="bi bi-circle"></i> <span>LISTA {{ mb_strToUpper($service->service) }}</span>
                         </a>
-                    </li>
+                    </li> --}}
                     <li>
                         <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
