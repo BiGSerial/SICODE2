@@ -16,7 +16,8 @@
 @endsection
 
 @section('content')
-    @livewire('services.publication.main', ['service' => $service->uuid])
+    {{-- @livewire('services.publication.main', ['service' => $service->uuid]) --}}
+    @livewire('services.publication.accompany.main', ['service' => $service->uuid])
 @endsection
 
 @push('script')
