@@ -1,6 +1,11 @@
 {
-    "appver": "1.13.6",
+    "appver": "1.13.7",
     "historic": [
+        {
+            "version": "1.13.7",
+            "description": "Removed List Publication from Users",
+            "date": "2025-01-30"
+        },
         {
             "version": "1.13.6",
             "description": "Fix info Error in View Supervision Stack",
