@@ -37,7 +37,7 @@ class Main extends Component
     public $typeNote;
 
     public $partial = false;
-    public $partials = false;
+    public $partials;
 
     //Botão de  nao atribuído.
     public $not_assigned = false;
@@ -71,49 +71,12 @@ class Main extends Component
         $this->noteFilter = $noteFilter;
     }
 
-
-
-    public function count()
-    {
-        $this->partials = !$this->partials;
-
-        $query = $this->noteFilter->filter($this->search, $this->filter_group, $this->partials);
-
-        $query->whereDoesntHave('Productions', function ($sq) {
-            $sq->where('service_id', $this->service->uuid);
-        });
-
-        $count = $query->count();
-
-        if (!$this->partials) {
-            $this->count['total'] = $count;
-        } else {
-            $this->count['partials'] = $count;
-        }
-
-        $this->partials = !$this->partials;
-
-        $query = $this->noteFilter->filter($this->search, $this->filter_group, $this->partials);
-
-        $query->whereDoesntHave('Productions', function ($sq) {
-            $sq->where('service_id', $this->service->uuid);
-        });
-
-        $count = $query->count();
-
-        if (!$this->partials) {
-            $this->count['total'] = $count;
-        } else {
-            $this->count['partials'] = $count;
-        }
-    }
-
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        $this->count();
+
     }
 
     public function copy($msg)
@@ -291,19 +254,19 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = $this->noteFilter->filter($this->search, $this->filter_group, $this->partials);
+        $query = $this->noteFilter->filter($this->search, $this->filter_group);
 
         if ($this->not_assigned && isset($this->service)) {
             $query->whereDoesntHave('Productions', function ($sq) {
-                $sq->where('service_id', $this->service->uuid);
+            $sq->where('service_id', $this->service->uuid);
             });
         }
 
         $query->when($this->multiSearch, function ($q) {
             $q->whereIn('note', $this->multiSearch)
-                ->orWhereRelation('Orders', function ($q) {
-                    $q->whereIn('ordem', $this->multiSearch);
-                });
+            ->orWhereRelation('Orders', function ($q) {
+                $q->whereIn('ordem', $this->multiSearch);
+            });
         })
         ->when($this->typeNote, function ($q) {
             $q->where('type_note', $this->typeNote);
@@ -317,13 +280,26 @@ class Main extends Component
         ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
         ->leftJoinSub(
             DB::table('operation_resps')
-                ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
-                ->groupBy('note_id'),
+            ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+            ->groupBy('note_id'),
             'latest_operation_resps',
             'notes.id',
             '=',
             'latest_operation_resps.note_id'
         )
+        ->leftJoinSub(
+            DB::table('partials')
+            ->select('note_id', DB::raw('MAX(id) as latest_partial_id'))
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('supervision', true)
+            ->groupBy('note_id'),
+            'latest_partials',
+            'notes.id',
+            '=',
+            'latest_partials.note_id'
+        )
+        ->leftJoin('partials', 'latest_partials.latest_partial_id', '=', 'partials.id')
         ->select(
             'notes.id',
             'notes.note',
@@ -333,12 +309,14 @@ class Main extends Component
             'notes.type_note',
             'work_reports.created_at as wCreated_at',
             DB::raw('SUM(orders.moaberto) as total_moaberto'),
-            'latest_operation_resps.latest_fimLancado as fimLancado'
+            'latest_operation_resps.latest_fimLancado as fimLancado',
+            DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END as has_partials'),
         )
-            ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado')
-            ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
-            ->orderBy('fimLancado', 'asc')
-            ->orderBy('total_moaberto', 'desc');
+        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado', 'has_partials')
+        ->orderBy('has_partials', 'desc')
+        ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
+        ->orderBy('fimLancado', 'asc')
+        ->orderBy('total_moaberto', 'desc');
 
         // Debugando o resultado para checar a consulta
         // dd($query->paginate(5));

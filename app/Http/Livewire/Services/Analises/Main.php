@@ -207,10 +207,10 @@ class Main extends Component
 
         $query->when($this->search, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%');
+                $query->where('note', 'like', '%' . $s . '%')
                 // ->orWhere('material', 'like', '%' . $s . '%')
                 // ->orWhere('numPedido', 'like', '%' . $s . '%');
-                // ->orWhere('group2', 'like', '%' . $s . '%');
+                ->orWhere('group2', 'like', '%' . $s . '%');
             });
         })->when($this->rubrica_s, function ($q) {
             return $q->where(function ($query) {

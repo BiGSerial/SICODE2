@@ -125,7 +125,7 @@
         </div> --}}
     </div>
 
-    <ul class="nav nav-tabs mb-3 border-bottom border-light" wire:poll.60s='count'>
+    {{-- <ul class="nav nav-tabs mb-3 border-bottom border-light" wire:poll.60s='count'>
         <li class="nav-item">
             <a class="nav-link @if (!$partials) active @endif" aria-current="page" href="#"
                 wire:click="$set('partials', false)">TOTAL @if ($count['total'])
@@ -141,7 +141,7 @@
             </a>
         </li>
 
-    </ul>
+    </ul> --}}
 
     <div class="row">
 
@@ -180,7 +180,7 @@
                 @endif
             </h4>
 
-            <div class="table-responsive">
+            <div class="table-responsive exiobir">
                 <table class="table table-sm table-striped">
                     <thead class="table-dark">
                         <tr>
@@ -217,12 +217,12 @@
                                     $block = true;
                                 }
 
-                                if ($partial = $list->Partials ? $list->Partials->last() : false) {
-                                    if ($partial->allow && $partial->supervision && !$partial->payment) {
-                                        $partial = true;
+                                if ($partial = $list->Partials ? $list->Partials->last() : null) {
+                                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
+                                        $partial = null;
                                     }
                                 } else {
-                                    $partial = false;
+                                    $partial = null;
                                 }
 
                                 $rowClass = '';
@@ -253,17 +253,17 @@
                                 </td>
                                 <td
                                     class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">
-                                    {{ $partial ? 'PARCIAL' : 'FINAL' }} </td>
+                                    {{ $partial ? 'PARCIAL' : 'TOTAL' }} </td>
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm)
+                                    @if ($list->WorkForm && !$partial)
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
                                             </p>
                                         @endforeach
-                                    @elseif ($list->Partials)
-                                        @foreach ($list->Partials->last()->Orders as $order)
+                                    @elseif ($partial)
+                                        @foreach ($partial->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
                                             </p>
@@ -272,7 +272,7 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->count() && !$partial)
                                         {{-- @foreach ($list->WorkForm->Orders as $order)
                                             @php
                                                 $soma += $order->moaberto;
@@ -287,12 +287,12 @@
                                         <p class="my-0 py-0">
                                             R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
                                         </p>
-                                    @elseif ($list->Partials)
+                                    @elseif ($partial)
                                         @php
-                                            $soma += $list->Partials->last()->value;
+                                            $soma += $partial->value;
                                         @endphp
                                         <p class="my-0 py-0">
-                                            R$ {{ number_format($list->Partials->last()->value, 2, ',', '.') }}
+                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
                                         </p>
                                     @endif
 

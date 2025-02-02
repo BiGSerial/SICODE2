@@ -9,7 +9,7 @@ class NoteFilter
 {
     private $filters;
 
-    public function filter($search, $filterGroup, bool $partials = false)
+    public function filter($search, $filterGroup)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
@@ -21,49 +21,47 @@ class NoteFilter
 
         $query = Note::query();
 
-        $query->where(function ($q1) use ($partials) {
-            if (!$partials) {
-                $q1->Where(function ($q2) {
-                    $q2->whereHas('WorkForm', function ($q) {
-                        $q->when(isset($this->filters['company']), function ($sq) {
-                            return $sq->where('rejected', false)
-                                ->where(function ($query) {
-                                    $query->whereIn('company_id', $this->filters['company'])
-                                        ->orWhereNull('company_id');
-                                });
-                        });
-                    })->whereHas('Orders', function ($q) {
-                        $q->where('statusSist', 'LIKE', 'LIB%')
-                            ->whereHas('Operations', function ($sq) {
-                                $sq->where('operacao', '0030')
-                                    ->where('status', 'like', 'CONF%');
-                            })
-                            ->whereHas('Operations', function ($sq) {
-                                $sq->where('operacao', '0040')
-                                    ->where(function ($q) {
-                                        $q->where('status', 'like', 'CONF%')
-                                            ->orWhere('status', 'like', 'CNPA%');
-                                    });
-                            })
-                            ->whereHas('Operations', function ($sq) {
-                                $sq->where('operacao', '0050')
-                                ->where(function ($q) {
-                                    $q->where('status', 'like', 'LIB%')
-                                        ->orWhere('status', 'like', 'CNPA%')
-                                        ->orWhere('status', 'like', 'JBFI LIB%');
-                                });
+        $query->where(function ($q1) {
+
+            $q1->Where(function ($q2) {
+                $q2->whereHas('WorkForm', function ($q) {
+                    $q->when(isset($this->filters['company']), function ($sq) {
+                        return $sq->where('rejected', false)
+                            ->where(function ($query) {
+                                $query->whereIn('company_id', $this->filters['company'])
+                                    ->orWhereNull('company_id');
                             });
                     });
+                })->whereHas('Orders', function ($q) {
+                    $q->where('statusSist', 'LIKE', 'LIB%')
+                        ->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0030')
+                                ->where('status', 'like', 'CONF%');
+                        })
+                        ->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0040')
+                                ->where(function ($q) {
+                                    $q->where('status', 'like', 'CONF%')
+                                        ->orWhere('status', 'like', 'CNPA%');
+                                });
+                        })
+                        ->whereHas('Operations', function ($sq) {
+                            $sq->where('operacao', '0050')
+                            ->where(function ($q) {
+                                $q->where('status', 'like', 'LIB%')
+                                    ->orWhere('status', 'like', 'CNPA%')
+                                    ->orWhere('status', 'like', 'JBFI LIB%');
+                            });
+                        });
                 });
-            } else {
-                $q1->where(function ($sq) {
-                    $sq->whereHas('Partials', function ($q2) {
-                        $q2->where('supervision', true)
-                            ->where('payment', false);
-                    })
-                    ->whereDoesntHave('WorkForm');
-                });
-            }
+            })->orWhere(function ($sq) {
+                $sq->whereHas('Partials', function ($q2) {
+                    $q2->where('supervision', true)
+                        ->where('payment', false);
+                })
+                ->whereDoesntHave('WorkForm');
+            });
+
 
 
         });

@@ -387,7 +387,7 @@
                                                             ->first();
                                                     @endphp
 
-                                                    @dump(segundosParaData(now()->timestamp))
+
 
                                                     @if ($operation && !Str::startsWith($operation->status, 'CONF') && $viab->hired_at < now()->subHours(24))
                                                         <p class="my-0 text-danger">{{ $order->ordem }} <i

@@ -516,6 +516,7 @@ class Main extends Component
                 $query->where('note', 'like', '%' . $s . '%')
                     ->orWhere('material', 'like', '%' . $s . '%')
                     ->orWhere('numPedido', 'like', '%' . $s . '%')
+                    ->orWhere('group2', 'like', '%' . $s . '%')
                     ->orWhere('group4', 'like', '%' . $s . '%')
                     ->orWhere('group5', 'like', '%' . $s . '%');
             });

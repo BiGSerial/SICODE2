@@ -664,6 +664,7 @@ class Stack extends Component
             ->select('productions.*', 'notes.dt_created as note_dt_created', 'latest_operation_resps.latest_fimLancado as fimLancado')
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
+            ->orderBy('partial', 'DESC')
             ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
             ->orderBy('fimLancado', 'asc')
             ->orderBy('notes.type_note', 'DESC')
@@ -726,6 +727,8 @@ class Stack extends Component
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
             ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
+            ->orderBy('partial', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'

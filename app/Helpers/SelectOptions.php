@@ -56,6 +56,7 @@ class SelectOptions
     public static function getPaymentsOptions()
     {
         return [
+            (object)['info' => 'PAGAMENTO PARCIAL', 'value' => 'PAGAMENTO PARCIAL'],
             (object)['info' => 'PAGAMENTO TOTAL COM RETENCAO DE CARTA', 'value' => 'PAGAMENTO TOTA COM RETENÇÃO'],
             (object)['info' => 'PAGAMENTO TOTAL', 'value' => 'PAGAMENTO TOTAL'],
         ];

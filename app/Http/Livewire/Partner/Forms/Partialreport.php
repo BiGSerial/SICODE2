@@ -96,8 +96,8 @@ class Partialreport extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'ADS INVÁLIDA',
-                'html'     => "A ADS NÃO CORRESPONDE A OBRA <STRONG>{$this->note->note}</STRONG>. ENVIE A ADS CORRESPONDENTE.",
+                'title'    => 'OBRA NÂO CORRESPONDENTE',
+                'html'     => "A ADS REFERE-SE A OBRA <STRONG>{$this->theAds->note}</STRONG>. ENVIE A ADS CORRESPONDENTE A OBRA <STRONG>{$this->note->note}</STRONG>. .",
 
             ]);
 
@@ -110,7 +110,7 @@ class Partialreport extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ADS NÃO PARCIAL',
-                'html'     => "A ADS INFORMADA NÃO É PARCIAL. GENTILEZA VERIFICAR O ENVIO.",
+                'html'     => "A ADS INFORMADA PARECE NÃO ESTAR SINALIZADA COMO PARCIAL. VERIFIQUE O ARQUIVO E TENTE NOVAMENTE.",
 
             ]);
 
@@ -201,12 +201,14 @@ class Partialreport extends Component
             if ($partial) {
 
                 $orders = Order::where('note_id', $this->note->id)->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
-
+                Order::where(
+                    'note_id',
+                    493674
+                )->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
                 if ($orders) {
                     foreach ($orders as $order) {
-                        $partial->Orders()->sync($order->id);
+                        $partial->Orders()->attach($order->id);
                     }
-
                 }
 
                 $caminho = $this->file->storeAs('/arquivos/ADS/', $newName.'.'.$this->file->getClientOriginalExtension());

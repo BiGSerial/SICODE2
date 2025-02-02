@@ -118,6 +118,7 @@
                         <table class="table table-sm table-striped table-condensed table-hover">
                             <thead class="table-dark">
                                 <tr>
+                                    <th class="align-middle text-center">Tipo</th>
                                     <th class="align-middle text-center">Nota</th>
                                     <th class="align-middle text-center">Files</th>
                                     <th class="align-middle text-center">Ordem</th>
@@ -137,54 +138,86 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
+                                @foreach ($lists as $list)
                                     @php
                                         $daysLeft = $this->deadline($list->Note);
+                                        $partial =
+                                            $list->Note->Partials && $list->Note->Partials->count()
+                                                ? $list->Note->Partials
+                                                    ->where('allow', true)
+                                                    ->where('deny', false)
+                                                    ->where('supervision', true)
+                                                    ->where('payment', false)
+                                                    ->last()
+                                                : null;
                                     @endphp
-                                    <tr wire:key="work-{{ $list->id }}"
-                                        wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
-                                        class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
-                                        <td
-                                            class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                            {{ $list->Note->note }}
-                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                    @if ($partial)
+                                        <tr wire:key="work-{{ $list->id }}"
+                                            wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
+                                            class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
+                                        @else
+                                        <tr wire:key="work-{{ $list->id }}"
+                                            wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
+                                            class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
+                                    @endif
+                                    <td
+                                        class="align-middle @if ($list->partial) text-bg-warning
+                                            @else
+                                            text-bg-success @endif">
+                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                        @if ($list->partial)
+                                            PARCIAL
+                                        @else
+                                            TOTAL
+                                        @endif
+
+                                    </td>
+                                    <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                        {{ $list->Note->note }}
+                                        <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                            style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
+                                            data-bs-trigger="hover focus" data-bs-placement="top"
+                                            data-bs-content="Copiar Número da Nota"> <i
+                                                class="ri-file-copy-line"></i></span>
+
+                                        @if ($list->priority)
+                                            <i class="ri-alert-fill align-middle"
+                                                wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
                                                 style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                 data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-content="Copiar Número da Nota"> <i
-                                                    class="ri-file-copy-line"></i></span>
+                                                data-bs-title="Exibir Prioridade"
+                                                data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                        @endif
+                                    </td>
+                                    <td class="align-middle">
+                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                        <x-files.select-download-list :files='$list->Note->Files' />
 
-                                            @if ($list->priority)
-                                                <i class="ri-alert-fill align-middle"
-                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                    style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-title="Exibir Prioridade"
-                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                            @endif
-                                        </td>
-                                        <td class="align-middle">
-                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                            <x-files.select-download-list :files='$list->Note->Files' />
+                                    </td>
+                                    <td class="fw-light text-center align-middle">
+                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
+                                            @foreach ($list->Note->WorkForm->Orders as $order)
+                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                            @endforeach
+                                        @elseif ($partial)
+                                            @foreach ($partial->Orders as $order)
+                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                            @endforeach
+                                        @endif
+                                    </td>
+                                    <td class="text-center align-middle fw-bold">
+                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
+                                            @foreach ($list->Note->WorkForm->Orders as $order)
+                                                <span class="my-0py-0">
+                                                    R$ {{ number_format($order->moaberto, 2, ',', '.') }}
+                                                </span>
+                                            @endforeach
+                                        @elseif ($partial)
+                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
+                                        @endif
 
-                                        </td>
-                                        <td class="fw-light text-center align-middle">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                @endforeach
-                                            @endif
-                                        </td>
-                                        <td class="text-center align-middle fw-bold">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <span class="my-0py-0">
-                                                        R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                                    </span>
-                                                @endforeach
-                                            @endif
-
-                                        </td>
-                                        {{--
+                                    </td>
+                                    {{--
                                         <td class="text-center align-middle">
                                             @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
                                                 @foreach ($list->Note->WorkForm->Orders as $order)
@@ -196,115 +229,132 @@
 
                                         </td> --}}
 
-                                        <td class="text-center align-middle">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <span class="my-0py-0">
-                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-                                                    </span>
-                                                @endforeach
-                                            @endif
-                                        </td>
+                                    <td class="text-center align-middle">
+                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                            @foreach ($list->Note->WorkForm->Orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+                                                </span>
+                                            @endforeach
+                                        @endif
+                                    </td>
 
-                                        <td class="text-center align-middle">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <span class="my-0py-0">
-                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                                    </span>
-                                                @endforeach
-                                            @endif
+                                    <td class="text-center align-middle">
+                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                            @foreach ($list->Note->WorkForm->Orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                                </span>
+                                            @endforeach
+                                        @endif
 
-                                        </td>
-                                        <td class="text-center align-middle">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <span class="my-0py-0">
-                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                                    </span>
-                                                @endforeach
-                                            @endif
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                            @foreach ($list->Note->WorkForm->Orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                                </span>
+                                            @endforeach
+                                        @endif
 
-                                        </td>
-                                        <td class="text-center align-middle">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <span class="my-0py-0">
-                                                        {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                                    </span>
-                                                @endforeach
-                                            @endif
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
+                                            @foreach ($list->Note->WorkForm->Orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                                </span>
+                                            @endforeach
+                                        @elseif ($partial)
+                                            @foreach ($partial->Orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                                </span>
+                                            @endforeach
+                                        @endif
 
-                                        </td>
+                                    </td>
 
 
-                                        <td class="fw-light text-center">
+                                    <td class="fw-light text-center">
+                                        @if ($list->Note->WorkForm)
                                             {{ $list->Note->WorkForm ? $list->Note->WorkForm->Company->name : '---' }}
-                                        </td>
+                                        @elseif ($partial)
+                                            {{ $partial->Company->name }}
+                                        @endif
+                                    </td>
 
-                                        <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
+                                    <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
 
-                                        <td class="fw-light text-center">
+                                    <td class="fw-light text-center">
+                                        @if ($list->Note->WorkForm)
                                             {{ $list->Note->WorkForm ? date('d/m/Y', strToTime($list->Note->WorkForm->date)) : '---' }}
-                                        </td>
-                                        <td class="fw-light">
+                                        @endif
+                                    </td>
+                                    <td class="fw-light">
+                                        @if ($list->Note->WorkForm)
                                             {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) : '---' }}
-                                        </td>
+                                        @elseif ($partial)
+                                            {{ $partial->created_at ? date('d/m/Y H:i:s', strToTime($partial->created_at)) : '---' }}
+                                        @endif
 
-                                        @php
-                                            $daysLeft = Carbon::parse($list->fimLancado)
-                                                ->startOfDay()
-                                                ->diffInDays(Carbon::now()->startOfDay());
-                                        @endphp
-                                        <td scope="col"
-                                            class="text-center text-center
+                                    </td>
+
+                                    @php
+                                        $daysLeft = Carbon::parse($list->fimLancado)
+                                            ->startOfDay()
+                                            ->diffInDays(Carbon::now()->startOfDay());
+                                    @endphp
+                                    <td scope="col"
+                                        class="text-center text-center
                                     @if ($daysLeft <= 2) text-bg-success
                                  @elseif($daysLeft > 5)
                                      text-bg-danger
                                  @else
                                  text-bg-warning @endif
                                  "
-                                            style="background-color: inherit;" tabindex="0"
-                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Prazo Pagamento"
-                                            data-bs-content="
+                                        style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                        data-bs-trigger="hover focus" data-bs-placement="top"
+                                        data-bs-title="Prazo Pagamento"
+                                        data-bs-content="
                              <p>A Data Corresponde 40 Parcial</p>
                              <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
                              <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
                              <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
                              {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                              ">
-                                            {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
-                                        </td>
-                                        <td class="fw-light text-center">
+                                        {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
+                                    </td>
+                                    <td class="fw-light text-center">
 
-                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                        </td>
-                                        <td class="fw-bold fs-5">
-                                            @if (!$list->block && !$this->blockWaiting($list->status))
-                                                @if (!$list->completed)
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Iniciar.">
-                                                        {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
+                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                    </td>
+                                    <td class="fw-bold fs-5">
+                                        @if (!$list->block && !$this->blockWaiting($list->status))
+                                            @if (!$list->completed)
+                                                <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                    data-bs-title="Iniciar.">
+                                                    {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
                                                             style="cursor: pointer;"
                                                             wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i> --}}
-                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;"
-                                                            wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $list }})"></i>
-                                                    </span>
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Transferir.">
-                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                    </span>
-                                                @endif
+                                                    <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                        style="cursor: pointer;"
+                                                        wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $list }})"></i>
+                                                </span>
+                                                <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                    data-bs-title="Transferir.">
+                                                    <i class="ri-exchange-fill m-0 align-middle text-primary"
+                                                        style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                        wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                                </span>
                                             @endif
-                                        </td>
+                                        @endif
+                                    </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -383,7 +433,7 @@
         </div>
     </div>
 
-  
+
     <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
 
@@ -412,6 +462,7 @@
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.payment.forms.jobform', key('payment-form'))
     @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('partner.show.show-partial-info', key('show_partial_info'))
 
     {{-- <div wire:init="checkOpen"></div> --}}
 

@@ -609,19 +609,30 @@ class Main extends Component
             '=',
             'latest_operation_resps.note_id'
         )
+        ->leftJoinSub(
+            DB::table('partials')
+            ->select('note_id', DB::raw('MAX(id) as latest_partial_id'))
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('supervision', true)
+            ->groupBy('note_id'),
+            'latest_partials',
+            'notes.id',
+            '=',
+            'latest_partials.note_id'
+        )
+        ->leftJoin('partials', 'latest_partials.latest_partial_id', '=', 'partials.id')
         ->select(
             'notes.id',
             'notes.note',
             'notes.lexp',
-            'notes.nstats',
             'notes.mesalization',
             'notes.days_left',
             'notes.type_note',
-            'notes.centerjob',
-            'notes.rubrica',
             'work_reports.created_at as wCreated_at',
             DB::raw('SUM(orders.moaberto) as total_moaberto'),
-            'latest_operation_resps.latest_fimLancado as fimLancado'
+            'latest_operation_resps.latest_fimLancado as fimLancado',
+            DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END as has_partials'),
         )
         ->groupBy(
             'notes.id',
@@ -636,6 +647,8 @@ class Main extends Component
             'notes.type_note',
             'fimLancado'
         )
+        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado', 'has_partials')
+        ->orderBy('has_partials', 'desc')
         ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
         ->orderBy('fimLancado', 'asc')
         ->orderBy('total_moaberto', 'desc');

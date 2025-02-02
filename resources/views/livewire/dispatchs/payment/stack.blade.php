@@ -434,6 +434,7 @@
                                 <input class="form-check-input" type="checkbox" wire:model="selectAll"
                                     wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                             </th>
+                            <th class="align-middle text-center">Tipo</th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
@@ -458,6 +459,18 @@
                         @foreach ($lists as $list)
                             @php
                                 $daysLeft = $this->deadline($list->Note);
+
+                                if (
+                                    $partial =
+                                        $list->partial && $list->Note->Partials ? $list->Note->Partials->last() : null
+                                ) {
+                                    if (!($partial->allow && $partial->supervision)) {
+                                        $partial = null;
+                                    }
+                                } else {
+                                    $partial = null;
+                                }
+
                             @endphp
                             <tr wire:key="line-{{ $list->id }}"
                                 class="align-middle
@@ -467,6 +480,10 @@
                                 <td>
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected">
+                                </td>
+                                <td class="{{ $list->partial ? 'text-bg-warning' : 'text-bg-success' }} text-center">
+                                    {{ $list->partial ? 'PARCIAL' : 'TOTAL' }}
+
                                 </td>
                                 <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
@@ -488,8 +505,14 @@
                                     @endif
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->Note->WorkForm->Orders->count())
+                                    @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
                                         @foreach ($list->Note->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->ordem }}
+                                            </p>
+                                        @endforeach
+                                    @elseif($partial && $partial->Orders->count())
+                                        @foreach ($partial->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->ordem }}
                                             </p>
@@ -498,21 +521,28 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-                                    @if ($list->Note->WorkForm->Orders->count())
-                                        @foreach ($list->Note->WorkForm->Orders as $order)
-                                            @php
-                                                $soma += $order->moaberto;
-                                            @endphp
-                                            <p class="my-0 py-0">
-                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </p>
-                                        @endforeach
+                                    @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
+                                        @php
+                                            $moaberto = $list->Note->WorkForm->Orders->sum('moaberto');
+                                            $soma += $moaberto;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format($moaberto, 2, ',', '.') }}
+                                        </p>
+                                    @elseif($partial && $partial->Orders->count())
+                                        @php
+                                            $moaberto = $partial->Orders->sum('moaberto');
+                                            $soma += $moaberto;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format($moaberto, 2, ',', '.') }}
+                                        </p>
                                     @endif
 
                                 </td>
 
                                 <td class="text-center align-middle">
-                                    @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                    @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
                                         @foreach ($list->Note->WorkForm->Orders as $order)
                                             <span class="my-0py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
@@ -649,7 +679,7 @@
                     <tfoot>
                         <tr class="table-dark align-middle">
                             <td></td>
-
+                            <td></td>
                             <td></td>
                             <td class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>

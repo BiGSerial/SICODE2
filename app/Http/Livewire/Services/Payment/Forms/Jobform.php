@@ -155,9 +155,10 @@ class Jobform extends Component
 
     public function to_finish()
     {
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'ENCERRAMENTO DE SERVIÇO',
-            'msg'   => "Você está prestes encerrar <strong>{$this->production->Note->note}</strong>.
+        if ($this->production->partial) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENCERRAMENTO DE SERVIÇO PARCIAL',
+                'msg'   => "Você está prestes encerrar o pagamento Parcial de <strong>{$this->production->Note->note}</strong>.
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
@@ -166,19 +167,42 @@ class Jobform extends Component
                     </div>
                 </div>
             ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Continue!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirmFinish',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Ação Cancelada.',
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirmFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
 
-        ]);
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENCERRAMENTO DE SERVIÇO',
+                'msg'   => "Você está prestes encerrar o pagamento de <strong>{$this->production->Note->note}</strong>.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
+                            Uma vez encerrado, essa operação nao poderá ser desfeita.
+                            <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
+                        </div>
+                    </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirmFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
+
+            ]);
+        }
     }
 
     public function save()
     {
         $this->saveForm(true);
+
+
 
         DB::beginTransaction();
 
@@ -191,6 +215,23 @@ class Jobform extends Component
                 'confirmed'    => false,
                 'priority'     => false,
             ]);
+
+            if ($this->production->partial) {
+
+
+                if ($partial = $this->production->Note->Partials->last()) {
+
+
+                    if ($partial->allow && !$partial->deny && $partial->supervision && !$partial->payment) {
+                        $partial->update([
+                            'payment' => true,
+                            'complete' => true,
+                            'payment_at' => date('Y-m-d H:i:s'),
+                            'payment_id' => Auth()->User()->id,
+                        ]);
+                    }
+                }
+            }
 
             if ($chk) {
                 $user = Auth()->User()->name;
