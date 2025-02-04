@@ -26,8 +26,11 @@
 
     </div>
     <div class="card">
-        <div class="card-header edp-bg-seoweedgreen-100 py-1">
+        <div class="card-header edp-bg-seoweedgreen-100 py-1 d-flex justify-content-between align-items-center">
             <h4 class="my-0 text-white">Informes Digitados sem Informes Final</h4>
+            <button class="btn btn-sm btn-primary" title="Exportar para Excel" wire:click.prevent="export_excel">
+                <i class="ri-file-excel-2-line fs-5"></i>
+            </button>
         </div>
 
         @if ($lists)

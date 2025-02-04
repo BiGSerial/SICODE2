@@ -29,11 +29,12 @@
                                                 <tr>
                                                     <td class="col-2 fw-bold align-middle text-end">Ordens:</td>
                                                     <td class="col align-middle">
-                                                        @if ($production->Note->Viabilities->count())
+                                                        @if ($production->Note->Viabilities && $production->Note->Viabilities->count())
                                                             @foreach ($production->Note->Viabilities as $viab)
-                                                                <p class="my-1 py-0">{{ $viab->Order->ordem }}</p>
+                                                                <p class="my-1 py-0">{{ $viab->Orders->first()->ordem }}
+                                                                </p>
                                                             @endforeach
-                                                        @elseif ($production->Note->Orders->count())
+                                                        @elseif ($production->Note->Orders && $production->Note->Orders->count())
                                                             @foreach ($production->Note->Orders as $order)
                                                                 <p class="my-1 py-0">{{ $order->ordem }}</p>
                                                             @endforeach
@@ -65,7 +66,7 @@
                                                     <td class="col align-middle">{{ $production->Note->material }}
                                                     </td>
                                                 </tr>
-                                                @if ($production->Note->Viabilities->count())
+                                                @if ($production->Note->Viabilities && $production->Note->Viabilities->count())
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle text-end">Viabilidade:
                                                         </td>
@@ -122,20 +123,20 @@
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle text-end">StS OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ $production->Note->Viabilities->last()->Order->Operations->count() ? $production->Note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->status : '---' }}
+                                                            {{ $production->Note->Viabilities->last()->Orders->first()->Operations->count() ? $production->Note->Viabilities->last()->Orders->first()->Operations->Where('operacao', '0010')->last()->status : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle text-end">Dt OP010:</td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ isset($production->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($production->Note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
+                                                            {{ isset($production->Note->Viabilities->last()->Orders->first()->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($production->Note->Viabilities->last()->Orders->first()->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle text-end">centroTrabalho:
                                                         </td>
                                                         <td class="col align-middle fw-bold">
-                                                            {{ isset($production->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $production->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
+                                                            {{ isset($production->Note->Viabilities->last()->Orders->first()->Operations->where('operacao', '0010')->last()->cenTrab) ? $production->Note->Viabilities->last()->Orders->first()->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
                                                         </td>
                                                     </tr>
                                                 @endif

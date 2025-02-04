@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Btzero;
 
+use App\Exports\SMC\Smcexport;
 use App\Models\Company;
 use App\Models\Note;
 use Livewire\Component;
@@ -25,6 +26,11 @@ class Listreports extends Component
     public function mount()
     {
         $this->companies = Company::orderBy('name')->get();
+    }
+
+    public function export_excel()
+    {
+        return (new Smcexport($this->getListsProperty()->with('RamalForm', 'WorkForm')))->download(date('ymdhis').'-smc.xlsx');
     }
 
 
@@ -60,8 +66,8 @@ class Listreports extends Component
                 $q->where('service', 'Publicação');
             })->latest();
         }])
-        ->orderBy('date_smc')
-        ->paginate(30);
+        ->orderBy('date_smc');
+
     }
 
     public function getListsPropertyBKP()
@@ -134,7 +140,7 @@ class Listreports extends Component
         return view(
             'livewire.btzero.listreports',
             [
-            'lists' => $this->lists
+            'lists' => $this->lists->paginate(30),
         ]
         );
     }
