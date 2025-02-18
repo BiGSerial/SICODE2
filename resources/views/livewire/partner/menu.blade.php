@@ -92,7 +92,7 @@
                 </ul>
             </li>
 
-            <li class="nav-item">
+            {{-- <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#partial-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-information-line text-danger"></i><span>Informes Parcial</span><i
                         class="bi bi-chevron-down ms-auto"></i>
@@ -116,7 +116,7 @@
 
                     </div>
                 </ul>
-            </li>
+            </li> --}}
         </ul>
 
     </aside>
