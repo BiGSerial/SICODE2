@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.0",
+    "appver": "1.14.1",
     "historic": [
+        {
+            "version": "1.14.1",
+            "description": "Fix error on Dispatch survey",
+            "date": "2025-02-18"
+        },
         {
             "version": "1.14.0",
             "description": "Created possibility of Partial production.",

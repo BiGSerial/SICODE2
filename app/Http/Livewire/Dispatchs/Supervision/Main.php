@@ -499,7 +499,7 @@ class Main extends Component
 
             foreach ($this->notes as $key => $note) {
 
-                if ($note->Partials && $note->Partials->last()->allow && !$note->Partials->last()->supervision) {
+                if ($note->Partials->isNotEmpty() && $note->Partials->last()->allow && !$note->Partials->last()->supervision) {
                     $partial = 1;
 
                 } else {
