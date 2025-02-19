@@ -3,23 +3,23 @@
 namespace App\Http\Livewire\Components\Ramalform;
 
 use App\Http\Livewire\Partner\Actions\WorkedReturnForm;
-use App\Models\WorkReport;
+use App\Models\RamalReport;
 use Livewire\Component;
 
 class ViewReasonReturn extends Component
 {
-    public ?WorkReport $workReport = null;
+    public ?RamalReport $workReport = null;
     public $pag = 0;
 
     protected $listeners = [
-        'workReturnViews'
+        'ramalReturnViews'
     ];
 
     // Reasons Navigate if More than one.
     public function getPage()
     {
-        if ($this->workReport->Returnwork) {
-            $total = $this->workReport->Returnwork->count();
+        if ($this->workReport->ReturnRamal) {
+            $total = $this->workReport->ReturnRamal->count();
 
             return $this->pag = $total - 1;
 
@@ -28,7 +28,7 @@ class ViewReasonReturn extends Component
 
     public function nextPage()
     {
-        if (($this->workReport->Returnwork->count() - 1) > $this->pag) {
+        if (($this->workReport->ReturnRamal->count() - 1) > $this->pag) {
             return $this->pag++;
         }
     }
@@ -42,7 +42,7 @@ class ViewReasonReturn extends Component
         return --$this->pag;
     }
 
-    public function workReturnViews(WorkReport $workReport)
+    public function ramalReturnViews(RamalReport $workReport)
     {
         $this->workReport = $workReport;
 
@@ -52,7 +52,7 @@ class ViewReasonReturn extends Component
             $this->getPage();
 
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'workRejectedViewCategory',
+                'id' => 'ramalRejectedViewCategory',
             ]);
         }
     }

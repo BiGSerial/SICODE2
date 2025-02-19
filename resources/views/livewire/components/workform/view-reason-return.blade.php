@@ -6,77 +6,56 @@
 <div>
 
     <div wire:ignore.self class="modal fade" id="workRejectedViewCategory" tabindex="-1"
-        aria-labelledby="exampleModalLabel" aria-hidden="true">
-        <div class="modal-dialog  modal-dialog-centered">
+        aria-labelledby="workRejectedViewCategoryLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="card mb-3">
-                    <h5 class="card-header py-0 my-0 edp-bg-sprucegreen-70 text-edp-verde">Motivo
-                        Retorno
-                    </h5>
-
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    <h5 class="modal-title" id="workRejectedViewCategoryLabel">Motivo Retorno</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
                     @if ($workReport && $workReport->Returnwork->count())
-                        <table class="table table-condensed table-sm table-striped-columns">
-                            <tbody>
-                                <tr>
-                                    <td class="align-middle text-end" style="width: 150px;">Motivo</td>
-                                    <td class="align-middle text-primary fw-bold">
-                                        {{ $workReport->Returnwork[$pag]->category }}</td>
-                                </tr>
-                                <tr>
-                                    <td class="align-middle text-end" style="width: 150px;">Descrição
-                                    </td>
-                                    <td class="align-middle">
-                                        <p class="my-0 py-0">
-                                            {{ $workReport->Returnwork[$pag]->text_obs }}
+                        @foreach ($workReport->Returnwork as $index => $returnWork)
+                            <div class="card mb-3 shadow-sm border-1">
+                                <div
+                                    class="card-header bg-light text-secondary fw-bold d-flex align-items-center justify-content-between">
+                                    Retorno #{{ $index + 1 }}
+                                    <span class="badge bg-primary text-white">{{ $returnWork->category }}</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <h6 class="text-muted mb-1">Descrição:</h6>
+                                        <p class="card-text fst-italic">
+                                            {{ $returnWork->text_obs ?: 'Nenhuma descrição fornecida.' }}
                                         </p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="align-middle text-end" style="width: 150px;">Responsável
-                                    </td>
-                                    <td class="align-middle">
-                                        {{ $workReport->Returnwork[$pag]->User->name }}
-                                        ({{ $workReport->Returnwork[$pag]->User->email }})</td>
-                                </tr>
-                                <tr>
-                                    <td class="align-middle text-end" style="width: 150px;">Data
-                                    </td>
-                                    <td class="align-middle">
-                                        {{ Carbon::parse($workReport->Returnwork[$pag]->created_at)->format('d/m/Y H:i:s') }}
-                                    </td>
-                                </tr>
+                                    </div>
 
-                            </tbody>
-                        </table>
-                    @endif
+                                    <div class="mb-2">
+                                        <h6 class="text-muted mb-1">Responsável:</h6>
+                                        <p class="card-text">
+                                            {{ $returnWork->User->name }} (<a
+                                                href="mailto:{{ $returnWork->User->email }}">{{ $returnWork->User->email }}</a>)
+                                        </p>
+                                    </div>
 
-                    @if ($workReport && $workReport->Returnwork->count() > 1)
-                        <div class="card-footer">
-                            <div class="col-auto my-0">
-                                <nav aria-label="Page navigation">
-                                    <ul class="pagination pagination-sm justify-content-end">
-                                        <li class="page-item @disabled($pag == 0)"><a class="page-link"
-                                                href="#" wire:click="previousPage">Anterior</i></a></li>
-                                        <li class="page-item"><a class="page-link"
-                                                href="#">{{ $pag + 1 }}/{{ $workReport->Returnwork->count() }}</a>
-                                        </li>
-
-                                        <li class="page-item @disabled($pag == $workReport->Returnwork->count() - 1)"><a class="page-link"
-                                                href="#" wire:click="nextPage">Proximo</a>
-                                        </li>
-                                    </ul>
-                                </nav>
+                                    <div class="mb-0">
+                                        <h6 class="text-muted mb-1">Data:</h6>
+                                        <p class="card-text fw-bold">
+                                            {{ Carbon::parse($returnWork->created_at)->format('d/m/Y H:i:s') }}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        @endforeach
+                    @else
+                        <p class="text-muted">Nenhum retorno encontrado.</p>
                     @endif
                 </div>
-
-                <div class="modal-footer edp-bg-sprucegreen-100 edp-text-verde-dark">
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
-
-
         </div>
     </div>
 
