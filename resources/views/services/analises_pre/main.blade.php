@@ -22,26 +22,27 @@
 
 @push('script')
     <script>
-        let intervalId = null;
+        let intervalId = null; // Declare intervalId outside the event listeners to be accessible to both.
 
         window.addEventListener('focus', function() {
             // console.log('A janela recebeu o foco!');
             livewire.emitTo('services.analises_pre.main', 'refresh_service');
 
-            stopInterval;
+            stopInterval(); // Call stopInterval directly, not assign it.
         });
 
         window.addEventListener('blur', function() {
-            // console.log('A janela recebeu o foco!');
+            // console.log('A janela perdeu o foco!');
             livewire.emitTo('services.analises_pre.main', 'refresh_service');
 
-            startInterval;
+            startInterval(); // Call startInterval directly, not assign it.
 
         });
 
         function startInterval() {
             if (!intervalId) {
-                intervalId = setInterval(executarComando, 60000); // Executa a cada 1 minuto
+                intervalId = setInterval(executeCommand, 60000); // Executa a cada 1 minuto
+                console.log('Interval started'); // Add a log message
             }
         }
 
@@ -49,11 +50,12 @@
             if (intervalId) {
                 clearInterval(intervalId);
                 intervalId = null;
+                console.log('Interval stopped'); // Add a log message
             }
         }
 
-
         function executeCommand() {
+            const now = () => new Date().toLocaleTimeString(); // Correctly define now()
             console.log('Executado:' + now());
             livewire.emitTo('services.analises_pre.main', 'refresh_service');
         }

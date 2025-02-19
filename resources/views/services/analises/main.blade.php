@@ -52,6 +52,7 @@
 
 
         function executeCommand() {
+            
             livewire.emitTo('services.analises.main', 'refresh_service');
         }
 
