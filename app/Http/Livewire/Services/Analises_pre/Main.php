@@ -2,8 +2,10 @@
 
 namespace App\Http\Livewire\Services\Analises_pre;
 
+use App\Custom\Notestatus;
 use App\Custom\RuleBuilder;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use Carbon\Carbon;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -84,20 +86,24 @@ class Main extends Component
     {
         $user = User::with('Employee.Contract')->find(Auth()->User()->id);
 
-        $check = Production::where('note_id', $this->note->id)->where(function ($q) {
-            return $q->where('completed', false)
-                ->Where('service_id', $this->service->uuid);
-        })->with('User', 'Service')->first();
+        $check = Production::where('note_id', $this->note->id)
+                    ->where('dt_note', $this->note->dt_status)
+                    ->where('service_id', $this->service->uuid)
+                    ->where(function ($q) {
+                        $q->where('completed_at', '>', Carbon::now()->subHours(24))
+                          ->orWhere('completed', false);
+                    })->first();
 
         if ($check) {
-
             $name = $check->User ? $check->User->name : 'Desconhecido';
+            $status = Notestatus::status($check->status)->status;
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OOOOPS! NOTA/OV TRATADA OU EM TRATAMENTO',
-                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$name}</strong>",
+                'html'     => "<p><strong>{$this->note->note}</strong> está sinalizada como <strong>{$status}</strong> em <strong>{$check->Service->service}</strong> por <strong>{$name}</strong></p>
+                    <p class='text-bg-info p-2 mt-2'>Verifique com um gestor para atribuir manualmente esta NOTA/OV caso considere um erro atribuição.</p>",
 
             ]);
 

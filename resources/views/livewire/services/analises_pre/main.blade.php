@@ -74,9 +74,9 @@
 
     <div class="row">
         @if (!$lists->count())
-            <div class="col-6">
+            {{-- <div class="col-6">
                 @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div>
+            </div> --}}
         @elseif ($lists->count())
             <div class="col-6">
                 {{ $lists->links() }}

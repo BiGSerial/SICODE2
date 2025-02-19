@@ -21,6 +21,20 @@
 
 @push('script')
     <script>
+        window.addEventListener('focus', function() {
+            // console.log('A janela recebeu o foco!');
+            livewire.emitTo('services.analises.main', 'refresh_service');
+
+
+        });
+
+        window.addEventListener('blur', function() {
+            // console.log('A janela recebeu o foco!');
+            livewire.emitTo('services.analises.main', 'refresh_service');
+
+        });
+
+
         window.addEventListener('alertar', function(e) {
 
             const Confirmation = Swal.mixin({
