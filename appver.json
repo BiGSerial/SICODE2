@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.1",
+    "appver": "1.14.2",
     "historic": [
+        {
+            "version": "1.14.2",
+            "description": "Add badge inform reason return work inform",
+            "date": "2025-02-19"
+        },
         {
             "version": "1.14.1",
             "description": "Fix error on Dispatch survey",

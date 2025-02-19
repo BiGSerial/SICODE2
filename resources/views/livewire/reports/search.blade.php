@@ -458,7 +458,7 @@
                                 @if ($lists->Partials && $lists->Partials->count())
                                     @foreach ($lists->Partials as $partial)
                                         <tr wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
-                                            wire:key="{{ $partial->id }}" style="cursor: pointer;">
+                                            wire:key="{{ $partial->id }}">
                                             <td class="text-center align-middle text-bg-warning">
                                                 PARCIAL
                                             </td>
@@ -520,8 +520,8 @@
                                     @endforeach
                                 @endif
                                 @if ($lists->RamalForm)
-                                    <tr wire:click="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $lists }})"
-                                        wire:key="{{ $lists->RamalForm->id }}" style="cursor: pointer;">
+                                    <tr wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $lists }})"
+                                        wire:key="{{ $lists->RamalForm->id }}">
                                         <td class="text-center align-middle text-bg-success">
                                             SMC
                                         </td>
@@ -556,7 +556,13 @@
                                             {{ $lists->RamalForm->created_at ? date('d/m/Y', strToTime($lists->RamalForm->created_at)) : 'Desconhecido' }}
                                         </td>
                                         <td class="text-center align-middle">
-                                            {{ isset($lists->RamalForm->ReturnRamal) && $lists->RamalForm->ReturnRamal->count() ? $lists->RamalForm->ReturnRamal->count() : 0 }}
+                                            @if (isset($lists->RamalForm->ReturnRamal) && $lists->RamalForm->ReturnRamal->count())
+                                                <span
+                                                    class="badge text-bg-warning">{{ $lists->RamalForm->ReturnRamal->count() }}</span>
+                                            @else
+                                                ---
+                                            @endif
+
                                         </td>
                                         <td class="text-center align-middle">
                                             {{ isset($lists->RamalForm->ReturnRamal) && $lists->RamalForm->ReturnRamal->count() ? date('d/m/Y', strToTime($lists->RamalForm->ReturnRamal->last()->created_at)) : '---' }}
@@ -574,8 +580,8 @@
                                     </tr>
                                 @endif
                                 @if ($lists->WorkForm)
-                                    <tr wire:click="$emitTo('partner.show.show-work-form', 'show_form', {{ $lists->WorkForm }})"
-                                        wire:key="{{ $lists->WorkForm->id }}" style="cursor: pointer;">
+                                    <tr wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $lists->WorkForm }})"
+                                        wire:key="{{ $lists->WorkForm->id }}">
                                         <td class="text-center align-middle text-bg-primary">
                                             FINAL
                                         </td>
@@ -610,7 +616,14 @@
                                             {{ $lists->WorkForm->created_at ? date('d/m/Y', strToTime($lists->WorkForm->created_at)) : 'Desconhecido' }}
                                         </td>
                                         <td class="text-center align-middle">
-                                            {{ isset($lists->WorkForm->Returnwork) && $lists->WorkForm->Returnwork->count() ? $lists->WorkForm->Returnwork->count() : 0 }}
+                                            @if (isset($lists->WorkForm->Returnwork) && $lists->WorkForm->Returnwork->count())
+                                                <span class="badge text-bg-warning fw-bold"
+                                                    wire:click="$emitTo('components.workform.view-reason-return', 'workReturnViews', {{ $lists->WorkForm }})"
+                                                    style="cursor: pointer;">{{ $lists->WorkForm->Returnwork->count() }}</span>
+                                            @else
+                                                ---
+                                            @endif
+
                                         </td>
                                         <td class="text-center align-middle">
                                             {{ isset($lists->WorkForm->Returnwork) && $lists->WorkForm->Returnwork->count() ? date('d/m/Y', strToTime($lists->WorkForm->Returnwork->last()->created_at)) : '---' }}
@@ -655,4 +668,5 @@
     @livewire('files.manager.createfiles', key('create-files'))
     @livewire('btzero.view.compare-form', key('compare_form'))
     @livewire('partner.show.show-partial-info', key('partial_info'))
+    @livewire('components.workform.view-reason-return', key('WorkReturnsReason'))
 </div>

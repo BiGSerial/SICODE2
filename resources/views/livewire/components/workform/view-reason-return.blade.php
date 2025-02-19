@@ -19,7 +19,7 @@
                             <tbody>
                                 <tr>
                                     <td class="align-middle text-end" style="width: 150px;">Motivo</td>
-                                    <td class="align-middle text-primary">
+                                    <td class="align-middle text-primary fw-bold">
                                         {{ $workReport->Returnwork[$pag]->category }}</td>
                                 </tr>
                                 <tr>
