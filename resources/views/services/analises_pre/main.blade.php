@@ -22,18 +22,41 @@
 
 @push('script')
     <script>
+        let intervalId = null;
+
         window.addEventListener('focus', function() {
             // console.log('A janela recebeu o foco!');
-            livewire.emitTo('services.analises.main', 'refresh_service');
+            livewire.emitTo('services.analises_pre.main', 'refresh_service');
 
-
+            stopInterval;
         });
 
         window.addEventListener('blur', function() {
             // console.log('A janela recebeu o foco!');
-            livewire.emitTo('services.analises.main', 'refresh_service');
+            livewire.emitTo('services.analises_pre.main', 'refresh_service');
+
+            startInterval;
 
         });
+
+        function startInterval() {
+            if (!intervalId) {
+                intervalId = setInterval(executarComando, 60000); // Executa a cada 1 minuto
+            }
+        }
+
+        function stopInterval() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        }
+
+
+        function executeCommand() {
+            console.log('Executado:' + now());
+            livewire.emitTo('services.analises_pre.main', 'refresh_service');
+        }
 
         window.addEventListener('alertar', function(e) {
 

@@ -25,6 +25,7 @@
             // console.log('A janela recebeu o foco!');
             livewire.emitTo('services.analises.main', 'refresh_service');
 
+            stopInterval
 
         });
 
@@ -32,7 +33,27 @@
             // console.log('A janela recebeu o foco!');
             livewire.emitTo('services.analises.main', 'refresh_service');
 
+            startInterval;
+
         });
+
+        function startInterval() {
+            if (!intervalId) {
+                intervalId = setInterval(executarComando, 60000); // Executa a cada 1 minuto
+            }
+        }
+
+        function stopInterval() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        }
+
+
+        function executeCommand() {
+            livewire.emitTo('services.analises.main', 'refresh_service');
+        }
 
 
         window.addEventListener('alertar', function(e) {
