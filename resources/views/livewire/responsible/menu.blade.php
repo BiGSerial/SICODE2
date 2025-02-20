@@ -3,7 +3,23 @@
 
         <ul class="sidebar-nav" id="sidebar-nav">
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link collapsed" data-bs-target="#analise-nav" data-bs-toggle="collapse" href="#">
+                    <i class="bi bi-menu-button-wide"></i><span>ANALISE PROJETO</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <ul id="analise-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
+                            </a>
+                        </li>
+
+                </ul>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse"
+                    href="#">
                     <i class="bi bi-menu-button-wide"></i><span>VIABILIDADE</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
@@ -72,8 +88,5 @@
                 </ul>
             </li>
         </ul>
-
-
-
     </aside>
 </div>

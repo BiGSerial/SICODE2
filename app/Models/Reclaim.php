@@ -18,6 +18,11 @@ class Reclaim extends Model
         'category',
     ];
 
+    protected $casts = [
+        'completed' => 'boolean',
+        'completed_at' => 'datetime',
+    ];
+
     public function Note()
     {
         return $this->belongsTo(Note::class);
@@ -46,5 +51,10 @@ class Reclaim extends Model
     public function Waiting()
     {
         return $this->hasOne(HiringWaiting::class);
+    }
+
+    public function Approvals()
+    {
+        return $this->belongsToMany(ViabilityApproval::class, 'viability_approval_reclaim');
     }
 }
