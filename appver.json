@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.2",
+    "appver": "1.14.3",
     "historic": [
+        {
+            "version": "1.14.3",
+            "description": "Add column to Partial At in Producion",
+            "date": "2025-02-20"
+        },
         {
             "version": "1.14.2",
             "description": "Add badge inform reason return work inform",

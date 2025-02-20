@@ -43,7 +43,8 @@
                         <th>Usuário</th>
                         <th>Informe Digitado</th>
                         <th>Informe Empreiteira</th>
-                        <th>Publicação</th>
+                        <th>Publicação Parcial</th>
+                        <th>Publicação Final</th>
                         <th>Atualização</th>
                         <th>Dias</th>
                     </tr>
@@ -97,12 +98,25 @@
                                 {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y') : 'Não Informado' }}
                             </td>
                             <td class="{{ $rowClass }}">
-                                {{ $list->productions && isset($list->productions->last()->completed_at) ? Carbon::parse($list->productions->last()->completed_at)->format('d/m/Y') : 'Não Publicado' }}
+                                @if ($list->productions && isset($list->productions->last()->partial_at))
+                                    {{ $list->productions->last()->partial_at->format('d/m/Y') }}
+                                @else
+                                    ---
+                                @endif
+                            </td>
+                            <td class="{{ $rowClass }}">
+                                @if ($list->productions && isset($list->productions->last()->completed_at))
+                                    {{ $list->productions->last()->completed_at->format('d/m/Y') }}
+                                @else
+                                    ---
+                                @endif
                             </td>
                             <td class="{{ $rowClass }}">
                                 @if ($list->productions && $list->productions->last())
                                     @if ($list->productions->last()->status == 5)
                                         <span class="badge bg-success">Publicado</span>
+                                    @elseif ($list->productions->last()->status == 28)
+                                        <span class="badge bg-success">Publicado Parcial</span>
                                     @else
                                         <span
                                             class="badge {{ Notestatus::status($list->productions->last()->status)->colorbg }}">{{ Notestatus::status($list->productions->last()->status)->status }}</span>
