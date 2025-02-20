@@ -22,6 +22,7 @@ class Production extends Model
         'dispatch_at',
         'att_at',
         'completed_at',
+        'partial_at',
         'confirmed_at',
         'stopped',
         'odi',
@@ -52,6 +53,23 @@ class Production extends Model
         'd5',
         'cad',
         'partial',
+    ];
+
+    protected $casts = [
+        'manual'     => 'boolean',
+        'mmgd'     => 'boolean',
+        'd5'     => 'boolean',
+        'cad'    => 'boolean',
+        'partial' => 'boolean',
+        'completed'   => 'boolean',
+        'confirmed'   => 'boolean',
+        'returned'    => 'boolean',
+        'priority'    => 'boolean',
+        'dispatch_at' => 'datetime',
+        'att_at'        => 'datetime',
+        'completed_at'  => 'datetime',
+        'partial_at'    => 'datetime',
+        'confirmed_at'  => 'datetime',
     ];
 
     public function Note()

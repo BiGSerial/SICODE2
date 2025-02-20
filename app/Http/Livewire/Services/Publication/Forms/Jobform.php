@@ -194,9 +194,6 @@ class Jobform extends Component
 
     public function to_Publish()
     {
-
-
-
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENCERRAMENTO PARCIAL DE SERVIÇO',
             'msg'   => "Você está prestes encerrar parcialmente <strong>{$this->production->Note->note}</strong>.
@@ -286,7 +283,8 @@ class Jobform extends Component
         try {
             $chk = $this->production->update([
                 'status'       => 28,
-                'completed_at' => date('Y-m-d H:i:s'),
+                // 'completed_at' => now(),
+                'partial_at' => now(),
                 'postes_u'     => $this->analise->postes ? $this->analise->postes : 0,
                 'completed'    => false,
                 'confirmed'    => false,
@@ -300,7 +298,7 @@ class Jobform extends Component
                     'note_id'    => $this->production->note_id,
                     'service_id' => $this->production->service_id,
                     'user_id'    => Auth()->User()->id,
-                    'info'       => "Usuário {$user} Publicou a Nota/OV.",
+                    'info'       => "Usuário {$user} Publicou Parcial a Nota/OV.",
                     'status'     => 28,
                 ]);
 
