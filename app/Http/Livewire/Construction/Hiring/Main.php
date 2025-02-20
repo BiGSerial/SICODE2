@@ -58,7 +58,6 @@ class Main extends Component
     protected $listeners = [
          'refresh' => '$refresh',
          'closeAll' => 'closeAll',
-
      ];
 
     public function mount($service)
