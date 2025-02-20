@@ -533,7 +533,7 @@
                                             <td class="text-center align-middle">
                                                 @if (isset($lists->RamalForm->ReturnRamal) && $lists->RamalForm->ReturnRamal->count())
                                                     <span class="badge text-bg-warning fw-bold"
-                                                        wire:click="$emitTo('components.ramalform.view-reason-return', 'ramalReturnViews', {{ $lists->ramalform }})"
+                                                        wire:click="$emitTo('components.ramalform.view-reason-return', 'ramalReturnViews', {{ $lists->RamalForm }})"
                                                         style="cursor: pointer;">{{ $lists->ramalform->ReturnRamal->count() }}</span>
                                                 @else
                                                     ---

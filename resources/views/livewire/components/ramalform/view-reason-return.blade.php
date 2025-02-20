@@ -5,7 +5,7 @@
 
 <div>
 
-    <div wire:ignore.self class="modal fade" id="workRejectedViewCategory" tabindex="-1"
+    <div wire:ignore.self class="modal fade" id="ramalRejectedViewCategory" tabindex="-1"
         aria-labelledby="workRejectedViewCategoryLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -15,8 +15,8 @@
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    @if ($workReport && $workReport->Returnwork->count())
-                        @foreach ($workReport->Returnwork as $index => $returnWork)
+                    @if ($workReport && $workReport->ReturnRamal->count())
+                        @foreach ($workReport->ReturnRamal as $index => $returnWork)
                             <div class="card mb-3 shadow-sm border-1">
                                 <div
                                     class="card-header bg-light text-secondary fw-bold d-flex align-items-center justify-content-between">
