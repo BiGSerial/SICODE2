@@ -36,47 +36,41 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-7">
-                        <div class="card border-0">
-                            <div class="clearfix">
-                                <dl class="row">
-                                    <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">RUBRICA</dt>
-                                    <dd class="col-sm-8 text-white text-uppercase">{{ $lists->rubrica }}</dd>
+                        <dl class="row ms-2">
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">RUBRICA</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->rubrica }}</dd>
 
-                                    @if ($lists->type_note == 2)
-                                        <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">GRUPO 1</dt>
-                                        <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group1 }}</dd>
+                            @if ($lists->type_note == 2)
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 1</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group1 }}</dd>
 
-                                        <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">GRUPO 2</dt>
-                                        <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group2 }}</dd>
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 2</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group2 }}</dd>
 
-                                        <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">GRUPO 4</dt>
-                                        <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group4 }}</dd>
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 4</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group4 }}</dd>
 
-                                        <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">GRUPO 5</dt>
-                                        <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group5 }}</dd>
-                                    @endif
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">GRUPO 5</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">{{ $lists->group5 }}</dd>
+                            @endif
 
-                                    <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">DESCRICAO</dt>
-                                    <dd class="col-sm-8 text-white text-uppercase">{{ $lists->numPedido }}</dd>
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">DESCRICAO</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->numPedido }}</dd>
 
-                                    <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">MUNICÍPIO</dt>
-                                    <dd class="col-sm-8 text-white text-uppercase">{{ $lists->lexp }}</dd>
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">MUNICÍPIO</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->lexp }}</dd>
 
-                                    <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">MMGD</dt>
-                                    <dd class="col-sm-8 text-white text-uppercase">{{ $lists->mmgd ? 'SIM' : 'NÃO' }}
-                                    </dd>
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">MMGD</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">{{ $lists->mmgd ? 'SIM' : 'NÃO' }}</dd>
 
-                                    <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">STATUS ATUAL</dt>
-                                    <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->nstats }}</dd>
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">STATUS ATUAL</dt>
+                            <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->nstats }}</dd>
 
-                                    @if ($lists->type_note == 1)
-                                        <dt class="col-sm-4 fw-bold edp-bg-sprucegreen-100">CENTRO DE TRABALHO</dt>
-                                        <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->centerjob }}
-                                        </dd>
-                                    @endif
-                                </dl>
-                            </div>
-                        </div>
+                            @if ($lists->type_note == 1)
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">CENTRO DE TRABALHO</dt>
+                                <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->centerjob }}</dd>
+                            @endif
+                        </dl>
 
                         @if ($lists->Orders->count())
 
@@ -539,7 +533,7 @@
                                             <td class="text-center align-middle">
                                                 @if (isset($lists->RamalForm->ReturnRamal) && $lists->RamalForm->ReturnRamal->count())
                                                     <span class="badge text-bg-warning fw-bold"
-                                                        wire:click="$emitTo('components.ramalform.view-reason-return', 'ramalReturnViews', {{ $lists->ramalform }})"
+                                                        wire:click="$emitTo('components.ramalform.view-reason-return', 'ramalReturnViews', {{ $lists->RamalForm }})"
                                                         style="cursor: pointer;">{{ $lists->ramalform->ReturnRamal->count() }}</span>
                                                 @else
                                                     ---
