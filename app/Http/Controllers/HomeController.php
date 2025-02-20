@@ -57,9 +57,9 @@ class HomeController extends Controller
                 ->where('rejected', false)
                 ->where('d5', false)
                 ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
-                ->orderBy('completed_at')
                 ->select(DB::raw('DATE(completed_at) as date'), DB::raw('COUNT(*) as total'), DB::raw('SUM(postes_u) as postes'))
                 ->groupBy('date')
+                ->orderBy('date', 'DESC')
                 ->get();
 
             $mes = Production::where('user_id', $userId)
@@ -73,8 +73,9 @@ class HomeController extends Controller
                     DB::raw('SUM(postes_u) as postes'),
                 )
                 ->groupBy('year', 'month')
-                ->orderBy('year', 'desc')
-                ->orderBy('month', 'ASC')
+                ->orderBy('year', 'DESC')
+                ->orderBy('month', 'DESC')
+                ->limit(15)
                 ->get();
 
             Carbon::setLocale('pt_BR');
@@ -92,9 +93,9 @@ class HomeController extends Controller
 
             $waitingList = Manualnote::where('user_id', $userId)
                         // ->where('completed', true)
-                        // ->where('confirmed', false)
-                ->with('service')
-                ->get();
+                        ->where('confirmed', false)
+                        ->with('service')
+                        ->get();
 
             $inconsistencies = Production::where('user_id', $userId)
                 ->where('confirmed', false)->where('tries', '>=', 2)

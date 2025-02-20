@@ -10,8 +10,8 @@
                 <ul id="analise-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
+                            <a href="{{ route('responsible.viab_analises') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> À ANALISAR</span>
                             </a>
                         </li>
 
@@ -27,7 +27,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
+                                <i class="ri view-list fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
                                 @livewire('responsible.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
                             </a>
                         </li>

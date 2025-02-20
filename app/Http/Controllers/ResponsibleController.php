@@ -50,4 +50,9 @@ class ResponsibleController extends Controller
     {
         return view('responsible.returnInternList');
     }
+
+    public function viab_analises()
+    {
+        return view('responsible.viability_analises');
+    }
 }
