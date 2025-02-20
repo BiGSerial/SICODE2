@@ -57,23 +57,24 @@ class HomeController extends Controller
                 ->where('rejected', false)
                 ->where('d5', false)
                 ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
-                ->orderBy('completed_at')
                 ->select(DB::raw('DATE(completed_at) as date'), DB::raw('COUNT(*) as total'), DB::raw('SUM(postes_u) as postes'))
                 ->groupBy('date')
+                ->orderBy('date', 'ASC')
                 ->get();
 
             $mes = Production::where('user_id', $userId)
                 ->where('confirmed', true)
                 ->where('rejected', false)
                 ->where('d5', false)
+                ->where('completed_at', '>=', Carbon::now()->subMonths(15))
                 ->select(
                     DB::raw('YEAR(completed_at) as year'),
                     DB::raw('MONTH(completed_at) as month'),
                     DB::raw('COUNT(*) as total'),
-                    DB::raw('SUM(postes_u) as postes'),
+                    DB::raw('SUM(postes_u) as postes')
                 )
                 ->groupBy('year', 'month')
-                ->orderBy('year', 'desc')
+                ->orderBy('year', 'ASC')
                 ->orderBy('month', 'ASC')
                 ->get();
 
@@ -92,9 +93,9 @@ class HomeController extends Controller
 
             $waitingList = Manualnote::where('user_id', $userId)
                         // ->where('completed', true)
-                        // ->where('confirmed', false)
-                ->with('service')
-                ->get();
+                        ->where('confirmed', false)
+                        ->with('service')
+                        ->get();
 
             $inconsistencies = Production::where('user_id', $userId)
                 ->where('confirmed', false)->where('tries', '>=', 2)
@@ -143,9 +144,9 @@ class HomeController extends Controller
             ->where('rejected', false)
             ->where('d5', false)
             ->whereBetween('completed_at', [$currentMonth, $lastDayOfMonth])
-            ->orderBy('completed_at')
             ->select(DB::raw('DATE(completed_at) as date'), DB::raw('COUNT(*) as total'), DB::raw('SUM(postes_u) as postes'))
             ->groupBy('date')
+            ->orderBy('date', 'ASC')
             ->get();
 
         $mes = Production::where('user_id', $userId)
@@ -159,8 +160,8 @@ class HomeController extends Controller
                 DB::raw('SUM(postes_u) as postes'),
             )
             ->groupBy('year', 'month')
-            ->orderBy('year', 'desc')
-            ->orderBy('month', 'ASC')
+            ->orderBy('year', 'ASC')
+            ->orderBy('month', 'DESC')
             ->get();
 
         Carbon::setLocale('pt_BR');
