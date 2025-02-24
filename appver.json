@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.3",
+    "appver": "1.14.4",
     "historic": [
+        {
+            "version": "1.14.4",
+            "description": "fix search on Payment",
+            "date": "2025-02-24"
+        },
         {
             "version": "1.14.3",
             "description": "Add column to Partial At in Producion",
