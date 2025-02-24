@@ -30,6 +30,18 @@ class Partial extends Model
         'value'
     ];
 
+
+    protected $casts = [
+        'decision_at' => 'datetime',
+        'payment_at' => 'datetime',
+        'supervision_at' => 'datetime',
+        'complete' => 'boolean',
+        'allow' => 'boolean',
+        'deny' => 'boolean',
+        'payment' => 'boolean',
+        'supervision' => 'boolean',
+    ];
+
     public function Note()
     {
         return $this->belongsTo(Note::class);

@@ -66,7 +66,13 @@ class NoteFilter
 
         });
 
+        if ($search) {
 
+            $query->where(function ($q) use ($search) {
+                $q->where('note', 'like', '%' . $search . '%')
+                    ->orWhereRelation('Orders', 'ordem', 'like', '%' . $search . '%');
+            });
+        }
 
         $query->when(isset($this->filters['rubrica']), function ($q) {
             return $q->where(function ($query) {

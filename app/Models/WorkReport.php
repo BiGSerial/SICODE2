@@ -30,6 +30,12 @@ class WorkReport extends Model
         'informed_at'
     ];
 
+    protected $casts = [
+        'approved' => 'boolean',
+        'rejected' => 'boolean',
+        'informed_at' => 'datetime'
+    ];
+
     public function Note()
     {
         return $this->belongsTo(Note::class);

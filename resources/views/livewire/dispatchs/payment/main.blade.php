@@ -236,7 +236,7 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count() && !$partial)
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty() && !$partial)
                                         {{-- @foreach ($list->WorkForm->Orders as $order)
                                             @php
                                                 $soma += $order->moaberto;
@@ -273,7 +273,7 @@
                                 </td> --}}
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
@@ -283,7 +283,7 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
@@ -293,20 +293,20 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
                                             </p>
                                         @endforeach
                                     @endif
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
                                     @elseif ($partial)
@@ -321,9 +321,9 @@
 
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
-                                        {{ $list->WorkForm->Company->name }}
+                                        {{ $list->WorkForm->Company ? $list->WorkForm->Company->name : '---' }}
                                     @elseif ($partial)
-                                        {{ $list->Partials->last()->Company->name }}
+                                        {{ $list->Partials->last()->Company ? $list->Partials->last()->Company->name : '---' }}
                                     @endif
                                 </td>
 
@@ -334,9 +334,9 @@
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($list->WorkForm)
-                                        {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
-                                    @elseif ($list->Partials)
-                                        {{ date('d/m/Y H:i:s', strToTime($list->Partials->last()->created_at)) }}
+                                        {{ $list->WorkForm ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : '---' }}
+                                    @elseif ($list->Partials->isNotEmpty())
+                                        {{ $list->Partials->last()->created_at->format('d/m/Y H:i:s') }}
                                     @endif
                                 </td>
 

@@ -309,7 +309,7 @@
                                 </td> --}}
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
@@ -319,7 +319,7 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
@@ -329,7 +329,7 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
@@ -339,16 +339,16 @@
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count())
+                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
-                                    @elseif ($list->Partials)
+                                    @elseif ($list->Partials->isNotEmpty() && $list->Partials->last()->Orders->isNotEmpty())
                                         @foreach ($list->Partials->last()->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
                                     @endif
@@ -358,8 +358,8 @@
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         {{ $list->WorkForm->Company->name }}
-                                    @elseif ($list->Partials)
-                                        {{ $list->Partials->last()->Company->name }}
+                                    @elseif ($list->Partials->isNotEmpty())
+                                        {{ $list->Partials->last()->Company ? $list->Partials->last()->Company->name : '---' }}
                                     @endif
                                 </td>
 
@@ -370,20 +370,18 @@
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($list->WorkForm)
-                                        {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
-                                    @elseif ($list->Partials)
-                                        {{ date('d/m/Y H:i:s', strToTime($list->Partials->last()->created_at)) }}
+                                        {{ $list->WorkForm ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : '---' }}
+                                    @elseif ($list->Partials->isNotEmpty())
+                                        {{ $list->Partials->isNotEmpty() ? $list->Partials->last()->created_at->format('d/m/Y H:i:s') : '---' }}
                                     @endif
-
-
                                 </td>
 
                                 <td scope="col"
                                     class="text-center text-center
-                                   @if ($daysLeft <= 2) text-bg-success
-                                @elseif($daysLeft > 5)
-                                    text-bg-danger
-                                @else
+                                    @if ($daysLeft <= 2) text-bg-success
+                                    @elseif($daysLeft > 5)
+                                        text-bg-danger
+                                    @else
                                 text-bg-warning @endif
                                 "
                                     style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
