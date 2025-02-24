@@ -16,6 +16,8 @@ class ViabilityApproval extends Model
         'tacit',
         'reason',
         'approved_at',
+        'status',
+        'dt_status',
     ];
 
     protected $casts = [

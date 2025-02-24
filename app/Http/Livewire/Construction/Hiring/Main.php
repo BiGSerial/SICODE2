@@ -272,6 +272,9 @@ class Main extends Component
                 });
             }
 
+        })->whereHas('Approval', function ($q) {
+            $q->where('approved', true);
+
         });
 
         if ($this->search) {

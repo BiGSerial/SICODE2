@@ -15,6 +15,18 @@
                             </a>
                         </li>
 
+                        <li>
+                            <a href="{{ route('responsible.viab_control') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> EM ATIVIDADE</span>
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="" class="nav-item edp-text-verde-dark">
+                                <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> LIBERADOS</span>
+                            </a>
+                        </li>
+
                 </ul>
             </li>
             <li class="nav-item">

@@ -248,6 +248,8 @@ class CreateGenFiles extends Component
 
                 ]);
 
+                $this->emitUp('filesFailed');
+
                 return;
             }
         }

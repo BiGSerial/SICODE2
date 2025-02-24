@@ -13,7 +13,7 @@
                 <a href="#">Analise Projeto</a>
             </li>
             <li class="breadcrumb-item active" aria-current="page">
-                Lista à Analisar
+                Em Atividade
             </li>
         </ol>
     </nav>
@@ -24,15 +24,15 @@
 @endsection
 
 @section('content')
-    @livewire('responsible.viab-analise', key('responsible-viab-analise'))
+    @livewire('responsible.viab-control', key('responsible-viab-control'))
 @endsection
 
 
 @push('script')
     <script>
-         window.addEventListener('focus', function() {
+        window.addEventListener('focus', function() {
             // console.log('A janela recebeu o foco!');
-            livewire.emitTo('responsible.viab-analise', 'refresh_list');
+            livewire.emitTo('responsible.viab-control', 'refresh_list');
 
             stopInterval
 
@@ -40,7 +40,7 @@
 
         window.addEventListener('blur', function() {
             // console.log('A janela recebeu o foco!');
-            livewire.emitTo('responsible.viab-analise', 'refresh_list');
+            livewire.emitTo('responsible.viab-control', 'refresh_list');
 
             startInterval;
 

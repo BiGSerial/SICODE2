@@ -55,4 +55,9 @@ class ResponsibleController extends Controller
     {
         return view('responsible.viability_analises');
     }
+
+    public function viab_control()
+    {
+        return view('responsible.viability_control');
+    }
 }

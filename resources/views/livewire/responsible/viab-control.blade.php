@@ -2,6 +2,7 @@
     use App\Custom\Viabilitiesstatus;
     use App\Custom\Notestatus;
     use Carbon\Carbon;
+
 @endphp
 <div>
     <x-show-loading />
@@ -59,12 +60,14 @@
         </div>
     @endif
     <div class="card edp-bg-gray">
-        <div
-            class="card-header d-flex justify-content-between align-items-center edp-bg-sprucegreen-100 edp-text-verde-dark">
+        <div class="card-header d-flex justify-content-between align-items-center text-bg-danger">
             <h4 class="fs-4 mb-0">OBRAS ANALISE DE PROJETO</h4>
-            <button type="button" class="btn btn-outline-info" wire:click.prevent="preAtt"
-                @disabled(!count($selected))>Assumir em
-                Massa</button>
+            <div>
+                <button type="button" class="btn btn-primary" wire:click.prevent="preMassApprove"
+                    id="massApprove">Exportar</button>
+                <button type="button" class="btn btn-primary" wire:click.prevent="preMassApprove" id="massApprove"
+                    @disabled(!count($selected))>Aprovar em Massa</button>
+            </div>
         </div>
         @if ($lists->isNotEmpty())
             <div class="table-responsive">
@@ -84,8 +87,11 @@
                             <th class="text-center align-middle">Rubrica</th>
                             <th class="text-center align-middle">Município</th>
                             <th class="text-center align-middle">Empreiteira</th>
-                            <th class="text-center align-middle">Status</th>
+                            <th class="text-center align-middle">Sts Nota</th>
                             <th class="text-center align-middle">Tempo</th>
+                            <th class="text-center align-middle">Em Atvd</th>
+                            <th class="text-center align-middle">Em Rslc</th>
+                            <th class="text-center align-middle">Status</th>
                             <th class="text-center align-middle"></th>
                         </tr>
                     </thead>
@@ -94,7 +100,7 @@
                             <tr wire:key="linha-{{ $list->id }}">
                                 <td class="text-center align-middle">
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input border-1 border-secondary"
+                                        <input type="checkbox" class="form-check-input border-1 border-secondary select"
                                             wire:model.defer="selected" value='{{ $list->id }}'>
 
                                     </div>
@@ -125,7 +131,14 @@
                                     {{ $list->type_note == 2 ? $list->nstats : $list->centerjob }}</td>
                                 @php
                                     $color = '';
+                                    $attColor = '';
+                                    $rclColor = '';
                                     $days = '';
+                                    $attDays = $list->approval->created_at->diffInDays(now());
+                                    $reclaim = $list->approval->reclaims->isNotEmpty()
+                                        ? $list->approval->reclaims->last()
+                                        : null;
+                                    $rclDays = '---';
 
                                     if ($list->type_note == 2) {
                                         $days = $list->dt_status->diffInDays(now());
@@ -138,9 +151,45 @@
                                             $color = 'text-bg-warning';
                                         }
                                     }
+
+                                    if ($attDays > 5) {
+                                        $attColor = 'text-bg-danger';
+                                    } elseif ($attDays <= 3) {
+                                        $attColor = 'text-bg-success';
+                                    } else {
+                                        $attColor = 'text-bg-warning';
+                                    }
+
+                                    if ($reclaim && ($rclDays = $reclaim->created_at->diffInDays(now()))) {
+                                        if ($rclDays > 5) {
+                                            $rclColor = 'text-bg-danger';
+                                        } elseif ($rclDays <= 3) {
+                                            $rclColor = 'text-bg-success';
+                                        } else {
+                                            $rclColor = 'text-bg-warning';
+                                        }
+                                    }
+
                                 @endphp
                                 <td class="text-center align-middle {{ $color }}">
                                     {{ $days }}
+                                </td>
+                                <td class="text-center align-middle {{ $attColor }}">
+                                    {{ $attDays }}
+                                </td>
+                                <td class="text-center align-middle {{ $rclColor }}">
+                                    {{ $rclDays }}
+                                </td>
+
+                                <td class="text-center align-middle ">
+                                    @if ($reclaim && $reclaim->production)
+                                        <span
+                                            class="badge {{ Notestatus::status($reclaim->production->status)->colorbg }}">{{ Notestatus::status($reclaim->production->status)->status }}</span>
+                                    @elseif ($reclaim && !$reclaim->production)
+                                        <span class="badge text-secondary">Não Depachado</span>
+                                    @else
+                                        ----
+                                    @endif
                                 </td>
                                 <td class="text-center align-middle">
                                     <span wire:loading wire:target="onlySelected({{ $list->id }})">
@@ -148,8 +197,17 @@
                                             style="cursor: not-allowed;"></i>
                                     </span>
                                     <span wire:loading.remove wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-play-circle-line text-success fs-4 fw-bold"
+                                        <i class="ri-checkbox-circle-line text-success fs-4 fw-bold"
                                             wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
+                                            style="cursor: pointer;"></i>
+                                    </span>
+                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
+                                        <i class="ri-loader-line text-danger fs-4 fw-bold animate-spin"
+                                            style="cursor: not-allowed;"></i>
+                                    </span> --}}
+                                    <span>
+                                        <i class="ri-close-circle-line text-danger fs-4 fw-bold"
+                                            wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     </span>
                                 </td>
@@ -202,7 +260,36 @@
 
     </div>
 
+    {{-- Livewire Components --}}
+    @livewire('responsible.actions.reject-project', key('rejectProject'))
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('.select');
+            const massApproveBtn = document.getElementById('massApprove');
+
+            function updateMassApprove() {
+                let selectedCount = 0;
+                checkboxes.forEach(chk => {
+                    if (chk.checked) {
+                        selectedCount++;
+                    }
+                });
+                if (selectedCount > 1) {
+                    massApproveBtn.removeAttribute('disabled');
+                } else {
+                    massApproveBtn.setAttribute('disabled', true);
+                }
+            }
+
+            checkboxes.forEach(chk => {
+                chk.addEventListener('change', updateMassApprove);
+            });
+
+            // Initialize button state on page load
+            updateMassApprove();
+        });
+    </script>
 
 
 

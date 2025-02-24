@@ -12,6 +12,7 @@ return new class () extends Migration {
     {
         Schema::table('productions', function (Blueprint $table) {
             $table->timestamp('partial_at')->nullable()->after('completed_at');
+
         });
     }
 
@@ -22,6 +23,7 @@ return new class () extends Migration {
     {
         Schema::table('productions', function (Blueprint $table) {
             $table->dropColumn('partial_at');
+
         });
     }
 };
