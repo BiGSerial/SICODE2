@@ -945,66 +945,100 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with('Note', 'Wpas')
-        ->join('notes', 'productions.note_id', '=', 'notes.id')
-        ->where('confirmed', false)
-        ->where('service_id', $this->service->uuid)
-        ->when($this->search, function ($q) {
-            return $q->where(function ($query) {
-                $query->whereHas('Note', function ($subquery) {
-                    return $subquery->where('note', 'like', '%' . $this->search . '%')
-                        ->orWhere('group2', 'like', '%' . $this->search . '%')
-                        ->orWhere('group3', 'like', '%' . $this->search . '%')
-                        ->orWhere('group4', 'like', '%' . $this->search . '%')
-                        ->orWhere('group5', 'like', '%' . $this->search . '%')
-                        ->orWhere('numPedido', 'like', '%' . $this->search . '%')
-                        ->orWhere('material', 'like', '%' . $this->search . '%')
-                        ->orWhere('lexp', 'like', '%' . $this->search . '%')
-                        ->orWhere('rubrica', 'like', '%' . $this->search . '%')
-                        ->orWhere('centerjob', 'like', '%' . $this->search . '%');
+        $productions = Production::with('Note', 'Wpas')
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
+            ->where('confirmed', false)
+            ->where('service_id', $this->service->uuid)
+            ->when($this->search, function ($q) {
+                return $q->where(function ($query) {
+                    $query->whereHas('Note', function ($subquery) {
+                        return $subquery->where('note', 'like', '%' . $this->search . '%')
+                            ->orWhere('group2', 'like', '%' . $this->search . '%')
+                            ->orWhere('group3', 'like', '%' . $this->search . '%')
+                            ->orWhere('group4', 'like', '%' . $this->search . '%')
+                            ->orWhere('group5', 'like', '%' . $this->search . '%')
+                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                            ->orWhere('material', 'like', '%' . $this->search . '%')
+                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
+                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
+                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
+                    });
                 });
-            });
-        })
-        ->when(Auth()->User()->contract, function ($q) {
-            return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-        })
-        ->when($this->company_fs, function ($q) {
-            return $q->whereIn('company_id', $this->company_fs);
-        })
-        ->when($this->user_fs, function ($q) {
-            return $q->whereIn('user_id', $this->user_fs);
-        })
-        ->when($this->rubrica_s, function ($q) {
-            return $q->whereHas('Note', function ($query) {
-                $query->whereIn('rubrica', $this->rubrica_s);
-            });
-        })
-        ->when($this->base, function ($q) {
-            return $q->whereHas('Note', function ($query) {
-                return $query->whereIn('nexp', $this->base)
-                    ->orwhere('nexp', null)
-                    ->orwhere('nexp', '');
-            });
-        })
-        ->when($this->multiSearch, function ($q) {
-            return $q->whereHas('Note', function ($query) {
-                return $query->whereIn('note', $this->multiSearch);
-            });
-        })
-        ->when($this->status_s, function ($q) {
-            return $q->whereIn('productions.status', $this->status_s);
-        })
-        ->when($this->note_type, function ($q) {
-            return $q->whereRelation('Note', 'type_note', $this->note_type);
-        })
-        ->orderBy('priority', 'DESC')
-        ->orderBy('d5', 'DESC')
-        ->orderBy('type_note', 'DESC')
-        ->orderBy('dispatch_at', 'ASC')
+            })
+            ->when(Auth()->User()->contract, function ($q) {
+                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+            })
+            ->when($this->company_fs, function ($q) {
+                return $q->whereIn('company_id', $this->company_fs);
+            })
+            ->when($this->user_fs, function ($q) {
+                return $q->whereIn('user_id', $this->user_fs);
+            })
+            ->when($this->rubrica_s, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    $query->whereIn('rubrica', $this->rubrica_s);
+                });
+            })
+            ->when($this->base, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('nexp', $this->base)
+                        ->orwhere('nexp', null)
+                        ->orwhere('nexp', '');
+                });
+            })
+            ->when($this->multiSearch, function ($q) {
+                return $q->whereHas('Note', function ($query) {
+                    return $query->whereIn('note', $this->multiSearch);
+                });
+            })
+            ->when($this->status_s, function ($q) {
+                return $q->whereIn('productions.status', $this->status_s);
+            })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', 'type_note', $this->note_type);
+            })
+            ->select('productions.*', 'notes.dt_created as note_dt_created')
+            ->selectSub(function ($query) {  // Mantém o selectSub para a coluna
+                $query->selectRaw('
+                CASE
+                    WHEN productions.partial = 1 THEN (
+                        SELECT decision_at
+                        FROM partials
+                        WHERE partials.allow = 1 AND partials.note_id = notes.id
+                        ORDER BY decision_at DESC
+                        LIMIT 1
+                    )
+                    ELSE (
+                        SELECT informed_at
+                        FROM work_reports
+                        WHERE work_reports.note_id = notes.id
+                    )
+                END
+            ');
+            }, 'form_date')
+            ->orderBy('priority', 'DESC')
+            ->orderBy('d5', 'DESC')
+            ->orderByRaw('
+            CASE
+                WHEN productions.partial = 1 THEN (
+                    SELECT decision_at
+                    FROM partials
+                    WHERE partials.allow = 1 AND partials.note_id = notes.id
+                    ORDER BY decision_at DESC
+                    LIMIT 1
+                )
+                ELSE (
+                    SELECT informed_at
+                    FROM work_reports
+                    WHERE work_reports.note_id = notes.id
+                )
+            END ASC
+        ') // Ordena diretamente com a lógica da subquery
+            ->orderBy('type_note', 'DESC')
+            ->orderBy('dispatch_at', 'ASC')
+            ->paginate($this->perPage);
 
-        ->select('productions.*', 'notes.dt_created as note_dt_created')
-        ->paginate($this->perPage);
-
+        return $productions;
     }
 
     public function getStatusProperty()
