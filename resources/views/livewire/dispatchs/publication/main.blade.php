@@ -222,6 +222,25 @@
                                     }
                                 }
 
+                                if ($list->workform) {
+                                    $dateForm = $list->workform->informed_at
+                                        ? $list->workform->informed_at->format('d/m/Y')
+                                        : $list->workform->created_at->format('d/m/Y');
+                                    $daysForm = $list->workform->informed_at
+                                        ? $list->workform->informed_at->diffInDays(now())
+                                        : $list->workform->created_at->diffInDays(now());
+                                } elseif ($list->ramalForm) {
+                                    $dateForm = $list->ramalform->informed_at
+                                        ? $list->ramalform->informed_at->format('d/m/Y')
+                                        : $list->ramalform->created_at->format('d/m/Y');
+                                    $daysForm = $list->ramalform->informed_at
+                                        ? $list->ramalform->informed_at->diffInDays(now())
+                                        : $list->ramalform->created_at->diffInDays(now());
+                                } else {
+                                    $dateForm = '---';
+                                    $daysForm = '---';
+                                }
+
                                 // Cores das linhas com base no status
                                 $rowClass = '';
                                 if ($block == 4) {
@@ -280,11 +299,11 @@
                                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
-                                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
+                                    {{ $dateForm }}
                                 </td>
 
                                 <td scope="col" class="text-center {{ $rowClass }}">
-                                    {{ $list->WorkForm ? Carbon::parse($list->WorkForm->informed_at)->diffInDays(Carbon::now(), false) : '---' }}
+                                    {{ $daysForm }}
                                 </td>
                                 {{-- <td class="fw-light {{ $rowClass }} text-center" tabindex="0"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"

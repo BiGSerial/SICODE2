@@ -23,6 +23,12 @@ class RamalReport extends Model
         'informed_at',
     ];
 
+    protected $casts = [
+
+         'rejected_at' => 'datetime',
+         'informed_at' => 'datetime',
+     ];
+
     public function Note()
     {
         return $this->belongsTo(Note::class);
@@ -46,7 +52,7 @@ class RamalReport extends Model
     public function BtzeroEquipment()
     {
         return $this->hasMany(BtzeroEquipment::class)->orderBy('type')->orderBy('patrimony');
-        
+
     }
 
     public function ReturnRamal()
