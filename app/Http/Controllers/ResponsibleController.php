@@ -51,13 +51,18 @@ class ResponsibleController extends Controller
         return view('responsible.returnInternList');
     }
 
-    public function viab_analises()
+    public function approve_list()
     {
-        return view('responsible.viability_analises');
+        return view('responsible.approval_list');
     }
 
-    public function viab_control()
+    public function approve_control()
     {
-        return view('responsible.viability_control');
+        return view('responsible.approval_control');
+    }
+
+    public function approve_hist()
+    {
+        return view('responsible.approval_history');
     }
 }

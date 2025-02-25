@@ -24,7 +24,7 @@
 @endsection
 
 @section('content')
-    @livewire('responsible.viab-control', key('responsible-viab-control'))
+    @livewire('responsible.approval-control', key('responsible-approval-control'))
 @endsection
 
 

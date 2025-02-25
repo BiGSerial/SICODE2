@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class ViabAnalise extends Component
+class ApprovalHistory extends Component
 {
     use WithPagination;
     use TextFormatter;
@@ -34,7 +34,7 @@ class ViabAnalise extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
-        'confirm_att',
+        'confirm_approved',
     ];
 
     public function buscarMulti()
@@ -75,13 +75,17 @@ class ViabAnalise extends Component
     {
         $this->selected[] = $id;
 
-        $this->preAtt();
+        $this->preMassApprove();
     }
 
 
 
-    public function preAtt()
+    public function preMassApprove()
     {
+        if ($this->selected) {
+            $this->selected = array_map('intval', $this->selected);
+        }
+
 
         $this->selected = array_unique($this->selected);
 
@@ -89,7 +93,8 @@ class ViabAnalise extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
-                'title'    => 'Nenhuma nota foi selecionada para assumir!',
+                'title'    => 'TEXTO INVÁLIDO!',
+                'html'     => 'Nenhuma nota foi selecionada para assumir! <p>Por favor, tente novamente.</p>',
                 'timer'    => 2500,
             ]);
 
@@ -98,27 +103,29 @@ class ViabAnalise extends Component
 
         $count = count($this->selected);
 
+        $notes = Note::select('note')->find($this->selected)->pluck('note')->toArray();
+        $notes = implode(', ', $notes);
+
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmação de Atribuição',
-            'msg'           => "Você está prestes a assumir <strong>{$count}</strong> nota(s) para Analisar Projeto.
-                <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>É válido lembrar que existe um prazo para analisar os projetos e dar uma definição. Caso vença o
-                tempo sem definição, o sistema automáticamente irá aprovar e seguir para contratação.</p>
+            'title'         => 'Confirmação de Liberação',
+            'msg'           => "Você está prestes a aprovar <strong>{$count}</strong> nota(s) liberando-as para contratação.
+                <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez liberada essas notas elas não poderão ser revertidas.</p>
+                <p class='border border-1 rounded fw-bold text-primary p-1 mt-2'>{$notes}</p>
                 <p class='fw-bold'>Deseja prosseguir?</p>
                 ",
             'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Assumir!',
+            'btnOktxt'      => 'Sim, liberar!',
             'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_att',
+            'action'        => 'confirm_approved',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma Nota/Ov foi assumida.',
-
         ]);
 
 
     }
 
 
-    public function confirm_att()
+    public function confirm_approved()
     {
 
 
@@ -138,22 +145,52 @@ class ViabAnalise extends Component
 
         DB::beginTransaction();
 
-        foreach ($notes as $note) {
+        if ($notes->count() > 1) {
+            foreach ($notes as $note) {
 
-            if (!$note->Approval()->exists()) {
+                if ($note->Approval()->exists()) {
+                    try {
+                        $note->Approval->update([
+
+                            'approved'     => true,
+                            'reason'      => 'LIBERADO EM MASSA POR ' . auth()->user()->name,
+                            'approved_at'   => now(),
+                        ]);
+
+                    } catch (\Throwable $th) {
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'error',
+                            'title'    => 'Erro ao aprovar Notas/Ov',
+                            'html'      => 'Erro: ' . $th->getMessage(),
+                            // 'timer'    => 2500,
+                        ]);
+
+                        DB::rollBack();
+
+                        return;
+                    }
+                }
+
+            }
+
+
+
+        } else {
+            if ($notes->first()->Approval()->exists()) {
                 try {
-                    $note->Approval()->create([
+                    $notes->first()->Approval->update([
 
-                        'user_id'     => auth()->id(),
-                        'status'      => $note->nstats,
-                        'dt_status'   => $note->dt_status,
+                        'approved'     => true,
+                        'reason'      => 'APROVADO INDIVIDUALMENTE POR ' . auth()->user()->name,
+                        'approved_at'   => now(),
                     ]);
 
                 } catch (\Throwable $th) {
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'error',
-                        'title'    => 'Erro ao assumir Notas/Ov',
+                        'title'    => 'Erro ao aprovar Notas/Ov',
                         'html'      => 'Erro: ' . $th->getMessage(),
                         // 'timer'    => 2500,
                     ]);
@@ -163,7 +200,6 @@ class ViabAnalise extends Component
                     return;
                 }
             }
-
         }
 
         DB::commit();
@@ -173,7 +209,7 @@ class ViabAnalise extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => 'Notas assumidas com sucesso',
+            'title'    => 'Nota(s) aprovada(s) com sucesso',
             'timer'    => 2500,
         ]);
 
@@ -205,38 +241,10 @@ class ViabAnalise extends Component
 
         $query = Note::query();
 
-        $query->where(function ($query) {
-            $query->where(function ($qq) {
-                $qq->when(!$this->allCenters, function ($q) {
-                    $q->whereIn('nstats', [46, 47, 48, 49, 50]);
-                })
-                ->whereNotIn('rubrica', ['Incoporação'])
-                ->where('type_note', 2);
-            })
-            ->orWhere(function ($qq) {
-                $qq->where('type_note', 1)
-                ->when(!$this->allCenters, function ($q) {
-                    $q->where('centerjob', 'like', 'VIAB%');
-                })
-                ->orWhere(function ($qq) {
-                    $qq->where('centerjob', '')
-                    ->where('type_note', 1);
-                });
-            });
+        $query->whereHas('Approval', function ($q) {
+            $q->where('approved', true)
+              ->where('user_id', auth()->id());
         })
-        ->whereHas('Orders', function ($q) {
-            if (!$this->allCenters) {
-                $q->where('statusSist', 'not like', 'ENTE%')
-                    ->where('statusSist', 'not like', 'ENCE%')
-                    ->where(function ($q) {
-                        $q->whereRelation('Operations', function ($sq) {
-                            $sq->where('operacao', '0010')
-                                ->where('status', 'like', 'ABER%');
-                        });
-                    });
-            }
-        })
-        ->whereDoesntHave('Approval')
         ->with([
             'orders' => function ($q) {
                 $q->where('statusSist', 'not like', 'ENT%')
@@ -246,6 +254,7 @@ class ViabAnalise extends Component
             'orders.operations' => function ($q) {
                 $q->where('operacao', '0010');
             },
+            'approval.reclaims',
         ]);
 
         if ($this->typeNote) {
@@ -297,7 +306,7 @@ class ViabAnalise extends Component
 
     public function render()
     {
-        return view('livewire.responsible.viab-analise', [
+        return view('livewire.responsible.approval-history', [
             'lists' => $this->lists,
         ]);
     }

@@ -2,13 +2,14 @@
 
 namespace App\Http\Livewire\Responsible;
 
+use App\Exports\Responsible\Projeto\ControlExport;
 use App\Helpers\TextFormatter;
 use App\Models\Note;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class ViabControl extends Component
+class ApprovalControl extends Component
 {
     use WithPagination;
     use TextFormatter;
@@ -46,6 +47,12 @@ class ViabControl extends Component
             $this->dispatchBrowserEvent('hideModal');
         }
 
+    }
+
+
+    public function export_excel()
+    {
+        return (new ControlExport($this->selected))->download('controle_aprovacao.xlsx');
     }
 
 
@@ -306,7 +313,7 @@ class ViabControl extends Component
 
     public function render()
     {
-        return view('livewire.responsible.viab-control', [
+        return view('livewire.responsible.approval-control', [
             'lists' => $this->lists,
         ]);
     }
