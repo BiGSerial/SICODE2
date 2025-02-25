@@ -236,7 +236,15 @@ class ApprovalList extends Component
                     });
             }
         })
-        ->whereDoesntHave('Approval')
+        ->where(function ($q) {
+            $q->whereDoesntHave('Approval')
+            ->where(function ($query) {
+                $query->whereNotIn('txpriority', ['Emergente'])
+                ->orWhereNotIn('group5', ['DSR-Cus.Cliente/Ener', 'DSR-Cus.Tot.Cliente']);
+                ;
+            });
+
+        })
         ->with([
             'orders' => function ($q) {
                 $q->where('statusSist', 'not like', 'ENT%')

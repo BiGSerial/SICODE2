@@ -82,6 +82,7 @@
                             <th class="text-center align-middle">Ordem</th>
                             <th class="text-center align-middle">Files</th>
                             <th class="text-center align-middle">Rubrica</th>
+                            <th class="text-center align-middle">Grupo</th>
                             <th class="text-center align-middle">Município</th>
                             <th class="text-center align-middle">Empreiteira</th>
                             <th class="text-center align-middle">Status</th>
@@ -113,6 +114,7 @@
                                     <x-files.select-download-list :files='$list->Files' />
                                 </td>
                                 <td class="text-center align-middle">{{ $list->rubrica }}</td>
+                                <td class="text-center align-middle">{{ $list->group5 }}{{ $list->txpriority }}</td>
                                 <td class="text-center align-middle">{{ $list->lexp }}</td>
                                 <td class="text-center align-middle">
                                     @if ($list->orders->isNotEmpty())

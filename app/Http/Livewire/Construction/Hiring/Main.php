@@ -272,10 +272,17 @@ class Main extends Component
                 });
             }
 
-        })->whereHas('Approval', function ($q) {
-            $q->where('approved', true);
+        })->where(function ($query) {
+            $query->whereHas('Approval', function ($q) {
+                $q->where('approved', true);
 
+            })->orWhere(function ($query) {
+                $query->whereIn('txpriority', ['Emergente'])
+                ->orWhereIn('group5', ['DSR-Cus.Cliente/Ener', 'DSR-Cus.Tot.Cliente']);
+            });
         });
+
+
 
         if ($this->search) {
 
