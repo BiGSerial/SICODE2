@@ -121,6 +121,7 @@ class BaseEP extends Command
                                 'centerjob' => $record->cenTrabResp,
                                 'type_note' => 1,
                                 'mesalization' => $record->mensalizacao,
+                                'txpriority' => $record->txtPrioridade,
                             ]);
 
                             if ($chk) {
@@ -174,6 +175,7 @@ class BaseEP extends Command
                             'centerjob' => $record->cenTrabResp,
                             'type_note' => 1,
                             'mesalization' => $record->mensalizacao,
+                            'txpriority' => $record->txtPrioridade,
                         ]);
 
                         if ($chk) {
