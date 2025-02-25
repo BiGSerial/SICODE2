@@ -427,7 +427,7 @@
                             <th scope="col" class="fw-bold text-center">Usuário</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                            <th scope="col" class="fw-bold text-center">Prazo Real</th>
+                            <th scope="col" class="fw-bold text-center">Tempo Informado</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
@@ -442,7 +442,7 @@
                                         ? $list->Note->WorkForm->rejected
                                         : false;
 
-                                if ($list->Note->Partials->count()) {
+                                if ($list->Note->Partials->isNotEmpty()) {
                                     if (
                                         $list->Note->Partials->last()->allow &&
                                         !$list->Note->Partials->last()->supervision
@@ -451,10 +451,31 @@
                                     }
                                 }
 
-                                if ($dateForm) {
-                                    $daysLeft = 10 - Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
+                                if ($list->partial && $list->Note->Partials->isNotEmpty()) {
+                                    $dateForm = $list->Note->Partials
+                                        ->where('allow', true)
+                                        ->last()
+                                        ->decision_at->diffInDays(now());
+                                } elseif ($list->note->WorkForm) {
+                                    if ($list->note->WorkForm->informed_at) {
+                                        $dateForm = $list->Note->WorkForm->informed_at->diffInDays(now());
+                                    } else {
+                                        $dateForm = $list->Note->WorkForm->created_at->diffInDays(now());
+                                    }
                                 } else {
-                                    $daysLeft = 0;
+                                    $dateForm = 'ERRO';
+                                }
+
+                                $color = '';
+
+                                if ($dateForm != 'ERRO') {
+                                    if ($dateForm < 5) {
+                                        $color = 'text-bg-success';
+                                    } elseif ($dateForm > 8) {
+                                        $color = 'text-bg-danger';
+                                    } else {
+                                        $color = 'text-bg-warning';
+                                    }
                                 }
 
                             @endphp
@@ -559,25 +580,17 @@
                                     {{ $nome }}</td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
+                                    {{ $list->dispatch_at->diffInDays(now()) }}
                                 </td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                </td>
-                                <td scope="col"
-                                    class="text-center
-                                    @if ($daysLeft < 0) text-bg-secondary
-                                    @elseif($daysLeft >= 0 && $daysLeft < 3)
-                                    table-danger
-                                    @elseif($daysLeft >= 3 && $daysLeft < 6)
-                                        table-warning
-                                    @else
-                                        table-success @endif
-                                ">
-                                    {{ $daysLeft }}
+                                    {{ $list->att_at->diffInDays(now()) }}
                                 </td>
 
+                                <td
+                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif {{ $color }}">
+                                    {{ $dateForm }}
+                                </td>
                                 <td class="fw-light text-center">
                                     @if ($list->transferred && $list->block_wpa)
                                         <span class="badge text-bg-warning">Aguardando Despacho</span>
