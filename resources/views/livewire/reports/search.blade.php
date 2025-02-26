@@ -310,11 +310,12 @@
                                         <th>Conclusão</th>
                                         <th>Ent Manual</th>
                                         <th>Conf Prod</th>
+                                        <th>#</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach ($lists->Productions as $list)
-                                        <tr>
+                                        <tr wire:key='{{ $list->id }}'>
                                             <td>
                                                 @if ($list->d5)
                                                     <span class="badge bg-primary align-middle">D5</span>
@@ -342,6 +343,7 @@
                                             <td>@livewire('components.historic.analises', ['production_id' => $list->id], key('hist-' . $list->id))</td>
                                             <td>{{ $list->manual ? 'SIM' : 'NÃO' }}</td>
                                             <td>{{ $list->confirmed ? 'SIM' : 'NÃO' }}</td>
+                                            <td class="text-center">@livewire('production.actions.geralreattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

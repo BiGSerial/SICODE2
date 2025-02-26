@@ -27,7 +27,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
 
-                    Livewire.emit(e.detail.action)
+                    Livewire.emit(e.detail.action, e.detail.chave)
 
                 } else if (
                     /* Read more about handling dismissals below */
