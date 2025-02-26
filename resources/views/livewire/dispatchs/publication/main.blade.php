@@ -224,15 +224,15 @@
 
                                 if ($list->workform) {
                                     $dateForm = $list->workform->informed_at
-                                        ? $list->workform->informed_at->format('d/m/Y')
-                                        : $list->workform->created_at->format('d/m/Y');
+                                        ? $list->workform->informed_at->format('d/m/Y H:i')
+                                        : $list->workform->created_at->format('d/m/Y H:i');
                                     $daysForm = $list->workform->informed_at
                                         ? $list->workform->informed_at->diffInDays(now())
                                         : $list->workform->created_at->diffInDays(now());
                                 } elseif ($list->ramalForm) {
                                     $dateForm = $list->ramalform->informed_at
-                                        ? $list->ramalform->informed_at->format('d/m/Y')
-                                        : $list->ramalform->created_at->format('d/m/Y');
+                                        ? $list->ramalform->informed_at->format('d/m/Y H:i')
+                                        : $list->ramalform->created_at->format('d/m/Y H:i');
                                     $daysForm = $list->ramalform->informed_at
                                         ? $list->ramalform->informed_at->diffInDays(now())
                                         : $list->ramalform->created_at->diffInDays(now());

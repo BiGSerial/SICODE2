@@ -99,6 +99,7 @@ class Filter extends Component
     public function refreshme($myKey, $values = [])
     {
 
+
         if ($this->receiverKey === $myKey) {
 
             $this->isRefreshing = true;

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Publication;
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\Publication\NoteFilter;
@@ -14,6 +15,7 @@ use Livewire\{Component, WithPagination};
 class Main extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -85,6 +87,8 @@ class Main extends Component
     public $group5_l;
 
     public $group5_s = [];
+
+    public $items = [];
 
     public $not_assigned = false;
 
@@ -448,33 +452,13 @@ class Main extends Component
 
     public function buscarMulti()
     {
+        $this->gotoPage(1);
 
-        if ($this->advanceSearch) {
+        $this->search = '';
 
-            $this->gotoPage(1);
+        $this->multiSearch = $this->formatTextToArray((string)$this->advanceSearch);
 
-            $this->search = '';
-
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
-        }
-
-        if (count($this->multiSearch)) {
-            $this->closeall();
-        }
+        $this->dispatchBrowserEvent('hideModal');
     }
 
     public function filterStatus()
@@ -488,85 +472,189 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        return $this->noteFilter->filter($this->search, $this->filter_group, $this->btzeroform)
-        // ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        // Inicialização da sessão (movida para fora da função, idealmente em um middleware ou construtor)
 
-        ->select(
-            'notes.*',
-            // 'work_reports.created_at as wCreated_at',
-            // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
-            DB::raw("
-                CASE
-                    WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
-                    WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
-                    ELSE NULL
-                END as prazo_final
-            ")
-        )
-        ->when($this->not_assigned, function ($q) {
-            $q->whereDoesntHave('Productions', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->whereNotNull('user_id');
-            })->orWhereHas('Productions', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where(function ($q) {
-                        $q->whereNull('user_id')
-                            ->orWhere('user_id', '');
-                    });
-            });
-        })
-        // Ordenar pela coluna 'prazo_final'
-        ->orderByRaw('
-            exists (
-                select 1
-                from ramal_reports
-                where ramal_reports.note_id = notes.id
-            )
-            and not exists (
-                select 1
-                from work_reports
-                where work_reports.note_id = notes.id
-            ) desc
-        ')
-        ->orderBy('prazo_final', 'ASC');
-
-    }
-
-    public function getBaseProperty()
-    {
-        try {
-            $query          = City::query();
-            $filtersApplied = false;
-
-            if (!empty($this->region_s)) {
-                $query->whereIn('regiao', $this->region_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->district_s)) {
-                $query->whereIn('baseConstrucao', $this->district_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->city_s)) {
-                $query->whereIn('cidade', $this->city_s);
-                $filtersApplied = true;
-            }
-
-            if (!$filtersApplied) {
-                return [];
-            }
-
-            $result = $query->orderBy('cidade')
-                ->get()
-                ->pluck('rdMunicipio')
-                ->toArray();
-
-            return $result;
-        } catch (\Throwable $th) {
-            return [];
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
         }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+
+
+        $query = Note::query();
+
+        // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
+        $query->where(function ($q) {
+            $q->where(function ($wq) {
+                $wq->whereHas('WorkForm', function ($sq) {
+                    $sq->where('rejected', false);
+                })->orWhere(function ($sq) {
+                    if ($this->btzeroform) {
+                        $sq->doesntHave('WorkForm')
+                           ->whereHas('RamalForm');
+                    }
+                });
+            });
+        });
+
+        // Scope Local para Orders (Melhora a Legibilidade e Reusabilidade)
+        $query->whereHas('Orders', function ($q) {
+            $q->where(function ($sq) {
+                $sq->where(function ($s) {
+                    $s->where('statusSist', 'LIKE', 'LIB%')
+                      ->orWhere('statusSist', 'LIKE', 'ABER%');
+                });
+            })
+            ->whereHas('Operations', function ($sq) {
+                $sq->where('operacao', '0010')
+                   ->where('status', 'like', 'CONF%');
+            })
+            ->whereHas('Operations', function ($sq) {
+                $sq->where('operacao', '0020')
+                   ->where(function ($s) {
+                       $s->where('status', 'like', 'LIB%')
+                         ->orWhere('status', 'like', 'CNPA%')
+                         ->orWhere('status', 'like', 'JBFI LIB%');
+                   });
+            });
+        });
+
+        // Filtro de Rubrica
+        if (isset($this->filters['rubrica'])) {
+            $rubricas = $this->filters['rubrica'];
+            $query->where(function ($q) use ($rubricas) {
+                $q->whereIn('rubrica', $rubricas)
+                    ->orWhereNull('rubrica');
+            });
+        }
+
+        // Filtro de Cidade (lexp)
+        if (isset($this->filters['city'])) {
+            $cities = $this->filters['city'];
+            $query->where(function ($q) use ($cities) {
+                $q->whereIn('lexp', $cities)
+                    ->orWhereNull('lexp');
+            });
+        }
+
+
+        // Filtro de Companhia (company_id) no WorkForm
+        if (isset($this->filters['company'])) {
+            $companies = $this->filters['company'];
+            $query->whereHas('WorkForm', function ($q) use ($companies) {
+                $q->whereIn('company_id', $companies);
+            });
+        }
+
+        // MultiSearch (Notas ou Ordens)
+        if ($this->multiSearch) {
+            $multiSearchTerms = $this->multiSearch;
+            $query->where(function ($q1) use ($multiSearchTerms) {
+                $q1->whereIn('note', $multiSearchTerms)
+                   ->orWhereHas('Orders', function ($q2) use ($multiSearchTerms) {
+                       $q2->whereIn('ordem', $multiSearchTerms);
+                   });
+            });
+        }
+
+        // Pesquisa Geral (search)
+        if ($this->search) {
+            $searchTerm = '%' . $this->search . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('note', 'like', $searchTerm)
+                  ->orWhere('material', 'like', $searchTerm)
+                  ->orWhere('numPedido', 'like', $searchTerm)
+                  ->orWhere('group2', 'like', $searchTerm);
+            });
+        }
+
+
+        // Eager Loading e Seleção de Colunas
+        $query->with('Productions', 'WorkForm', 'RamalForm')
+              ->select([
+                  'notes.*',
+                  DB::raw("
+                      CASE
+                          WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                          WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                          ELSE NULL
+                      END as prazo_final
+                  ")
+              ]);
+
+        // Condição para Notas Não Atribuídas
+        $serviceUuid = $this->service->uuid; // Cache do valor
+        $query->when($this->not_assigned, function ($q) use ($serviceUuid) {
+            $q->whereDoesntHave('Productions', function ($q) use ($serviceUuid) {
+                $q->where('service_id', $serviceUuid)
+                  ->whereNotNull('user_id');
+            })->orWhereHas('Productions', function ($q) use ($serviceUuid) {
+                $q->where('service_id', $serviceUuid)
+                  ->where(function ($q) {
+                      $q->whereNull('user_id')
+                        ->orWhere('user_id', '');
+                  });
+            });
+        });
+
+
+        // Ordenação
+        $query->orderByRaw('
+         exists (
+             select 1
+             from ramal_reports
+             where ramal_reports.note_id = notes.id
+         )
+         and not exists (
+             select 1
+             from work_reports
+             where work_reports.note_id = notes.id
+         ) desc
+     ')
+     ->orderBy('prazo_final', 'ASC');
+
+
+        return $query;
     }
+
+    // public function getBaseProperty()
+    // {
+    //     try {
+    //         $query          = City::query();
+    //         $filtersApplied = false;
+
+    //         if (!empty($this->region_s)) {
+    //             $query->whereIn('regiao', $this->region_s);
+    //             $filtersApplied = true;
+    //         }
+
+    //         if (!empty($this->district_s)) {
+    //             $query->whereIn('baseConstrucao', $this->district_s);
+    //             $filtersApplied = true;
+    //         }
+
+    //         if (!empty($this->city_s)) {
+    //             $query->whereIn('cidade', $this->city_s);
+    //             $filtersApplied = true;
+    //         }
+
+    //         if (!$filtersApplied) {
+    //             return [];
+    //         }
+
+    //         $result = $query->orderBy('cidade')
+    //             ->get()
+    //             ->pluck('rdMunicipio')
+    //             ->toArray();
+
+    //         return $result;
+    //     } catch (\Throwable $th) {
+    //         return [];
+    //     }
+    // }
 
     public function render()
     {
@@ -593,61 +681,61 @@ class Main extends Component
         //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         // }
 
-        $this->company_l = Company::whereHas('toUsers', function ($query) {
-            $query->whereRelation('ToServices', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where('service', true);
-            });
-        })
-            ->orderBy('name', 'ASC')
-            ->get();
+        // $this->company_l = Company::whereHas('toUsers', function ($query) {
+        //     $query->whereRelation('ToServices', function ($q) {
+        //         $q->where('service_id', $this->service->uuid)
+        //             ->where('service', true);
+        //     });
+        // })
+        //     ->orderBy('name', 'ASC')
+        //     ->get();
 
-        $this->user_l = User::whereRelation('ToServices', function ($q) {
-            $q->where('service_id', $this->service->uuid)
-                ->where('service', true);
-        })
-        ->when($this->company_s, function ($q) {
-            return $q->where(function ($q) {
-                $q->whereRelation('Company', 'company_id', $this->company_s)
-                    ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
-            });
+        // $this->user_l = User::whereRelation('ToServices', function ($q) {
+        //     $q->where('service_id', $this->service->uuid)
+        //         ->where('service', true);
+        // })
+        // ->when($this->company_s, function ($q) {
+        //     return $q->where(function ($q) {
+        //         $q->whereRelation('Company', 'company_id', $this->company_s)
+        //             ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+        //     });
 
-        })
-        ->when($this->search_user, function ($q) {
-            return $q->where('name', 'like', '%' . $this->search_user . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
+        // })
+        // ->when($this->search_user, function ($q) {
+        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
+        // })
+        // ->orderBy('name', 'ASC')->get();
 
         // $this->user_l = User::when($this->search_user, function ($q) {
         //     return $q->where('name', 'like', '%' . $this->search_user . '%');
         // })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
 
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
         // Municipios Filtros
-        try {
+        // try {
 
-            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
+        //     $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
 
-            $this->district_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-            $this->city_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-            })
-                ->when($this->district_s, function ($q) {
-                    return $q->whereIn('baseConstrucao', $this->district_s);
-                })
-                ->select('rdMunicipio', 'cidade', 'municipio')
-                ->orderBy('cidade')
-                ->groupBy('rdMunicipio', 'cidade', 'municipio')
-                ->get();
-        } catch (\Illuminate\Database\QueryException $e) {
+        //     $this->district_l = City::when($this->region_s, function ($q) {
+        //         return $q->whereIn('regiao', $this->region_s);
+        //     })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+        //     $this->city_l = City::when($this->region_s, function ($q) {
+        //         return $q->whereIn('regiao', $this->region_s);
+        //     })
+        //         ->when($this->district_s, function ($q) {
+        //             return $q->whereIn('baseConstrucao', $this->district_s);
+        //         })
+        //         ->select('rdMunicipio', 'cidade', 'municipio')
+        //         ->orderBy('cidade')
+        //         ->groupBy('rdMunicipio', 'cidade', 'municipio')
+        //         ->get();
+        // } catch (\Illuminate\Database\QueryException $e) {
 
-            $this->region_l   = [];
-            $this->district_l = [];
-            $this->city_l     = [];
-        }
+        //     $this->region_l   = [];
+        //     $this->district_l = [];
+        //     $this->city_l     = [];
+        // }
 
         return view('livewire.dispatchs.publication.main', [
             'lists'  => $this->lists->paginate($this->perPage),

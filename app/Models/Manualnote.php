@@ -22,6 +22,13 @@ class Manualnote extends Model
         'cancel',
     ];
 
+    protected $cast = [
+        'finish_at' => 'datetime',
+        'confirmed' => 'boolean',
+        'completed' => 'boolean',
+        'cancel' => 'boolean',
+    ];
+
     public function Service()
     {
         return $this->belongsTo(Service::class, 'service_id', 'uuid');

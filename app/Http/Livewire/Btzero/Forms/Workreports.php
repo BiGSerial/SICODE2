@@ -163,6 +163,9 @@ class Workreports extends Component
 
     public function submit()
     {
+        dd('teste');
+
+
         try {
 
             $this->validate();
@@ -484,6 +487,17 @@ class Workreports extends Component
 
     public function toConfirmWork(Note $note)
     {
+        if ($note->RamalForm) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OOOOPS!',
+                'html'     => '<div class="card text-bg-danger"><div class="card-body text-center">Não é possível informar novamente essa obra.</div></div>',
+            ]);
+
+            return;
+        }
+
         $this->preNote = $note;
 
         $this->dispatchBrowserEvent('alertar', [

@@ -10,7 +10,7 @@ class NoteFilter
     private $filters;
     private $btzeroform;
 
-    public function filter($search, $filterGroup, $btzeroform = true)
+    public function filter($filterGroup, $btzeroform = true)
     {
 
         $this->btzeroform = $btzeroform;
@@ -58,14 +58,7 @@ class NoteFilter
                 });
         });
 
-        if ($search) {
-            $query->where(function ($query) use ($search) {
-                $query->where('note', 'like', '%' . $search . '%')
-                    ->orWhere('material', 'like', '%' . $search . '%')
-                    ->orWhere('numPedido', 'like', '%' . $search . '%')
-                    ->orWhere('group2', 'like', '%' . $search . '%');
-            });
-        }
+
 
         if (isset($this->filters['rubrica'])) {
             $query->where(function ($query) {
@@ -89,7 +82,6 @@ class NoteFilter
 
 
 
-        $query->with('Productions.User', 'WorkForm', 'RamalForm');
 
 
 
