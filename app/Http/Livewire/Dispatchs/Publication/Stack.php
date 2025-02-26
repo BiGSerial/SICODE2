@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Publication;
 
 use App\Exports\DispatchDesenhoStack;
 use App\Exports\Dispatchs\PublicationExportControl;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,7 @@ use Livewire\{Component, WithPagination};
 class Stack extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -95,8 +97,12 @@ class Stack extends Component
 
     public $audits;
 
+    private $filter_group = 'publishing';
+    private $filters;
+
     protected $listeners = [
         'refresh_list'         => '$refresh',
+        'refresh_dispatch'  => '$refresh',
         'confirm_remove_att'   => 'remove_att',
         'confirm_dispatch'     => 'confirmed_att',
         'getCopy'              => 'copy',
@@ -113,7 +119,20 @@ class Stack extends Component
 
     public function filterUser($user_id)
     {
-        $this->user_fs = [$user_id];
+
+
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        $this->filters = $_SESSION['filter'][$this->filter_group]['user'] = [$user_id];
+
+        $this->gotoPage(1);
+
+        $this->emit('refresh_All_Filter');
+        $this->emitSelf('$refresh');
+
     }
 
     public function setSelectAll()
@@ -189,39 +208,42 @@ class Stack extends Component
         // session()->put('filtro', $this->rubrica_s);
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
+            // }
+            // $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
+            // $_SESSION['filtro']['city']     = $this->city_s;
+            // $_SESSION['filtro']['district'] = $this->district_s;
+            // $_SESSION['filtro']['region']   = $this->region_s;
+            // $_SESSION['filtro']['user']     = $this->user_fs;
+            // $_SESSION['filtro']['company']  = $this->company_fs;
+            // $this->emit('refresh_service');
         }
-        $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
-        $_SESSION['filtro']['city']     = $this->city_s;
-        $_SESSION['filtro']['district'] = $this->district_s;
-        $_SESSION['filtro']['region']   = $this->region_s;
-        $_SESSION['filtro']['user']     = $this->user_fs;
-        $_SESSION['filtro']['company']  = $this->company_fs;
-        $this->emit('refresh_service');
     }
 
-    public function filter_clean()
-    {
-        $this->gotoPage(1);
-        $this->rubrica_s  = [];
-        $this->city_s     = [];
-        $this->district_s = [];
-        $this->region_s   = [];
-        $this->status_s   = [];
-        $this->company_fs = [];
-        $this->user_fs    = [];
+    // public function filter_clean()
+    // {
+    //     $this->gotoPage(1);
+    //     $this->rubrica_s  = [];
+    //     $this->city_s     = [];
+    //     $this->district_s = [];
+    //     $this->region_s   = [];
+    //     $this->status_s   = [];
+    //     $this->company_fs = [];
+    //     $this->user_fs    = [];
 
-        $this->multiSearch = [];
+    //     $this->multiSearch = [];
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
+    //     if (!(session_status() == PHP_SESSION_ACTIVE)) {
+    //         session_start();
+    //     }
 
-        if (isset($_SESSION['filtro'])) {
-            unset($_SESSION['filtro']);
-        }
+    //     if (isset($_SESSION['filtro'])) {
+    //         unset($_SESSION['filtro']);
+    //     }
 
-        $this->emit('refresh_service');
-    }
+    //     $this->emit('refresh_service');
+    // }
+
+
 
     public function get_single_note($prod, $force = false)
     {
@@ -596,7 +618,17 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::join('notes', 'productions.note_id', '=', 'notes.id')
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+
+        $query = Production::query()
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
             // ->join('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
             // ->join('ramal_reports', 'ramal_reports.note_id', '=', 'productions.note_id')
             ->where('confirmed', false)
@@ -616,53 +648,67 @@ class Stack extends Component
                             ->orWhere('centerjob', 'like', '%' . $this->search . '%');
                     });
                 });
-            })
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('productions.company_id', Auth()->User()->Employee->Contract->company_id);
-            })
-            ->when($this->company_fs, function ($q) {
-                return $q->whereIn('company_id', $this->company_fs);
-            })
-            ->when($this->user_fs, function ($q) {
-                return $q->whereIn('productions.user_id', $this->user_fs);
-            })
-            ->when($this->rubrica_s, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s);
-                });
-            })
-            ->when($this->base, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('nexp', $this->base)
-                        ->orwhere('nexp', null)
-                        ->orwhere('nexp', '');
-                });
-            })
-            ->when($this->multiSearch, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('note', $this->multiSearch);
-                });
-            })
-            ->when($this->status_s, function ($q) {
-                return $q->whereIn('productions.status', $this->status_s);
-            })
-            ->when($this->note_type, function ($q) {
-                return $q->whereRelation('Note', 'type_note', $this->note_type);
-            })
+            });
 
-            ->select(
-                'productions.*',
-                'notes.dt_created as note_dt_created',
-                DB::raw("(SELECT created_at FROM work_reports WHERE work_reports.note_id = productions.note_id LIMIT 1) AS work_dt_created"),
-                // 'work_reports.created_at as work_dt_created',
-                DB::raw("
+
+        if (isset($this->filters['user'])) {
+            $query->where(function ($query) {
+                $query->whereIn('user_id', $this->filters['user'])
+                    ->orWhereNull('user_id');
+            });
+        }
+
+        if (isset($this->filters['rubrica'])) {
+            $query->whereRelation('Note', function ($query) {
+                $query->whereIn('rubrica', $this->filters['rubrica'])
+                    ->orWhereNull('rubrica');
+            });
+        }
+
+        if (isset($this->filters['city'])) {
+            $query->whereRelation('Note', function ($query) {
+                $query->whereIn('lexp', $this->filters['city'])
+                    ->orWhereNull('lexp');
+            });
+        }
+
+        if (isset($this->filters['company'])) {
+            $query->whereRelation('Note.WorkForm', function ($q) {
+                $q->whereIn('company_id', $this->filters['company']);
+            });
+        }
+
+
+
+
+        $query->when($this->multiSearch, function ($q) {
+            $q->where(function ($query) {
+                return $query->whereIn('note', $this->multiSearch)
+                            ->orWhereRelation('Note.Orders', function ($subquery) {
+                                return $subquery->whereIn('ordem', $this->multiSearch);
+                            });
+            });
+        })
+        ->when($this->status_s, function ($q) {
+            return $q->whereIn('productions.status', $this->status_s);
+        })
+        ->when($this->note_type, function ($q) {
+            return $q->whereRelation('Note', 'type_note', $this->note_type);
+        })
+
+        ->select(
+            'productions.*',
+            'notes.dt_created as note_dt_created',
+            DB::raw("(SELECT created_at FROM work_reports WHERE work_reports.note_id = productions.note_id LIMIT 1) AS work_dt_created"),
+            // 'work_reports.created_at as work_dt_created',
+            DB::raw("
                 CASE
                     WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
                     WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
                     ELSE NULL
                 END as prazo_final
                 "),
-                DB::raw("
+            DB::raw("
                     CASE
                         WHEN (
                             SELECT COUNT(*)
@@ -678,15 +724,16 @@ class Stack extends Component
                         ELSE 0
                     END as forms
                 ")
-            )
-            ->with('Note.Orders', 'Company', 'User')
-            ->orderBy('priority', 'DESC')
-            ->orderBy('d5', 'DESC')
-            ->orderBy('forms', 'DESC')
-            ->orderBy('prazo_final', 'ASC');
+        )
+        ->with('Note.Orders', 'Company', 'User')
+        ->orderBy('priority', 'DESC')
+        ->orderBy('d5', 'DESC')
+        ->orderBy('forms', 'DESC')
+        ->orderBy('prazo_final', 'ASC');
 
         // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
+        return $query;
     }
 
     public function getExportsProperty()
@@ -883,32 +930,40 @@ class Stack extends Component
 
     public function buscarMulti()
     {
+        $this->gotoPage(1);
 
-        if ($this->advanceSearch) {
+        $this->search = '';
 
-            $this->search = '';
-            $this->gotoPage(1);
+        $this->multiSearch = $this->formatTextToArray((string)$this->advanceSearch);
 
-            $this->multiSearch = explode("\n", $this->advanceSearch);
+        $this->dispatchBrowserEvent('hideModal');
 
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
+        // if ($this->advanceSearch) {
 
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
+        //     $this->gotoPage(1);
 
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
+        //     $this->search = '';
 
-            $this->multiSearch = array_map('trim', $this->multiSearch);
-        }
+        //     $this->multiSearch = explode("\n", $this->advanceSearch);
 
-        if (count($this->multiSearch)) {
-            $this->closeall();
-        }
+        //     if (!count($this->multiSearch)) {
+        //         $this->multiSearch = explode(' ', $this->advanceSearch);
+        //     }
+
+        //     if (!count($this->multiSearch)) {
+        //         $this->multiSearch = explode(',', $this->advanceSearch);
+        //     }
+
+        //     if (!count($this->multiSearch)) {
+        //         $this->multiSearch = explode(';', $this->advanceSearch);
+        //     }
+
+        //     $this->multiSearch = array_map('trim', $this->multiSearch);
+        // }
+
+        // if (count($this->multiSearch)) {
+        //     $this->closeall();
+        // }
     }
 
     public function render()

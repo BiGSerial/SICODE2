@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Publication;
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\Publication\NoteFilter;
@@ -14,6 +15,7 @@ use Livewire\{Component, WithPagination};
 class Main extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -85,6 +87,8 @@ class Main extends Component
     public $group5_l;
 
     public $group5_s = [];
+
+    public $items = [];
 
     public $not_assigned = false;
 
@@ -448,33 +452,13 @@ class Main extends Component
 
     public function buscarMulti()
     {
+        $this->gotoPage(1);
 
-        if ($this->advanceSearch) {
+        $this->search = '';
 
-            $this->gotoPage(1);
+        $this->multiSearch = $this->formatTextToArray((string)$this->advanceSearch);
 
-            $this->search = '';
-
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
-        }
-
-        if (count($this->multiSearch)) {
-            $this->closeall();
-        }
+        $this->dispatchBrowserEvent('hideModal');
     }
 
     public function filterStatus()
@@ -488,10 +472,32 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        return $this->noteFilter->filter($this->search, $this->filter_group, $this->btzeroform)
+        $query = $this->noteFilter->filter($this->filter_group, $this->btzeroform);
         // ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
 
-        ->select(
+        if ($this->multiSearch) {
+            $query->where(function ($q1) {
+                $q1->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q2) {
+                        $q2->whereIn('ordem', $this->multiSearch);
+                    });
+            });
+        }
+
+        if ($this->search) {
+            $this->multiSearch = [];
+            $query->where(function ($query) {
+                $query->where('note', 'like', '%' . $this->search . '%')
+                    ->orWhere('material', 'like', '%' . $this->search . '%')
+                    ->orWhere('numPedido', 'like', '%' . $this->search . '%')
+                    ->orWhere('group2', 'like', '%' . $this->search . '%');
+            });
+        }
+
+
+
+
+        $query->select(
             'notes.*',
             // 'work_reports.created_at as wCreated_at',
             // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
@@ -529,6 +535,9 @@ class Main extends Component
             ) desc
         ')
         ->orderBy('prazo_final', 'ASC');
+
+
+        return $query;
 
     }
 

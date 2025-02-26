@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.4",
+    "appver": "1.14.5",
     "historic": [
+        {
+            "version": "1.14.5",
+            "description": "Fix SMC Send and others major Fixes",
+            "date": "2025-02-26"
+        },
         {
             "version": "1.14.4",
             "description": "fix search on Payment",

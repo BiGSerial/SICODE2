@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Components\Manualnote;
 
-use App\Models\{Manualnote as ModelsManualnote, Note, Production};
+use App\Models\{Manualnote as ModelsManualnote, Note, Production, User};
 use Livewire\Component;
 
 class Manualnote extends Component
@@ -25,6 +25,10 @@ class Manualnote extends Component
 
     public $setor;
 
+    public $users;
+
+    public $user;
+
     protected $listeners = [
         'confirm_entrance_manual' => 'go_getNote',
     ];
@@ -32,6 +36,8 @@ class Manualnote extends Component
     public function mount($service)
     {
         $this->service = $service;
+        $this->users = User::whereRelation('ToServices', 'service_id', $this->service)
+                            ->orderBy('name')->get();
     }
 
     public function getNote()
@@ -54,7 +60,7 @@ class Manualnote extends Component
         $this->note        = Note::Where('note', $this->search)->first();
 
         // Verifica se a a mesma não se encontra em Atividade
-        $production = Production::whereRelation('Note', 'note', trim($this->search))->where('completed', false)->with('User')->first();
+        $production = Production::whereRelation('Note', 'note', trim($this->search))->where('service_id', $this->service)->with('User')->first();
 
         if ($production) {
             $this->dispatchBrowserEvent('swal', [
@@ -87,16 +93,27 @@ class Manualnote extends Component
             return;
         }
 
+        if (!$this->user) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'USUÁRIO NÃO DEFINIDO',
+                'html'     => 'Defina o Usuário para ser atribuído a NOTA/OV neste momento.',
+            ]);
+
+            return;
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENTRADA MANUAL',
             'msg'   => "
-            Você deseja atribuir a NOTA/OV {$this->search} para você?</br></br>
+            Você deseja atribuir a NOTA/OV {$this->search}?</br></br>
             <div class='card card-light'>
             <div class='card-body'>
-            <p>Lembre-se que as atribuições manuais, depende da correta informação no sistem. Nos caso que a NOTA/OV vier e precisar aguardar informaões 
-            da BASE, a informação incorreta ocasionará incosistêcia no sistema, e não entrará em sua lista de produção.</p> 
+            <p>Lembre-se que as atribuições manuais, depende da correta informação no sistem. Nos caso que a NOTA/OV vier e precisar aguardar informaões
+            da BASE, a informação incorreta ocasionará incosistêcia no sistema, e não entrará em sua lista de produção.</p>
             </div>
-            </div>  
+            </div>
             ",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Atribua!',
@@ -111,13 +128,14 @@ class Manualnote extends Component
 
     public function go_getNote()
     {
+        $user = User::find($this->user);
 
         if ($this->note) {
 
             $check = ModelsManualnote::where('note', trim($this->search))
                 ->where(function ($query) {
                     $query->whereDate('created_at', date('Y-m-d'))
-                        ->orWhere('user_id', Auth()->User()->id);
+                        ->orWhere('user_id', $this->user);
                 })
                 ->with('User')->first();
 
@@ -133,7 +151,7 @@ class Manualnote extends Component
                 return;
             }
 
-            $check = Production::where('note_id', $this->note->id)->where('completed', false)->with('User')->first();
+            $check = Production::where('note_id', $this->note->id)->where('service_id', $this->service)->with('User')->orderBy('id', 'DESC')->first();
 
             if ($check) {
                 $this->dispatchBrowserEvent('swal', [
@@ -150,17 +168,19 @@ class Manualnote extends Component
             $this->note->nstats = $this->status;
             $this->note->save();
 
+
+
             $production = Production::Create([
                 'note_id'     => $this->note->id,
                 'service_id'  => $this->service,
-                'user_id'     => auth()->User()->id,
-                'company_id'  => auth()->User()->Employee->Contract->company_id,
+                'user_id'     => $this->user,
+                'company_id'  => $user->Employee->Contract->company_id,
                 'dispatch_by' => auth()->User()->id,
                 'att_by'      => auth()->User()->id,
                 'dt_note'     => $this->note->dt_status,
                 'status_note' => $this->note->nstats,
-                'dispatch_at' => date('Y-m-d H:i:s'),
-                'att_at'      => date('Y-m-d H:i:s'),
+                'dispatch_at' => now(),
+                'att_at'      => now(),
                 'status'      => 2,
                 'manual'      => true,
             ]);
@@ -177,10 +197,10 @@ class Manualnote extends Component
                     'note'        => $this->note->note,
                     'status'      => $this->status,
                     'service_id'  => $this->service,
-                    'user_id'     => auth()->User()->id,
+                    'user_id'     => $user->id,
                     'solicitante' => $this->solicitante,
                     'setor'       => $this->setor,
-                    'finish_at'   => date('Y-m-d H:i:s'),
+                    'finish_at'   => now(),
                     'confirmed'   => true,
                     'completed'   => true,
                 ]);
@@ -228,7 +248,7 @@ class Manualnote extends Component
                 'note'        => trim($this->search),
                 'status'      => $this->status,
                 'service_id'  => $this->service,
-                'user_id'     => auth()->User()->id,
+                'user_id'     => $user->id,
                 'solicitante' => $this->solicitante ? $this->solicitante : null,
                 'setor'       => $this->setor ? $this->setor : null,
 
@@ -261,7 +281,8 @@ class Manualnote extends Component
         $this->search      = '';
         $this->search_view = false;
         $this->block       = false;
-
+        $this->note        = '';
+        $this->user        = '';
         $this->status      = '';
         $this->solicitante = '';
         $this->setor       = '';
