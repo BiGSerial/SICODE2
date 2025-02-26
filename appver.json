@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.5",
+    "appver": "1.14.6",
     "historic": [
+        {
+            "version": "1.14.6",
+            "description": "Filter and GeneralReturn",
+            "date": "2025-02-26"
+        },
         {
             "version": "1.14.5",
             "description": "Fix SMC Send and others major Fixes",
