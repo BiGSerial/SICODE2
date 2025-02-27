@@ -119,6 +119,8 @@
                                 <th scope="col">Nota</th>
                                 <th scope="col">DOE</th>
                                 <th scope="col">Grp2</th>
+                                <th scope="col">Grp5</th>
+                                <th scope="col">Material</th>
                                 <th scope="col">Inicio</th>
                                 <th scope="col">Fim</th>
                                 <th scope="col">Parado</th>
@@ -137,6 +139,8 @@
                                     <td>{{ $list->Note->note }}</td>
                                     <td>{{ $list->Note->doe ? 'SIM' : 'NÃO' }}</td>
                                     <td>{{ $list->Note->group2 }}</td>
+                                    <td>{{ $list->Note->group5 }}</td>
+                                    <td>{{ $list->Note->material }}</td>
                                     <td>
                                         @if ($list->att_at)
                                             {{ date('d/m/Y H:i:s', strToTime($list->att_at)) }}

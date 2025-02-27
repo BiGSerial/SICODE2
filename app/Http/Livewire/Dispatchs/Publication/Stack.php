@@ -119,9 +119,6 @@ class Stack extends Component
 
     public function filterUser($user_id)
     {
-
-
-
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
@@ -215,33 +212,35 @@ class Stack extends Component
             // $_SESSION['filtro']['region']   = $this->region_s;
             // $_SESSION['filtro']['user']     = $this->user_fs;
             // $_SESSION['filtro']['company']  = $this->company_fs;
-            // $this->emit('refresh_service');
+            $this->emit('refresh_service');
         }
     }
 
-    // public function filter_clean()
-    // {
-    //     $this->gotoPage(1);
-    //     $this->rubrica_s  = [];
-    //     $this->city_s     = [];
-    //     $this->district_s = [];
-    //     $this->region_s   = [];
-    //     $this->status_s   = [];
-    //     $this->company_fs = [];
-    //     $this->user_fs    = [];
 
-    //     $this->multiSearch = [];
 
-    //     if (!(session_status() == PHP_SESSION_ACTIVE)) {
-    //         session_start();
-    //     }
+    public function filter_clean()
+    {
+        $this->gotoPage(1);
+        // $this->rubrica_s  = [];
+        // $this->city_s     = [];
+        // $this->district_s = [];
+        // $this->region_s   = [];
+        $this->status_s   = [];
+        // $this->company_fs = [];
+        // $this->user_fs    = [];
 
-    //     if (isset($_SESSION['filtro'])) {
-    //         unset($_SESSION['filtro']);
-    //     }
+        // $this->multiSearch = [];
 
-    //     $this->emit('refresh_service');
-    // }
+        // if (!(session_status() == PHP_SESSION_ACTIVE)) {
+        //     session_start();
+        // }
+
+        // if (isset($_SESSION['filtro'])) {
+        //     unset($_SESSION['filtro']);
+        // }
+
+        $this->emit('refresh_service');
+    }
 
 
 

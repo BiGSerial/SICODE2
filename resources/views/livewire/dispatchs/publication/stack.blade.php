@@ -44,6 +44,38 @@
                 <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
                 <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
+            <div class="dropdown mx-1">
+                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                    Status
+                    @if (count($status_s))
+                        <span class="badge text-bg-light">{{ count($status_s) }}</span>
+                    @endif
+                </button>
+
+                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
+                    <form wire:submit.prevent="filter_save">
+                        @if (isset($status_l) && count($status_l) > 0)
+                            @foreach ($status_l as $value)
+                                @if ($value)
+                                    <div class="dropdown-item {{ Notestatus::status($value)->colorbg }}">
+                                        <input type="checkbox" class="form-check-input" wire:model.defer="status_s"
+                                            wire:key="status-{{ $value }}" value="{{ $value }}">
+                                        <label for="opcao1">{{ Notestatus::status($value)->status }}</label>
+                                    </div>
+                                @endif
+                            @endforeach
+                        @endif
+                        <div class="dropdown-divider"></div>
+                        <div class="d-flex justify-content-center mt-2">
+                            <button type="submit" class="btn btn-sm btn-primary mx-1">Aplicar Filtro</button>
+                            <button type="button" class="btn btn-sm btn-danger mx-1"
+                                wire:click.prevent="filter_clean">Limpar</button>
+
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             @livewire('components.filter.filter', ['myKey' => 'user', 'sendFilter' => '', 'model' => 'App\Models\user', 'column' => 'id', 'filter' => 'Usuario', 'group_filter' => 'publishing', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('usuario'))
             @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'publishing', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
