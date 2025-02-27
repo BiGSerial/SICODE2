@@ -290,11 +290,12 @@
                                 <td class="text-center align-middle">{{ $viability->Company->name }}</span></td>
                                 <td class="text-center align-middle">
 
-                                    {{-- <i class="bx bx-printer text-primary fs-4 me-2" role="group"
-                                        aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                                        data-bs-trigger="hover focus" data-bs-placement="right"
-                                        data-bs-title="Imprimir Checklist (NÃO IMPLEMENTADO)"
-                                        data-bs-content="<p>Gera o PDF para impressão da ORDEM/NOTA.</p>"></i> --}}
+                                    <a href="{{ route('pdf.checklist', ['id' => $viability->id]) }}" target="_BLANK"
+                                        class="text-primary"><i class="bx bx-printer text-primary fs-4 me-2"
+                                            role="group" aria-label="Basic example" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="right" data-bs-title="Imprimir Check-List FTVEO"
+                                            data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras (Obrigatório Anexar no Sicode ao Retornar a Viabilidade).</p>"></i></a>
 
                                     @if (!$block || !$block['command'])
                                         <i class="bx bxs-badge-check text-success fs-4 me-2" style="cursor: pointer;"

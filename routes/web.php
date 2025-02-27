@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -199,6 +199,11 @@ Route::prefix('/system')->controller(SystemController::class)->name('system.')->
     Route::post('/commands/execute', 'execute')->name('artisan.execute');
     Route::get('/commands/status/{pid}', 'checkStatus')->name('artisan.status');
 
+});
+
+Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middleware('auth')->group(function () {
+    Route::get('/chkList_FTVEO/{id?}', 'checkList')->name('checklist');
+    Route::get('/chkListFiscal/{id?}', 'checkListFiscal')->name('checklistFiscal');
 });
 
 
