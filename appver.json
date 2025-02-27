@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.6",
+    "appver": "1.14.7",
     "historic": [
+        {
+            "version": "1.14.7",
+            "description": "Add return global production in search, and fix filter on Publishing",
+            "date": "2025-02-27"
+        },
         {
             "version": "1.14.6",
             "description": "Filter and GeneralReturn",
