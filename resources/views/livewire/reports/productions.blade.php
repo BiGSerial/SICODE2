@@ -28,15 +28,9 @@
                 </div>
                 <div class="mb-3 col-2">
                     <label for="exampleFormControlInput1" class="form-label">Mês Referência</label>
-                    <select class="form-select form-select-sm" aria-label="Small select example" wire:model="monthYear">
-                        <option value="" selected>Por Intervalo</option>
-                        @if (count($month_list))
-                            @foreach ($month_list as $list)
-                                <option value="{{ $list['date'] }}">{{ $list['desc'] }}</option>
-                            @endforeach
-                        @endif
+                    <input type="month" class="form-control form-control-sm" min="{{ $month_list->oldest }}"
+                        max="{{ $month_list->newest }}" wire:model="monthYear">
 
-                    </select>
                 </div>
                 @if (!$monthYear)
                     <div class="mb-3 col-2">

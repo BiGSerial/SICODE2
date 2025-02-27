@@ -241,24 +241,19 @@ class Productions extends Component
 
     public function getMonthYearList()
     {
-        $reports = Production::select('confirmed_at')->get();
+        $oldestRecord = Production::selectRaw('MIN(completed_at) as MonthYear')->first();
+        $newestRecord = Production::selectRaw('MAX(completed_at) as MonthYear')->first();
 
-        $groupedReports = $reports->groupBy(function ($item) {
-            return Carbon::parse($item->confirmed_at)->format('Y-m');
-        });
 
-        $formattedList = $groupedReports->map(function ($groupedItems, $key) {
-            $date = Carbon::parse($key)->format('Y-m');
-            // Define o locale para Português do Brasil
-            Carbon::setLocale('pt_BR');
-            $desc = Carbon::parse($key)->format('Y F'); // 'M' retorna a abreviação do mês
-            // Retorna o locale padrão
-            Carbon::setLocale(config('app.locale'));
 
-            return ['date' => $date, 'desc' => $desc];
-        });
+        if ($oldestRecord && $oldestRecord->MonthYear) {
+            return (object) [
+                'oldest' => Carbon::parse($oldestRecord->MonthYear)->format('Y-m'),
+                'newest' => Carbon::parse($newestRecord->MonthYear)->format('Y-m'),
+            ];
+        }
 
-        return collect($formattedList)->sortKeys()->values();
+        return [];
     }
 
     public function getCompanyList()
