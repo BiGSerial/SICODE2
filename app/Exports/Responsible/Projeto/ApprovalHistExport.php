@@ -13,16 +13,31 @@ use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Custom\Notestatus;
+use Carbon\Carbon;
 
-class ControlExport implements FromQuery, WithEvents, WithChunkReading, WithMapping, WithProperties, WithHeadings
+class ApprovalHistExport implements FromQuery, WithEvents, WithChunkReading, WithMapping, WithProperties, WithHeadings
 {
     use Exportable;
 
     public $selected;
+    public $date_init;
+    public $date_end;
+    public $month;
 
-    public function __construct($selected = null)
+
+    public function __construct($selected = null, $date_init = null, $date_end = null, $month = null)
     {
         $this->selected = $selected;
+
+
+        $this->date_init = $date_init ? Carbon::createFromFormat('Y-m-d', $date_init) : null;
+        $this->date_end = $date_end ? Carbon::createFromFormat('Y-m-d', $date_end) : null;
+        $this->month = $month ? Carbon::createFromFormat('Y-m', $month) : null;
+
+        if (!$date_init && !$date_end && !$month) {
+            $this->month = Carbon::createFromFormat('Y-m');
+        }
+
     }
 
     public function query()
@@ -30,8 +45,23 @@ class ControlExport implements FromQuery, WithEvents, WithChunkReading, WithMapp
         return Note::when($this->selected, function ($query) {
             return $query->whereIn('id', $this->selected);
         })->whereHas('Approval', function ($q) {
-            $q->where('approved', false)
-                ->where('user_id', auth()->id());
+            $q->where('approved', true)
+             ->where('user_id', auth()->id());
+
+            if ($this->month && !$this->date_init && !$this->date_end) {
+                $fistMonth = $this->month->startOfMonth();
+                $lastMonth = $this->month->endOfMonth();
+
+                $q->whereBetween('approved_at', [$fistMonth->startOfDay(), $lastMonth->endOfDay()]);
+
+            } elseif ($this->date_init && $this->date_end) {
+                $q->whereBetween('approved_at', [$this->date_init->startOfDay(), $this->date_end->endOfDay()]);
+            } elseif ($this->date_init && !$this->date_end) {
+                $q->where('approved_at', '>=', $this->date_init->startOfDay());
+            } elseif (!$this->date_init && $this->date_end) {
+                $q->where('approved_at', '<=', $this->date_end->endOfDay());
+            }
+
         })
         ->with([
             'orders' => function ($q) {

@@ -4,8 +4,10 @@ namespace App\Http\Livewire\Responsible;
 
 use App\Exports\Responsible\Projeto\ControlExport;
 use App\Helpers\TextFormatter;
+use App\Models\File;
 use App\Models\Note;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -49,6 +51,24 @@ class ApprovalControl extends Component
 
     }
 
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
+    }
 
     public function export_excel()
     {
@@ -306,15 +326,15 @@ class ApprovalControl extends Component
 
         return $query
                 ->orderBy('type_note', 'DESC')
-                ->orderBy('dt_status', 'ASC')
-                ->paginate(50);
+                ->orderBy('dt_status', 'ASC');
+
     }
 
 
     public function render()
     {
         return view('livewire.responsible.approval-control', [
-            'lists' => $this->lists,
+            'lists' => $this->lists->paginate(50),
         ]);
     }
 }

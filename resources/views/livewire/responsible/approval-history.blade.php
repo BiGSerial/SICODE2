@@ -8,43 +8,78 @@
     <x-show-loading />
     <x-showselected :count="$selected" />
 
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <!-- Campo de busca com botão e tooltip -->
-        <div class="input-group me-3">
-            <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar"
-                wire:model.debounce.1s="search">
-            <span data-bs-toggle="tooltip" data-bs-trigger="hover" data-bs-placement="top" data-bs-content="Multinotas">
-                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
-                    data-bs-target="#modal_multi_notas" title="Multinotas">
-                    <i class="ri-checkbox-multiple-blank-fill"></i>
-                </button>
-            </span>
+    <div class="d-flex flex-column mb-3">
+
+        <!-- Linha 1: Busca, Tipo de Nota e Data Selection -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+
+            <!-- Campo de busca com botão e tooltip -->
+            <div class="col-md-4">
+                <div class="input-group  me-3 mb-2">
+                    <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar"
+                        wire:model.debounce.1s="search">
+                    <span data-bs-toggle="tooltip" data-bs-trigger="hover" data-bs-placement="top"
+                        data-bs-content="Multinotas">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
+                            data-bs-target="#modal_multi_notas" title="Multinotas">
+                            <i class="ri-checkbox-multiple-blank-fill"></i>
+                        </button>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Botões do tipo radio para seleção individual -->
+            <div class="btn-group me-3 mb-2" role="group" aria-label="Seleção de Opções">
+                <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
+                    wire:model="typeNote" value="1">
+                <label class="btn btn-outline-primary" for="nota">Nota</label>
+
+                <input type="radio" class="btn-check" name="selecao" id="ov" autocomplete="off"
+                    wire:model="typeNote" value="2">
+                <label class="btn btn-outline-primary" for="ov">Ov</label>
+
+                <input type="radio" class="btn-check" name="selecao" id="ambas" autocomplete="off"
+                    wire:model="typeNote" value="">
+                <label class="btn btn-outline-primary" for="ambas">Ambas</label>
+            </div>
+
+            <!-- Date Selection (Month/Year, Start Date, End Date) -->
+            <div class="d-flex flex-wrap align-items-center">
+
+                <!-- Select Mês/Ano -->
+                <div class="me-3 mb-2">
+                    <label for="month" class="form-label visually-hidden">Mês/Ano</label>
+                    <input type="month" class="form-control" id="month" wire:model="month">
+                </div>
+
+                <!-- Data Inicial -->
+                <div class="me-3 mb-2">
+                    <label for="date_init" class="form-label visually-hidden">Data Inicial</label>
+                    <input type="date" class="form-control" id="date_init" wire:model="date_init"
+                        @if ($month) disabled @endif>
+                </div>
+
+                <!-- Data Final -->
+                <div class="me-3 mb-2">
+                    <label for="date_end" class="form-label visually-hidden">Data Final</label>
+                    <input type="date" class="form-control" id="date_end" wire:model="date_end"
+                        @if ($month) disabled @endif>
+                </div>
+            </div>
         </div>
 
-        <!-- Botões do tipo radio para seleção individual -->
-        <div class="btn-group me-3" role="group" aria-label="Seleção de Opções">
-            <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
-                wire:model="typeNote" value="1">
-            <label class="btn btn-outline-primary" for="nota">Nota</label>
-
-            <input type="radio" class="btn-check" name="selecao" id="ov" autocomplete="off"
-                wire:model="typeNote" value="2">
-            <label class="btn btn-outline-primary" for="ov">Ov</label>
-
-            <input type="radio" class="btn-check" name="selecao" id="ambas" autocomplete="off"
-                wire:model="typeNote" value="">
-            <label class="btn btn-outline-primary" for="ambas">Ambas</label>
+        <!-- Linha 2: Filtros -->
+        <div class="d-flex flex-wrap align-items-center justify-content-end">
+            <div class="btn-group" role="group" aria-label="Ações">
+                @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
+                @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
+            </div>
         </div>
 
-        <!-- Quatro botões alinhados -->
-        <div class="btn-group" role="group" aria-label="Ações">
-            @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
-        </div>
     </div>
 
     @if ($lists->isNotEmpty())
@@ -64,7 +99,7 @@
             class="card-header d-flex justify-content-between align-items-center  edp-bg-sprucegreen-100 edp-text-verde-dark">
             <h4 class="fs-4 mb-0">PROJETOS APROVADOS</h4>
             <div>
-                <button type="button" class="btn btn-primary" id="massApprove">Exportar</button>
+                <button type="button" class="btn btn-primary" wire:click.prevent="export_excel">Exportar</button>
 
             </div>
         </div>
@@ -98,7 +133,8 @@
                             <tr wire:key="linha-{{ $list->id }}">
                                 <td class="text-center align-middle">
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input border-1 border-secondary select"
+                                        <input type="checkbox"
+                                            class="form-check-input border-1 border-secondary select"
                                             wire:model.defer="selected" value='{{ $list->id }}'>
 
                                     </div>

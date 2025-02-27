@@ -63,10 +63,23 @@
         <div class="card-header d-flex justify-content-between align-items-center text-bg-danger">
             <h4 class="fs-4 mb-0">OBRAS ANALISE DE PROJETO</h4>
             <div>
-                <button type="button" class="btn btn-primary" wire:click.prevent="preMassApprove"
-                    id="massApprove">Exportar</button>
+                <!-- Botão Exportar -->
+                <button type="button" class="btn btn-primary" wire:click.prevent="export_excel"
+                    wire:loading.attr="disabled">
+                    <span wire:loading.remove wire:target="export_excel">Exportar</span>
+                    <span wire:loading wire:target="export_excel">
+                        <i class="ri-loader-line animate-spin"></i> Carregando...
+                    </span>
+                </button>
+
+                <!-- Botão Aprovar em Massa -->
                 <button type="button" class="btn btn-primary" wire:click.prevent="preMassApprove" id="massApprove"
-                    @disabled(!count($selected))>Aprovar em Massa</button>
+                    @disabled(!count($selected)) wire:loading.attr="disabled">
+                    <span wire:loading.remove wire:target="preMassApprove">Aprovar em Massa</span>
+                    <span wire:loading wire:target="preMassApprove">
+                        <i class="ri-loader-line animate-spin"></i> Carregando...
+                    </span>
+                </button>
             </div>
         </div>
         @if ($lists->isNotEmpty())

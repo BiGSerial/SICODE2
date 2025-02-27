@@ -24,6 +24,7 @@ class ViabilityApproval extends Model
         'approved' => 'boolean',
         'tacit' => 'boolean',
         'approved_at' => 'datetime',
+        'dt_status' => 'datetime',
     ];
 
     public function Note()

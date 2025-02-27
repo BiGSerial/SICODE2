@@ -2,9 +2,12 @@
 
 namespace App\Http\Livewire\Responsible;
 
+use App\Exports\Responsible\Projeto\ApprovalHistExport;
 use App\Helpers\TextFormatter;
+use App\Models\File;
 use App\Models\Note;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -24,6 +27,10 @@ class ApprovalHistory extends Component
     public $selected = [];
     public $select_all = false;
 
+    public $month;
+    public $date_init;
+    public $date_end;
+
     private $filter_group = 'analises';
     private $filter;
 
@@ -36,6 +43,36 @@ class ApprovalHistory extends Component
         'refresh_list' => '$refresh',
         'confirm_approved',
     ];
+
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
+    }
+
+    public function updatedMonth($value)
+    {
+        dd($value);
+    }
+
+    public function export_excel()
+    {
+        return (new ApprovalHistExport($this->selected, $this->date_init, $this->date_end, $this->month))->download(date('YmdHis').'_controle_aprovacao.xlsx');
+    }
 
     public function buscarMulti()
     {
