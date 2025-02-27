@@ -2,6 +2,8 @@
 
 namespace App\Http\Livewire\Reports;
 
+setlocale(LC_TIME, 'pt_BR', 'pt_BR.utf8', 'pt_BR.UTF-8', 'pt_BR.iso88591', 'pt_BR@euro', 'pt_PT', 'portuguese');
+
 use App\Custom\RuleBuilder;
 use App\Exports\ProductionExport;
 use App\Models\Note;
@@ -247,12 +249,16 @@ class Productions extends Component
 
         $formattedList = $groupedReports->map(function ($groupedItems, $key) {
             $date = Carbon::parse($key)->format('Y-m');
-            $desc = Carbon::parse($key)->format('Y F');
+            // Define o locale para Português do Brasil
+            Carbon::setLocale('pt_BR');
+            $desc = Carbon::parse($key)->format('Y F'); // 'M' retorna a abreviação do mês
+            // Retorna o locale padrão
+            Carbon::setLocale(config('app.locale'));
 
             return ['date' => $date, 'desc' => $desc];
         });
 
-        return collect($formattedList);
+        return collect($formattedList)->sortKeys()->values();
     }
 
     public function getCompanyList()
