@@ -37,6 +37,8 @@ class ApprovalControl extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
+        'update_list'  => '$refresh',
+        'savedFiles',
         'confirm_approved',
     ];
 
@@ -48,6 +50,19 @@ class ApprovalControl extends Component
             $this->multinotas = $this->formatTextToArray($this->advanceSearch);
             $this->dispatchBrowserEvent('hideModal');
         }
+
+    }
+
+    public function savedFiles()
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Ação concluída com sucesso!',
+            'timer'    => 2500,
+        ]);
+
+        $this->emitTo('responsible.actions.reject-project', 'clearAll');
 
     }
 

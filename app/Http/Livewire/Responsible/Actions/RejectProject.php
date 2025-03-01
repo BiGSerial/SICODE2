@@ -29,6 +29,7 @@ class RejectProject extends Component
         'clearAll',
         'filesFailed',
         'filesSaved',
+        'update_list' => '$refresh',
 
     ];
 
@@ -39,7 +40,7 @@ class RejectProject extends Component
 
     public function getInfoResponse(Note $note)
     {
-        $this->clearAll();
+        $this->cleanAll();
 
         $this->note = $note->load([
             'orders' => function ($q) {
@@ -185,6 +186,9 @@ class RejectProject extends Component
 
                 if ($this->hasFile) {
                     $this->emitTo('files.manager.create-gen-files', 'saveFiles');
+
+
+
                 } else {
 
                     $this->dispatchBrowserEvent('swal', [
@@ -194,9 +198,9 @@ class RejectProject extends Component
                         'timer'    => 2500,
                     ]);
 
-                    $this->dispatchBrowserEvent('hideModal');
+
                     $this->clearAll();
-                    $this->dispatchBrowserEvent('hideModal');
+
 
                     $this->emitUp('refresh_list');
                 }
@@ -241,11 +245,8 @@ class RejectProject extends Component
             'timer'    => 2500,
         ]);
 
-        $this->dispatchBrowserEvent('hideModal');
-        $this->clearAll();
-        $this->dispatchBrowserEvent('hideModal');
-
         $this->emitUp('refresh_list');
+        $this->dispatchBrowserEvent('hideModal');
     }
 
 
@@ -260,6 +261,26 @@ class RejectProject extends Component
         $this->details = null;
 
         $this->hasFile = false;
+
+        $this->dispatchBrowserEvent('hideModal');
+
+        $this->emitUp('refresh_list');
+
+    }
+
+    public function cleanAll()
+    {
+
+        $this->note = null;
+        $this->service = null;
+        $this->serviceList = null;
+        $this->production = null;
+        $this->category = null;
+        $this->details = null;
+
+        $this->hasFile = false;
+
+
 
     }
 

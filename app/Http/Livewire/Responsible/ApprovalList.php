@@ -219,7 +219,7 @@ class ApprovalList extends Component
                     $q->where('centerjob', 'like', 'VIAB%');
                 })
                 ->orWhere(function ($qq) {
-                    $qq->where('centerjob', '')
+                    $qq->orWhereNull('centerjob')
                     ->where('type_note', 1);
                 });
             });
@@ -227,33 +227,27 @@ class ApprovalList extends Component
         ->whereHas('Orders', function ($q) {
             if (!$this->allCenters) {
                 $q->where('statusSist', 'not like', 'ENTE%')
-                    ->where('statusSist', 'not like', 'ENCE%')
-                    ->where(function ($q) {
-                        $q->whereRelation('Operations', function ($sq) {
-                            $sq->where('operacao', '0010')
-                                ->where('status', 'like', 'ABER%');
-                        });
-                    });
+                  ->where('statusSist', 'not like', 'ENCE%')
+                  ->whereHas('Operations', function ($sq) {
+                      $sq->where('operacao', '0010')
+                         ->where('status', 'like', 'ABER%');
+                  });
             }
         })
+        ->whereDoesntHave('Approval')
         ->where(function ($q) {
-            $q->whereDoesntHave('Approval')
-            ->where(function ($query) {
-                $query->whereNotIn('txpriority', ['Emergente'])
-                ->orWhereNotIn('group5', ['DSR-Cus.Cliente/Ener', 'DSR-Cus.Tot.Cliente']);
-                ;
-            });
-
+            $q->where('txpriority', '!=', 'Emergente')
+              ->orWhereNull('txpriority');
         })
         ->with([
-            'orders' => function ($q) {
-                $q->where('statusSist', 'not like', 'ENT%')
-                    ->where('statusSist', 'not like', 'ENC%')
-                    ->orderBy('ordem');
-            },
-            'orders.operations' => function ($q) {
-                $q->where('operacao', '0010');
-            },
+           'orders' => function ($q) {
+               $q->where('statusSist', 'not like', 'ENT%')
+                   ->where('statusSist', 'not like', 'ENC%')
+                   ->orderBy('ordem');
+           },
+           'orders.operations' => function ($q) {
+               $q->where('operacao', '0010');
+           },
         ]);
 
         if ($this->typeNote) {
@@ -261,24 +255,24 @@ class ApprovalList extends Component
         }
 
         if ($this->search) {
-            $this->multinotas = [];
-            $query->where(function ($q) {
-                $q->where('note', 'like', "%{$this->search}%")
-                    ->orWhereRelation('orders', function ($q) {
-                        $q->where('ordem', 'like', "%{$this->search}%");
-                    });
+            $search_term = "%{$this->search}%"; //Define a variável fora das closures
+            $query->where(function ($q) use ($search_term) {
+                $q->where('note', 'like', $search_term)
+                  ->orWhereHas('orders', function ($q) use ($search_term) {
+                      $q->where('ordem', 'like', $search_term);
+                  });
             });
         }
 
         if ($this->multinotas) {
-            $query->where(function ($q) {
-                $q->whereIn('note', $this->multinotas)
-                    ->orWhereRelation('orders', function ($q) {
-                        $q->whereIn('ordem', $this->multinotas);
-                    });
+            $multinotas = $this->multinotas; //Define a variável fora das closures
+            $query->where(function ($q) use ($multinotas) {
+                $q->whereIn('note', $multinotas)
+                  ->orWhereHas('orders', function ($q) use ($multinotas) {
+                      $q->whereIn('ordem', $multinotas);
+                  });
             });
         }
-
 
 
         if (isset($this->filter['city'])) {
@@ -290,16 +284,16 @@ class ApprovalList extends Component
         }
 
         if (isset($this->filter['operacao'])) {
-            $query->whereRelation('orders.operations', function ($q) {
+            $query->whereHas('orders.operations', function ($q) {
                 $q->where('operacao', '0010')
-                    ->whereIn('cenTrab', $this->filter['operacao']);
+                  ->whereIn('cenTrab', $this->filter['operacao']);
             });
         }
 
         return $query
-                ->orderBy('type_note', 'DESC')
-                ->orderBy('dt_status', 'ASC')
-                ->paginate(50);
+            ->orderBy('type_note', 'DESC')
+            ->orderBy('dt_status', 'ASC')
+            ->paginate(50);
     }
 
 

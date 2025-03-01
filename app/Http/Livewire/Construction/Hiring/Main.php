@@ -277,8 +277,7 @@ class Main extends Component
                 $q->where('approved', true);
 
             })->orWhere(function ($query) {
-                $query->whereIn('txpriority', ['Emergente'])
-                ->orWhereIn('group5', ['DSR-Cus.Cliente/Ener', 'DSR-Cus.Tot.Cliente']);
+                $query->whereIn('txpriority', ['Emergente']);
             });
         });
 
