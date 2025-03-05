@@ -58,7 +58,6 @@ class Main extends Component
     protected $listeners = [
          'refresh' => '$refresh',
          'closeAll' => 'closeAll',
-
      ];
 
     public function mount($service)
@@ -273,7 +272,17 @@ class Main extends Component
                 });
             }
 
+        })->where(function ($query) {
+            $query->whereHas('Approval', function ($q) {
+                $q->where('approved', true);
+
+            })->orWhere(function ($query) {
+                $query->whereIn('txpriority', ['Emergente']);
+            })->orWhereHas('Viabilities')
+                ->orWhereHas('Waitings');
         });
+
+
 
         if ($this->search) {
 

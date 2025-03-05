@@ -28,15 +28,9 @@
                 </div>
                 <div class="mb-3 col-2">
                     <label for="exampleFormControlInput1" class="form-label">Mês Referência</label>
-                    <select class="form-select form-select-sm" aria-label="Small select example" wire:model="monthYear">
-                        <option value="" selected>Por Intervalo</option>
-                        @if (count($month_list))
-                            @foreach ($month_list as $list)
-                                <option value="{{ $list['date'] }}">{{ $list['desc'] }}</option>
-                            @endforeach
-                        @endif
+                    <input type="month" class="form-control form-control-sm" min="{{ $month_list->oldest }}"
+                        max="{{ $month_list->newest }}" wire:model="monthYear">
 
-                    </select>
                 </div>
                 @if (!$monthYear)
                     <div class="mb-3 col-2">
@@ -119,6 +113,8 @@
                                 <th scope="col">Nota</th>
                                 <th scope="col">DOE</th>
                                 <th scope="col">Grp2</th>
+                                <th scope="col">Grp5</th>
+                                <th scope="col">Material</th>
                                 <th scope="col">Inicio</th>
                                 <th scope="col">Fim</th>
                                 <th scope="col">Parado</th>
@@ -137,6 +133,8 @@
                                     <td>{{ $list->Note->note }}</td>
                                     <td>{{ $list->Note->doe ? 'SIM' : 'NÃO' }}</td>
                                     <td>{{ $list->Note->group2 }}</td>
+                                    <td>{{ $list->Note->group5 }}</td>
+                                    <td>{{ $list->Note->material }}</td>
                                     <td>
                                         @if ($list->att_at)
                                             {{ date('d/m/Y H:i:s', strToTime($list->att_at)) }}

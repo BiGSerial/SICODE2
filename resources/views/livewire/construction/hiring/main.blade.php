@@ -184,7 +184,7 @@
                     </div>
                     <div class="col">
                         <div class="row align-middle">
-                           
+
                             <select class="form-select form-select-sm my-0 py-0 me-2 col" wire:model="action">
                                 <option value="" selected>Selecionar Ação</option>
                                 <option value="viabilizar">Viabilizar</option>
@@ -252,6 +252,7 @@
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">Files</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Tipo</th>
                             <th scope="col" class="fw-bold text-center">Material</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
                             <th scope="col" class="fw-bold text-center">Status Ordem</th>
@@ -344,6 +345,7 @@
 
                                 </td>
                                 <td class="align-middle">{{ $list->rubrica }}</td>
+                                <td class="align-middle">{{ $list->group5 }}{{ $list->txpriority }}</td>
                                 <td class="align-middle">{{ $list->material }}</td>
                                 <td class="align-middle">{{ $list->lexp }}</td>
                                 <td class="align-middle">

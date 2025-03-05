@@ -51,6 +51,14 @@ class Note extends Model
         'txpriority',
     ];
 
+
+    protected $casts = [
+        'dt_created' => 'datetime',
+        'dt_status' => 'datetime',
+        'mmgd' => 'boolean',
+        'doe' => 'boolean',
+    ];
+
     public function Productions()
     {
         return $this->hasMany(Production::class);
@@ -115,5 +123,10 @@ class Note extends Model
     public function Partials()
     {
         return $this->hasMany(Partial::class);
+    }
+
+    public function Approval()
+    {
+        return $this->hasOne(ViabilityApproval::class);
     }
 }

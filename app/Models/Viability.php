@@ -38,6 +38,28 @@ class Viability extends Model
         'value',
     ];
 
+    protected $casts = [
+        'init_at' => 'datetime',
+        'sended_at' => 'datetime',
+        'returned_at' => 'datetime',
+        'tacit_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'engineer_at' => 'datetime',
+        'hired_at' => 'datetime',
+        'tacit' => 'boolean',
+        'completed' => 'boolean',
+        'canceled' => 'boolean',
+        'rejected' => 'boolean',
+        'approved' => 'boolean',
+        'engineer' => 'boolean',
+        'hired' => 'boolean',
+        'replica' => 'boolean',
+        'treplica' => 'boolean',
+        'inActivity' => 'boolean',
+        'visible_partner' => 'boolean',
+        'rehired' => 'boolean',
+    ];
+
     public function Order()
     {
         return $this->belongsTo(Order::class);

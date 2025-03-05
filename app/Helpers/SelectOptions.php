@@ -11,7 +11,16 @@ class SelectOptions
             (object)['info' => '(RI) LIBERAR PROJETO NO EO', 'value' => 'LIBERAR EO', 'needFile' => false],
             (object)['info' => '(RI) ANEXAR PDF E LIBERAR PROJETO NO EO', 'value' => 'ANEXAR E LIBERAR', 'needFile' => true],
             (object)['info' => '(RI) ALTERAÇÃO NO PROJETO', 'value' => 'ALTERAR PROJETO', 'needFile' => true],
+        ];
+    }
 
+    public static function getRejectOptions()
+    {
+        return [
+            (object)['info' => '(RI) ANEXAR PDF AO PROJETO', 'value' => 'ANEXAR PDF', 'needFile' => true],
+            (object)['info' => '(RI) ALTERAÇÃO NO PROJETO', 'value' => 'ALTERAR PROJETO', 'needFile' => true],
+            (object)['info' => '(RI) ALTERAÇÃO NO ORÇAMENTO', 'value' => 'ALTERAR ORÇAMENTO', 'needFile' => true],
+            (object)['info' => '(RI) ALTERAÇÃO NO NO PROJETO E ORÇAMENTO', 'value' => 'ALTERAR PROJETO E ORÇAMENTO', 'needFile' => true],
         ];
     }
 

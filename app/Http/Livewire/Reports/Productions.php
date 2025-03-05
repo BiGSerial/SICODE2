@@ -2,6 +2,8 @@
 
 namespace App\Http\Livewire\Reports;
 
+setlocale(LC_TIME, 'pt_BR', 'pt_BR.utf8', 'pt_BR.UTF-8', 'pt_BR.iso88591', 'pt_BR@euro', 'pt_PT', 'portuguese');
+
 use App\Custom\RuleBuilder;
 use App\Exports\ProductionExport;
 use App\Models\Note;
@@ -239,20 +241,19 @@ class Productions extends Component
 
     public function getMonthYearList()
     {
-        $reports = Production::select('confirmed_at')->get();
+        $oldestRecord = Production::selectRaw('MIN(completed_at) as MonthYear')->first();
+        $newestRecord = Production::selectRaw('MAX(completed_at) as MonthYear')->first();
 
-        $groupedReports = $reports->groupBy(function ($item) {
-            return Carbon::parse($item->confirmed_at)->format('Y-m');
-        });
 
-        $formattedList = $groupedReports->map(function ($groupedItems, $key) {
-            $date = Carbon::parse($key)->format('Y-m');
-            $desc = Carbon::parse($key)->format('Y F');
 
-            return ['date' => $date, 'desc' => $desc];
-        });
+        if ($oldestRecord && $oldestRecord->MonthYear) {
+            return (object) [
+                'oldest' => Carbon::parse($oldestRecord->MonthYear)->format('Y-m'),
+                'newest' => Carbon::parse($newestRecord->MonthYear)->format('Y-m'),
+            ];
+        }
 
-        return collect($formattedList);
+        return [];
     }
 
     public function getCompanyList()

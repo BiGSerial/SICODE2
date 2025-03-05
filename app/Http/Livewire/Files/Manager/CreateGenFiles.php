@@ -147,7 +147,7 @@ class CreateGenFiles extends Component
             $this->tempFiles = [];
         }
 
-        $this->note = null;
+        // $this->note = null;
         $this->uploadType = '';
         $this->files = [];
         $this->resetErrorBag();
@@ -248,6 +248,8 @@ class CreateGenFiles extends Component
 
                 ]);
 
+                $this->emitUp('filesFailed');
+
                 return;
             }
         }
@@ -255,13 +257,13 @@ class CreateGenFiles extends Component
         DB::commit();
 
 
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'ARQUIVOS SALVOS COM SUCESSO',
-            'timer'    => 1500,
+        // $this->dispatchBrowserEvent('swal', [
+        //     'position' => 'center',
+        //     'icon'     => 'success',
+        //     'title'    => 'ARQUIVOS SALVOS COM SUCESSO',
+        //     'timer'    => 1500,
 
-        ]);
+        // ]);
 
         $this->emitUp('savedFiles');
 

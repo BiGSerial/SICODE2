@@ -141,6 +141,7 @@ Route::middleware('auth')->group(function () {
 
 Route::prefix('/responsible')->controller(ResponsibleController::class)->middleware(['can:responsible'])->name('responsible.')->group(function () {
     Route::get('/', 'main')->name('main');
+
     Route::get('/viab_list', 'viab_list')->name('viab_list');
     Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');
     Route::get('/reject_viab', 'viab_reject')->name('rejecte_viab');
@@ -149,6 +150,9 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
     Route::get('/informe_obra', 'inform_obra')->name('inform_obra');
     Route::get('/worked_list', 'inform_list')->name('inform_list');
     Route::get('/intern_return', 'intern_return')->name('intern_return');
+    Route::get('/approval_list', 'approve_list')->name('approve_list');
+    Route::get('/approval_control', 'approve_control')->name('approve_control');
+    Route::get('/approval_history', 'approve_hist')->name('approve_hist');
 
 });
 

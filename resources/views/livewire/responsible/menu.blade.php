@@ -3,7 +3,35 @@
 
         <ul class="sidebar-nav" id="sidebar-nav">
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link collapsed" data-bs-target="#analise-nav" data-bs-toggle="collapse" href="#">
+                    <i class="bi bi-menu-button-wide"></i><span>ANALISE PROJETOS</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <ul id="analise-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('responsible.approve_list') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> À ANALISAR</span>
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('responsible.approve_control') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> EM ATIVIDADE</span>
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('responsible.approve_hist') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> LIBERADOS</span>
+                            </a>
+                        </li>
+
+                </ul>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse"
+                    href="#">
                     <i class="bi bi-menu-button-wide"></i><span>VIABILIDADE</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
@@ -11,7 +39,7 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('responsible.viability_waiting') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
+                                <i class="ri view-list fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
                                 @livewire('responsible.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
                             </a>
                         </li>
@@ -72,8 +100,5 @@
                 </ul>
             </li>
         </ul>
-
-
-
     </aside>
 </div>

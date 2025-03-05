@@ -10,9 +10,10 @@ return new class () extends Migration {
      */
     public function up(): void
     {
-        Schema::table('productions', function (Blueprint $table) {
-            $table->timestamp('partial_at')->nullable()->after('completed_at');
-
+        Schema::create('viability_approval_reclaim', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('viability_approval_id')->constrained('viability_approvals')->cascadeOnDelete();
+            $table->foreignId('reclaim_id')->constrained('reclaims')->cascadeOnDelete();
         });
     }
 
@@ -21,9 +22,6 @@ return new class () extends Migration {
      */
     public function down(): void
     {
-        Schema::table('productions', function (Blueprint $table) {
-            $table->dropColumn('partial_at');
-
-        });
+        Schema::dropIfExists('viability_approval_reclaim');
     }
 };

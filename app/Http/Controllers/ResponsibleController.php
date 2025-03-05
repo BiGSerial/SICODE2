@@ -50,4 +50,19 @@ class ResponsibleController extends Controller
     {
         return view('responsible.returnInternList');
     }
+
+    public function approve_list()
+    {
+        return view('responsible.approval_list');
+    }
+
+    public function approve_control()
+    {
+        return view('responsible.approval_control');
+    }
+
+    public function approve_hist()
+    {
+        return view('responsible.approval_history');
+    }
 }

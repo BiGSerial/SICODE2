@@ -163,8 +163,6 @@ class Workreports extends Component
 
     public function submit()
     {
-        dd('teste');
-
 
         try {
 

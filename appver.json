@@ -1,6 +1,11 @@
 {
-    "appver": "1.14.7",
+    "appver": "1.15.0",
     "historic": [
+        {
+            "version": "1.15.0",
+            "description": "Pool Notes in Hiring and Analise Projects",
+            "date": "2025-03-03"
+        },
         {
             "version": "1.14.7",
             "description": "Add return global production in search, and fix filter on Publishing",
