@@ -284,8 +284,10 @@ class ApprovalControl extends Component
         $query = Note::query();
 
         $query->whereHas('Approval', function ($q) {
-            $q->where('approved', false)
-              ->where('user_id', auth()->id());
+            $q->where('approved', false);
+            if (!auth()->user()->superadm) {
+                $q->where('user_id', auth()->id());
+            }
         })
         ->with([
             'orders' => function ($q) {

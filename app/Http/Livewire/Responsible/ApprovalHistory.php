@@ -279,8 +279,10 @@ class ApprovalHistory extends Component
         $query = Note::query();
 
         $query->whereHas('Approval', function ($q) {
-            $q->where('approved', true)
-              ->where('user_id', auth()->id());
+            $q->where('approved', true);
+            if (!auth()->user()->superadm) {
+                $q->where('user_id', auth()->id());
+            }
         })
         ->with([
             'orders' => function ($q) {

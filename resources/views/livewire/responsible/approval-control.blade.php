@@ -94,6 +94,9 @@
 
                                 </div>
                             </th>
+                            @can('superadm')
+                                <th class="text-center align-middle">Responsável</th>
+                            @endcan
                             <th class="text-center align-middle">Nota</th>
                             <th class="text-center align-middle">Ordem</th>
                             <th class="text-center align-middle">Files</th>
@@ -106,6 +109,7 @@
                             <th class="text-center align-middle">Em Rslc</th>
                             <th class="text-center align-middle">Status</th>
                             <th class="text-center align-middle"></th>
+
                         </tr>
                     </thead>
                     <tbody>
@@ -118,6 +122,18 @@
 
                                     </div>
                                 </td>
+                                @can('superadm')
+                                    @php
+                                        $name = '---';
+                                        if ($list->approval) {
+                                            $name = explode(' ', $list->approval->user->name);
+                                            $name = $name[0] . ' ' . end($name);
+                                        }
+                                    @endphp
+                                    <td class="text-center align-middle">
+                                        {{ $list->approval ? $list->approval->user->name : '---' }}
+                                    </td>
+                                @endcan
                                 <td class="text-center align-middle">{{ $list->note }}</td>
                                 <td class="text-center align-middle">
                                     @if ($list->orders->isNotEmpty())
@@ -224,6 +240,7 @@
                                             style="cursor: pointer;"></i>
                                     </span>
                                 </td>
+
                             </tr>
                         @endforeach
                     </tbody>

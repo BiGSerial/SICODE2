@@ -3,8 +3,10 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Helpers\TextFormatter;
+use App\Models\File;
 use App\Models\Note;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -46,6 +48,26 @@ class ApprovalList extends Component
             $this->dispatchBrowserEvent('hideModal');
         }
 
+    }
+
+
+    public function downloadFile($id)
+    {
+        if ($file = File::find($id)) {
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
     }
 
 
@@ -234,7 +256,11 @@ class ApprovalList extends Component
                   });
             }
         })
-        ->whereDoesntHave('Approval')
+        ->where(function ($q) {
+            $q->whereDoesntHave('Approval')
+            ->whereDoesntHave('Viabilities')
+            ->whereDoesntHave('Waitings');
+        })
         ->where(function ($q) {
             $q->where('txpriority', '!=', 'Emergente')
               ->orWhereNull('txpriority');
