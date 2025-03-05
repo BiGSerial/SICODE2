@@ -16,6 +16,10 @@ class Company extends Model
         'name',
         'email',
         'telephone',
+        'img_b_path',
+        'img_w_path',
+        'img_rb_path',
+        'img_rw_path',
     ];
 
     public function Address()
