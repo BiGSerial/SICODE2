@@ -41,7 +41,12 @@
                                     @foreach ($companies_l as $company)
                                         <tr>
                                             <td>
-                                                <img src="{{ asset('img/edp-img/edp-avatar.jpg') }}" alt="">
+                                                @if ($company->img_rw_path)
+                                                    <img src="{{ asset('storage/' . $company->img_rw_path) }}"
+                                                        alt="Logo da Empresa">
+                                                @else
+                                                    <img src="{{ asset('img/edp-img/edp-avatar.jpg') }}" alt="">
+                                                @endif
                                                 <a href="#"
                                                     class="user-link  @if ($company->trashed()) text-decoration-line-through text-danger @else text-dark @endif">{{ $company->name }}</a>
                                                 @if (isset($company->address->first()->street))
@@ -86,7 +91,7 @@
                                                     </span>
                                                 </a>
                                                 <a href="#" class="table-link"
-                                                    wire:click.prevent="update_company('{{ $company->id }}')">
+                                                    wire:click.prevent="$emitTo('admin.company.action.update', 'openModal', '{{ $company->id }}')">
                                                     <span class="fa-stack">
                                                         <i class="ri-pencil-fill btn btn-primary btn-sm"></i>
                                                     </span>
@@ -150,7 +155,7 @@
         </div>
     </div>
 
-    <div wire:ignore.self class="modal fade" id="update_modal" tabindex="-1" aria-labelledby="update"
+    {{-- <div wire:ignore.self class="modal fade" id="update_modal" tabindex="-1" aria-labelledby="update"
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content edp-bg-gray">
@@ -171,9 +176,9 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> --}}
 
 
     {{-- FIM MODAIS --}}
-
+    @livewire('admin.company.action.update', key('company_update'))
 </div>
