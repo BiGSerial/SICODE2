@@ -3,7 +3,68 @@
 
         <ul class="sidebar-nav" id="sidebar-nav">
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link collapsed" data-bs-target="#analises_nav" data-bs-toggle="collapse" href="#">
+                    <i class="bi bi-menu-button-wide"></i><span>ANALISES PROJETO</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <ul id="analises_nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="#" class="nav-item edp-text-verde-dark">
+                                <i class="ri-dashboard-line text-white fw-light fs-5"></i> <span> DASHBOARD</span>
+
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-item edp-text-verde-dark">
+                                <i class="ri-eye-line text-white fw-light fs-5"></i> <span> PILHA À ANALISAR</span>
+                                @livewire('engineers.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-item edp-text-verde-dark">
+                                <i class="ri-run-fill text-white fw-light fs-5"></i> <span> EM ANALISE</span>
+                                @livewire('engineers.counts.in-viability', key('in-viability'))
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="nav-item edp-text-verde-dark">
+                                <i class="ri-information-fill text-white fw-light fs-5"></i> <span> LIBERADOS</span>
+                                @livewire('engineers.counts.in-work-count', key('in-work-count'))
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('engineers.intern_return') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-arrow-go-back-line text-white fw-light fs-5"></i> <span> RETORNO
+                                    INTERNO</span>
+                                @livewire('engineers.counts.return-intern-count', key('return-intern-count'))
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('engineers.justified_viab') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-contacts-line text-white fw-light fs-5"></i> <span> AVALIAÇÃO DE
+                                    JUSTIFICATIVA</span>
+                                @livewire('engineers.counts.viab-justify-count', key('viab-justify-count'))
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('engineers.viab_hist') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-history-line text-white fw-light fs-5"></i> <span> HISTÓRICO</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('engineers.viabilityreports') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-funds-line text-white fw-light fs-5"></i> <span>RESUMO VIABILIDADE</span>
+                                {{-- @livewire('construction.hiring.counts.count-return') --}}
+                            </a>
+                        </li>
+
+                    </div>
+                </ul>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse"
+                    href="#">
                     <i class="bi bi-menu-button-wide"></i><span>VIABILIDADE</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>

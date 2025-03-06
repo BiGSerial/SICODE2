@@ -1,0 +1,84 @@
+@extends('layouts.padrao')
+
+@section('breadcrumb')
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb bg-light px-3 py-2 rounded-3">
+            <li class="breadcrumb-item">
+                <a href="{{ route('home') }}">Home</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="#">Responsável</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="#">Analise Projeto</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                Lista à Analisar
+            </li>
+        </ol>
+    </nav>
+@endsection
+
+@section('menu')
+    @livewire('responsible.menu', key('responsible-menu'))
+@endsection
+
+@section('content')
+    @livewire('responsible.approval-list', key('responsible-approval-list'))
+@endsection
+
+
+@push('script')
+    <script>
+        window.addEventListener('focus', function() {
+            // console.log('A janela recebeu o foco!');
+            livewire.emitTo('responsible.viab-analise', 'refresh_list');
+
+            stopInterval
+
+        });
+
+        window.addEventListener('blur', function() {
+            // console.log('A janela recebeu o foco!');
+            livewire.emitTo('responsible.viab-analise', 'refresh_list');
+
+            startInterval;
+
+        });
+
+        window.addEventListener('alertar', function(e) {
+
+            const Confirmation = Swal.mixin({
+                customClass: {
+                    confirmButton: 'btn btn-success',
+                    cancelButton: 'btn btn-danger'
+                },
+                buttonsStyling: false
+            });
+
+            Swal.fire({
+                title: e.detail.title,
+                html: e.detail.msg,
+                icon: e.detail.icon,
+                showCancelButton: true,
+                confirmButtonText: e.detail.btnOktxt,
+                cancelButtonText: e.detail.btnCanceltxt,
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+
+                    Livewire.emit(e.detail.action)
+
+                } else if (
+                    /* Read more about handling dismissals below */
+                    result.dismiss === Swal.DismissReason.cancel
+                ) {
+                    Swal.fire(
+                        e.detail.cancel_titulo,
+                        e.detail.cancel_msg,
+                        'success'
+                    )
+                }
+            })
+        });
+    </script>
