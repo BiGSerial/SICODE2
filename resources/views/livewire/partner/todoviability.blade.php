@@ -134,9 +134,15 @@
                         <h4 class="my-0">VIABILIDADE A EXECUTAR</h4>
                     </div>
                     <div class="col-3 d-flex justify-content-end">
-
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        <a href="{{ route('pdf.checklist', ['id' => 0]) }}" target="_BLANK"
+                            class="btn btn-sm btn-primary"><i class="bx bx-printer fs-4 ms-2 align-middle"
+                                role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                                data-bs-trigger="hover focus" data-bs-placement="right"
+                                data-bs-title="Imprimir Check-List FTVEO (Genérica)"
+                                data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras (Obrigatório Anexar no Sicode ao Retornar a Viabilidade).</p>"></i>
+                        </a>
+                        <button class="btn btn-sm btn-primary ms-2" wire:click.prevent='export_excel'>
+                            <i class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
                     </div>
                 </div>

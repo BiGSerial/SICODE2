@@ -30,7 +30,7 @@ class PdfController extends Controller
             $this->dados->prazo = Carbon::parse($this->viability->sended_at)->addDays($this->viability->getDays() + 7)->format('d/m/Y');
 
 
-            if (!Auth()->User()->superadm || Auth()->User()->company_id != $this->viability->company_id) {
+            if (!Auth()->User()->superadm && Auth()->User()->company_id != $this->viability->company_id) {
                 $this->dados = (object)[
                     'note' => null,
                     'lexp' => null,

@@ -46,4 +46,9 @@ class Company extends Model
     {
         return $this->belongsToMany(User::class, 'company_user')->withTrashed();
     }
+
+    public function Centerjobs()
+    {
+        return $this->hasMany(Centerjob::class);
+    }
 }

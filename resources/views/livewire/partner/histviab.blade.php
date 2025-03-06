@@ -178,7 +178,7 @@
                         <th scope="col" class="text-center align-middle">Status Tacit</th>
                         <th scope="col" class="text-center align-middle">Status</th>
                         <th scope="col" class="text-center align-middle">Empreiteira</th>
-
+                        <th scope="col" class="text-center align-middle"></th>
                     </thead>
                     <tbody class="table-group-divider">
                         @foreach ($lists as $index => $viability)
@@ -340,6 +340,14 @@
                                         class="badge {{ Viabilitiesstatus::status($viability->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability->status)->status }}</span>
                                 </td>
                                 <td class="text-center align-middle">{{ $viability->Company->name }}</span>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <a href="{{ route('pdf.checklist', ['id' => $viability->id]) }}" target="_BLANK"
+                                        class="text-primary"><i class="bx bx-printer text-primary fs-4 me-2"
+                                            role="group" aria-label="Basic example" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="right" data-bs-title="Imprimir Check-List FTVEO"
+                                            data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras.</p>"></i></a>
                                 </td>
                             </tr>
                         @endforeach
