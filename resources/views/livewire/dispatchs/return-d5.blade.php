@@ -54,11 +54,14 @@
                 <th scope="col" class="text-center">Files</th>
                 <th scope="col" class="text-center">Rubrica</th>
                 <th scope="col" class="text-center">Municipio</th>
+                <th scope="col" class="text-center">Grp5</th>
+                <th scope="col" class="text-center">Material</th>
                 <th scope="col" class="text-center">Categoria</th>
                 <th scope="col" class="text-center">Data Envio</th>
                 <th scope="col" class="text-center">Em Atividade</th>
                 <th scope="col" class="text-center">Status</th>
                 <th scope="col" class="text-center">Responsável</th>
+                <th scope="col" class="text-center">Empresa</th>
                 <th scope="col" class="text-center"></th>
             </thead>
             <tbody class="table-group-divider">
@@ -70,6 +73,12 @@
                             if ($list->updated_at < $vencimento) {
                                 $vencido = true;
                             }
+
+                            $approvalColor = '';
+
+                            if ($list->Approvals->isNotEmpty()) {
+                                $approvalColor = 'text-bg-warning';
+                            }
                         @endphp
 
                         <tr wire:key="row-{{ $list->id }}">
@@ -77,7 +86,8 @@
                                 <input type="checkbox" class="form-checkbox" wire:model.defer="selected"
                                     value="{{ $list->id }}">
                             </td>
-                            <td class="text-center align-middle fw-bold">{{ $list->Note->note }}</td>
+                            <td class="{{ $approvalColor }} text-center align-middle fw-bold">{{ $list->Note->note }}
+                            </td>
                             <td class="text-center align-middle">
                                 {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                 <x-files.select-download-list :files='$list->Note->Files' />
@@ -85,6 +95,8 @@
                             </td>
                             <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
                             <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
+                            <td class="text-center align-middle">{{ $list->Note->group5 }}</td>
+                            <td class="text-center align-middle">{{ $list->Note->material }}</td>
                             <td class="text-center align-middle" style="cursor: pointer; color: inherit;"
                                 wire:dblclick="$emitTo('dispatchs.common.reclaim-info', 'getInfoResponse', '{{ $list->id }}')"
                                 onmouseover="this.style.color='blue';" onmouseout="this.style.color='inherit';"
@@ -112,6 +124,9 @@
                             </td>
                             <td class="text-center align-middle">
                                 {{ $list->Production ? ($list->Production->User ? $list->Production->User->name : 'Desconhecido') : '' }}
+                            </td>
+                            <td class="text-center align-middle">
+                                {{ $list->Production ? ($list->Production->Company ? $list->Production->Company->name : 'Desconhecido') : '' }}
                             </td>
                             <td class="text-center align-middle">
                                 @if ($list->Production)

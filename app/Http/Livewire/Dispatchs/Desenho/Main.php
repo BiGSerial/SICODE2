@@ -148,7 +148,10 @@ class Main extends Component
 
     public function check_mmgd(Note $note)
     {
-        dd($note);
+        $note->mmgd = !$note->mmgd;
+        $note->save();
+
+        // $this->emitSelf('refresh_dispatch');
     }
 
     public function updatedSelectall($val)
