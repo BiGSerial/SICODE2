@@ -146,6 +146,11 @@ class Main extends Component
         }
     }
 
+    public function check_mmgd(Note $note)
+    {
+        dd($note);
+    }
+
     public function updatedSelectall($val)
     {
 

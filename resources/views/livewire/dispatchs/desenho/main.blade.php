@@ -528,7 +528,8 @@
                                         @endif
                                     </td>
                                     <td class="fw-bold text-danger text-center">
-                                        {{ $list->mmgd ? 'MMGD' : '' }}
+                                        <input class="form-check-input border border-1 border-primary" type="checkbox"
+                                            wire:click="check_mmgd({{ $list->id }})" @checked($list->mmgd)>
                                     </td>
                                     <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
                                     </td>
