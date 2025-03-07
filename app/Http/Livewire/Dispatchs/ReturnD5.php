@@ -60,6 +60,10 @@ class ReturnD5 extends Component
     //filter User
     public $filterUser;
 
+    // Orderenação
+    public $sortField = 'created_at';
+    public $sortDirection = 'desc';
+
 
     protected $queryString = [
 
@@ -93,7 +97,7 @@ class ReturnD5 extends Component
 
     public function exportToExcel()
     {
-        return (new ReturnInternExport($this->lists->get()))->download(date('YmdHis-') . 'exportInterReturns.xlsx');
+        return (new ReturnInternExport($this->lists->get()))->download('Retorno_Interno_Export_List_'.date('YmdHis').'.xlsx');
     }
 
     public function filterUser($user_id)
@@ -165,19 +169,47 @@ class ReturnD5 extends Component
         $this->emit('refresh_list');
     }
 
+    public function sortBy($field)
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortDirection = 'asc';
+        }
+
+        $this->sortField = $field;
+    }
+
 
     public function getListsProperty()
     {
-
-
-
         return Reclaim::Where('service_id', $this->service->uuid)
-                    ->when($this->filterUser, function ($q) {
-                        $q->WhereRelation('Production', 'user_id', $this->filterUser);
-                    })
-                    ->Where('completed', false)
-                    ->with('Production.User', 'Note')
-                    ->orderBy('created_at');
+                ->when($this->filterUser, function ($q) {
+                    $q->WhereRelation('Production', 'user_id', $this->filterUser);
+                })
+                ->when($this->search, function ($q) {
+                    $this->gotoPage(1);
+                    $q->Where(function ($q) {
+                        $q->whereRelation('Note', 'note', 'like', '%' . trim($this->search) . '%')
+                            ->orWhereRelation('Note', 'rubrica', 'like', '%' . trim($this->search) . '%')
+                            ->orWhereRelation('Note', 'group5', 'like', '%' . trim($this->search) . '%')
+                            ->orWhereRelation('Note', 'material', 'like', '%' . trim($this->search) . '%')
+                            ->orWhereRelation('Note', 'lexp', 'like', '%' . trim($this->search) . '%');
+                    });
+                })
+                ->Where('completed', false)
+                ->leftJoin('notes as n', 'reclaims.note_id', '=', 'n.id')
+
+                ->select('reclaims.*', 'n.note as note', 'n.rubrica as rubrica', 'n.group5 as group5', 'n.material as material', 'n.lexp')
+                ->with([
+                    'Production.User',
+                    'Note',
+                    'Approvals',
+                    'Viabilities',
+                    'Waiting',
+                ])
+
+                ->orderBy($this->sortField, $this->sortDirection);
     }
 
 
