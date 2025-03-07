@@ -228,11 +228,13 @@ class ViabRespResponsible extends Component
                         if ($this->service) {
 
                             $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->get()->last();
+
+
                             // Verifica se o usuário foi excluído
-                            if ($production  && $production ->User->trashed()) {
+                            if (!$production || $production->User->trashed()) {
 
                                 $reclaim = $this->viability->Reclaims()->create([
-                                    'note_id' => $production->note_id,
+                                    'note_id' => $this->viability->note_id,
                                     'service_id' => $this->service,
                                     'category' => 'RESOLUÇAO DE VIABILIDADE',
                                 ]);

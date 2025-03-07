@@ -33,7 +33,9 @@ class WorkReport extends Model
     protected $casts = [
         'approved' => 'boolean',
         'rejected' => 'boolean',
-        'informed_at' => 'datetime'
+        'informed_at' => 'datetime',
+        'retry' => 'boolean',
+        'date' => 'date',
     ];
 
     public function Note()

@@ -195,7 +195,7 @@ class GoWaiting extends Component
                                         'company_id' => $user->Employee->Contract->company->id,
                                         'dispatch_by' => auth()->user()->id,
                                         'att_by' => auth()->user()->id,
-                                        'dt_note' => $production['note']['dt_created'],
+                                        'dt_note' => $production['note']['dt_status'],
                                         'dispatch_at' => date('Y-m-d H:i:s'),
                                         'att_at' => date('Y-m-d H:i:s'),
                                         'status' => 2,
@@ -240,8 +240,8 @@ class GoWaiting extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ERRO',
-                'html'     => 'Ocorreu um erro ao tentar retornar as notas para o projeto, tente novamente.<br><br>',
-                'timer'    => 10000,
+                'html'     => 'Ocorreu um erro ao tentar retornar as notas para o projeto, tente novamente.<br><br>' . $th->getMessage(),
+
             ]);
 
             return;
