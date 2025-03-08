@@ -68,15 +68,26 @@ class ViabilityPizza extends Component
     {
 
 
-        $total = $this->getListsProperty()->count();
+        $baseQuery = $this->getListsProperty();
 
-        $completed = $this->getListsProperty()->where('completed', true)->count();
+        $total = (clone $baseQuery)->count();
 
-        $inProgress = $this->getListsProperty()->where('status', 1)->count();
+        $completed = (clone $baseQuery)->where('completed', true)->count();
 
-        $tacitTrue = $this->getListsProperty()->where('completed', true)->where('tacit', true)->count();
+        $inProgress = (clone $baseQuery)
+            ->where('sended_at', '>=', Carbon::parse($this->startDate)->subDays(7)->startOfDay()->toDateTimeString())
+            ->where('status', 1)
+            ->count();
 
-        $tacitFalse = $this->getListsProperty()->where('completed', true)->where('approved', true)->where('tacit', false)->count() + $this->getListsProperty()->where('completed', false)->where('rejected', true)->where('tacit', false)->count();
+        $tacitTrue = (clone $baseQuery)->where('completed', true)->where('tacit', true)->count();
+
+        $tacitFalse = (clone $baseQuery)->where('completed', true)
+            ->where('approved', true)
+            ->where('tacit', false)
+            ->count() + (clone $baseQuery)->where('completed', false)
+            ->where('rejected', true)
+            ->where('tacit', false)
+            ->count();
 
         $totalViabilityStats = [
             'labels' => ["Em Viabilidade ($inProgress)", "Não Realizado ($tacitTrue)", "Realizados ($tacitFalse)"],

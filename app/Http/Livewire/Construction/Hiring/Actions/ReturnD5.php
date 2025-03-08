@@ -22,6 +22,9 @@ class ReturnD5 extends Component
 
     public function returnD5()
     {
+
+
+
         if (!trim($this->comment)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -97,9 +100,9 @@ class ReturnD5 extends Component
                 'timer'    => 8000,
             ]);
 
-            return;
-
             $this->emitUp('update_list');
+
+            return;
         }
     }
 

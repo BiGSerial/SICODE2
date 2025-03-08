@@ -171,6 +171,13 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/waiting_inform_parc', 'waiting_parc')->name('info.parcial');
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
 
+    Route::prefix('/analises')->name('analises.')->group(function () {
+        Route::get('/dashboard', 'analises_dashboard')->name('dashboard');
+        Route::get('/toAnalise', 'analises_toAnalise')->name('toAnalise');
+        Route::get('/inAnalise', 'analises_inAnalise')->name('inAnalise');
+        Route::get('/analised', 'analises_analised')->name('analised');
+    });
+
 });
 
 

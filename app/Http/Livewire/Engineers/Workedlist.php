@@ -2,12 +2,15 @@
 
 namespace App\Http\Livewire\Engineers;
 
+use App\Exports\Workreports\HistListExport;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Workedlist extends Component
 {
@@ -39,9 +42,20 @@ class Workedlist extends Component
         'perPage' => ['as' => 'pp'],
     ];
 
+
     protected $listeners = [
         'refresh_list' => '$refresh',
     ];
+
+
+    public function export_excel()
+    {
+
+        $export = new HistListExport($this->lists->pluck('id')->toArray());
+
+
+        return Excel::download($export, 'Informe_Conclusao_historico_'.date('YmdHis').'.xlsx');
+    }
 
     public function mount()
     {
@@ -137,7 +151,7 @@ class Workedlist extends Component
             });
         }
 
-        $query->orderBy('created_at', 'DESC');
+
 
         return $query;
     }
@@ -145,7 +159,7 @@ class Workedlist extends Component
     public function render()
     {
         return view('livewire.engineers.workedlist', [
-            'lists' => $this->lists->paginate($this->perPage)
+            'lists' => $this->lists->orderBy('created_at', 'DESC')->paginate($this->perPage)
         ]);
     }
 }

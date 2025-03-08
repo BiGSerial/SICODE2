@@ -151,16 +151,16 @@
 
         <div class="card mb-2 edp-bg-gray">
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
-                <div class="row">
+                <div class="row d-flex justify-content-between">
                     <div class="col">
                         <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">OBRAS INFORMADAS</h4>
                     </div>
-                    {{-- <div class="col-3 d-flex justify-content-end">
+                    <div class="col-3 d-flex justify-content-end">
 
                         <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
-                    </div> --}}
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">
@@ -175,6 +175,7 @@
                             <th class="text-center" scope="col">Alteração</th>
                             <th class="text-center" scope="col">Equipe WPA</th>
                             <th class="text-center" scope="col">Responsável</th>
+                            <th class="text-center" scope="col">Empreiteira</th>
                             <th class="text-center" scope="col">Conclusão Informada</th>
                             <th class="text-center" scope="col">Entregue Em</th>
                         </tr>
@@ -206,6 +207,10 @@
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $list->responsible ? $list->responsible : 'Desconhecido' }}
+                                </td>
+
+                                <td class="text-center align-middle">
+                                    {{ $list->company ? $list->company->name : 'Desconhecido' }}
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $list->date ? date('d/m/Y', strToTime($list->date)) : 'Desconhecido' }}

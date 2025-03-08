@@ -36,7 +36,7 @@
 
                                 if ($daysDifference < 1) {
                                     $status = [
-                                        'color' => 'text-bg-danger',
+                                        'color' => 'text-bg-danger', 
                                         'info' => 'VENCIDO',
                                     ];
                                 } elseif ($daysDifference >= 1 && $daysDifference < 3) {
@@ -307,14 +307,18 @@
                                                         {{ $optRes->info }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('decision') <span class="text-danger">{{ $message }}</span> @enderror
+                                            @error('decision')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
                                         </div>
                                         <div class="col mb-3">
                                             <label for="" class="form-label">Texto
                                                 Descritivo</label>
                                             <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"
                                                 wire:model.defer="responser"></textarea>
-                                            @error('responser') <span class="text-danger">{{ $message }}</span> @enderror
+                                            @error('responser')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
                                         </div>
                                     </div>
 
@@ -338,7 +342,9 @@
                                                                             {{ $optSel->info }}</option>
                                                                     @endforeach
                                                                 </select>
-                                                                @error('options') <span class="text-danger">{{ $message }}</span> @enderror
+                                                                @error('options')
+                                                                    <span class="text-danger">{{ $message }}</span>
+                                                                @enderror
                                                             </div>
                                                             @if ($options === 'DEVOLVER')
                                                                 <div class="mt-3">
@@ -355,7 +361,10 @@
                                                                                 {{ $serv->service }}</option>
                                                                         @endforeach
                                                                     </select>
-                                                                    @error('service') <span class="text-danger">{{ $message }}</span> @enderror
+                                                                    @error('service')
+                                                                        <span
+                                                                            class="text-danger">{{ $message }}</span>
+                                                                    @enderror
                                                                 </div>
                                                             @endif
                                                         </div>

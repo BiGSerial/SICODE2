@@ -70,6 +70,7 @@ class Production extends Model
         'completed_at'  => 'datetime',
         'partial_at'    => 'datetime',
         'confirmed_at'  => 'datetime',
+        'dt_note'       => 'datetime',
     ];
 
     public function Note()

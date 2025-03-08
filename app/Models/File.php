@@ -21,6 +21,11 @@ class File extends Model
         'suspicious',
     ];
 
+    protected $casts = [
+        'noexists' => 'boolean',
+        'suspicious' => 'boolean',
+    ];
+
     public function Note()
     {
         return $this->belongsTo(Note::class);

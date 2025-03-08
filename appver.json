@@ -1,6 +1,16 @@
 {
-    "appver": "1.15.0",
+    "appver": "1.15.2",
     "historic": [
+        {
+            "version": "1.15.2",
+            "description": "Created Engineer Approve View",
+            "date": "2025-03-08"
+        },
+        {
+            "version": "1.15.1",
+            "description": "Fix RI responsible, Created Report Export, Create ChangeBox in Draw list Dispatch",
+            "date": "2025-03-06"
+        },
         {
             "version": "1.15.0",
             "description": "Pool Notes in Hiring and Analise Projects",

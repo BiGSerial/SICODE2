@@ -12,12 +12,15 @@
                         <li>
                             <a href="{{ route('responsible.approve_list') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> À ANALISAR</span>
+                                @livewire('engineers.counts.analises.to-approval-count', key('to-approval-count'))
                             </a>
                         </li>
 
                         <li>
                             <a href="{{ route('responsible.approve_control') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-list-unordered fw-light fs-5 text-white"></i> <span> EM ATIVIDADE</span>
+                                @livewire('engineers.counts.analises.in-approval-count', key('in-approval-count'))
+                                @livewire('engineers.counts.analises.in-approval-return', key('in-approval-count'))
                             </a>
                         </li>
 

@@ -6,9 +6,12 @@
 <table class="table table-sm table-condensed table-striped-columns">
     <thead>
         <tr>
+            <th scope="col" class="text-center">Origem</th>
             <th scope="col" class="text-center">Nota</th>
             <th scope="col" class="text-center">Rubrica</th>
             <th scope="col" class="text-center">Municipio</th>
+            <th scope="col" class="text-center">Grupo 5</th>
+            <th scope="col" class="text-center">Material</th>
             <th scope="col" class="text-center">Solicitante</th>
             <th scope="col" class="text-center">Empresa Solicitante</th>
             <th scope="col" class="text-center">Categoria</th>
@@ -32,21 +35,35 @@
                 @endphp
 
                 <tr wire:key="row-{{ $list->id }}">
-
+                    <td class="text-center align-middle fw-bold">
+                        @if ($list->Approvals->isNotEmpty())
+                            ANALISE PROJETO
+                        @elseif ($list->Waiting)
+                            CONTRATAÇÃO
+                        @elseif ($list->Viabilities->isNotEmpty())
+                            VIABILIDADE
+                        @endif
+                    </td>
                     <td class="text-center align-middle fw-bold">{{ $list->Note->note }}</td>
                     <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
                     <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
+                    <td class="text-center align-middle">{{ $list->Note->group5 }}</td>
+                    <td class="text-center align-middle">{{ $list->Note->material }}</td>
                     <td class="text-center align-middle">
-                        @if ($list->Waiting)
+                        @if ($list->Approvals->isNotEmpty())
+                            {{ $list->Approvals->last()->User->name }}
+                        @elseif ($list->Waiting)
                             {{ $list->Waiting->User->name }}
-                        @elseif ($list->Viabilities->count())
+                        @elseif ($list->Viabilities->isNotEmpty())
                             {{ $list->Viabilities->last()->Engineer->name }}
                         @endif
                     </td>
                     <td class="text-center align-middle">
-                        @if ($list->Waiting)
+                        @if ($list->Approvals->isNotEmpty())
+                            {{ $list->Approvals->last()->User ? $list->Approvals->last()->User->Employee->Contract->company->name : '' }}
+                        @elseif ($list->Waiting)
                             {{ $list->Waiting->User ? $list->Waiting->User->Employee->Contract->company->name : '' }}
-                        @elseif ($list->Viabilities->count())
+                        @elseif ($list->Viabilities->isNotEmpty())
                             {{ $list->Viabilities->last()->Engineer ? $list->Viabilities->last()->Engineer->Employee->Contract->company->name : '' }}
                         @endif
                     </td>

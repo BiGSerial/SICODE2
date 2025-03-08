@@ -107,8 +107,8 @@
                             <th class="text-center align-middle">Tempo</th>
                             <th class="text-center align-middle">Em Atvd</th>
                             <th class="text-center align-middle">Em Rslc</th>
-                            <th class="text-center align-middle">Status</th>
-                            <th class="text-center align-middle"></th>
+                            <th class="text-center align-middle">Status Rslc</th>
+                            {{-- <th class="text-center align-middle"></th> --}}
 
                         </tr>
                     </thead>
@@ -192,9 +192,9 @@
                                     }
 
                                     if ($reclaim && ($rclDays = $reclaim->created_at->diffInDays(now()))) {
-                                        if ($rclDays > 5) {
+                                        if ($rclDays > 3) {
                                             $rclColor = 'text-bg-danger';
-                                        } elseif ($rclDays <= 3) {
+                                        } elseif ($rclDays <= 1) {
                                             $rclColor = 'text-bg-success';
                                         } else {
                                             $rclColor = 'text-bg-warning';
@@ -222,7 +222,7 @@
                                         ----
                                     @endif
                                 </td>
-                                <td class="text-center align-middle">
+                                {{-- <td class="text-center align-middle">
                                     <span wire:loading wire:target="onlySelected({{ $list->id }})">
                                         <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
                                             style="cursor: not-allowed;"></i>
@@ -232,16 +232,16 @@
                                             wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     </span>
-                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
+                                    <span wire:loading wire:target="onlySelected({{ $list->id }})">
                                         <i class="ri-loader-line text-danger fs-4 fw-bold animate-spin"
                                             style="cursor: not-allowed;"></i>
-                                    </span> --}}
+                                    </span>
                                     <span>
                                         <i class="ri-close-circle-line text-danger fs-4 fw-bold"
                                             wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     </span>
-                                </td>
+                                </td> --}}
 
                             </tr>
                         @endforeach
