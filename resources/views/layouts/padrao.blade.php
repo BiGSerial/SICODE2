@@ -72,7 +72,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 </head>
 
 
-<!-- Scripts -->
+
 
 
 <body class="g-sidenav-show edp-bg-gray">

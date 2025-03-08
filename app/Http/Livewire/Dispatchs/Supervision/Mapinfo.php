@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Dispatchs\Survey;
+namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Custom\WpaStatus;
 use App\Models\{Service, Wpa};

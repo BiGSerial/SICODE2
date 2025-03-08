@@ -257,7 +257,9 @@ class ApprovalList extends Component
             }
         })
         ->where(function ($q) {
-            $q->whereDoesntHave('Approval')
+            $q->whereDoesntHave('Approval', function ($q) {
+                $q->where('approved', true);
+            })
             ->whereDoesntHave('Viabilities')
             ->whereDoesntHave('Waitings');
         })

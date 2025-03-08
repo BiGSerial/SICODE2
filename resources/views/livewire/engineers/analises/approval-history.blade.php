@@ -121,7 +121,7 @@
                             <th class="text-center align-middle">Rubrica</th>
                             <th class="text-center align-middle">Município</th>
                             <th class="text-center align-middle">Empreiteira</th>
-                            <th class="text-center align-middle">Tácito</th>
+                            <th class="text-center align-middle">Aprovado Por</th>
                             <th class="text-center align-middle">Approvado Em</th>
                             <th class="text-center align-middle">Contratado Em</th>
                             <th class="text-center align-middle">Viabilizado Em</th>
@@ -163,11 +163,7 @@
                                 </td>
 
                                 <td class="text-center align-middle">
-                                    @if ($list->approval && $list->approval->tacit)
-                                        <i class="ri-checkbox-circle-line text-success fs-4 fw-bold"></i>
-                                    @else
-                                        <i class="ri-close-circle-line text-secondary fs-4 fw-bold"></i>
-                                    @endif
+                                    {{ $list->approval ? $list->approval->user->name : '---' }}
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $list->approval ? $list->approval->approved_at->format('d/m/Y H:i:s') : '---' }}

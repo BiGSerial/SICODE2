@@ -1,3 +1,246 @@
+@php
+    use Carbon\Carbon;
+@endphp
 <div>
-    {{-- Knowing others is intelligence; knowing yourself is true wisdom. --}}
+    <x-show-loading />
+    <div class="card">
+        <div class="card-header edp-bg-seoweedgreen-100 text-white">
+            <h4 class="my-1">DASHBOARD ANALISE DE PROJETO</h4">
+        </div>
+        <div class="card-body">
+            <form class="form-inline">
+                <div class="row">
+                    {{-- <div class="col-md-4 col-xl-2 col-12 mb-2">
+                        <label for="contractor" class="mr-2">Empreiteira</label>
+                        <select id="contractor" class="form-select w-100" wire:model="company_id">
+                            <option value="">Selecione uma empreiteira</option>
+                            @if ($companies)
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> --}}
+                    <div class="col-md-4 col-xl-2 col-12 mb-2">
+                        <label for="month" class="mr-2">Mês Referência</label>
+                        <input type="month" id="month" class="form-control w-100" wire:model="month"
+                            max="{{ now()->format('Y-m') }}" value="{{ now()->format('Y-m') }}">
+                    </div>
+                    <div class="col-md-4 col-xl-2 col-12 mb-2">
+                        <label for="start_date" class="mr-2">Data de Início</label>
+                        <input type="date" id="start_date" class="form-control w-100" wire:model="dt_ini">
+                    </div>
+                    <div class="col-md-4 col-xl-2 col-12 mb-2">
+                        <label for="end_date" class="mr-2">Data de Fim</label>
+                        <input type="date" id="end_date" class="form-control w-100" wire:model="dt_fim">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+
+        <div class="col-md-4">
+            <!-- Alterado para col-md-4 col-xl-2 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Tempo em Pilha para Analise</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDays"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDays" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <x-grafico.stack-bar :chart-id="$chartId2" :labels="$dadosGrafico1['labels']" :dataset1-data="$dadosGrafico1['data1']"
+                        dataset1-label="Atribuidos" :dataset2-data="$dadosGrafico1['data2']" dataset2-label="Sem Atribuição"
+                        title="Dias em Pilha (OV)" y-axis-title="Qtd (OV)" />
+                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Os dias de atribuição andam com o
+                            passar dos dias e não considera em resolução, apenas como atribuídos. Aprovados saem
+                            da estatística.</em></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Categoria Retorno</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.pie-chart :chart-id="$chartId" :labels="$dadosGrafico['labels']" :dataset="$dadosGrafico['data']" height="300px" />
+                </div>
+                @if (!array_sum($dadosGrafico['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+
+            </div>
+        </div>
+
+        {{-- Ticket Médio em Resolução Interna --}}
+        <div class="col-md-4">
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Tempo Médio – Resoluçao Interna</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarTicketMedioReclaim"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarTicketMedioReclaim"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                @if ($reclaimsGeral->avg_resolution + $reclaimsGeral->avg_reaction + $reclaimsGeral->avg_execution > 0)
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <strong>Tempo de Resolução:</strong>
+                                {{ \Carbon\CarbonInterval::minutes($reclaimsGeral->avg_resolution)->cascade()->forHumans() }}
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Tempo de Reação:</strong>
+                                {{ \Carbon\CarbonInterval::minutes($reclaimsGeral->avg_reaction)->cascade()->forHumans() }}
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Tempo de Execução:</strong>
+                                {{ \Carbon\CarbonInterval::minutes($reclaimsGeral->avg_execution)->cascade()->forHumans() }}
+                            </li>
+                        </ul>
+                        <p class="fs-6 my-0 py-2 fw-thin" style="line-height: 1;">
+                            <em>Métricas gerais de Resolução Interna (apenas finalizados).</em>
+                        </p>
+                    </div>
+                @else
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+
+            </div>
+        </div>
+
+        {{-- Tempo Médio de Analise por usuário --}}
+        <div class="col-md-4">
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Tempo Médio por Analisador</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarTicketMedio"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarTicketMedio" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                @if ($usuariosStats->isNotEmpty())
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr class='table-dark '>
+                                <th>Usuário</th>
+                                <th>Tempo de Reação</th>
+                                <th>Tempo de Execução</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($usuariosStats as $usuario)
+                                <tr>
+                                    <td>{{ $usuario->name }}</td>
+                                    <td>{{ \Carbon\CarbonInterval::minutes($usuario->avg_reaction_time)->cascade()->forHumans() }}
+                                    </td>
+                                    <td>{{ \Carbon\CarbonInterval::minutes($usuario->avg_execution_time)->cascade()->forHumans() }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>Obs: Considerado apenas tempo de OV. Notas não possuem data no status.</em>
+                </p>
+
+            </div>
+        </div>
+
+        {{-- Tempo Médio de Resolução por Usuário --}}
+
+        <div class="col-md-4">
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Tempo Médio de Resolução – Por Usuario</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarTicketMedioResolution"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarTicketMedioResolution"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    @if ($productionsStats->isNotEmpty())
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr class="table-dark">
+                                    <th>Usuário</th>
+                                    <th>Tempo de Resolução (min)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($productionsStats as $userStat)
+                                    <tr>
+                                        <td>{{ $userStat->name }}</td>
+                                        <td>{{ \Carbon\CarbonInterval::minutes($userStat->avg_resolution_production)->cascade()->forHumans() }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @else
+                        <div class="card py-3">
+                            <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                        </div>
+                    @endif
+                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;">
+                        <em>Tempo de resolução interna, considerado apenas os finalizados.</em>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
 </div>

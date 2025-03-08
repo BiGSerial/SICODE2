@@ -1,6 +1,11 @@
 {
-    "appver": "1.15.1",
+    "appver": "1.15.2",
     "historic": [
+        {
+            "version": "1.15.2",
+            "description": "Created Engineer Approve View",
+            "date": "2025-03-08"
+        },
         {
             "version": "1.15.1",
             "description": "Fix RI responsible, Created Report Export, Create ChangeBox in Draw list Dispatch",

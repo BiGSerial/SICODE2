@@ -181,6 +181,8 @@
                                         }
                                     }
 
+                                    $attDays = $list->approval->created_at->diffInDays(now());
+
                                     if ($attDays > 5) {
                                         $attColor = 'text-bg-danger';
                                     } elseif ($attDays <= 3) {

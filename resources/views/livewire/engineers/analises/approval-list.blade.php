@@ -62,9 +62,9 @@
         <div
             class="card-header d-flex justify-content-between align-items-center edp-bg-sprucegreen-100 edp-text-verde-dark">
             <h4 class="fs-4 mb-0">OBRAS ANALISE DE PROJETO</h4>
-            <button type="button" class="btn btn-outline-info" wire:click.prevent="preAtt"
+            {{-- <button type="button" class="btn btn-outline-info" wire:click.prevent="preAtt"
                 @disabled(!count($selected))>Assumir em
-                Massa</button>
+                Massa</button> --}}
         </div>
         @if ($lists->isNotEmpty())
             <div class="table-responsive">
@@ -88,21 +88,31 @@
                             <th class="text-center align-middle">Empreiteira</th>
                             <th class="text-center align-middle">Status</th>
                             <th class="text-center align-middle">Tempo</th>
-                            <th class="text-center align-middle"></th>
+                            <th class="text-center align-middle">Usuario</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($lists as $list)
+                            @php
+                                $user = '';
+                                $colorAtt = '';
+
+                                if ($list->approval) {
+                                    $user = explode(' ', $list->approval->user->name);
+                                    $user = $user[0] . ' ' . end($user);
+                                    $colorAtt = 'text-bg-info';
+                                }
+                            @endphp
                             <tr wire:key="linha-{{ $list->id }}">
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $colorAtt }}">
                                     <div class="form-check">
                                         <input type="checkbox" class="form-check-input border-1 border-secondary"
                                             wire:model.defer="selected" value='{{ $list->id }}'>
 
                                     </div>
                                 </td>
-                                <td class="text-center align-middle">{{ $list->note }}</td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $colorAtt }}">{{ $list->note }}</td>
+                                <td class="text-center align-middle {{ $colorAtt }}">
                                     @if ($list->orders->isNotEmpty())
                                         @foreach ($list->orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
@@ -111,21 +121,22 @@
                                         ---
                                     @endif
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $colorAtt }}">
                                     <x-files.select-download-list :files='$list->Files' />
                                 </td>
-                                <td class="text-center align-middle">{{ $list->rubrica }}</td>
-                                <td class="text-center align-middle">{{ $list->txpriority }}</td>
-                                <td class="text-center align-middle">{{ $list->group5 }}{{ $list->txpriority }}</td>
-                                <td class="text-center align-middle">{{ $list->lexp }}</td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $colorAtt }}">{{ $list->rubrica }}</td>
+                                <td class="text-center align-middle {{ $colorAtt }}">{{ $list->txpriority }}</td>
+                                <td class="text-center align-middle {{ $colorAtt }}">
+                                    {{ $list->group5 }}{{ $list->txpriority }}</td>
+                                <td class="text-center align-middle {{ $colorAtt }}">{{ $list->lexp }}</td>
+                                <td class="text-center align-middle {{ $colorAtt }}">
                                     @if ($list->orders->isNotEmpty())
                                         {{ isset($list->orders->last()->operations->first()->cenTrab) ? $list->orders->last()->operations->first()->cenTrab : '---' }}
                                     @else
                                         ---
                                     @endif
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center align-middle {{ $colorAtt }}">
                                     {{ $list->type_note == 2 ? $list->nstats : $list->centerjob }}</td>
                                 @php
                                     $color = '';
@@ -146,8 +157,9 @@
                                 <td class="text-center align-middle {{ $color }}">
                                     {{ $days }}
                                 </td>
-                                <td class="text-center align-middle">
-                                    <span wire:loading wire:target="onlySelected({{ $list->id }})">
+                                <td class="text-center align-middle {{ $colorAtt }}">
+                                    {{ $user }}
+                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
                                         <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
                                             style="cursor: not-allowed;"></i>
                                     </span>
@@ -155,7 +167,7 @@
                                         <i class="ri-play-circle-line text-success fs-4 fw-bold"
                                             wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
                                             style="cursor: pointer;"></i>
-                                    </span>
+                                    </span> --}}
                                 </td>
                             </tr>
                         @endforeach
@@ -182,8 +194,8 @@
     @endif
 
     {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1"
-        aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
 
 
         <div class="modal-dialog">

@@ -65,4 +65,26 @@ class EngineerController extends Controller
     {
         return view('engineers.parcial_hist');
     }
+
+
+    // Analises
+    public function analises_dashboard()
+    {
+        return view('engineers.analises.approval_dashboard');
+    }
+
+    public function analises_toAnalise()
+    {
+        return view('engineers.analises.approval_list');
+    }
+
+    public function analises_inAnalise()
+    {
+        return view('engineers.analises.approval_control');
+    }
+
+    public function analises_analised()
+    {
+        return view('engineers.analises.approval_history');
+    }
 }

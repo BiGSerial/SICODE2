@@ -7,10 +7,10 @@
                 <a href="{{ route('home') }}">Home</a>
             </li>
             <li class="breadcrumb-item">
-                <a href="#">Responsável</a>
+                <a href="#">Engenharia</a>
             </li>
             <li class="breadcrumb-item">
-                <a href="#">Analise Projeto</a>
+                <a href="#">Analise Projetos</a>
             </li>
             <li class="breadcrumb-item active" aria-current="page">
                 Em Atividade
@@ -20,31 +20,31 @@
 @endsection
 
 @section('menu')
-    @livewire('responsible.menu', key('responsible-menu'))
+    @livewire('engineers.menu', key('engineers-menu'))
 @endsection
 
 @section('content')
-    @livewire('responsible.approval-control', key('responsible-approval-control'))
+    @livewire('engineers.analises.approval-control', key('engineers-approval-control'))
 @endsection
 
 
 @push('script')
     <script>
-        window.addEventListener('focus', function() {
-            // console.log('A janela recebeu o foco!');
-            livewire.emitTo('responsible.viab-control', 'refresh_list');
+        // window.addEventListener('focus', function() {
+        //     // console.log('A janela recebeu o foco!');
+        //     livewire.emitTo('responsible.viab-control', 'refresh_list');
 
-            stopInterval
+        //     stopInterval
 
-        });
+        // });
 
-        window.addEventListener('blur', function() {
-            // console.log('A janela recebeu o foco!');
-            livewire.emitTo('responsible.viab-control', 'refresh_list');
+        // window.addEventListener('blur', function() {
+        //     // console.log('A janela recebeu o foco!');
+        //     livewire.emitTo('responsible.viab-control', 'refresh_list');
 
-            startInterval;
+        //     startInterval;
 
-        });
+        // });
 
         window.addEventListener('alertar', function(e) {
 
