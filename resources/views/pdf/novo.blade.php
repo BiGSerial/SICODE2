@@ -652,7 +652,19 @@
                     </div>
                 </div>
             </div>
-            <div class="col-8">
+            <div class="col-4">
+                <div class="grid-item">
+                    <div class="card-header">CAVA EM ROCHA</div>
+
+                    <div class="checkbox-group pt-1">
+                        <label><input type="checkbox"> SIM</label>
+                        <label><input type="checkbox"> NÃO</label>
+                        <label><input type="checkbox"> NÃO IDENTIFICADO</label>
+
+                    </div>
+                </div>
+            </div>
+            <div class="col-4">
                 <div class="card">
                     <div class="card-header">OBSERVAÇÕES</div>
                     <textarea rows="8"></textarea>
