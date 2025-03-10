@@ -6,20 +6,19 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Dispatch</li>
-                <li class="breadcrumb-item" aria-current="page">Transferência</li>
-                <li class="breadcrumb-item active" aria-current="page">{{ $service->service }}</li>
+                <li class="breadcrumb-item active">{{ $service->service }}</li>
+                <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
             </ol>
         </ol>
     </nav>
 @endsection
 
 @section('menu')
-    {{-- @include('services.analises_pre.menu') --}}
-    @include('dispatchs.levantamento.menu')
+    @include('dispatchs.menu')
 @endsection
 
 @section('content')
-    @livewire('dispatchs.survey.transfer', ['service' => $service->uuid])
+    {{-- @livewire('dispatchs.dashboard', ['service' => $service->uuid]) --}}
 @endsection
 
 @push('script')

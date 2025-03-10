@@ -32,7 +32,7 @@
 
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
-           
+
 
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
@@ -126,7 +126,7 @@
                             </th>
 
                             <th scope="col" class="fw-bold text-center">Note</th>
-                            <th scope="col" class="fw-bold text-center">Criado Em</th>
+                            <th scope="col" class="fw-bold text-center">Dt Status</th>
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
@@ -292,7 +292,7 @@
                                     {{ $list->note }}
                                 </td>
 
-                                <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
+                                <td class="fw-light text-center">{{ $list->dt_status->format('d/m/Y') }}
                                 </td>
                                 <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>

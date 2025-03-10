@@ -6,6 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use Carbon\Carbon;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -114,11 +115,11 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchDesenhoMain($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         } else {
             $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
 
-            return (new DispatchDesenhoMain($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+            return (new DispatchDesenhoMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         }
     }
 
@@ -466,57 +467,96 @@ class Main extends Component
     public function getListsProperty()
     {
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
+        // if (!(session_status() == PHP_SESSION_ACTIVE)) {
+        //     session_start();
+        // }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        // if (isset($_SESSION['filter'][$this->filter_group])) {
+        //     $this->filter = $_SESSION['filter'][$this->filter_group];
+        // }
+
+        // $query = Note::query();
+
+        // RuleBuilder::applyRules($query, $this->service->Status);
+
+        // if (count($this->multiSearch)) {
+        //     $query->whereIn('note', $this->multiSearch);
+        // }
+
+        // if ($this->not_assigned) {
+        //     $query->where(function ($q) {
+        //         $q->doesntHave('Productions')
+        //             ->orWhereDoesntHave('Productions', function ($subquery) {
+        //                 $subquery->where('service_id', $this->service->uuid)
+        //                     ->where('confirmed', false);
+        //             });
+        //     });
+        // }
+
+        // $query->when($this->search, function ($q, $s) {
+        //     $this->gotoPage(1);
+
+        //     return $q->where(function ($query) use ($s) {
+        //         $query->where('note', 'like', '%' . $s . '%')
+        //             ->orWhere('material', 'like', '%' . $s . '%')
+        //             ->orWhere('numPedido', 'like', '%' . $s . '%')
+        //             ->orWhere('group4', 'like', '%' . $s . '%')
+        //             ->orWhere('group5', 'like', '%' . $s . '%');
+        //     });
+        // });
+
+        // if (isset($this->filter['rubrica'])) {
+        //     $query->whereIn('rubrica', $this->filter['rubrica']);
+        // }
+
+        // if (isset($this->filter['city'])) {
+        //     $query->whereIn('lexp', $this->filter['city']);
+
+        // }
+
+
+        // $query->with('Productions.User')
+        //     ->orderBy('type_note', 'DESC')
+        //     ->orderBy('days_left');
+
 
         $query = Note::query();
-
         RuleBuilder::applyRules($query, $this->service->Status);
+        $query->where('type_note', 2);
 
-        if (count($this->multiSearch)) {
-            $query->whereIn('note', $this->multiSearch);
-        }
+        $today = Carbon::today();
 
-        if ($this->not_assigned) {
-            $query->where(function ($q) {
-                $q->doesntHave('Productions')
-                    ->orWhereDoesntHave('Productions', function ($subquery) {
-                        $subquery->where('service_id', $this->service->uuid)
-                            ->where('confirmed', false);
-                    });
-            });
-        }
+        // Conjunto para notas que possuem Production com service_id igual a $this->service->uuid
+        // $withProd = (clone $query)
+        //     ->whereHas('Productions', function ($q) {
+        //         $q->where('service_id', $this->service->uuid);
+        //     })
+        //     ->selectRaw('
+        //         CASE
+        //             WHEN DATEDIFF(?, dt_status) < 30 THEN CAST(DATEDIFF(?, dt_status) AS CHAR)
+        //             ELSE "30+"
+        //         END as days_difference,
+        //         COUNT(*) as total
+        //     ', [$today, $today])
+        //     ->groupBy('days_difference')
+        //     ->get()
+        //     ->pluck('total', 'days_difference')
+        //     ->toArray();
 
-        $query->when($this->search, function ($q, $s) {
-            $this->gotoPage(1);
+        // // Conjunto para notas que NÃO possuem Production com service_id igual a $this->service->uuid
+        // $withoutProd = (clone $query)
+        //     ->whereDoesntHave('Productions', function ($q) {
+        //         $q->where('service_id', $this->service->uuid);
+        //     })
+        //     ->selectRaw('
+        //         CASE
+        //             WHEN DATEDIFF(?, dt_status) < 30 THEN CAST(DATEDIFF(?, dt_status) AS CHAR)
+        //             ELSE "30+"
+        //         END as days_difference,
+        //         COUNT(*) as total
+        //     ', [$today, $today])
+        //     ->groupBy('days_difference');
 
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group4', 'like', '%' . $s . '%')
-                    ->orWhere('group5', 'like', '%' . $s . '%');
-            });
-        });
-
-        if (isset($this->filter['rubrica'])) {
-            $query->whereIn('rubrica', $this->filter['rubrica']);
-        }
-
-        if (isset($this->filter['city'])) {
-            $query->whereIn('lexp', $this->filter['city']);
-
-        }
-
-
-        $query->with('Productions.User')
-            ->orderBy('type_note', 'DESC')
-            ->orderBy('days_left');
 
         return $query;
 

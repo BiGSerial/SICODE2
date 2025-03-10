@@ -8,6 +8,13 @@
             </a>
             <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
+                    <li>
+                        <a href="{{ route('dispatch.dashboard', ['service' => $service->uuid]) }}"
+                            class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-circle"></i><span>DASHBOARD PARA
+                                {{ mb_strtoupper($service->service) }}</span>
+                        </a>
+                    </li>
 
                     {{-- @if (!Auth()->User()->contract) --}}
                     <li>

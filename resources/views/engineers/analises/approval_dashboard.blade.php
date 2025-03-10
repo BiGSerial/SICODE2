@@ -2,7 +2,7 @@
 
 @section('breadcrumb')
     <nav aria-label="breadcrumb">
-        <ol class="breadcrumb bg-light px-3 py-2 rounded-3">
+        <ol class="breadcrumb bg-light px-3 py-2  my-1 rounded-3">
             <li class="breadcrumb-item">
                 <a href="{{ route('home') }}">Home</a>
             </li>
@@ -16,11 +16,12 @@
                 Dashboard
             </li>
         </ol>
+        </ol>
     </nav>
 @endsection
 
 @section('menu')
-@livewire('engineers.menu', key('engineers-menu'))
+    @livewire('engineers.menu', key('engineers-menu'))
 @endsection
 
 @section('content')
