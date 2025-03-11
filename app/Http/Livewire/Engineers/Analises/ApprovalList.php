@@ -236,9 +236,9 @@ class ApprovalList extends Component
                 ->where('type_note', 2);
             })
             ->orWhere(function ($qq) {
-                $qq->where('type_note', 1)
-                ->when(!$this->allCenters, function ($q) {
-                    $q->where('centerjob', 'like', 'VIAB%');
+                $qq->where(function ($qs) {
+                    $qs->where('type_note', 1)
+                    ->where('centerjob', 'like', 'VIAB%');
                 })
                 ->orWhere(function ($qq) {
                     $qq->orWhereNull('centerjob')

@@ -56,25 +56,57 @@
                 <div class="card-body">
                     <x-grafico.stack-bar :chart-id="$chartId2" :labels="$dadosGrafico2['labels']" :dataset1-data="$dadosGrafico2['data1']"
                         dataset1-label="Atribuidos" :dataset2-data="$dadosGrafico2['data2']" dataset2-label="Sem Atribuição"
-                        title="Dias em Pilha (OV)" y-axis-title="Qtd (OV)" />
-                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Os dias de Atribuição
-                            <strong>contemplam apenas OV</strong> e não contemplam as Notas, pois esses não possuem Data
-                            de Status.</em></p>
+                        title="Dias em Pilha" y-axis-title="Qtd" />
+                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em><strong> Observação:</strong> Os dias
+                            em pilha englobam
+                            tanto Notas quanto OVs, o que pode ocasionar variações inesperadas no quantitativo diário de
+                            notas. Isso se deve à adoção de uma nova regra que atualizou toda a base de NOTAS em um
+                            mesmo dia. Com o tempo, à medida que os status forem alterados naturalmente, essa
+                            discrepância se ajustará. </em></p>
                 </div>
             </div>
         </div>
 
 
+        {{-- <div class="col-md-8"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Produção Diária Ativos x Notas</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarProducaoDiaria"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarProducaoDiaria"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.mixed-chart chart-id="{{ $chartId1 }}" :labels="$mixedChartData['labels']" :data="$mixedChartData['data']"
+                        title="{{ $mixedChartData['title'] }}" height="{{ $mixedChartData['height'] }}" />
+                </div>
+                @if (!array_sum($mixedChartData['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
 
-        <div class="col-md-8"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            </div>
+        </div> --}}
+
+        <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
             <div class="card" wire:ignore.self>
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Produção Diária</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarD5Proporcao"
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarProducaoDiaria"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarD5Proporcao" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
+                        <span wire:loading wire:target="atualizarProducaoDiaria"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     </button>
                 </div>
                 <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
@@ -87,7 +119,37 @@
                     <x-grafico.line-chart :chart-id="$chartId1" :labels="$dadosGrafico1['labels']" :dataset="$dadosGrafico1['data']" height="300px"
                         title="Produção Diária" />
                 </div>
-                @if (!array_sum($dadosGrafico['data']))
+                @if (!array_sum($dadosGrafico1['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+
+            </div>
+        </div>
+
+        <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Produção Ativos/Postes Diário</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarProducaoAtivosDiario"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarProducaoAtivosDiario"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.line-chart :chart-id="$chartId6" :labels="$dadosGrafico6['labels']" :dataset="$dadosGrafico6['data']" height="300px"
+                        title="Produção Diária" />
+                </div>
+                @if (!array_sum($dadosGrafico6['data']))
                     <div class="card py-3">
                         <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
                     </div>
@@ -125,6 +187,99 @@
             </div>
         </div>
 
+        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Motivos Retorno Contratação</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.pie-chart :chart-id="$chartId3" :labels="$dadosGrafico3['labels']" :dataset="$dadosGrafico3['data']" height="300px" />
+                </div>
+                @if (!array_sum($dadosGrafico3['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Motivos Retorno Analise</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados2"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDados2" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.pie-chart :chart-id="$chartId5" :labels="$dadosGrafico5['labels']" :dataset="$dadosGrafico5['data']" height="300px" />
+                </div>
+                @if (!array_sum($dadosGrafico5['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Motivos Retorno Viabilidade</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados1"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDados1" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.pie-chart :chart-id="$chartId4" :labels="$dadosGrafico4['labels']" :dataset="$dadosGrafico4['data']" height="300px" />
+                </div>
+                @if (!array_sum($dadosGrafico4['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
+                </p>
+            </div>
+        </div>
+
         <div class="col-md-6">
             <div class="card" wire:ignore.self>
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -136,7 +291,12 @@
                             class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     </button>
                 </div>
-
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
                         <li class="list-group-item">
@@ -168,9 +328,15 @@
                             class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     </button>
                 </div>
-                @php
+                {{-- @php
                     $productionStats = $this->getProductionStatsByUserProperty();
-                @endphp
+                @endphp --}}
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
                 <div class="card-body">
                     @if ($productionStats->isNotEmpty())
                         <table class="table table-striped table-bordered">
@@ -187,7 +353,7 @@
                                 @foreach ($productionStats as $stat)
                                     <tr>
                                         <td>{{ $stat->name }}</td>
-                                        <td>{{ $stat->User->Company ? explode(' ', $stat->User->Company->name)[0] : '---' }}
+                                        <td>{{ $stat->User && $stat->User->Company ? explode(' ', $stat->User->Company->name)[0] : '---' }}
                                         </td>
                                         <td>
                                             @if ($stat->avg_resolution_d5)
@@ -225,6 +391,7 @@
                 </div>
             </div>
         </div>
+
 
     </div>
 

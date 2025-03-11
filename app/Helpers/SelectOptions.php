@@ -21,6 +21,7 @@ class SelectOptions
             (object)['info' => '(RI) ALTERAÇÃO NO PROJETO', 'value' => 'ALTERAR PROJETO', 'needFile' => true],
             (object)['info' => '(RI) ALTERAÇÃO NO ORÇAMENTO', 'value' => 'ALTERAR ORÇAMENTO', 'needFile' => true],
             (object)['info' => '(RI) ALTERAÇÃO NO NO PROJETO E ORÇAMENTO', 'value' => 'ALTERAR PROJETO E ORÇAMENTO', 'needFile' => true],
+            (object)['info' => '(RI) REFAZER LEVANTAMENTO', 'value' => 'REFAZER LEVANTAMENTO', 'needFile' => true],
         ];
     }
 

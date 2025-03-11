@@ -142,17 +142,16 @@
                                     $color = '';
                                     $days = '';
 
-                                    if ($list->type_note == 2) {
-                                        $days = $list->dt_status->diffInDays(now());
+                                    $days = $list->dt_status->diffInDays(now());
 
-                                        if ($days > 5) {
-                                            $color = 'text-bg-danger';
-                                        } elseif ($days <= 3) {
-                                            $color = 'text-bg-success';
-                                        } else {
-                                            $color = 'text-bg-warning';
-                                        }
+                                    if ($days > 5) {
+                                        $color = 'text-bg-danger';
+                                    } elseif ($days <= 3) {
+                                        $color = 'text-bg-success';
+                                    } else {
+                                        $color = 'text-bg-warning';
                                     }
+
                                 @endphp
                                 <td class="text-center align-middle {{ $color }}">
                                     {{ $days }}

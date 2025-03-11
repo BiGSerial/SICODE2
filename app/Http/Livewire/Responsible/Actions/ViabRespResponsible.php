@@ -14,6 +14,7 @@ class ViabRespResponsible extends Component
     public $decision;
     public $responser;
     public $serviceList;
+    public $category;
 
     public $service;
     public $options;
@@ -36,6 +37,7 @@ class ViabRespResponsible extends Component
         'responser.min' => 'A resposta deve ter no mínimo 10 caracteres.',
         'options.required' => 'Por favor, selecione uma opção quando a decisão for Concordar.',
         'service.required' => 'Por favor, selecione um serviço quando a opção for Devolver.',
+        'category.required' => 'Por favor, selecione uma categoria quando a opção for Devolver.',
     ];
 
 
@@ -131,6 +133,7 @@ class ViabRespResponsible extends Component
         $this->validate([
             'decision' => 'required',
             'responser' => 'required|min:10',
+            'category' => 'required',
         ]);
 
         if ($this->decision === 'CONCORDAR') {
@@ -270,7 +273,7 @@ class ViabRespResponsible extends Component
                                         'note_id' => $production->note_id,
                                         'service_id' => $this->service,
                                         'production_id' => $pro->id,
-                                        'category' => 'RESOLUÇAO DE VIABILIDADE',
+                                        'category' => $this->category,
                                     ]);
 
 
@@ -533,6 +536,8 @@ class ViabRespResponsible extends Component
         $this->service = null;
         $this->options = null;
         $this->show = false;
+        $this->category = null;
+        $this->text = null;
     }
 
     public function render()

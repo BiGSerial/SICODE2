@@ -114,12 +114,11 @@
                     </thead>
                     <tbody>
                         @foreach ($lists as $list)
-                            <tr wire:key="linha-{{ $list->id }}">
+                            <tr wire:key="linha-{{ $list->id }}" onclick="handleRowClick(this)" class="">
                                 <td class="text-center align-middle">
                                     <div class="form-check">
                                         <input type="checkbox" class="form-check-input border-1 border-secondary select"
-                                            wire:model.defer="selected" value='{{ $list->id }}'>
-
+                                            wire:model.defer="selected" value="{{ $list->id }}">
                                     </div>
                                 </td>
                                 @can('superadm')
@@ -157,7 +156,8 @@
                                     @endif
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->type_note == 2 ? $list->nstats : $list->centerjob }}</td>
+                                    {{ $list->type_note == 2 ? $list->nstats : $list->centerjob }}
+                                </td>
                                 @php
                                     $color = '';
                                     $attColor = '';
@@ -169,16 +169,14 @@
                                         : null;
                                     $rclDays = '---';
 
-                                    if ($list->type_note == 2) {
-                                        $days = $list->dt_status->diffInDays(now());
+                                    $days = $list->dt_status->diffInDays(now());
 
-                                        if ($days > 5) {
-                                            $color = 'text-bg-danger';
-                                        } elseif ($days <= 3) {
-                                            $color = 'text-bg-success';
-                                        } else {
-                                            $color = 'text-bg-warning';
-                                        }
+                                    if ($days > 5) {
+                                        $color = 'text-bg-danger';
+                                    } elseif ($days <= 3) {
+                                        $color = 'text-bg-success';
+                                    } else {
+                                        $color = 'text-bg-warning';
                                     }
 
                                     $attDays = $list->approval->created_at->diffInDays(now());
@@ -200,7 +198,6 @@
                                             $rclColor = 'text-bg-warning';
                                         }
                                     }
-
                                 @endphp
                                 <td class="text-center align-middle {{ $color }}">
                                     {{ $days }}
@@ -211,11 +208,12 @@
                                 <td class="text-center align-middle {{ $rclColor }}">
                                     {{ $rclDays }}
                                 </td>
-
                                 <td class="text-center align-middle ">
                                     @if ($reclaim && $reclaim->production)
                                         <span
-                                            class="badge {{ Notestatus::status($reclaim->production->status)->colorbg }}">{{ Notestatus::status($reclaim->production->status)->status }}</span>
+                                            class="badge {{ Notestatus::status($reclaim->production->status)->colorbg }}">
+                                            {{ Notestatus::status($reclaim->production->status)->status }}
+                                        </span>
                                     @elseif ($reclaim && !$reclaim->production)
                                         <span class="badge text-secondary">Não Depachado</span>
                                     @else
@@ -232,17 +230,12 @@
                                             wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     </span>
-                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-loader-line text-danger fs-4 fw-bold animate-spin"
-                                            style="cursor: not-allowed;"></i>
-                                    </span> --}}
                                     <span>
                                         <i class="ri-close-circle-line text-danger fs-4 fw-bold"
                                             wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     </span>
                                 </td>
-
                             </tr>
                         @endforeach
                     </tbody>
@@ -296,6 +289,24 @@
     @livewire('responsible.actions.reject-project', key('rejectProject'))
 
     <script>
+        function handleRowClick(row) {
+            const oldRow = document.querySelector('.row-active');
+
+            if (oldRow) {
+                oldRow.classList.remove('table-primary');
+                oldRow.classList.remove('row-active');
+            }
+
+            if (row != oldRow) {
+                row.classList.add('table-primary');
+                row.classList.add('row-active');
+            } else {
+                row.classList.remove('table-primary');
+                row.classList.remove('row-active');
+            }
+        }
+
+
         document.addEventListener('DOMContentLoaded', function() {
             const checkboxes = document.querySelectorAll('.select');
             const massApproveBtn = document.getElementById('massApprove');

@@ -274,9 +274,13 @@
                                     $lastUser = '';
                                     $lastCompany = '';
 
-                                    $count = $list->Productions->where('service_id', $service->uuid)->where('noinconsistency', false);
+                                    $count = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('noinconsistency', false);
 
-                                    $count2 = $list->Productions->where('service_id', $service->uuid)->where('completed', true);
+                                    $count2 = $list->Productions
+                                        ->where('service_id', $service->uuid)
+                                        ->where('completed', true);
 
                                     if ($count2->count()) {
                                         // $lastUser = $list->Productions
@@ -303,7 +307,11 @@
                                         if ($production->dt_note == $list->dt_status || !$production->confirmed) {
                                             $block = true;
 
-                                            if ($list->type_note == 1 && $production->status == 5 && $production->confirmed) {
+                                            if (
+                                                $list->type_note == 1 &&
+                                                $production->status == 5 &&
+                                                $production->confirmed
+                                            ) {
                                                 $exception = true;
                                             }
                                         }
@@ -318,15 +326,15 @@
                                 @endphp
                                 {{-- @dump($list->Productions) --}}
                                 <tr
-                                    class="align-middle 
-                                @if ($block) @if ($production->status == 1) 
+                                    class="align-middle
+                                @if ($block) @if ($production->status == 1)
                                     table-warning
                                     @elseif ($production->status == 2)
                                     table-primary
                                     @elseif ($production->status == 5 && !$production->confirmed)
                                     table-success
                                     @elseif ($production->status == 5 && $production->confirmed)
-                                    table-danger 
+                                    table-danger
                                     @else
                                     table-primary @endif @endif">
                                     <td>
@@ -551,7 +559,10 @@
                 </div>
                 <div class="modal-footer edp-bg-sprucegreen-70">
                     <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att">Despachar</button>
+                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
+                        wire:loading.attr="disabled" wire:target="confirm_att">
+                        Despachar
+                    </button>
                 </div>
             </div>
         </div>

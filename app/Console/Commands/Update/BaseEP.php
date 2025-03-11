@@ -87,10 +87,15 @@ class BaseEP extends Command
                         try {
                             $city = Gpm::where('gpm', $record->grpPlan)->first();
 
+                            $newStatus = false;
+                            if ($existingRecord->centerjob != $record->cenTrabResp) {
+                                $newStatus = true;
+                            }
+
                             $chk = $existingRecord->update([
                                 'created_by' => $record->criadoPor,
                                 'dt_created' => "{$record->dtNota} 0:00:00",
-                                'dt_status'  => $record->dtNota,
+                                'dt_status'  => $newStatus ? now() : $existingRecord->dt_status,
                                 'user'       => $record->notificador,
                                 // 'value' => $record->valorLiq,
                                 // 'currency' => $record->moeda,
@@ -124,6 +129,7 @@ class BaseEP extends Command
                                 'txpriority' => $record->txtPrioridade,
                             ]);
 
+
                             if ($chk) {
                                 $count['upd']++;
                             }
@@ -144,7 +150,7 @@ class BaseEP extends Command
                             'note'       => $record->nota,
                             'created_by' => $record->criadoPor,
                             'dt_created' => "{$record->dtNota} 0:00:00",
-                            'dt_status'  => $record->dtNota,
+                            'dt_status'  => now(),
                             'user'       => $record->notificador,
                             // 'value' => $record->valorLiq,
                             // 'currency' => $record->moeda,
@@ -199,7 +205,7 @@ class BaseEP extends Command
 
 
         // Muda Status de todas as notas que não são mais trazidas atualiza
-        $limiteTempo = Carbon::now()->subDays(5);
+        $limiteTempo = Carbon::now()->subDays(1);
 
         $cancelNotes = Note::where('type_note', 1)->where('updated_at', '<', $limiteTempo)->update(['centerjob' => 'LIMBO', 'nstats' => 99]);
         $this->info('NOTAS CANCELADAS: '.$cancelNotes);

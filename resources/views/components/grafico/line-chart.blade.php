@@ -7,11 +7,25 @@
             document.addEventListener('DOMContentLoaded', function() {
                 let labels = @json($labels);
                 let datas = @json($dataset);
+                renderChart('{{ $chartId }}', labels, datas, '{{ $title ?? 'Série 1' }}');
+            });
 
+            document.addEventListener('updateGraph{{ Str::studly($chartId) }}', function(e) {
+                const newLabels = e.detail.labels;
+                const newData = e.detail.data;
+                renderChart('{{ $chartId }}', newLabels, newData, '{{ $title ?? 'Série 1' }}');
+            });
+
+            function renderChart(chartId, labels, datas, title) {
                 // Se houver dados, calcula a média e define a annotation; caso contrário, deixa vazio.
                 let annotationsConfig = {};
-                if (datas.length) {
-                    let avg = datas.reduce((sum, value) => sum + value, 0) / datas.length;
+                if (datas && datas.length > 0) {
+                    let sum = 0;
+                    for (let i = 0; i < datas.length; i++) {
+                        sum += parseFloat(datas[i]); // Garante que os valores sejam números
+                    }
+                    let avg = sum / datas.length;
+
                     annotationsConfig = {
                         yaxis: [{
                             y: avg,
@@ -30,7 +44,7 @@
 
                 var options = {
                     series: [{
-                        name: '{{ $title ?? 'Série 1' }}',
+                        name: title,
                         data: datas
                     }],
                     chart: {
@@ -62,45 +76,19 @@
                     annotations: annotationsConfig
                 };
 
-                window.chart{{ Str::studly($chartId) }} = new ApexCharts(document.querySelector("#{{ $chartId }}"),
-                    options);
-                window.chart{{ Str::studly($chartId) }}.render();
-            });
-
-            document.addEventListener('updateGraph{{ Str::studly($chartId) }}', function(e) {
-                const newLabels = e.detail.labels;
-                const newData = e.detail.data;
-
-                let annotationsConfig = {};
-                if (newData.length) {
-                    let avgNew = newData.reduce((sum, value) => sum + value, 0) / newData.length;
-                    annotationsConfig = {
-                        yaxis: [{
-                            y: avgNew,
-                            borderColor: '#FF0000',
-                            label: {
-                                borderColor: '#FF0000',
-                                style: {
-                                    color: '#fff',
-                                    background: '#FF0000'
-                                },
-                                text: 'Média'
-                            }
-                        }]
-                    };
+                let chart = window['chart' + capitalizeFirstLetter(chartId)];
+                if (chart) {
+                    chart.destroy(); // Destrói o gráfico existente antes de renderizar um novo
                 }
 
-                window.chart{{ Str::studly($chartId) }}.updateOptions({
-                    xaxis: {
-                        categories: newLabels
-                    },
-                    annotations: annotationsConfig
-                });
-                window.chart{{ Str::studly($chartId) }}.updateSeries([{
-                    name: '{{ $title ?? 'Série 1' }}',
-                    data: newData
-                }]);
-            });
+                window['chart' + capitalizeFirstLetter(chartId)] = new ApexCharts(document.querySelector("#" + chartId),
+                    options);
+                window['chart' + capitalizeFirstLetter(chartId)].render();
+
+                function capitalizeFirstLetter(string) {
+                    return string.charAt(0).toUpperCase() + string.slice(1);
+                }
+            }
         </script>
     @endpush
 </div>

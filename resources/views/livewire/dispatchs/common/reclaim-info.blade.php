@@ -29,11 +29,15 @@
                                                 <tr>
                                                     <td class="col-2 fw-bold align-middle text-end">Ordens:</td>
                                                     <td class="col align-middle">
-                                                        @if ($reclaim->Note->Viabilities->count())
+                                                        @if ($reclaim->Note->Viabilities->isNotEmpty())
                                                             @foreach ($reclaim->Note->Viabilities as $viab)
-                                                                <p class="my-1 py-0">{{ $viab->Order->ordem }}</p>
+                                                                @if ($viab->Orders->isNotEmpty())
+                                                                    @foreach ($viab->Orders as $order)
+                                                                        <p class="my-1 py-0">{{ $order->ordem }}</p>
+                                                                    @endforeach
+                                                                @endif
                                                             @endforeach
-                                                        @elseif ($reclaim->Note->Orders->count())
+                                                        @elseif ($reclaim->Note->Orders->isNotEmpty())
                                                             @foreach ($reclaim->Note->Orders as $order)
                                                                 <p class="my-1 py-0">{{ $order->ordem }}</p>
                                                             @endforeach
@@ -65,7 +69,7 @@
                                                     <td class="col align-middle">{{ $reclaim->Note->material }}
                                                     </td>
                                                 </tr>
-                                                @if ($reclaim->Note->Viabilities->count())
+                                                {{-- @if ($reclaim->Note->Viabilities->count())
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle text-end">Viabilidade:
                                                         </td>
@@ -138,7 +142,7 @@
                                                             {{ isset($reclaim->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $reclaim->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
                                                         </td>
                                                     </tr>
-                                                @endif
+                                                @endif --}}
                                             </tbody>
                                         </table>
                                     </div>

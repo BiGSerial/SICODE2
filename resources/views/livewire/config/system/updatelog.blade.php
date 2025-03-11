@@ -2,6 +2,7 @@
     use Carbon\Carbon;
 
 @endphp
+
 <div wire:poll.30s>
     @if ($logUpdates)
         <div class="card shadow-sm">
@@ -25,7 +26,7 @@
                 </div>
             </div>
 
-            @if (!$logs->isEmpty())
+            @if ($logs->isNotEmpty())
                 <table class="table table-sm table-striped">
                     <thead>
                         <tr>
@@ -42,37 +43,39 @@
 
                     <tbody>
                         @foreach ($logs as $log)
-                            <tr>
-                                <td class="text-center">{{ $log['tarefa'] }}</td>
-                                <td class="text-center">{{ $log['created'] }}</td>
-                                <td class="text-center">{{ $log['updated'] }}</td>
-                                <td class="text-center">{{ $log['total'] }}</td>
-                                @php
-                                    $start = Carbon::parse($log['date_inicio']);
-                                    $end = Carbon::parse($log['date_fim']);
-                                    $difference = '';
+                            @if (is_array($log) && isset($log['tarefa']))
+                                <tr>
+                                    <td class="text-center">{{ $log['tarefa'] }}</td>
+                                    <td class="text-center">{{ $log['created'] }}</td>
+                                    <td class="text-center">{{ $log['updated'] }}</td>
+                                    <td class="text-center">{{ $log['total'] }}</td>
+                                    @php
+                                        $start = Carbon::parse($log['date_inicio']);
+                                        $end = Carbon::parse($log['date_fim']);
+                                        $difference = '';
 
-                                    // Verifica a diferença de tempo e exibe no formato desejado
-                                    if ($start && $end) {
-                                        if ($start->diffInSeconds($end) < 60) {
-                                            $difference = $start->diffInSeconds($end) . ' seg';
-                                        } elseif ($start->diffInMinutes($end) < 60) {
-                                            $difference = $start->diffInMinutes($end) . ' min';
-                                        } elseif ($start->diffInHours($end) < 24) {
-                                            $difference = $start->diffInHours($end) . ' horas';
+                                        // Verifica a diferença de tempo e exibe no formato desejado
+                                        if ($start && $end) {
+                                            if ($start->diffInSeconds($end) < 60) {
+                                                $difference = $start->diffInSeconds($end) . ' seg';
+                                            } elseif ($start->diffInMinutes($end) < 60) {
+                                                $difference = $start->diffInMinutes($end) . ' min';
+                                            } elseif ($start->diffInHours($end) < 24) {
+                                                $difference = $start->diffInHours($end) . ' horas';
+                                            } else {
+                                                $difference = $start->diffInDays($end) . ' dias';
+                                            }
                                         } else {
-                                            $difference = $start->diffInDays($end) . ' dias';
+                                            $difference = 'Tempo não disponível';
                                         }
-                                    } else {
-                                        $difference = 'Tempo não disponível';
-                                    }
-                                @endphp
-                                <td class="text-center">{{ $start ? $start->format('d/m/Y H:i:s') : 'N/A' }}</td>
-                                <td class="text-center">{{ $end ? $end->format('d/m/Y H:i:s') : 'N/A' }}</td>
-                                <td class="text-center">{{ $difference }}</td>
-                                <td class="text-center">{{ $end ? $end->diffForHumans() : 'N/A' }}</td>
+                                    @endphp
+                                    <td class="text-center">{{ $start ? $start->format('d/m/Y H:i:s') : 'N/A' }}</td>
+                                    <td class="text-center">{{ $end ? $end->format('d/m/Y H:i:s') : 'N/A' }}</td>
+                                    <td class="text-center">{{ $difference }}</td>
+                                    <td class="text-center">{{ $end ? $end->diffForHumans() : 'N/A' }}</td>
 
-                            </tr>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
 

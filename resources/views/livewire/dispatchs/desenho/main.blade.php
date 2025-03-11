@@ -786,7 +786,10 @@
                 </div>
                 <div class="modal-footer edp-bg-sprucegreen-70">
                     <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att">Despachar</button>
+                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
+                        wire:loading.attr="disabled">
+                        Despachar
+                    </button>
                 </div>
             </div>
         </div>

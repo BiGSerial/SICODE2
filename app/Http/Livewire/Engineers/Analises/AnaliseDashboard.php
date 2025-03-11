@@ -16,6 +16,9 @@ class AnaliseDashboard extends Component
 {
     public $chartId;
     public $chartId2;
+    public $chartId3;
+    public $chartId4;
+
     public $usuariosStats;
     public $ticketMedio;
     public $reclaimsGeral;
@@ -43,10 +46,23 @@ class AnaliseDashboard extends Component
         'data2' => [10, 20, 70],
     ];
 
+    public $dadosGrafico2 = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+
+    ];
+
+    public $dadosGrafico3 = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
+
     public function mount()
     {
         $this->chartId = 'chart-' . Str::random(8);
         $this->chartId2 = 'chart2-' . Str::random(8);
+        $this->chartId3 = 'chart-' . Str::random(8);
+        $this->chartId4 = 'chart-' . Str::random(8);
 
         // Data inicial e final do mês
         $this->month = Carbon::today()->format('Y-m');
@@ -58,6 +74,7 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedio();
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
+        $this->atualizarAprovedCategory();
     }
 
     public function updatedMonth()
@@ -69,6 +86,7 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedio();
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
+        $this->atualizarAprovedCategory();
     }
 
     public function updatedDtIni()
@@ -77,6 +95,7 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedio();
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
+        $this->atualizarAprovedCategory();
     }
 
     public function updatedDtFim()
@@ -85,6 +104,7 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedio();
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
+        $this->atualizarAprovedCategory();
     }
 
     public function atualizarDados()
@@ -99,6 +119,20 @@ class AnaliseDashboard extends Component
         $this->dadosGrafico = $novosDados;
 
         $this->updateData($this->chartId, $novosDados['labels'], $novosDados['data']);
+    }
+
+    public function atualizarAprovedCategory()
+    {
+        $datas = $this->getApprovedStats();
+
+        $novosDados = [
+            'labels' => ['Liberado com RI', 'Liberado sem RI'],
+            'data' => [$datas['withReclaims'], $datas['withoutReclaims']],
+        ];
+
+        $this->dadosGrafico2 = $novosDados;
+
+        $this->updateData($this->chartId3, $novosDados['labels'], $novosDados['data']);
     }
 
     public function atualizarDays()
@@ -177,6 +211,15 @@ class AnaliseDashboard extends Component
                 $qq->whereIn('nstats', [46, 47, 48, 49, 50])
                    ->whereNotIn('rubrica', ['Incoporação'])
                    ->where('type_note', 2);
+            }) ->orWhere(function ($qq) {
+                $qq->where(function ($qs) {
+                    $qs->where('type_note', 1)
+                    ->where('centerjob', 'like', 'VIAB%');
+                })
+                ->orWhere(function ($qq) {
+                    $qq->orWhereNull('centerjob')
+                    ->where('type_note', 1);
+                });
             });
 
         })
@@ -198,8 +241,7 @@ class AnaliseDashboard extends Component
         ->where(function ($q) {
             $q->where('txpriority', '!=', 'Emergente')
               ->orWhereNull('txpriority');
-        })
-        ->where('type_note', 2);
+        });
 
         // Agrupamento para notas sem Approval
         $noApprovalData = clone $baseQuery; // Importante clonar para não modificar a consulta original
@@ -249,8 +291,7 @@ class AnaliseDashboard extends Component
 
     public function getAverageReactionsProperty()
     {
-        $usuarios =  ViabilityApproval::whereRelation('Note', 'type_note', 2)
-        ->join('users', 'viability_approvals.user_id', '=', 'users.id')
+        $usuarios =  ViabilityApproval::join('users', 'viability_approvals.user_id', '=', 'users.id')
         ->leftJoin(DB::raw('(
             SELECT var.viability_approval_id, MIN(r.created_at) as first_reclaim_created_at
             FROM viability_approval_reclaim as var
@@ -343,6 +384,37 @@ class AnaliseDashboard extends Component
 
 
         return $productionsStats;
+    }
+
+
+    public function getApprovedStats()
+    {
+        // Contagem de ViabilityApprovals aprovados que possuam Reclaims
+        $countApprovedWithReclaims = ViabilityApproval::where('approved', true)
+            ->when($this->dt_ini, function ($query) {
+                return $query->where('created_at', '>=', $this->dt_ini);
+            })
+            ->when($this->dt_fim, function ($query) {
+                return $query->where('created_at', '<=', $this->dt_fim);
+            })
+            ->whereHas('Reclaims')
+            ->count();
+
+        // Contagem de ViabilityApprovals aprovados que NÃO possuam Reclaims
+        $countApprovedWithoutReclaims = ViabilityApproval::where('approved', true)
+            ->when($this->dt_ini, function ($query) {
+                return $query->where('created_at', '>=', $this->dt_ini);
+            })
+            ->when($this->dt_fim, function ($query) {
+                return $query->where('created_at', '<=', $this->dt_fim);
+            })
+            ->whereDoesntHave('Reclaims')
+            ->count();
+
+        return [
+            'withReclaims' => $countApprovedWithReclaims,
+            'withoutReclaims' => $countApprovedWithoutReclaims,
+        ];
     }
 
 

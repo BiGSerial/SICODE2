@@ -169,10 +169,10 @@
                                     {{ $list->approval ? $list->approval->approved_at->format('d/m/Y H:i:s') : '---' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->Viabilities->isNotEmpty() && $list->Viabilities->last()->hired ? $list->Viabilities->$list->Viabilities->last()->hired_at->format('d/m/Y') : '---' }}
+                                    {{ $list->Viabilities->isNotEmpty() && $list->Viabilities->last()->hired ? $list->Viabilities->last()->hired_at->format('d/m/Y') : '---' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->Viabilities->isNotEmpty() && $list->Viabilities->last()->returned_at ? $list->Viabilities->$list->Viabilities->last()->returned_at->format('d/m/Y') : '---' }}
+                                    {{ $list->Viabilities->isNotEmpty() && $list->Viabilities->last()->returned_at ? $list->Viabilities->last()->returned_at->format('d/m/Y') : '---' }}
                                 </td>
 
                             </tr>

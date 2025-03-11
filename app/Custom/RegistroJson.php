@@ -161,7 +161,7 @@ class RegistroJson
 
 
             $registroUpdate = array_filter($registroUpdate, function ($registro) {
-                return strtotime($registro['date_fim']) >= strtotime('-15 days');
+                return strtotime($registro['date_fim']) >= strtotime('-5 days');
             });
 
 

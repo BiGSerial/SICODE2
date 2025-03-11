@@ -94,9 +94,7 @@
 
                                 </div>
                             </th>
-                            @can('superadm')
-                                <th class="text-center align-middle">Responsável</th>
-                            @endcan
+                            <th class="text-center align-middle">Responsável</th>
                             <th class="text-center align-middle">Nota</th>
                             <th class="text-center align-middle">Ordem</th>
                             <th class="text-center align-middle">Files</th>
@@ -122,18 +120,16 @@
 
                                     </div>
                                 </td>
-                                @can('superadm')
-                                    @php
-                                        $name = '---';
-                                        if ($list->approval) {
-                                            $name = explode(' ', $list->approval->user->name);
-                                            $name = $name[0] . ' ' . end($name);
-                                        }
-                                    @endphp
-                                    <td class="text-center align-middle">
-                                        {{ $list->approval ? $list->approval->user->name : '---' }}
-                                    </td>
-                                @endcan
+                                @php
+                                    $name = '---';
+                                    if ($list->approval) {
+                                        $name = explode(' ', $list->approval->user->name);
+                                        $name = $name[0] . ' ' . end($name);
+                                    }
+                                @endphp
+                                <td class="text-center align-middle">
+                                    {{ $list->approval ? $list->approval->user->name : '---' }}
+                                </td>
                                 <td class="text-center align-middle">{{ $list->note }}</td>
                                 <td class="text-center align-middle">
                                     @if ($list->orders->isNotEmpty())
@@ -169,16 +165,14 @@
                                         : null;
                                     $rclDays = '---';
 
-                                    if ($list->type_note == 2) {
-                                        $days = $list->dt_status->diffInDays(now());
+                                    $days = $list->dt_status->diffInDays(now());
 
-                                        if ($days > 5) {
-                                            $color = 'text-bg-danger';
-                                        } elseif ($days <= 3) {
-                                            $color = 'text-bg-success';
-                                        } else {
-                                            $color = 'text-bg-warning';
-                                        }
+                                    if ($days > 5) {
+                                        $color = 'text-bg-danger';
+                                    } elseif ($days <= 3) {
+                                        $color = 'text-bg-success';
+                                    } else {
+                                        $color = 'text-bg-warning';
                                     }
 
                                     $attDays = $list->approval->created_at->diffInDays(now());

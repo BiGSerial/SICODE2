@@ -154,6 +154,12 @@ class Main extends Component
         // $this->emitSelf('refresh_dispatch');
     }
 
+    public function updatedCompanyS()
+    {
+
+        $this->user_s = '';
+    }
+
     public function updatedSelectall($val)
     {
 
@@ -683,13 +689,10 @@ class Main extends Component
             $q->where('service_id', $this->service->uuid)
                 ->where('service', true);
         })
-        ->when($this->company_s, function ($q) {
-            return $q->where(function ($q) {
-                $q->whereRelation('Company', 'company_id', $this->company_s)
-                    ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
-            });
-
-        })
+         ->where(function ($q) {
+             $q->whereRelation('Company', 'company_id', $this->company_s)
+                 ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+         })
         ->when($this->search_user, function ($q) {
             return $q->where('name', 'like', '%' . $this->search_user . '%');
         })

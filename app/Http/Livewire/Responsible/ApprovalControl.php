@@ -115,7 +115,7 @@ class ApprovalControl extends Component
 
     public function onlySelected($id)
     {
-        $this->selected[] = $id;
+        $this->selected = [$id];
 
         $this->preMassApprove();
     }

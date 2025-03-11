@@ -15,7 +15,7 @@ class InformLogs extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:log_inform {--days=0}';
+    protected $signature = 'sicode:log_inform {--days=1}';
 
     /**
      * The console command description.
@@ -38,13 +38,15 @@ class InformLogs extends Command
 
         $days = $this->option('days');
 
-        $workReports = WorkReport::whereDate('updated_at', '>=', Carbon::now()->subDays($days))->count();
+        $workReports = WorkReport::whereDate('updated_at', '>=', Carbon::now()->startOfDay()->subDays($days))->count();
         $progressBar = new ProgressBar($this->output, $workReports);
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
 
+
+        return;
         if ($workReports) {
-            WorkReport::whereDate('updated_at', '>=', Carbon::now()->subDays($days))->chunk(500, function ($chunk) use ($progressBar) {
+            WorkReport::whereDate('updated_at', '>=', Carbon::now()->startOfDay()->subDays($days))->chunk(500, function ($chunk) use ($progressBar) {
                 foreach ($chunk as $inform) {
 
                     foreach ($inform->orders as $order) {

@@ -36,7 +36,7 @@
 
                                 if ($daysDifference < 1) {
                                     $status = [
-                                        'color' => 'text-bg-danger', 
+                                        'color' => 'text-bg-danger',
                                         'info' => 'VENCIDO',
                                     ];
                                 } elseif ($daysDifference >= 1 && $daysDifference < 3) {
@@ -347,6 +347,24 @@
                                                                 @enderror
                                                             </div>
                                                             @if ($options === 'DEVOLVER')
+                                                                <div class="mt-3">
+                                                                    <label for="" class="form-label">Motivo
+                                                                        Devolução</label>
+                                                                    <select
+                                                                        class="form-select form-select-sm border border-secondary"
+                                                                        wire:model.defer="category">
+                                                                        <option value="">
+                                                                            Selecione o motivo</option>
+                                                                        @foreach (SelectOptions::getRejectOptions() as $optSel)
+                                                                            <option value="{{ $optSel->value }}">
+                                                                                {{ $optSel->info }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    @error('category')
+                                                                        <span
+                                                                            class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
                                                                 <div class="mt-3">
                                                                     <label for="" class="form-label">Serviço a
                                                                         Devolver</label>
