@@ -59,10 +59,13 @@ class ReturnD5 extends Component
 
     //filter User
     public $filterUser;
+    // Filters
+    private $filter_group = 'd5controls';
+    private $filters;
 
     // Orderenação
     public $sortField = 'created_at';
-    public $sortDirection = 'desc';
+    public $sortDirection = 'asc';
 
 
     protected $queryString = [
@@ -70,7 +73,7 @@ class ReturnD5 extends Component
     ];
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list',
         'confirm_viability' => 'confirm_viability',
         'cleanAll' => 'closeall',
         'giveBack' => 'giveBack',
@@ -93,6 +96,13 @@ class ReturnD5 extends Component
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         // $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
         $this->services  = Service::orderBy('service')->get();
+    }
+
+
+    public function refresh_list()
+    {
+        $this->emitSelf('$refresh');
+        $this->resetPage();
     }
 
     public function exportToExcel()
@@ -183,7 +193,18 @@ class ReturnD5 extends Component
 
     public function getListsProperty()
     {
-        return Reclaim::Where('service_id', $this->service->uuid)
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+
+        }
+
+        $query = Reclaim::query()
+                ->Where('service_id', $this->service->uuid)
                 ->when($this->filterUser, function ($q) {
                     $q->WhereRelation('Production', 'user_id', $this->filterUser);
                 })
@@ -196,20 +217,36 @@ class ReturnD5 extends Component
                             ->orWhereRelation('Note', 'material', 'like', '%' . trim($this->search) . '%')
                             ->orWhereRelation('Note', 'lexp', 'like', '%' . trim($this->search) . '%');
                     });
-                })
-                ->Where('completed', false)
-                ->leftJoin('notes as n', 'reclaims.note_id', '=', 'n.id')
+                });
 
-                ->select('reclaims.*', 'n.note as note', 'n.rubrica as rubrica', 'n.group5 as group5', 'n.material as material', 'n.lexp')
-                ->with([
-                    'Production.User',
-                    'Note',
-                    'Approvals',
-                    'Viabilities',
-                    'Waiting',
-                ])
+        $query->when(isset($this->filters['rubrica']), function ($q) {
+            return $q->whereRelation('Note', function ($query) {
+                $query->whereIn('rubrica', $this->filters['rubrica'])
+                    ->orWhereNull('rubrica');
+            });
+        })->when(isset($this->filters['city']), function ($q) {
+            return $q->whereRelation('Note', function ($query) {
+                $query->whereIn('lexp', $this->filters['city'])
+                    ->orWhereNull('lexp');
+            });
+        });
 
-                ->orderBy($this->sortField, $this->sortDirection);
+        $query->Where('completed', false)
+            ->leftJoin('notes as n', 'reclaims.note_id', '=', 'n.id')
+
+            ->select('reclaims.*', 'n.note as note', 'n.rubrica as rubrica', 'n.group5 as group5', 'n.material as material', 'n.lexp')
+            ->with([
+                'Production.User',
+                'Note',
+                'Approvals',
+                'Viabilities',
+                'Waiting',
+            ])
+            ->orderBy($this->sortField, $this->sortDirection);
+
+
+        return $query;
+
     }
 
 

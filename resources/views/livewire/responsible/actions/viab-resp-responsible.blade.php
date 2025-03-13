@@ -217,6 +217,10 @@
                                         </table>
                                     </div>
                                 </div>
+
+                                @if ($viability->Note->Files->isNotEmpty())
+                                    @livewire('components.files.show-files-pool', ['files' => $viability->Note->Files], key('files-pool'))
+                                @endif
                             </div>
 
                             <div class="col-6">

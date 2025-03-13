@@ -32,7 +32,13 @@
                 </div>
                 <div
                     class="col-md-6 d-flex justify-content-md-end justify-content-start align-items-center gap-2 mt-2 mt-md-0">
-                    <button class="btn btn-sm btn-danger" wire:click.prevent="cleanUser" wire:target="cleanUser"
+
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'd5controls', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'd5controls', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                    @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'd5controls', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'd5controls', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'd5controls'], key('removeAll'))
+                    {{-- <button class="btn btn-sm btn-danger" wire:click.prevent="cleanUser" wire:target="cleanUser"
                         @disabled(!$filterUser) wire:loading.attr="disabled" data-bs-toggle="tooltip"
                         data-bs-placement="top" data-bs-title="Limpar Filtro Usuario">
                         <span wire:target="cleanUser" wire:loading.remove>
@@ -43,7 +49,7 @@
                                 <span class="visually-hidden">Carregando...</span>
                             </div>
                         </span>
-                    </button>
+                    </button> --}}
                     <button class="btn btn-sm btn-primary" wire:click.prevent="exportToExcel"
                         wire:target="exportToExcel" wire:loading.attr="disabled" data-bs-toggle="tooltip"
                         data-bs-placement="top" data-bs-title="Exportar para Excel">
@@ -123,8 +129,7 @@
                 @endif
             </th>
             <th scope="col" class="text-center">
-                <span href="#" wire:click.prevent="sortBy('category')"
-                    style="cursor: pointer;">Categoria</span>
+                <span href="#" wire:click.prevent="sortBy('category')" style="cursor: pointer;">Categoria</span>
                 @if ($sortField == 'category')
                     <i class="bx bx-sort-{{ $sortDirection == 'asc' ? 'up' : 'down' }}"></i>
                 @endif

@@ -14,6 +14,8 @@ class ReturnInternResponse extends Component
     public $decision;
     public $responser;
     public $serviceList;
+    public $category;
+    public $destination;
 
     public $service;
     public $options;
@@ -34,13 +36,18 @@ class ReturnInternResponse extends Component
         'decision.required' => 'Por favor, selecione uma decisão.',
         'responser.required' => 'Por favor, forneça uma resposta.',
         'responser.min' => 'A resposta deve ter no mínimo 10 caracteres.',
-        'options.required' => 'Por favor, selecione uma opção quando a decisão for Concordar.',
+        'decision.required' => 'Por favor, é preciso definir uma decisão.',
+        'category.required' => 'Por favor, selecione um motivo para devolução.',
+        'destination.required' => 'Por favor, selecione uma opção em Destinação.',
         'service.required' => 'Por favor, selecione um serviço quando a opção for Devolver.',
     ];
 
 
+
     public function getInfoResponse(Viability $viability)
     {
+        $this->justClean();
+
         $this->viability = $viability;
         $this->serviceList = Service::where('canReturn', true)->orderBy('service')->get();
 
@@ -51,8 +58,30 @@ class ReturnInternResponse extends Component
         }
     }
 
+    public function updatedDecision()
+    {
+        $this->destination = null;
+        $this->category = null;
+        $this->service = null;
+
+        $this->resetErrorBag();
+    }
+
+    public function updateDestination()
+    {
+
+        $this->category = null;
+        $this->service = null;
+
+        $this->resetErrorBag();
+    }
+
     public function updatedService($uuid)
     {
+        $this->resetErrorBag();
+
+        $this->category = null;
+
         if ($uuid) {
             $this->production = Production::where('note_id', $this->viability->note_id)->where('service_id', $uuid)->get()->last();
 
@@ -130,69 +159,91 @@ class ReturnInternResponse extends Component
     {
         $this->validate([
             'decision' => 'required',
-            'responser' => 'required|min:10',
+
         ]);
 
-        if ($this->decision === 'CONCORDAR') {
+        if ($this->decision) {
+            $this->validate([
+                'destination' => 'required',
+
+            ]);
+        }
+        # code...
+
+        if ($this->destination === 'DEVOLVER') {
+            $this->validate([
+                'category' => 'required',
+                'service' => 'required',
+            ]);
+        }
+
+
+        if ($this->destination === 'RETORNAR' || $this->destination === 'DEVOLVER') {
 
             $this->validate([
-                'options' => 'required',
+                'responser' => 'required',
             ]);
-
-
-            if ($this->options === 'DEVOLVER') {
-                $this->validate([
-                    'service' => 'required',
-                ]);
-            }
-
-
-            $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'VIABILIDADE RESPOSTA',
-                'msg'           => "Você diz <strong>{$this->decision}</strong> com(da) decisão. Deseja Continuar o Envio?",
-                'icon'          => 'question',
-                'btnOktxt'      => 'Sim, Continue!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'd1c6b8f9b3a1d0a2e3f4b5c6d7e8f9a0',
-                // 'chave'         => '',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
-            ]);
-
-            return;
         }
 
 
 
-        if ($this->decision === 'DISCORDAR') {
+        $text = "Você está decidindo, <strong>";
+        $text .= $this->destination. "  </strong> ";
 
-
-
-            $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'VIABILIDADE RESPOSTA',
-                'msg'           => "Você diz <strong>{$this->decision}</strong> com(da) decisão. Deseja Continuar o Envio?",
-                'icon'          => 'question',
-                'btnOktxt'      => 'Sim, Continue!',
-                'btnCanceltxt'  => 'Não, Cancele',
-                'action'        => 'd41d8cd98f00b204e9800998ecf8427e',
-                // 'chave'         => '',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
-            ]);
-
-            return;
+        if ($this->destination === 'DEVOLVER') {
+            $service = Service::where('uuid', $this->service)->first()->service;
+            $text .= "o serviço para <strong> $service </strong> ";
+            $text .= "pelo motivo de <strong>{$this->category}</strong> ";
         }
 
+
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'AO RETORNO INTERNO',
+            'msg'           => "Você informou <strong>{$this->decision}</strong> o retorno da Atividade. <br><br> {$text} <br><br> Deseja Continuar o Envio?",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Continue!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'd1c6b8f9b3a1d0a2e3f4b5c6d7e8f9a0',
+            // 'chave'         => '',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
+        ]);
+
+        return;
+
+
+
+
+        // if ($this->decision === 'DISCORDAR') {
+
+
+
+        //     $this->dispatchBrowserEvent('alertar', [
+        //         'title'         => 'VIABILIDADE RESPOSTA',
+        //         'msg'           => "Você diz <strong>{$this->decision}</strong> com(da) decisão. Deseja Continuar o Envio?",
+        //         'icon'          => 'question',
+        //         'btnOktxt'      => 'Sim, Continue!',
+        //         'btnCanceltxt'  => 'Não, Cancele',
+        //         'action'        => 'd41d8cd98f00b204e9800998ecf8427e',
+        //         // 'chave'         => '',
+        //         'cancel_titulo' => 'Cancelado!',
+        //         'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
+        //     ]);
+
+        //     return;
+        // }
 
     }
 
 
+
     public function confirm_response()
     {
-        if ($this->decision === 'CONCORDAR') {
+        if ($this->decision === 'APROVADO') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n >> O RESPONSÁVEL CONCORDA COM QUESTIONAMENTO. <<";
+            $this->responser .= "\n\n >> O RESPONSÁVEL APROVOU A RESOLUÇÃO. <<";
 
 
 
@@ -202,121 +253,8 @@ class ReturnInternResponse extends Component
 
                 try {
 
-                    if ($this->options === 'DEVOLVER') {
 
-                        $this->responser .= "\n\n >> O RESPONSÁVEL DEVOLVEU PARA ETAPA DE PROJETO. <<";
-
-                        // Atualize a viabilidade
-                        $this->viability->update([
-                            'approved' => false,
-                            'rejected' => true,
-                            'treplica' => true,
-                            'completed' => $this->viability->hired ? true : false,
-                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
-                            'status' => 10,
-                        ]);
-
-                        // Crie um novo comentário e associe-o à viabilidade
-                        $this->viability->Comments()->create([
-                            'user_id' => auth()->user()->id,
-                            'message' => $this->responser ?? null,
-                            'dismissed' => false,
-                            'granted' => true,
-
-                        ]);
-
-                        if ($this->service) {
-
-                            $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->get()->last();
-                            // Verifica se o usuário foi excluído
-                            if ($production  && $production ->User->trashed()) {
-
-                                $reclaim = $this->viability->Reclaims()->create([
-                                    'note_id' => $production->note_id,
-                                    'service_id' => $this->service,
-                                    'category' => 'RESOLUÇAO DE VIABILIDADE',
-                                ]);
-
-                                if ($reclaim) {
-                                    $reclaim->Comments()->create([
-                                        'user_id' => auth()->user()->id,
-                                        'message' => $this->responser ?? null,
-                                        'dismissed' => false,
-                                        'granted' => true,
-                                    ]);
-                                }
-
-                            } else {
-                                $pro = Production::create([
-                                    'note_id' => $production->note_id,
-                                    'service_id' => $this->service,
-                                    'user_id' => $production->user_id,
-                                    'company_id' => $production->company_id,
-                                    'dispatch_by' => Auth()->user()->id,
-                                    'dispatch_at' => date('Y-m-d H:i:s'),
-                                    'att_by' => Auth()->user()->id,
-                                    'att_at' => date('Y-m-d H:i:s'),
-                                    'status' => 2,
-                                    'd5' => true,
-                                    'dt_note' => $production->dt_note,
-                                    'status_note' => $production->Note->nstats,
-                                    'centroTrab' => $production->centroTrab,
-                                ]);
-
-                                if ($pro) {
-                                    $reclaim = $this->viability->Reclaims()->create([
-                                        'note_id' => $production->note_id,
-                                        'service_id' => $this->service,
-                                        'production_id' => $pro->id,
-                                        'category' => 'RESOLUÇAO DE VIABILIDADE',
-                                    ]);
-
-
-                                    if ($reclaim) {
-                                        $reclaim->Comments()->create([
-                                            'user_id' => auth()->user()->id,
-                                            'message' => $this->responser ?? null,
-                                            'dismissed' => false,
-                                            'granted' => true,
-                                        ]);
-
-
-                                        $this->viability->update([
-                                            'status' => 11,
-                                        ]);
-                                    }
-                                }
-
-
-                            }
-                        }
-                    }
-
-
-                    if ($this->options === 'EXECUTADA') {
-                        $this->responser .= "\n\n >> O RESPONSÁVEL INFORMA OBRA CONCLUÍDA. <<";
-
-                        $this->viability->update([
-                            'approved' => true,
-                            'rejected' => false,
-                            'treplica' => true,
-                            'completed' => $this->viability->hired ? true : false,
-                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
-                            'status' => $this->viability->hired ? 9 : 6,
-                        ]);
-
-                        // Crie um novo comentário e associe-o à viabilidade
-                        $this->viability->Comments()->create([
-                            'user_id' => auth()->user()->id,
-                            'message' => $this->responser ?? null,
-                            'dismissed' => false,
-                            'granted' => true,
-
-                        ]);
-
-                    }
-
-                    if ($this->options === 'LIBERAR') {
+                    if ($this->destination === 'LIBERAR') {
 
                         $this->responser .= "\n\n >> O RESPONSÁVEL LIBEROU PARA CONTRATAÇÂO. <<";
 
@@ -325,7 +263,7 @@ class ReturnInternResponse extends Component
                             'rejected' => false,
                             'treplica' => true,
                             'completed' => $this->viability->hired ? true : false,
-                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'completed_at' => $this->viability->hired ? now() : null,
                             'status' => $this->viability->hired ? 9 : 6,
                         ]);
 
@@ -340,7 +278,7 @@ class ReturnInternResponse extends Component
                     }
 
 
-                    if ($this->options === 'RETORNAR') {
+                    if ($this->destination === 'RETORNAR_VIAB') {
 
                         $this->responser .= "\n\n >> O RESPONSÁVEL RETORNOU PARA REFAZER A VIABILIDADE. <<";
 
@@ -349,7 +287,7 @@ class ReturnInternResponse extends Component
                             'rejected' => false,
                             'treplica' => false,
                             'replica' => false,
-                            'sended_at' => date('Y-m-d H:i:s'),
+                            'sended_at' => now(),
                             'completed' => false,
                             'completed_at' => null,
                             'returned_at' => null,
@@ -376,8 +314,8 @@ class ReturnInternResponse extends Component
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'success',
-                        'title'    => 'Contestação Aceita',
-                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                        'title'    => 'RESOLUÇÃO APROVADA',
+                        'html'      => 'A Resolução foi aprovada com sucesso!',
                         'timer'    => 5000,
                     ]);
 
@@ -398,73 +336,134 @@ class ReturnInternResponse extends Component
 
                 }
             }
+
+            return;
         }
 
+        if ($this->decision === 'REPROVADO') {
 
-    }
-
-    public function confirm_deny()
-    {
-        if ($this->decision === 'DISCORDAR') {
-
-            // Acrescenta decisão da Empreiteira a mensagem postada.
-            $this->responser .= "\n\n <br><br> >> RESPONSÁVEL DISCORDOU DO QUESTIONAMENTO. <<";
-
-
-            if ($this->viability) {
+            if ($this->destination === 'DEVOLVER') {
 
                 DB::beginTransaction();
 
                 try {
-                    // Atualize a viabilidade
-                    $this->viability->update([
-                        'approved' => false,
-                        'rejected' => true,
-                        'replica' => true,
-                        // 'completed' => $this->viability->hired ? true : false,
-                        // 'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
-                        'status' => 5,
-                    ]);
+                    if ($this->service) {
 
-                    // Crie um novo comentário e associe-o à viabilidade
-                    $this->viability->Comments()->create([
-                        'user_id' => auth()->user()->id,
-                        'message' => $this->responser ?? null,
-                        'dismissed' => true,
-                        'granted' => false,
+                        $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->get()->last();
+                        // Verifica se o usuário foi excluído
+                        if (!$production || $production->User->trashed()) {
 
-                    ]);
+                            $reclaim = $this->viability->Reclaims()->create([
+                                'note_id' => $this->viability->note_id,
+                                'service_id' => $this->service,
+                                'category' => $this->category,
+                            ]);
 
-                    DB::commit();
+                            if ($reclaim) {
+                                $reclaim->Comments()->create([
+                                    'user_id' => auth()->user()->id,
+                                    'message' => $this->responser ?? null,
+                                    'dismissed' => false,
+                                    'granted' => true,
+                                ]);
+                            }
 
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'success',
-                        'title'    => 'Contestação Rejeitada',
-                        'html'      => 'Foi rejeitado com sucesso a contestação do parceiro.',
-                        'timer'    => 5000,
-                    ]);
+                        } elseif ($production) {
+                            $pro = Production::create([
+                                'note_id' => $production->note_id,
+                                'service_id' => $this->service,
+                                'user_id' => $production->user_id,
+                                'company_id' => isset(Auth()->user()->Company->id) ? Auth()->user()->Company->id : Auth()->user()->Employee->Contract->company->id,
+                                'dispatch_by' => Auth()->user()->id,
+                                'dispatch_at' => now(),
+                                'att_by' => Auth()->user()->id,
+                                'att_at' => now(),
+                                'status' => 2,
+                                'd5' => true,
+                                'dt_note' => $production->dt_note,
+                                'status_note' => $production->Note->nstats,
+                                'centroTrab' => $production->centroTrab,
+                            ]);
 
-                    $this->emitUp('refresh');
-                    $this->clean();
+                            if ($pro) {
+                                $reclaim = $this->viability->Reclaims()->create([
+                                    'note_id' => $production->note_id,
+                                    'service_id' => $this->service,
+                                    'production_id' => $pro->id,
+                                    'category' => $this->category,
+                                ]);
 
+
+                                if ($reclaim) {
+                                    $reclaim->Comments()->create([
+                                        'user_id' => auth()->user()->id,
+                                        'message' => $this->responser ?? null,
+                                        'dismissed' => false,
+                                        'granted' => true,
+                                    ]);
+
+
+                                    $this->viability->update([
+                                        'status' => 11,
+                                    ]);
+                                }
+                            }
+
+
+                            DB::commit();
+
+                            $this->dispatchBrowserEvent('swal', [
+                                'position' => 'center',
+                                'icon'     => 'success',
+                                'title'    => 'ENVIADO COM SUCESSO',
+                                'html'      => 'A Obra foi devolvida com sucesso!',
+                                'timer'    => 5000,
+
+                            ]);
+
+                            $this->emitUp('refresh');
+                            $this->clean();
+
+                        }
+                    }
                 } catch (\Throwable $th) {
+
                     DB::rollback();
 
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'danger',
                         'title'    => 'Erro',
-                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada..',
-                        'timer'    => 5000,
-                    ]);
-                    $this->clean();
+                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada.. <br><br> ' . $th->getMessage(),
 
+                    ]);
+                    return;
                 }
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'danger',
+                    'title'    => 'Erro',
+                    'html'      => 'Ocorreu algum problema, nao foi possível indentificar a destinação. Tente novamente. <br><br> ',
+                    'timer'    => 5000,
+                ]);
             }
+
+            return;
         }
 
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'danger',
+            'title'    => 'Erro',
+            'html'      => 'O Sistema não conseguiu determinar a decisão sobre essa atividade. Por favor, tente novamente.',
+            'timer'    => 5000,
+
+        ]);
+
     }
+
+
 
     public function isTextValid($text)
     {
@@ -520,17 +519,35 @@ class ReturnInternResponse extends Component
         return true;
     }
 
-
+    public function justClean()
+    {
+        $this->decision = '';
+        $this->responser = '';
+        $this->service = '';
+        $this->options = '';
+        $this->show = false;
+        $this->text = '';
+        $this->category = '';
+        $this->destination = '';
+        $this->production = '';
+    }
 
     public function clean()
     {
-        $this->dispatchBrowserEvent('hideModal');
+
         $this->viability = null;
-        $this->decision = null;
-        $this->responser = null;
-        $this->service = null;
-        $this->options = null;
+        $this->decision = '';
+        $this->responser = '';
+        $this->service = '';
+        $this->options = '';
         $this->show = false;
+        $this->text = '';
+        $this->category = '';
+        $this->destination = '';
+        $this->production = '';
+
+        $this->dispatchBrowserEvent('hideModal');
+
     }
 
     public function render()

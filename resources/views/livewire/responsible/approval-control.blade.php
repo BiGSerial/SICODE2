@@ -107,6 +107,7 @@
                             <th class="text-center align-middle">Tempo</th>
                             <th class="text-center align-middle">Em Atvd</th>
                             <th class="text-center align-middle">Em Rslc</th>
+                            <th class="text-center align-middle">Motivo Rslc</th>
                             <th class="text-center align-middle">Status</th>
                             <th class="text-center align-middle"></th>
 
@@ -209,6 +210,13 @@
                                     {{ $rclDays }}
                                 </td>
                                 <td class="text-center align-middle ">
+                                    @if ($reclaim)
+                                        {{ $reclaim->category }}
+                                    @else
+                                        ----
+                                    @endif
+                                </td>
+                                <td class="text-center align-middle ">
                                     @if ($reclaim && $reclaim->production)
                                         <span
                                             class="badge {{ Notestatus::status($reclaim->production->status)->colorbg }}">
@@ -221,7 +229,7 @@
                                     @endif
                                 </td>
                                 <td class="text-center align-middle">
-                                    <span wire:loading wire:target="onlySelected({{ $list->id }})">
+                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
                                         <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
                                             style="cursor: not-allowed;"></i>
                                     </span>
@@ -229,9 +237,9 @@
                                         <i class="ri-checkbox-circle-line text-success fs-4 fw-bold"
                                             wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
                                             style="cursor: pointer;"></i>
-                                    </span>
+                                    </span> --}}
                                     <span>
-                                        <i class="ri-close-circle-line text-danger fs-4 fw-bold"
+                                        <i class="ri-play-circle-line text-success fs-4 fw-bold"
                                             wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     </span>

@@ -151,9 +151,9 @@ class ApprovalControl extends Component
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Confirmação de Liberação',
             'msg'           => "Você está prestes a aprovar <strong>{$count}</strong> nota(s) liberando-as para contratação.
-                <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez liberada essas notas elas não poderão ser revertidas.</p>
+                <p class='border border-1 rounded text-bg-danger p-1 mt-2'>Uma vez aprovadas essas essas obras serguirão para CONTRATAÇÃO. <strong>Elas não poderão ser revertidas</strong>.</p>
                 <p class='border border-1 rounded fw-bold text-primary p-1 mt-2'>{$notes}</p>
-                <p class='fw-bold'>Deseja prosseguir?</p>
+                <p class='fw-bold'>Deseja realmente prosseguir com a liberação?</p>
                 ",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, liberar!',
@@ -351,7 +351,8 @@ class ApprovalControl extends Component
     public function render()
     {
         return view('livewire.responsible.approval-control', [
-            'lists' => $this->lists->paginate(50),
+            'lists' => $this->lists->paginate(50, ['*'], 'approval_control_page'),
         ]);
+
     }
 }

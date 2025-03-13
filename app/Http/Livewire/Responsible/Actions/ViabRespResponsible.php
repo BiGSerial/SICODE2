@@ -133,10 +133,11 @@ class ViabRespResponsible extends Component
         $this->validate([
             'decision' => 'required',
             'responser' => 'required|min:10',
-            'category' => 'required',
         ]);
 
         if ($this->decision === 'CONCORDAR') {
+
+
 
             $this->validate([
                 'options' => 'required',
@@ -146,6 +147,7 @@ class ViabRespResponsible extends Component
             if ($this->options === 'DEVOLVER') {
                 $this->validate([
                     'service' => 'required',
+                    'category' => 'required',
                 ]);
             }
 
@@ -171,6 +173,7 @@ class ViabRespResponsible extends Component
 
 
 
+
             $this->dispatchBrowserEvent('alertar', [
                 'title'         => 'VIABILIDADE RESPOSTA',
                 'msg'           => "Você diz <strong>{$this->decision}</strong> com(da) decisão. Deseja Continuar o Envio?",
@@ -192,21 +195,19 @@ class ViabRespResponsible extends Component
 
     public function confirm_response()
     {
+        // dd('confirm_response'); //Removido para a versão final
         if ($this->decision === 'CONCORDAR') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.
             $this->responser .= "\n\n >> O RESPONSÁVEL CONCORDA COM QUESTIONAMENTO. <<";
 
-
-
             if ($this->viability) {
 
-                DB::beginTransaction();
+                // Processo de DEVOLVER
+                if ($this->options === 'DEVOLVER') {
 
-                try {
-
-                    if ($this->options === 'DEVOLVER') {
-
+                    DB::beginTransaction();
+                    try {
                         $this->responser .= "\n\n >> O RESPONSÁVEL DEVOLVEU PARA ETAPA DE PROJETO. <<";
 
                         // Atualize a viabilidade
@@ -215,7 +216,7 @@ class ViabRespResponsible extends Component
                             'rejected' => true,
                             'treplica' => true,
                             'completed' => $this->viability->hired ? true : false,
-                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'completed_at' => $this->viability->hired ? now() : null,
                             'status' => 10,
                         ]);
 
@@ -230,7 +231,7 @@ class ViabRespResponsible extends Component
 
                         if ($this->service) {
 
-                            $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->get()->last();
+                            $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->latest()->first();
 
 
                             // Verifica se o usuário foi excluído
@@ -258,9 +259,9 @@ class ViabRespResponsible extends Component
                                     'user_id' => $production->user_id,
                                     'company_id' => $production->company_id,
                                     'dispatch_by' => Auth()->user()->id,
-                                    'dispatch_at' => date('Y-m-d H:i:s'),
+                                    'dispatch_at' => now(),
                                     'att_by' => Auth()->user()->id,
-                                    'att_at' => date('Y-m-d H:i:s'),
+                                    'att_at' => now(),
                                     'status' => 2,
                                     'd5' => true,
                                     'dt_note' => $production->dt_note,
@@ -295,18 +296,45 @@ class ViabRespResponsible extends Component
 
                             }
                         }
+                        DB::commit();
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'success',
+                            'title'    => 'CONTESTAÇÃO ACEITA',
+                            'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade. Obra devolvida para etapa de projeto.',
+                            'timer'    => 5000,
+                        ]);
+
+                        $this->emitUp('refresh');
+                        $this->clean();
+
+                    } catch (\Throwable $th) {
+                        DB::rollback();
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'danger',
+                            'title'    => 'Erro',
+                            'html'      => 'Ocorreu um erro ao processar a devolução para a etapa de projeto. Nenhuma alteração foi realizada..<br><br>' . $th->getMessage(),
+
+                        ]);
+                        $this->clean();
                     }
 
+                    return; // Importante: Retornar após processar DEVOLVER
+                }
 
-                    if ($this->options === 'EXECUTADA') {
-                        $this->responser .= "\n\n >> O RESPONSÁVEL INFORMA OBRA CONCLUÍDA. <<";
+                // Processo de EXECUTADA
+                if ($this->options === 'EXECUTADA') {
 
+                    DB::beginTransaction();
+                    try {
+                        $this->responser .= "\n\n >> O RESPONSÁVEL INFORMA OBRA JÁ EXECUTADA. <<";
                         $this->viability->update([
                             'approved' => true,
                             'rejected' => false,
                             'treplica' => true,
                             'completed' => $this->viability->hired ? true : false,
-                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'completed_at' => $this->viability->hired ? now() : null,
                             'status' => $this->viability->hired ? 9 : 6,
                         ]);
 
@@ -319,18 +347,46 @@ class ViabRespResponsible extends Component
 
                         ]);
 
+                        DB::commit();
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'success',
+                            'title'    => 'OBRA EXECUTADA',
+                            'html'      => 'Você Sinalizou que a obra foi executada.',
+                            'timer'    => 5000,
+                        ]);
+
+                        $this->emitUp('refresh');
+                        $this->clean();
+
+
+                    } catch (\Throwable $th) {
+                        DB::rollback();
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'danger',
+                            'title'    => 'Erro',
+                            'html'      => 'Ocorreu um erro ao processar a informação de obra executada. Nenhuma alteração foi realizada..<br><br>' . $th->getMessage(),
+
+                        ]);
+                        $this->clean();
                     }
 
-                    if ($this->options === 'LIBERAR') {
+                    return; // Importante: Retornar após processar EXECUTADA
+                }
 
+                // Processo de LIBERAR
+                if ($this->options === 'LIBERAR') {
+                    DB::beginTransaction();
+                    try {
                         $this->responser .= "\n\n >> O RESPONSÁVEL LIBEROU PARA CONTRATAÇÂO. <<";
-
                         $this->viability->update([
                             'approved' => true,
                             'rejected' => false,
                             'treplica' => true,
                             'completed' => $this->viability->hired ? true : false,
-                            'completed_at' => $this->viability->hired ? date('Y-m-d H:i:s') : null,
+                            'completed_at' => $this->viability->hired ? now() : null,
                             'status' => $this->viability->hired ? 9 : 6,
                         ]);
 
@@ -342,11 +398,39 @@ class ViabRespResponsible extends Component
                             'granted' => true,
 
                         ]);
+
+                        DB::commit();
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'success',
+                            'title'    => 'OBRA LIBERADA',
+                            'html'      => 'Você Liberou a obra com sucesso.',
+                            'timer'    => 5000,
+                        ]);
+
+                        $this->emitUp('refresh');
+                        $this->clean();
+
+                    } catch (\Throwable $th) {
+                        DB::rollback();
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'danger',
+                            'title'    => 'Erro',
+                            'html'      => 'Ocorreu um erro ao processar a liberação da obra. Nenhuma alteração foi realizada..<br><br>' . $th->getMessage(),
+
+                        ]);
+                        $this->clean();
                     }
 
+                    return; // Importante: Retornar após processar LIBERAR
+                }
 
-                    if ($this->options === 'RETORNAR') {
+                // Processo de RETORNAR
+                if ($this->options === 'RETORNAR') {
 
+                    try {
                         $this->responser .= "\n\n >> O RESPONSÁVEL RETORNOU PARA REFAZER A VIABILIDADE. <<";
 
                         $this->viability->update([
@@ -354,7 +438,7 @@ class ViabRespResponsible extends Component
                             'rejected' => false,
                             'treplica' => false,
                             'replica' => false,
-                            'sended_at' => date('Y-m-d H:i:s'),
+                            'sended_at' => now(),
                             'completed' => false,
                             'completed_at' => null,
                             'returned_at' => null,
@@ -374,34 +458,33 @@ class ViabRespResponsible extends Component
                             'granted' => true,
 
                         ]);
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'success',
+                            'title'    => 'Contestação Aceita',
+                            'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
+                            'timer'    => 5000,
+                        ]);
+
+                        $this->emitUp('refresh');
+                        $this->clean();
+
+                    } catch (\Throwable $th) {
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'danger',
+                            'title'    => 'Erro',
+                            'html'      => 'Ocorreu um erro ao processar o retorno para refazer a viabilidade. Nenhuma alteração foi realizada..<br><br>' . $th->getMessage(),
+
+                        ]);
+                        $this->clean();
+
                     }
-
-                    DB::commit();
-
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'success',
-                        'title'    => 'Contestação Aceita',
-                        'html'      => 'Foi confirmado junto a contratante o parecer da viabilidade.',
-                        'timer'    => 5000,
-                    ]);
-
-                    $this->emitUp('refresh');
-                    $this->clean();
-
-                } catch (\Throwable $th) {
-                    DB::rollback();
-
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'danger',
-                        'title'    => 'Erro',
-                        'html'      => 'Ocorreu algum problema no sistema. Nenhuma alteração foi realizada.. <br><br> ' . $th->getMessage(),
-
-                    ]);
-                    $this->clean();
-
+                    return; // Importante: Retornar após processar RETORNAR
                 }
+
+
             }
         }
 
@@ -410,6 +493,8 @@ class ViabRespResponsible extends Component
 
     public function confirm_deny()
     {
+
+
         if ($this->decision === 'DISCORDAR') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.

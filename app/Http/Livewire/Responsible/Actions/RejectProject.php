@@ -9,10 +9,14 @@ use App\Models\Production;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Exists;
 use Livewire\Component;
+use Livewire\WithPagination; // Importe a trait WithPagination
 
 class RejectProject extends Component
 {
     use TextValidator;
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap'; // Define o tema da paginação
 
     public $note;
     public $service;
@@ -20,17 +24,23 @@ class RejectProject extends Component
     public $production;
     public $category;
     public $details;
+    public $decision;
     public $hasFile = false;
 
     protected $listeners = [
         'getInfoResponse',
         'hasFile',
         '9e2855529ed3d5bf67a254fe8061da6d' => 'saveReject',
+        '9e2855529ed3d5bf67a254fe806sdsaw1212' => 'saveApproved',
         'clearAll',
         'filesFailed',
         'filesSaved',
         'update_list' => '$refresh',
+    ];
 
+    // Define a query string
+    protected $queryString = [
+        'page', // Para manter a página na URL
     ];
 
     public function hasFile($hasFile)
@@ -45,9 +55,12 @@ class RejectProject extends Component
         $this->note = $note->load([
             'orders' => function ($q) {
                 $q->where('statusSist', 'not like', 'ENT%')
-                    ->where('statusSist', 'not like', 'ENC%')
-                    ->orderBy('ordem');
-            }]);
+                  ->where('statusSist', 'not like', 'ENC%')
+                  ->orderBy('ordem');
+            },
+            'Approval.Reclaims', // Eager load the reclaims relationship directly
+        ]);
+
 
         $this->serviceList = Service::where('canReturn', true)->orderBy('service')->get();
 
@@ -74,61 +87,84 @@ class RejectProject extends Component
     public function preReject()
     {
 
-        if (!trim($this->category)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'INFORME O TIPO DE REJEIÇÃO',
-                'html'    => 'Informe o tipoa do motivo do retorno do projeto.',
+        if ($this->decision == 'REPROVADO') {
+            if (!trim($this->category)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'INFORME O TIPO DE REJEIÇÃO',
+                    'html'    => 'Informe o tipoa do motivo do retorno do projeto.',
 
+                ]);
+
+                return;
+            }
+
+            if (!trim($this->service)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'INFORME O SERVIÇO',
+                    'html'    => 'Informe o serviço para devolver o projeto.',
+
+                ]);
+
+                return;
+            }
+
+
+
+            // $result = $this->isValidText((string)$this->details);
+
+            // if (!$result['valid']) {
+            //     $reason = implode("<br>", $result['reasons']);
+            //     $this->dispatchBrowserEvent('swal', [
+            //         'position' => 'center',
+            //         'icon'     => 'warning',
+            //         'title'    => 'INSIRA UM TEXTO VÁLIDO',
+            //         'html'    => 'O texto inserido não é válido. Verifique os seguintes pontos: <br>' . $reason,
+            //     ]);
+
+            //     return;
+            // }
+
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'Confirmação de Rejeição',
+                'msg'           => "Você está prestes a rejeitar a Nota/Ov <strong>{$this->note->note}</strong> para {$this->category}.
+                    <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez rejeitada, ela continuará aqui na sua pilha contando o tempo de atividade. Mantenha a atenção ao tempo de resolução da atividade.</p>
+
+                    <p class='fw-bold'>Deseja prosseguir?</p>
+                    ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Rejeitar!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action' => '9e2855529ed3d5bf67a254fe8061da6d',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma Nota/Ov foi rejeitada.',
             ]);
 
             return;
         }
 
-        if (!trim($this->service)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'INFORME O SERVIÇO',
-                'html'    => 'Informe o serviço para devolver o projeto.',
+        if ($this->decision == 'APROVADO') {
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'Aprovar Projeto',
+                'msg'           => "Você está prestes a aprovar a Nota/Ov <strong>{$this->note->note}</strong>.
+                    <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez aprovada, não será mais possível retornar a analise novamente.</p>
 
+                    <p class='fw-bold'>Deseja prosseguir?</p>
+                    ",
+                'icon'          => 'question',
+                'btnOktxt'      => 'Sim, Aprove!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action' => '9e2855529ed3d5bf67a254fe806sdsaw1212',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma Nota/Ov foi rejeitada.',
             ]);
 
             return;
         }
-
-
-
-        $result = $this->isValidText((string)$this->details);
-
-        if (!$result['valid']) {
-            $reason = implode("<br>", $result['reasons']);
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'INSIRA UM TEXTO VÁLIDO',
-                'html'    => 'O texto inserido não é válido. Verifique os seguintes pontos: <br>' . $reason,
-            ]);
-
-            return;
-        }
-
-
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmação de Rejeição',
-            'msg'           => "Você está prestes a rejeitar a Nota/Ov <strong>{$this->note->note}</strong> para {$this->category}.
-                <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez rejeitada, ela continuará aqui na sua pilha contando o tempo de atividade. Mantenha a atenção ao tempo de resolução da atividade.</p>
-
-                <p class='fw-bold'>Deseja prosseguir?</p>
-                ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Rejeitar!',
-            'btnCanceltxt'  => 'Não, Cancele!',
-            'action' => '9e2855529ed3d5bf67a254fe8061da6d',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma Nota/Ov foi rejeitada.',
-        ]);
     }
 
     public function saveReject()
@@ -234,6 +270,42 @@ class RejectProject extends Component
         }
     }
 
+    public function saveApproved()
+    {
+
+        try {
+            $this->note->approval->update([
+
+                'approved'     => true,
+                'reason'      => 'APROVADO INDIVIDUALMENTE POR ' . auth()->user()->name,
+                'approved_at'   => now(),
+            ]);
+
+        } catch (\Throwable $th) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao aprovar Notas/Ov',
+                'html'      => 'Erro: ' . $th->getMessage(),
+                // 'timer'    => 2500,
+            ]);
+
+            DB::rollBack();
+
+            return;
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Nota/Ov Aprovada',
+            'timer'    => 2500,
+        ]);
+
+        $this->clearAll();
+        $this->emitUp('refresh_list');
+    }
+
 
     public function filesSaved()
     {
@@ -259,6 +331,7 @@ class RejectProject extends Component
         $this->production = null;
         $this->category = null;
         $this->details = null;
+        $this->decision = null;
 
         $this->hasFile = false;
 
@@ -277,6 +350,7 @@ class RejectProject extends Component
         $this->production = null;
         $this->category = null;
         $this->details = null;
+        $this->decision = null;
 
         $this->hasFile = false;
 
@@ -286,6 +360,19 @@ class RejectProject extends Component
 
     public function render()
     {
-        return view('livewire.responsible.actions.reject-project');
+
+        // if ($this->note) {
+        //     dd($this->note && $this->note->approval && $this->note->approval->reclaims);
+        // }
+
+
+        return view('livewire.responsible.actions.reject-project', [
+            'retornoInternos' =>  $this->note?->approval?->reclaims()->orderBy('id', 'DESC')->paginate(1, ['*'], 'reclaims_page'), // Passe a instancia de paginação para view
+        ]);
+    }
+    // Reseta a paginação quando o filtro é alterado
+    public function updatingSearch()
+    {
+        $this->resetPage();
     }
 }

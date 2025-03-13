@@ -370,7 +370,7 @@
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($list->WorkForm)
-                                        {{ $list->WorkForm ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : '---' }}
+                                        {{ $list->WorkForm && $list->WorkForm->informed_at ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : $list->WorkForm->created_at->format('d/m/Y H:i:s') }}
                                     @elseif ($list->Partials->isNotEmpty())
                                         {{ $list->Partials->isNotEmpty() ? $list->Partials->last()->created_at->format('d/m/Y H:i:s') : '---' }}
                                     @endif

@@ -55,7 +55,7 @@
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
                 <div class="row">
                     <div class="col">
-                        <h4 class="my-0">VIABILIDADE AGUARDANDO RESPOSTA</h4>
+                        <h4 class="my-0">VIABILIDADE RETORNO INTERNO AGUARDANDO</h4>
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
@@ -87,87 +87,9 @@
                         </tr>
                     </thead>
                     <tbody>
+
                         @foreach ($myLists as $myViab)
-                            @php
-                                $status = null;
-
-                                $dueDate = Carbon::parse($myViab->sended_at)->addDays($myViab->getDays() + 7);
-
-                                $today = Carbon::now();
-                                $daysDifference = 0;
-
-                                if ($dueDate) {
-                                    $daysDifference = $today->diffInDays($dueDate);
-
-                                    if ($dueDate->isBefore($today)) {
-                                        $daysDifference *= -1;
-                                    }
-
-                                    if ($daysDifference < 1) {
-                                        $status = [
-                                            'color' => 'text-bg-danger',
-                                            'info' => 'VENCIDO',
-                                        ];
-                                    } elseif ($daysDifference >= 1 && $daysDifference < 3) {
-                                        $status = [
-                                            'color' => 'text-bg-warning',
-                                            'info' => 'VENCENDO',
-                                        ];
-                                    } elseif ($daysDifference >= 3) {
-                                        $status = [
-                                            'color' => 'text-bg-success',
-                                            'info' => 'NO PRAZO',
-                                        ];
-                                    }
-                                }
-
-                                $block = null;
-                                $color = 'grey';
-                                $days_left = (new DaysLeft($myViab->Note))->getDaysLeft();
-                                $count = 0;
-
-                                if ($myViab->approved) {
-                                    $count++;
-                                    $block = [
-                                        'color' => 'success',
-                                        'command' => true,
-                                    ];
-
-                                    $color = 'green';
-                                } elseif ($myViab->rejected) {
-                                    $count++;
-                                    $block = [
-                                        'color' => 'danger',
-                                        'command' => true,
-                                    ];
-
-                                    $color = 'red';
-                                }
-
-                                if (($myViab->rejected || $myViab->approved) && !$myViab->completed) {
-                                    $status = [
-                                        'color' => 'text-bg-primary',
-                                        'info' => 'EM AVALIAÇÂO',
-                                    ];
-                                }
-
-                                $color = '';
-
-                                if ($myViab->approved && !$myViab->rejected && !$myViab->tacit) {
-                                    $color = 'green';
-                                } elseif (!$myViab->approved && $myViab->rejected && !$myViab->tacit) {
-                                    $color = 'red';
-                                } elseif ($myViab->tacit) {
-                                    $color = 'yellow';
-                                }
-
-                                $tcolor = '';
-
-                                if ($myViab->hired) {
-                                    $tcolor = 'table-success';
-                                }
-                            @endphp
-
+                            {{-- @dd($myViab) --}}
                             <tr wire:key='Myviab_{{ $myViab->id }}'>
                                 <td class="text-center align-middle fw-bold">{{ $myViab->Note->note }}</td>
                                 <td class="text-center align-middle"> <x-files.select-download-list :files='$myViab->Note->Files' />

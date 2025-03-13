@@ -4,7 +4,9 @@ namespace App\Http\Livewire\Responsible;
 
 use App\Exports\Engineers\InterReturnExport;
 use App\Models\File;
+use App\Models\Reclaim;
 use App\Models\Viability;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -25,6 +27,7 @@ class ReturnInternList extends Component
 
     protected $listeners = [
         'refresh' => '$refresh',
+        'refresh_list' => '$refresh',
     ];
 
 
@@ -67,7 +70,7 @@ class ReturnInternList extends Component
 
     public function getMyListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
         }
 
@@ -75,30 +78,58 @@ class ReturnInternList extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Viability::query()->where('rejected', true)
-                ->where('completed', false)
-                ->whereRelation('Reclaims', 'completed', true);
 
 
-        if (!auth()->user()->superadm) {
+        $query = Viability::query()
+            ->when(trim((string)$this->search) !== '', function ($query) {
+                $query->where(function ($q) {
+                    $q->orwhereRelation('Note', 'note', 'like', '%'.trim($this->search).'%')
+                    ->orWhereRelation('Orders', 'ordem', 'like', '%'.trim($this->search).'%');
+                });
+            })
+            ->where('rejected', true)
+            ->where('status', 13)
+            ->whereHas('Reclaims', function ($q) {
+                $q->where('completed', true);
+            });
 
-
-            // if (Auth()->user()->Companies->isNotEmpty()) {
-            //     $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
-            // } else {
-            //     $query->where('company_id', Auth()->user()->Company->id);
-            // }
-
-            $query->where('engineer_id', Auth()->user()->id);
-
+        if (isset($this->filter['rubrica'])) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
         }
 
-        return $query->orderBy('updated_at');
+        if (isset($this->filter['city'])) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
+        }
+
+        if (!auth()->user()->superadm) {
+            $query->where('engineer_id', auth()->user()->id);
+        }
+
+        // Eager load do último Reclaim
+        $query->with([
+            'Note',
+            'Orders',
+            'Reclaims' => function ($q) {
+                $q->orderBy('id', 'desc')->limit(1);
+            }
+        ]);
+
+
+        return $query->orderBy('viabilities.updated_at');
     }
+
+
 
 
     public function render()
     {
+
+
+
         return view('livewire.responsible.return-intern-list', [
             'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),
         ]);

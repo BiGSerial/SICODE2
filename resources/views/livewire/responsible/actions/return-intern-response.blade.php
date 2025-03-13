@@ -102,10 +102,8 @@
                                                 <tr>
                                                     <td class="fw-bold col-2 align-middle">ORDEM:</td>
                                                     <td class="align-middle">
-                                                        @if ($viability->Note->Orders->isNotEmpty())
-                                                            @foreach ($viability->Note->Orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
+                                                        @if ($viability->Orders->isNotEmpty())
+                                                            @foreach ($viability->Orders as $order)
                                                                 <p class="p-0 m-1">
                                                                     {{ $order->ordem }}
                                                                 </p>
@@ -219,7 +217,7 @@
                                 </div>
 
                                 @if ($viability->Note->Files->isNotEmpty())
-                                    <div class="card">
+                                    {{-- <div class="card">
                                         <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ANEXOS
                                         </h5>
                                         <div class="table-responsive">
@@ -236,8 +234,8 @@
                                                 </tbody>
                                             </table>
                                         </div>
-                                    </div>
-
+                                    </div> --}}
+                                    @livewire('components.files.show-files-pool', ['files' => $viability->Note->Files], key('files-pool'))
                                 @endif
 
                             </div>
@@ -428,140 +426,136 @@
                             <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
                                 RESPONDER ATIVIDADE
                             </h5>
+
                             <div class="card-body">
-                                <div class="row mb-3">
-                                    <div class="col-3">
-                                        <label for="" class="form-label">Decisão</label>
-                                        <select class="form-select form-select-sm border border-secondary"
-                                            wire:model="decision">
-                                            @foreach (SelectOptions::getResponserOptions() as $optRes)
-                                                <option @once selected @endonce value="{{ $optRes->value }}">
-                                                    {{ $optRes->info }}</option>
-                                            @endforeach
+                                <div class="row">
+                                    <div class="col-4">
+                                        <label for="select1" class="form-label">Selecione uma Decisão:</label>
+                                        <select class="form-select border-secondary" wire:model="decision">
+                                            <option selected value="">Selecione uma Opção</option>
+                                            <option value="APROVADO">Aprovado</option>
+                                            <option value="REPROVADO">Reprovado</option>
                                         </select>
                                         @error('decision')
-                                            <span class="text-danger">{{ $message }}</span>
+                                            <small class="text-danger">{{ $message }}</small>
                                         @enderror
                                     </div>
-                                    <div class="col mb-3">
-                                        <label for="" class="form-label">Texto
-                                            Descritivo</label>
-                                        <textarea class="form-control border border-secondary" id="exampleFormControlTextarea1" rows="3"
-                                            wire:model.defer="responser"></textarea>
-                                        @error('responser')
-                                            <span class="text-danger">{{ $message }}</span>
-                                        @enderror
-                                    </div>
-                                </div>
+                                    @if ($decision)
+                                        <div class="col-4">
+                                            <label for="select1" class="form-label">Destinação:</label>
+                                            <select class="form-select border-secondary" wire:model="destination">
+                                                @foreach (SelectOptions::getReturnInterOptionsResponse() as $option)
+                                                    @if ($option->type == 'TODOS')
+                                                        <option selected value="{{ $option->value }}">
+                                                            {{ $option->info }}
+                                                        </option>
+                                                    @elseif ($option->type == $decision)
+                                                        <option value="{{ $option->value }}">
+                                                            {{ $option->info }}
+                                                        </option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+                                            @error('destination')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                    @endif
+                                    @if ($destination == 'DEVOLVER')
+                                        <div class="col-4">
+                                            <label for="select1" class="form-label">Serviço para Retorno:</label>
+                                            <select class="form-select border-secondary" wire:model="service">
+                                                <option selected value="">Selecione</option>
+                                                @foreach ($serviceList as $theService)
+                                                    <option value="{{ $theService->uuid }}">
+                                                        {{ $theService->service }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('service')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                    @endif
 
-                                @if ($decision === 'CONCORDAR')
-                                    <div>
-                                        <div class="card mt-3">
-                                            <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                                DEFINIR DESTINAÇÃO
-                                            </h5>
-                                            <div class="card-body">
-                                                <div class="row mb-3">
-                                                    <div class="col-3">
-                                                        <div class="mt-3">
-                                                            <label for="" class="form-label">Decisão</label>
-                                                            <select
-                                                                class="form-select form-select-sm border border-secondary"
-                                                                wire:model="options">
-                                                                @foreach (SelectOptions::getResponserDestiniesOptions() as $optSel)
-                                                                    <option value="{{ $optSel->value }}">
-                                                                        {{ $optSel->info }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                            @error('options')
-                                                                <span class="text-danger">{{ $message }}</span>
-                                                            @enderror
+                                    @if ($service)
+                                        <div class="row mt-2">
+                                            <div class="col-4">
+                                                <label for="select1" class="form-label">Motivo:</label>
+                                                <select class="form-select border-secondary" wire:model="category">
+                                                    <option value="" selected>
+                                                        Selecione uma Opção
+                                                    </option>
+                                                    @foreach (SelectOptions::getRejectOptions() as $option3)
+                                                        <option value="{{ $option3->value }}">
+                                                            {{ $option3->info }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('category')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-8">
+                                                @if ($production)
+                                                    <div class="card">
+                                                        <div class="card-header py-1">ULTIMO USUÁRIO A INTERAGIR</div>
+                                                        <div class="card-body py-0">
+                                                            <table class="table table-sm my-0">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th class="fw-bold">Serviço:</th>
+                                                                        <th class="fw-bold">Usuario:</th>
+                                                                        <th class="fw-bold">Ultima Movimentção:</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <tr>
+                                                                        <td>{{ $production->service->service }}</td>
+                                                                        <td>{{ $production->User->name }}</td>
+                                                                        <td>{{ $production->completed_at }}</td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
                                                         </div>
-                                                        @if ($options === 'DEVOLVER')
-                                                            <div class="mt-3">
-                                                                <label for="" class="form-label">Serviço a
-                                                                    Devolver</label>
-                                                                <select
-                                                                    class="form-select form-select-sm border border-secondary"
-                                                                    wire:model="service">
-                                                                    @foreach ($serviceList as $serv)
-                                                                        @once <option value="">Selecione
-                                                                            Serviço</option> @endonce
-
-                                                                        <option value="{{ $serv->uuid }}">
-                                                                            {{ $serv->service }}</option>
-                                                                    @endforeach
-                                                                </select>
-                                                                @error('service')
-                                                                    <span class="text-danger">{{ $message }}</span>
-                                                                @enderror
-                                                            </div>
-                                                        @endif
                                                     </div>
-
-                                                    @if ($production)
-                                                        <div class="col-9">
-                                                            <dic class="card">
-                                                                <div class="card-header">
-                                                                    <h5 class="my-0 py-0">RETORNAR OBRA PARA
-                                                                        PROJETOS</h5>
-                                                                </div>
-                                                                <table
-                                                                    class="table table-sm table-condensed table-striped">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th class="fw-bold text-center">SERVIÇO
-                                                                            </th>
-                                                                            <th class="fw-bold text-center">
-                                                                                RESPONSÁVEL</th>
-                                                                            <th class="fw-bold text-center">DATA
-                                                                                ULTIMA
-                                                                                INTERAÇÃO</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        <tr>
-                                                                            <td class="text-center align-middle">
-                                                                                {{ $production->Service->service }}
-                                                                            </td>
-                                                                            <td class="text-center align-middle">
-                                                                                {{ $production->User->name }}</td>
-                                                                            <td class="text-center align-middle">
-                                                                                {{ Carbon::parse($production->completed_at)->format('d/m/Y H:i:s') }}
-                                                                            </td>
-                                                                        </tr>
-                                                                    </tbody>
-                                                                </table>
-                                                            </dic>
+                                                @else
+                                                    <div class="card mt-3 border-secondary">
+                                                        <div class="card-body">
+                                                            <h5 class="text-center fw-bold">NÃO FOI ENCONTRADO UM
+                                                                ULTIMO USUÁRIO A INTERAGIR COM ESSA
+                                                                ATIVIDADE. SERÁ ENVIADO A PILHA DO SERVIÇO
+                                                                SELECIONADO.
+                                                            </h5>
                                                         </div>
-                                                    @endif
-
-                                                    @if ($show)
-                                                        <div class="col-9">
-                                                            <div class="card card-body">
-                                                                {!! $text !!}
-                                                            </div>
-                                                        </div>
-                                                    @endif
-
-                                                </div>
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
-                                    </div>
-                                @endif
+                                    @endif
 
-                                <div class="clear-fix">
-                                    <div class="d-flex justify-content-end">
-                                        <button class="btn btn-sm btn-danger"
-                                            wire:click="toResponser()">ENVIAR</button>
-                                    </div>
+                                    @if ($category || $destination == 'RETORNAR')
+                                        <div class="col-12 mt-3">
+                                            <label for="select1" class="form-label">Informações Adicionais:</label>
+                                            <textarea class="form-control border-secondary" wire:model.defer="responser" rows="3"></textarea>
+                                            @error('responser')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
 
                     @endif
                 </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        wire:click="clean">Cancelar</button>
+                    <button type="button" class="btn btn-primary" wire:click="toResponser">Enviar</button>
+                </div>
             </div>
+
         </div>
     </div>
 </div>

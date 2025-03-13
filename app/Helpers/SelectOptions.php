@@ -25,6 +25,17 @@ class SelectOptions
         ];
     }
 
+    public static function getNewRejectOptions()
+    {
+        return [
+            (object)['info' => '(RI) CORRIGIR ALTERAÇÃO', 'value' => 'ANEXAR PDF', 'needFile' => true],
+            (object)['info' => '(RI) ALTERAÇÃO NO PROJETO', 'value' => 'ALTERAR PROJETO', 'needFile' => true],
+            (object)['info' => '(RI) ALTERAÇÃO NO ORÇAMENTO', 'value' => 'ALTERAR ORÇAMENTO', 'needFile' => true],
+            (object)['info' => '(RI) ALTERAÇÃO NO NO PROJETO E ORÇAMENTO', 'value' => 'ALTERAR PROJETO E ORÇAMENTO', 'needFile' => true],
+            (object)['info' => '(RI) REFAZER LEVANTAMENTO', 'value' => 'REFAZER LEVANTAMENTO', 'needFile' => true],
+        ];
+    }
+
     public static function getEquipmentOptions()
     {
         return [
@@ -121,11 +132,11 @@ class SelectOptions
     {
         // Não alterar os valoes dem VALUE, pois é usado como referencia de ação;
         return [
-            (object)['info' => 'Selecione Resposta', 'value' => ''],
-            (object)['info' => 'RETORNAR PARA ETAPA PROJETO', 'value' => 'DEVOLVER'],
-            (object)['info' => 'LIBERAR PARA CONTRATAR', 'value' => 'LIBERAR'],
-            (object)['info' => 'LIBERAR', 'value' => 'SEGUIR'],
-            (object)['info' => 'NOVA VIABILIDADE', 'value' => 'RETORNAR'],
+            (object)['info' => 'Selecione Resposta', 'value' => '', 'type' => 'TODOS'],
+            (object)['info' => 'RETORNAR PARA ETAPA PROJETO', 'value' => 'DEVOLVER', 'type' => 'REPROVADO'],
+            // (object)['info' => 'LIBERAR PARA CONTRATAR', 'value' => 'LIBERAR', 'type' => 'APROVADO'],
+            (object)['info' => 'LIBERAR', 'value' => 'LIBERAR', 'type' => 'APROVADO'],
+            (object)['info' => 'NOVA VIABILIDADE', 'value' => 'RETORNAR_VIAB', 'type' => 'APROVADO'],
         ];
     }
 
