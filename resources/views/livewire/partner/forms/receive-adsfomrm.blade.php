@@ -97,7 +97,7 @@
         @if ($note)
             <div class="card mx-auto" style="max-width: 600px;">
                 <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h4>INFORME DE ENTREGA DE OBRA</h4>
+                    <h4>ENTREGA DE ADS</h4>
                 </div>
                 <div class="card-body">
                     <div class="card mb-3 mx-auto" style="max-width: 600px;">

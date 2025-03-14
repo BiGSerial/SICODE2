@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Partner;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -24,6 +25,7 @@ class Workedlist extends Component
     public $search;
 
     // search by date
+    public $month;
     public $date_in;
     public $date_out;
     // public $dateBy = 'sended_at';
@@ -37,6 +39,7 @@ class Workedlist extends Component
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
+        'month'   => ['except' => '', 'as' => 'mes_referencia'],
     ];
 
     protected $listeners = [
@@ -46,6 +49,16 @@ class Workedlist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+        $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
+        $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+        $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+    }
+
+    public function updatedMonth()
+    {
+        $date = Carbon::createFromFormat('Y-m', $this->month);
+        $this->date_in = $date->startOfMonth()->format('Y-m-d');
+        $this->date_out = $date->endOfMonth()->format('Y-m-d');
     }
 
     public function cleanAll()
@@ -136,6 +149,8 @@ class Workedlist extends Component
                 $q->whereIn('rubrica', $this->filter['rubrica']);
             });
         }
+
+        $query->with('Adsform');
 
         $query->orderBy('created_at', 'DESC');
 

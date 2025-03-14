@@ -2,7 +2,7 @@
 
 namespace App\Exports\Dispatchs;
 
-use App\Custom\Notestatus;
+use App\Helpers\DaysLeft;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -13,30 +13,37 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Support\Facades\DB; // Importe a fachada DB
+use Illuminate\Support\Facades\Cache; // Importe a fachada Cache
 
-class SupervisionExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
+class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
 
     protected $exports;
     protected $service;
-    protected $serviceUuid;
+    protected $serviceUuid; // Use UUID para o serviço
+    protected $daysLeftCache = []; // Cache para DaysLeft
+    protected $selectedIds; // IDs selecionados para otimização
 
-    public function __construct($data, $service)
+    public function __construct($data, $service, $selectedIds = [])
     {
         $this->exports = $data;
         $this->service = $service;
-        $this->serviceUuid = $service;
+        $this->serviceUuid = $service; // Armazene o UUID
+        $this->selectedIds = $selectedIds; // Armazene os IDs selecionados
+
     }
 
     public function query()
     {
         $query = $this->exports;
 
-        // Selecionar as colunas necessárias
+        // Selecionar as colunas necessárias e otimizar o eager loading
         $query->select([
-            'notes.id',
+            'notes.id',  // Importante incluir o ID
             'notes.note',
+            'notes.material',
             'notes.numPedido',
             'notes.rubrica',
             'notes.lexp',
@@ -45,94 +52,83 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             'notes.type_note',
             'notes.nstats',
             'notes.centerjob',
-            'work_reports.created_at as work_dt_created', // Assumindo que 'work_dt_created' está correto
-            'notes.postes',
+            'notes.dt_status', // Importante para o DaysLeft
         ]);
 
-        // Eager load relacionamentos
+        // Carregar os relacionamentos necessários
         $query->with([
             'Orders' => function ($q) {
-                $q->select(['note_id', 'ordem', 'statusSist']);
+                $q->select(['note_id', 'ordem', 'statusSist']);  // Selecionar apenas as colunas necessárias
             },
             'wpas' => function ($q) {
-                $q->select(['note_id', 'dd']);
+                $q->select(['note_id', 'dd']);  // Selecionar apenas as colunas necessárias
             },
             'productions' => function ($q) {
-                $q->where('service_id', $this->serviceUuid);
+                $q->where('service_id', $this->serviceUuid); // Usar UUID
                 $q->with(['Company' => function ($q) {
-                    $q->select(['id', 'name']);
+                    $q->select(['id', 'name']);  // Selecionar apenas as colunas necessárias
                 }, 'User' => function ($q) {
-                    $q->select(['id', 'name']);
+                    $q->select(['id', 'name']);  // Selecionar apenas as colunas necessárias
                 }]);
-            },
-            'Adsform' => function ($q) {
-                $q->select(['created_at']);
-            },
+            }
         ]);
-
         return $query;
     }
 
     public function chunkSize(): int
     {
-        return 1000; // Experimente valores maiores
+        return 1000;
     }
 
     public function headings(): array
     {
         return [
-            'Note', 'Ordem', 'DD', 'ADS', 'Data ADS', 'Postes', 'Informado Em', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Dias Informe', 'Situação', 'Empresa', 'Usuario'
+            'Note', 'Ordem', 'DD', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Prazo', 'Empresa', 'Usuario'
         ];
     }
 
     public function map($row): array
     {
+        // Cache para DaysLeft
+        if (!isset($this->daysLeftCache[$row->id])) {
+            $this->daysLeftCache[$row->id] = 30 - (new DaysLeft($row))->getDaysLeft();
+        }
+        $daysLeft = $this->daysLeftCache[$row->id];
+
         // Processamento das ordens
         $ordens = '';
         if ($row->Orders) {
-
-
             $ordensArray = $row->Orders->filter(function ($order) {
                 return !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT');
             })->pluck('ordem')->toArray();
-
-
             $ordens = implode(" \n", $ordensArray);
-
         }
 
+        // Obtenção da DD
         $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
 
-        //Calculando os dias informados
-        $diasInforme = $row->work_dt_created ? Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false) : 0;
+        // Obtenção da empresa e do usuário
+        $empresa = '---';
+        $usuario = '---';
 
-        // Obtendo a production relacionada
-        $production = $row->productions->isNotEmpty() ? $row->productions->last() : null;
-
-        $status = $row->productions->isNotEmpty() ? Notestatus::status($row->productions->last()->status)->status : null;
-
-        $empresa = $production && $production->Company ? $production->Company->name : '---';
-        $usuario = $production && $production->User ? $production->User->name : '---';
-
-        $ads = $row->adsform ? 'SIM' : 'NÃO';
-        $dtAds = $row->adsform ? $row->adsform->created_at->format('d/m/Y') : '---';
+        if ($row->productions->isNotEmpty()) {
+            $production = $row->productions->last();
+            $empresa = $production->Company ? $production->Company->name : '---';
+            $usuario = $production->User ? $production->User->name : '---';
+        }
 
         return [
             $row->note,
             $ordens,
             $dd,
-            $ads,
-            $dtAds,
             $row->postes ?? '---',
-            $row->work_dt_created ? Carbon::parse($row->work_dt_created)->format('d/m/Y') : '---',
             $row->numPedido,
             $row->rubrica,
             $row->lexp,
             $row->group2,
             $row->group5,
             $row->type_note == 2 ? $row->nstats : $row->centerjob,
-            $diasInforme,
-            $status,
+            $daysLeft,
             $empresa,
             $usuario,
         ];
@@ -143,11 +139,11 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         return [
             'creator'        => 'Sicode',
             'lastModifiedBy' => 'Sicode',
-            'title'          => 'Supervision List',
-            'description'    => 'List of all supervision notes',
-            'subject'        => 'Supervision List',
-            'keywords'       => 'supervision, list, sicode',
-            'category'       => 'Supervision',
+            'title'          => 'Survey List',
+            'description'    => 'List of all Survey notes',
+            'subject'        => 'Survey List',
+            'keywords'       => 'Survey, list, sicode',
+            'category'       => 'Survey',
             'manager'        => 'Sicode',
             'company'        => 'Sicode',
         ];
@@ -157,15 +153,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                // Centraliza verticalmente e horizontalmente todas as células e habilita quebras de linha
-                $sheet = $event->sheet->getDelegate();
-                $sheet->getStyle('A:Z')->getAlignment()
-                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-
-                $sheet->getStyle('A:Z')->getAlignment()->setWrapText(true);
-
-                $event->sheet->getStyle('A1:P1')->applyFromArray([
+                $event->sheet->getStyle('A1:N1')->applyFromArray([
                     'font' => [
                     'bold'  => true,
                     'color' => ['rgb' => 'FFFFFF'],
@@ -178,9 +166,11 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
                 $event->sheet->getStyle('A')->getNumberFormat()->setFormatCode('0');
                 $event->sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
                 $event->sheet->getStyle('C')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('E')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+
                 $event->sheet->autoSize();
             },
         ];
     }
+
+
 }

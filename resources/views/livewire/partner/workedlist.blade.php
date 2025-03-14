@@ -73,10 +73,12 @@
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row">
+            <div class="row align-items-center g-2">
 
-                <div class="col-sm-4  col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
+                <!-- Per Page Select -->
+                <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label for="perPage" class="visually-hidden">Itens por página</label>
+                    <select name="perPage" id="perPage" class="form-select border border-secondary" wire:model="perPage">
                         <option value="25">25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
@@ -85,39 +87,47 @@
                     </select>
                 </div>
 
-                <div class="col-sm-8 col-md-2 col-xxl-2 mb-3">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                <!-- Search Input -->
+                <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+                    <label for="search" class="visually-hidden">Buscar</label>
+                    <input type="text" class="form-control border border-secondary" id="search"
+                        placeholder="Buscar" wire:model.debounce.2s="search">
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                <!-- Month Select -->
+                <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label for="month" class="visually-hidden">Mês</label>
+                    <input type="month" id="month" class="form-control border border-secondary" wire:model="month"
+                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Mês de Referencia"
+                        max="{{ \Carbon\Carbon::now()->format('Y-m') }}" min="2023-05">
+                </div>
+
+                <!-- Date In Input -->
+                <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label for="date_in" class="visually-hidden">Data Inicial</label>
                     <input type="date" id="date_in" class="form-control border border-secondary"
                         wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Inicial">
+                        data-bs-title="Data Inicial" min="2023-05-01">
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                <!-- Date Out Input -->
+                <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label for="date_out" class="visually-hidden">Data Final</label>
                     <input type="date" id="date_out" class="form-control border border-secondary"
                         wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Final">
+                        data-bs-title="Data Final" min="2023-05-01">
                 </div>
 
-                {{-- <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data por Coluna">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
-                    </select>
-                </div> --}}
-                <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button>
+                <!-- Clean Button -->
+                <div class="col-12 col-md-3 col-lg-1">
+                    <button class="btn btn-danger btn-sm w-100" wire:click.prevent='cleanAll()' data-bs-toggle="tooltip"
+                        data-bs-placement="top" data-bs-title="Limpar Busca por Datas">
+                        <i class="ri-find-replace-line fs-5 align-middle"></i>
+                    </button>
                 </div>
 
-
-                <div class="col d-flex justify-content-end">
+                <!-- Filters -->
+                <div class="col-12 col-lg-12 d-flex flex-wrap justify-content-end gap-2">
                     @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
                     @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
                     @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
@@ -177,12 +187,20 @@
                             <th class="text-center" scope="col">Responsável</th>
                             <th class="text-center" scope="col">Conclusão Informada</th>
                             <th class="text-center" scope="col">Entregue Em</th>
+                            <th class="text-center" scope="col">ADS</th>
+                            <th class="text-center" scope="col">DT ADS</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($lists as $list)
+                            @php
+                                $color = '';
+                                if ($list->Adsform) {
+                                    $color = 'table-success';
+                                }
+                            @endphp
                             <tr wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list }})"
-                                wire:key="{{ $list->id }}">
+                                wire:key="{{ $list->id }}" class="{{ $color }}">
                                 <td class="text-center fw-bold align-middle">{{ $list->Note->note }}</td>
                                 <td class="text-center align-middle">
                                     @if ($list->Orders->count())
@@ -212,6 +230,12 @@
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $list->informed_at ? date('d/m/Y', strToTime($list->informed_at)) : 'Desconhecido' }}
+                                </td>
+                                <td class="text-center align-middle">
+                                    {{ $list->Adsform ? 'SIM' : 'NÃO' }}
+                                </td>
+                                <td class="text-center align-middle">
+                                    {{ $list->Adsform ? $list->Adsform->created_at->format('d/m/Y H:i:s') : '---' }}
                                 </td>
                             </tr>
                         @endforeach

@@ -1,6 +1,11 @@
 {
-    "appver": "1.16.1",
+    "appver": "1.17.0",
     "historic": [
+        {
+            "version": "1.17.0",
+            "description": "Created ADS FORM uploads",
+            "date": "2025-03-14"
+        },
         {
             "version": "1.16.1",
             "description": "Update and Fix Analises",

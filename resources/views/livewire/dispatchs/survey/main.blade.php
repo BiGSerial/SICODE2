@@ -262,93 +262,93 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectall">
-                                </th>
-                                {{-- @can('management')
+
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-condensed">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>
+                                <input class="form-check-input" type="checkbox" wire:model="selectall">
+                            </th>
+                            {{-- @can('management')
                                     <th scope="col" class="fw-bold">Note</th>
                                 @endcan --}}
-                                <th scope="col" class="fw-bold text-center">Note</th>
-                                <th scope="col" class="fw-bold text-center">DD</th>
-                                <th scope="col" class="fw-bold text-center">MMGD</th>
-                                <th scope="col" class="fw-bold text-center">Criado Em</th>
-                                <th scope="col" class="fw-bold text-center">numPedido</th>
-                                <th scope="col" class="fw-bold text-center">Rubrica</th>
-                                <th scope="col" class="fw-bold text-center">Municipio</th>
-                                <th scope="col" class="fw-bold text-center">Grp1</th>
-                                <th scope="col" class="fw-bold text-center">Grp2</th>
-                                <th scope="col" class="fw-bold text-center">Grp4</th>
-                                <th scope="col" class="fw-bold text-center">Grp5</th>
-                                <th scope="col" class="fw-bold text-center">Levantamentos</th>
-                                <th scope="col" class="fw-bold text-center">Status</th>
-                                {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
+                            <th scope="col" class="fw-bold text-center">Note</th>
+                            <th scope="col" class="fw-bold text-center">DD</th>
+                            <th scope="col" class="fw-bold text-center">MMGD</th>
+                            <th scope="col" class="fw-bold text-center">Criado Em</th>
+                            <th scope="col" class="fw-bold text-center">numPedido</th>
+                            <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Municipio</th>
+                            <th scope="col" class="fw-bold text-center">Grp1</th>
+                            <th scope="col" class="fw-bold text-center">Grp2</th>
+                            <th scope="col" class="fw-bold text-center">Grp4</th>
+                            <th scope="col" class="fw-bold text-center">Grp5</th>
+                            <th scope="col" class="fw-bold text-center">Levantamentos</th>
+                            <th scope="col" class="fw-bold text-center">Status</th>
+                            {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
 
-                                <th scope="col" class="fw-bold text-center">Prazo Real</th>
-                                <th scope="col" class="fw-bold text-center">Situação</th>
-                                <th scope="col" class="fw-bold text-center"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $block = null;
-                                    $lastUser = '';
-                                    $lastCompany = '';
+                            <th scope="col" class="fw-bold text-center">Prazo Real</th>
+                            <th scope="col" class="fw-bold text-center">Situação</th>
+                            <th scope="col" class="fw-bold text-center"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            @php
+                                $block = null;
+                                $lastUser = '';
+                                $lastCompany = '';
 
-                                    $count = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('noinconsistency', false);
+                                $count = $list->Productions
+                                    ->where('service_id', $service->uuid)
+                                    ->where('noinconsistency', false);
 
-                                    $count2 = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('completed', true);
+                                $count2 = $list->Productions
+                                    ->where('service_id', $service->uuid)
+                                    ->where('completed', true);
 
-                                    if ($count2->count()) {
-                                        // $lastUser = $list->Productions
-                                        //     ->where('service_id', $service->uuid)
-                                        //     ->where('completed', true)
-                                        //     ->last()->User->name;
+                                if ($count2->count()) {
+                                    // $lastUser = $list->Productions
+                                    //     ->where('service_id', $service->uuid)
+                                    //     ->where('completed', true)
+                                    //     ->last()->User->name;
 
-                                        $lastUser = $count2->last()->User->name;
+                                    $lastUser = $count2->last()->User->name;
 
-                                        $lastUser = explode(' ', $lastUser);
-                                        $lastUser = $lastUser[0] . ' ' . end($lastUser);
+                                    $lastUser = explode(' ', $lastUser);
+                                    $lastUser = $lastUser[0] . ' ' . end($lastUser);
+                                }
+
+                                if ($count->count()) {
+                                    $production = $count->load('Company')->last();
+
+                                    if (isset($production->Company->name)) {
+                                        $lastCompany = explode(' ', $production->Company->name);
+                                        $lastCompany = mb_strtoupper($lastCompany[0]);
+                                    } else {
+                                        $lastCompany = 'Desconhecido';
                                     }
 
-                                    if ($count->count()) {
-                                        $production = $count->load('Company')->last();
-
-                                        if (isset($production->Company->name)) {
-                                            $lastCompany = explode(' ', $production->Company->name);
-                                            $lastCompany = mb_strtoupper($lastCompany[0]);
-                                        } else {
-                                            $lastCompany = 'Desconhecido';
-                                        }
-
-                                        if ($production->dt_note == $list->dt_status || !$production->confirmed) {
-                                            $block = true;
-                                        }
-
-                                        // $block = true;
-
-                                        $chave = array_search($list->id, $selected);
-
-                                        if ($chave !== false) {
-                                            unset($selected[$chave]);
-                                            $selected = $selected;
-                                        }
+                                    if ($production->dt_note == $list->dt_status || !$production->confirmed) {
+                                        $block = true;
                                     }
 
-                                @endphp
+                                    // $block = true;
+
+                                    $chave = array_search($list->id, $selected);
+
+                                    if ($chave !== false) {
+                                        unset($selected[$chave]);
+                                        $selected = $selected;
+                                    }
+                                }
+
+                            @endphp
 
 
-                                <tr
-                                    class="align-middle
+                            <tr
+                                class="align-middle
                                     @if ($block) @if ($production->status == 1)
                                         table-warning
                                         @elseif ($production->status == 2)
@@ -359,73 +359,72 @@
                                         table-danger
                                         @else
                                         table-primary @endif @endif">
-                                    <td>
-                                        <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                            value="{{ $list->id }}" wire:model.defer="selected"
-                                            @disabled($block)>
-                                    </td>
-                                    {{-- @can('management')
+                                <td>
+                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
+                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                        @disabled($block)>
+                                </td>
+                                {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                    <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
-                                        {{ $list->note }}
-                                    </td>
-                                    <td class="fw-bold text-danger text-center">
-                                        {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}
-                                    </td>
-                                    <td class="fw-bold text-danger text-center">
-                                        {{ $list->mmgd ? 'MMGD' : '' }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
-                                    <td class="fw-light text-center">{{ $list->rubrica }}</td>
-                                    <td class="fw-light text-center">
-                                        @if (!empty($list->lexp))
-                                            {{ $list->lexp }}
-                                        @else
-                                            <span tabindex="1" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-title="Editar Município"
-                                                data-bs-content="Clique para editar o município faltante para esta nota.">
-                                                <button class="btn btn-sm btn-secondary"
-                                                    wire:click.prevent="$emit('editMunicipio', '{{ $list->id }}')">Edit</button>
-                                            </span>
+                                <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
+                                    {{ $list->note }}
+                                </td>
+                                <td class="fw-bold text-danger text-center">
+                                    {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}
+                                </td>
+                                <td class="fw-bold text-danger text-center">
+                                    {{ $list->mmgd ? 'MMGD' : '' }}
+                                </td>
+                                <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
+                                </td>
+                                <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
+                                <td class="fw-light text-center">{{ $list->rubrica }}</td>
+                                <td class="fw-light text-center">
+                                    @if (!empty($list->lexp))
+                                        {{ $list->lexp }}
+                                    @else
+                                        <span tabindex="1" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Editar Município"
+                                            data-bs-content="Clique para editar o município faltante para esta nota.">
+                                            <button class="btn btn-sm btn-secondary"
+                                                wire:click.prevent="$emit('editMunicipio', '{{ $list->id }}')">Edit</button>
+                                        </span>
 
-                                        @endif
+                                    @endif
 
-                                    </td>
-                                    <td class="fw-light text-center">{{ $list->group1 }}</td>
-                                    <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ $list->group5 ? $list->group5 : '_____' }}
-                                    </td>
-
+                                </td>
+                                <td class="fw-light text-center">{{ $list->group1 }}</td>
+                                <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
+                                </td>
+                                <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}
+                                </td>
+                                <td class="fw-light text-center">{{ $list->group5 ? $list->group5 : '_____' }}
+                                </td>
 
 
-                                    <td class="fw-light text-center" tabindex="2" data-bs-toggle="popover"
-                                        data-bs-trigger="hover focus" data-bs-placement="top"
-                                        data-bs-title="Levantamentos Realizados"
-                                        data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
-                                        @if ($count2->count())
-                                            <span class="badge text-bg-dark">{{ $count2->count() }}</span><br>
-                                            {{ $lastUser }}
-                                        @else
-                                            --
-                                        @endif
-                                    </td>
 
-                                    <td class="fw-light text-center">
-                                        {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
-                                    {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
-                                    @php
-                                        $days_left = (new DaysLeft($list))->getDaysLeft();
-                                    @endphp
-                                    <td scope="col"
-                                        class="text-center
+                                <td class="fw-light text-center" tabindex="2" data-bs-toggle="popover"
+                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                    data-bs-title="Levantamentos Realizados"
+                                    data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
+                                    @if ($count2->count())
+                                        <span class="badge text-bg-dark">{{ $count2->count() }}</span><br>
+                                        {{ $lastUser }}
+                                    @else
+                                        --
+                                    @endif
+                                </td>
+
+                                <td class="fw-light text-center">
+                                    {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
+                                {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
+                                @php
+                                    $days_left = (new DaysLeft($list))->getDaysLeft();
+                                @endphp
+                                <td scope="col"
+                                    class="text-center
                                         @if ($days_left < 0) text-bg-secondary
                                         @elseif($days_left >= 0 && $days_left < 6)
                                         table-danger
@@ -434,50 +433,50 @@
                                         @else
                                             table-success @endif
                                     "
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                        data-bs-placement="top" data-bs-title="Prazo Real"
-                                        data-bs-content="
+                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                    data-bs-content="
                                         <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                                         <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                                         <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                                         <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                         <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                         ">
-                                        {{ 30 - $days_left }}
-                                    </td>
-                                    <td class="fw-light text-center">
-                                        @if ($list->pze_parecer === 'Vencido')
-                                            <span class="badge text-bg-danger">VENCIDO</span>
-                                        @elseif ($list->pze_parecer === 'Não vencido')
-                                            <span class="badge text-bg-success">EM PRAZO</span>
+                                    {{ 30 - $days_left }}
+                                </td>
+                                <td class="fw-light text-center">
+                                    @if ($list->pze_parecer === 'Vencido')
+                                        <span class="badge text-bg-danger">VENCIDO</span>
+                                    @elseif ($list->pze_parecer === 'Não vencido')
+                                        <span class="badge text-bg-success">EM PRAZO</span>
+                                    @else
+                                        <span class="badge text-bg-secondary">DESCONHECIDO</span>
+                                    @endif
+                                </td>
+
+
+                                <td class="fw-bold text-center">
+
+                                    @can('operator')
+                                        @if (!isset($block))
+                                            <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                                style="cursor: pointer;"
+                                                wire:click.prevent="get_single_note({{ $list->id }})"
+                                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                                data-bs-custom-class="custom-tooltip"
+                                                data-bs-title="Despachar esta Nota/OV"></i>
                                         @else
-                                            <span class="badge text-bg-secondary">DESCONHECIDO</span>
+                                            <span style="font-size: 11px">{{ $lastCompany }}</span>
                                         @endif
-                                    </td>
+                                    @endcan
 
-
-                                    <td class="fw-bold text-center">
-
-                                        @can('operator')
-                                            @if (!isset($block))
-                                                <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
-                                                    style="cursor: pointer;"
-                                                    wire:click.prevent="get_single_note({{ $list->id }})"
-                                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Despachar esta Nota/OV"></i>
-                                            @else
-                                                <span style="font-size: 11px">{{ $lastCompany }}</span>
-                                            @endif
-                                        @endcan
-
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+
         @endif
         </dic>
     </div>

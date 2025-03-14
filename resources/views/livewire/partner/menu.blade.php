@@ -75,12 +75,12 @@
                                     Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
                             </a>
                         </li>
-                        <li>
+                        {{-- <li>
                             <a href="{{ route('partner.report.sendAdsForm') }}" class="nav-item text-white">
                                 <i class="ri-file-3-line fw-light fs-5"></i> <span>Entregar ADS
                                 </span>
                             </a>
-                        </li>
+                        </li> --}}
                         <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Concluídas Informadas</span>

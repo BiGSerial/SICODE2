@@ -133,7 +133,7 @@ class Note extends Model
 
     public function Adsform()
     {
-        return $this->hasOne(AdsForm::class);
+        return $this->hasOne(Adsform::class);
     }
 
 
