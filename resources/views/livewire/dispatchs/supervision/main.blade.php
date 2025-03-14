@@ -149,6 +149,8 @@
                                     wire:click="setSelectAll()" @disabled($this->checkAllSelect($lists))>
                             </th>
                             <th scope="col" class="fw-bold text-center">Tipo</th>
+                            <th scope="col" class="fw-bold text-center">ADS</th>
+                            <th scope="col" class="fw-bold text-center">Dt ADS</th>
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">DD</th>
@@ -220,8 +222,14 @@
                                         </td>
                                     @endcan --}}
                                 <td
-                                    class="fw-bold copy-text text-center @if ($partial) table-warning @else table-success @endif">
+                                    class="fw-bold text-center @if ($partial) table-warning @else table-success @endif">
                                     {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                </td>
+                                <td class="fw-bold text-primary text-center {{ $rowClass }}">
+                                    {{ $list->Adsform ? 'SIM' : '' }}
+                                </td>
+                                <td class="fw-bold text-primary text-center {{ $rowClass }}">
+                                    {{ $list->Adsform ? $list->Adsform->created_at->format('d/m/Y H:i:s') : '' }}
                                 </td>
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">

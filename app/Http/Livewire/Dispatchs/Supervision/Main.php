@@ -15,6 +15,7 @@ use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Wpa;
+use App\Repositories\SurveyRepository;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -100,6 +101,15 @@ class Main extends Component
         'perPage'  => ['as' => 'pp'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
+
+
+
+    private $surveyRepository;
+
+    public function boot(SurveyRepository $surveyRepository)
+    {
+        $this->surveyRepository = $surveyRepository;
+    }
 
     public function view_edit($key)
     {
@@ -1007,65 +1017,8 @@ class Main extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::query()
-        ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
-        $query->where(function ($q) {
-            $q->orwhere(function ($sq) {
-                $sq->whereHas('Partials', function ($q2) {
-                    $q2->where('supervision', false)
-                        ->where('allow', true);
-                })
-                ->whereDoesntHave('WorkForm');
-            })->orWhere(function ($sq) {
-                $sq->where(function ($q) {
-                    $q->whereHas('WorkForm', function ($sq) {
-                        $sq->where('rejected', false);
-                    })
-                    ->where(function ($q) {
-                        $q->whereHas('Orders', function ($q) {
-                            $q->where('statusSist', 'LIKE', 'LIB%')
-                            ->where(function ($sq) {
-                                $sq->where(function ($q1) {
-                                    $q1->whereHas('Operations', function ($sq) {
-                                        $sq->where('operacao', '0010')
-                                        ->where('status', 'like', 'CONF%');
-                                    })->whereHas('Operations', function ($sq) {
-                                        $sq->where('operacao', '0030')
-                                        ->where(function ($sq) {
-                                            $sq->where('status', 'like', 'CNPA%')
-                                            ->orWhere('status', 'like', 'LIB%')
-                                            ->orwhere('status', 'like', 'JBFI LIB%');
-                                        });
-                                    })->whereHas('Operations', function ($sq) {
-                                        $sq->where('operacao', '0040')
-                                        ->where(function ($sq) {
-                                            $sq->where('status', 'like', 'LIB%')
-                                            ->orwhere('status', 'like', 'JBFI LIB%');
-                                        });
-                                    });
-                                })
-                                ->orWhere(function ($q2) {
-                                    $q2->whereHas('Operations', function ($sq) {
-                                        $sq->where('operacao', '0010')
-                                        ->where('status', 'like', 'CONF%');
-                                    })->whereHas('Operations', function ($sq) {
-                                        $sq->where('operacao', '0030')
-                                        ->where('status', 'like', 'CONF%');
-                                    })->whereHas('Operations', function ($sq) {
-                                        $sq->where('operacao', '0040')
-                                        ->where('status', 'like', 'LIB%');
-                                    });
-                                });
-
-                            });
-                        });
-                    });
-                });
-            });
-        });
-        //     ->join('work_reports', 'work_reports.note_id', '=', 'notes.id');
-
+        $query = $this->surveyRepository->getBaseQuery();
 
 
         if (strlen($this->search)) {
@@ -1133,7 +1086,7 @@ class Main extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with('Productions.User', 'Wpas', 'Partials')
+        $query->with('Productions.User', 'Wpas', 'Partials', 'TempAdsInfos')
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC');
 

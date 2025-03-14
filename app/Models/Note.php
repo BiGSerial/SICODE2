@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Http\Livewire\Construction\Hiring\Actions\Hiring;
+use App\Models\Edp_cipqa\TempAdsInfo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -128,5 +129,17 @@ class Note extends Model
     public function Approval()
     {
         return $this->hasOne(ViabilityApproval::class);
+    }
+
+    public function Adsform()
+    {
+        return $this->hasOne(AdsForm::class);
+    }
+
+
+    // Relação temporária
+    public function TempAdsInfos()
+    {
+        return $this->hasMany(TempAdsInfo::class);
     }
 }

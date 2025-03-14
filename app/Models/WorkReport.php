@@ -72,4 +72,9 @@ class WorkReport extends Model
     {
         return $this->hasMany(ReturnWork::class);
     }
+
+    public function Adsform()
+    {
+        return $this->hasOne(Adsform::class);
+    }
 }

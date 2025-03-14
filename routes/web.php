@@ -195,6 +195,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
     Route::get('/partialreport', 'partialreport')->name('report.partial');
     Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
+    Route::get('/send_ads_form', 'sendAdsForm')->name('report.sendAdsForm');
 });
 
 Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->middleware('auth')->group(function () {

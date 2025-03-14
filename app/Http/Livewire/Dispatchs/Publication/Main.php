@@ -8,6 +8,7 @@ use App\Exports\Dispatchs\PublicationExportList;
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Repositories\PublishRepository;
 use App\Services\Publication\NoteFilter;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -106,6 +107,13 @@ class Main extends Component
         'confirm_dispatch'  => 'confirmed_att',
     ];
 
+    private $publishRepository;
+
+    public function boot(PublishRepository $publishRepository)
+    {
+        $this->publishRepository = $publishRepository;
+    }
+
     public function mount($service)
     {
 
@@ -128,10 +136,10 @@ class Main extends Component
 
     protected $noteFilter;
 
-    public function boot(NoteFilter $noteFilter)
-    {
-        $this->noteFilter = $noteFilter;
-    }
+    // public function boot(NoteFilter $noteFilter)
+    // {
+    //     $this->noteFilter = $noteFilter;
+    // }
 
 
     public function updatedSelectall($val)
@@ -489,8 +497,7 @@ class Main extends Component
         }
 
 
-
-        $query = Note::query();
+        $query = $this->publishRepository->getBaseQuery();
 
         // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
         $query->where(function ($q) {
@@ -506,27 +513,6 @@ class Main extends Component
             });
         });
 
-        // Scope Local para Orders (Melhora a Legibilidade e Reusabilidade)
-        $query->whereHas('Orders', function ($q) {
-            $q->where(function ($sq) {
-                $sq->where(function ($s) {
-                    $s->where('statusSist', 'LIKE', 'LIB%')
-                      ->orWhere('statusSist', 'LIKE', 'ABER%');
-                });
-            })
-            ->whereHas('Operations', function ($sq) {
-                $sq->where('operacao', '0010')
-                   ->where('status', 'like', 'CONF%');
-            })
-            ->whereHas('Operations', function ($sq) {
-                $sq->where('operacao', '0020')
-                   ->where(function ($s) {
-                       $s->where('status', 'like', 'LIB%')
-                         ->orWhere('status', 'like', 'CNPA%')
-                         ->orWhere('status', 'like', 'JBFI LIB%');
-                   });
-            });
-        });
 
         // Filtro de Rubrica
         if (isset($this->filters['rubrica'])) {

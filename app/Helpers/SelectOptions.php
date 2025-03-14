@@ -344,6 +344,19 @@ class SelectOptions
         ];
     }
 
+    // FIles Type ADS Options
+    public static function getAdsFilesType()
+    {
+        return [
+            (object)['reason' => 'ASBUILT (Projeto Conforme Construído)', 'value' => 'ASBUILT'],
+            (object)['reason' => 'ATLV', 'value' => 'ATLV'],
+            (object)['reason' => 'CHECK LIST', 'value' => 'CHKLST'],
+            (object)['reason' => 'IMAGEM EQUIPAMENTO', 'value' => 'IMG_EQUIP'],
+            (object)['reason' => 'NOTA DE DESELIGAMENTO', 'value' => 'NOTEDES'],
+            (object)['reason' => 'PLANILHA CLIENTES', 'value' => 'PLANCLIE'],
+        ];
+    }
+
     // Desenho Draws Conclusions
     public static function getDrawConclusions()
     {

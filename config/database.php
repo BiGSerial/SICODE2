@@ -78,6 +78,8 @@ return [
             'sslmode'        => 'prefer',
         ],
 
+
+
         'sqlsrv1' => [
             'driver'         => 'sqlsrv',
             'url'            => env('DATABASE_URL'),

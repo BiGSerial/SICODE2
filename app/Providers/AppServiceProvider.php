@@ -6,6 +6,7 @@ use App\Models\Form;
 use App\Models\Production;
 use App\Observers\AuditObserver;
 use App\Observers\FormObserver;
+use App\Repositories\SurveyRepository;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,7 +16,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(SurveyRepository::class, function ($app) {
+            return new SurveyRepository();
+        });
     }
 
     /**

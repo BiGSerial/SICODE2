@@ -201,10 +201,10 @@ class Partialreport extends Component
             if ($partial) {
 
                 $orders = Order::where('note_id', $this->note->id)->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
-                Order::where(
-                    'note_id',
-                    493674
-                )->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
+                // Order::where(
+                //     'note_id',
+                //     $this->note->id
+                // )->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
                 if ($orders) {
                     foreach ($orders as $order) {
                         $partial->Orders()->attach($order->id);

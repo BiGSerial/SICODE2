@@ -63,4 +63,9 @@ class PartnerController extends Controller
     {
         return view('partner.partial_list');
     }
+
+    public function sendAdsForm()
+    {
+        return view('partner.adsform');
+    }
 }

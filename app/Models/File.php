@@ -60,4 +60,9 @@ class File extends Model
     {
         return $this->belongsToMany(Partial::class, 'file_partial');
     }
+
+    public function Adsforms()
+    {
+        return $this->belongsToMany(Adsform::class, 'adsforms_files');
+    }
 }
