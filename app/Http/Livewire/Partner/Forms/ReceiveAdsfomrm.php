@@ -160,7 +160,7 @@ class ReceiveAdsfomrm extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
-                'title' => 'ADS PARCIAL',
+                'title' => 'ADS FINAL',
                 'html' => "A ADS INFORMADA PARECE NÃO ESTAR SINALIZADA COMO FINAL. VERIFIQUE O ARQUIVO E TENTE NOVAMENTE.",
             ]);
 
@@ -184,15 +184,15 @@ class ReceiveAdsfomrm extends Component
             return;
         }
 
-        if (!$this->hasFile) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon' => 'error',
-                'title' => 'FALTANDO ARQUIVOS',
-                'html' => "Favor anexar todos os arquivos necessário para envio da ADS.",
-            ]);
-            return;
-        }
+        // if (!$this->hasFile) {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon' => 'error',
+        //         'title' => 'FALTANDO ARQUIVOS',
+        //         'html' => "Favor anexar todos os arquivos necessário para envio da ADS.",
+        //     ]);
+        //     return;
+        // }
 
         if (trim($this->amount)) {
             if (str_contains($this->amount, ',') && str_contains($this->amount, '.')) {
@@ -280,7 +280,10 @@ class ReceiveAdsfomrm extends Component
 
                     if ($file) {
                         $adsForm->files()->attach($file->id);
-                        $this->emitTo('files.manager.create-ads-files', 'saveFiles');
+
+                        if ($this->hasFile) {
+                            $this->emitTo('files.manager.create-ads-files', 'saveFiles');
+                        }
                     }
                 } else {
                     DB::rollback();
@@ -301,6 +304,11 @@ class ReceiveAdsfomrm extends Component
             }
 
             DB::commit();
+
+            if (!$this->hasFile) {
+                $this->savedFiles();
+            }
+
         } catch (\Throwable $th) {
             DB::rollback();
 

@@ -75,12 +75,12 @@
                                     Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
                             </a>
                         </li>
-                        <li>
+                        {{-- <li>
                             <a href="{{ route('partner.report.sendAdsForm') }}" class="nav-item text-white">
                                 <i class="ri-file-3-line fw-light fs-5"></i> <span>Entregar ADS
                                 </span>
                             </a>
-                        </li>
+                        </li> --}}
                         <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Concluídas Informadas</span>
@@ -98,7 +98,7 @@
                 </ul>
             </li>
 
-            <li class="nav-item">
+            {{-- <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#partial-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-information-line text-danger"></i><span>Informes Parcial</span><i
                         class="bi bi-chevron-down ms-auto"></i>
@@ -122,7 +122,7 @@
 
                     </div>
                 </ul>
-            </li>
+            </li> --}}
         </ul>
 
     </aside>
