@@ -136,6 +136,11 @@ class Note extends Model
         return $this->hasOne(Adsform::class);
     }
 
+    public function OldAds()
+    {
+        return $this->hasMany(OldAdsInform::class);
+    }
+
 
     // Relação temporária
     public function TempAdsInfos()

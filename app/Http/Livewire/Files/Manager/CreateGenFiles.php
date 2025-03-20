@@ -178,6 +178,18 @@ class CreateGenFiles extends Component
         $type_s = '';
 
 
+
+        usort($temps, function ($a, $b) {
+            $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
+
+            if ($uploadTypeComparison !== 0) {
+                return $uploadTypeComparison;
+            }
+
+            return strcmp($a['original_name'], $b['original_name']);
+        });
+
+
         foreach ($temps as $temp) {
 
 

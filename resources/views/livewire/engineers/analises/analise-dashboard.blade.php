@@ -63,6 +63,29 @@
             </div>
         </div>
 
+        <div class="col-md-12">
+            <!-- Alterado para col-md-4 col-xl-2 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Tempo em Pilha do Retorno Interno</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDaysReclaimType"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDaysReclaimType"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <x-grafico.multistackbar :chart-id="$chartId6" :labels="$multStackData['labels']" :datasets="$multStackData['datasets']"
+                        title="Dias em Resolução" y-axis-title="Qtd" />
+                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Os dias de atribuição andam com o
+                            passar dos dias e não considera em resolução, apenas como atribuídos. Aprovados saem
+                            da estatística.</em></p>
+                </div>
+            </div>
+        </div>
+
+
         <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
             <div class="card" wire:ignore.self>
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -97,7 +120,7 @@
         <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
             <div class="card" wire:ignore.self>
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Categoria Retorno</h3>
+                    <h3 class="mb-0">Categoria Retorno (Geral)</h3>
                     <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
@@ -115,6 +138,69 @@
                     <x-grafico.pie-chart :chart-id="$chartId" :labels="$dadosGrafico['labels']" :dataset="$dadosGrafico['data']" height="300px" />
                 </div>
                 @if (!array_sum($dadosGrafico['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Categoria Retorno (Em Aberto)</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados2"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    {{-- <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em> --}}
+                </p>
+                <div class="card-body">
+                    <x-grafico.pie-chart :chart-id="$chartId7" :labels="$dadosGrafico4['labels']" :dataset="$dadosGrafico4['data']" height="300px" />
+                </div>
+                @if (!array_sum($dadosGrafico4['data']))
+                    <div class="card py-3">
+                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    </div>
+                @endif
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>Obs: É considerado apenas ainda em aberto em Retorno Interno.</em>
+                </p>
+            </div>
+        </div>
+
+
+        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Retornos por Origem</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="atualizarReclaimType" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.pie-chart :chart-id="$chartId5" :labels="$pizzaReturnInternData['labels']" :dataset="$pizzaReturnInternData['data']" height="300px" />
+                </div>
+                @if (!array_sum($pizzaReturnInternData['data']))
                     <div class="card py-3">
                         <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
                     </div>

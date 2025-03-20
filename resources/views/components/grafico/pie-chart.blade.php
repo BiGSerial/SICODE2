@@ -1,23 +1,19 @@
 <div>
-    <div id="{{ $chartId }}" style="width:100%; max-width:{{ $width ?? '400px' }}; height:{{ $height ?? '300px' }};">
+    <div id="{{ $chartId }}" style="width:100%; max-width:{{ $width ?? '100%' }}; height:{{ $height ?? '100%' }};">
     </div>
 
     @push('script')
-        {{-- <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> --}}
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 let labels = @json($labels);
                 let datas = @json($dataset);
 
-                console.log('teste');
-                console.log(labels);
-
                 var options = {
                     series: datas,
                     chart: {
                         type: 'pie',
-                        height: '{{ $height ?? '300' }}',
-                        width: '{{ $width ?? '400px' }}' // Define uma largura fixa
+                        height: '{{ $height ?? '100%' }}',
+                        width: '{{ $width ?? '100%' }}'
                     },
                     labels: labels,
                     colors: [
@@ -27,7 +23,6 @@
                         '#FFFF00', '#A52A2A', '#FF5733', '#EE82EE',
                         '#40E0D0', '#B22222', '#4B0082', '#FF9933'
                     ],
-
                     dropShadow: {
                         enabled: true,
                         blur: 5,
@@ -41,13 +36,11 @@
                     }
                 };
 
-                window.chart{{ Str::studly($chartId) }} = new ApexCharts(document.querySelector("#{{ $chartId }}"),
-                    options);
+                window.chart{{ Str::studly($chartId) }} = new ApexCharts(document.querySelector("#{{ $chartId }}"), options);
                 window.chart{{ Str::studly($chartId) }}.render();
             });
 
             document.addEventListener('updateGraph{{ Str::studly($chartId) }}', function(e) {
-
                 const newLabels = e.detail.labels;
                 const newData = e.detail.data;
 

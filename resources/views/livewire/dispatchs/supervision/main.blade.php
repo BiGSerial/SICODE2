@@ -226,10 +226,15 @@
                                     {{ $partial ? 'PARCIAL' : 'FINAL' }}
                                 </td>
                                 <td class="fw-bold text-primary text-center {{ $rowClass }}">
-                                    {{ $list->Adsform ? 'SIM' : '' }}
+                                    {{ $list->Adsform || $list->OldAds->isNotEmpty() ? 'SIM' : '' }}
                                 </td>
                                 <td class="fw-bold text-primary text-center {{ $rowClass }}">
-                                    {{ $list->Adsform ? $list->Adsform->created_at->format('d/m/Y H:i:s') : '' }}
+                                    @if ($list->OldAds->isNotEmpty())
+                                        {{ $list->OldAds->last()->date->format('d/m/Y H:i:s') }}
+                                    @elseif($list->Adsform)
+                                        {{ $list->Adsform->created_at->format('d/m/Y H:i:s') }}
+                                    @endif
+
                                 </td>
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">

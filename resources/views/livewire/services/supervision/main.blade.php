@@ -141,12 +141,13 @@
                                     <th scope="col" class="fw-bold">DD</th>
                                     <th scope="col" class="fw-bold">Files</th>
                                     <th scope="col" class="fw-bold">MMGD</th>
+                                    <th scope="col" class="fw-bold">ADS</th>
                                     <th scope="col" class="fw-bold">Postes</th>
-                                    <th scope="col" class="fw-bold">Grupo2</th>
+                                    {{-- <th scope="col" class="fw-bold">Grupo2</th> --}}
                                     {{-- <th scope="col" class="fw-bold">Grupo5</th> --}}
                                     <th scope="col" class="fw-bold">Rubrica</th>
                                     <th scope="col" class="fw-bold">Municipio</th>
-                                    <th scope="col" class="fw-bold">Zona</th>
+                                    {{-- <th scope="col" class="fw-bold">Zona</th> --}}
                                     <th scope="col" class="fw-bold">Descrição</th>
                                     <th scope="col" class="fw-bold">Dias Atribuido</th>
                                     <th scope="col" class="fw-bold">Dias Informe</th>
@@ -233,18 +234,28 @@
                                         <td class="fw-light">
                                             <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
                                         </td>
+                                        <td class="fw-light">
+                                            @if ($list->Note->OldAds->isNotEmpty())
+                                                <span class="text-warning fw-bold">OLD</span>
+                                            @elseif ($list->Note->Adsform)
+                                                <span class="text-success fw-bold">ATUAL</span>
+                                            @else
+                                                <span class="text-danger fw-bold">NÂO</span>
+                                            @endif
+
+                                        </td>
 
                                         <td class="fw-light">
                                             <span
                                                 class="text-primary fw-bold">{{ isset($list->Note->postes) ? $list->Note->postes : '---' }}</span>
                                         </td>
 
-                                        <td class="fw-light">
-                                            {{ $list->Note->group2 }}</td>
+                                        {{-- <td class="fw-light">
+                                            {{ $list->Note->group2 }}</td> --}}
                                         {{-- <td class="fw-light">{{ $list->Note->group5 }}</td> --}}
                                         <td class="fw-light">{{ $list->Note->rubrica }}</td>
                                         <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                        <td class="fw-light">{{ $list->Note->group1 }}</td>
+                                        {{-- <td class="fw-light">{{ $list->Note->group1 }}</td> --}}
                                         <td class="fw-light">{{ $list->Note->material }}</td>
                                         <td class="fw-light">
                                             {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)) }}

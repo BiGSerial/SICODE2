@@ -15,7 +15,7 @@ use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Wpa;
-use App\Repositories\SurveyRepository;
+use App\Repositories\SupervisionRepository;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -104,11 +104,11 @@ class Main extends Component
 
 
 
-    private $surveyRepository;
+    private $supervisionRepository;
 
-    public function boot(SurveyRepository $surveyRepository)
+    public function boot(SupervisionRepository $supervisionRepository)
     {
-        $this->surveyRepository = $surveyRepository;
+        $this->supervisionRepository = $supervisionRepository;
     }
 
     public function view_edit($key)
@@ -1018,7 +1018,7 @@ class Main extends Component
         }
 
 
-        $query = $this->surveyRepository->getBaseQuery();
+        $query = $this->supervisionRepository->getBaseQuery();
 
 
         if (strlen($this->search)) {
@@ -1086,7 +1086,7 @@ class Main extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with('Productions.User', 'Wpas', 'Partials', 'TempAdsInfos')
+        $query->with('Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds')
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC');
 

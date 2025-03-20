@@ -108,7 +108,12 @@
                 </a>
                 <ul id="informes-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
-
+                        {{-- <li>
+                            <a href="{{ route('engineers.dashboard.conclusion_inform') }}"
+                                class="nav-item edp-text-verde-dark">
+                                <i class="ri-dashboard-fill text-white fw-light fs-5"></i> <span> DASHBOARD</span>
+                            </a>
+                        </li> --}}
 
                         <li>
                             <a href="{{ route('engineers.inform_obra') }}" class="nav-item edp-text-verde-dark">

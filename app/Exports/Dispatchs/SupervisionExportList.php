@@ -114,15 +114,21 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         $empresa = $production && $production->Company ? $production->Company->name : '---';
         $usuario = $production && $production->User ? $production->User->name : '---';
 
-        $ads = $row->adsform ? 'SIM' : 'NÃO';
-        $dtAds = $row->adsform ? $row->adsform->created_at->format('d/m/Y') : '---';
+
+        if ($row->adsform) {
+            $ads = $row->adsform->created_at->format('d/m/Y');
+        } elseif ($row->OldAds->isNotEmpty()) {
+            $ads =  $row->OldAds->last()->date->format('d/m/Y');
+        } else {
+            $ads = null;
+        }
 
         return [
             $row->note,
             $ordens,
             $dd,
-            $ads,
-            $dtAds,
+            $ads ? 'SIM' : 'NÃO',
+            $ads ? $ads : '---',
             $row->postes ?? '---',
             $row->work_dt_created ? Carbon::parse($row->work_dt_created)->format('d/m/Y') : '---',
             $row->numPedido,

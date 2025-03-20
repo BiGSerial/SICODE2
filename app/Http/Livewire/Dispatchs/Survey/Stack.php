@@ -107,6 +107,8 @@ class Stack extends Component
         'closeall'             => 'closeall',
     ];
 
+    
+
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
@@ -1000,16 +1002,17 @@ class Stack extends Component
                 });
             })
 
+
         // ->when($this->status_s, function ($q) {
         //     return $q->whereIn('productions.status', $this->status_s)
         //             ->orWhereNull('productions.status');
         // })
-        // ->when($this->note_type, function ($q) {
-        //     return $q->whereHas('Note', function ($query) {
-        //         return $query->whereIn('type_note', $this->note_type)
-        //                 ->orWhereNull('type_note');
-        //     });
-        // })
+            ->when($this->note_type, function ($q) {
+                return $q->whereRelation('Note', function ($query) {
+                    return $query->where('type_note', $this->note_type)
+                            ->orWhereNull('type_note');
+                });
+            })
             ->orderBy('priority', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')

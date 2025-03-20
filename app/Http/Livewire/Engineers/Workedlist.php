@@ -3,9 +3,11 @@
 namespace App\Http\Livewire\Engineers;
 
 use App\Exports\Workreports\HistListExport;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -15,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 class Workedlist extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -25,8 +28,13 @@ class Workedlist extends Component
     public $files_selected = [];
 
     public $search;
+    public $advanceSearch;
+    public $multiSearch = [];
+    public $adsOnly = false;
+
 
     // search by date
+    public $month;
     public $date_in;
     public $date_out;
     // public $dateBy = 'sended_at';
@@ -48,6 +56,26 @@ class Workedlist extends Component
     ];
 
 
+    public function updatedMonth()
+    {
+        $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+        $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+    }
+
+    public function updatedDateIn()
+    {
+        $this->month = Carbon::parse($this->date_in)->format('Y-m');
+    }
+
+    public function buscarMulti()
+    {
+        $this->search = '';
+        $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
+        $this->dispatchBrowserEvent('hideModal');
+        $this->advanceSearch = '';
+    }
+
+
     public function export_excel()
     {
 
@@ -60,13 +88,20 @@ class Workedlist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+
+        // $this->month = Carbon::now()->format('Y-m');
+        // $this->date_in = Carbon::now()->startOfMonth()->format('Y-m-d');
+        // $this->date_out = Carbon::now()->endOfMonth()->format('Y-m-d');
     }
 
     public function cleanAll()
     {
         $this->search = '';
+        $this->advanceSearch = '';
+        $this->multiSearch = [];
         $this->date_in = '';
         $this->date_out = '';
+        $this->month = '';
     }
 
     public function downloadFile($id)
@@ -133,9 +168,29 @@ class Workedlist extends Component
         }
 
         if ($this->search) {
+
+            $this->advanceSearch = '';
+            $this->multiSearch = [];
+
             $query->where(function ($q) {
                 $q->WhereRelation('Note', 'note', 'like', "%$this->search%")
                     ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+            });
+        }
+
+        if ($this->multiSearch) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });
+            });
+        }
+
+        if ($this->adsOnly) {
+            $query->where(function ($q) {
+                $q->whereHas('Note.OldAds')
+                    ->orWhereHas('Note.Adsform');
             });
         }
 

@@ -77,9 +77,9 @@
                             <i class="text-danger"> ( Selecione primeiro o Tipo de Envio )</i>
                         @endif
                     </label>
-                    <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror"
+                    <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror" 
                         id="files" wire:model="files" multiple @disabled(!$uploadType)
-                        placeholder="escolher primeiro o tipo de arquivo">
+                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx" placeholder="escolha primeiro o tipo de arquivo">
                     @error('files')
                         @foreach ($errors->get('files.*') as $fileErrors)
                             @foreach ($fileErrors as $error)

@@ -426,6 +426,7 @@
                                 <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                                 <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
                                 <th scope="col" class="fw-bold text-center">Prazo Real</th>
+                                <th scope="col" class="fw-bold text-center">Mensalização</th>
                                 <th scope="col" class="fw-bold text-center">Status</th>
                                 <th scope="col" class="fw-bold text-center"></th>
                             </tr>
@@ -567,6 +568,9 @@
                                     <span
                                         class="badge {{ Notestatus::status($list->status)->colorbg }}">{{ Notestatus::status($list->status)->status }}</span>
                                 </td> --}}
+                                    <td class="fw-light text-center">
+                                        {{ $list->note->mesalization }}
+                                    </td>
                                     <td class="fw-light text-center">
                                         @if ($list->transferred && $list->block_wpa)
                                             <span class="badge bg-warning">Aguardando Despacho</span>

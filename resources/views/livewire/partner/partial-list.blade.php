@@ -45,6 +45,7 @@
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
                         <th scope="col">Ordem</th>
+                        <th scope="col">Files</th>
                         <th scope="col">Dta Envio</th>
                         <th scope="col">Dt Aprovação</th>
                         <th scope="col">Dt Fiscalizacao</th>
@@ -57,7 +58,7 @@
                 <tbody>
                     @foreach ($lists as $list)
                         <tr class="text-center" style="cursor: pointer;"
-                            wire:click.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
+                            wire:dblclick.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
                             <td>
                                 @if ($list->Orders)
@@ -66,6 +67,7 @@
                                     @endforeach
                                 @endif
                             </td>
+                            <td> <x-files.select-download-list :files='$list->Note->Files' /></td>
                             <td>{{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}</td>
                             <td class="@if (!$list->allow && !$list->deny) text-bg-info fw-bold @endif">
                                 @if (!$list->allow && !$list->deny)

@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands\tools;
 
-use App\Models\Edp_cipqa\InfoAdsTemp;
+use App\Models\Edp_cipqa\OldAdsList;
 use App\Models\Note;
+use App\Models\OldAdsInform;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +18,7 @@ class AdsTempGet extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:ads-temp-get {--full} {--days=1}';
+    protected $signature = 'sicode:ads-temp-get';
 
     /**
      * The console command description.
@@ -31,12 +32,9 @@ class AdsTempGet extends Command
      */
     public function handle()
     {
-        $date = $this->option('full') ? null : now()->subDays($this->option('days'))->startOfDay()->format('Y-m-d H:i:s');
-        $query = InfoAdsTemp::when($date, function ($query) use ($date) {
-            return $query->where('DATA_ENVIO', '>=', $date);
-        })->whereNotNull('OV_NOTA')->where('RODOU_SCRIPT', 'SIM')->orderBy('DATA_ENVIO', 'ASC')->orderBy('OV_NOTA', 'ASC');
+        $full = !(OldAdsInform::count() > 0);
 
-        $totalSteps = $query->count();
+        $totalSteps = OldAdsList::count();
 
         // Configure o ProgressBar
         $bar = $this->output->createProgressBar($totalSteps);
@@ -47,42 +45,73 @@ class AdsTempGet extends Command
         $bar->setMessage('Iniciando...'); // Mensagem inicial
         $bar->start();
 
-        $offset = 0;
-        $limit = 500;
+        OldAdsList::chunk(1000, function ($adsList) use ($bar, $full) {
 
-        do {
-            $adsTemps = $query->offset($offset)
-                               ->limit($limit)
-                               ->get();
 
-            $count = $adsTemps->count();
+            $dataBatch = [];
+            $notesIds = array_merge(
+                $adsList->pluck('Nota')->toArray(),
+                $adsList->pluck('Ov')->toArray()
+            );
+            $notes = Note::whereIn('note', $notesIds)->get();
 
-            if ($count > 0) {
-                $notes = Note::whereIn('note', $adsTemps->pluck('OV_NOTA')->toArray())->get();
-                foreach ($adsTemps as $ads) {
-                    // $notes = Note::where('note', $ads->OV_NOTA)->get();
-                    $note = $notes->where('note', $ads->OV_NOTA)->first();
+            foreach ($adsList as $ads) {
 
-                    if ($note) {
-                        $chk = $note->TempAdsInfos()->updateOrCreate([
-                            'note' => $ads->OV_NOTA,
-                            'sended_at' => $ads->DATA_ENVIO,
-                        ], [
-                            'company_name' => $ads->EMPREITEIRA,
-                            'from' => $ads->SOLICITANTE,
-                        ]);
 
-                        $message = $ads->OV_NOTA . " - " . ($chk->wasRecentlyCreated ? "CREATED" : "UPDATED");
+                if ($ads->Nota != null) {
+                    $note = $notes->where('note', $ads->Nota)->first();
+                } elseif ($ads->Ov != null) {
+                    $note = $notes->where('note', $ads->Ov)->first();
+                } else {
+                    $note = null;
+                }
+
+                if ($note) {
+
+                    if ($full) {
+
+                        $dataBatch[] = [
+                            'note_id' => $note->id,
+                            'ads_id' => $ads->id,
+                            'user' => $ads->Usuario,
+                            'date' => $ads->Data,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+
                     } else {
-                        $message = $ads->OV_NOTA . " - NOT FOUND";
+
+                        OldAdsInform::updateOrCreate(
+                            [
+                                'note_id' => $note->id,
+                                'ads_id' => $ads->id,
+                            ],
+                            [
+                                'user' => $ads->Usuario,
+                                'date' => $ads->Data,
+                            ]
+                        );
+
+                        $bar->advance();
                     }
 
-                    $bar->setMessage($message);
-                    $bar->advance();
                 }
-                $offset += $limit;
+
             }
-        } while ($count > 0);
+
+            if ($dataBatch) {
+                try {
+                    OldAdsInform::insert($dataBatch);
+                } catch (PDOException $e) {
+                    Log::error('Erro ao inserir lote: ' . $e->getMessage());
+                }
+
+                $bar->advance(count($dataBatch));
+            }
+
+
+
+        });
 
         // Mensagem de finalização
         $bar->setMessage('<info>Concluído!</info>'); // Use um estilo para destacar

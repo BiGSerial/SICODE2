@@ -195,7 +195,7 @@
                         @foreach ($lists as $list)
                             @php
                                 $color = '';
-                                if ($list->Adsform) {
+                                if ($list->Adsform || $list->note->oldAds->isNotEmpty()) {
                                     $color = 'table-success';
                                 }
                             @endphp
@@ -232,10 +232,18 @@
                                     {{ $list->informed_at ? date('d/m/Y', strToTime($list->informed_at)) : 'Desconhecido' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->Adsform ? 'SIM' : 'NÃO' }}
+                                    @if ($list->Adsform || $list->note->oldAds->isNotEmpty())
+                                        SIM
+                                    @else
+                                        NÃO
+                                    @endif
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $list->Adsform ? $list->Adsform->created_at->format('d/m/Y H:i:s') : '---' }}
+                                    @if ($list->Adsform)
+                                        {{ $list->Adsform ? $list->Adsform->created_at->format('d/m/Y H:i:s') : '---' }}
+                                    @elseif($list->note->oldAds->isNotEmpty())
+                                        {{ $list->note->oldAds->isNotEmpty() ? $list->note->oldAds->first()->date->format('d/m/Y H:i:s') : '---' }}
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

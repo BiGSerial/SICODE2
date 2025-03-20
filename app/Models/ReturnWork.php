@@ -19,7 +19,7 @@ class ReturnWork extends Model
 
     public function Workreport()
     {
-        return $this->belongsTo(WorkReport::class);
+        return $this->belongsTo(WorkReport::class, 'work_report_id', 'id');
     }
 
     public function Service()

@@ -87,4 +87,9 @@ class EngineerController extends Controller
     {
         return view('engineers.analises.approval_history');
     }
+
+    public function conclusion_dash()
+    {
+        return view('engineers.final_inform.dashboardFInform');
+    }
 }

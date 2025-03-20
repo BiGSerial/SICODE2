@@ -2,7 +2,9 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Models\File;
 use App\Models\Partial;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -28,6 +30,29 @@ class PartialList extends Component
         $this->resetPage();
     }
 
+    public function downloadFile($id)
+    {
+
+
+        if ($file = File::find($id)) {
+
+
+
+            if (Storage::disk('local')->exists($file->path)) {
+                return Storage::download($file->path, $file->file_name);
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'ARQUIVO INEXISTENTE!',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+        }
+    }
+
 
     public function getListsProperty()
     {
@@ -38,8 +63,8 @@ class PartialList extends Component
         }
 
         if ($this->search) {
-            $query->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('Notes.Orders', 'ordem', 'like', '%' . $this->search . '%');
+            $query->whereRelation('Note', 'note', 'like', '%' . trim($this->search) . '%')
+                    ->orWhereRelation('Note.Orders', 'ordem', 'like', '%' . trim($this->search) . '%');
         }
 
 

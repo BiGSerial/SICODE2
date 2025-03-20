@@ -42,7 +42,14 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
     public function map($row): array
     {
 
-        $adsFile = $row->Note->Files()->where('file_name', 'like', 'ADS_INFO%')->latest('created_at')->first();
+
+        if ($row->Note->Adsform) {
+            $ads = $row->Note->Adsform->created_at->format('d/m/Y');
+        } elseif ($row->Note->OldAds->isNotEmpty()) {
+            $ads = $row->Note->OldAds->last()->date->format('d/m/Y');
+        } else {
+            $ads = null;
+        }
 
         return [
             $row->Note->note,
@@ -56,11 +63,12 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
             $row->team,
             $row->date ? $row->date->format('d/m/Y') : '',
             $row->informed_at ? $row->informed_at->format('d/m/Y') : $row->created_at->format('d/m/Y'),
+            $ads ? $ads : '',
             $row->responsible,
             $row->observation,
             $row->Company ? $row->Company->name : '',
-            $adsFile ? $adsFile->file_name : '',
-            $adsFile ? $adsFile->created_at->format('d/m/Y') : '',
+
+
         ];
 
 
@@ -77,11 +85,11 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
             'Equipe WPA',
             'Data da Execução',
             'Data da Entrega',
+            'Data entrega ADS',
             'Responsável',
             'Observações',
             'Empreiteira',
-            'ADS',
-            'Data entrega ADS',
+
         ];
     }
 
@@ -103,7 +111,7 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha (cabeçalho)
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:L1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],
@@ -122,8 +130,8 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
 
                 // Define uma largura fixa para a coluna J para que o texto longo quebre a linha ao invés de expandir
                 $sheet->getColumnDimension('F')->setWidth(30);
-                $sheet->getColumnDimension('I')->setWidth(30);
                 $sheet->getColumnDimension('J')->setWidth(30);
+                $sheet->getColumnDimension('K')->setWidth(30);
 
                 // Centralizar verticalmente e horizontalmente todas as colunas
                 $sheet->getStyle('A:M')->getAlignment()
@@ -133,6 +141,9 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
                 // Formatar as colunas A e B para numeração sem casas decimais
                 $sheet->getStyle('A:A')->getNumberFormat()->setFormatCode('0');
                 $sheet->getStyle('B:B')->getNumberFormat()->setFormatCode('0');
+                $sheet->getStyle('G:G')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $sheet->getStyle('H:H')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $sheet->getStyle('I:I')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
                 $event->sheet->autoSize();
             },

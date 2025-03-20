@@ -178,6 +178,11 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
         Route::get('/analised', 'analises_analised')->name('analised');
     });
 
+    Route::prefix('/dashboards')->name('dashboard.')->group(function () {
+        Route::get('/final_inform_dashboard', 'conclusion_dash')->name('conclusion_inform');
+
+    });
+
 });
 
 

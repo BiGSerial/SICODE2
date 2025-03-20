@@ -72,6 +72,30 @@ class CreateProdFiles extends Component
         if (count($this->files)) {
             foreach ($this->files as $file) {
 
+                // Bloqueio de arquivos não permitidos e limite de 10MB
+                $allowedExtensions = ['jpg', 'png', 'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods'];
+                $maxSizeBytes = 10 * 1024 * 1024; // 10MB
+
+                if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
+                        'timer'    => 1500,
+                    ]);
+                    continue;
+                }
+
+                if ($file->getSize() > $maxSizeBytes) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
+                        'timer'    => 1500,
+                    ]);
+                    continue;
+                }
+
                 $exists = false;
 
                 if (count($this->tempFiles)) {
@@ -84,15 +108,15 @@ class CreateProdFiles extends Component
 
                 if (!$exists) {
                     $this->tempFiles[] = [
-                        'note_id' => $this->production->Note->id,
-                        'service_id' => $this->production->service_id,
-                        'user_id' => Auth()->User()->id,
-                        'uploadType' => $this->uploadType,
-                        'ext' => $file->getClientOriginalExtension(),
+                        'note_id'       => $this->production->Note->id,
+                        'service_id'    => $this->production->service_id,
+                        'user_id'       => Auth()->User()->id,
+                        'uploadType'    => $this->uploadType,
+                        'ext'           => $file->getClientOriginalExtension(),
                         'original_name' => $file->getClientOriginalName(),
-                        'newName' => null,
-                        'suspicious' => false,
-                        'file' => $file,
+                        'newName'       => null,
+                        'suspicious'    => false,
+                        'file'          => $file,
                     ];
                 }
             }
@@ -178,7 +202,23 @@ class CreateProdFiles extends Component
         $type_s = '';
         $service = '';
 
+
+
+        usort($temps, function ($a, $b) {
+            $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
+
+            if ($uploadTypeComparison !== 0) {
+                return $uploadTypeComparison;
+            }
+
+            return strcmp($a['original_name'], $b['original_name']);
+        });
+
+
+
         foreach ($temps as $temp) {
+
+            $agrupe[$temp['uploadType']][] = $temp;
 
             if ($temp['service_id'] !== $service) {
                 $service = $temp['service_id'];
@@ -219,6 +259,8 @@ class CreateProdFiles extends Component
         } else {
             return;
         }
+
+        // dd($this->tempFiles);
 
         DB::beginTransaction();
 

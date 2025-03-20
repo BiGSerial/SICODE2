@@ -18,6 +18,9 @@ class AnaliseDashboard extends Component
     public $chartId2;
     public $chartId3;
     public $chartId4;
+    public $chartId5;
+    public $chartId6;
+    public $chartId7;
 
     public $usuariosStats;
     public $ticketMedio;
@@ -57,12 +60,46 @@ class AnaliseDashboard extends Component
         'data' => [10, 20, 70],
     ];
 
+    public $pizzaReturnInternData = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
+
+
+    public $multStackData = [
+        'labels' => ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'],
+        'datasets' => [
+            [
+                'name' => 'Atribuidos',
+                'data' => [10, 20, 15, 25, 30],
+            ],
+            [
+                'name' => 'Sem Atribuição',
+                'data' => [5, 10, 7, 12, 15],
+            ],
+            [
+                'name' => 'Resolvidos',
+                'data' => [2, 5, 3, 6, 8],
+            ],
+        ],
+    ];
+
+
+    public $dadosGrafico4 = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
+
     public function mount()
     {
         $this->chartId = 'chart-' . Str::random(8);
         $this->chartId2 = 'chart2-' . Str::random(8);
         $this->chartId3 = 'chart-' . Str::random(8);
         $this->chartId4 = 'chart-' . Str::random(8);
+        $this->chartId5 = 'chart-' . Str::random(8);
+        $this->chartId6 = 'chart2-' . Str::random(8);
+        $this->chartId7 = 'chart-' . Str::random(8);
+
 
         // Data inicial e final do mês
         $this->month = Carbon::today()->format('Y-m');
@@ -75,6 +112,10 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
         $this->atualizarAprovedCategory();
+        $this->atualizarReclaimType();
+        $this->atualizarDaysReclaimType();
+        $this->atualizarDados2();
+
     }
 
     public function updatedMonth()
@@ -87,6 +128,8 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
         $this->atualizarAprovedCategory();
+        $this->atualizarReclaimType();
+        $this->atualizarDados2();
     }
 
     public function updatedDtIni()
@@ -96,6 +139,8 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
         $this->atualizarAprovedCategory();
+        $this->atualizarReclaimType();
+        $this->atualizarDados2();
     }
 
     public function updatedDtFim()
@@ -105,6 +150,8 @@ class AnaliseDashboard extends Component
         $this->atualizarTicketMedioReclaim();
         $this->atualizarTicketMedioResolution();
         $this->atualizarAprovedCategory();
+        $this->atualizarReclaimType();
+        $this->atualizarDados2();
     }
 
     public function atualizarDados()
@@ -119,6 +166,86 @@ class AnaliseDashboard extends Component
         $this->dadosGrafico = $novosDados;
 
         $this->updateData($this->chartId, $novosDados['labels'], $novosDados['data']);
+    }
+
+    public function atualizarDados2()
+    {
+        $reclaims = $this->getReclaimsActualProperty();
+
+        $novosDados = [
+            'labels' => $reclaims->pluck('category')->toArray(),
+            'data' => $reclaims->pluck('total')->toArray(),
+        ];
+
+        $this->dadosGrafico4 = $novosDados;
+
+        $this->updateData($this->chartId7, $novosDados['labels'], $novosDados['data']);
+    }
+
+
+    public function atualizarReclaimType()
+    {
+        $reclaims = $this->getReclaimsTypesProperty();
+
+        $novosDados = [
+            'labels' => ['Aanalise', 'Contratação',  'Viabilidade'],
+            'data' => [
+                $reclaims['Approvals'],
+                $reclaims['Waiting'],
+                $reclaims['Viabilities'],
+            ],
+        ];
+
+
+
+
+        $this->pizzaReturnInternData = $novosDados;
+
+        $this->updateData($this->chartId5, $novosDados['labels'], $novosDados['data']);
+    }
+
+
+    public function atualizarDaysReclaimType()
+    {
+        $reclaims = $this->getReclaimsDaysProperty();
+
+
+
+        $labels = [];
+
+        for ($i = 0; $i < 10 ; $i++) {
+            $labels[] = (string)$i;
+        }
+
+        $labels[] = '10+';
+
+        $this->multStackData = [
+            'labels' => $labels,
+            'datasets' => [
+                [
+                    'name' => 'Analises',
+                    'data' => $reclaims['Approvals'],
+                ],
+                [
+                    'name' => 'Contratação',
+                    'data' => $reclaims['Waiting'],
+                ],
+                [
+                    'name' => 'Viabilidade',
+                    'data' => $reclaims['Viabilities'],
+                ],
+            ],
+        ];
+
+        // dd($this->multStackData);
+
+
+
+
+        $this->emit('updateGraph2' . Str::studly($this->chartId6), [
+            'labels' => $this->multStackData['labels'],
+            'datasets' => $this->multStackData['datasets'],
+        ]);
     }
 
     public function atualizarAprovedCategory()
@@ -182,6 +309,56 @@ class AnaliseDashboard extends Component
             ->groupBy(DB::raw("COALESCE(category, 'SEM CATEGORIA')"))
             ->get();
     }
+
+    public function getReclaimsActualProperty()
+    {
+        return Reclaim::whereHas('Approvals')
+        ->where('completed', false)
+        // ->when($this->dt_ini, function ($query) {
+        //     return $query->where('created_at', '>=', $this->dt_ini);
+        // })
+        // ->when($this->dt_fim, function ($query) {
+        //     return $query->where('created_at', '<=', $this->dt_fim);
+        // })
+            ->select(DB::raw("COALESCE(category, 'SEM CATEGORIA') as category"), DB::raw('count(*) as total'))
+            ->groupBy(DB::raw("COALESCE(category, 'SEM CATEGORIA')"))
+            ->get();
+    }
+
+
+    public function getReclaimsTypesProperty()
+    {
+        $query = Reclaim::query();
+
+        // Apply date filters
+        if ($this->dt_ini) {
+            $query->where('created_at', '>=', $this->dt_ini);
+        }
+        if ($this->dt_fim) {
+            $query->where('created_at', '<=', $this->dt_fim);
+        }
+
+
+
+        $results = [];
+
+        // Approvals
+        $approvalsQuery = clone $query;
+        $results['Approvals'] = $approvalsQuery->whereHas('Approvals')->count();
+
+        // Waiting
+        $waitingQuery = clone $query;
+        $results['Waiting'] = $waitingQuery->whereHas('Waiting')->count();
+
+        // Viabilities
+        $viabilitiesQuery = clone $query;
+        $results['Viabilities'] = $viabilitiesQuery->whereHas('Viabilities')->count();
+
+
+
+        return $results;
+    }
+
 
     public function atualizarTicketMedioReclaim()
     {
@@ -417,6 +594,89 @@ class AnaliseDashboard extends Component
         ];
     }
 
+    public function getReclaimsDaysProperty()
+    {
+        $query = Reclaim::query()->where('completed', false);
+
+        $results = [];
+        $days = [];
+
+        // Initialize $days array. Important!
+        for ($i = 0; $i <= 9; $i++) { // Changed to 29
+            $days[$i] = 0;
+        }
+        $days[10] = 0; // Add a 31st element at index 30 for 30+ days
+
+
+        // Approvals
+        $approvalsData = $this->groupReclaimsByDay($query, 'Approvals');
+        $results['Approvals'] = array_replace($days, $approvalsData); // Merge with zeros
+
+        // Waiting
+        $waitingData = $this->groupReclaimsByDay($query, 'Waiting');
+        $results['Waiting'] = array_replace($days, $waitingData); // Merge with zeros
+
+        // Viabilities
+        $viabilitiesData = $this->groupReclaimsByDay($query, 'Viabilities');
+        $results['Viabilities'] = array_replace($days, $viabilitiesData); // Merge with zeros
+
+        return $results;
+    }
+
+    private function groupReclaimsByDay($baseQuery, $type)
+    {
+        $data = [];
+
+        for ($i = 0; $i <= 9; $i++) { // Changed to 29
+            $startDate = now()->subDays($i)->startOfDay();
+            $endDate = now()->subDays($i)->endOfDay();
+
+            $query = clone $baseQuery; // Important: clone to avoid modifying the original
+
+            // Apply date filter for the specific day
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+
+            switch ($type) {
+                case 'Approvals':
+                    $count = $query->whereHas('Approvals')->count();
+                    break;
+                case 'Waiting':
+                    $count = $query->whereHas('Waiting')->count();
+                    break;
+                case 'Viabilities':
+                    $count = $query->whereHas('Viabilities')->count();
+                    break;
+                default:
+                    $count = 0;
+            }
+
+            $data[$i] = $count;
+        }
+
+
+        // Count for 30+ days
+        $startDate = now()->subDays(10)->startOfDay();
+        $query = clone $baseQuery;
+        $query->where('created_at', '<', $startDate);
+
+        switch ($type) {
+            case 'Approvals':
+                $count = $query->whereHas('Approvals')->count();
+                break;
+            case 'Waiting':
+                $count = $query->whereHas('Waiting')->count();
+                break;
+            case 'Viabilities':
+                $count = $query->whereHas('Viabilities')->count();
+                break;
+            default:
+                $count = 0;
+        }
+
+        $data[10] = $count; // Assign 30+ day count to index 30
+
+        return $data;
+    }
 
     private function updateData(string $chartId = null, array $labels = [], array $data = [])
     {

@@ -40,7 +40,13 @@ class Geralreattribute extends Component
     public function confirm_reatt($chave)
     {
         if ($this->chave === $chave) {
-            if ($this->production->update(['status' => 2, 'completed' => false])) {
+            if ($this->production->update([
+                'status' => 2,
+                'completed' => false,
+                'confirmed' => false,
+                'completed_at' => null,
+                'confirmed_at' => null,
+                ])) {
                 $this->emit('refresh_list');
 
                 $this->dispatchBrowserEvent('swal', [

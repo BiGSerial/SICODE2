@@ -207,7 +207,7 @@ class BaseEP extends Command
         // Muda Status de todas as notas que não são mais trazidas atualiza
         $limiteTempo = Carbon::now()->subDays(1);
 
-        $cancelNotes = Note::where('type_note', 1)->where('updated_at', '<', $limiteTempo)->update(['centerjob' => 'LIMBO', 'nstats' => 99]);
+        $cancelNotes = Note::where('type_note', 1)->where('updated_at', '<', $limiteTempo)->update(['nstats' => 99]);
         $this->info('NOTAS CANCELADAS: '.$cancelNotes);
 
         $log->setCreated($count['ins']);

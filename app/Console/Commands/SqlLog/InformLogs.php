@@ -44,7 +44,7 @@ class InformLogs extends Command
         $progressBar->setMessage('Inserting in bulk');
 
 
-        return;
+
         if ($workReports) {
             WorkReport::whereDate('updated_at', '>=', Carbon::now()->startOfDay()->subDays($days))->chunk(500, function ($chunk) use ($progressBar) {
                 foreach ($chunk as $inform) {
@@ -93,7 +93,7 @@ class InformLogs extends Command
 
         $progressBar->finish();
 
-        if ($workReports->isEmpty()) {
+        if (!$workReports) {
             $this->info("<bg=green;fg=white;options=bold> DONE </><fg=yellow;options=bold> NO REGISTERS FOUND");
         } else {
             $this->info("<bg=blue;fg=white;options=bold> INFO </><fg=white;options=bold> WE HAVE FOUND {$workReports} REGISTERS THAT AREN'T IN INFORMS LOG");

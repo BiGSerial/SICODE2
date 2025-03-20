@@ -51,7 +51,7 @@
                                     if (!$tNote->WorkForm) {
                                         $block = true;
                                         $reason = 'SEM INFORME DE OBRA';
-                                    } elseif ($tNote->Adsform) {
+                                    } elseif ($tNote->Adsform || $tNote->OldAds->isNotEmpty()) {
                                         $block = true;
                                         $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
                                     }

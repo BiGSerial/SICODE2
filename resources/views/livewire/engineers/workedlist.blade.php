@@ -73,10 +73,11 @@
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row">
+            <div class="row gy-2 align-items-center">
 
-                <div class="col-sm-4  col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
+                <div class="col-sm-6 col-md-4 col-lg-3 col-xl-2">
+                    <label for="perPage" class="visually-hidden">Itens por página</label>
+                    <select name="perPage" id="perPage" class="form-select border border-secondary" wire:model="perPage">
                         <option value="25">25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
@@ -85,45 +86,60 @@
                     </select>
                 </div>
 
-                <div class="col-sm-8 col-md-2 col-xxl-2 mb-3">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                <div class="col-sm-6 col-md-5 col-lg-4 col-xl-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control border border-secondary" placeholder="Buscar"
+                            wire:model.debounce.2s="search">
+                        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                <div class="col-sm-6 col-md-3 col-lg-2 col-xl-2">
+                    <label for="date_in_month" class="visually-hidden">Mês de Referência</label>
+                    <input type="month" id="date_in_month" class="form-control border border-secondary"
+                        wire:model="month" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Mês de Referência">
+                </div>
+
+                <div class="col-sm-6 col-md-4 col-lg-3 col-xl-2">
+                    <label for="date_in" class="visually-hidden">Data Inicial</label>
                     <input type="date" id="date_in" class="form-control border border-secondary"
                         wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Data Inicial">
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                <div class="col-sm-6 col-md-4 col-lg-3 col-xl-2">
+                    <label for="date_out" class="visually-hidden">Data Final</label>
                     <input type="date" id="date_out" class="form-control border border-secondary"
                         wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Data Final">
                 </div>
 
-                {{-- <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data por Coluna">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
-                    </select>
-                </div> --}}
-                <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button>
+                <div class="col-sm-6 col-md-3 col-lg-2 col-xl-1">
+                    <button class="btn btn-danger btn-sm w-100" wire:click.prevent='cleanAll()' data-bs-toggle="tooltip"
+                        data-bs-placement="top" data-bs-title="Limpar Buscas">
+                        <i class="ri-find-replace-line fs-5"></i>
+                    </button>
+                </div>
+
+                <div class="col-sm-6 col-md-6 col-lg-6 col-xl-6">
+                    <div class="form-check">
+                        <input class="form-check-input border border-1 border-secondary" type="checkbox" id="somenteAds"
+                            wire:model="adsOnly">
+                        <label class="form-check-label" for="somenteAds">Somente com Ads</label>
+                    </div>
                 </div>
 
 
-                <div class="col d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner_forms'], key('removeAll'))
-                </div>
 
+            </div>
+            <div class="col-12 col-lg-auto d-flex justify-content-end gap-2">
+                @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                @livewire('components.filter.remove-all', ['group_filter' => 'partner_forms'], key('removeAll'))
             </div>
         </div>
     </div>
@@ -178,6 +194,7 @@
                             <th class="text-center" scope="col">Empreiteira</th>
                             <th class="text-center" scope="col">Conclusão Informada</th>
                             <th class="text-center" scope="col">Entregue Em</th>
+                            <th class="text-center" scope="col">ADS Em</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -218,6 +235,15 @@
                                 <td class="text-center align-middle">
                                     {{ $list->informed_at ? date('d/m/Y', strToTime($list->informed_at)) : 'Desconhecido' }}
                                 </td>
+                                <td class="text-center align-middle">
+                                    @if ($list->Note->Adsform)
+                                        {{ $list->Note->Adsform->created_at->format('d/m/Y') }}
+                                    @elseif($list->Note->OldAds->isNotEmpty())
+                                        {{ $list->Note->OldAds->last()->date->format('d/m/Y') }}
+                                    @else
+                                        ---
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -228,6 +254,32 @@
 
     {{-- LivewireComponent --}}
     @livewire('partner.show.show-work-form', key('FormModdalShow'))
+
+
+    {{-- Modals --}}
+
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
 
     {{-- Scripts --}}
     <script>

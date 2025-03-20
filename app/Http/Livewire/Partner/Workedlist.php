@@ -49,9 +49,9 @@ class Workedlist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
-        $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
-        $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
-        $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+        // $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
+        // $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+        // $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
     }
 
     public function updatedMonth()
@@ -61,11 +61,17 @@ class Workedlist extends Component
         $this->date_out = $date->endOfMonth()->format('Y-m-d');
     }
 
+    public function updatedDateIn()
+    {
+        $this->month = Carbon::parse($this->date_in)->format('Y-m');
+    }
+
     public function cleanAll()
     {
         $this->search = '';
         $this->date_in = '';
         $this->date_out = '';
+        $this->month = '';
     }
 
     public function downloadFile($id)
@@ -150,7 +156,9 @@ class Workedlist extends Component
             });
         }
 
-        $query->with('Adsform');
+        $query->with(['Adsform', 'Note.OldAds' => function ($q) {
+            $q->orderBy('id', 'DESC')->first();
+        }]);
 
         $query->orderBy('created_at', 'DESC');
 
