@@ -95,6 +95,7 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
 Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/main', 'survey_main')->name('main');
     Route::get('/stack', 'survey_stack')->name('stack');
+    Route::get('/stack2', 'survey_stack2')->name('stack2');
     Route::get('/transfer', 'survey_transfer')->name('transprod');
     Route::get('/intern_returns', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');

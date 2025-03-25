@@ -39,6 +39,7 @@ class Filter extends Component
         'refresh_filter'     => 'refreshme',
         'refresh_myself'     => '$refresh',
         'refresh_All_Filter' => 'refreshAll',
+        'toUpdate'          => 'toUpdate',
 
     ];
 
@@ -83,6 +84,22 @@ class Filter extends Component
             $_SESSION['filter'][$this->group_filter]['receiver'][$sendFilter][] = $this->column;
         }
 
+    }
+
+    public function toUpdate($mkey)
+    {
+        if ($mkey == $this->myKey) {
+
+            if (!(session_status() == PHP_SESSION_ACTIVE)) {
+                session_start();
+            }
+
+            if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
+                # code...
+            }
+
+            $this->items = $_SESSION['filter'][$this->group_filter][$this->myKey];
+        }
     }
 
     public function refreshAll()

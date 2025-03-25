@@ -157,7 +157,7 @@ class Workedlist extends Component
         }
 
         $query->with(['Adsform', 'Note.OldAds' => function ($q) {
-            $q->orderBy('id', 'DESC')->first();
+            $q->orderBy('date', 'asc');
         }]);
 
         $query->orderBy('created_at', 'DESC');

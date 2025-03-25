@@ -65,6 +65,7 @@ class Production extends Model
         'confirmed'   => 'boolean',
         'returned'    => 'boolean',
         'priority'    => 'boolean',
+        'block'  => 'boolean',
         'dispatch_at' => 'datetime',
         'att_at'        => 'datetime',
         'completed_at'  => 'datetime',

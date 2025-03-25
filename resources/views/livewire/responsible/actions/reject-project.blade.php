@@ -45,8 +45,15 @@
                                     @if ($retornoInternos)
                                         @foreach ($retornoInternos as $reclaim)
                                             <div class="card">
-                                                <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                                    RETORNO INTERNO
+                                                <h5
+                                                    class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between align-items-center">
+                                                    <span>RETORNO INTERNO</span>
+                                                    @if (!$retornoInternos->last()->completed)
+                                                        <button type="button" class="btn btn-sm btn-primary"
+                                                            wire:click="preCancelReclaims">
+                                                            Cancelar Rejeição
+                                                        </button>
+                                                    @endif
                                                 </h5>
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-condensed table-striped-columns">
@@ -151,18 +158,21 @@
                                             </div>
                                         @endforeach
 
-                                        <div class="d-flex justify-content-between align-items-center my-2">
-                                            <button type="button" class="btn btn-sm btn-secondary"
-                                                @if ($retornoInternos->onFirstPage()) disabled @else wire:click="previousPage" @endif>
-                                                Retroceder
-                                            </button>
-                                            <span>Página {{ $retornoInternos->currentPage() }} de
-                                                {{ $retornoInternos->lastPage() }}</span>
-                                            <button type="button" class="btn btn-sm btn-secondary"
-                                                @if (!$retornoInternos->hasMorePages()) disabled @else wire:click="nextPage" @endif>
-                                                Avançar
-                                            </button>
-                                        </div>
+                                        @if ($retornoInternos->isNotEmpty())
+                                            <div class="d-flex justify-content-between align-items-center my-2">
+                                                <button type="button" class="btn btn-sm btn-secondary"
+                                                    @if ($retornoInternos->onFirstPage()) disabled @else wire:click="previousPage" @endif>
+                                                    Retroceder
+                                                </button>
+                                                <span>Página {{ $retornoInternos->currentPage() }} de
+                                                    {{ $retornoInternos->lastPage() }}</span>
+                                                <button type="button" class="btn btn-sm btn-secondary"
+                                                    @if (!$retornoInternos->hasMorePages()) disabled @else wire:click="nextPage" @endif>
+                                                    Avançar
+                                                </button>
+
+                                            </div>
+                                        @endif
                                     @endif
                                 </div>
                             </div>

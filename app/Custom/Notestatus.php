@@ -213,7 +213,13 @@ class Notestatus
                 'colorbg' => 'text-bg-success',
                 'color'   => 'success',
             ],
-
+            // 29
+            [
+                'status'  => 'Cancelada',
+                'icon'    => 'ri-close-circle-line',
+                'colorbg' => 'text-bg-secondary',
+                'color'   => 'secondary',
+            ],
         ];
 
         return (object) $status[$sts];

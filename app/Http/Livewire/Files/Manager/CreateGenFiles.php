@@ -72,6 +72,33 @@ class CreateGenFiles extends Component
         if (count($this->files)) {
             foreach ($this->files as $file) {
 
+                // Bloqueio de arquivos não permitidos e limite de 10MB
+                $allowedExtensions = [
+                   'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+                   'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods'
+                ];
+                $maxSizeBytes = 10 * 1024 * 1024; // 10MB
+
+                if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
+                        'timer'    => 1500,
+                    ]);
+                    continue;
+                }
+
+                if ($file->getSize() > $maxSizeBytes) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
+                        'timer'    => 1500,
+                    ]);
+                    continue;
+                }
+
                 $exists = false;
 
                 if (count($this->tempFiles)) {

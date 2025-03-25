@@ -2,6 +2,8 @@
 
 namespace App\Exports\Dispatchs;
 
+use App\Custom\Notestatus;
+use App\Custom\WpaStatus;
 use App\Helpers\DaysLeft;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -14,7 +16,7 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Illuminate\Database\Eloquent\Builder;
 
-class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
+class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
 
@@ -34,31 +36,9 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
 
     public function query()
     {
-        return $this->query->select([
-            'notes.id',
-            'notes.note',
-            'notes.material',
-            'notes.numPedido',
-            'notes.rubrica',
-            'notes.lexp',
-            'notes.group2',
-            'notes.group5',
-            'notes.type_note',
-            'notes.nstats',
-            'notes.centerjob',
-            'notes.dt_status',
-        ])
-        ->with([
-            'Orders:note_id,ordem,statusSist', // Especificar colunas
-            'wpas:note_id,dd',  // Especificar colunas
-            'productions' => function ($q) {
-                $q->where('service_id', $this->serviceUuid)
-                  ->with([
-                      'Company:id,name', // Especificar colunas
-                      'User:id,name'  // Especificar colunas
-                  ]);
-            }
-        ]);
+        return $this->query->when($this->selectedIds, function ($q) {
+            return $q->whereIn('id', $this->selectedIds);
+        })->with('note', 'dispatcher', 'att', 'service', 'user', 'company', 'wpas', 'analise');
     }
 
 
@@ -70,48 +50,78 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
     public function headings(): array
     {
         return [
-            'Note', 'Ordem', 'DD', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Prazo', 'Empresa', 'Usuario'
+            'Nota',
+            'Rubrica',
+            'Municipio',
+            'Material',
+            'DD',
+            'StsDD',
+            'Grupo2',
+            'MMGD',
+            'Despachado Por',
+            'Empresa Despacho',
+            'Despachado Em',
+            'Atribuído Por',
+            'Empresa Atribuído',
+            'Atribuído Em',
+            'Usuário',
+            'Empresa',
+            'Status',
+            'Prazo',
+            'Finalizado em',
         ];
     }
 
     public function map($row): array
     {
-        if (!isset($this->daysLeftCache[$row->id])) {
-            $this->daysLeftCalculator->note = $row;  // Assign row to the daysLeftCalculator
-            $this->daysLeftCache[$row->id] = 30 - $this->daysLeftCalculator->getDaysLeft();
+        if (!isset($this->daysLeftCache[$row->note->id])) {
+            $this->daysLeftCalculator->note = $row->note;  // Assign row to the daysLeftCalculator
+            $this->daysLeftCache[$row->note->id] = 30 - $this->daysLeftCalculator->getDaysLeft();
         }
-        $daysLeft = $this->daysLeftCache[$row->id];
+        $daysLeft = $this->daysLeftCache[$row->note->id];
 
-        $ordens = $row->Orders
-            ->filter(fn ($order) => !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT'))
-            ->pluck('ordem')
-            ->implode(" \n");
+
 
         $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
+        $stsDD = $row->wpas->isNotEmpty() ? $row->wpas->last() : null;
+
+
+        if ($stsDD) {
+            $wpa = WpaStatus::status(
+                $stsDD->stats,
+                $stsDD->execstats,
+                $stsDD->completed_at,
+            );
+
+            $stsDD = $wpa->info;
+        }
 
         $empresa = '---';
         $usuario = '---';
 
-        if ($row->productions->isNotEmpty()) {
-            $production = $row->productions->last();
-            $empresa = $production->Company?->name ?? '---'; // Uso do operador null safe
-            $usuario = $production->User?->name ?? '---';  // Uso do operador null safe
-        }
+        $empresa = $row->Company?->name ?? '---'; // Uso do operador null safe
+        $usuario = $row->User?->name ?? '---';  // Uso do operador null safe
 
         return [
-            $row->note,
-            $ordens,
+            $row->note->note,
+            $row->note->rubrica,
+            $row->note->lexp,
+            $row->note->material,
             $dd,
-            $row->material ?? '---',
-            $row->numPedido,
-            $row->rubrica,
-            $row->lexp,
-            $row->group2,
-            $row->group5,
-            $row->type_note == 2 ? $row->nstats : $row->centerjob,
+            $stsDD,
+            $row->note->group2,
+            $row->note->mmgd ? 'Sim' : 'Não',
+            $row->dispatcher?->name ?? '---',
+            $row->dispatcher?->company?->name ?? '---',
+            $row->dispatch_at ? $row->dispatch_at->format('d/m/Y H:i') : '---',
+            $row->att?->name ?? '---',
+            $row->att?->company?->name ?? '---',
+            $row->att_at ? $row->att_at->format('d/m/Y H:i') : '---',
+            $row->user?->name ?? '---',
+            $row->company?->name ?? '---',
+            Notestatus::status($row->status)->status,
             $daysLeft,
-            $empresa,
-            $usuario,
+            $row->completed_at ? $row->completed_at->format('d/m/Y H:i') : '---',
         ];
     }
 
@@ -134,7 +144,7 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:S1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],

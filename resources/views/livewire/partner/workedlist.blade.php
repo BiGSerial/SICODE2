@@ -242,7 +242,7 @@
                                     @if ($list->Adsform)
                                         {{ $list->Adsform ? $list->Adsform->created_at->format('d/m/Y H:i:s') : '---' }}
                                     @elseif($list->note->oldAds->isNotEmpty())
-                                        {{ $list->note->oldAds->isNotEmpty() ? $list->note->oldAds->first()->date->format('d/m/Y H:i:s') : '---' }}
+                                        {{ $list->note->oldAds->isNotEmpty() ? $list->note->oldAds->last()->date->format('d/m/Y H:i:s') : '---' }}
                                     @endif
                                 </td>
                             </tr>

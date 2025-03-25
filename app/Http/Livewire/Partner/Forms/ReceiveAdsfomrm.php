@@ -45,6 +45,16 @@ class ReceiveAdsfomrm extends Component
         'savedFiles'
     ];
 
+    protected $rules = [
+        'file' => 'nullable|file|mimes:xlsx,xls|max:30720', // 30 MB in kilobytes
+    ];
+
+    protected $messages = [
+        'file.file' => 'O arquivo deve ser um arquivo válido.',
+        'file.mimes' => 'O arquivo deve ser um arquivo do tipo: xlsx, xls.',
+        'file.max' => 'O arquivo não pode ser maior que 30MB.',
+    ];
+
     public function mount()
     {
         $this->search = '';
@@ -64,6 +74,8 @@ class ReceiveAdsfomrm extends Component
 
     public function updatedFile()
     {
+        $this->validateOnly('file');
+
         $this->process = false;
         if ($this->file) {
             // Store the path for hydration

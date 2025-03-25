@@ -40,8 +40,6 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             'notes.numPedido',
             'notes.rubrica',
             'notes.lexp',
-            'notes.group2',
-            'notes.group5',
             'notes.type_note',
             'notes.nstats',
             'notes.centerjob',
@@ -51,8 +49,8 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         // Eager load relacionamentos
         $query->with([
-            'Orders' => function ($q) {
-                $q->select(['note_id', 'ordem', 'statusSist']);
+            'orders' => function ($q) {
+                $q->select(['note_id', 'ordem', 'statusSist', 'moaberto']);
             },
             'wpas' => function ($q) {
                 $q->select(['note_id', 'dd']);
@@ -65,9 +63,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
                     $q->select(['id', 'name']);
                 }]);
             },
-            'Adsform' => function ($q) {
-                $q->select(['created_at']);
-            },
+            'Adsform', 'OldAds'
         ]);
 
         return $query;
@@ -81,7 +77,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Note', 'Ordem', 'DD', 'ADS', 'Data ADS', 'Postes', 'Informado Em', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Dias Informe', 'Situação', 'Empresa', 'Usuario'
+            'Tipo','Note', 'Ordem', 'DD', 'ADS Origem', 'Data ADS', 'Postes', 'Informado Em', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Situação', 'Empresa', 'Usuario'
         ];
     }
 
@@ -89,14 +85,19 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     {
         // Processamento das ordens
         $ordens = '';
-        if ($row->Orders) {
+        $sumOrders = 0;
+        if ($row->orders) {
 
 
             $ordensArray = $row->Orders->filter(function ($order) {
                 return !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT');
             })->pluck('ordem')->toArray();
 
+            $ordensMoa = $row->Orders->filter(function ($order) {
+                return !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT');
+            });
 
+            $sumOrders = $ordensMoa->sum('moaberto');
             $ordens = implode(" \n", $ordensArray);
 
         }
@@ -104,7 +105,15 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
 
         //Calculando os dias informados
-        $diasInforme = $row->work_dt_created ? Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false) : 0;
+        $informe = '';
+        if ($row->WorkForm) {
+            $informe = 'FINAL';
+            $diasInforme = $row->work_dt_created ? Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false) : 0;
+        } elseif ($row->Partials->isNotEmpty()) {
+            $informe = 'PARCIAL';
+            $diasInforme = $row->Partials->last() ? Carbon::parse($row->Partials->last()->created_at)->diffInDays(Carbon::now(), false) : 0;
+        }
+
 
         // Obtendo a production relacionada
         $production = $row->productions->isNotEmpty() ? $row->productions->last() : null;
@@ -116,26 +125,29 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
 
         if ($row->adsform) {
+            $ads_origin = 'NOVO';
             $ads = $row->adsform->created_at->format('d/m/Y');
         } elseif ($row->OldAds->isNotEmpty()) {
+            $ads_origin = 'ANTIGO';
             $ads =  $row->OldAds->last()->date->format('d/m/Y');
         } else {
+            $ads_origin = 'SEM ADS';
             $ads = null;
         }
 
         return [
+            $informe,
             $row->note,
             $ordens,
             $dd,
-            $ads ? 'SIM' : 'NÃO',
+            $ads_origin,
             $ads ? $ads : '---',
             $row->postes ?? '---',
             $row->work_dt_created ? Carbon::parse($row->work_dt_created)->format('d/m/Y') : '---',
             $row->numPedido,
             $row->rubrica,
             $row->lexp,
-            $row->group2,
-            $row->group5,
+            "R$ ".number_format($sumOrders, 2, ',', '.'),
             $row->type_note == 2 ? $row->nstats : $row->centerjob,
             $diasInforme,
             $status,
@@ -171,7 +183,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
                 $sheet->getStyle('A:Z')->getAlignment()->setWrapText(true);
 
-                $event->sheet->getStyle('A1:P1')->applyFromArray([
+                $event->sheet->getStyle('A1:Q1')->applyFromArray([
                     'font' => [
                     'bold'  => true,
                     'color' => ['rgb' => 'FFFFFF'],
@@ -181,10 +193,11 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
                     'startColor' => ['rgb' => '0000FF'],
                     ],
                 ]);
-                $event->sheet->getStyle('A')->getNumberFormat()->setFormatCode('0');
                 $event->sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
                 $event->sheet->getStyle('C')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('E')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $event->sheet->getStyle('D')->getNumberFormat()->setFormatCode('0');
+                $event->sheet->getStyle('F')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $event->sheet->getStyle('H')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $event->sheet->autoSize();
             },
         ];

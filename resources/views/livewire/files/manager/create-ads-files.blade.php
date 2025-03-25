@@ -81,14 +81,11 @@
                         id="files" wire:model="files" multiple @disabled(!$uploadType)
                         placeholder="escolher primeiro o tipo de arquivo">
                     @error('files')
-                        @foreach ($errors->get('files.*') as $fileErrors)
-                            @foreach ($fileErrors as $error)
-                                <div class="invalid-feedback">
-                                    {{ $error }}
-                                </div>
-                            @endforeach
-                        @endforeach
+                        <div class="invalid-feedback">
+                            {{ $message }}
+                        </div>
                     @enderror
+
                 </div>
 
                 <!-- Barra de Progresso usando Alpine.js -->

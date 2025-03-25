@@ -160,10 +160,7 @@
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">Grp1</th>
-                            <th scope="col" class="fw-bold text-center">Grp2</th>
-                            <th scope="col" class="fw-bold text-center">Grp4</th>
-                            <th scope="col" class="fw-bold text-center">Grp5</th>
+                            <th scope="col" class="fw-bold text-center">MOA</th>
                             <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Dias Informe</th>
@@ -285,16 +282,10 @@
                                     @endif
 
                                 </td>
-                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->group1 }}</td>
-                                <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->group2 ? $list->group2 : '_____' }}
+                                <td class="fw-bold text-center {{ $rowClass }}">
+                                    R$ {{ number_format($list->orders?->sum('moaberto'), 2, ',', '.') }}
                                 </td>
-                                <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->group4 ? $list->group4 : '_____' }}
-                                </td>
-                                <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->group5 ? $list->group5 : '_____' }}
-                                </td>
+
 
 
 

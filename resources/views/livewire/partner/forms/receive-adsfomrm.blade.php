@@ -173,6 +173,9 @@
                                 role="status" aria-hidden="true"></span>
                         </button>
                     </div>
+                    @error('file')
+                        <div class="text-danger mt-1">{{ $message }}</div>
+                    @enderror
                     <div class="progress mb-2" x-show="isUploading">
                         <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
                             :style="`width: ${progress}%`">

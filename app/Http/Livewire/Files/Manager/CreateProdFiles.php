@@ -73,7 +73,10 @@ class CreateProdFiles extends Component
             foreach ($this->files as $file) {
 
                 // Bloqueio de arquivos não permitidos e limite de 10MB
-                $allowedExtensions = ['jpg', 'png', 'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods'];
+                $allowedExtensions = [
+                    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+                    'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods'
+                ];
                 $maxSizeBytes = 10 * 1024 * 1024; // 10MB
 
                 if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {

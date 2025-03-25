@@ -52,6 +52,22 @@ class DispatchController extends Controller
         }
     }
 
+    public function survey_stack2(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.stack2')) {
+            return view('dispatchs.' . $service->folder . '.stack2', [
+                'service' => $service,
+            ]);
+        } else {
+            // Se a view 'dispatchs.survey.stack' não existir, use uma view alternativa
+            return view('dispatchs.default.stack', [
+                'service' => $service,
+            ]);
+        }
+    }
+
     public function survey_transfer(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();

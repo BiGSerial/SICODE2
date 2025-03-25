@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Responsible\Actions;
 
 use App\Helpers\TextValidator;
 use App\Models\Note;
+use App\Models\Notetimeline;
 use App\Models\Service;
 use App\Models\Production;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ class RejectProject extends Component
         'hasFile',
         '9e2855529ed3d5bf67a254fe8061da6d' => 'saveReject',
         '9e2855529ed3d5bf67a254fe806sdsaw1212' => 'saveApproved',
+        '9e2855529ed3d5bf67a254fe806sdsaw3333' => 'cancelReclaim',
         'clearAll',
         'filesFailed',
         'filesSaved',
@@ -164,6 +166,62 @@ class RejectProject extends Component
             ]);
 
             return;
+        }
+    }
+
+    public function preCancelReclaims()
+    {
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Cancelar Rejeição',
+            'msg'           => "Você está prestes a cancelar a a rejeição da <strong>{$this->note->note}</strong> em {$this->category}.
+                <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Ao cancelar a rejeição, a produção existente caso haja será marcada como cancelada e atividade completada.</p>
+
+                <p class='fw-bold'>Deseja prosseguir?</p>
+                ",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Cancelar rejaição!',
+            'btnCanceltxt'  => 'Não, manter a rejeição!',
+            'action' => '9e2855529ed3d5bf67a254fe806sdsaw3333',
+            'cancel_titulo' => 'Mantido!',
+            'cancel_msg'    => 'Nenhuma rejeição foi cancelada.',
+        ]);
+
+    }
+
+
+    public function cancelReclaim()
+    {
+        if ($this->note->approval->Reclaims()->exists()) {
+            foreach ($this->note->approval->reclaims as $reclaim) {
+                if (!$reclaim->completed) {
+                    if ($production = $reclaim->production) {
+                        $production->update([
+                            'completed' => true,
+                            'completed_at' => now(),
+                            'confirmed' => true,
+                            'confirmed_at' => now(),
+                            'status' => 29,
+                        ]);
+
+                        $user = Auth()->User()->name;
+
+                        Notetimeline::Create([
+                            'note_id'    => $this->note->id,
+                            'service_id' => $production->service_id,
+                            'production_id' => $production->id,
+                            'user_id'    => Auth()->User()->id,
+                            'info'       => "Usuário {$user} cancelou a produção desta Nota/Ov.",
+                            'status'     => 29,
+                        ]);
+                    }
+
+                    $reclaim->update([
+                        'completed' => true,
+                        'completed_at' => now(),
+                    ]);
+                }
+            }
         }
     }
 

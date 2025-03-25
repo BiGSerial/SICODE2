@@ -6,6 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\Dispatchs\SupervisionExportList;
 use App\Exports\ExportDDExcel;
 use App\Exports\ExportDDSupervision;
+use App\Helpers\TextFormatter;
 use App\Models\Bancoupdate;
 use App\Models\Company;
 use App\Models\Edp_depc\City;
@@ -24,6 +25,7 @@ use PhpParser\Node\Expr\Empty_;
 class Main extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -119,6 +121,12 @@ class Main extends Component
     public function hide_edit()
     {
         $this->key = "";
+    }
+
+    public function updatedSearch()
+    {
+        $this->gotoPage(1);
+        $this->multiSearch = [];
     }
 
     public function municipio_update(Note $note)
@@ -686,32 +694,15 @@ class Main extends Component
 
     public function buscarMulti()
     {
-
         $this->gotoPage(1);
 
-        if ($this->advanceSearch) {
+        $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
 
+        if ($this->multiSearch) {
             $this->search = "";
-
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(" ", $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(",", $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(";", $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
-        }
-
-        if (count($this->multiSearch)) {
-            $this->closeall();
+            $this->gotoPage(1);
+            $this->advanceSearch = "";
+            $this->dispatchBrowserEvent('hideModal');
         }
     }
 
@@ -1022,8 +1013,7 @@ class Main extends Component
 
 
         if (strlen($this->search)) {
-            $this->gotoPage(1);
-            $this->multiSearch = [];
+
 
             $query->where(function ($q) {
                 return $q->where('note', 'like', '%' . trim($this->search) . '%')
@@ -1086,7 +1076,9 @@ class Main extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with('Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds')
+        $query->with(['orders' => function ($q) {
+            $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
+        },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds'])
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC');
 
