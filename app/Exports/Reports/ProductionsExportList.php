@@ -48,7 +48,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         $city = $this->cities->firstWhere('rdMunicipio', $row->Note->nexp);
 
-
         return [
             $row->Dispatcher ? $row->Dispatcher->name : '',
             isset($row->Dispatcher->Employee->Contract->company->name) ? $row->Dispatcher->Employee->Contract->company->name : '',
@@ -84,6 +83,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->confirmed ? 'Sim' : 'Não',
             Notestatus::status($row->status)->status,
             $row->Analise ? $row->Analise->conclusion : '',
+            $row->partial ? 'PARCIAL' : 'NORMAL',
         ];
     }
 
@@ -123,7 +123,8 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'RetornoInterno',
             'Situação',
             'Produção',
-            'Conclusão'
+            'Conclusão',
+            'Tipo de Produção',
 
         ];
     }
@@ -146,7 +147,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:AG1')->applyFromArray([
+                $event->sheet->getStyle('A1:AI1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)

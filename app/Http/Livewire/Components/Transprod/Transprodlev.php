@@ -51,7 +51,7 @@ class Transprodlev extends Component
     public function transfer_prod()
     {
 
-        $url = route('services.accompany', ['service' => $this->production->service_id]);
+        $url = route('services.main', ['service' => $this->production->service_id]);
 
         // Check existence user to transfer
         if (!$this->user_transfer_id) {

@@ -3,6 +3,7 @@
     use Carbon\CarbonInterval;
     use App\Custom\Notestatus;
     use App\Helpers\FileIcon;
+    use App\Helpers\DaysLeft;
 
 @endphp
 <div>
@@ -70,6 +71,13 @@
                                 <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">CENTRO DE TRABALHO</dt>
                                 <dd class="col-sm-8 fw-bold text-white text-uppercase">{{ $lists->centerjob }}</dd>
                             @endif
+
+                            @php
+                                $lastDate = (new DaysLeft($lists))->getLastDate();
+                            @endphp
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1 align-middle">PRAZO OBRA</dt>
+                            <dd class="col-sm-8 fw-bold text-warning text-uppercase">{{ $lastDate }}</dd>
+
                         </dl>
 
                         @if ($lists->Orders->count())

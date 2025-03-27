@@ -14,7 +14,7 @@ use Livewire\Component;
 
 class AnaliseDashboard extends Component
 {
-    public $chartId;
+    public $chartId1;
     public $chartId2;
     public $chartId3;
     public $chartId4;
@@ -92,13 +92,13 @@ class AnaliseDashboard extends Component
 
     public function mount()
     {
-        $this->chartId = 'chart-' . Str::random(8);
+        $this->chartId1 = 'chart1-' . Str::random(8);
         $this->chartId2 = 'chart2-' . Str::random(8);
-        $this->chartId3 = 'chart-' . Str::random(8);
-        $this->chartId4 = 'chart-' . Str::random(8);
-        $this->chartId5 = 'chart-' . Str::random(8);
-        $this->chartId6 = 'chart2-' . Str::random(8);
-        $this->chartId7 = 'chart-' . Str::random(8);
+        $this->chartId3 = 'chart3-' . Str::random(8);
+        $this->chartId4 = 'chart4-' . Str::random(8);
+        $this->chartId5 = 'chart5-' . Str::random(8);
+        $this->chartId6 = 'chart6-' . Str::random(8);
+        $this->chartId7 = 'chart7-' . Str::random(8);
 
 
         // Data inicial e final do mês
@@ -165,7 +165,7 @@ class AnaliseDashboard extends Component
 
         $this->dadosGrafico = $novosDados;
 
-        $this->updateData($this->chartId, $novosDados['labels'], $novosDados['data']);
+        $this->updateData($this->chartId1, $this->dadosGrafico['labels'], $this->dadosGrafico['data']);
     }
 
     public function atualizarDados2()
@@ -279,7 +279,7 @@ class AnaliseDashboard extends Component
 
         // $this->updateData($this->chartId, $novosDados['labels'], $novosDados['data']);
 
-        $this->emit('updateGraph1' . Str::studly($this->chartId), [
+        $this->emit('updateGraph1' . Str::studly($this->chartId2), [
             'labels' => $novosDados['labels'],
             'dataset1Data' => $novosDados['data1'],
             'dataset2Data' => $novosDados['data2']
@@ -680,7 +680,7 @@ class AnaliseDashboard extends Component
 
     private function updateData(string $chartId = null, array $labels = [], array $data = [])
     {
-        $this->dispatchBrowserEvent('updateGraph' . Str::studly($this->chartId), [
+        $this->dispatchBrowserEvent('updateGraph' . Str::studly($chartId), [
             'labels' => $labels,
             'data' => $data,
         ]);

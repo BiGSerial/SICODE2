@@ -87,14 +87,14 @@
 
 
         <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
+            <div class="card" wire:ignore.self wire:key="{{ $chartId3 }}">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Liberados para Contratação</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarAprovedCategory"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
+                        <span wire:loading wire:target="atualizarAprovedCategory"
+                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     </button>
                 </div>
                 <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
@@ -106,11 +106,7 @@
                 <div class="card-body">
                     <x-grafico.pie-chart :chart-id="$chartId3" :labels="$dadosGrafico2['labels']" :dataset="$dadosGrafico2['data']" height="300px" />
                 </div>
-                @if (!array_sum($dadosGrafico2['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
-                    </div>
-                @endif
+
                 <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
                     <em>Obs: É considerado apenas os aprovados.</em>
                 </p>
@@ -118,13 +114,13 @@
         </div>
 
         <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
+            <div class="card" wire:ignore.self wire:key="{{ $chartId1 }}">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Categoria Retorno (Geral)</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="getReclaimsProperty"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
+                        <span wire:loading wire:target="getReclaimsProperty" class="spinner-border spinner-border-sm"
                             role="status" aria-hidden="true"></span>
                     </button>
                 </div>
@@ -135,27 +131,24 @@
                     </em>
                 </p>
                 <div class="card-body">
-                    <x-grafico.pie-chart :chart-id="$chartId" :labels="$dadosGrafico['labels']" :dataset="$dadosGrafico['data']" height="300px" />
+                    <x-grafico.pie-chart :chart-id="$chartId1" :labels="$dadosGrafico['labels']" :dataset="$dadosGrafico['data']" height="300px" />
                 </div>
-                @if (!array_sum($dadosGrafico['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
-                    </div>
-                @endif
+
                 <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
                     <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
                 </p>
             </div>
         </div>
 
-        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
+        <div class="col-md-4" wire:ignore.self wire:key="{{ $chartId7 }}">
+            <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Categoria Retorno (Em Aberto)</h3>
                     <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados2"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
+                        <span wire:loading wire:target="atualizarDados2" class="spinner-border spinner-border-sm"
                             role="status" aria-hidden="true"></span>
                     </button>
                 </div>
@@ -168,11 +161,7 @@
                 <div class="card-body">
                     <x-grafico.pie-chart :chart-id="$chartId7" :labels="$dadosGrafico4['labels']" :dataset="$dadosGrafico4['data']" height="300px" />
                 </div>
-                @if (!array_sum($dadosGrafico4['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
-                    </div>
-                @endif
+
                 <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
                     <em>Obs: É considerado apenas ainda em aberto em Retorno Interno.</em>
                 </p>
@@ -181,10 +170,10 @@
 
 
         <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
+            <div class="card" wire:ignore.self wire:key="{{ $chartId5 }}">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Retornos por Origem</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click.prevent="atualizarReclaimType"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
                         <span wire:loading wire:target="atualizarReclaimType" class="spinner-border spinner-border-sm"
@@ -200,11 +189,7 @@
                 <div class="card-body">
                     <x-grafico.pie-chart :chart-id="$chartId5" :labels="$pizzaReturnInternData['labels']" :dataset="$pizzaReturnInternData['data']" height="300px" />
                 </div>
-                @if (!array_sum($pizzaReturnInternData['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
-                    </div>
-                @endif
+
                 <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
                     <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
                 </p>

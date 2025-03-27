@@ -57,7 +57,8 @@
                 <tbody>
                     @foreach ($lists as $list)
                         <tr class="text-center" style="cursor: pointer;"
-                            wire:click.prevent="$emitTo('engineers.actions.check-partial', 'show_form', {{ $list->id }})">
+                            data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover" data-bs-content="duplo clique para mais detalhes"
+                            wire:dblclick.prevent="$emitTo('engineers.actions.check-partial', 'show_form', {{ $list->id }})">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
                             <td>
                                 @if ($list->Orders)
