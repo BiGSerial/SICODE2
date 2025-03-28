@@ -19,11 +19,8 @@ class Hiredviability extends Component
 
             if (!Auth()->User()->superadm) {
 
-                if (isset(Auth()->User()->Employee->Contract->Company->id)) {
-                    $q->where('company_id', Auth()->User()->Employee->Contract->company->id);
-                } else {
-                    $q->where('company_id', null);
-                }
+                $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                ->orWhere('company_id', Auth()->user()->Company->id);
             }
 
         })

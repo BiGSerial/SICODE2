@@ -31,7 +31,8 @@ class WorkedRejectedList extends Component
     public function getListsProperty()
     {
         return WorkReport::when(!Auth()->User()->superadm, function ($q) {
-            $q->where('company_id', Auth()->User()->Employee->Contract->company->id);
+            $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+            ->orWhere('company_id', Auth()->user()->Company->id);
         })
         ->where('rejected', true)
         ->paginate($this->perPage);

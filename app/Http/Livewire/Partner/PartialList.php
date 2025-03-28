@@ -59,7 +59,8 @@ class PartialList extends Component
         $query = Partial::query();
 
         if (!auth()->user()->superadm) {
-            $query->where('company_id', auth()->user()->company_id);
+            $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+            ->orWhere('company_id', Auth()->user()->Company->id);
         }
 
         if ($this->search) {

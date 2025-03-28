@@ -123,6 +123,9 @@
                     <table class="table-sm table-condensed table-striped-columns">
                         <thead>
                             <tr>
+                                @can('engineer')
+                                    <th class='text-center'>Empreiteira</th>
+                                @endcan
                                 <th class='text-center'>Nota</th>
                                 <th class='text-center'>Recebido em</th>
                                 <th class='text-center'>Viabilizar até</th>
@@ -132,6 +135,10 @@
                         <tbody>
                             @foreach ($dueSoon as $item)
                                 <tr>
+                                    @can('engineer')
+                                        <td class="text-center align-middle fw-bold">
+                                            {{ $item->company->name }}</td>
+                                    @endcan
                                     <td class="text-center align-middle fw-bold">{{ $item->note->note }}</td>
                                     <td class="text-center align-middle text-primary">
                                         {{ $item->sended_at->format('d/m/Y') }}</td>

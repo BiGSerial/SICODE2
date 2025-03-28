@@ -41,18 +41,27 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Nota', 'Rubrica', 'Municipio', 'Empreiteira', 'DataExecução', 'DataInformada', 'Status', 'CenterJob', 'DataVencimento', 'Empresa', 'Usuario'
+            'Nota', 'Rubrica', 'Municipio', 'Empreiteira', 'Informe SMC', 'Informe Final Exec', 'Informe Final Data', 'Status', 'CenterJob', 'DataVencimento', 'Empresa', 'Usuario'
         ];
     }
 
 
     public function map($row): array
     {
+
+        $company = '';
+        if ($row->WorkForm) {
+            $company = $row->WorkForm->Company?->name;
+        } elseif ($row->RamalForm) {
+            $company = $row->RamalForm->Company?->name;
+        }
+
         return [
             $row->note,
             $row->rubrica,
             $row->lexp,
-            isset($row->WorkForm->Company->name) ? $row->WorkForm->Company->name : '',
+            $company,
+            $row->RamalForm?->created_at->format('d/m/Y'),
             isset($row->WorkForm->date) ? Carbon::parse($row->WorkForm->date)->format('d/m/Y') : '',
             isset($row->WorkForm->informed_at) ? Carbon::parse($row->WorkForm->informed_at)->format('d/m/Y H:i:s') : '',
             $row->nstats,
@@ -68,7 +77,7 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
         return [
             AfterSheet::class => function (AfterSheet $event) {
 
-                $event->sheet->getStyle('A1:K1')->applyFromArray([
+                $event->sheet->getStyle('A1:L1')->applyFromArray([
                     'font' => [
                     'bold'  => true,
                     'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
@@ -83,9 +92,10 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
                 $event->sheet->getStyle('A')->getNumberFormat()->setFormatCode('0');
 
                 // Formata as colunas F, H, J para data (d/m/Y)
-                $event->sheet->getStyle('E')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $event->sheet->getStyle('E')->getNumberFormat()->setFormatCode('dd/mm/yyyy HH:mm:ss');
                 $event->sheet->getStyle('F')->getNumberFormat()->setFormatCode('dd/mm/yyyy HH:mm:ss');
-                $event->sheet->getStyle('I')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $event->sheet->getStyle('G')->getNumberFormat()->setFormatCode('dd/mm/yyyy HH:mm:ss');
+                $event->sheet->getStyle('J')->getNumberFormat()->setFormatCode('dd/mm/yyyy HH:mm:ss');
 
                 // Formata as colunas G, I, K para hora (H:i:s)
                 // $event->sheet->getStyle('G')->getNumberFormat()->setFormatCode('HH:mm:ss');

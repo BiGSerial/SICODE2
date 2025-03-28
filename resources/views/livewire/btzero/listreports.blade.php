@@ -39,6 +39,7 @@
                 <thead>
                     <tr class="text-center">
                         <th>Nota</th>
+                        <th>Files</th>
                         <th>Empresa</th>
                         <th>Usuário</th>
                         <th>Informe Digitado</th>
@@ -46,47 +47,139 @@
                         <th>Publicação Parcial</th>
                         <th>Publicação Final</th>
                         <th>Atualização</th>
-                        <th>Dias</th>
+
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($lists as $list)
                         @php
-                            $daysDifference = $list->WorkForm
-                                ? Carbon::parse($list->RamalForm->created_at)
-                                    ->startOfDay()
-                                    ->diffInDays(Carbon::parse($list->WorkForm->created_at)->startOfDay())
-                                : Carbon::parse($list->RamalForm->created_at)
-                                    ->startOfDay()
-                                    ->diffInDays(Carbon::now()->startOfDay());
 
-                            $daysRowClass = '';
+                            // ------------------------------
+                            // Lógica para $daysWorkForm
+                            // ------------------------------
+                            $daysWorkForm = null;
 
-                            if ($daysDifference > 3) {
-                                $daysRowClass = 'text-bg-danger';
-                            } elseif ($daysDifference > 2) {
-                                $daysRowClass = 'text-bg-warning';
-                            } elseif ($daysDifference > 1) {
-                                $daysRowClass = 'text-bg-info';
+                            if ($list->WorkForm && !$list->WorkForm->rejected) {
+                                $daysWorkForm = $list->WorkForm?->informed_at?->format('d/m/Y');
                             } else {
-                                $daysRowClass = 'text-bg-success';
+                                $createdAt = Carbon::parse($list->RamalForm->created_at)->startOfDay();
+                                $now = Carbon::now()->startOfDay();
+                                $daysDiff = $createdAt->diffInDays($now);
+                                $daysWorkForm = $createdAt->isToday() ? 0 : $daysDiff;
                             }
+
+                            $WorkDaysColor = '';
+
+                            if (is_int($daysWorkForm)) {
+                                if ($daysWorkForm > 6) {
+                                    $WorkDaysColor = 'text-bg-danger';
+                                } elseif ($daysWorkForm <= 2) {
+                                    $WorkDaysColor = 'text-bg-success';
+                                } else {
+                                    $WorkDaysColor = 'text-bg-warning';
+                                }
+                            }
+
+                            // ------------------------------
+                            // Lógica para $ProdParcialDays
+                            // ------------------------------
+                            $ProdParcialDays = '';
+                            $partialColors = '';
+
+                            if ($list->productions && $list->productions->isNotEmpty()) {
+                                $lastProduction = $list->productions->last();
+
+                                if ($lastProduction && $lastProduction->partial_at) {
+                                    $ProdParcialDays = $lastProduction->partial_at->format('d/m/Y');
+                                } elseif (
+                                    $lastProduction &&
+                                    $lastProduction->att_at &&
+                                    !($lastProduction->status == 28) &&
+                                    !$list->RamalForm->rejected &&
+                                    !$list->Workform
+                                ) {
+                                    $ProdParcialDays = $lastProduction->att_at->diffInDays(Carbon::now());
+                                } else {
+                                    $ProdParcialDays = '---';
+                                }
+                            } elseif (!$list->productions) {
+                                if ($list->RamalForm && $list->RamalForm->informed_at && !$list->RamalForm->rejected) {
+                                    $ProdParcialDays = $list->RamalForm->informed_at->diffInDays(Carbon::now());
+                                } else {
+                                    $ProdParcialDays = '---';
+                                }
+                            } else {
+                                $ProdParcialDays = '---';
+                            }
+
+                            if (is_int($ProdParcialDays)) {
+                                if ($ProdFinalDays > 4) {
+                                    $partialColors = 'text-bg-danger';
+                                } elseif ($ProdFinalDays <= 1) {
+                                    $partialColors = 'text-bg-success';
+                                } else {
+                                    $partialColors = 'text-bg-warning';
+                                }
+                            }
+
+                            // ------------------------------
+                            // Lógica para $ProdFinalDays
+                            // ------------------------------
+                            $ProdFinalDays = '';
+                            $finalColors = '';
+
+                            if ($list->productions && $list->productions->isNotEmpty() && $list->Workform) {
+                                $lastProduction = $list->productions->last();
+
+                                if ($lastProduction && $lastProduction->completed_at) {
+                                    $ProdFinalDays = $lastProduction->completed_at->format('d/m/Y');
+                                } elseif ($list->Workform && !$list->Workform->rejected) {
+                                    $ProdFinalDays = $list->Workform->informed_at->diffInDays(Carbon::now());
+                                } else {
+                                    $ProdFinalDays = '---';
+                                }
+                            } elseif ($list->Workform && !$list->Workform->rejected) {
+                                $ProdFinalDays = $list->Workform->informed_at->diffInDays(Carbon::now());
+                            } else {
+                                $ProdFinalDays = '---';
+                            }
+
+                            if (is_int($ProdFinalDays)) {
+                                if ($ProdFinalDays > 4) {
+                                    $finalColors = 'text-bg-danger';
+                                } elseif ($ProdFinalDays <= 1) {
+                                    $finalColors = 'text-bg-success';
+                                } else {
+                                    $finalColors = 'text-bg-warning';
+                                }
+                            }
+
+                            // Agora você tem:
+                            // $daysWorkForm (data formatada ou número de dias)
+                            // $WorkDaysColor (classe CSS para a cor)
+                            // $ProdParcialDays (data/hora formatada, número de dias ou '---')
+                            // $ProdFinalDays (data formatada ou número de dias ou null)
+                            // $finalColors (classe CSS para a cor)
 
                             $rowClass = '';
 
-                            if ($list->rejected) {
+                            if ($list->RamalForm?->rejected || $list->WorkForm?->rejected) {
                                 $rowClass = 'table-warning';
-                            } elseif ($list->RamalForm && $list->WorkForm) {
+                            } elseif ($list->RamalForm && $list->WorkForm && !$list->WorkForm->rejected) {
                                 $rowClass = 'table-success';
                             }
 
                         @endphp
-                        <tr class="text-center"
+                        <tr class="text-center align-middle"
                             wire:dblClick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list }})"
                             style="cursor: pointer;" data-bs-toggle="tooltip" data-bs-placement="left"
                             data-bs-title="Duplo Clique para abrir a comparação">
 
                             <td class="fw-bold {{ $rowClass }}">{{ $list->note }}</td>
+                            <td class="text-center {{ $rowClass }}">
+                                @if ($list->files)
+                                    <x-files.select-download-list :files="$list->files" />
+                                @endif
                             <td class="{{ $rowClass }}">
                                 {{ $list->RamalForm ? $list->RamalForm->Company->name : '---' }}</td>
                             <td class="{{ $rowClass }}">
@@ -94,22 +187,17 @@
                             <td class="{{ $rowClass }}">
                                 {{ $list->RamalForm ? Carbon::parse($list->RamalForm->created_at)->format('d/m/Y') : 'Não Informado' }}
                             </td>
-                            <td class="{{ $rowClass }}">
-                                {{ $list->WorkForm ? Carbon::parse($list->WorkForm->created_at)->format('d/m/Y') : 'Não Informado' }}
+                            <td class="{{ $rowClass }} {{ $WorkDaysColor }} borde_end border-1">
+
+                                {{ is_int($daysWorkForm) ? $daysWorkForm . ' dias' : $daysWorkForm }}
                             </td>
-                            <td class="{{ $rowClass }}">
-                                @if ($list->productions && isset($list->productions->last()->partial_at))
-                                    {{ $list->productions->last()->partial_at->format('d/m/Y') }}
-                                @else
-                                    ---
-                                @endif
+                            <td class="{{ $rowClass }} {{ $partialColors }} borde_end border-1">
+
+                                {{ is_int($ProdParcialDays) ? $ProdParcialDays . ' dias' : $ProdParcialDays }}
                             </td>
-                            <td class="{{ $rowClass }}">
-                                @if ($list->productions && isset($list->productions->last()->completed_at))
-                                    {{ $list->productions->last()->completed_at->format('d/m/Y') }}
-                                @else
-                                    ---
-                                @endif
+                            <td class="{{ $rowClass }} {{ $finalColors }} borde_end border-1">
+                                {{ is_int($ProdFinalDays) ? $ProdFinalDays . ' dias' : $ProdFinalDays }}
+
                             </td>
                             <td class="{{ $rowClass }}">
                                 @if ($list->productions && $list->productions->last())
@@ -128,7 +216,7 @@
 
 
 
-                            <td class="text-center fw-bold {{ $daysRowClass }}">{{ $daysDifference }}</td>
+
 
                         </tr>
                     @endforeach

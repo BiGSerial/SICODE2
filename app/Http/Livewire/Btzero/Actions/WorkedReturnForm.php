@@ -135,8 +135,11 @@ class WorkedReturnForm extends Component
 
         Production::where('note_id', $this->workReport->note_id)
             ->where('status', 20)
-
-            ->update(['status' => 10]);
+            ->update([
+                'status' => 10,
+                'att_at' => now(),
+                'att_by' => auth()->user()->id,
+            ]);
 
 
         $this->closeAll();

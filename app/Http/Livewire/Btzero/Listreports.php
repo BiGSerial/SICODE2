@@ -137,11 +137,9 @@ class Listreports extends Component
 
     public function render()
     {
-        return view(
-            'livewire.btzero.listreports',
-            [
-            'lists' => $this->lists->paginate(30),
-        ]
+        return view('livewire.btzero.listreports', [
+            'lists' => $this->lists->paginate(30)
+            ]
         );
     }
 }

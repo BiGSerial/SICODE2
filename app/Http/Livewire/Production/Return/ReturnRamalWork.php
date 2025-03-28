@@ -79,7 +79,7 @@ class ReturnRamalWork extends Component
             'btnCanceltxt'  => 'Não, Cancele',
             'action'        => 'confirm_return_ramal',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
+            'cancel_msg'    => 'Nenhum informe foi devolvido.',
 
         ]);
     }

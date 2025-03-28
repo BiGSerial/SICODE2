@@ -84,6 +84,12 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             Notestatus::status($row->status)->status,
             $row->Analise ? $row->Analise->conclusion : '',
             $row->partial ? 'PARCIAL' : 'NORMAL',
+            $row->Note->RamalForm ? 'SIM' : 'NÃO',
+            $row->Note->RamalForm?->created_at->format('d/m/Y H:i:s'),
+            $row->partial_at?->format('d/m/Y H:i:s'),
+            $row->Note->WorkForm ? 'SIM' : 'NÃO',
+            $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
+            $row->Note->WorkForm && $row->Note->WorkForm->rejected ? 'REJEITADO' : 'NORMAL',
         ];
     }
 
@@ -125,6 +131,13 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Produção',
             'Conclusão',
             'Tipo de Produção',
+            'SMC',
+            'Data SMC',
+            'SMC Publicado em',
+            'Informe Final',
+            'Data Informe Final',
+            'Status Informe Final',
+
 
         ];
     }
@@ -147,7 +160,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:AI1')->applyFromArray([
+                $event->sheet->getStyle('A1:AO1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)

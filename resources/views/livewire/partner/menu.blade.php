@@ -63,24 +63,28 @@
 
                 <ul id="conclusion-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
-                        <li>
-                            <a href="{{ route('partner.report.workreport') }}" class="nav-item text-white">
-                                <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informar Conclusão de
-                                    Obras</span>
-                            </a>
-                        </li>
+                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner))
+                            <li>
+                                <a href="{{ route('partner.report.workreport') }}" class="nav-item text-white">
+                                    <i class="ri-user-voice-line fw-light fs-5"></i> <span>Informar Conclusão de
+                                        Obras</span>
+                                </a>
+                            </li>
+                        @endif
                         <li>
                             <a href="{{ route('partner.report.rejectedWorked') }}" class="nav-item text-white">
                                 <i class="ri-user-voice-fill fw-light fs-5"></i> <span>Informe Conclusão
                                     Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
                             </a>
                         </li>
-                        <li>
-                            <a href="{{ route('partner.report.sendAdsForm') }}" class="nav-item text-white">
-                                <i class="ri-file-3-line fw-light fs-5"></i> <span>Entregar ADS
-                                </span>
-                            </a>
-                        </li>
+                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner))
+                            <li>
+                                <a href="{{ route('partner.report.sendAdsForm') }}" class="nav-item text-white">
+                                    <i class="ri-file-3-line fw-light fs-5"></i> <span>Entregar ADS
+                                    </span>
+                                </a>
+                            </li>
+                        @endif
                         <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Concluídas Informadas</span>
@@ -106,13 +110,15 @@
 
                 <ul id="partial-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
-                        <li>
-                            <a href="{{ route('partner.report.partial') }}" class="nav-item text-white">
-                                <i class="ri-user-voice-line fw-light fs-5 text-warning"></i> <span>Informar
-                                    Parcialmente
-                                    Obras</span>
-                            </a>
-                        </li>
+                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner))
+                            <li>
+                                <a href="{{ route('partner.report.partial') }}" class="nav-item text-white">
+                                    <i class="ri-user-voice-line fw-light fs-5 text-warning"></i> <span>Informar
+                                        Parcialmente
+                                        Obras</span>
+                                </a>
+                            </li>
+                        @endif
 
                         <li>
                             <a href="{{ route('partner.report.partiallist') }}" class="nav-item text-white">

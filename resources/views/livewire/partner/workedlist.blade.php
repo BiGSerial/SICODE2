@@ -189,6 +189,9 @@
                             <th class="text-center" scope="col">Entregue Em</th>
                             <th class="text-center" scope="col">ADS</th>
                             <th class="text-center" scope="col">DT ADS</th>
+                            @can('engineer')
+                                <th class="text-center" scope="col">Empreiteira</th>
+                            @endcan
                         </tr>
                     </thead>
                     <tbody>
@@ -245,6 +248,11 @@
                                         {{ $list->note->oldAds->isNotEmpty() ? $list->note->oldAds->last()->date->format('d/m/Y H:i:s') : '---' }}
                                     @endif
                                 </td>
+                                @can('engineer')
+                                    <td class="text-center align-middle">
+                                        {{ $list->Company?->name }}
+                                    </td>
+                                @endcan
                             </tr>
                         @endforeach
                     </tbody>

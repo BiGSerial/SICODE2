@@ -2,6 +2,7 @@
     use App\Custom\Viabilitiesstatus;
     use App\Custom\Notestatus;
     use Carbon\Carbon;
+    use App\Helpers\SelectOptions;
 @endphp
 
 @push('css')
@@ -73,10 +74,14 @@
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row">
+            <div class="row align-items-center mb-3">
+                <!-- Ajuste a margem inferior para melhor espaçamento -->
 
-                <div class="col-sm-4  col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
+                <!-- Itens por página -->
+                <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                    <!-- Reduz a largura em telas maiores -->
+                    <label for="perPage" class="visually-hidden">Itens por página</label>
+                    <select name="perPage" id="perPage" class="form-select border border-secondary" wire:model="perPage">
                         <option value="25">25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
@@ -85,44 +90,95 @@
                     </select>
                 </div>
 
-                <div class="col-sm-8 col-md-2 col-xxl-2 mb-3">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                <!-- Campo de Busca com Botão de Copiar -->
+                <div class="col-sm-6 col-md-4 col-lg-3 mb-2">
+                    <div class="input-group">
+                        <input type="text" class="form-control border border-secondary" placeholder="Buscar"
+                            wire:model.debounce.2s="search">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="tooltip"
+                            data-bs-placement="top" data-bs-title="Buscar MultiNotas"><i
+                                class="ri-file-copy-line"></i></button> <!-- Ícone de copiar -->
+                    </div>
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                <!-- Seleção de Mês -->
+                <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                    <label for="month" class="visually-hidden">Mês</label>
+                    <input type="month" id="month" class="form-control border border-secondary" wire:model="month"
+                        min="2023-01" max="{{ date('Y-m') }}" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Mes de Referência">
+                </div>
+
+                <!-- Data Inicial -->
+                <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                    <label for="date_in" class="visually-hidden">Data Inicial</label>
                     <input type="date" id="date_in" class="form-control border border-secondary"
                         wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Data Inicial">
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
+                <!-- Data Final -->
+                <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                    <label for="date_out" class="visually-hidden">Data Final</label>
                     <input type="date" id="date_out" class="form-control border border-secondary"
                         wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
                         data-bs-title="Data Final">
                 </div>
 
-                {{-- <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data por Coluna">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
+                <!-- Seleção de Empreiteira -->
+                @can('engineer')
+                    <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                        <label for="contractor" class="visually-hidden">Empreiteira</label>
+                        <select name="contractor" id="contractor" class="form-select border border-secondary"
+                            wire:model="companySelected" data-bs-toggle="tooltip" data-bs-placement="top"
+                            data-bs-title="Empreiteira">
+                            <option value="">Todas Empreiteiras</option>
+                            @if (Auth()->User()->Companies->isNotEmpty())
+                                @foreach (Auth()->User()->Companies as $company)
+                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                @endcan
+
+                <!-- Tipo de Movimento -->
+                <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                    <label for="movementType" class="visually-hidden">Tipo de Movimento</label>
+                    <select name="movementType" id="movementType" class="form-select border border-secondary"
+                        wire:model="moviment">
+                        <option value="">Todos os Movimentos</option>
+                        <option value="1">Instalação</option>
+                        <option value="0">Desinstalação</option>
                     </select>
-                </div> --}}
-                <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button>
                 </div>
 
+                <!-- Tipo de Equipamento -->
+                <div class="col-sm-6 col-md-3 col-lg-2 mb-2">
+                    <label for="equipmentType" class="visually-hidden">Tipo de Equipamento</label>
+                    <select name="equipmentType" id="equipmentType" class="form-select border border-secondary"
+                        wire:model="equipType">
+                        <option value="">Todos os Equipamentos</option>
+                        @foreach (SelectOptions::getEquipmentOptions() as $equipmentType)
+                            <option value="{{ $equipmentType->nick }}">{{ $equipmentType->info }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-                {{-- <div class="col d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner_forms'], key('removeAll'))
-                </div> --}}
+                <!-- Botão de Limpar -->
+                <div class="col-sm-6 col-md-3 col-lg-1 mb-2">
+                    <button class="btn btn-danger btn-sm w-100" wire:click.prevent='cleanAll()' data-bs-toggle="tooltip"
+                        data-bs-placement="top" data-bs-title="Limpar Busca por Datas">
+                        <i class="ri-find-replace-line fs-5"></i>
+                    </button>
+                </div>
+
+                <div class="col d-flex justify-content-end">
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'equipment', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'equipment', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'equipment', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'equipment'], key('removeAll'))
+                </div>
 
             </div>
         </div>
@@ -155,12 +211,11 @@
                     <div class="col">
                         <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">EQUIPAMENTOS INFORMADOS</h4>
                     </div>
-                    {{-- <div class="col-3 d-flex justify-content-end">
-
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
-
-                    </div> --}}
+                    <div class="col-auto d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" wire:click.prevent='export_excel'>
+                            <i class="ri-file-excel-2-line align-middle"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">
@@ -182,7 +237,8 @@
                         @foreach ($equipments as $list)
                             <tr wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->WorkReport }})"
                                 wire:key="{{ $list->id }}">
-                                <td class="text-center fw-bold align-middle text-uppercase">{{ $list->patrimony }}</td>
+                                <td class="text-center fw-bold align-middle text-uppercase">{{ $list->patrimony }}
+                                </td>
                                 <td class="text-center align-middle">
                                     {{ $list->type }}
                                 </td>
