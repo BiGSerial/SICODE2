@@ -19,8 +19,10 @@ class Hiredviability extends Component
 
             if (!Auth()->User()->superadm) {
 
-                $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                ->orWhere('company_id', Auth()->user()->Company->id);
+                $q->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+                });
             }
 
         })

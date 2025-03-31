@@ -25,6 +25,7 @@ class ApprovalList extends Component
     public $multinotas = [];
     public $selected = [];
     public $select_all = false;
+    public $noAttribution = false;
 
     private $filter_group = 'analises';
     private $filter;
@@ -212,6 +213,11 @@ class ApprovalList extends Component
         $this->gotoPage(1);
     }
 
+    public function toggleAtrtibution()
+    {
+        $this->noAttribution = !$this->noAttribution;
+        $this->gotoPage(1);
+    }
 
 
 
@@ -277,6 +283,10 @@ class ApprovalList extends Component
                $q->where('operacao', '0010');
            },
         ]);
+
+        if ($this->noAttribution) {
+            $query->whereDoesntHave('Approval');
+        }
 
         if ($this->typeNote) {
             $query->where('type_note', $this->typeNote);

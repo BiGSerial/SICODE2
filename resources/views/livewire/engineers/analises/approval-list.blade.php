@@ -35,12 +35,21 @@
             <label class="btn btn-outline-primary" for="ambas">Ambas</label>
         </div>
 
+        <!-- Botão SEM ATRIBUIÇÃO com indicador de ativado/desativado -->
+        <div class="me-3">
+            <button type="button" class="btn btn-sm {{ $noAttribution ? 'btn-success' : 'btn-outline-secondary' }}"
+                wire:click="toggleAtrtibution">
+                SEM ATRIBUIÇÃO
+
+            </button>
+        </div>
+
         <!-- Quatro botões alinhados -->
         <div class="btn-group" role="group" aria-label="Ações">
             @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            {{-- @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional')) --}}
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
         </div>
@@ -157,16 +166,20 @@
                                     {{ $days }}
                                 </td>
                                 <td class="text-center align-middle {{ $colorAtt }}">
-                                    {{ $user }}
-                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
-                                            style="cursor: not-allowed;"></i>
-                                    </span>
-                                    <span wire:loading.remove wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-play-circle-line text-success fs-4 fw-bold"
-                                            wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
-                                            style="cursor: pointer;"></i>
-                                    </span> --}}
+
+                                    @if ($user)
+                                        {{ $user }}
+                                    @else
+                                        <span wire:loading wire:target="onlySelected({{ $list->id }})">
+                                            <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
+                                                style="cursor: not-allowed;"></i>
+                                        </span>
+                                        <span wire:loading.remove wire:target="onlySelected({{ $list->id }})">
+                                            <i class="ri-play-circle-line text-success fs-4 fw-bold"
+                                                wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
+                                                style="cursor: pointer;"></i>
+                                        </span>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -193,8 +206,8 @@
     @endif
 
     {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
+    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1"
+        aria-labelledby="exampleModalLabel" aria-hidden="true">
 
 
         <div class="modal-dialog">

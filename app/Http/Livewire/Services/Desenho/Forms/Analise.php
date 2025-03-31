@@ -118,7 +118,8 @@ class Analise extends Component
         'confirm_goFinish'  => 'goFinish',
         'clean' => 'clean',
         'hasFile',
-        'savedFiles'
+        'savedFiles',
+        'continue' => 'toContinue',
 
     ];
 
@@ -617,13 +618,15 @@ class Analise extends Component
 
                 DB::commit();
 
-                if ($this->hasFile) {
-                    $this->emitTo('files.manager.create-prod-files', 'saveFiles');
-                } else {
-                    $this->clean();
-                    $this->dispatchBrowserEvent('hideModal');
-                    $this->emit('refresh_accomany');
-                }
+                $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+
+                // if ($this->hasFile) {
+                //     $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+                // } else {
+                //     $this->clean();
+                //     $this->dispatchBrowserEvent('hideModal');
+                //     $this->emit('refresh_accomany');
+                // }
 
             }
 
@@ -639,6 +642,21 @@ class Analise extends Component
 
             return;
         }
+    }
+
+    public function toContinue()
+    {
+        $this->clean();
+        $this->dispatchBrowserEvent('hideModal');
+        $this->emit('refresh_accomany');
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'ENCERRADO COM SUCESSO',
+            'html'     => 'Nota/OV encerrada com sucesso.',
+            'timer'   => 2500,
+        ]);
+
     }
 
     public function savedFiles()

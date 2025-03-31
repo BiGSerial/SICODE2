@@ -10,8 +10,10 @@ class Returnworkforms extends Component
     public function getSumProperty()
     {
         return WorkReport::when(!Auth()->User()->superadm, function ($q) {
-            $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-            ->orWhere('company_id', Auth()->user()->Company->id);
+            $q->where(function ($query) {
+                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                    ->orWhere('company_id', Auth()->user()->Company->id);
+            });
         })
         ->where('rejected', true)
         ->count();

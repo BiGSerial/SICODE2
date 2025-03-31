@@ -66,11 +66,11 @@
                         <div class="card-body">
                             <x-grafico.pie-chart :chart-id="$pizza1" :labels="$dadospizza1['labels']" :dataset="$dadospizza1['data']" height="300px" />
                         </div>
-                        @if (!array_sum($dadospizza1['data']))
+                        {{-- @if (!array_sum($dadospizza1['data']))
                             <div class="card py-3">
                                 <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
                             </div>
-                        @endif
+                        @endif --}}
                         <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
                             <em></em>
                         </p>
@@ -98,11 +98,11 @@
                         <div class="card-body">
                             <x-grafico.pie-chart :chart-id="$pizza2" :labels="$dadospizza2['labels']" :dataset="$dadospizza2['data']" height="300px" />
                         </div>
-                        @if (!array_sum($dadospizza2['data']))
+                        {{-- @if (!array_sum($dadospizza2['data']))
                             <div class="card py-3">
                                 <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
                             </div>
-                        @endif
+                        @endif --}}
                         <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
                             <em></em>
                         </p>

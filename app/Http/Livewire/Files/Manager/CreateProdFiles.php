@@ -260,6 +260,7 @@ class CreateProdFiles extends Component
                 $this->rename($this->tempFiles, $tempFile['uploadType']);
             }
         } else {
+            $this->emitUp('continue');
             return;
         }
 

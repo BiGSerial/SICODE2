@@ -37,6 +37,11 @@ class TacitList extends Component
         $this->gotoPage(1);
     }
 
+    public function export_excel()
+    {
+
+    }
+
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {

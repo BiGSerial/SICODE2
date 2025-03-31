@@ -39,6 +39,7 @@
                         <th class="text-center align-middle" scope="col">DEVOLVIDO POR</th>
                         <th class="text-center align-middle" scope="col">DATA DEVOLUCAO</th>
                         <th class="text-center align-middle" scope="col">TEMPO</th>
+                        <th class="text-center align-middle" scope="col">EMPREITEIRA</th>
                         <th class="text-center align-middle" scope="col"></th>
                     </tr>
                 </thead>
@@ -56,12 +57,14 @@
                             <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
                             <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
                             <td class="text-center align-middle text-danger fw-bold">
-                                {{ $list->Returnwork->last()->category }}</td>
-                            <td class="text-center align-middle">{{ $list->Returnwork->last()->User->name }}</td>
+                                {{ $list->Returnwork?->last()?->category }}</td>
+                            <td class="text-center align-middle">{{ $list->Returnwork?->last()?->User->name }}</td>
                             <td class="text-center align-middle">
-                                {{ date('d/m/Y H:i:s', strToTime($list->Returnwork->last()->created_at)) }}</td>
+                                {{ $list->Returnwork?->last()?->created_at->format('d/m/Y H:i:s') }}</td>
+                            <td class="text-center align-middle">
+                                {{ $list->Company?->name }}</td>
                             <td class="text-center align-middle text-primary fw-bold">
-                                {{ Carbon::parse($list->Returnwork->last()->created_at)->diffForHumans(null, true) }}
+                                {{ $list->Returnwork?->last()?->created_at->diffForHumans(null, true) }}
                             </td>
                             <td class="text-center align-middle">
                                 <i class="ri-play-circle-fill align-middle text-success fs-4" style="cursor: pointer;"
@@ -77,5 +80,3 @@
     {{-- LivewireComponents --}}
     @livewire('partner.actions.worked-return-form', key('modal-return-worked-form'))
 </div>
-
-

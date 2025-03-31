@@ -37,11 +37,19 @@
         </div>
 
         <!-- Quatro botões alinhados -->
-        <div class="btn-group" role="group" aria-label="Ações">
+        {{-- <div class="btn-group" role="group" aria-label="Ações">
             @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
             @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
+        </div> --}}
+        <div class="btn-group" role="group" aria-label="Ações">
+            @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
+            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            {{-- @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional')) --}}
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
         </div>
@@ -106,7 +114,7 @@
                             <th class="text-center align-middle">Em Atvd</th>
                             <th class="text-center align-middle">Em Rslc</th>
                             <th class="text-center align-middle">Status Rslc</th>
-                            {{-- <th class="text-center align-middle"></th> --}}
+                            <th class="text-center align-middle"></th>
 
                         </tr>
                     </thead>
@@ -216,8 +224,8 @@
                                         ----
                                     @endif
                                 </td>
-                                {{-- <td class="text-center align-middle">
-                                    <span wire:loading wire:target="onlySelected({{ $list->id }})">
+                                <td class="text-center align-middle">
+                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
                                         <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
                                             style="cursor: not-allowed;"></i>
                                     </span>
@@ -234,8 +242,13 @@
                                         <i class="ri-close-circle-line text-danger fs-4 fw-bold"
                                             wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
+                                    </span> --}}
+                                    <span>
+                                        <i class="ri-play-circle-line text-success fs-4 fw-bold"
+                                            wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
+                                            style="cursor: pointer;"></i>
                                     </span>
-                                </td> --}}
+                                </td>
 
                             </tr>
                         @endforeach
