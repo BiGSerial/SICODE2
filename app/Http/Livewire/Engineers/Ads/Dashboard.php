@@ -2,7 +2,9 @@
 
 namespace App\Http\Livewire\Engineers\Ads;
 
+use App\Models\Adsform;
 use App\Models\Company;
+use App\Models\OldAdsInform;
 use App\Models\ReturnWork;
 use App\Models\WorkReport;
 use Carbon\Carbon;
@@ -25,6 +27,9 @@ class Dashboard extends Component
 
     // Id dos Gráficos
     public $returnInformChart1;
+    public $dailyReceivedChartId;
+    public $dailyADSChartId;
+    public $totalAdsOriginChartId;
 
 
     public $dataReturnInform = [
@@ -32,18 +37,29 @@ class Dashboard extends Component
         'data' => [10, 20, 70],
     ];
 
+    public $dailyReceivedInform = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
 
+    public $dailyADSInform = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
 
-
-
-
-
+    public $totalAdsOriginData = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
 
 
     public function mount()
     {
         // Definição do Valor do Id do Gráfico
         $this->returnInformChart1 = 'dataReturnInformChart-' . Str::random(8);
+        $this->dailyReceivedChartId = 'dailyReceived-' . Str::random(8);
+        $this->dailyADSChartId = 'dailyADS-' . Str::random(8);
+        $this->totalAdsOriginChartId = 'totalAdsOrigin-' . Str::random(8);
 
 
 
@@ -61,6 +77,11 @@ class Dashboard extends Component
         $this->dt_fim = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
 
         // Inicializa os Gráficos para exibição
+        $this->toUpdateGraph();
+    }
+
+    public function updatedCompanyId()
+    {
         $this->toUpdateGraph();
     }
 
@@ -166,6 +187,186 @@ class Dashboard extends Component
         $this->updateData($this->returnInformChart1, $this->dataReturnInform['labels'], $this->dataReturnInform['data']);
     }
 
+    public function getDailyReceivedForms()
+    {
+
+
+        $data = $this->getBaseProperty()
+        ->where('rejected', false)
+        ->when($this->company_id, function ($q) {
+            $q->where('company_id', $this->company_id);
+        })
+        ->selectRaw('
+            DATE(informed_at) as raw_date,
+            DATE_FORMAT(MIN(informed_at), "%d/%m/%y") as informed_at_formatted,
+            COUNT(*) as total
+        ')
+        // ->select( // Alternativa usando DB::raw individualmente
+        //     DB::raw('DATE(informed_at) as raw_date'),
+        //     DB::raw('DATE_FORMAT(MIN(informed_at), "%d/%m/%Y") as informed_at_formatted'),
+        //     DB::raw('COUNT(*) as total')
+        // )
+        ->groupBy('raw_date') // Agrupa apenas pela data
+        ->orderBy('raw_date', 'asc')
+        ->get();
+
+        // Prepara os dados para o gráfico
+        $this->dailyReceivedInform = [
+            'labels' => $data->pluck('informed_at_formatted')->toArray(), // Use o alias correto
+            'data'   => $data->pluck('total')->toArray(),
+        ];
+
+        // Atualiza os dados do gráfico
+        $this->updateData(
+            $this->dailyReceivedChartId,
+            $this->dailyReceivedInform['labels'],
+            $this->dailyReceivedInform['data']
+        );
+    }
+
+    public function getDailyADSForms()
+    {
+        // Busca os dados novos
+        $data1 = Adsform::whereHas('workReport')
+            ->when($this->dt_ini, fn ($q) => $q->where('created_at', '>=', $this->dt_ini))
+            ->when($this->dt_fim, fn ($q) => $q->where('created_at', '<=', $this->dt_fim))
+            ->when($this->company_id, function ($q) {
+                $q->whereHas('workReport', fn ($query) => $query->where('company_id', $this->company_id));
+            })
+            ->selectRaw('
+                DATE(created_at) as raw_date,
+                DATE_FORMAT(MIN(created_at), "%d/%m/%y") as informed_at_formatted,
+                COUNT(*) as total
+            ')
+            ->groupBy('raw_date')
+            ->orderBy('raw_date', 'asc')
+            ->get()
+            ->map(fn ($item) => [
+                'raw_date' => $item->raw_date,
+                'informed_at_formatted' => $item->informed_at_formatted,
+                'total' => $item->total,
+            ]);
+
+        // Busca os dados antigos
+        $data2 = OldAdsInform::whereHas('note', fn ($q) => $q->whereHas('WorkForm'))
+            ->when($this->dt_ini, fn ($q) => $q->where('date', '>=', $this->dt_ini))
+            ->when($this->dt_fim, fn ($q) => $q->where('date', '<=', $this->dt_fim))
+            ->when($this->company_id, function ($q) {
+                $q->whereHas(
+                    'note',
+                    fn ($query) =>
+                    $query->whereHas(
+                        'WorkForm',
+                        fn ($wq) =>
+                        $wq->where('company_id', $this->company_id)
+                    )
+                );
+            })
+            ->selectRaw('
+                DATE(date) as raw_date,
+                DATE_FORMAT(MIN(date), "%d/%m/%y") as informed_at_formatted,
+                COUNT(*) as total
+            ')
+            ->groupBy('raw_date')
+            ->orderBy('raw_date', 'asc')
+            ->get()
+            ->map(fn ($item) => [
+                'raw_date' => $item->raw_date,
+                'informed_at_formatted' => $item->informed_at_formatted,
+                'total' => $item->total,
+            ]);
+
+        // Verifica se ambas estão vazias
+        if ($data1->isEmpty() && $data2->isEmpty()) {
+            $this->dailyADSInform = [
+                'labels' => [],
+                'data' => [],
+            ];
+
+        }
+
+        // Une as duas coleções e agrupa por data
+        if ($data1->isNotEmpty() && $data2->isEmpty()) {
+            $data = $data1;
+        } elseif ($data1->isEmpty() && $data2->isNotEmpty()) {
+            $data = $data2;
+        } else {
+            $data = $data1->merge($data2)
+            ->groupBy('raw_date')
+            ->map(function ($group) {
+                $first = $group->first();
+
+                return [
+                    'raw_date' => $first['raw_date'] ?? null,
+                    'informed_at_formatted' => $first['informed_at_formatted'] ?? null,
+                    'total' => collect($group)->sum('total'),
+                ];
+            })
+            ->sortBy('raw_date')
+            ->values();
+        }
+
+        // Prepara os dados para o gráfico
+        $this->dailyADSInform = [
+            'labels' => $data->map(fn ($item) => $item['informed_at_formatted'])->toArray(),
+            'data'   => $data->map(fn ($item) => $item['total'])->toArray(),
+        ];
+
+        // Atualiza o gráfico
+        $this->updateData(
+            $this->dailyADSChartId,
+            $this->dailyADSInform['labels'],
+            $this->dailyADSInform['data']
+        );
+    }
+
+
+
+    public function getTotalInformAdsOrigin()
+    {
+        // Count new ADS forms
+        $totalAdsforms = Adsform::whereHas('workReport')
+            ->when($this->dt_ini, fn ($q) => $q->where('created_at', '>=', $this->dt_ini))
+            ->when($this->dt_fim, fn ($q) => $q->where('created_at', '<=', $this->dt_fim))
+            ->when($this->company_id, function ($q) {
+                $q->whereHas('workReport', fn ($query) => $query->where('company_id', $this->company_id));
+            })
+            ->count();
+
+        // Count old ADS forms
+        $totalOldAdsInforms = OldAdsInform::whereHas('note', fn ($q) => $q->whereHas('WorkForm'))
+            ->when($this->dt_ini, fn ($q) => $q->where('date', '>=', $this->dt_ini))
+            ->when($this->dt_fim, fn ($q) => $q->where('date', '<=', $this->dt_fim))
+            ->when($this->company_id, function ($q) {
+                $q->whereHas(
+                    'note',
+                    fn ($query) =>
+                    $query->whereHas(
+                        'WorkForm',
+                        fn ($wq) =>
+                $wq->where('company_id', $this->company_id)
+                    )
+                );
+            })
+            ->count();
+
+        $this->totalAdsOriginData = [
+            'labels' => ['BASE ANTIGA', 'BASE NOVA'], // Use o alias correto
+            'data'   => [
+                $totalOldAdsInforms,
+                $totalAdsforms,
+            ],
+        ];
+
+        // Atualiza os dados do gráfico
+        $this->updateData(
+            $this->totalAdsOriginChartId,
+            $this->totalAdsOriginData['labels'],
+            $this->totalAdsOriginData['data']
+        );
+    }
+
+
 
     private function updateData(string $chartId = null, array $labels = [], array $data = [])
     {
@@ -179,6 +380,9 @@ class Dashboard extends Component
     public function toUpdateGraph()
     {
         $this->getRejectionReason();
+        $this->getDailyReceivedForms();
+        $this->getDailyADSForms();
+        $this->getTotalInformAdsOrigin();
     }
 
     public function render()

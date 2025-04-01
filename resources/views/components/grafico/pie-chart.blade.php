@@ -3,7 +3,7 @@
     </div>
     <div class="card" style="display: none;" id="msg-{{ $chartId }}">
         <div class="card-body">
-            <h5 class="text-center">SEM DADOS</h5>
+            <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
         </div>
     </div>
 
@@ -25,7 +25,7 @@
                 var options = {
                     series: datas,
                     chart: {
-                        type: 'pie',
+                        type: 'donut',
                         height: '450px', // Aumentar o tamanho do gráfico
                         width: '100%'
                     },

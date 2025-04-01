@@ -1,6 +1,11 @@
 <div>
     <div id="{{ $chartId }}" style="width:100%; max-width:{{ $width ?? '100%' }}; height:{{ $height ?? '300px' }};">
     </div>
+    <div class="card" style="display: none;" id="msg-{{ $chartId }}">
+        <div class="card-body">
+            <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+        </div>
+    </div>
 
     @push('script')
         {{-- <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> --}}

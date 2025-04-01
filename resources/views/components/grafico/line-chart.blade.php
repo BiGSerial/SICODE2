@@ -1,18 +1,45 @@
 <div>
     <div id="{{ $chartId }}" style="width:100%; max-width:{{ $width ?? '100%' }}; height:{{ $height ?? '300px' }};">
     </div>
+    <div class="card" style="display: none;" id="msg-{{ $chartId }}">
+        <div class="card-body">
+            <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+        </div>
+    </div>
 
     @push('script')
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 let labels = @json($labels);
                 let datas = @json($dataset);
+
+                if (datas.length === 0) {
+                    document.getElementById('msg-{{ $chartId }}').style.display = 'block';
+                    document.getElementById('{{ $chartId }}').style.display = 'none';
+
+                } else {
+                    document.getElementById('msg-{{ $chartId }}').style.display = 'none';
+                    document.getElementById('{{ $chartId }}').style.display = 'block';
+                }
+                // Se houver dados, calcula a média e define a annotation; caso contrário, deixa vazio.
                 renderChart('{{ $chartId }}', labels, datas, '{{ $title ?? 'Série 1' }}');
             });
 
             document.addEventListener('updateGraph{{ Str::studly($chartId) }}', function(e) {
                 const newLabels = e.detail.labels;
                 const newData = e.detail.data;
+
+
+
+                if (newData.length === 0) {
+                    document.getElementById('msg-{{ $chartId }}').style.display = 'block';
+                    document.getElementById('{{ $chartId }}').style.display = 'none';
+
+                } else {
+                    document.getElementById('msg-{{ $chartId }}').style.display = 'none';
+                    document.getElementById('{{ $chartId }}').style.display = 'block';
+                }
+
                 renderChart('{{ $chartId }}', newLabels, newData, '{{ $title ?? 'Série 1' }}');
             });
 

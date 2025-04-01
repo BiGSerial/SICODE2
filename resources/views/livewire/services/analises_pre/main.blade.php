@@ -152,7 +152,7 @@
                                 //         ->first();
                                 // }
 
-                                $count = $list->Productions
+                                $productions = $list->Productions
                                     ->where('service_id', $service->uuid)
                                     ->where('noinconsistency', false);
                                 $return = $list->Productions
@@ -161,14 +161,14 @@
                                     ->where('noinconsistency', true)
                                     ->count();
 
-                                if ($count->count()) {
-                                    if ($count->last()->dt_note == $list->dt_status || !$count->last()->confirmed) {
+                                if ($productions->isNotEmpty()) {
+                                    $production = $productions->last();
+
+                                    if ($production->dt_note == $list->dt_status || !$production->confirmed) {
                                         $block = true;
                                     }
-                                    if (isset($count->last()->User->name)) {
-                                        $production = $count->last();
-
-                                        $lastUser = $count->last()->User->name;
+                                    if (isset($production->User->name)) {
+                                        $lastUser = $production->User->name;
 
                                         $lastUser = explode(' ', $lastUser);
                                         $lastUser = $lastUser[0] . ' ' . end($lastUser);
@@ -189,13 +189,13 @@
                             {{-- @dump($list->Productions) --}}
                             <tr
                                 class="align-middle text-center
-                                @if ($block) @if ($production->status == 1)
+                                @if ($block) @if ($production?->status == 1)
                                     table-warning
-                                    @elseif ($production->status == 2)
+                                    @elseif ($production?->status == 2)
                                     table-primary
-                                    @elseif ($production->status == 5 && !$production->confirmed)
+                                    @elseif ($production?->status == 5 && !$production?->confirmed)
                                     table-success
-                                    @elseif ($production->status == 5 && $production->confirmed)
+                                    @elseif ($production?->status == 5 && $production?->confirmed)
                                     table-danger
                                     @else
                                     table-primary @endif @endif">

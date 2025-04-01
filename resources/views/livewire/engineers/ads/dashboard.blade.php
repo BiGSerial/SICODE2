@@ -40,6 +40,70 @@
     </div>
 
     <div class="row">
+        <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">INFORME DE CONCLUSÃO (Diário)</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="getDailyReceivedForms"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="getDailyReceivedForms" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                        @if ($company_id)
+                            <br>Empreiteira: <strong>{{ $companies->find($company_id)->name }}</strong>
+                        @endif
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.line-chart :chart-id="$dailyReceivedChartId" :labels="$dailyReceivedInform['labels']" :dataset="$dailyReceivedInform['data']" height="300px"
+                        title="INFORME DE CONCLUSÃO" />
+                </div>
+
+
+            </div>
+        </div>
+
+        <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+            <div class="card" wire:ignore.self>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">ENTREGA DE ADS FINAL (Diário)</h3>
+                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="getDailyADSForms"
+                        wire:loading.attr="disabled">
+                        <i class="ri-refresh-line" wire:loading.remove></i>
+                        <span wire:loading wire:target="getDailyADSForms" class="spinner-border spinner-border-sm"
+                            role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                    <em>
+                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                        @if ($company_id)
+                            <br>Empreiteira: <strong>{{ $companies->find($company_id)->name }}</strong>
+                        @endif
+                    </em>
+                </p>
+                <div class="card-body">
+                    <x-grafico.line-chart :chart-id="$dailyADSChartId" :labels="$dailyADSInform['labels']" :dataset="$dailyADSInform['data']" height="300px"
+                        title="INFORME DE CONCLUSÃO" />
+                </div>
+                <em class="ms-2">
+                    <p class="text-start">
+                        Para efeitos métricos, considera-se a data de entrega do informe a qual exista ADS
+                    </p>
+                </em>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
         <div class="col-8">
             <div class="row">
                 <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
@@ -57,10 +121,45 @@
                             <em>
                                 Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
                                 <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                                @if ($company_id)
+                                    <br>Empreiteira: <strong>{{ $companies->find($company_id)->name }}</strong>
+                                @endif
                             </em>
                         </p>
                         <div class="card-body">
                             <x-grafico.pie-chart :chart-id="$returnInformChart1" :labels="$dataReturnInform['labels']" :dataset="$dataReturnInform['data']" height="300px" />
+                        </div>
+
+                        <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                            <em></em>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
+                    <div class="card" wire:ignore.self>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0">Proporção de Origem ADS</h3>
+                            <button class="btn btn-sm btn-secondary ml-auto" wire:click="getRejectionReason"
+                                wire:loading.attr="disabled">
+                                <i class="ri-refresh-line" wire:loading.remove></i>
+                                <span wire:loading wire:target="getRejectionReason"
+                                    class="spinner-border spinner-border-sm" role="status"
+                                    aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
+                            <em>
+                                Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
+                                <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
+                                @if ($company_id)
+                                    <br>Empreiteira: <strong>{{ $companies->find($company_id)->name }}</strong>
+                                @endif
+                            </em>
+                        </p>
+                        <div class="card-body">
+                            <x-grafico.pie-chart :chart-id="$totalAdsOriginChartId" :labels="$totalAdsOriginData['labels']" :dataset="$totalAdsOriginData['data']"
+                                height="300px" />
                         </div>
 
                         <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
