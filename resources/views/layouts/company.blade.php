@@ -341,17 +341,38 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
         })
 
         window.addEventListener("hideModal", function(e) {
-
             const modals = document.getElementsByClassName("modal show");
+            const modalsArray = Array.from(modals);
 
-            for (const modalEl of modals) {
+            modalsArray.forEach(modalEl => {
+                try {
+                    var modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) {
+                        modal.hide();
+                    } else {
+                        console.warn('Modal element found without Bootstrap Modal instance:', modalEl);
+                    }
+                } catch (error) {
+                    console.error('Error hiding modal:', modalEl, error);
+                }
+            });
 
-                var modal = bootstrap.Modal.getInstance(modalEl);
-                modal.hide();
+            // Check for and remove lingering modal backdrops
+            const backdrops = document.getElementsByClassName('modal-backdrop fade show');
+            const backdropsArray = Array.from(backdrops);
+
+            backdropsArray.forEach(backdrop => {
+                try {
+                    backdrop.remove();
+                } catch (error) {
+                    console.error('Error removing backdrop:', backdrop, error);
+                }
+            });
+
+            // Check for and remove the 'modal-open' class from the body
+            if (document.body.classList.contains('modal-open')) {
+                document.body.classList.remove('modal-open');
             }
-
-
-
         });
 
 

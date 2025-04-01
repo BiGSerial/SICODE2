@@ -1,4 +1,5 @@
 <div>
+    <x-show-loading />
     <aside id="sidebar" class="sidebar edp-bg-sprucegreen-100">
 
         <ul class="sidebar-nav" id="sidebar-nav">
@@ -12,7 +13,8 @@
                         <li>
                             <a href="{{ route('construction.main', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>LISTA
+                                <i class="ri-money-dollar-box-line fs-4 align-middle text-white fw-normal"></i>
+                                <span>LISTA
                                     {{ mb_strToUpper($service->service) }}</span>
                                 @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                             </a>
@@ -20,7 +22,8 @@
                         <li>
                             <a href="{{ route('construction.accompany', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>À CONTRATAR</span>
+                                <i class="ri-timer-fill fs-4 align-middle text-white fw-normal"></i> <span>À
+                                    CONTRATAR</span>
                                 @livewire('construction.hiring.counts.countmycontrol', key('count-control'))
                             </a>
                         </li>
@@ -28,14 +31,24 @@
                         <li>
                             <a href="{{ route('construction.historic', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>OBRAS CONTRATADAS</span>
+                                <i class="ri-money-dollar-box-fill fs-4 align-middle text-white fw-normal"></i>
+                                <span>OBRAS CONTRATADAS</span>
                                 @livewire('construction.hiring.counts.check-hiring', key('count-hiring'))
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('construction.lookatnotes', ['service' => $service->uuid]) }}"
+                                class="nav-item edp-text-verde-dark">
+                                <i class="ri-search-eye-line fs-4 align-middle text-white fw-normal"></i>
+                                <span>CONSULTA NOTAS/OV</span>
+
                             </a>
                         </li>
                         {{-- <li>
                             <a href="{{ route('construction.returned', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>RETORNO VIABILIDADE
+                                <i class="ri-money-dollar-box-line fs-4 align-middle text-white fw-thin"></i> <span>RETORNO VIABILIDADE
                                     {{ mb_strToUpper($service->service) }}</span>
                                 @livewire('construction.hiring.counts.returnviab', key('count-return'))
                             </a>
@@ -44,7 +57,8 @@
                         <li>
                             <a href="{{ route('construction.waiting', ['service' => $service->uuid]) }}"
                                 class="nav-item edp-text-verde-dark">
-                                <i class="bi bi-circle"></i> <span>AGUARDANDO RETORNO INTERNO</span>
+                                <i class="ri-timer-line fs-4 align-middle text-white fw-thin"></i>
+                                <span>AGUARDANDO RETORNO INTERNO</span>
                                 @livewire('construction.hiring.counts.count-return')
                             </a>
                         </li>

@@ -52,6 +52,15 @@ class ConstructionController extends Controller
         ]);
     }
 
+    public function lookatnotes(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.lookatnotes', [
+            'service' => $service,
+        ]);
+    }
+
 
     // REDIRECIONADOR RESPONSER CONSTRUÇÃO
     public function responser_main()
