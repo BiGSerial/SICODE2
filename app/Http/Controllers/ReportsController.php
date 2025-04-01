@@ -33,4 +33,9 @@ class ReportsController extends Controller
     {
         return view('reports.rejectedworkedreports');
     }
+
+    public function lookatnotes()
+    {
+        return view('reports.lookatnote');
+    }
 }

@@ -61,7 +61,7 @@
     @endif
     <div class="card edp-bg-gray">
         <div class="card-header d-flex justify-content-between align-items-center text-bg-danger">
-            <h4 class="fs-4 mb-0">OBRAS ANALISE DE PROJETO</h4>
+            <h4 class="fs-4 mb-0">OBRAS VALIDAÇÃO DE PROJETOS</h4>
             <div>
                 <!-- Botão Exportar -->
                 <button type="button" class="btn btn-primary" wire:click.prevent="export_excel"

@@ -70,7 +70,7 @@
     <div class="card edp-bg-gray">
         <div
             class="card-header d-flex justify-content-between align-items-center edp-bg-sprucegreen-100 edp-text-verde-dark">
-            <h4 class="fs-4 mb-0">OBRAS ANALISE DE PROJETO</h4>
+            <h4 class="fs-4 mb-0">OBRAS À VALIDAR PROJETO</h4>
             {{-- <button type="button" class="btn btn-outline-info" wire:click.prevent="preAtt"
                 @disabled(!count($selected))>Assumir em
                 Massa</button> --}}

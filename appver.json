@@ -1,6 +1,11 @@
 {
-    "appver": "1.17.0",
+    "appver": "1.18.0",
     "historic": [
+        {
+            "version": "1.18.0",
+            "description": "Approval, Parcial, Dashboards, and much more",
+            "date": "2025-04-01"
+        },
         {
             "version": "1.17.0",
             "description": "Created ADS FORM uploads",

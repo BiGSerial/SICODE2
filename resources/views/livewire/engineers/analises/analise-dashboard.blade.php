@@ -5,7 +5,7 @@
     <x-show-loading />
     <div class="card">
         <div class="card-header edp-bg-seoweedgreen-100 text-white">
-            <h4 class="my-1">DASHBOARD ANALISE DE PROJETO</h4">
+            <h4 class="my-1">DASHBOARD VALIDAÇÃO DE PROJETOS</h4">
         </div>
         <div class="card-body">
             <form class="form-inline">
@@ -44,7 +44,7 @@
             <!-- Alterado para col-md-4 col-xl-2 para ocupar 1/3 da largura em telas médias -->
             <div class="card" wire:ignore.self>
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Tempo em Pilha para Analise</h3>
+                    <h3 class="mb-0">Tempo em Pilha para Validar</h3>
                     <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDays"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>
@@ -202,7 +202,7 @@
         <div class="col-md-4">
             <div class="card" wire:ignore.self>
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Tempo Médio por Analisador</h3>
+                    <h3 class="mb-0">Tempo Médio por Validador</h3>
                     <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarTicketMedio"
                         wire:loading.attr="disabled">
                         <i class="ri-refresh-line" wire:loading.remove></i>

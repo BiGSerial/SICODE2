@@ -4,7 +4,7 @@
         <ul class="sidebar-nav" id="sidebar-nav">
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#analises_nav" data-bs-toggle="collapse" href="#">
-                    <i class="bi bi-menu-button-wide"></i><span>ANALISES PROJETO</span><i
+                    <i class="bi bi-menu-button-wide"></i><span>VALIDAÇÂO DE PROJETOS</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
                 <ul id="analises_nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
@@ -17,7 +17,7 @@
                         </li>
                         <li>
                             <a href="{{ route('engineers.analises.toAnalise') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-eye-line text-white fw-light fs-5"></i> <span> PILHA À ANALISAR</span>
+                                <i class="ri-eye-line text-white fw-light fs-5"></i> <span> PILHA À VALIDAR</span>
                                 @livewire('engineers.counts.analises.to-approval-count', key('to-approval-count'))
                             </a>
 
@@ -25,13 +25,13 @@
                         <li>
                             <a href="{{ route('engineers.analises.inAnalise') }}" class="nav-item edp-text-verde-dark">
                                 <i class="ri-run-fill text-white fw-light fs-5"></i> <span> EM
-                                    ANALISE</span>@livewire('engineers.counts.analises.in-approval-count', ['engineer' => true], key('in-approval-count'))
+                                    VALIDAÇÃO</span>@livewire('engineers.counts.analises.in-approval-count', ['engineer' => true], key('in-approval-count'))
                                 @livewire('engineers.counts.analises.in-approval-return', ['engineer' => true], key('in-approval-count'))
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('engineers.analises.analised') }}" class="nav-item edp-text-verde-dark">
-                                <i class="ri-information-fill text-white fw-light fs-5"></i> <span> LIBERADOS</span>
+                                <i class="ri-information-fill text-white fw-light fs-5"></i> <span> VALIDADOS</span>
 
                             </a>
                         </li>

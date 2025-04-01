@@ -10,11 +10,11 @@
 
     <div wire:ignore.self class="modal fade" id="rejectProject" tabindex="-1" aria-labelledby="rejectProjectLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg bg-edp-gray">
+        <div class="modal-dialog modal-xl bg-edp-gray">
             @if ($note)
                 <div class="modal-content">
                     <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                        <h5 class="modal-title" id="rejectProjectLabel">ANALISAR PROJETO DE {{ $note->note }}</h5>
+                        <h5 class="modal-title" id="rejectProjectLabel">VALIDAR PROJETO DE {{ $note->note }}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                             aria-label="Close"></button>
                     </div>
@@ -37,6 +37,9 @@
                                             @endphp
                                             <p><strong>Ordens:</strong> {{ $ordens }}</p>
                                             <p><strong>Municipio:</strong> {{ $note->lexp }}</p>
+                                            <p><strong>Data Status:</strong> <span
+                                                    class="fw-bold text-primary">{{ $note->dt_status->format('d/m/Y H:i') }}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -85,8 +88,11 @@
                                                             </tr>
                                                             <tr>
                                                                 <td class="text-end fw-bold col-3">Data Envio:</td>
-                                                                <td class="col">
-                                                                    {{ date('d/m/Y H:i', strtotime($reclaim->created_at)) }}
+                                                                <td class="col align-middle">
+                                                                    <span class="fw-bold text-primary align-middle">
+                                                                        {{ $reclaim->created_at->format('d/m/Y H:i') }}
+                                                                    </span>
+
                                                                 </td>
                                                             </tr>
                                                             @if ($reclaim->completed)
@@ -100,7 +106,8 @@
                                                                     <td class="text-end fw-bold col-3">Data Att:</td>
                                                                     <td class="col align-middle">
                                                                         @if ($reclaim->production)
-                                                                            {{ date('d/m/Y H:i', strtotime($reclaim->Production->att_at)) }}
+                                                                            <span
+                                                                                class="fw-bold text-primary">{{ $reclaim->Production->att_at->format('d/m/Y H:i') }}</span>
                                                                         @endif
                                                                     </td>
                                                                 </tr>
@@ -109,7 +116,8 @@
                                                                     </td>
                                                                     <td class="col align-middle">
                                                                         @if ($reclaim->Production)
-                                                                            {{ date('d/m/Y H:i', strtotime($reclaim->Production->completed_at)) }}
+                                                                            <span
+                                                                                class="fw-bold text-success">{{ $reclaim->Production->completed_at->format('d/m/Y H:i') }}</span>
                                                                         @endif
                                                                     </td>
                                                                 </tr>

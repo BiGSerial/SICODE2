@@ -97,7 +97,7 @@
     <div class="card edp-bg-gray">
         <div
             class="card-header d-flex justify-content-between align-items-center  edp-bg-sprucegreen-100 edp-text-verde-dark">
-            <h4 class="fs-4 mb-0">PROJETOS APROVADOS</h4>
+            <h4 class="fs-4 mb-0">PROJETOS VALIDADOS</h4>
             <div>
                 <button type="button" class="btn btn-primary" wire:click.prevent="export_excel">Exportar</button>
 

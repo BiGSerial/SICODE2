@@ -309,7 +309,9 @@
                         class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
             </li>
 
-
+            <li><a class="dropdown-item" href="{{ route('reports.lookatnotes') }}"><i
+                        class="ri-search-eye-line align-middle text-primary"></i>SITUAÇÃO DE CONTRATAÇÃO</a>
+            </li>
             @if (!Auth()->User()->onlyparner)
                 <li><a class="dropdown-item" href="{{ route('reports.rejecetedWorkreport') }}"><i
                             class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
