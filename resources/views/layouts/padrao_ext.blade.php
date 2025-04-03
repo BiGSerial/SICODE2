@@ -364,6 +364,43 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
             });
 
 
+            document.addEventListener('hidden.bs.modal', function(event) {
+                const modals = document.getElementsByClassName('modal show');
+                const modalsArray = Array.from(modals);
+
+                modalsArray.forEach(modalEl => {
+                    try {
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) {
+                            modal.hide();
+                        } else {
+                            console.warn('Elemento modal sem instância Bootstrap encontrada:', modalEl);
+                        }
+                    } catch (error) {
+                        console.error('Erro ao ocultar modal:', modalEl, error);
+                    }
+                });
+
+                // Remover eventuais backdrops que restarem
+                const backdrops = document.getElementsByClassName('modal-backdrop fade show');
+                const backdropsArray = Array.from(backdrops);
+
+                backdropsArray.forEach(backdrop => {
+                    try {
+                        backdrop.remove();
+                    } catch (error) {
+                        console.error('Erro ao remover backdrop:', backdrop, error);
+                    }
+                });
+
+                // Remover classe 'modal-open' do corpo da página
+                if (document.body.classList.contains('modal-open')) {
+                    document.body.classList.remove('modal-open');
+                }
+            });
+
+
+
             function createToast(message, bgClass) {
 
 

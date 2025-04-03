@@ -1,6 +1,11 @@
 {
-    "appver": "1.18.0",
+    "appver": "1.18.1",
     "historic": [
+        {
+            "version": "1.18.1",
+            "description": "Modal Backdrop Fix",
+            "date": "2025-04-03"
+        },
         {
             "version": "1.18.0",
             "description": "Approval, Parcial, Dashboards, and much more",
