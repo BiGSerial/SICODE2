@@ -28,6 +28,7 @@ class ViabHist extends Component
     // search by date
     public $date_in;
     public $date_out;
+    public $month;
     public $dateBy = 'sended_at';
 
     // Filters
@@ -48,6 +49,13 @@ class ViabHist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+    }
+
+    public function updatedMonth()
+    {
+        $this->date_in = date('Y-m-01', strtotime($this->month));
+        $this->date_out = date('Y-m-t', strtotime($this->month));
+        $this->gotoPage(1);
     }
 
     public function export_excel()
@@ -102,9 +110,9 @@ class ViabHist extends Component
 
 
         $query = Viability::Query();
-                    // ->where('completed', true)
-                    // ->where('approved', true)
-                    // ->where('hired', true);
+        // ->where('completed', true)
+        // ->where('approved', true)
+        // ->where('hired', true);
 
         if (!auth()->user()->superadm) {
 
@@ -166,7 +174,7 @@ class ViabHist extends Component
 
 
 
-        return $query->orderBy('completed_at', 'DESC');
+        return $query->orderBy($this->dateBy, 'ASC');
     }
 
     public function render()

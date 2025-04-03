@@ -90,15 +90,21 @@
                 </div>
 
                 <div class="col-md-2 col-sm-3">
+                    <input type="month" id="month" class="form-control border border-secondary" wire:model="month"
+                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Mes Referência" min="2023-05"
+                        max="{{ date('Y-m') }}">
+                </div>
+
+                <div class="col-md-2 col-sm-3">
                     <input type="date" id="date_in" class="form-control border border-secondary"
                         wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Inicial">
+                        data-bs-title="Data Inicial" min="2023-05-01" max="{{ date('Y-m-d') }}">
                 </div>
 
                 <div class="col-md-2 col-sm-3">
                     <input type="date" id="date_out" class="form-control border border-secondary"
                         wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Final">
+                        data-bs-title="Data Final" max="{{ date('Y-m-d') }}">
                 </div>
 
                 <div class="col-md-2 col-sm-3">

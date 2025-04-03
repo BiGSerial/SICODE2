@@ -17,6 +17,7 @@
                 <th scope="col" class="text-center align-middle">Completado em</th>
                 <th scope="col" class="text-center align-middle">Rubrica</th>
                 <th scope="col" class="text-center align-middle">Municipio</th>
+                <th scope="col" class="text-center align-middle">Tácito</th>
                 <th scope="col" class="text-center align-middle">Status Tacit</th>
                 <th scope="col" class="text-center align-middle">Status</th>
                 <th scope="col" class="text-center align-middle">Empreiteira</th>
@@ -55,6 +56,7 @@
                         </td>
                         <td class="text-center align-middle">{{ $viability->Note->rubrica }}</td>
                         <td class="text-center align-middle">{{ $viability->Note->lexp }}</td>
+                        <td class="text-center align-middle">{{ $viability->tacit ? 'SIM' : 'NÃO' }}</td>
                         <td class="text-center align-middle">
                             @if ($viability->Justification)
                                 @if ($viability->Justification->granted && !$viability->Justification->dismissed)

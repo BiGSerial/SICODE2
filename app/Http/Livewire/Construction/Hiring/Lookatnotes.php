@@ -157,7 +157,6 @@ class Lookatnotes extends Component
         }
 
         return $query
-            ->orderBy('type_note', 'DESC')
             ->orderBy('dt_status', 'ASC')
             ->paginate($this->perPage);
     }

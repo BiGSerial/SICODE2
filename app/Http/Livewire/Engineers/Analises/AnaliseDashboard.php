@@ -436,7 +436,11 @@ class AnaliseDashboard extends Component
 
         // Agrupamento para notas COM Approval
         $withApprovalData = clone $baseQuery;
-        $withApprovalData = $withApprovalData->whereHas('Approval') // Adiciona o filtro para WITH Approval
+        $withApprovalData = $withApprovalData->whereHas('Approval', function ($q) {
+            $q->whereDoesntHave('Reclaims');
+
+        })
+
             ->selectRaw('CASE
                 WHEN DATEDIFF(?, dt_status) BETWEEN 0 AND 8 THEN DATEDIFF(?, dt_status)
                 ELSE 9

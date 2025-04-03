@@ -56,9 +56,10 @@
                     <x-grafico.stack-bar :chart-id="$chartId2" :labels="$dadosGrafico1['labels']" :dataset1-data="$dadosGrafico1['data1']"
                         dataset1-label="Atribuidos" :dataset2-data="$dadosGrafico1['data2']" dataset2-label="Sem Atribuição"
                         title="Dias em Pilha" y-axis-title="Qtd" />
-                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Os dias de atribuição andam com o
-                            passar dos dias e não considera em resolução, apenas como atribuídos. Aprovados saem
-                            da estatística.</em></p>
+                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Para efeitos de Estatística, os
+                            dados representam as obras em condições de contratação, aguardando a validação de
+                            projetos. Os aprovados e enviados para resolução são removidos dos dados, restando apenas os
+                            AINDA sem atribuição, e os ATRIBUÍDOS sem solução ou destinação.</em></p>
                 </div>
             </div>
         </div>
@@ -78,9 +79,9 @@
                 <div class="card-body">
                     <x-grafico.multistackbar :chart-id="$chartId6" :labels="$multStackData['labels']" :datasets="$multStackData['datasets']"
                         title="Dias em Resolução" y-axis-title="Qtd" />
-                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Os dias de atribuição andam com o
-                            passar dos dias e não considera em resolução, apenas como atribuídos. Aprovados saem
-                            da estatística.</em></p>
+                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em>Obs: Para efeito visuala dos dados,
+                            são considerados apenas o montante na pilha da resolução interna que ainda sem encontram em
+                            resolução. Os Finalizados são removidos dos dados.</em></p>
                 </div>
             </div>
         </div>
