@@ -70,6 +70,13 @@ class TacitInApproval extends Command
                         ->chunk(500, function ($approvals) use ($bar, $finalLimitDate) {
 
                             foreach ($approvals as $approval) {
+
+
+
+
+
+
+
                                 /**
                                  * Liberação tácita das obbras em posse dos programadores
                                  * que não foram reclamadas e não possuem projeto
