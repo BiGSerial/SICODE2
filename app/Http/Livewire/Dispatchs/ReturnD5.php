@@ -41,6 +41,8 @@ class ReturnD5 extends Component
 
     public $page = 1;
 
+    public $notAtt = false;
+
     //Selects
     public $companies = null;
 
@@ -69,7 +71,11 @@ class ReturnD5 extends Component
 
 
     protected $queryString = [
-
+        'search' => ['except' => '', 'as' => 'busca'],
+        'perPage' => ['as' => 'pagina'],
+        'filterUser' => ['except' => ''],
+        'sortDirection' => ['except' => 'asc'],
+        'notAtt' => ['except' => false],
     ];
 
     protected $listeners = [
@@ -98,6 +104,26 @@ class ReturnD5 extends Component
         $this->services  = Service::orderBy('service')->get();
     }
 
+    public function setNotAtt()
+    {
+        $this->notAtt = !$this->notAtt;
+    }
+
+
+    public function massAssign()
+    {
+        if (!$this->selected) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'SEM OBRAS SELECIONADAS',
+                'html'      => 'Verifique a seleção das obras e tente novamente.',
+                'timer'    => 5000,
+            ]);        # code...
+        } else {
+            $this->emitTo('dispatchs.common.return-in-mass', 'goOpenMassAtt', $this->selected);
+        }
+    }
 
     public function refresh_list()
     {
@@ -219,17 +245,23 @@ class ReturnD5 extends Component
                     });
                 });
 
-        $query->when(isset($this->filters['rubrica']), function ($q) {
-            return $q->whereRelation('Note', function ($query) {
+        if (isset($this->filters['rubrica'])) {
+            $query->whereRelation('Note', function ($query) {
                 $query->whereIn('rubrica', $this->filters['rubrica'])
                     ->orWhereNull('rubrica');
             });
-        })->when(isset($this->filters['city']), function ($q) {
-            return $q->whereRelation('Note', function ($query) {
+        }
+
+        if (isset($this->filters['city'])) {
+            $query->whereRelation('Note', function ($query) {
                 $query->whereIn('lexp', $this->filters['city'])
                     ->orWhereNull('lexp');
             });
-        });
+        }
+
+        if ($this->notAtt) {
+            $query->whereDoesntHave('production');
+        }
 
         $query->Where('completed', false)
             ->leftJoin('notes as n', 'reclaims.note_id', '=', 'n.id')

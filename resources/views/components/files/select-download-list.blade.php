@@ -1,102 +1,173 @@
-<style>
-    .dropdown-item:hover {
-        background-color: rgba(40, 253, 40, 0.692) !important;
-        /* LightGreen with 50% opacity */
-    }
+@once
+    <style>
+        .file-dropdown-menu {
+            /* max-height: 300px; */
+            overflow-y: auto;
+            box-shadow: 6px 6px 20px rgba(0, 0, 0, 0.7), 8px 10px 25px rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 0px solid #cfcfcf;
+            /* transform: translateY(3px); */
+            /* position: absolute; */
+            top: 100%;
+            left: 0;
+            z-index: 9999;
+        }
 
-    .dropdown-item {
-        /* Explicitly set background for normal state */
-        background-color: #f8f9fa;
-        /* Or whatever your default is */
-    }
-</style>
+        .file-dropdown-header {
+            background-color: #e2f4e2;
+            color: #026402;
+        }
 
-<div>
-    @if ($files->count())
-        <div class="dropdown" style="position: inherit;">
-            <i class="ri-file-3-line fs-4 text-danger" type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                style="cursor: pointer;"></i>
-            <ul class="dropdown-menu edp-bg-gray py-0" style="min-width: 300px;">
-                <li class="edp-bg-sprucegreen-100 text-edp-verde text-center fw-bold py-1">ARQUIVOS -
-                    {{ $files[0]->note->note }}</li>
+        .file-dropdown-item {
+            color: #161718;
+        }
 
-                <div class="accordion" id="filesAccordion">
+        .file-dropdown-item:hover {
+            color: rgba(214, 43, 21, 0.979) !important;
+            font-weight: bold;
+        }
+
+        .file-collapse {
+            overflow: hidden;
+            transition: height 0.3s ease;
+            height: 0;
+        }
+
+        .file-collapse.open {
+            /* height é ajustado dinamicamente via JS */
+        }
+
+        .file-accordion-button {
+            background-color: #a0a0a0;
+            border: none;
+            font-weight: bold;
+            padding: 6px 12px;
+        }
+
+        .file-accordion-button.collapsed {
+            background-color: #e7f5e7;
+        }
+
+        .accordion-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .file-accordion-button.open .accordion-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+@endonce
+
+@if ($files->isNotEmpty())
+    <!-- Alteramos o container para não ter restrição de posicionamento -->
+    <div class="dropdown d-inline file-dropdown" style="position: inherit;">
+        <i class="ri-file-3-line fs-4 file-dropdown-toggle-icon text-danger" type="button" data-bs-toggle="dropdown"
+            data-bs-boundary="viewport" aria-expanded="false" style="cursor: pointer;"></i>
+
+        <ul class="dropdown-menu file-dropdown-menu py-0 edp-bg-gray" style="min-width: 350px;">
+            <li
+                class="file-dropdown-header text-center fw-bold py-1 edp-bg-seoweedgreen-100 edp-text-green edp-text-verde-dark">
+                ARQUIVOS - {{ $files[0]->note->note }}
+            </li>
+
+            <div class="file-accordion" data-accordion-id="fileAccordion-{{ $files[0]->note_id }}">
+                @php
+                    $service = '';
+                    $accordionCounter = 0;
+                @endphp
+
+                @foreach ($files->sortBy(fn($file) => [$file->service_id === null ? 1 : 0, $file->service->service ?? '', $file->file_name]) as $file)
                     @php
-                        $service = '';
-                        $accordionCounter = 0;
+                        $currentServiceId = $file->service_id ?? 'others';
+                        $isNewService = $service !== $currentServiceId;
+
+                        if ($isNewService) {
+                            $service = $currentServiceId;
+                            $accordionCounter++;
+                            $service_name = $file->service->service ?? 'OUTROS';
+                            $accordionId = 'file-accordion-' . $file->note_id . '-' . $accordionCounter;
+                            $collapseId = 'file-collapse-' . $file->note_id . '-' . $accordionCounter;
+                        }
                     @endphp
 
-                    @foreach ($files->sortBy(function ($file) {
-        return [$file->service_id === null ? 1 : 0, $file->service_id === null ? '' : $file->service->service, $file->file_name];
-    }) as $file)
-                        @php
-                            $currentServiceId = $file->service_id ?? 'others';
-                            $isNewService = $service != $currentServiceId;
-
-                            if ($isNewService) {
-                                $service = $currentServiceId;
-                                $accordionCounter++;
-                                $service_name = $file->service_id ? mb_strtoupper($file->service->service) : 'OUTROS';
-                                // Use note_id to create unique IDs for each accordion based on the file.
-                                $accordionId = 'accordion-' . $file->note_id . '-' . $accordionCounter;
-                                $collapseId = 'collapse-' . $file->note_id . '-' . $accordionCounter;
-                            }
-                        @endphp
-
-                        @if ($isNewService)
-                            @if ($accordionCounter > 1)
-                </div>
-        </div>
-</div>
+                    @if ($isNewService)
+                        @if ($accordionCounter > 1)
+            </div>
+    </div>
 @endif
 
-<div class="accordion-item edp-bg-gray">
-    <h2 class="accordion-header" id="heading-{{ $accordionId }}">
-        <span class="w-100 my-0 py-0" tabindex="0" data-bs-container="body" data-bs-toggle="popover"
-            data-bs-placement="left" data-bs-trigger="hover" data-bs-content="Clique para Expandir">
-            <button
-                class="accordion-button collapsed edp-bg-sprucegreen-70 text-edp-verde text-center fw-bold py-1 w-100"
-                type="button" data-bs-toggle="collapse" data-bs-target="#{{ $collapseId }}" aria-expanded="false"
-                aria-controls="{{ $collapseId }}" onclick="event.stopPropagation(); closeOtherAccordions(this);">
-                {{ $service_name }}
-            </button>
-        </span>
-    </h2>
-    <div id="{{ $collapseId }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ $accordionId }}"
-        data-bs-parent="#filesAccordion">
-        <div class="accordion-body py-0">
+<div class="file-accordion-item">
+    <h6 class="file-accordion-header mt-1 mb-0" id="heading-{{ $accordionId }}">
+        <button
+            class="file-accordion-button w-100 collapsed edp-bg-seoweedgreen-70 edp-text-green edp-text-verde-dark d-flex align-items-center justify-content-between"
+            type="button" data-target="#{{ $collapseId }}"
+            onclick="event.stopPropagation(); toggleFileAccordion(this)">
+            <span>{{ mb_strtoupper($service_name) }}</span>
+            <i class="ri-arrow-down-s-line accordion-icon"></i>
+        </button>
+    </h6>
+    <div id="{{ $collapseId }}" class="file-collapse" style="height: 0;">
+        <div class="file-accordion-body py-0">
             @endif
 
-            <li wire:key="file-{{ $file->id }}">
-                <a class="dropdown-item edp-bg-gray py-1" href="#"
-                    wire:click.prevent="downloadFile({{ $file->id }})">{{ $file->file_name }}
+            <li wire:key="file-{{ $file->id }}" class="text-center py-1">
+                <a class="file-dropdown-item text-center" href="#"
+                    wire:click.prevent="downloadFile({{ $file->id }})" onclick="event.stopPropagation();">
+                    {{ $file->file_name }}
                 </a>
             </li>
             @endforeach
-
-            @if ($files->count() > 0)
         </div>
     </div>
 </div>
-@endif
 </div>
 </ul>
 </div>
 @endif
-</div>
 
-<script>
-    function closeOtherAccordions(element) {
-        const accordions = document.querySelectorAll('.accordion-collapse'); // Get all accordion collapse elements
+@once
+    <script>
+        function toggleFileAccordion(button) {
+            const parentAccordion = button.closest('[data-accordion-id]');
+            const targetId = button.getAttribute('data-target').replace('#', '');
+            const target = document.getElementById(targetId);
 
-        accordions.forEach(accordion => {
-            if (accordion.id !== element.getAttribute('data-bs-target').substring(
-                    1)) { // Exclude the current element
-                const bsCollapse = new bootstrap.Collapse(accordion, {
-                    toggle: false
-                }); // Create a Bootstrap collapse object
-                bsCollapse.hide(); // Hide the accordion
+            parentAccordion.querySelectorAll('.file-collapse').forEach(collapse => {
+                if (collapse.id !== targetId) {
+                    collapse.classList.remove('open');
+                    collapse.style.height = '0';
+
+                    const btn = parentAccordion.querySelector(`[data-target="#${collapse.id}"]`);
+                    if (btn) btn.classList.remove('open');
+                }
+            });
+
+            if (target.classList.contains('open')) {
+                target.classList.remove('open');
+                target.style.height = '0';
+                button.classList.remove('open');
+            } else {
+                target.classList.add('open');
+                target.style.height = target.scrollHeight + 'px';
+                button.classList.add('open');
             }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.file-dropdown').forEach(dropdown => {
+                const toggleIcon = dropdown.querySelector('.file-dropdown-toggle-icon');
+                const bsDropdown = bootstrap.Dropdown.getOrCreateInstance(toggleIcon);
+
+                dropdown.addEventListener('show.bs.dropdown', function() {
+                    toggleIcon.classList.remove('text-danger');
+                    toggleIcon.classList.add('text-success');
+                });
+
+                dropdown.addEventListener('hide.bs.dropdown', function() {
+                    toggleIcon.classList.remove('text-success');
+                    toggleIcon.classList.add('text-danger');
+                });
+            });
         });
-    }
-</script>
+    </script>
+@endonce

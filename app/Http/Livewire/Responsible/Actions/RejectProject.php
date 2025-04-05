@@ -89,6 +89,20 @@ class RejectProject extends Component
     public function preReject()
     {
 
+        if ($this->note->approval->tacit) {
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OOOPS',
+                'html'    => 'Não é mais possível tomar ação por esta OBRA. O Prazo definido para que seja analizado foi extrapolado.
+                            O Sistema assumiu automáticamente a responsabilidade de aprovar ou reprovar esta Nota/Ov. Porém, está sendo computado em
+                            em seu usuário como tácito.',
+            ]);
+
+            return;
+        }
+
         if ($this->decision == 'REPROVADO') {
             if (!trim($this->category)) {
                 $this->dispatchBrowserEvent('swal', [
@@ -227,7 +241,27 @@ class RejectProject extends Component
 
     public function saveReject()
     {
+
         if ($this->note->approval->exists()) {
+
+
+            if ($this->note->approval->tacit) {
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'OOOPS',
+                    'html'    => 'Não é mais possível tomar ação por esta OBRA. O Prazo definido para que seja analizado foi extrapolado.
+                                O Sistema assumiu automáticamente a responsabilidade de aprovar ou reprovar esta Nota/Ov. Porém, está sendo computado em
+                                em seu usuário como tácito.',
+                ]);
+
+                return;
+            }
+
+
+
+
             DB::beginTransaction();
 
             $production = null;

@@ -9,6 +9,14 @@ use Livewire\Component;
 class ShowFilesPool extends Component
 {
     public $files;
+    public string $activeTab = 'tab-0';
+
+    protected $listeners = ['setActiveTab'];
+
+    public function setActiveTab($tabId)
+    {
+        $this->activeTab = $tabId;
+    }
 
     public function mount($files)
     {
@@ -37,7 +45,8 @@ class ShowFilesPool extends Component
     public function render()
     {
         return view('livewire.components.files.show-files-pool', [
-            'files' => $this->files
+            'files' => $this->files,
+            'activeTab' => $this->activeTab,
         ]);
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Console\Commands\SqlLog;
 
 use App\Models\Adsform;
-use App\Models\sicodesql\LogAdsInforms;
+use App\Models\SicodeSql\LogAdsInforms;
 use Illuminate\Console\Command;
 
 class InformsAdsLog extends Command
@@ -13,14 +13,14 @@ class InformsAdsLog extends Command
      *
      * @var string
      */
-    protected $signature = 'app:informs-ads-log';
+    protected $signature = 'sicode:informs-ads-log';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Envia os dados do ADS para o log de informativos';
 
     /**
      * Execute the console command.
@@ -28,7 +28,7 @@ class InformsAdsLog extends Command
     public function handle()
     {
         $full = !(LogAdsInforms::count() > 0);
-        $limitBatch = 300;
+        $limitBatch = 100;
 
         $totalSteps = Adsform::count();
 
@@ -60,14 +60,17 @@ class InformsAdsLog extends Command
                         'adsform_id' => $adsform->id,
                         'work_report_id' => $adsform->work_report_id,
                         'note_id' => $adsform->note_id,
-                        'user_name' => $adsform->user->name,
-                        'name' => $adsform->name,
+                        'note' => $adsform->Note->note,
+                        'user_name' => mb_strtoupper($adsform->user->name),
+                        'name' => strtoupper($adsform->name),
                         'obs' => $adsform->obs,
                         'contract' => $adsform->contract,
                         'center' => $adsform->center,
                         'deposit' => $adsform->deposit,
                         'amount' => $adsform->amount,
                         'date' => $adsform->created_at,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ];
 
                     if (count($dataBatch) >= $limitBatch) {
@@ -84,6 +87,7 @@ class InformsAdsLog extends Command
                             'note_id' => $adsform->note_id,
                         ],
                         [
+                            'note' => $adsform->Note->note,
                             'user_name' => $adsform->user->name,
                             'name' => $adsform->name,
                             'obs' => $adsform->obs,

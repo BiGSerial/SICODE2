@@ -40,6 +40,9 @@
                                             <p><strong>Data Status:</strong> <span
                                                     class="fw-bold text-primary">{{ $note->dt_status->format('d/m/Y H:i') }}</span>
                                             </p>
+                                            <p><strong>Tácito:</strong> <span class="fw-bold text-danger">
+                                                    {{ $note->approval?->tacit ? 'SIM' : 'NÃO' }}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -185,8 +188,14 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <div class="mb-3">
-                                    @livewire('components.files.show-files-pool', ['files' => $note->files], key('files-pool'))
+
+                                <div class="card  mb-3">
+                                    <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ARQUIVOS
+                                        ANEXADOS
+                                    </h5>
+                                    <div class="card-body py-2 px-3">
+                                        @livewire('components.files.show-files-pool', ['files' => $note->files], key('files-pool-files-{{ $note->id }}'))
+                                    </div>
                                 </div>
                             </div>
 

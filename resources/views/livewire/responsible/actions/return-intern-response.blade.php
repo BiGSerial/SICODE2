@@ -216,27 +216,16 @@
                                     </div>
                                 </div>
 
-                                @if ($viability->Note->Files->isNotEmpty())
-                                    {{-- <div class="card">
-                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ANEXOS
-                                        </h5>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-condensed table-striped-columns">
-                                                <tbody>
-                                                    @foreach ($viability->Note->Files as $file)
-                                                        <tr>
-                                                            <td class="fw-bold col-2 align-middle">ARQUIVO:</td>
-                                                            <td class="align-middle">
-                                                                {{ $file->file_name }}
-                                                            </td>
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div> --}}
-                                    @livewire('components.files.show-files-pool', ['files' => $viability->Note->Files], key('files-pool'))
-                                @endif
+
+
+                                <div class="card mt-2">
+                                    <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ARQUIVOS
+                                        ANEXADOS
+                                    </h5>
+                                    <div class="card-body py-2 px-3">
+                                        @livewire('components.files.show-files-pool', ['files' => $viability->Note->Files], key('files-pool-' . $viability->Note->id))
+                                    </div>
+                                </div>
 
                             </div>
 

@@ -371,8 +371,8 @@
 
                             <tr wire:key='viab_{{ $viab->id }}'>
                                 <td class="text-center align-middle fw-bold">{{ $viab->Note->note }}</td>
-                                <td class="text-center align-middle"> <x-files.select-download-list
-                                        :files='$viab->Note->Files' />
+                                <td class="text-center align-middle"> <x-files.select-download-list :files='$viab->Note->Files'
+                                        wire:key="files-{{ $viab->id }}" />
                                 </td>
                                 <td class="text-center align-middle">
                                     @if ($viab->Note->Orders->isNotEmpty())

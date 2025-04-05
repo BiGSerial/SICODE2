@@ -225,7 +225,19 @@
                             <div class="col-5">
                                 <div class="card mb-3">
 
-                                    @livewire('components.files.show-files-pool', ['files' => $workReport->Note->Files])
+
+
+                                    <div class="card mt-2">
+                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ARQUIVOS
+                                            ANEXADOS
+                                        </h5>
+                                        <div class="card-body py-2 px-3">
+                                            @livewire('components.files.show-files-pool', ['files' => $workReport->Note->Files], key('files-pool-{{ $workReport->Note->id }}'))
+                                        </div>
+                                    </div>
+
+                                    {{-- <h5 class="card-header py-0 my-0 edp-bg-sprucegreen-70 text-edp-verde">Arquivos
+                                        Associado</h5>
                                     {{-- <h5 class="card-header py-0 my-0 edp-bg-sprucegreen-70 text-edp-verde">Arquivos
                                         Associado</h5>
                                     @if ($workReport->Note->Files->count())

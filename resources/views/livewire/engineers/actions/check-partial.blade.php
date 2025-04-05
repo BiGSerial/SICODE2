@@ -95,9 +95,14 @@
                             </table>
                         </div>
 
-                        @if ($form->Files)
-                            @livewire('components.files.show-files-pool', ['files' => $form->Files], key('filesView-' . $form->id))
-                        @endif
+
+                        <div class="card mt-2">
+                            <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ARQUIVOS ANEXADOS
+                            </h5>
+                            <div class="card-body py-2 px-3">
+                                @livewire('components.files.show-files-pool', ['files' => $form->Files], key('filesView-' . $form->id))
+                            </div>
+                        </div>
 
 
                         <div class="card mb-3">

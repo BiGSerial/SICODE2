@@ -71,11 +71,15 @@ class TacitInApproval extends Command
 
                             foreach ($approvals as $approval) {
 
+                                if ($approval->note->nstats > 90 && $approval->note->type_note == 2) {
+                                    $approval->approved = true;
+                                    $approval->tacit = false;
+                                    $approval->approved_at = Carbon::now();
+                                    $approval->reason = "Nota aprovada automaticamente para liberação de pilha por estar fora do escopo de contratação maior que STATUS 90 >>> System Admin <<<";
+                                    $approval->save();
 
-
-
-
-
+                                    continue;
+                                }
 
                                 /**
                                  * Liberação tácita das obbras em posse dos programadores
@@ -99,6 +103,9 @@ class TacitInApproval extends Command
                                         $approval->save();
                                     } else {
 
+                                        $approval->tacit = true;
+                                        $approval->save();
+
                                         $production = null;
 
                                         // Verifica se já existe uma produção finalizada para o mesmo serviço e nota
@@ -112,7 +119,7 @@ class TacitInApproval extends Command
 
                                         if ($hasProduction) {
                                             $production = Production::create([
-                                                'note_id' => $approval->id,
+                                                'note_id' => $approval->note_id,
                                                 'service_id' => $this->serviceId,
                                                 'completed' => false,
                                                 'd5' => true,
@@ -123,10 +130,10 @@ class TacitInApproval extends Command
                                                 'user_id' => $hasProduction->user_id,
                                                 'company_id' => $hasProduction->company_id,
                                                 'status' => 2,
-                                                'dt_note' => $approval->dt_status,
-                                                'dhstats' => $approval->dt_status,
-                                                'status_note' => $approval->nstats,
-                                                'centroTrab' => $approval->centerjob,
+                                                'dt_note' => $approval->note->dt_status,
+                                                'dhstats' => $approval->note->dt_status,
+                                                'status_note' => $approval->note->nstats,
+                                                'centroTrab' => $approval->note->centerjob,
                                             ]);
                                         }
 
@@ -143,7 +150,7 @@ class TacitInApproval extends Command
                                         if ($toReclaim) {
                                             $toReclaim->Comments()->create([
                                                 'user_id' => $approval->user_id,
-                                                'message' => "Obra Retornada automáticamente da etapa de Validação de Projeto, por não ter sido identificado a existência do arquivo de projeto. Gentileza anexar o projeto ao SICODE.\n >> System Admin <<",
+                                                'message' => "Obra Retornada automaticamente da etapa de Validação de Projeto, por não ter sido identificado a existência do arquivo de projeto. Gentileza anexar o projeto ao SICODE.\n >> System Admin <<",
                                             ]);
                                         }
                                     }
@@ -155,7 +162,7 @@ class TacitInApproval extends Command
                                     !$approval->approved
                                 ) {
 
-                                    if ($approval->reclaims->last()->completed_at <= $finalLimitDate && $approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists() && $approval->user_id != $this->userId) {
+                                    if ($approval->reclaims->last()->completed_at <= $finalLimitDate && $approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
 
                                         $approval->approved = true;
                                         $approval->tacit = true;
@@ -177,7 +184,7 @@ class TacitInApproval extends Command
 
                                         if ($hasProduction) {
                                             $production = Production::create([
-                                                'note_id' => $approval->id,
+                                                'note_id' => $approval->note_id,
                                                 'service_id' => $this->serviceId,
                                                 'completed' => false,
                                                 'd5' => true,
@@ -188,10 +195,10 @@ class TacitInApproval extends Command
                                                 'user_id' => $hasProduction->user_id,
                                                 'company_id' => $hasProduction->company_id,
                                                 'status' => 2,
-                                                'dt_note' => $approval->dt_status,
-                                                'dhstats' => $approval->dt_status,
-                                                'status_note' => $approval->nstats,
-                                                'centroTrab' => $approval->centerjob,
+                                                'dt_note' => $approval->note->dt_status,
+                                                'dhstats' => $approval->note->dt_status,
+                                                'status_note' => $approval->note->nstats,
+                                                'centroTrab' => $approval->note->centerjob,
                                             ]);
                                         }
 
@@ -211,7 +218,7 @@ class TacitInApproval extends Command
                                                 'message' => "Obra Retornada automáticamente da etapa de Validação de Projeto, por não ter sido identificado a existência do arquivo de projeto. Gentileza anexar o projeto ao SICODE.\n >> System Admin <<",
                                             ]);
                                         }
-                                    } elseif ($approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists() && $approval->user_id == $this->userId) {
+                                    } elseif ($approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists() && $approval->tacit) {
                                         $approval->approved = true;
                                         $approval->tacit = true;
                                         $approval->approved_at = Carbon::now();

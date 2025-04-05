@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\sicodesql;
+namespace App\Models\SicodeSql;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +17,7 @@ class LogAdsInforms extends Model
         'adsform_id',
         'work_report_id',
         'note_id',
+        'note',
         'user_name',
         'name',
         'obs',

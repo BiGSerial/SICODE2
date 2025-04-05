@@ -317,7 +317,7 @@ class ApprovalList extends Component
         }
 
         return $query
-            ->orderBy('type_note', 'DESC')
+
             ->orderBy('dt_status', 'ASC')
             ->paginate(50);
     }
