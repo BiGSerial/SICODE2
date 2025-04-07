@@ -185,6 +185,7 @@
                                                 <th class="text-center">Serviço</th>
                                                 <th class="text-center">Tipo</th>
                                                 <th class="text-center">Arquivo</th>
+                                                <th class="text-center">Data</th>
                                                 <th class="text-center">Tam</th>
                                                 <th></th>
                                             </tr>
@@ -222,6 +223,8 @@
                                                     <td class="text-center align-middle"><span
                                                             wire:click.prenvet="downloadFile({{ $file->id }})"
                                                             style="cursor: pointer;">{{ $file->file_name }}</span></td>
+                                                    <td class="text-center align-middle">
+                                                        {{ $file->created_at->format('d/m/Y H:i:s') }}</td>
                                                     <td class="text-center align-middle">
                                                         @if ($f_exists)
                                                             {{ formatFileSize(Storage::size($file->path)) }}

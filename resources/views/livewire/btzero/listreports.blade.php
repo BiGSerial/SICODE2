@@ -113,9 +113,9 @@
                             }
 
                             if (is_int($ProdParcialDays)) {
-                                if ($ProdFinalDays > 4) {
+                                if ($ProdParcialDays > 4) {
                                     $partialColors = 'text-bg-danger';
-                                } elseif ($ProdFinalDays <= 1) {
+                                } elseif ($ProdParcialDays <= 1) {
                                     $partialColors = 'text-bg-success';
                                 } else {
                                     $partialColors = 'text-bg-warning';

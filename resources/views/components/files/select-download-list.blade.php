@@ -1,4 +1,5 @@
 @once
+
     <style>
         .file-dropdown-menu {
             /* max-height: 300px; */
@@ -109,11 +110,13 @@
     <div id="{{ $collapseId }}" class="file-collapse" style="height: 0;">
         <div class="file-accordion-body py-0">
             @endif
-
+            @php
+                $icon = \App\Helpers\FileIcon::getIcon($file->ext)->icon;
+            @endphp
             <li wire:key="file-{{ $file->id }}" class="text-center py-1">
                 <a class="file-dropdown-item text-center" href="#"
                     wire:click.prevent="downloadFile({{ $file->id }})" onclick="event.stopPropagation();">
-                    {{ $file->file_name }}
+                    <i class="{{ $icon }}"></i> {{ $file->file_name }}
                 </a>
             </li>
             @endforeach
@@ -126,48 +129,50 @@
 @endif
 
 @once
-    <script>
-        function toggleFileAccordion(button) {
-            const parentAccordion = button.closest('[data-accordion-id]');
-            const targetId = button.getAttribute('data-target').replace('#', '');
-            const target = document.getElementById(targetId);
+    @push('script')
+        <script>
+            function toggleFileAccordion(button) {
+                const parentAccordion = button.closest('[data-accordion-id]');
+                const targetId = button.getAttribute('data-target').replace('#', '');
+                const target = document.getElementById(targetId);
 
-            parentAccordion.querySelectorAll('.file-collapse').forEach(collapse => {
-                if (collapse.id !== targetId) {
-                    collapse.classList.remove('open');
-                    collapse.style.height = '0';
+                parentAccordion.querySelectorAll('.file-collapse').forEach(collapse => {
+                    if (collapse.id !== targetId) {
+                        collapse.classList.remove('open');
+                        collapse.style.height = '0';
 
-                    const btn = parentAccordion.querySelector(`[data-target="#${collapse.id}"]`);
-                    if (btn) btn.classList.remove('open');
+                        const btn = parentAccordion.querySelector(`[data-target="#${collapse.id}"]`);
+                        if (btn) btn.classList.remove('open');
+                    }
+                });
+
+                if (target.classList.contains('open')) {
+                    target.classList.remove('open');
+                    target.style.height = '0';
+                    button.classList.remove('open');
+                } else {
+                    target.classList.add('open');
+                    target.style.height = target.scrollHeight + 'px';
+                    button.classList.add('open');
                 }
-            });
-
-            if (target.classList.contains('open')) {
-                target.classList.remove('open');
-                target.style.height = '0';
-                button.classList.remove('open');
-            } else {
-                target.classList.add('open');
-                target.style.height = target.scrollHeight + 'px';
-                button.classList.add('open');
             }
-        }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.file-dropdown').forEach(dropdown => {
-                const toggleIcon = dropdown.querySelector('.file-dropdown-toggle-icon');
-                const bsDropdown = bootstrap.Dropdown.getOrCreateInstance(toggleIcon);
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.file-dropdown').forEach(dropdown => {
+                    const toggleIcon = dropdown.querySelector('.file-dropdown-toggle-icon');
+                    const bsDropdown = bootstrap.Dropdown.getOrCreateInstance(toggleIcon);
 
-                dropdown.addEventListener('show.bs.dropdown', function() {
-                    toggleIcon.classList.remove('text-danger');
-                    toggleIcon.classList.add('text-success');
-                });
+                    dropdown.addEventListener('show.bs.dropdown', function() {
+                        toggleIcon.classList.remove('text-danger');
+                        toggleIcon.classList.add('text-success');
+                    });
 
-                dropdown.addEventListener('hide.bs.dropdown', function() {
-                    toggleIcon.classList.remove('text-success');
-                    toggleIcon.classList.add('text-danger');
+                    dropdown.addEventListener('hide.bs.dropdown', function() {
+                        toggleIcon.classList.remove('text-success');
+                        toggleIcon.classList.add('text-danger');
+                    });
                 });
             });
-        });
-    </script>
+        </script>
+    @endpush
 @endonce

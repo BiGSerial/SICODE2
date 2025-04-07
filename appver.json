@@ -1,6 +1,11 @@
 {
-    "appver": "1.18.1",
+    "appver": "1.18.2",
     "historic": [
+        {
+            "version": "1.18.2",
+            "description": "Fix SMC lists, and Add column with date on Files list.",
+            "date": "2025-04-07"
+        },
         {
             "version": "1.18.1",
             "description": "Modal Backdrop Fix",
