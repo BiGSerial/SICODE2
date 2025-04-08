@@ -27,6 +27,8 @@ class ApprovalControl extends Component
     public $selected = [];
     public $select_all = false;
 
+    public $onlyFinished = false;
+
     private $filter_group = 'analises';
     private $filter;
 
@@ -285,6 +287,23 @@ class ApprovalControl extends Component
 
         $query->whereHas('Approval', function ($q) {
             $q->where('approved', false);
+
+
+            if ($this->onlyFinished) {
+                $q->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('viability_approval_reclaim as vr1')
+                        ->join('reclaims as r1', 'r1.id', '=', 'vr1.reclaim_id')
+                        ->whereColumn('vr1.viability_approval_id', 'viability_approvals.id')
+                        ->where('r1.completed', true)
+                        ->whereRaw('r1.id = (
+                        SELECT MAX(r2.id)
+                        FROM viability_approval_reclaim as vr2
+                        JOIN reclaims as r2 ON r2.id = vr2.reclaim_id
+                        WHERE vr2.viability_approval_id = vr1.viability_approval_id
+                    )');
+                });
+            }
 
         })
         ->with([

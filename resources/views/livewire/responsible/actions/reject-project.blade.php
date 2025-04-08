@@ -4,6 +4,7 @@
     use App\Helpers\SelectOptions;
     use Carbon\Carbon;
     use App\Helpers\DaysLeft;
+
 @endphp
 <div>
     <x-show-loading />
@@ -25,24 +26,56 @@
                                     <!-- Informações do Produto/Serviço Sendo Devolvido -->
                                     <div class="card mb-3">
                                         <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                                            Informações da Nota
+                                            <h5 class="my-0 py-1 text-uppercase">Informações da Nota</h5>
                                         </div>
                                         <div class="card-body">
-                                            <p><strong>Número da Nota:</strong> {{ $note->note }}</p>
-                                            <p><strong>Rubrica:</strong> {{ $note->rubrica }}</p>
+                                            <p class="py-0 my-0"><strong>Número da Nota:</strong> {{ $note->note }}
+                                            </p>
+
                                             @php
-                                                $ordens = $note->orders
-                                                    ? implode(', ', $note->orders->pluck('ordem')->toArray())
-                                                    : '';
+                                                $orders = $note->orders
+                                                    ->map(function ($order) {
+                                                        return $order->ordem .
+                                                            ' (' .
+                                                            explode(' ', $order->statusSist)[0] .
+                                                            ')';
+                                                    })
+                                                    ->toArray();
+                                                $ordens = implode(', ', $orders);
                                             @endphp
-                                            <p><strong>Ordens:</strong> {{ $ordens }}</p>
-                                            <p><strong>Municipio:</strong> {{ $note->lexp }}</p>
-                                            <p><strong>Data Status:</strong> <span
+                                            <p class="py-0 my-0"><strong>Ordens:</strong> <span
+                                                    class="{{ strpos($ordens, 'ENT') !== false || strpos($ordens, 'ENCE') !== false ? 'text-danger' : '' }}">{{ $ordens }}</span>
+                                            </p>
+                                            <p class="py-0 my-0"><strong>Status:</strong> {{ $note->nstats }}</p>
+                                            <p class="py-0 my-0"><strong>CentroTrabalho:</strong>
+                                                {{ $note->centerjob }}</p>
+                                            <p class="py-0 my-0"><strong>Material:</strong>
+                                                {{ $note->material }}</p>
+                                            <p class="py-0 my-0"><strong>Rubrica:</strong> {{ $note->rubrica }}</p>
+                                            <p class="py-0 my-0"><strong>Municipio:</strong> {{ $note->lexp }}</p>
+                                            <p class="py-0 my-0"><strong>Data Status:</strong> <span
                                                     class="fw-bold text-primary">{{ $note->dt_status->format('d/m/Y H:i') }}</span>
                                             </p>
-                                            <p><strong>Tácito:</strong> <span class="fw-bold text-danger">
+                                            <p class="py-0 my-0"><strong>Tácito:</strong> <span
+                                                    class="fw-bold text-danger">
                                                     {{ $note->approval?->tacit ? 'SIM' : 'NÃO' }}</span>
                                             </p>
+                                            @php
+                                                $businessDays = $note->approval->created_at
+                                                    ->startOfDay()
+                                                    ->diffInDaysFiltered(function (Carbon $date) {
+                                                        return $date->isWeekday(); // Segunda a sexta
+                                                    }, now()->startOfDay());
+
+                                            @endphp
+                                            <p class="py-0 my-0"><strong>Data em Validação:</strong>
+                                                <span class="fw-bold text-primary">
+                                                    {{ $note->approval?->created_at->format('d/m/Y H:i:s') }}</span>
+                                                <span class="fw-bold text-danger">
+                                                    ({{ $businessDays }} dias úteis)</span>
+                                            </p>
+
+
                                         </div>
                                     </div>
                                 </div>
@@ -110,7 +143,16 @@
                                                                     <td class="col align-middle">
                                                                         @if ($reclaim->production)
                                                                             <span
-                                                                                class="fw-bold text-primary">{{ $reclaim->Production->att_at->format('d/m/Y H:i') }}</span>
+                                                                                class="fw-bold text-primary">{{ $reclaim->Production->att_at?->format('d/m/Y H:i') }}</span>
+                                                                        @endif
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end fw-bold col-3">Status:</td>
+                                                                    <td class="col align-middle">
+                                                                        @if ($reclaim->production)
+                                                                            <span
+                                                                                class="badge {{ Notestatus::status($reclaim->Production->status)->colorbg }}">{{ Notestatus::status($reclaim->Production->status)->status }}</span>
                                                                         @endif
                                                                     </td>
                                                                 </tr>
@@ -120,7 +162,7 @@
                                                                     <td class="col align-middle">
                                                                         @if ($reclaim->Production)
                                                                             <span
-                                                                                class="fw-bold text-success">{{ $reclaim->Production->completed_at->format('d/m/Y H:i') }}</span>
+                                                                                class="fw-bold text-success">{{ $reclaim->Production->completed_at?->format('d/m/Y H:i') }}</span>
                                                                         @endif
                                                                     </td>
                                                                 </tr>
@@ -202,9 +244,29 @@
                             <div class="col-12">
                                 <div class="card">
                                     <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                                        RESPONDER A ANALISE
+                                        <h5 class="my-0 py-1">RESPONDER A ANALISE</h5>
                                     </div>
                                     <div class="card-body">
+                                        @if (count($retornoInternos) && !$retornoInternos->last()->completed)
+                                            <div class="card text-bg-danger">
+                                                <div class="card-body">
+                                                    <h4 class="text-center">ATENÇÃO</h4>
+                                                    <p class="text-center">
+                                                        Esta obra ainda aguarda retorno da <strong>Resolução
+                                                            Interna</strong> enviado em:
+                                                        <strong
+                                                            class="text-warning">{{ $retornoInternos->last()->created_at->format('d/m/Y H:i') }}</strong>
+                                                        para
+                                                        <strong class="text-warning text-uppercase">
+                                                            {{ $retornoInternos->last()->service->service }}</strong>
+                                                        com o motivo de <strong
+                                                            class="text-warning">{{ $retornoInternos->last()->category }}</strong>.
+                                                        <br>
+                                                        Aguarde ou prossiga se realmente considerar nescessário.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        @endif
                                         <div class="row">
                                             <div class="col-4">
                                                 <label for="select1" class="form-label">Selecione uma Decisão:</label>

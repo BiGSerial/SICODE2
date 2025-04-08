@@ -56,9 +56,7 @@ class RejectProject extends Component
 
         $this->note = $note->load([
             'orders' => function ($q) {
-                $q->where('statusSist', 'not like', 'ENT%')
-                  ->where('statusSist', 'not like', 'ENC%')
-                  ->orderBy('ordem');
+                $q->orderBy('ordem');
             },
             'Approval.Reclaims', // Eager load the reclaims relationship directly
         ]);

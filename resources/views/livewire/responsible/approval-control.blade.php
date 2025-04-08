@@ -21,6 +21,15 @@
             </span>
         </div>
 
+        <!-- Botão de filtro para somente finalizados -->
+        <div class="me-3">
+            <button type="button" class="btn {{ $onlyFinished ? 'btn-success' : 'btn-outline-success' }}"
+                wire:click="$toggle('onlyFinished')"
+                title="{{ $onlyFinished ? 'Mostrar todos' : 'Mostrar somente finalizados' }}">
+
+                Finalizados
+            </button>
+        </div>
         <!-- Botões do tipo radio para seleção individual -->
         <div class="btn-group me-3" role="group" aria-label="Seleção de Opções">
             <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
@@ -118,7 +127,8 @@
                             <tr wire:key="linha-{{ $list->id }}" onclick="handleRowClick(this)" class="">
                                 <td class="text-center align-middle">
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input border-1 border-secondary select"
+                                        <input type="checkbox"
+                                            class="form-check-input border-1 border-secondary select"
                                             wire:model.defer="selected" value="{{ $list->id }}">
                                     </div>
                                 </td>
@@ -160,50 +170,70 @@
                                     {{ $list->type_note == 2 ? $list->nstats : $list->centerjob }}
                                 </td>
                                 @php
+
                                     $color = '';
                                     $attColor = '';
                                     $rclColor = '';
                                     $days = '';
-                                    $attDays = $list->approval->created_at->diffInDays(now());
+                                    $attDays = '';
                                     $reclaim = $list->approval->reclaims->isNotEmpty()
                                         ? $list->approval->reclaims->last()
                                         : null;
                                     $rclDays = '---';
 
-                                    $days = $list->dt_status->diffInDays(now());
+                                    $days = $list->dt_status->startOfDay()->diffInDays(Carbon::now());
+                                    $bdays = $list->dt_status
+                                        ->startOfDay()
+                                        ->diffInDaysFiltered(function (Carbon $date) {
+                                            return $date->isWeekday(); // Segunda a sexta
+                                        }, now()->startOfDay());
 
-                                    if ($days > 5) {
+                                    if ($bdays > 2) {
                                         $color = 'text-bg-danger';
-                                    } elseif ($days <= 3) {
+                                    } elseif ($bdays <= 1) {
                                         $color = 'text-bg-success';
                                     } else {
                                         $color = 'text-bg-warning';
                                     }
 
-                                    $attDays = $list->approval->created_at->diffInDays(now());
+                                    $attDays = $list->approval->created_at->startOfDay()->diffInDays(Carbon::now());
+                                    $attBdays = $list->approval->created_at
+                                        ->startOfDay()
+                                        ->diffInDaysFiltered(function (Carbon $date) {
+                                            return $date->isWeekday(); // Segunda a sexta
+                                        }, now()->startOfDay());
 
-                                    if ($attDays > 5) {
+                                    if ($attBdays > 2) {
                                         $attColor = 'text-bg-danger';
-                                    } elseif ($attDays <= 3) {
+                                    } elseif ($attBdays <= 1) {
                                         $attColor = 'text-bg-success';
                                     } else {
                                         $attColor = 'text-bg-warning';
                                     }
 
-                                    if ($reclaim && ($rclDays = $reclaim->created_at->diffInDays(now()))) {
-                                        if ($rclDays > 5) {
+                                    if (
+                                        $reclaim &&
+                                        ($rclDays = $reclaim->created_at->startOfDay()->diffInDays(Carbon::now()))
+                                    ) {
+                                        $rclBdays = $reclaim->created_at
+                                            ->startOfDay()
+                                            ->diffInDaysFiltered(function (Carbon $date) {
+                                                return $date->isWeekday(); // Segunda a sexta
+                                            }, now()->startOfDay());
+
+                                        if ($rclBdays > 2) {
                                             $rclColor = 'text-bg-danger';
-                                        } elseif ($rclDays <= 3) {
+                                        } elseif ($rclBdays <= 1) {
                                             $rclColor = 'text-bg-success';
                                         } else {
                                             $rclColor = 'text-bg-warning';
                                         }
                                     }
                                 @endphp
-                                <td class="text-center align-middle {{ $color }}">
+                                <td class="text-center align-middle border-right border-1 {{ $color }}">
                                     {{ $days }}
                                 </td>
-                                <td class="text-center align-middle {{ $attColor }}">
+                                <td class="text-center align-middle border-right border-1 {{ $attColor }}">
                                     {{ $attDays }}
                                 </td>
                                 <td class="text-center align-middle {{ $rclColor }}">

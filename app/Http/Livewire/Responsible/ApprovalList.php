@@ -5,6 +5,8 @@ namespace App\Http\Livewire\Responsible;
 use App\Helpers\TextFormatter;
 use App\Models\File;
 use App\Models\Note;
+use App\Models\Service;
+use App\Models\Production;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -28,6 +30,7 @@ class ApprovalList extends Component
 
     private $filter_group = 'analises';
     private $filter;
+    private $serviceId;
 
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
@@ -38,6 +41,12 @@ class ApprovalList extends Component
         'refresh_list' => '$refresh',
         'confirm_att',
     ];
+
+
+    public function mount()
+    {
+        $this->serviceId = Service::where('service', 'Desenho')->first()->uuid;
+    }
 
     public function buscarMulti()
     {
@@ -164,12 +173,72 @@ class ApprovalList extends Component
 
             if (!$note->Approval()->exists()) {
                 try {
-                    $note->Approval()->create([
 
-                        'user_id'     => auth()->id(),
-                        'status'      => $note->nstats,
-                        'dt_status'   => $note->dt_status,
-                    ]);
+                    $approval = $note->Approval()->create([
+
+                         'user_id'     => auth()->id(),
+                         'status'      => $note->nstats,
+                         'dt_status'   => $note->dt_status,
+                     ]);
+
+                    if ($approval && !$approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
+
+                        $this->serviceId = Service::where('service', 'Desenho')->first()->uuid;
+
+
+                        if (!$this->serviceId) {
+                            throw new \Exception('Serviço de Desenho não encontrado. Não é possível prosseguir com a atribuição.');
+                        }
+
+                        $production = null;
+
+                        // Verifica se já existe uma produção finalizada para o mesmo serviço e nota
+                        // Se existir, cria uma nova produção com o mesmo usuário e empresa
+                        $hasProduction = Production::where('service_id', $this->serviceId)
+                            ->where('note_id', $approval->note_id)
+                            ->where('completed', true)
+                            ->orderBy('completed_at', 'desc')
+                            ->first();
+
+
+                        if ($hasProduction) {
+                            $production = Production::create([
+                                'note_id' => $approval->note_id,
+                                'service_id' => $this->serviceId,
+                                'completed' => false,
+                                'd5' => true,
+                                'att_at' => now(),
+                                'att_by' => $approval->user_id,
+                                'dispatch_at' => now(),
+                                'dispatch_by' => $approval->user_id,
+                                'user_id' => $hasProduction->user_id,
+                                'company_id' => $hasProduction->company_id,
+                                'status' => 2,
+                                'dt_note' => $approval->note->dt_status,
+                                'dhstats' => $approval->note->dt_status,
+                                'status_note' => $approval->note->nstats,
+                                'centroTrab' => $approval->note->centerjob,
+                            ]);
+                        }
+
+
+
+                        $toReclaim = $approval->reclaims()->create([
+                            'service_id' => $this->serviceId,
+                            'note_id' => $approval->note_id,
+                            'production_id' => $production ? $production->id : null,
+                            'category' => "ANEXAR PDF",
+
+                        ]);
+
+                        if ($toReclaim) {
+                            $toReclaim->Comments()->create([
+                                'user_id' => $approval->user_id,
+                                'message' => "Gentileza Anexar PDF.\n >> Enviado automáticamente por System Admin <<",
+                            ]);
+                        }
+
+                    }
 
                 } catch (\Throwable $th) {
                     $this->dispatchBrowserEvent('swal', [

@@ -71,15 +71,72 @@ class TacitInApproval extends Command
 
                             foreach ($approvals as $approval) {
 
-                                if ($approval->note->nstats > 90 && $approval->note->type_note == 2) {
+                                /**
+                                 *Verifica que a obra está ainda no prazo e se não existe Retorno interno ativo
+                                 */
+                                if ($approval->reclaims->isEmpty() && !$approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
+
+
+                                    $production = null;
+
+                                    // Verifica se já existe uma produção finalizada para o mesmo serviço e nota
+                                    // Se existir, cria uma nova produção com o mesmo usuário e empresa
+                                    $hasProduction = Production::where('service_id', $this->serviceId)
+                                        ->where('note_id', $approval->note_id)
+                                        ->where('completed', true)
+                                        ->orderBy('completed_at', 'desc')
+                                        ->first();
+
+
+                                    if ($hasProduction) {
+                                        $production = Production::create([
+                                            'note_id' => $approval->note_id,
+                                            'service_id' => $this->serviceId,
+                                            'completed' => false,
+                                            'd5' => true,
+                                            'att_at' => now(),
+                                            'att_by' => $approval->user_id,
+                                            'dispatch_at' => now(),
+                                            'dispatch_by' => $approval->user_id,
+                                            'user_id' => $hasProduction->user_id,
+                                            'company_id' => $hasProduction->company_id,
+                                            'status' => 2,
+                                            'dt_note' => $approval->note->dt_status,
+                                            'dhstats' => $approval->note->dt_status,
+                                            'status_note' => $approval->note->nstats,
+                                            'centroTrab' => $approval->note->centerjob,
+                                        ]);
+                                    }
+
+
+
+                                    $toReclaim = $approval->reclaims()->create([
+                                        'service_id' => $this->serviceId,
+                                        'note_id' => $approval->note_id,
+                                        'production_id' => $production ? $production->id : null,
+                                        'category' => "ANEXAR PDF",
+
+                                    ]);
+
+                                    if ($toReclaim) {
+                                        $toReclaim->Comments()->create([
+                                            'user_id' => $approval->user_id,
+                                            'message' => "Gentileza Anexar PDF.\n >> Enviado automáticamente por System Admin <<",
+                                        ]);
+                                    }
+
+                                    continue;
+
+                                } elseif ($approval->reclaims->isEmpty() && $approval->note->dt_status <= $finalLimitDate && $approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
                                     $approval->approved = true;
-                                    $approval->tacit = false;
+                                    $approval->tacit = true;
                                     $approval->approved_at = Carbon::now();
-                                    $approval->reason = "Nota aprovada automaticamente para liberação de pilha por estar fora do escopo de contratação maior que STATUS 90 >>> System Admin <<<";
+                                    $approval->reason = "Liberado tácitamente por status da nota ter mais que {$this->option('days')} dias úteis >>> System Admin <<<";
                                     $approval->save();
 
                                     continue;
                                 }
+
 
                                 /**
                                  * Liberação tácita das obbras em posse dos programadores
@@ -150,7 +207,7 @@ class TacitInApproval extends Command
                                         if ($toReclaim) {
                                             $toReclaim->Comments()->create([
                                                 'user_id' => $approval->user_id,
-                                                'message' => "Obra Retornada automaticamente da etapa de Validação de Projeto, por não ter sido identificado a existência do arquivo de projeto. Gentileza anexar o projeto ao SICODE.\n >> System Admin <<",
+                                                'message' => "Gentileza Anexar PDF.\n >> Enviado automáticamente por System Admin <<",
                                             ]);
                                         }
                                     }
@@ -215,7 +272,7 @@ class TacitInApproval extends Command
                                         if ($toReclaim) {
                                             $toReclaim->Comments()->create([
                                                 'user_id' => $approval->user_id,
-                                                'message' => "Obra Retornada automáticamente da etapa de Validação de Projeto, por não ter sido identificado a existência do arquivo de projeto. Gentileza anexar o projeto ao SICODE.\n >> System Admin <<",
+                                                'message' => "Gentileza Anexar PDF.\n >> Enviado automáticamente por System Admin <<",
                                             ]);
                                         }
                                     } elseif ($approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists() && $approval->tacit) {
