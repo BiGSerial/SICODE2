@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Console\Commands\Tools;
+namespace App\Console\Commands\SqlLog;
 
 use App\Models\Production;
 use App\Models\SicodeSql\HiringStatus;
 use App\Models\ViabilityApproval;
-use App\Repositories\ApprovalsRepository;
+use App\Repositories\HiringRepository;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -26,12 +26,12 @@ class HiringStatusLog extends Command
     protected $description = 'Atualiza o log de status da contratação';
 
 
-    protected ApprovalsRepository $approvalsRepository;
+    protected HiringRepository $HiringRepository;
 
-    public function __construct(ApprovalsRepository $approvalsRepository)
+    public function __construct(HiringRepository $HiringRepository)
     {
         parent::__construct();
-        $this->approvalsRepository = $approvalsRepository;
+        $this->HiringRepository = $HiringRepository;
     }
 
     /**
@@ -42,10 +42,10 @@ class HiringStatusLog extends Command
 
         $full = !count(HiringStatus::all());
 
-        $query = $this->approvalsRepository->getBaseQuery();
+        $query = $this->HiringRepository->getBaseQuery();
 
 
-        $totalSteps = clone $query->count();
+        $totalSteps = $query->count();
 
 
 
@@ -105,7 +105,8 @@ class HiringStatusLog extends Command
                     $batchNotes[] = $hiringStatus;
 
                     if (count($batchNotes) >= $maxBatch) {
-                        HiringStatus::insert($batchNotes);
+                        $batchData = array_map(fn ($item) => (array) $item, $batchNotes);
+                        HiringStatus::insert($batchData);
                         $batchNotes = [];
                     }
                 } else {
@@ -131,7 +132,8 @@ class HiringStatusLog extends Command
             }
 
             if (count($batchNotes) > 0) {
-                HiringStatus::insert($batchNotes);
+                $batchData = array_map(fn ($item) => (array) $item, $batchNotes);
+                HiringStatus::insert($batchData);
                 $batchNotes = [];
             }
 

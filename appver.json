@@ -1,6 +1,11 @@
 {
-    "appver": "1.18.2",
+    "appver": "1.19.0",
     "historic": [
+        {
+            "version": "1.19.0",
+            "description": "Implemented Automatic Routine in Approval list, Create Routine to Log Hiring Situation, Has Select and All select to mass dispatch in Intern Returnals",
+            "date": "2025-04-08"
+        },
         {
             "version": "1.18.2",
             "description": "Fix SMC lists, and Add column with date on Files list.",
