@@ -40,6 +40,7 @@ class DispatchController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
+
         if (view()->exists('dispatchs.' . $service->folder . '.stack')) {
             return view('dispatchs.' . $service->folder . '.stack', [
                 'service' => $service,

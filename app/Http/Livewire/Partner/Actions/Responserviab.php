@@ -15,7 +15,9 @@ class Responserviab extends Component
 
     protected $listeners = [
         'getInfoResponse',
-        'confirm_response'
+        'confirm_response',
+        'savedFiles',
+        'continue',
     ];
 
 
@@ -28,6 +30,26 @@ class Responserviab extends Component
                 'id' => 'modal_resp_viability',
             ]);
         }
+    }
+
+    public function continue()
+    {
+        $this->dispatchBrowserEvent('hideModal');
+        $this->viability = null;
+        $this->emitUp('refresh_list');
+    }
+
+    public function savedFiles()
+    {
+        $this->dispatchBrowserEvent('hideModal');
+        $this->viability = null;
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Arquivos Salvos com Sucesso!',
+            'timer'    => 5000,
+        ]);
+        $this->emitUp('refresh_list');
     }
 
     public function toResponser()

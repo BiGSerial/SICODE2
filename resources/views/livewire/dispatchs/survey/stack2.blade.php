@@ -365,7 +365,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Relacionar DD em MASSA:</label>
+                        <label class="form-label">Relacionar DD em MASSA 1:</label>
                         <textarea class="form-control" rows="10" style="resize: none;"
                             placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
                     </div>

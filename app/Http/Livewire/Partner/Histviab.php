@@ -4,8 +4,10 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\parner\exportExcel;
 use App\Exports\Viability\HistoricReport;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note, Viability};
+use Carbon\Carbon;
 use Illuminate\Support\Facades\{Crypt, Storage};
 use Livewire\{Component, WithPagination};
 use ZipArchive;
@@ -13,6 +15,7 @@ use ZipArchive;
 class Histviab extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -24,9 +27,14 @@ class Histviab extends Component
 
     public $search;
 
+    public $typeNote = '';
+    public $advanceSearch = '';
+    public $multinotas = [];
+
     // search by date
     public $date_in;
     public $date_out;
+    public $month;
     public $dateBy = 'sended_at';
 
     // Filters
@@ -79,6 +87,30 @@ class Histviab extends Component
         }
     }
 
+    public function buscarMultinotas()
+    {
+        if ($this->advanceSearch) {
+            $this->search = '';
+            $this->gotoPage(1);
+
+            $this->multinotas = $this->formatTextToArray($this->advanceSearch);
+            if (count($this->multinotas)) {
+                $this->advanceSearch = '';
+                $this->dispatchBrowserEvent('hideModal');
+            }
+        }
+    }
+
+    public function updatedSearch()
+    {
+        if (trim($this->search)) {
+            $this->gotoPage(1);
+            $this->multinotas = [];
+            $this->advanceSearch = '';
+        }
+    }
+
+
     public function openForms($id)
     {
         if ($id) {
@@ -128,6 +160,17 @@ class Histviab extends Component
         $this->search = '';
     }
 
+    public function updatedMonth()
+    {
+        if ($this->month) {
+            $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+            $this->date_out =  Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+        } else {
+            $this->date_in = '';
+            $this->date_out = '';
+        }
+    }
+
     public function getListsProperty()
     {
 
@@ -162,6 +205,17 @@ class Histviab extends Component
             $query->where(function ($q) {
                 $q->whereRelation('Note', 'note', trim($this->search))
                     ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+            });
+        }
+
+        if ($this->multinotas) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', function ($q) {
+                    $q->whereIn('note', $this->multinotas);
+                })
+                    ->orWhereRelation('Note.Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multinotas);
+                    });
             });
         }
 

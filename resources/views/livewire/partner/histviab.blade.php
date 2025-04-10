@@ -70,8 +70,98 @@
 <div>
     <x-show-loading />
 
-    {{-- START SearchBar and Filters --}}
-    <div class="card mb-3">
+    <div class="d-flex flex-column mb-3">
+
+        <!-- Linha 1: Busca, Tipo de Nota e Data Selection -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+
+            <!-- Campo de busca com botão e tooltip -->
+            <div class="col-md-4">
+                <div class="input-group  me-3 mb-2">
+                    <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar"
+                        wire:model.debounce.1s="search">
+                    <span data-bs-toggle="tooltip" data-bs-trigger="hover" data-bs-placement="top"
+                        data-bs-content="Multinotas">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
+                            data-bs-target="#modal_multi_notas" title="Multinotas">
+                            <i class="ri-checkbox-multiple-blank-fill"></i>
+                        </button>
+
+                        @if ($multinotas)
+                            <button class="btn btn-outline-danger" type="button" wire:click="$set('multinotas', [])"
+                                title="Limpar Pesquisa">
+                                <i class="ri-filter-off-line"></i>
+                            </button>
+                        @endif
+                    </span>
+                </div>
+            </div>
+
+            <!-- Botões do tipo radio para seleção individual -->
+            <div class="btn-group me-3 mb-2" role="group" aria-label="Seleção de Opções">
+                <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
+                    wire:model="typeNote" value="1">
+                <label class="btn btn-outline-primary" for="nota">Nota</label>
+
+                <input type="radio" class="btn-check" name="selecao" id="ov" autocomplete="off"
+                    wire:model="typeNote" value="2">
+                <label class="btn btn-outline-primary" for="ov">Ov</label>
+
+                <input type="radio" class="btn-check" name="selecao" id="ambas" autocomplete="off"
+                    wire:model="typeNote" value="">
+                <label class="btn btn-outline-primary" for="ambas">Ambas</label>
+            </div>
+
+            <!-- Date Selection (Month/Year, Start Date, End Date) -->
+            <div class="d-flex flex-wrap align-items-center">
+
+                <!-- Select Mês/Ano -->
+                <div class="me-3 mb-2">
+                    <label for="month" class="form-label visually-hidden">Mês/Ano</label>
+                    <input type="month" class="form-control" id="month" wire:model="month" min="2023-06"
+                        max="{{ date('Y-m') }}">
+                </div>
+
+                <!-- Data Inicial -->
+                <div class="me-3 mb-2">
+                    <label for="date_in" class="form-label visually-hidden">Data Inicial</label>
+                    <input type="date" class="form-control" id="date_in" wire:model="date_in">
+                </div>
+
+                <!-- Data Final -->
+                <div class="me-3 mb-2">
+                    <label for="date_out" class="form-label visually-hidden">Data Final</label>
+                    <input type="date" class="form-control" id="date_out" wire:model="date_out">
+                </div>
+
+                <div class="me-3 mb-2">
+                    <label for="dateBy" class="form-label visually-hidden">Coluna a Filtrar</label>
+                    <select name="dateBy" id="dateBy" class="form-select" wire:model="dateBy"
+                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Data por Coluna">
+                        <option value="sended_at">Recebido</option>
+                        <option value="returned_at">Viabilizado</option>
+                        <option value="completed_at">Completado</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Linha 2: Filtros -->
+        <div class="d-flex flex-wrap align-items-center justify-content-end">
+            <div class="btn-group" role="group" aria-label="Ações">
+
+                @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
+            </div>
+        </div>
+
+    </div>
+
+
+    {{-- <div class="card mb-3">
         <div class="card-body">
             <div class="row">
                 <div class="col-1">
@@ -115,13 +205,11 @@
                         data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button></div>
                 <div class="col-5 d-flex justify-content-end">
                     @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_hist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    {{-- @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_hist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_hist', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city')) --}}
                     @livewire('components.filter.remove-all', ['group_filter' => 'partner_hist'], key('removeAll'))
                 </div>
             </div>
         </div>
-    </div>
+    </div> --}}
     {{-- END SearchBar and Filters --}}
 
     {{-- START LIST --}}
@@ -374,9 +462,39 @@
     @endif
     {{-- END LIST --}}
 
+
+    {{-- MODALS --}}
+    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1"
+        aria-labelledby="exampleModalLabel" aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"
+                        placeholder="Separar valores, por linha, virgula ou ponto e virgula. Colar direto do excel também funciona."></textarea>
+                </div>
+                <div class="modal-footer">
+
+                    <button type="button" class="btn btn-primary" wire:click="buscarMultinotas">OK</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
     {{-- Livewire Components --}}
     @livewire('partner.actions.responserviab', key('reesponser_modal_viab'))
     @livewire('partner.show.tacitjusfy-show', key('tacitjusfy-show'))
+
+
+
 
     {{-- Scripts --}}
     <script>

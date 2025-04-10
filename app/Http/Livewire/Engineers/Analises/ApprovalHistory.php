@@ -31,6 +31,7 @@ class ApprovalHistory extends Component
     public $date_init;
     public $date_end;
 
+
     private $filter_group = 'analises';
     private $filter;
 

@@ -77,7 +77,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Tipo','Note', 'Ordem', 'DD', 'ADS Origem', 'Data ADS', 'Postes', 'Informado Em', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Situação', 'Empresa', 'Usuario'
+            'Tipo','Note', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Data ADS', 'Informado Em', 'Prazo ADS', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
         ];
     }
 
@@ -86,6 +86,10 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         // Processamento das ordens
         $ordens = '';
         $sumOrders = 0;
+        $centrojob = '';
+        $partner = '';
+        $userInform = '';
+
         if ($row->orders) {
 
 
@@ -100,13 +104,18 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $sumOrders = $ordensMoa->sum('moaberto');
             $ordens = implode(" \n", $ordensArray);
 
+            $centrojob = $row->orders()->where('ordem', $ordensArray[0])->first()?->operations?->where('operacao', '0010')->first()?->cenTrab;
         }
+
+
 
         $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
 
         //Calculando os dias informados
         $informe = '';
         if ($row->WorkForm) {
+            $partner = $row->WorkForm->company?->name;
+            $userInform = $row->WorkForm->user?->name;
             $informe = 'FINAL';
             $diasInforme = $row->work_dt_created ? Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false) : 0;
         } elseif ($row->Partials->isNotEmpty()) {
@@ -126,24 +135,45 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         if ($row->adsform) {
             $ads_origin = 'NOVO';
-            $ads = $row->adsform->created_at->format('d/m/Y');
+            $ads = $row->adsform->created_at;
         } elseif ($row->OldAds->isNotEmpty()) {
             $ads_origin = 'ANTIGO';
-            $ads =  $row->OldAds->last()->date->format('d/m/Y');
+            $ads =  $row->OldAds->last()->date;
         } else {
             $ads_origin = 'SEM ADS';
             $ads = null;
         }
+
+        $inPrazo = null;
+
+
+        if ($row->work_dt_created) {
+            if ($ads) {
+                $diff = Carbon::parse($row->work_dt_created)->diffInDays(Carbon::parse($ads), false);
+                $inPrazo = $diff > 7 ? 'FORA DO PRAZO' : 'DENTRO DO PRAZO';
+            } else {
+                $diff = Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false);
+                $inPrazo = $diff > 7 ? 'ATRASADO' : 'EM PRAZO';
+            }
+        } else {
+            $inPrazo = '---';
+        }
+
 
         return [
             $informe,
             $row->note,
             $ordens,
             $dd,
+            $ads ? 'SIM' : 'NÃO',
             $ads_origin,
-            $ads ? $ads : '---',
-            $row->postes ?? '---',
+            $ads ? $ads->format('d/m/Y') : '---',
             $row->work_dt_created ? Carbon::parse($row->work_dt_created)->format('d/m/Y') : '---',
+            $inPrazo,
+            $userInform,
+            $partner,
+            $centrojob,
+            $row->postes ?? '---',
             $row->numPedido,
             $row->rubrica,
             $row->lexp,
@@ -151,6 +181,8 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->type_note == 2 ? $row->nstats : $row->centerjob,
             $diasInforme,
             $status,
+            $production?->dispatch_at->format('d/m/Y H:i:s'),
+            $production?->att_at->format('d/m/Y H:i:s'),
             $empresa,
             $usuario,
         ];
@@ -183,7 +215,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
                 $sheet->getStyle('A:Z')->getAlignment()->setWrapText(true);
 
-                $event->sheet->getStyle('A1:Q1')->applyFromArray([
+                $event->sheet->getStyle('A1:X1')->applyFromArray([
                     'font' => [
                     'bold'  => true,
                     'color' => ['rgb' => 'FFFFFF'],

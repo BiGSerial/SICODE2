@@ -4,7 +4,6 @@ namespace App\Helpers;
 
 trait TextFormatter
 {
-
     /**
      * Formata para um arrau em um padrao pré-definido.
      *
@@ -26,6 +25,30 @@ trait TextFormatter
 
         return $result;
     }
+
+
+    public function formatTextToDDArray(string $text): array
+    {
+        $lines = explode("\n", $text);
+        $result = [];
+
+        foreach ($lines as $line) {
+            $preResult = $this->splitByDelimiter($line);
+
+            if (count($preResult) == 2) {
+                $result[] = [
+                    'note' => trim($preResult[0]),
+                    'dd' => trim($preResult[1])
+                ];
+            }
+
+        }
+
+        return $result;
+    }
+
+
+
 
     /**
      * Separar por delimitadores

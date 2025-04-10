@@ -3,13 +3,16 @@
 namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Exports\{ExportDDExcel, ProductionControlExport};
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -92,6 +95,8 @@ class Stack extends Component
     public $productions;
 
     public $existDD = [];
+
+    public $ddCreateds;
 
     protected $listeners = [
         'refresh_list' => '$refresh',
@@ -440,124 +445,49 @@ class Stack extends Component
         $this->additionalData = [];
         $this->existDD        = [];
 
-        $linhas = explode("\n", trim($this->enter_dd));
 
-        if ($linhas && count($linhas)) {
-            $count = 0;
-            $ok    = 0;
+        $this->ddCreateds = collect($this->formatTextToDDArray($this->enter_dd));
 
-            foreach ($linhas as $linha) {
-                if ($linha) {
-                    $coluna = explode("\t", $linha);
 
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(';', $linha);
-                    }
+        // dd($ddCreateds);
+        // Check that all values are numeric
+        $hasNonNumeric = false;
+        foreach ($this->ddCreateds as $item) {
+            $note = trim($item['note']);
+            $dd = trim($item['dd']);
 
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(' ', $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(',', $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'warning',
-                            'title'    => "Gentileza separar os valores com alguma forma válida: ' ', ';', ','.",
-
-                        ]);
-
-                        return;
-                    }
-
-                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
-
-                        $dd = Production::where('completed', false)->where('service_id', $this->service->uuid)->whereRelation('Note', 'note', trim($coluna[0]))->first();
-
-                        if ($dd) {
-
-                            $chk = Wpa::Where('dd', trim($coluna[1]))->first();
-
-                            if ($chk && $chk->note_id != $dd->note_id) {
-                                $count++;
-                                $this->existDD[] = [
-                                    'dd'   => $coluna[1],
-                                    'note' => $chk->load('Note')->Note->note,
-                                ];
-                            }
-
-                            $ok++;
-
-                            $jaExiste = collect($this->additionalData)->contains('dd', $coluna[1]);
-
-                            if (!$jaExiste) {
-                                // Adiciona os dados se o valor não existir
-                                $this->additionalData[] = [
-                                    'production_id' => $dd->id,
-                                    'note_id'       => $dd->note_id,
-                                    'dd'            => $coluna[1],
-                                ];
-                            } else {
-                                $this->dispatchBrowserEvent('swal', [
-                                    'position' => 'center',
-                                    'icon'     => 'warning',
-                                    'title'    => 'NOTA DD REPETIDA',
-                                    'html'     => "A Nota DD <strong>{$coluna[1]}</strong> está sendo repetida para mais de uma Nota/OV. Gentileza verificar.",
-
-                                ]);
-
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if ($count) {
-                // $this->dispatchBrowserEvent('alertar', [
-                //     'title' =>  'Confirmar Atribuir DD a notas DIFERENTES?',
-                //     'msg' => "Existem {$count} Notas DD que estão sendo atribuídas a notas diferentes às já atribuídas anteriormente.",
-                //     'icon' => 'warning',
-                //     'btnOktxt' => 'Sim, Atribua!',
-                //     'btnCanceltxt' => 'Não, Cancele',
-                //     'action' => "confirm_mass_dd",
-                //     'cancel_titulo' => 'Cancelado!',
-                //     'cancel_msg' => 'Nenhuma Nota Atribuída.',
-
-                // ]);
-
-                $text = '';
-
-                foreach ($this->existDD as $dd_exist) {
-                    $text .= '<strong>' . $dd_exist['dd'] . '</strong> => <strong>' . $dd_exist['note'] . '</strong>.<br>';
-                }
-
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'DD EXISTENTE',
-                    'html'     => "Você está tentando atribuir {$count} notas DD já atribuídas a Notas diferentes.<br>" . $text,
-                ]);
-
-                return;
-            } else {
-
-                $this->dispatchBrowserEvent('alertar', [
-                    'title'         => 'Confirmar Atribuir DD?',
-                    'msg'           => "Você está prestes a atribuir {$ok} notas DD, Deseja Continuar?",
-                    'icon'          => 'info',
-                    'btnOktxt'      => 'Sim, Continue!',
-                    'btnCanceltxt'  => 'Não, Cancele',
-                    'action'        => 'confirm_mass_dd',
-                    'cancel_titulo' => 'Cancelado!',
-                    'cancel_msg'    => 'Nenhuma Nota Atribuída.',
-
-                ]);
+            if (!ctype_digit($note) || !ctype_digit($dd)) {
+                $hasNonNumeric = true;
+                break;
             }
         }
+
+
+
+        if ($hasNonNumeric) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Todos os valores devem ser números',
+                'timer' => 2500
+            ]);
+            return;
+        }
+
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'CONFIRMAR ALTERAÇÂO DD',
+            'msg'           => "Você está prestes a alterar a DD de {$this->ddCreateds->count()} obra(s). Deseja continuar?",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Alterar!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_mass_dd',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma nota DD foi alterada.',
+
+        ]);
+
+
     }
 
     public function go_des_att_mass()
@@ -666,33 +596,58 @@ class Stack extends Component
     public function confirmed_mass_dd()
     {
 
-        if ($count = count($this->additionalData)) {
-            $error = 0;
 
-            foreach ($this->additionalData as $wpa) {
-                if (!Wpa::Create($wpa)) {
-                    $error++;
+        if ($this->ddCreateds) {
+
+
+
+            $productions = Production::with('Note')
+                                    ->where('service_id', $this->service->uuid)
+                                    ->where('completed', false)
+                                    ->whereRelation('Note', function ($q) {
+                                        $q->whereIn('note', $this->ddCreateds->pluck('note'));
+                                    })
+                                    ->get();
+
+            if ($productions) {
+
+                
+                DB::beginTransaction();
+                try {
+                    foreach ($productions as $production) {
+                        $production->Wpas()->create([
+                             'note_id'       => $production->note_id,
+                             'service_id'    => $production->service_id,
+                             'dd'            => $this->ddCreateds->where('note', $production->note->note)->first()['dd'],
+                        ]);
+
+                        // dd($production->wpas->last(), $this->ddCreateds->where('note', $production->note->note)->first()['dd']);
+                    }
+
+                    DB::commit();
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'error',
+                        'title'    => 'OOOPS! Não conseguimos alterar as DDs. Tente novamente',
+                        'timer'    => 5000,
+                    ]);
+                    return;
                 }
+
             }
 
-            if (!$error) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'Notas DDs associadas com sucesso',
-                    'timer'    => 2500,
-                ]);
-
-                $this->closeall();
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => "OOPS!, Ocorreram {$error} de {$count} ao associar as DD às Notas.",
-                    'timer'    => 8000,
-                ]);
-            }
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'DD das obras alteradas com sucesso!',
+                'timer'    => 2500,
+            ]);
         }
+
+        $this->closeall();
+
     }
 
     public function confirmed_att()
