@@ -57,4 +57,9 @@ class Reclaim extends Model
     {
         return $this->belongsToMany(ViabilityApproval::class, 'viability_approval_reclaim');
     }
+
+    public function Externals()
+    {
+        return $this->belongsToMany(External::class, 'external_reclaim');
+    }
 }

@@ -54,7 +54,12 @@ class Historic extends Component
 
         $query = Note::Query();
 
-        $query->has('External')->whereRelation('External', 'user_id', Auth()->User()->id);
+        // $query->where(function($q){
+        //     $q->
+        // })
+        $query->whereHas('External', function ($q) {
+            $q->where('completed', true);
+        });
 
         if (trim($this->search)) {
             $query->where(function ($q) {

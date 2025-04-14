@@ -149,8 +149,7 @@
                                 <td class="fw-light text-center">{{ $list->nstats }}</td>
                                 {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
                                 <td class="fw-light text-center">
-                                    {{ Carbon::parse($list->dt_status)->diffInDays(Carbon::now(), false) }}
-                                    {{-- {{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }} --}}
+                                    {{ $list->dt_status->diffInDays() }}
                                 </td>
                                 <td scope="col"
                                     class="text-center

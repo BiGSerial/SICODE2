@@ -98,15 +98,16 @@
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Files</th>
                             <th scope="col" class="fw-bold text-center">Protocolo</th>
-                            <th scope="col" class="fw-bold text-center">numPedido</th>
-                            <th scope="col" class="fw-bold text-center">Ult Movimento</th>
+                            <th scope="col" class="fw-bold text-center">Ultimo Protocolo</th>
+                            <th scope="col" class="fw-bold text-center">Dt Protocolo</th>
+                            <th scope="col" class="fw-bold text-center">Sts Protocolo</th>
+                            <th scope="col" class="fw-bold text-center">Entidade</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">Descrição</th>
+                            <th scope="col" class="fw-bold text-center">Pedido</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
-                            {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
                             <th scope="col" class="fw-bold text-center">Dias no Status</th>
-                            <th scope="col" class="fw-bold text-center">Prazo Real</th>
+                            {{-- <th scope="col" class="fw-bold text-center">Prazo Real</th> --}}
                             <th scope="col" class="fw-bold text-center">Situação</th>
 
                         </tr>
@@ -116,6 +117,24 @@
                             @php
 
                                 $daysleft = (new DaysLeft($list))->getDaysLeft();
+
+                                $status = '';
+
+                                if ($list->external) {
+                                    $lastUpdate = $list->external->updated_at;
+
+                                    if ($list->external->reclaims?->last()?->completed) {
+                                        if ($list->external->reclaims?->last()->completed_at < $lastUpdate) {
+                                            $status = 'RI Finalizado';
+                                        } else {
+                                            $status = 'Aguardando Entidade';
+                                        }
+                                    } else {
+                                        $status = 'Aguardando Entidade';
+                                    }
+                                } else {
+                                    $status = 'Não Protocolado';
+                                }
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -139,15 +158,24 @@
                                     @endif
 
                                 </td>
-                                <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
                                 <td class="fw-light text-center">
-                                    {{ $list->External && $list->External->Comments->count() ? $list->External->Comments->last()->title : ' --- ' }}
+                                    {{ $list->external?->protocols->last()?->protocol }}
                                 </td>
+                                <td class="fw-light text-center">
+                                    {{ $list->external?->protocols->last()?->created_at?->format('d/m/Y H:i:s') }}
+                                </td>
+                                <td class="fw-light text-center fw-bold">
+                                    {{ $list->external?->Comments?->last()?->title }}
+                                </td>
+                                <td class="fw-light text-center">
+                                    {{ $list->external?->entidade }}
+                                </td>
+
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>
                                 <td class="fw-light text-center">{{ $list->lexp }}</td>
 
 
-                                <td class="fw-light text-center">{{ $list->material }}</td>
+                                <td class="fw-light text-center">{{ $list->numPedido }}</td>
 
 
                                 <td class="fw-light text-center">{{ $list->nstats }}</td>
@@ -156,35 +184,9 @@
                                     {{ Carbon::parse($list->dt_status)->diffInDays(Carbon::now(), false) }}
                                     {{-- {{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }} --}}
                                 </td>
-                                <td scope="col"
-                                    class="text-center
-                                    @if ($daysleft < 0) text-bg-secondary
-                                    @elseif($daysleft >= 0 && $daysleft < 6)
-                                    table-danger
-                                    @elseif($daysleft >= 6 && $daysleft < 10)
-                                        table-warning
-                                    @else
-                                        table-success @endif
-                                "
-                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="top" data-bs-title="Prazo Real"
-                                    data-bs-content="
-                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                            ">
-                                    {{ 30 - $daysleft }}
-                                </td>
-                                <td class="fw-light text-center">
-                                    @if ($list->pze_parecer === 'Vencido')
-                                        <span class="badge text-bg-danger">VENCIDO</span>
-                                    @elseif ($list->pze_parecer === 'Não vencido')
-                                        <span class="badge text-bg-success">EM PRAZO</span>
-                                    @else
-                                        <span class="badge text-bg-secondary">DESCONHECIDO</span>
-                                    @endif
+                               
+                                <td class="fw-light text-center fw-bold">
+                                    {{ $status }}
                                 </td>
 
 

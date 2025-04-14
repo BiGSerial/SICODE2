@@ -21,6 +21,8 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <link href="{{ asset('assets/vendor/simple-datatables/style.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('assets/css/sweetalert2.min.css') }}">
 
+
+
     <!-- Template Main CSS File -->
     <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet">
 

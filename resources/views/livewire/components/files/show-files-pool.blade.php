@@ -41,6 +41,11 @@
             @endforeach
         </div>
     </div>
+@else
+    <div class="text-center mt-2 py-2" role="alert">
+        <h4>Sem arquivos disponíveis.</h4>
+        <p>Não há arquivos disponíveis para download no momento.</p>
+    </div>
 @endif
 
 @once

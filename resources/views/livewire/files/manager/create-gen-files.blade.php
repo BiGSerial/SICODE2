@@ -79,6 +79,7 @@
                     </label>
                     <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror"
                         id="files" wire:model="files" multiple @disabled(!$uploadType)
+                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.rvt,.rfa,.dgn"
                         placeholder="escolher primeiro o tipo de arquivo">
                     @error('files')
                         @foreach ($errors->get('files.*') as $fileErrors)

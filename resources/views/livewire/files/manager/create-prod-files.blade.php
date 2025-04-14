@@ -2,6 +2,11 @@
     use App\Helpers\FileIcon;
     use App\Helpers\SelectOptions;
 @endphp
+<!-- in your header -->
+
+
+<!-- in your body -->
+<i class="devicon-devicon-plain"></i>
 <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
     x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-error="isUploading = false"
     x-on:livewire-upload-progress="progress = $event.detail.progress">
@@ -77,9 +82,10 @@
                             <i class="text-danger"> ( Selecione primeiro o Tipo de Envio )</i>
                         @endif
                     </label>
-                    <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror" 
+                    <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror"
                         id="files" wire:model="files" multiple @disabled(!$uploadType)
-                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx" placeholder="escolha primeiro o tipo de arquivo">
+                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.rvt,.rfa,.dgn"
+                        placeholder="escolha primeiro o tipo de arquivo">
                     @error('files')
                         @foreach ($errors->get('files.*') as $fileErrors)
                             @foreach ($fileErrors as $error)

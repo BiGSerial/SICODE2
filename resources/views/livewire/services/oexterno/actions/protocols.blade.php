@@ -83,126 +83,176 @@
                                     </table>
                                 </div>
 
-                                <div class="card">
-                                    <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                                        ENTIDADE PROTOCOLAR
-                                    </h5>
-                                    <table class="table table-sm table-condensed table-striped-columns">
-                                        <tbody>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3">Tipo</td>
-                                                <td class="text-start">
-                                                    @if (!$note->External)
-                                                        <select class="form-select form-select-sm"
-                                                            aria-label="Small select example" style="max-width: 150px"
-                                                            wire:model="selType">
-                                                            <option selected>Selecione</option>
-                                                            @foreach (SelectOptions::getUniqueExternalTypes() as $type)
-                                                                <option value="{{ $type }}">{{ $type }}
-                                                                </option>
-                                                            @endforeach
+                                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="protocolar-tab" data-bs-toggle="tab"
+                                            data-bs-target="#protocolar" type="button" role="tab"
+                                            aria-controls="protocolar" aria-selected="true">Protocolar</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="retorno-tab" data-bs-toggle="tab"
+                                            data-bs-target="#retorno" type="button" role="tab"
+                                            aria-controls="retorno" aria-selected="false">Retorno interno</button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content" id="myTabContent">
+                                    <div class="tab-pane fade show active" id="protocolar" role="tabpanel"
+                                        aria-labelledby="protocolar-tab">
+                                        <div class="card border-top-0">
+                                            <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
+                                                ENTIDADE PROTOCOLAR
+                                            </h5>
+                                            <table class="table table-sm table-condensed table-striped-columns">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="text-end fw-bold col-3">Tipo</td>
+                                                        <td class="text-start">
+                                                            @if (!$note->External)
+                                                                <select class="form-select form-select-sm"
+                                                                    aria-label="Small select example"
+                                                                    style="max-width: 150px" wire:model="selType">
+                                                                    <option selected>Selecione</option>
+                                                                    @foreach (SelectOptions::getUniqueExternalTypes() as $type)
+                                                                        <option value="{{ $type }}">
+                                                                            {{ $type }}
+                                                                        </option>
+                                                                    @endforeach
 
-                                                        </select>
-                                                    @else
-                                                        {{ SelectOptions::getExternalsByTypeOrNick(null, $note->External->entidade)->type }}
+                                                                </select>
+                                                            @else
+                                                                {{ SelectOptions::getExternalsByTypeOrNick(null, $note->External->entidade)->type }}
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-end fw-bold col-3">Entidade</td>
+                                                        <td class="text-start">
+                                                            @if (!$note->External)
+                                                                <select class="form-select form-select-sm"
+                                                                    aria-label="Small select example"
+                                                                    wire:model.defer="selAgency">
+                                                                    <option selected>Selecione</option>
+                                                                    @foreach (SelectOptions::getExternals($selType) as $agency)
+                                                                        <option value="{{ $agency->nick }}">
+                                                                            {{ $agency->nick }}
+                                                                        </option>
+                                                                    @endforeach
+
+                                                                </select>
+                                                            @else
+                                                                {{ SelectOptions::getExternalsByTypeOrNick(null, $note->External->entidade)->agency }}
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-end fw-bold col-3">Protocolo</td>
+                                                        <td class="text-start fw-bold pe-1">
+
+                                                            {{ $note->External && $note->External->Protocols->count() ? $note->External->Protocols->last()->protocol : ' --- ' }}
+                                                        </td>
+                                                    </tr>
+                                                    @if (!$note->External || ($note->External && !$note->External->completed))
+                                                        <tr>
+                                                            <td class="text-end fw-bold col-3 align-middle">Novo
+                                                                Protocolo</td>
+                                                            <td class="text-start">
+
+                                                                <input type="text" class="form-control"
+                                                                    aria-label="Sizing example input"
+                                                                    aria-describedby="inputGroup-sizing-sm"
+                                                                    wire:model.defer="protocol.protocol">
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold col-3">Descrição</td>
+                                                            <td class="text-start">
+                                                                <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
+                                                                    style="height: 100px; resize: none;" wire:model.defer="protocol.description"></textarea>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold col-3">Motivo</td>
+                                                            <td class="text-start">
+                                                                <select class="form-select form-select-sm"
+                                                                    aria-label="Small select example"
+                                                                    wire:model.defer="comment.title">
+                                                                    <option selected>Selecione</option>
+                                                                    @foreach (SelectOptions::getProtocolReasons() as $reason)
+                                                                        <option value="{{ $reason->value }}">
+                                                                            {{ $reason->reason }}
+                                                                        </option>
+                                                                    @endforeach
+
+                                                                </select>
+
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold col-3">Comentários</td>
+                                                            <td class="text-start">
+                                                                <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
+                                                                    style="height: 100px; resize: none;" wire:model.defer="comment.comment"></textarea>
+                                                            </td>
+                                                        </tr>
                                                     @endif
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3">Entidade</td>
-                                                <td class="text-start">
-                                                    @if (!$note->External)
-                                                        <select class="form-select form-select-sm"
-                                                            aria-label="Small select example"
-                                                            wire:model.defer="selAgency">
-                                                            <option selected>Selecione</option>
-                                                            @foreach (SelectOptions::getExternals($selType) as $agency)
-                                                                <option value="{{ $agency->nick }}">
-                                                                    {{ $agency->nick }}
-                                                                </option>
-                                                            @endforeach
 
-                                                        </select>
-                                                    @else
-                                                        {{ SelectOptions::getExternalsByTypeOrNick(null, $note->External->entidade)->agency }}
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-end fw-bold col-3">Protocolo</td>
-                                                <td class="text-start fw-bold pe-1">
 
-                                                    {{ $note->External && $note->External->Protocols->count() ? $note->External->Protocols->last()->protocol : ' --- ' }}
-                                                </td>
-                                            </tr>
+                                                </tbody>
+                                            </table>
                                             @if (!$note->External || ($note->External && !$note->External->completed))
-                                                <tr>
-                                                    <td class="text-end fw-bold col-3 align-middle">Novo Protocolo</td>
-                                                    <td class="text-start">
-
-                                                        <input type="text" class="form-control"
-                                                            aria-label="Sizing example input"
-                                                            aria-describedby="inputGroup-sizing-sm"
-                                                            wire:model.defer="protocol.protocol">
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="text-end fw-bold col-3">Descrição</td>
-                                                    <td class="text-start">
-                                                        <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
-                                                            style="height: 100px; resize: none;" wire:model.defer="protocol.description"></textarea>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="text-end fw-bold col-3">Motivo</td>
-                                                    <td class="text-start">
-                                                        <select class="form-select form-select-sm"
-                                                            aria-label="Small select example"
-                                                            wire:model.defer="comment.title">
-                                                            <option selected>Selecione</option>
-                                                            @foreach (SelectOptions::getProtocolReasons() as $reason)
-                                                                <option value="{{ $reason->value }}">
-                                                                    {{ $reason->reason }}
-                                                                </option>
-                                                            @endforeach
-
-                                                        </select>
-
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="text-end fw-bold col-3">Comentários</td>
-                                                    <td class="text-start">
-                                                        <textarea class="form-control" placeholder="Ex. Protocolo de Entrada de Documentação" id="floatingTextarea2"
-                                                            style="height: 100px; resize: none;" wire:model.defer="comment.comment"></textarea>
-                                                    </td>
-                                                </tr>
-                                            @endif
-
-
-                                        </tbody>
-                                    </table>
-                                    @if (!$note->External || ($note->External && !$note->External->completed))
-                                        <div class="card-footer">
-                                            <div class="clear-fix">
-                                                <div class="d-flex justify-content-end me-2">
-                                                    <div class="form-check align-middle">
-                                                        <input class="form-check-input border border-1 border-secondary"
-                                                            type="checkbox" value="true" id="flexCheckIndeterminate"
-                                                            wire:model.defer="encerrar">
-                                                        <label class="form-check-label" for="flexCheckIndeterminate">
-                                                            Encerrar Protocolo
-                                                        </label>
-                                                    </div>
-                                                    <div class="d-flex justify-content-end ms-2">
-                                                        <button class="btn btn-primary btn-sm"
-                                                            wire:click="save">SALVAR</button>
+                                                <div class="card-footer">
+                                                    <div class="clear-fix">
+                                                        <div class="d-flex justify-content-end me-2">
+                                                            <div class="form-check align-middle">
+                                                                <input
+                                                                    class="form-check-input border border-1 border-secondary"
+                                                                    type="checkbox" value="true"
+                                                                    id="flexCheckIndeterminate"
+                                                                    wire:model.defer="encerrar">
+                                                                <label class="form-check-label"
+                                                                    for="flexCheckIndeterminate">
+                                                                    Encerrar Protocolo
+                                                                </label>
+                                                            </div>
+                                                            <div class="d-flex justify-content-end ms-2">
+                                                                <button class="btn btn-primary btn-sm"
+                                                                    wire:click="save">SALVAR</button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            @endif
                                         </div>
-                                    @endif
+                                    </div>
+                                    <div class="tab-pane fade" id="retorno" role="tabpanel"
+                                        aria-labelledby="retorno-tab">
+                                        <div class="card border-top-0">
+                                            <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
+                                                RETORNO INTERNO
+                                            </h5>
+                                            @if (!$note->esxternal)
+                                                <div class="card-body">
+                                                    <h4 class="text-center">SEM PROTOLOCO A ASSOCIAR</h4>
+                                                    <span class="text-center border border-roudend shadow">Para
+                                                        possibilitar o retorno desta obra,
+                                                        é necessário primeiro criar um protocolo inicial,
+                                                        mesmo que ainda não tenha um número de protocolo para associar
+                                                        ao serviço.</span>
+                                                </div>
+                                            @elseif ($note->external?->reclaims?->last()->completed || $note->external?->reclaims->isEmpty())
+                                            @else
+                                                <div class="card-body">
+                                                    <h4 class="text-center">OBRA AGUARDANDO RETORNO INTERNO</h4>
+                                                    <span class="text-center">Obra Enviada em:
+                                                        {{ $note->external?->reclaims?->last()->created_at->format('d/m/Y H:i:s') }}
+                                                        ({{ $note->external?->reclaims?->last()->created_at->diffInDays() }})</span>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </div>
+
+
 
                             </div>
                             <div class="col-6">
@@ -211,52 +261,7 @@
                                         <h4 class="fs-5 my-0 py-0">Arquivos</h4>
                                     </div>
                                     <div class="card-body py-1 my-0">
-                                        @if ($note->Files->count())
-                                            <table class="table table-sm table-condensed table-striped table-hover">
-                                                <thead class="">
-                                                    <th class="text-center">
-                                                        {{-- <input class="form-check-input border border-1 border-secondary"
-                                                            type="checkbox"></td> --}}
-                                                    </th>
-                                                    <th class="text-center col-1">Serviço</th>
-                                                    <th class="text-center">Tipo</th>
-                                                    <th class="text-center">Arquivo</th>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach ($note->Files->sortBy('file_name') as $file)
-                                                        {{-- @dump($file->ext) --}}
-                                                        <tr>
-                                                            <td class="text-center align-middle"><input
-                                                                    class="form-check-input border border-1 border-secondary"
-                                                                    type="checkbox" value="{{ $file->id }}"
-                                                                    wire:model.defer="selectedFiles"></td>
-                                                            <td class="text-center align-middle">
-                                                                {{ isset($file->Service->service) ? $file->Service->service : '' }}
-                                                            </td>
-                                                            <td class="text-center align-middle"><i
-                                                                    class="{{ FileIcon::getIcon($file->ext)->icon }} fs-4 align-middle"></i>
-                                                            </td>
-                                                            <td class="text-center align-middle"><span
-                                                                    wire:click.prenvet="downloadFile({{ $file->id }})"
-                                                                    style="cursor: pointer;">{{ $file->file_name }}</span>
-                                                            </td>
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-
-                                            </table>
-                                            <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles"><i
-                                                    class="bx bxs-cloud-download"></i> Baixar
-                                                Selecionados</button>
-                                        @else
-                                            <div class="card">
-                                                <div class="card-body">
-                                                    <h4 class="text-center">SEM ARQUIVOS</h4>
-                                                </div>
-                                            </div>
-                                        @endif
-
-
+                                        @livewire('components.files.show-files-pool', ['files' => $note->Files], key('note-' . $note->id))
                                     </div>
                                 </div>
 

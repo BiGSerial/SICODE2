@@ -95,17 +95,16 @@
                 <table class="table table-sm  table-condensed table-hover table-striped">
                     <thead class="table-dark">
                         <tr class="sticky-top">
-
+                            <th scope="col" class="fw-bold text-center">Usuario</th>
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Files</th>
                             <th scope="col" class="fw-bold text-center">Protocolo</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
-                            <th scope="col" class="fw-bold text-center">Encerrado</th>
+                            <th scope="col" class="fw-bold text-center">Entidade</th>
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
                             <th scope="col" class="fw-bold text-center">Descrição</th>
-                            <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Data</th>
                             {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
 
@@ -123,6 +122,7 @@
                             <tr class="align-middle"
                                 wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
 
+                                <td class="fw-light text-center">{{ $list->external?->user?->name }}</td>
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
@@ -153,7 +153,7 @@
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>
                                 <td class="fw-light text-center">{{ $list->lexp }}</td>
                                 <td class="fw-light text-center">{{ $list->material }}</td>
-                                <td class="fw-light text-center">{{ $list->nstats }}</td>
+
                                 <td class="fw-light text-center">
                                     {{ date('d/m/Y H:i:s', strToTime($list->External->updated_at)) }}</td>
                             </tr>

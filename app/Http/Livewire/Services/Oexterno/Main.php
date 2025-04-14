@@ -47,7 +47,7 @@ class Main extends Component
     ];
 
     protected $queryString = [
-        'typeNote'=> ['except' => '', 'as' => 'tipo'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
@@ -236,11 +236,11 @@ class Main extends Component
         //     });
         // }
 
-        $query->where(function($q){
-            $q->where(function($q){
+        $query->where(function ($q) {
+            $q->where(function ($q) {
                 $q->where('nstats', 20)
                     ->where('type_note', 2);
-            })->orWhere(function($q){
+            })->orWhere(function ($q) {
                 $q->where('nstats')
                     ->where('type_note', 1);
             });
@@ -271,7 +271,6 @@ class Main extends Component
 
 
         $query->with('Productions.User')
-        ->orderBy('days_left')
         ->orderBy('dt_status');
 
         return $query;

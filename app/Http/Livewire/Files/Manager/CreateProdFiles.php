@@ -75,7 +75,8 @@ class CreateProdFiles extends Component
                 // Bloqueio de arquivos não permitidos e limite de 10MB
                 $allowedExtensions = [
                     'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
-                    'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods'
+                    'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+                    'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp',
                 ];
                 $maxSizeBytes = 10 * 1024 * 1024; // 10MB
 
@@ -323,7 +324,7 @@ class CreateProdFiles extends Component
 
     protected $rules = [
 
-        'files.*' => 'nullable|file|mimes:jpg,png,pdf,doc,docx,odt,xls,xlsx,xlsm,ods|max:10240',
+        'files.*' => 'nullable|file|mimes:jpg,png,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:10240',
     ];
 
 

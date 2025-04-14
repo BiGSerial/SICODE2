@@ -32,6 +32,13 @@ class FileIcon
             case "docx":
                 return (object)['icon' => 'ri-file-word-line text-primary'];
                 break;
+            case "dwg":
+            case "dxf":
+                return (object)['icon' => 'bx bxl-windows text-primary'];
+                break;
+            case "skp":
+                return (object)['icon' => 'bx bxs-cube text-warning'];
+                break;
             default:
                 return (object)['icon' => 'ri-file-fill text-danger'];
                 break;

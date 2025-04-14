@@ -17,6 +17,10 @@ class External extends Model
         'completed',
     ];
 
+    protected $casts = [
+        'completed' => 'boolean',
+    ];
+
     public function Protocols()
     {
         return $this->hasMany(Protocol::class);
@@ -35,6 +39,11 @@ class External extends Model
     public function User()
     {
         return $this->belongsTo(User::class)->withTrashed();
+    }
+
+    public function Reclaims()
+    {
+        return $this->belongsToMany(Reclaim::class, 'external_reclaim');
     }
 
 }
