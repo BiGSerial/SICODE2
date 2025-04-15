@@ -367,7 +367,8 @@
                                 }
                             @endphp
 
-                            <tr wire:key='viab_{{ $viab->id }}'>
+                            <tr wire:key='viab_{{ $viab->id }}'
+                                wire:dblclick.prevent="$emitTo('responsible.actions.viab-resp-responsible', 'getInfoResponse', '{{ $viab->id }}')">
                                 <td class="text-center align-middle fw-bold">{{ $viab->Note->note }}</td>
                                 <td class="text-center align-middle"> <x-files.select-download-list
                                         :files='$viab->Note->Files' />

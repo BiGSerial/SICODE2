@@ -72,6 +72,7 @@ class Production extends Model
         'partial_at'    => 'datetime',
         'confirmed_at'  => 'datetime',
         'dt_note'       => 'datetime',
+        'dhstats' => 'datetime',
     ];
 
     public function Note()

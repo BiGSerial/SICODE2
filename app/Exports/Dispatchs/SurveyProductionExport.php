@@ -60,13 +60,18 @@ class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, W
             'MMGD',
             'Despachado Por',
             'Empresa Despacho',
-            'Despachado Em',
             'Atribuído Por',
             'Empresa Atribuído',
+            'Data Status',
+            'Despachado Em',
             'Atribuído Em',
+            'Dias Despachado',
+            'Dias Atribuído',
+            'Retorno Interno',
             'Usuário',
             'Empresa',
             'Status',
+            'Mesalização',
             'Prazo',
             'Finalizado em',
         ];
@@ -113,13 +118,18 @@ class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, W
             $row->note->mmgd ? 'Sim' : 'Não',
             $row->dispatcher?->name ?? '---',
             $row->dispatcher?->company?->name ?? '---',
-            $row->dispatch_at ? $row->dispatch_at->format('d/m/Y H:i') : '---',
             $row->att?->name ?? '---',
             $row->att?->company?->name ?? '---',
+            $row->dt_note?->format('d/m/Y H:i'),
+            $row->dispatch_at ? $row->dispatch_at->format('d/m/Y H:i') : '---',
             $row->att_at ? $row->att_at->format('d/m/Y H:i') : '---',
+            $row->dispatch_at ? $row->dispatch_at->diffInDays() : '---',
+            $row->att_at ? $row->att_at->diffInDays() : '---',
+            $row->d5 ? 'Sim' : 'Não',
             $row->user?->name ?? '---',
             $row->company?->name ?? '---',
             Notestatus::status($row->status)->status,
+            $row->note->mesalization,
             $daysLeft,
             $row->completed_at ? $row->completed_at->format('d/m/Y H:i') : '---',
         ];
@@ -144,7 +154,7 @@ class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, W
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:S1')->applyFromArray([
+                $event->sheet->getStyle('A1:W1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],

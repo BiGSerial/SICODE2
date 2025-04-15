@@ -209,7 +209,7 @@
 
 
 
-                            {{-- Bloco: Formulário de Retorno --}}
+                            {{-- Bloco: Retorno da Viabilidade --}}
                             @if ($viability->Form)
                                 <div class="col-md-6">
                                     <div class="card h-100">
@@ -251,19 +251,20 @@
                             @endif
 
                             {{-- Bloco: Comentários --}}
-                            @if ($viability->Comments->count())
+                            @if ($viability->comments->isNotEmpty())
                                 <div class="col-6">
                                     <div class="card">
                                         <div class="card-header edp-bg-sprucegreen-70 text-edp-verde fw-bold py-2">
-                                            COMENTÁRIOS</div>
+                                            COMENTÁRIOS VIABILIDADE</div>
                                         <div class="card-body">
                                             <ul class="list-group">
-                                                @foreach ($viability->Comments as $index => $comment)
+                                                @foreach ($viability->comments->sortByDesc('created_at') as $index => $comment)
                                                     <li
                                                         class="list-group-item d-flex justify-content-between align-items-start shadow mb-2">
                                                         <div class="ms-2 me-auto">
                                                             <div class="fw-bold mb-2 border-bottom border-success">
-                                                                #{{ ++$index }} {{ $comment->User->name }}</div>
+                                                                #{{ $viability->Comments->count() - $index }}
+                                                                {{ $comment->User->name }}</div>
                                                             {!! $comment->message !!}
                                                         </div>
                                                         <span
@@ -271,10 +272,12 @@
                                                     </li>
                                                 @endforeach
                                             </ul>
+
                                         </div>
                                     </div>
                                 </div>
                             @endif
+
 
 
                             <div class="col-12">
