@@ -18,4 +18,9 @@ class AdminController extends Controller
     {
         return view('admin.Company.contract_list');
     }
+
+    public function category_main()
+    {
+        return view('admin.category.main');
+    }
 }

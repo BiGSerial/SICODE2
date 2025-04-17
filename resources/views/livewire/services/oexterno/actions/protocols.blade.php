@@ -60,6 +60,10 @@
                                                 <td class="text-start">{{ $note->note }}</td>
                                             </tr>
                                             <tr>
+                                                <td class="text-end fw-bold col-3">Cliente</td>
+                                                <td class="text-start">{{ $note->client }}</td>
+                                            </tr>
+                                            <tr>
                                                 <td class="text-end fw-bold col-3">Rubrica</td>
                                                 <td class="text-start">{{ $note->rubrica }}</td>
                                             </tr>
@@ -95,7 +99,7 @@
                                             aria-controls="retorno" aria-selected="false">Retorno interno</button>
                                     </li>
                                 </ul>
-                                <div class="tab-content" id="myTabContent">
+                                <div class="tab-content" id="myTabContent" wire:ignore.self>
                                     <div class="tab-pane fade show active" id="protocolar" role="tabpanel"
                                         aria-labelledby="protocolar-tab">
                                         <div class="card border-top-0">
@@ -230,27 +234,143 @@
                                             <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
                                                 RETORNO INTERNO
                                             </h5>
-                                            @if (!$note->esxternal)
+                                            @if (!$note->external)
                                                 <div class="card-body">
                                                     <h4 class="text-center">SEM PROTOLOCO A ASSOCIAR</h4>
-                                                    <span class="text-center border border-roudend shadow">Para
+                                                    <div class="text-center border border-rounded shadow p-2">Para
                                                         possibilitar o retorno desta obra,
                                                         é necessário primeiro criar um protocolo inicial,
                                                         mesmo que ainda não tenha um número de protocolo para associar
-                                                        ao serviço.</span>
+                                                        ao serviço.</div>
                                                 </div>
-                                            @elseif ($note->external?->reclaims?->last()->completed || $note->external?->reclaims->isEmpty())
+                                            @elseif ($note->external?->reclaims?->last()?->completed || $note->external?->reclaims->isEmpty())
+                                                <div class="card-body">
+                                                    <div class="mb-3">
+                                                        <select class="form-select form-select-sm mb-2"
+                                                            aria-label="Selecione o Serviço" wire:model="service_id">
+                                                            <option value="" selected>Selecione o Serviço
+                                                            </option>
+                                                            @if ($services)
+                                                                @foreach ($services as $service)
+                                                                    <option value="{{ $service->uuid }}">
+                                                                        {{ $service->service }}
+                                                                    </option>
+                                                                @endforeach
+
+                                                            @endif
+
+                                                        </select>
+
+                                                        <select class="form-select form-select-sm mb-2"
+                                                            aria-label="Motivo" wire:model="category_id"
+                                                            @disabled(!$service_id)>
+                                                            <option value="" selected>Motivo</option>
+                                                            @if ($categories)
+                                                                @foreach ($categories as $category)
+                                                                    <option value="{{ $category->id }}">
+                                                                        {{ $category->name }}
+                                                                    </option>
+                                                                @endforeach
+
+                                                            @endif
+                                                        </select>
+
+                                                        <select class="form-select form-select-sm mb-2"
+                                                            aria-label="Detalhe" @disabled(!$category_id)
+                                                            wire:model.defer="subcategory_id">
+                                                            <option value="" selected>Detalhe</option>
+                                                            @if ($subcategories)
+                                                                @foreach ($subcategories as $subcategory)
+                                                                    <option value="{{ $subcategory->id }}">
+                                                                        {{ $subcategory->name }}
+                                                                    </option>
+                                                                @endforeach
+
+                                                            @endif
+
+                                                        </select>
+
+                                                        <textarea class="form-control mb-3" rows="5" placeholder="Observações" wire:model.defer="reason"></textarea>
+                                                    </div>
+
+                                                    @if ($service_id)
+                                                        @if ($production)
+                                                            <div class="card mb-3">
+                                                                <div
+                                                                    class="card-header edp-bg-sprucegreen-70 text-edp-verde py-1">
+                                                                    <h5 class="my-0">Retornar para</h5>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <p class="mb-1"><strong>Serviço:</strong>
+                                                                        {{ $production->service?->service }}</p>
+                                                                    <p class="mb-1"><strong>Usuário:</strong>
+                                                                        {{ $production->user?->name }}</p>
+                                                                    <p class="mb-1"><strong>Empresa:</strong>
+                                                                        {{ $production->company?->name }}</p>
+                                                                    <p class="mb-1"><strong>Última
+                                                                            interação:</strong>
+                                                                        {{ $production->completed_at->format('d/m/Y H:i:s') }}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        @else
+                                                            <div class="card mb-3">
+                                                                <div
+                                                                    class="card-header edp-bg-sprucegreen-70 text-edp-verde py-1">
+                                                                    <h5 class="my-0">Retornar para</h5>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <p class="mb-1"><strong>Serviço:</strong>
+                                                                        {{ $services->where('id', $service_id)->first()?->service }}
+                                                                    </p>
+                                                                    <p class="mb-1"><strong>Usuário:</strong>
+                                                                        Não Encontrado</p>
+                                                                    <p class="mb-1"><strong>Empresa:</strong>
+                                                                        Não Encontrado</p>
+                                                                    <p class="mb-1"><strong>Última
+                                                                            interação:</strong>
+                                                                        Não Encontrado
+                                                                    </p>
+                                                                    <div class="card text-bg-primary mt-2">
+                                                                        <div class="card-body">
+                                                                            <p>Por definição, essa obra será retornado
+                                                                                para a pilha de retorno interno do
+                                                                                serviço escolhido. <br> Acompanhe o
+                                                                                andamento sempre que possível, para
+                                                                                verificar se o mesmo ja foi atribuído.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        @endif
+                                                    @endif
+
+
+
+                                                    <div class="card-footer">
+                                                        <div class="d-flex justify-content-end gap-2">
+                                                            <button class="btn btn-secondary"
+                                                                type="button">Cancelar</button>
+                                                            <button class="btn btn-primary" type="button"
+                                                                wire:click.prevent="returnReclaims">Enviar</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             @else
                                                 <div class="card-body">
                                                     <h4 class="text-center">OBRA AGUARDANDO RETORNO INTERNO</h4>
-                                                    <span class="text-center">Obra Enviada em:
+                                                    <p class="text-center">Obra Enviada em:
                                                         {{ $note->external?->reclaims?->last()->created_at->format('d/m/Y H:i:s') }}
-                                                        ({{ $note->external?->reclaims?->last()->created_at->diffInDays() }})</span>
+                                                        ({{ $note->external?->reclaims?->last()->created_at->diffInDays() }}
+                                                        dias)
+                                                    </p>
                                                 </div>
                                             @endif
                                         </div>
                                     </div>
                                 </div>
+                                @livewire('files.manager.create-serv-files', ['note' => $note, 'service' => $theService], key('createServFiles-' . $note->id))
 
 
 
@@ -261,7 +381,7 @@
                                         <h4 class="fs-5 my-0 py-0">Arquivos</h4>
                                     </div>
                                     <div class="card-body py-1 my-0">
-                                        @livewire('components.files.show-files-pool', ['files' => $note->Files], key('note-' . $note->id))
+                                        @livewire('components.files.show-files-pool', ['files' => $note->Files], key('noteFiles-' . $note->id))
                                     </div>
                                 </div>
 
@@ -359,17 +479,81 @@
 
                             </div>
                         </div>
+
                     @endif
+
+
                 </div>
             </div>
         </div>
     </div>
+
+
+
+    <script>
+        // Capturando o evento de fechamento do modal
+        document.getElementById('modal_protocols').addEventListener('hidden.bs.modal', () => {
+
+            Livewire.emitTo('services.oexterno.actions.protocols', 'cleanAll');
+        });
+    </script>
+
+    <script>
+        function setupTabMemory() {
+            const modalEl = document.getElementById('modal_protocols');
+            const tabContainer = modalEl?.querySelector('#myTab');
+
+            if (!modalEl || !tabContainer) return;
+
+            // 1. Salva aba ativa sempre que muda
+            tabContainer.querySelectorAll('button[data-bs-toggle="tab"]').forEach(button => {
+                button.removeEventListener('shown.bs.tab', handleTabShown); // evita múltiplas binds
+                button.addEventListener('shown.bs.tab', handleTabShown);
+            });
+
+            function handleTabShown(event) {
+                const activeTabId = event.target.id;
+                sessionStorage.setItem('activeProtocolTab_modalProtocols', activeTabId);
+                console.log('[TAB SALVA]', activeTabId);
+            }
+
+            // 2. Restaura aba salva
+            const savedTab = sessionStorage.getItem('activeProtocolTab_modalProtocols');
+            if (savedTab) {
+                const triggerEl = document.getElementById(savedTab);
+                if (triggerEl) {
+                    const tab = new bootstrap.Tab(triggerEl);
+                    tab.show();
+                    console.log('[TAB RESTAURADA]', savedTab);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTabMemory();
+
+            const modalEl = document.getElementById('modal_protocols');
+
+            if (modalEl) {
+                modalEl.addEventListener('shown.bs.modal', () => {
+                    setTimeout(setupTabMemory, 10); // garante render completo antes de aplicar
+                });
+
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    Livewire.emitTo('services.oexterno.actions.protocols', 'cleanAll');
+                    sessionStorage.removeItem('activeProtocolTab_modalProtocols');
+                });
+            }
+
+            Livewire.hook('message.processed', () => {
+                setTimeout(() => {
+                    if (document.getElementById('modal_protocols')?.classList.contains('show')) {
+                        setupTabMemory();
+                    }
+                }, 50);
+            });
+        });
+    </script>
+
+
 </div>
-
-<script>
-    // Capturando o evento de fechamento do modal
-    document.getElementById('modal_protocols').addEventListener('hidden.bs.modal', () => {
-
-        Livewire.emitTo('services.oexterno.actions.protocols', 'cleanAll');
-    });
-</script>

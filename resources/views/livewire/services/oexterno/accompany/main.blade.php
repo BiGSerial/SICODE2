@@ -123,11 +123,15 @@
                                 if ($list->external) {
                                     $lastUpdate = $list->external->updated_at;
 
-                                    if ($list->external->reclaims?->last()?->completed) {
-                                        if ($list->external->reclaims?->last()->completed_at < $lastUpdate) {
-                                            $status = 'RI Finalizado';
+                                    if ($list->external->reclaims->isNotEmpty()) {
+                                        if (!$list->external->reclaims->last()->completed) {
+                                            $status = 'Aguardando CIP';
                                         } else {
-                                            $status = 'Aguardando Entidade';
+                                            if ($list->external->reclaims?->last()->completed_at < $lastUpdate) {
+                                                $status = 'RI Finalizado';
+                                            } else {
+                                                $status = 'Aguardando Entidade';
+                                            }
                                         }
                                     } else {
                                         $status = 'Aguardando Entidade';
@@ -184,7 +188,7 @@
                                     {{ Carbon::parse($list->dt_status)->diffInDays(Carbon::now(), false) }}
                                     {{-- {{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }} --}}
                                 </td>
-                               
+
                                 <td class="fw-light text-center fw-bold">
                                     {{ $status }}
                                 </td>

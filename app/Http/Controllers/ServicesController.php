@@ -51,4 +51,13 @@ class ServicesController extends Controller
             'service' => $service,
         ]);
     }
+
+    public function waiting_return(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.waiting-return', [
+            'service' => $service,
+        ]);
+    }
 }

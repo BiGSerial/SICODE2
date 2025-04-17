@@ -16,6 +16,7 @@ class Reclaim extends Model
         'completed',
         'completed_at',
         'category',
+        'subcategory_id',
     ];
 
     protected $casts = [
@@ -61,5 +62,10 @@ class Reclaim extends Model
     public function Externals()
     {
         return $this->belongsToMany(External::class, 'external_reclaim');
+    }
+
+    public function Subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
     }
 }

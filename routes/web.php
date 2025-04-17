@@ -57,6 +57,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/contracts', 'company_contracts_list')->name('contracts_list');
     });
 
+    Route::prefix('/category')->name('category.')->group(function () {
+        Route::get('/', 'category_main')->name('main');
+    });
+
     Route::post('/change_pass', 'change_password')->name('change_pass');
 });
 
@@ -76,6 +80,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/waiting_list', 'waiting_list')->name('waiting');
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
+    Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
 
 });
 

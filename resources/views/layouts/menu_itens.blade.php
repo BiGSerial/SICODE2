@@ -46,6 +46,9 @@
                 <li><a class="dropdown-item" href="{{ route('admin.company.list') }}"><i
                             class="ri-building-4-fill align-middle text-primary"></i>EMPRESAS</a></li>
                 <li>
+                <li><a class="dropdown-item" href="{{ route('admin.category.main') }}"><i
+                            class="ri-price-tag-3-fill align-middle text-primary"></i>CATEGORIAS</a></li>
+                <li>
                     <hr class="dropdown-divider">
                 </li>
                 <li><a class="dropdown-item" href="{{ route('config.main') }}"><i

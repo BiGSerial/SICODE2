@@ -22,10 +22,10 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
+                        <a href="{{ route('services.waiting_return', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-warning"></i> <span>AGUARDANDO RETORNO
-                                INTERNO</span> @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
+                            <i class="bi bi-hourglass-split fs-4 text-white"></i> <span>AGUARDANDO RETORNO
+                                INTERNO</span>
                         </a>
                     </li>
                     <li>
