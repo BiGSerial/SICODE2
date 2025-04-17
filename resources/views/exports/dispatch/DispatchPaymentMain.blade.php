@@ -169,7 +169,7 @@
                     {{ $list->note }}
                 </td>
                 <td class="text-center align-middle">
-                    @if ($list->WorkForm->Orders->count())
+                    @if ($list->WorkForm?->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->ordem }}
@@ -179,7 +179,7 @@
 
                 </td>
                 <td class="text-center align-middle fw-bold">
-                    @if ($list->WorkForm->Orders->count())
+                    @if ($list->WorkForm?->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             @php
                                 $soma += $order->moaberto;
@@ -194,7 +194,7 @@
 
 
                 <td class="text-center align-middle">
-                    @if ($list->WorkForm->Orders->count())
+                    @if ($list->WorkForm?->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
@@ -204,7 +204,7 @@
 
                 </td>
                 <td class="text-center align-middle">
-                    @if ($list->WorkForm->Orders->count())
+                    @if ($list->WorkForm?->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
@@ -214,7 +214,7 @@
 
                 </td>
                 <td class="text-center align-middle">
-                    @if ($list->WorkForm->Orders->count())
+                    @if ($list->WorkForm?->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
@@ -224,7 +224,7 @@
 
                 </td>
                 <td class="text-center align-middle">
-                    @if ($list->WorkForm->Orders->count())
+                    @if ($list->WorkForm?->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
@@ -299,7 +299,7 @@
             <td></td>
             <td></td>
             <td></td>
-            <td></td>
         </tr>
     </tfoot>
+
 </table>
