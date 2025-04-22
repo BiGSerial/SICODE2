@@ -3,13 +3,15 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
-<table class="table table-sm table-striped table-condensed">
+<table class="table table-sm table-striped">
     <thead class="table-dark">
         <tr>
 
             <th class="align-middle text-center">Nota</th>
+            <th class="align-middle text-center">Tipo</th>
             <th class="align-middle text-center">Ordem</th>
             <th class="align-middle text-center">MOA</th>
+            {{-- <th class="align-middle text-center">Status</th> --}}
             <th class="align-middle text-center">OP30</th>
             <th class="align-middle text-center">OP40</th>
             <th class="align-middle text-center">OP50</th>
@@ -18,11 +20,15 @@
             <th class="align-middle text-center">Município</th>
             <th class="align-middle text-center">Data Execução</th>
             <th class="align-middle text-center">Data Informe</th>
-            <th scope="col" class="fw-bold text-center">Retorno</th>
-            <th scope="col" class="fw-bold text-center">Status</th>
-            <th class="align-middle text-center">Prazo Pagamento</th>
-            <th class="align-middle text-center">Prazo Obra</th>
 
+            <th class="align-middle text-center">Prazo Pagamento</th>
+            <th class="align-middle text-center">Data Vencimento</th>
+
+            <th class="align-middle text-center">Usuario</th>
+            <th class="align-middle text-center">Despachado em</th>
+            <th class="align-middle text-center">Atribuído em</th>
+            <th class="align-middle text-center">Finalizado em</th>
+            <th class="align-middle text-center">Status</th>
         </tr>
     </thead>
     <tbody>
@@ -31,146 +37,80 @@
         @endphp
         @foreach ($lists as $list)
             @php
-                $block = 0;
-                $exception = false;
-                $production = '';
-                $user = [];
+                $block = false;
+                $command = false;
 
-                $production = $list->Productions->where('service_id', $service);
+                // if ($production = $this->hasProduction($list)) {
+                //     $block = true;
 
-                if ($production->where('completed', false)->where('confirmed', false)->count()) {
-                    $block = 1;
+                //     if ($production->confirmed) {
+                //         $command = true;
+                //     } else {
+                //         $command = false;
+                //     }
+                // }
 
-                    $lastProduction = $production->where('completed', false)->where('confirmed', false)->last();
+                $production = $list->Productions->where('service_id', $service)->last();
 
-                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                    $status = $lastProduction->status ?? 'Desconhecido';
+                $name = '---';
+                $status = '---';
 
-                    $count = $production->count();
+                if ($production) {
+                    $name = $production->User?->name ?? 'DESCONHECIDO';
+                    $status = Notestatus::status($production->status)->status;
+                }
 
-                    $lastName = explode(' ', $lastName);
-                    $lastName = count($lastName) > 1 ? $lastName[0] . ' ' . end($lastName) : $lastName[0];
+                if ($partial = $list->Partials ? $list->Partials->last() : null) {
+                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
+                        $partial = null;
+                    }
+                } else {
+                    $partial = null;
+                }
 
-                    $company = explode(' ', $company)[0];
+                $rowClass = '';
 
-                    $user = [
-                        'lastUser' => $lastName,
-                        'countProd' => $count,
-                        'status' => $status,
-                        'company' => $company,
-                    ];
-                } elseif ($production->where('completed', true)->where('confirmed', false)->count()) {
-                    $block = 2;
-
-                    $lastProduction = $production->where('completed', true)->where('confirmed', false)->last();
-
-                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                    $count = $production->count();
-
-                    $lastName = explode(' ', $lastName);
-                    $lastName = $lastName[0] . ' ' . end($lastName);
-
-                    $company = explode(' ', $company)[0];
-
-                    $user = [
-                        'lastUser' => $lastName,
-                        'countProd' => $count,
-                        'status' => $status,
-                        'company' => $company,
-                    ];
-                } elseif ($production->where('completed', true)->where('confirmed', true)->count()) {
-                    if (
-                        $production
-                            ->where('completed', true)
-                            ->where('confirmed', true)
-                            ->where('dt_note', $list->dt_status)
-                            ->where('noinconsistency', false)
-                            ->where('type_note', 2)
-                            ->count()
-                    ) {
-                        $block = 3;
-
-                        $lastProduction = $production
-                            ->where('completed', true)
-                            ->where('confirmed', true)
-                            ->where('dt_note', $list->dt_status)
-                            ->where('noinconsistency', false)
-                            ->where('type_note', 2)
-                            ->last();
-
-                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                        $count = $production->count();
-
-                        // Get First and Last name from User Name,
-                        $lastName = explode(' ', $lastName);
-                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                        // Get just first Company name.
-                        $company = explode(' ', $company)[0];
-
-                        $user = [
-                            'lastUser' => $lastName,
-                            'countProd' => $count,
-                            'status' => $status,
-                            'company' => $company,
-                        ];
+                if ($block) {
+                    if ($production->confirmed) {
+                        $rowClass = 'table-danger';
+                    } elseif ($production->status == 1) {
+                        $rowClass = 'table-danger';
+                    } elseif ($production->status == 2) {
+                        $rowClass = 'table-primary';
+                    } elseif ($production->status == 5) {
+                        $rowClass = 'table-success';
                     } else {
-                        $lastProduction = $production->where('completed', true)->where('confirmed', true)->last();
-
-                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                        $count = $production->count();
-
-                        $company = explode(' ', $company)[0];
-
-                        $lastName = explode(' ', $lastName);
-                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                        $user = [
-                            'lastUser' => $lastName,
-                            'countProd' => $count,
-                            'status' => $status,
-                            'company' => $company,
-                        ];
+                        $rowClass = 'table-primary';
                     }
                 }
 
-                $daysLeft = $list->days_left;
+                $daysLeft = Carbon::parse($list->fimLancado)
+                    ->startOfDay()
+                    ->diffInDays(Carbon::now()->startOfDay());
 
             @endphp
+            {{-- @dump($list->Productions) --}}
+
+            <tr class="align-middle text-center
+                ">
 
 
-
-            <tr
-                class="align-middle
-                    @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-primary
-                    @elseif($block == 1 && $user['lastUser'] == 'Desconhecido')
-                        table-warning
-                    @elseif($block == 2)
-                        table-success
-                    @elseif($block == 3)
-                        table-danger @endif
-                    ">
-
-                {{-- @can('management')
-                        <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
-                        </td>
-                    @endcan --}}
-                <td class="fw-bold copy-text" data-value="{{ $list->note }}">
-                    {{ $list->note }}
+                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }}
                 </td>
-                <td class="text-center align-middle">
-                    @if ($list->WorkForm?->Orders->isNotEmpty())
+
+                <td
+                    class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">
+                    {{ $partial ? 'PARCIAL' : 'TOTAL' }} </td>
+
+                <td class="text-center align-middle {{ $rowClass }}">
+                    @if ($list->WorkForm)
                         @foreach ($list->WorkForm->Orders as $order)
+                            <p class="my-0 py-0">
+                                {{ $order->ordem }}
+                            </p>
+                        @endforeach
+                    @elseif ($partial)
+                        @foreach ($partial->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->ordem }}
                             </p>
@@ -178,23 +118,45 @@
                     @endif
 
                 </td>
-                <td class="text-center align-middle fw-bold">
-                    @if ($list->WorkForm?->Orders->isNotEmpty())
-                        @foreach ($list->WorkForm->Orders as $order)
+                <td class="text-center align-middle fw-bold {{ $rowClass }}">
+                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty() && !$partial)
+                        {{-- @foreach ($list->WorkForm->Orders as $order)
                             @php
                                 $soma += $order->moaberto;
                             @endphp
                             <p class="my-0 py-0">
                                 R$ {{ number_format($order->moaberto, 2, ',', '.') }}
                             </p>
-                        @endforeach
+                        @endforeach --}}
+                        @php
+                            $soma += $list->total_moaberto;
+                        @endphp
+                        <p class="my-0 py-0">
+                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
+                        </p>
+                    @elseif ($partial)
+                        @php
+                            $soma += $partial->value;
+                        @endphp
+                        <p class="my-0 py-0">
+                            R$ {{ number_format($partial->value, 2, ',', '.') }}
+                        </p>
                     @endif
 
                 </td>
+                {{-- <td class="text-center align-middle">
+                    @if ($list->WorkForm->Orders->count())
+                        @foreach ($list->WorkForm->Orders as $order)
+                            <p class="my-0 py-0">
+                                {{ $order->statusSist }}
+                            </p>
+                        @endforeach
+                    @endif
 
+                </td> --}}
 
-                <td class="text-center align-middle">
-                    @if ($list->WorkForm?->Orders->isNotEmpty())
+                <td class="text-center align-middle {{ $rowClass }}">
+                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
@@ -203,8 +165,8 @@
                     @endif
 
                 </td>
-                <td class="text-center align-middle">
-                    @if ($list->WorkForm?->Orders->isNotEmpty())
+                <td class="text-center align-middle {{ $rowClass }}">
+                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
@@ -213,19 +175,25 @@
                     @endif
 
                 </td>
-                <td class="text-center align-middle">
-                    @if ($list->WorkForm?->Orders->isNotEmpty())
+                <td class="text-center align-middle {{ $rowClass }}">
+                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
                             <p class="my-0 py-0">
-                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
                             </p>
                         @endforeach
                     @endif
 
                 </td>
-                <td class="text-center align-middle">
-                    @if ($list->WorkForm?->Orders->isNotEmpty())
+                <td class="text-center align-middle {{ $rowClass }}">
+                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                         @foreach ($list->WorkForm->Orders as $order)
+                            <p class="my-0 py-0">
+                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                            </p>
+                        @endforeach
+                    @elseif ($partial)
+                        @foreach ($partial->Orders as $order)
                             <p class="my-0 py-0">
                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                             </p>
@@ -234,57 +202,91 @@
 
                 </td>
 
-                <td class="fw-light text-center">
-                    {{ $list->WorkForm ? $list->WorkForm->Company->name : '---' }}
+                <td class="fw-light text-center {{ $rowClass }}">
+                    @if ($list->WorkForm)
+                        {{ $list->WorkForm->Company ? $list->WorkForm->Company->name : '---' }}
+                    @elseif ($partial)
+                        {{ $list->Partials->last()->Company ? $list->Partials->last()->Company->name : '---' }}
+                    @endif
                 </td>
 
-                <td class="fw-light text-center">{{ $list->lexp }}</td>
+                <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
 
-                <td class="fw-light text-center">
+                <td class="fw-light text-center {{ $rowClass }}">
                     {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
                 </td>
-                <td class="fw-light">
-                    {{ $list->WorkForm ? date('d/m/Y H:i:s', strToTime($list->WorkForm->informed_at)) : '---' }}
-                </td>
-                <td>
-                    @if ($user)
-                        {{ $user['lastUser'] }}
-                    @else
-                        --
+                <td class="fw-light {{ $rowClass }}">
+                    @if ($list->WorkForm)
+                        {{ $list->WorkForm && $list->WorkForm->informed_at ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : $list->WorkForm->created_at->format('d/m/Y H:i:s') }}
+                    @elseif ($list->Partials->isNotEmpty())
+                        {{ $list->Partials->last()->created_at->format('d/m/Y H:i:s') }}
                     @endif
-
                 </td>
 
-                @if ($list->type_note != 1)
-                    <td class="fw-light text-center">{{ $list->nstats }} </td>
-                @else
-                    <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
-                            style="font-size: 8px;">{{ $list->nstats }}</span></td>
-                @endif
                 <td scope="col"
                     class="text-center text-center
-                    @if ($daysLeft < 0) table-dark
-                    @elseif($daysLeft >= 0 && $daysLeft < 3)
-                    table-danger
-                    @elseif($daysLeft >= 3 && $daysLeft < 6)
-                        table-warning
-                    @else
-                        table-success @endif
-                ">
-                    {{ isset($list->fimLancado) ? date('d/m/Y', strtotime($list->fimLancado)) : '---' }}
+                   @if ($daysLeft <= 2) text-bg-success
+                @elseif($daysLeft > 5)
+                    text-bg-danger
+                @else
+                text-bg-warning @endif
+                "
+                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                    data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="Prazo Pagamento"
+                    data-bs-content="
+            <p>A Data Corresponde 40 Parcial</p>
+            <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
+            <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+            <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
+            {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+            ">
+                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
                 </td>
-                <td>
-                    {{ (new DaysLeft($list))->getLastDate() }}
+
+                @php
+                    $daysLeft = new DaysLeft($list);
+                    $prazoClass = '';
+
+                    if ($daysLeft->getDaysLeft() < 0) {
+                        $prazoClass = 'text-bg-danger';
+                    } elseif ($daysLeft->getDaysLeft() > 15) {
+                        $prazoClass = 'text-bg-success';
+                    } else {
+                        $prazoClass = 'text-bg-warning';
+                    }
+                @endphp
+
+                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                <td scope="col" class="text-center {{ $rowClass }}">
+                    {{ $daysLeft->getLastDate() }}
                 </td>
 
 
+                <td class="fw-bold text-center {{ $rowClass }}">
+                    {{ $name }}
+                </td>
+
+                <td class="fw-bold text-center {{ $rowClass }}">
+                    {{ $production ? $production->dispatch_at?->format('d/m/Y H:i:s') : '---' }}
+                </td>
+                <td class="fw-bold text-center {{ $rowClass }}">
+                    {{ $production ? $production->att_at?->format('d/m/Y H:i:s') : '---' }}
+                </td>
+                <td class="fw-bold text-center {{ $rowClass }}">
+                    {{ $production ? $production->completed_at?->format('d/m/Y H:i:s') : '---' }}
+                </td>
+
+                <td class="fw-bold text-center {{ $rowClass }}">
+                    {{ $status }}
+                </td>
 
             </tr>
         @endforeach
     </tbody>
     <tfoot>
         <tr class="table-dark align-middle">
-
+            <td></td>
+            <td></td>
             <td></td>
             <td class="text-end">Total:</td>
             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
@@ -299,7 +301,10 @@
             <td></td>
             <td></td>
             <td></td>
+            <td></td>
+
+
+
         </tr>
     </tfoot>
-
 </table>
