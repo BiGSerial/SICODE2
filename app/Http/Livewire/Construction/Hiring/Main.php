@@ -57,6 +57,7 @@ class Main extends Component
 
     protected $listeners = [
          'refresh' => '$refresh',
+         'refresh_list' => '$refresh',
          'closeAll' => 'closeAll',
      ];
 
