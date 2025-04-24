@@ -21,6 +21,13 @@ class TacitComment extends Model
         'dismissed',
     ];
 
+    protected $casts = [
+        'justified_at' => 'datetime',
+        'answered_at' => 'datetime',
+        'granted' => 'boolean',
+        'dismissed' => 'boolean',
+    ];
+
     public function User()
     {
         return $this->belongsTo(User::class);

@@ -99,9 +99,12 @@
     <div class="row">
         <div class="col-6">
             <div class="card">
-                <div class="card-header py-0 text-bg-success">
+                <div class="card-header py-0 text-bg-success py-0 d-flex justify-content-between align-items-center">
                     <h5 class="my-1">Realizado <span>| {{ $dt_in ? date('d M', strtotime($dt_in)) : '' }} -
                             {{ $dt_out ? date('d M', strtotime($dt_out)) : '' }}</span></h5>
+                    <button wire:click="exportExcel2" class="btn btn-primary btn-sm">
+                        <i class="ri-file-excel-2-line"></i>
+                    </button>
                 </div>
                 <div class="card-body">
                     @if ($realizeds->isNotEmpty())

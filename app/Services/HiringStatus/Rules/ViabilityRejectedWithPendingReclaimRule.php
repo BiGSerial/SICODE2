@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Services\HiringStatus\Rules;
+
+use App\Models\Note;
+use App\Services\HiringStatus\RuleInterface;
+
+/**
+ * Se viability rejeitada e último reclaim pendente → RI CONSTRUÇÃO / RI CIP
+ */
+class ViabilityRejectedWithPendingReclaimRule implements RuleInterface
+{
+    public function supports(Note $note): bool
+    {
+        $v = $note->viabilities->last();
+        if (!$v || !$v->rejected) {
+            return false;
+        }
+        $r = $v->reclaims->last();
+        return $r && !$r->approved;
+    }
+
+    public function handle(Note $note): array
+    {
+        $v = $note->viabilities->last();
+        $r = $v->reclaims->last();
+        $position = $r->service->construction ? 'RI CONSTRUÇÃO' : 'RI CIP';
+
+        return [
+            'last_date'   => $r->created_at,
+            'position'    => $position,
+            'register'    => $r->production?->user?->Registration ?? null,
+            'responsible' => $r->production?->user?->name ?? null,
+        ];
+    }
+}
