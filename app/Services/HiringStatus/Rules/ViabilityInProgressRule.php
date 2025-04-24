@@ -12,6 +12,10 @@ class ViabilityInProgressRule implements RuleInterface
 {
     public function supports(Note $note): bool
     {
+        if ($note->viabilities->isEmpty()) {
+            return false;
+        }
+        
         $v = $note->viabilities->last();
         return $v && ((!$v->rejected && !$v->approved) || $v->status === 1);
     }
@@ -23,6 +27,7 @@ class ViabilityInProgressRule implements RuleInterface
         return [
             'last_date'   => $v->sended_at,
             'position'    => 'EMPREITEIRA',
+            'local'       => 'EM VIABILIDADE',
             'register'    => null,
             'responsible' => $v->company?->name ?? null,
         ];

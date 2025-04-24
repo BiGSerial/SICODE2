@@ -13,6 +13,10 @@ class ViabilityApprovedHired implements RuleInterface
 {
     public function supports(Note $note): bool
     {
+        if ($note->viabilities->isEmpty()) {
+            return false;
+        }
+
         $v = $note->viabilities->last();
         return $v && $v->approved && $v->hired;
     }
@@ -25,6 +29,8 @@ class ViabilityApprovedHired implements RuleInterface
         $operations = $v->orders
             ->flatMap(fn ($order) => $order->operations);
 
+
+
         // Verifica se há operações e se todas são operacao 0010 com status CONF*
         $allConfirmed = $operations->isNotEmpty()
             && $operations->every(
@@ -36,7 +42,8 @@ class ViabilityApprovedHired implements RuleInterface
         if (!$allConfirmed) {
             return [
                 'last_date'   => $v->hired_at,
-                'position'    => 'CONTRATANTE SAP',
+                'position'    => 'CONTRATANTE',
+                'local'       => 'INCONSISTENCIA DE CONTRATAÇÃO NO SAP',
                 'register'    => $v->user?->Registration ?? null,
                 'responsible' => $v->user?->name ?? null,
             ];
@@ -45,6 +52,7 @@ class ViabilityApprovedHired implements RuleInterface
         return [
             'last_date'   => $v->hired_at,
             'position'    => 'CONTRATADO',
+            'local'       => 'CONTRATAÇÃO FINALIZADA',
             'register'    => $v->user?->Registration ?? null,
             'responsible' => $v->user?->name ?? null,
         ];

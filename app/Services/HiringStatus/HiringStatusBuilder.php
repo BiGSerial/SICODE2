@@ -31,18 +31,35 @@ class HiringStatusBuilder
      */
     public function build(Note $note): array
     {
+        // valores iniciais fixos (ajuste aqui as chaves que sempre deverão existir)
+        $result = [
+            'note_id'    => $note->id,
+            'note'       => $note->note,
+            'dt_status'  => $note->dt_status,
+            'last_date'  => null,
+            'position'   => null,
+            'register'   => null,
+            'responsible' => null,
+            'tacit'      => 0,
+        ];
+
+        $matched = false;
+
         foreach ($this->rules as $rule) {
             if ($rule->supports($note)) {
-                return array_merge([
-                    'note_id'   => $note->id,
-                    'note'      => $note->note,
-                    'dt_status' => $note->dt_status,
-                ], $rule->handle($note));
+                $matched = true;
+                // mescla o array retornado pela regra, sobrescrevendo as chaves necessárias
+                $result  = array_merge($result, $rule->handle($note));
             }
         }
 
-        throw new \RuntimeException("Nenhuma regra se aplicou à nota {$note->id}");
+        if (! $matched) {
+            throw new \RuntimeException("Nenhuma regra se aplicou à nota {$note->id}");
+        }
+
+        return $result;
     }
+
 
     /**
      * Processa um lote de notas e retorna um array de arrays,

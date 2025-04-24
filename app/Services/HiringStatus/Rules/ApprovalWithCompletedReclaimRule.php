@@ -39,6 +39,7 @@ class ApprovalWithCompletedReclaimRule implements RuleInterface
         return [
             'last_date'   => $lastReclaim->completed_at,
             'position'    => 'PROGRAMADOR',
+            'local'       => 'RETORNADO RI ANALISE',
             'register'    => $note->approval->user?->Registration ?? null,
             'responsible' => $note->approval->user?->name ?? null,
             'tacit'       => $note->approval->tacit,

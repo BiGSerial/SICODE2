@@ -10,7 +10,7 @@ use App\Models\Note;
 
 class HiredStatusLog extends Command
 {
-    protected $signature = 'sicode:log_hired_status';
+    protected $signature = 'sicode:log_hired_status {--full}';
     protected $description = 'Reprocessa e atualiza o status de contratação para registros já existentes';
 
     private HiringStatusBuilder $builder;
@@ -24,9 +24,11 @@ class HiredStatusLog extends Command
     public function handle(): void
     {
         // pega só os notes que ainda não estão marcados como CONTRATADO
-        $noteIds = HiringStatus::where('position', '!=', 'CONTRATADO')
-            ->pluck('note_id')
-            ->toArray();
+        $query = HiringStatus::query();
+        if ($this->option('full') !== true) {
+            $query->where('position', '!=', 'CONTRATADO');
+        }
+        $noteIds = $query->pluck('note_id')->toArray();
 
         $total = count($noteIds);
         $bar = $this->output->createProgressBar($total);
@@ -43,6 +45,7 @@ class HiredStatusLog extends Command
             'register',
             'responsible',
             'tacit',
+            'local',
             'updated_at',
         ];
 
@@ -88,7 +91,7 @@ class HiredStatusLog extends Command
                     HiringStatus::upsert(
                         $subBatch,
                         ['note_id'], // chave única
-                        ['note', 'dt_status', 'last_date', 'position', 'register', 'responsible', 'tacit']
+                        ['note', 'dt_status', 'last_date', 'position', 'register', 'responsible', 'tacit', 'local']
                     );
                 }
             });

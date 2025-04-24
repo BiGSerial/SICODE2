@@ -23,6 +23,7 @@ class NoApprovalRule implements RuleInterface
         return [
             'last_date'   => $note->dt_status,
             'position'    => 'PILHA PROGRAMADORES',
+            'local'       => 'PILHA AGUARDANDO PARA APROVAÇÃO',
             'register'    => null,
             'responsible' => null,
             'tacit'       => false,

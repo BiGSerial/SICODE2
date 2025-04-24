@@ -45,6 +45,7 @@ class ApprovalWithPendingReclaimRule implements RuleInterface
         return [
             'last_date'   => $lastReclaim->created_at,
             'position'    => $position,
+            'local'       => 'RETORNADO PELA VERIFICAÇÃO DE PROJETOS',
             'register'    => $production?->user?->Registration ?? null,
             'responsible' => $production?->user?->name ?? null,
             'tacit'       => $note->approval->tacit,

@@ -15,6 +15,10 @@ class ApprovalWithoutReclaimsRule implements RuleInterface
      */
     public function supports(Note $note): bool
     {
+        if (!$note->approval) {
+            return false;
+        }
+        
         return $note->approval !== null
             && $note->approval->approved === false
             && $note->approval->reclaims->isEmpty();
@@ -28,6 +32,7 @@ class ApprovalWithoutReclaimsRule implements RuleInterface
         return [
             'last_date'   => $note->approval->created_at,
             'position'    => 'PROGRAMADOR',
+            'local'       => 'EM ANALISE PELO PROGRAMADOR',
             'register'    => $note->approval->user->Registration ?? null,
             'responsible' => $note->approval->user->name ?? null,
             'tacit'       => $note->approval->tacit,

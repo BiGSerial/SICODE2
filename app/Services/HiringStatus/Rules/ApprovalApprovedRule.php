@@ -15,6 +15,10 @@ class ApprovalApprovedRule implements RuleInterface
      */
     public function supports(Note $note): bool
     {
+        if (!$note->approval) {
+            return false;
+        }
+
         return $note->approval !== null && $note->approval->approved === true;
     }
 
@@ -26,6 +30,7 @@ class ApprovalApprovedRule implements RuleInterface
         return [
             'last_date' => $note->approval->approved_at,
             'position'  => 'CONTRATANTE',
+            'local'     => 'APROVADO PELO PROGRAMADOR',
             'tacit'     => $note->approval->tacit,
         ];
     }

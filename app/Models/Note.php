@@ -58,6 +58,7 @@ class Note extends Model
         'dt_status' => 'datetime',
         'mmgd' => 'boolean',
         'doe' => 'boolean',
+
     ];
 
     public function Productions()

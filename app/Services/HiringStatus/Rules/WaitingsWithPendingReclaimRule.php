@@ -17,7 +17,7 @@ class WaitingsWithPendingReclaimRule implements RuleInterface
      */
     public function supports(Note $note): bool
     {
-        $waitings = $note->waitings;
+        $waitings = $note->Waitings;
         if ($waitings->isEmpty()) {
             return false;
         }
@@ -38,6 +38,7 @@ class WaitingsWithPendingReclaimRule implements RuleInterface
             return [
                 'last_date'   => $reclaim->completed_at,
                 'position'    => 'CONTRATANTE',
+                'local'       => 'RETORNO DO EM ESPERA PARA CONTRATAÇÃO',
                 'register'    => $lastWaiting->user->Registration ?? null,
                 'responsible' => $lastWaiting->user->name ?? null,
             ];
@@ -50,6 +51,7 @@ class WaitingsWithPendingReclaimRule implements RuleInterface
         return [
             'last_date'   => $reclaim->created_at,
             'position'    => $position,
+            'local'       => 'RETORNO DA CONTRATANTE EM ESPERA',
             'register'    => $production?->user?->Registration ?? null,
             'responsible' => $production?->user?->name ?? null,
         ];

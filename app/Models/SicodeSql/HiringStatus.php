@@ -25,6 +25,7 @@ class HiringStatus extends Model
         'responsible',
         'tacit',
         'tacit_at',
+        'local',
     ];
 
     protected $casts = [

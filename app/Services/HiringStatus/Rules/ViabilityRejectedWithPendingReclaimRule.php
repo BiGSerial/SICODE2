@@ -12,6 +12,10 @@ class ViabilityRejectedWithPendingReclaimRule implements RuleInterface
 {
     public function supports(Note $note): bool
     {
+        if ($note->viabilities->isEmpty()) {
+            return false;
+        }
+        
         $v = $note->viabilities->last();
         if (!$v || !$v->rejected) {
             return false;
@@ -29,6 +33,7 @@ class ViabilityRejectedWithPendingReclaimRule implements RuleInterface
         return [
             'last_date'   => $r->created_at,
             'position'    => $position,
+            'local'       => 'RETORNO DA VIABILIDADE',
             'register'    => $r->production?->user?->Registration ?? null,
             'responsible' => $r->production?->user?->name ?? null,
         ];

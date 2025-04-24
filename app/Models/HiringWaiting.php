@@ -17,6 +17,10 @@ class HiringWaiting extends Model
         'complete',
     ];
 
+    protected $casts = [
+        'complete' => 'boolean',
+    ];
+
 
     public function Note()
     {
