@@ -41,6 +41,7 @@ class HiringStatusBuilder
             'register'   => null,
             'responsible' => null,
             'tacit'      => 0,
+            'local'      => null,
         ];
 
         $matched = false;
