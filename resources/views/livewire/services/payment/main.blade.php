@@ -315,12 +315,24 @@
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
                                             </p>
                                         @endforeach
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                            </p>
+                                        @endforeach
                                     @endif
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
                                             </p>
@@ -335,6 +347,12 @@
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
                                             </p>
                                         @endforeach
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                            </p>
+                                        @endforeach
                                     @endif
 
                                 </td>
@@ -345,8 +363,8 @@
                                                 {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
-                                    @elseif ($list->Partials->isNotEmpty() && $list->Partials->last()->Orders->isNotEmpty())
-                                        @foreach ($list->Partials->last()->Orders as $order)
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
@@ -358,8 +376,8 @@
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         {{ $list->WorkForm->Company->name }}
-                                    @elseif ($list->Partials->isNotEmpty())
-                                        {{ $list->Partials->last()->Company ? $list->Partials->last()->Company->name : '---' }}
+                                    @elseif ($partial)
+                                        {{ $partial->Company ? $partial->Company->name : '---' }}
                                     @endif
                                 </td>
 
@@ -371,8 +389,8 @@
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         {{ $list->WorkForm && $list->WorkForm->informed_at ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : $list->WorkForm->created_at->format('d/m/Y H:i:s') }}
-                                    @elseif ($list->Partials->isNotEmpty())
-                                        {{ $list->Partials->isNotEmpty() ? $list->Partials->last()->created_at->format('d/m/Y H:i:s') : '---' }}
+                                    @elseif ($partial)
+                                        {{ $partial->created_at?->format('d/m/Y H:i:s') }}
                                     @endif
                                 </td>
 
@@ -421,7 +439,7 @@
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="to_accompany({{ $list->id }})"
+                                            wire:click.prevent="to_accompany({{ $list->id }}, {{ $partial ? true : false }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="Enviar para Acompanhamento"></i>

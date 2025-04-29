@@ -173,7 +173,7 @@
                                     }
                                 }
 
-                                if ($partial = $list->Partials ? $list->Partials->last() : null) {
+                                if ($partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : null) {
                                     if (!($partial->allow && $partial->supervision && !$partial->payment)) {
                                         $partial = null;
                                     }
@@ -279,12 +279,24 @@
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
                                             </p>
                                         @endforeach
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                            </p>
+                                        @endforeach
                                     @endif
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
                                     @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
                                             <p class="my-0 py-0">
                                                 {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
                                             </p>
@@ -296,7 +308,13 @@
                                     @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                            </p>
+                                        @endforeach
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
+                                        @foreach ($partial->Orders as $order)
+                                            <p class="my-0 py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
                                             </p>
                                         @endforeach
                                     @endif
@@ -309,10 +327,10 @@
                                                 {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
-                                    @elseif ($partial)
+                                    @elseif ($partial && $partial->Orders->isNotEmpty())
                                         @foreach ($partial->Orders as $order)
                                             <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                             </p>
                                         @endforeach
                                     @endif
@@ -335,8 +353,8 @@
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         {{ $list->WorkForm && $list->WorkForm->informed_at ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : $list->WorkForm->created_at->format('d/m/Y H:i:s') }}
-                                    @elseif ($list->Partials->isNotEmpty())
-                                        {{ $list->Partials->last()->created_at->format('d/m/Y H:i:s') }}
+                                    @elseif ($partial)
+                                        {{ $partial->created_at?->format('d/m/Y H:i:s') }}
                                     @endif
                                 </td>
 

@@ -106,17 +106,25 @@ class Main extends Component
         }
     }
 
-    public function to_accompany(Note $note)
+    public function to_accompany(Note $note, bool $partial)
     {
-        $this->note = $note;
 
-        if ($partial = $this->note->Partials && !$this->note->WorkForm ? $this->note->Partials->last() : null) {
-            if ($partial && $partial->allow && $partial->supervision && !$partial->payment) {
-                $this->partial = true;
-            }
-        } else {
-            $this->partial = false;
-        }
+
+
+
+        $this->note = $note;
+        $this->partial = $partial;
+
+        // if ($partial = $this->note->Partials && !$this->note->WorkForm ? $this->note->Partials->last() : null) {
+        //     if ($partial && $partial->allow && $partial->supervision && !$partial->payment) {
+        //         $this->partial = true;
+        //     }
+        // } else {
+        //     $this->partial = false;
+        // }
+
+
+
 
         if ($this->partial) {
             $this->dispatchBrowserEvent('alertar', [
@@ -258,7 +266,7 @@ class Main extends Component
 
         if ($this->not_assigned && isset($this->service)) {
             $query->whereDoesntHave('Productions', function ($sq) {
-            $sq->where('service_id', $this->service->uuid);
+                $sq->where('service_id', $this->service->uuid);
             });
         }
 
@@ -271,6 +279,7 @@ class Main extends Component
         ->when($this->typeNote, function ($q) {
             $q->where('type_note', $this->typeNote);
         })
+
         ->with(['WorkForm' => function ($q) {
             $q->orderBy('informed_at', 'asc');
         }]);
@@ -293,6 +302,7 @@ class Main extends Component
             ->where('allow', true)
             ->where('deny', false)
             ->where('supervision', true)
+            ->where('payment', false)
             ->groupBy('note_id'),
             'latest_partials',
             'notes.id',
