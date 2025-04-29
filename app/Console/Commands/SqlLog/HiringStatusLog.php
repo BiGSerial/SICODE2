@@ -63,7 +63,7 @@ class HiringStatusLog extends Command
         $bar->start();
 
         // Processa em lotes de 200 notas
-        $query->chunkById(200, function ($notes) use ($bar) {
+        $query->chunkById(100, function ($notes) use ($bar) {
             DB::transaction(function () use ($notes) {
                 // Recalcula o batch via builder
                 $batch = $this->builder->batchBuild($notes);
