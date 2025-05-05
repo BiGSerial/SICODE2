@@ -80,6 +80,7 @@ class NoteFilter
             });
         }
 
+
         $query->when(isset($this->filters['rubrica']), function ($q) {
             return $q->where(function ($query) {
                 $query->whereIn('rubrica', $this->filters['rubrica'])

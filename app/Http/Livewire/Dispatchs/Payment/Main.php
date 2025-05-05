@@ -139,9 +139,9 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchPaymentMain($this->getListsProperty()->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
+            return (new DispatchPaymentMain($this->getListsProperty(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         } else {
-            return (new DispatchPaymentMain($this->getListsProperty()->whereIn('id', $this->selected)->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
+            return (new DispatchPaymentMain($this->getListsProperty()->whereIn('id', $this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         }
     }
 

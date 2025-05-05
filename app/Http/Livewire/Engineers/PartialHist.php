@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Engineers;
 
 use App\Models\Partial;
+use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -13,9 +14,16 @@ class PartialHist extends Component
 
     public $search;
     public $perPage = 50;
+    public $selectedRow;
+
 
     public $dt_in;
     public $dt_out;
+    public $month;
+
+    // Filters
+    private $filter_group = 'partial';
+    private $filters;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -23,14 +31,36 @@ class PartialHist extends Component
         'dt_out' => ['except' => '', 'as' => 'out'],
     ];
 
+    protected $listeners = [
+        'refresh' => '$refresh',
+        'refresh_list' => '$refresh'
+    ];
+
     public function pesquisar()
     {
+        $this->resetPage();
+    }
+
+    public function updatedMonth()
+    {
+        $this->dt_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+        $this->dt_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+
         $this->resetPage();
     }
 
 
     public function getListsProperty()
     {
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
         $query = Partial::query();
 
         $query->where(function ($q) {
@@ -50,6 +80,13 @@ class PartialHist extends Component
         if ($this->search) {
             $query->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
                     ->orWhereRelation('Notes.Orders', 'ordem', 'like', '%' . $this->search . '%');
+        }
+
+        if (isset($this->filters['rubrica']) && $this->filters['rubrica'] != '') {
+            $query->whereRelation('Note', function ($q) {
+                $q->where('rubrica', $this->filters['rubrica']);
+            });
+
         }
 
 

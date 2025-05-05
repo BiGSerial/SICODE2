@@ -131,24 +131,24 @@
 
 
                                     <td class="fw-bold text-danger text-center">
-                                        {{ $list->Transfer->last()->From->name }}
+                                        {{ $list->Transfer->last()?->From?->name }}
                                     </td>
 
                                     <td class="fw-bold text-danger text-center">
-                                        {{ $list->Transfer->last()->To->name }}
+                                        {{ $list->Transfer->last()?->To?->name }}
                                     </td>
 
                                     <td class="fw-bold text-danger text-center">
-                                        {{ $list->Transfer->last()->info }}
+                                        {{ $list->Transfer->last()?->info }}
                                     </td>
 
                                     <td><span
-                                            class="badge {{ Notestatus::status($list->Transfer->last()->status)->colorbg }}">{{ Notestatus::status($list->Transfer->last()->status)->status }}</span>
+                                            class="badge {{ Notestatus::status($list->Transfer->last()?->status)->colorbg }}">{{ Notestatus::status($list->Transfer->last()?->status)->status }}</span>
                                     </td>
 
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ date('d/m/Y', strToTime($list->Transfer->last()->created_at)) }}
+                                        {{ date('d/m/Y', strToTime($list->Transfer->last()?->created_at)) }}
 
                                     </td>
 
@@ -171,6 +171,11 @@
                                                         wire:click.prevent="verify_transfer({{ $list->id }})"><i
                                                             class="ri-user-shared-fill text-primary align-middle"></i>
                                                         CONFIRMAR TRANSFERÊNCIA</a>
+                                                </li>
+                                                <li><a class="dropdown-item" href="#"
+                                                        wire:click.prevent="cancel_transfer({{ $list->id }})"><i
+                                                            class="ri-close-circle-fill text-danger align-middle"></i>
+                                                        CANCELAR TRANSFERÊNCIA</a>
                                                 </li>
                                             </ul>
                                         </div>

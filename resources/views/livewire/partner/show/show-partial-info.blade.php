@@ -84,26 +84,26 @@
                                 </tr>
                                 <tr>
                                     <td class="text-end" style="width: 25%"><strong>Responsável Decisão:</strong></td>
-                                    <td>{{ $form->allow || $form->deny ? $form->Engineer->name : '---' }}</td>
+                                    <td>{{ $form->Engineer?->name ?? '---' }}</td>
                                 </tr>
                                 <tr>
                                     <td class="text-end" style="width: 25%"><strong>Data de Fiscalização:</strong>
                                     </td>
-                                    <td>{{ $form->allow ? ($form->supervision ? Carbon::parse($form->supervision_at)->format('d/m/Y H:i:s') : 'EM FISCALIZAÇÃO') : '---' }}
+                                    <td>{{ $form->supervision_at?->format('d/m/Y') ?? 'EM FISCALIZAÇÃO' }}
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="text-end" style="width: 25%"><strong>Fiscalizador:</strong></td>
-                                    <td>{{ $form->allow && $form->supervision ? $form->supervisor->name : '---' }}</td>
+                                    <td>{{ $form->supervision?->nome ?? '---' }}</td>
                                 </tr>
                                 <tr>
                                     <td class="text-end" style="width: 25%"><strong>Data de Pagamento:</strong></td>
-                                    <td>{{ $form->supervision ? ($form->payment ? Carbon::parse($form->payment_at)->format('d/m/Y H:i:s') : 'EM PAGAMENTO') : '---' }}
+                                    <td>{{ $form->payment_at?->format('d/m/Y') ?? 'EM PAGAMENTO' }}
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="text-end" style="width: 25%"><strong>Pagador:</strong></td>
-                                    <td>{{ $form->supervision && $form->payment ? $form->payer->name : '---' }}</td>
+                                    <td>{{ $form->payment?->name ?? '---' }}</td>
                                 </tr>
                             </table>
                         </div>

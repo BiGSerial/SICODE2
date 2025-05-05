@@ -12,7 +12,7 @@ class ViabilityApprovedNotHiredRule implements RuleInterface
 {
     public function supports(Note $note): bool
     {
-        
+
         if ($note->viabilities->isEmpty()) {
             return false;
         }
@@ -25,12 +25,18 @@ class ViabilityApprovedNotHiredRule implements RuleInterface
     {
         $v = $note->viabilities->last();
 
+        if ($v->tacit) {
+            $date = $v->tacit_at;
+        } else {
+            $date = $v->returned_at;
+        }
+
         return [
-            'last_date'   => $v->completed_at,
+            'last_date'   => $date,
             'position'    => 'CONTRATANTE',
             'local'       => 'CONTRATAÇÃO PÓS VIABILIDADE',
-            'register'    => $v->user?->Registration ?? null,
-            'responsible' => $v->user?->name ?? null,
+            'register'    => $v->User?->Registration ?? null,
+            'responsible' => $v->User?->name ?? null,
         ];
     }
 }

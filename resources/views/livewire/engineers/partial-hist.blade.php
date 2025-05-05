@@ -9,24 +9,32 @@
             Pesquisa
         </div>
         <div class="card-body">
-
             <div class="row">
-                <div class="col-md-4 mb-3">
+                <div class="col">
                     <label for="searchText" class="form-label">Buscar</label>
                     <input type="text" class="form-control" id="searchText" placeholder="Digite a Nota/OV/Ordem/DR"
                         wire:model.defer="search">
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col">
+                    <label for="startDate" class="form-label">Mês Referencia</label>
+                    <input type="month" class="form-control" id="startDate" wire:model="month">
+                </div>
+                <div class="col">
                     <label for="startDate" class="form-label">Data de Início</label>
                     <input type="date" class="form-control" id="startDate" wire:model.defer="dt_in">
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col">
                     <label for="endDate" class="form-label">Data de Fim</label>
                     <input type="date" class="form-control" id="endDate" wire:model.defer="dt_out">
                 </div>
-            </div>
-            <button type="submit" class="btn btn-primary" wire:click.prevent="pesquisar">Pesquisar</button>
 
+                <div class="d-flex gap-2 mt-2">
+                    <button type="submit" class="btn btn-primary" wire:click.prevent="pesquisar"><i
+                            class="bi bi-search"></i> Pesquisar</button>
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partial', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'partial'], key('removeAll'))
+                </div>
+            </div>
         </div>
     </div>
 
@@ -45,6 +53,7 @@
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
                         <th scope="col">Ordem</th>
+                        <th scope="col">Rubrica</th>
                         <th scope="col">Empreiteira</th>
                         <th scope="col">Dta Envio</th>
                         <th scope="col">Dt Aprovação</th>
@@ -56,9 +65,15 @@
                     </tr>
                 </thead>
                 <tbody>
+
                     @foreach ($lists as $list)
-                        <tr class="text-center" style="cursor: pointer;"
-                            wire:click.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
+                        <tr class="text-center" style="cursor: pointer;" data-bs-toggle="popover"
+                            data-bs-placement="left" data-bs-trigger="hover"
+                            data-bs-content="duplo clique para mais detalhes"
+                            wire:dblClick.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})"
+                            wire:click="$set('selectedRow',
+                            {{ $list->id }})"
+                            class="{{ $selectedRow === $list->id ? 'table-primary' : '' }}">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
                             <td>
                                 @if ($list->Orders)
@@ -67,6 +82,7 @@
                                     @endforeach
                                 @endif
                             </td>
+                            <td class="fw-bold">{{ $list->Note->rubrica }}</td>
                             @php
                                 $company = $list->Company ? $list->Company->name : 'Desconhecido';
 
@@ -102,6 +118,7 @@
                         </tr>
                     @endforeach
                 </tbody>
+
             </table>
         </div>
     @endif

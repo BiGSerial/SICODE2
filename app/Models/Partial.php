@@ -40,6 +40,7 @@ class Partial extends Model
         'deny' => 'boolean',
         'payment' => 'boolean',
         'supervision' => 'boolean',
+        'value' => 'decimal:2',
     ];
 
     public function Note()

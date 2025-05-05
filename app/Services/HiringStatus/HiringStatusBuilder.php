@@ -42,6 +42,7 @@ class HiringStatusBuilder
             'responsible' => null,
             'tacit'      => 0,
             'local'      => null,
+            'rubrica'   => $note->rubrica,
         ];
 
         $matched = false;

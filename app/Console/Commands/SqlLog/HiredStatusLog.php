@@ -46,10 +46,11 @@ class HiredStatusLog extends Command
             'responsible',
             'tacit',
             'local',
+            'rubrica',
             'updated_at',
         ];
 
-        foreach (array_chunk($noteIds, 200) as $chunk) {
+        foreach (array_chunk($noteIds, 100) as $chunk) {
             $notes = Note::with([
                 'approval.reclaims.service',
                 'approval.reclaims.production.user',
@@ -91,7 +92,7 @@ class HiredStatusLog extends Command
                     HiringStatus::upsert(
                         $subBatch,
                         ['note_id'], // chave única
-                        ['note', 'dt_status', 'last_date', 'position', 'register', 'responsible', 'tacit', 'local']
+                        ['note', 'dt_status', 'last_date', 'position', 'register', 'responsible', 'tacit', 'local', 'rubrica'] // colunas a serem atualizadas
                     );
                 }
             });

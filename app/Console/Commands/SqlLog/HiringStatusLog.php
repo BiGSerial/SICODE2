@@ -87,7 +87,7 @@ class HiringStatusLog extends Command
                     HiringStatus::upsert(
                         $subBatch,
                         ['note_id'],
-                        ['note', 'dt_status', 'last_date', 'position', 'register', 'responsible', 'tacit', 'local']
+                        ['note', 'dt_status', 'last_date', 'position', 'register', 'responsible', 'tacit', 'local', 'rubrica']
                     );
                 }
             });

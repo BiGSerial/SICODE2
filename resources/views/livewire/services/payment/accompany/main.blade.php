@@ -138,18 +138,17 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                @php
+                                    $soma = 0;
+                                @endphp
                                 @foreach ($lists as $list)
                                     @php
                                         $daysLeft = $this->deadline($list->Note);
-                                        $partial =
-                                            $list->Note->Partials && $list->Note->Partials->count()
-                                                ? $list->Note->Partials
-                                                    ->where('allow', true)
-                                                    ->where('deny', false)
-                                                    ->where('supervision', true)
-                                                    ->where('payment', false)
-                                                    ->last()
-                                                : null;
+                                        if ($list->partial) {
+                                            $partial = $list->note->partials?->last();
+                                        } else {
+                                            $partial = null;
+                                        }
                                     @endphp
                                     @if ($partial)
                                         <tr wire:key="work-{{ $list->id }}"
@@ -207,12 +206,17 @@
                                     </td>
                                     <td class="text-center align-middle fw-bold">
                                         @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <span class="my-0py-0">
-                                                    R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                                </span>
-                                            @endforeach
-                                        @elseif ($partial)
+                                            @php
+                                                $soma += $list->Note->WorkForm->Orders->sum('moaberto');
+                                            @endphp
+                                            <span class="my-0py-0">
+                                                R$
+                                                {{ number_format($list->Note->WorkForm->Orders->sum('moaberto'), 2, ',', '.') }}
+                                            </span>
+                                        @elseif ($partial && $partial?->Orders->isNotEmpty())
+                                            @php
+                                                $soma += $partial->value;
+                                            @endphp
                                             R$ {{ number_format($partial->value, 2, ',', '.') }}
                                         @endif
 
@@ -290,21 +294,32 @@
                                     <td class="fw-light text-center">
                                         @if ($list->Note->WorkForm)
                                             {{ $list->Note->WorkForm ? date('d/m/Y', strToTime($list->Note->WorkForm->date)) : '---' }}
+                                        @else
+                                            ---
                                         @endif
                                     </td>
                                     <td class="fw-light">
                                         @if ($list->Note->WorkForm)
                                             {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) : '---' }}
                                         @elseif ($partial)
-                                            {{ $partial->created_at ? date('d/m/Y H:i:s', strToTime($partial->created_at)) : '---' }}
+                                            {{ $partial->supervision_at->format('d/m/Y H:i:s') }}
                                         @endif
 
                                     </td>
 
                                     @php
-                                        $daysLeft = Carbon::parse($list->fimLancado)
-                                            ->startOfDay()
-                                            ->diffInDays(Carbon::now()->startOfDay());
+                                        if ($partial) {
+                                            $daysLeft = Carbon::parse($partial->supervision_at)
+                                                ->addDays(5)
+                                                ->startOfDay()
+                                                ->diffInDays(Carbon::now()->startOfDay());
+                                            $lastDate = $partial->supervision_at?->addDays(5)->format('d/m/Y');
+                                        } else {
+                                            $daysLeft = Carbon::parse($list->fimLancado)
+                                                ->startOfDay()
+                                                ->diffInDays(Carbon::now()->startOfDay());
+                                            $lastDate = Carbon::parse($list->fimLancado)->format('d/m/Y');
+                                        }
                                     @endphp
                                     <td scope="col"
                                         class="text-center text-center
@@ -324,7 +339,7 @@
                              <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
                              {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                              ">
-                                        {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
+                                        {{ $lastDate }}
                                     </td>
                                     <td class="fw-light text-center">
 
@@ -358,6 +373,26 @@
                                     </tr>
                                 @endforeach
                             </tbody>
+                            <tfoot class="table-dark">
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="fw-bold">R$ {{ number_format($soma, 2, ',', '.') }}</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
 

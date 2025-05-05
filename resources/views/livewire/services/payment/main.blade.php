@@ -217,12 +217,12 @@
                                     $block = true;
                                 }
 
-                                if ($partial = $list->Partials ? $list->Partials->last() : null) {
+                                if ($partial = $list->Partials ? $list->Partials->last() : false) {
                                     if (!($partial->allow && $partial->supervision && !$partial->payment)) {
-                                        $partial = null;
+                                        $partial = false;
                                     }
                                 } else {
-                                    $partial = null;
+                                    $partial = false;
                                 }
 
                                 $rowClass = '';
@@ -239,7 +239,13 @@
                                     }
                                 }
 
-                                $daysLeft = Carbon::parse($list->fimLancado)
+                                if ($partial) {
+                                    $date = $partial->supervision_at->addDays(5);
+                                } else {
+                                    $date = $list->fimLancado;
+                                }
+
+                                $daysLeft = Carbon::parse($date)
                                     ->startOfDay()
                                     ->diffInDays(Carbon::now()->startOfDay());
 
@@ -412,7 +418,7 @@
                             <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                             ">
-                                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
+                                    {{ $date ? Carbon::parse($date)->format('d/m/Y') : '---' }}
                                 </td>
 
                                 @php
@@ -439,7 +445,7 @@
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="to_accompany({{ $list->id }}, {{ $partial ? true : false }})"
+                                            wire:click.prevent="to_accompany({{ $list->id }}, {{ $partial ? 'true' : 'false' }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="Enviar para Acompanhamento"></i>

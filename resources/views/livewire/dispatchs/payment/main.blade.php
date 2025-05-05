@@ -197,7 +197,13 @@
                                     }
                                 }
 
-                                $daysLeft = Carbon::parse($list->fimLancado)
+                                if ($partial) {
+                                    $date = $partial->supervision_at->addDays(5);
+                                } else {
+                                    $date = $list->fimLancado;
+                                }
+
+                                $daysLeft = Carbon::parse($date)
                                     ->startOfDay()
                                     ->diffInDays(Carbon::now()->startOfDay());
 
@@ -376,7 +382,7 @@
                             <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                             ">
-                                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
+                                    {{ $date ? Carbon::parse($date)->format('d/m/Y') : '---' }}
                                 </td>
 
                                 @php
