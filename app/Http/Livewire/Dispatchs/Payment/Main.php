@@ -139,9 +139,9 @@ class Main extends Component
     public function export_excel()
     {
         if (!count($this->selected)) {
-            return (new DispatchPaymentMain($this->getListsProperty()->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
+            return (new DispatchPaymentMain($this->getListsProperty(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         } else {
-            return (new DispatchPaymentMain($this->getListsProperty()->whereIn('id', $this->selected)->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
+            return (new DispatchPaymentMain($this->getListsProperty()->whereIn('id', $this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
         }
     }
 
@@ -391,6 +391,16 @@ class Main extends Component
 
             foreach ($this->notes as $key => $note) {
 
+                if ($partial = $note->Partials && !$note->WorkForm ? $note->Partials->last() : false) {
+                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
+                        $partial = false;
+                    } else {
+                        $partial = true;
+                    }
+                } else {
+                    $partial = false;
+                }
+
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
                     $production = Production::create([
                         'note_id'     => $note->id,
@@ -405,6 +415,7 @@ class Main extends Component
                         'dispatch_at' => date('Y-m-d H:i:s'),
                         'att_at'      => date('Y-m-d H:i:s'),
                         'status'      => 2,
+                        'partial'     => $partial,
                     ]);
 
                     $user = Auth()->User()->name;
@@ -433,6 +444,17 @@ class Main extends Component
 
             foreach ($this->notes as $key => $note) {
 
+
+                if ($partial = $note->Partials && !$note->WorkForm ? $note->Partials->last() : false) {
+                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
+                        $partial = false;
+                    } else {
+                        $partial = true;
+                    }
+                } else {
+                    $partial = false;
+                }
+
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
                     $production = Production::create([
                         'note_id'     => $note->id,
@@ -444,6 +466,7 @@ class Main extends Component
                         'centroTrab'  => $note->centerjob,
                         'dispatch_at' => date('Y-m-d H:i:s'),
                         'status'      => 1,
+                        'partial'     => $partial,
                     ]);
 
                     $user = Auth()->User()->name;

@@ -460,13 +460,8 @@
                             @php
                                 $daysLeft = $this->deadline($list->Note);
 
-                                if (
-                                    $partial =
-                                        $list->partial && $list->Note->Partials ? $list->Note->Partials->last() : null
-                                ) {
-                                    if (!($partial->allow && $partial->supervision)) {
-                                        $partial = null;
-                                    }
+                                if ($list->partial) {
+                                    $partial = $list->note->partials?->last();
                                 } else {
                                     $partial = null;
                                 }
@@ -529,10 +524,10 @@
                                         <p class="my-0 py-0">
                                             R$ {{ number_format($moaberto, 2, ',', '.') }}
                                         </p>
-                                    @elseif($partial && $partial->Orders->count())
+                                    @elseif($partial)
                                         @php
-                                            $moaberto = $partial->Orders->sum('moaberto');
-                                            $soma += $moaberto;
+                                            $moaberto = $partial?->value;
+                                            $soma += $partial?->value;
                                         @endphp
                                         <p class="my-0 py-0">
                                             R$ {{ number_format($moaberto, 2, ',', '.') }}
@@ -554,7 +549,16 @@
 
 
                                 <td class="fw-light text-center">
-                                    {{ $list->Note->WorkForm ? $list->Note->WorkForm->Company->name : '---' }}
+                                   
+                                    @if ($list->Note->WorkForm)
+                                        <span class="my-0 py-0">
+                                            {{ $list->Note->WorkForm?->Company?->name }}
+                                        </span>
+                                    @elseif ($partial)
+                                        <span class="my-0 py-0">
+                                            {{ $partial?->Company?->name }}
+                                        </span>
+                                    @endif
                                 </td>
 
 

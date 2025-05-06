@@ -154,10 +154,12 @@ class Stack extends Component
 
     public function export_excel()
     {
+
+
         if (!count($this->selected)) {
-            return (new DispatchPaymentStack($this->exports->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
+            return (new DispatchPaymentStack($this->exports, $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
         } else {
-            $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
+            $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->sortBy('Note.days_left');
 
             return (new DispatchPaymentStack($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportControledPayment.xlsx');
         }

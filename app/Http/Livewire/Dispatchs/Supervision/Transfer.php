@@ -28,6 +28,7 @@ class Transfer extends Component
     protected $listeners = [
         'refresh_list'         => '$refresh',
         'to_complete_transfer' => 'go_complete_transfer',
+        'to_cancel_transfer'
     ];
 
     public function verify_transfer(Production $production)
@@ -134,10 +135,67 @@ class Transfer extends Component
 
     }
 
+    public function cancel_transfer(Production $production)
+    {
+        $this->production = $production;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Cancelar Transferência',
+            'msg'           => "Você deseja cancelar a transferência da Nota <strong>{$production->load('Note')->Note->note}</strong>?",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Cancelar!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'to_cancel_transfer',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma nenhuma Nota/OV foi transferida.',
+        ]);
+    }
+
+
+    public function to_cancel_transfer()
+    {
+        if ($this->production) {
+
+            try {
+                $this->production->update([
+                    'block_wpa' => false,
+                    'block' => false,
+                    'status' => 2,
+                ]);
+            } catch (\Throwable $th) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'Não conseguimos transferir a obra, verifique novamente.',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Transferencia Cancelada com sucesso.',
+                'timer'    => 5000,
+            ]);
+
+            $this->emit('refresh_list');
+
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Não conseguimos transferir a obra, verifique novamente.',
+                'timer'    => 5000,
+            ]);
+        }
+    }
+
     public function getListsProperty()
     {
 
-        return Production::where('block_wpa', true)->where('block', false)->with('Wpas', 'Transfer.From', 'Transfer.To', 'Service', 'Note')->paginate($this->perPage);
+        return Production::where('service_id', $this->service->uuid)->where('block_wpa', true)->where('block', false)->with('Wpas', 'Transfer.From', 'Transfer.To', 'Service', 'Note')->paginate($this->perPage);
     }
 
     public function render()

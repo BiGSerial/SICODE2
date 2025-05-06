@@ -13,9 +13,15 @@ class PartialList extends Component
 
     public $search;
     public $perPage = 50;
+    public $selectedRow;
 
     public $dt_in;
     public $dt_out;
+    public $month;
+
+    // Filters
+    private $filter_group = 'partial';
+    private $filters;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -25,7 +31,9 @@ class PartialList extends Component
 
     protected $listeners = [
         'refresh' => '$refresh',
+        'refresh_list' => '$refresh'
     ];
+
 
     public function pesquisar()
     {
@@ -35,6 +43,14 @@ class PartialList extends Component
 
     public function getListsProperty()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filters = $_SESSION['filter'][$this->filter_group];
+        }
+
         $query = Partial::query();
         $query->where(function ($query) {
             $query->where('allow', 0)
@@ -53,6 +69,13 @@ class PartialList extends Component
         if ($this->search) {
             $query->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
                     ->orWhereRelation('Notes.Orders', 'ordem', 'like', '%' . $this->search . '%');
+        }
+
+        if (isset($this->filters['rubrica']) && $this->filters['rubrica'] != '') {
+            $query->whereRelation('Note', function ($q) {
+                $q->where('rubrica', $this->filters['rubrica']);
+            });
+
         }
 
 

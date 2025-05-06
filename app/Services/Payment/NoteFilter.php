@@ -58,6 +58,12 @@ class NoteFilter
                 $sq->whereHas('Partials', function ($q2) {
                     $q2->where('supervision', true)
                         ->where('payment', false);
+                    $q2->when(isset($this->filters['company']), function ($sq) {
+                        return $sq->where(function ($query) {
+                            $query->whereIn('company_id', $this->filters['company'])
+                                ->orWhereNull('company_id');
+                        });
+                    });
                 })
                 ->whereDoesntHave('WorkForm');
             });
@@ -73,6 +79,7 @@ class NoteFilter
                     ->orWhereRelation('Orders', 'ordem', 'like', '%' . $search . '%');
             });
         }
+
 
         $query->when(isset($this->filters['rubrica']), function ($q) {
             return $q->where(function ($query) {

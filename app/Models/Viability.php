@@ -58,6 +58,7 @@ class Viability extends Model
         'inActivity' => 'boolean',
         'visible_partner' => 'boolean',
         'rehired' => 'boolean',
+        'status' => 'integer',
     ];
 
     public function Order()

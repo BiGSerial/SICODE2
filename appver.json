@@ -1,6 +1,16 @@
 {
-    "appver": "1.19.0",
+    "appver": "1.19.2",
     "historic": [
+        {
+            "version": "1.19.2",
+            "description": "Corrigido Relat\u00f3rio de Pagamento tanto em Lista de controle despacho e servi\u00e7o, lista de transferencia levantamento e fiscaliza\u00e7\u00e3o, e outros bugs gerais",
+            "date": "2025-05-05"
+        },
+        {
+            "version": "1.19.1",
+            "description": "Corre\u00e7\u00e3o de quantitativo pro SQL LOG de Contrata\u00e7\u00e3o",
+            "date": "2025-04-29"
+        },
         {
             "version": "1.19.0",
             "description": "Implemented Automatic Routine in Approval list, Create Routine to Log Hiring Situation, Has Select and All select to mass dispatch in Intern Returnals",

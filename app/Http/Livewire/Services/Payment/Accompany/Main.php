@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Payment\Accompany;
 
+use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Exports\Services\ServicePaymentStack;
 use App\Models\{File, Note, Production, Service, User};
 use Carbon\Carbon;
@@ -75,7 +76,7 @@ class Main extends Component
 
     public function export_excel()
     {
-        return (new ServicePaymentStack($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
+        return (new DispatchPaymentStack($this->lists, $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
     }
 
     public function buscarMulti()
