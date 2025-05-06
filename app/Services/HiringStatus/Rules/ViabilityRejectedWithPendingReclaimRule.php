@@ -15,13 +15,13 @@ class ViabilityRejectedWithPendingReclaimRule implements RuleInterface
         if ($note->viabilities->isEmpty()) {
             return false;
         }
-        
+
         $v = $note->viabilities->last();
         if (!$v || !$v->rejected) {
             return false;
         }
         $r = $v->reclaims->last();
-        return $r && !$r->approved;
+        return $r && !$r->completed;
     }
 
     public function handle(Note $note): array
