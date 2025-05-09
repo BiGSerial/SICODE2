@@ -53,6 +53,7 @@ class Note extends Model
     ];
 
 
+
     protected $casts = [
         'dt_created' => 'datetime',
         'dt_status' => 'datetime',
@@ -102,9 +103,9 @@ class Note extends Model
         return $this->hasMany(HiringWaiting::class);
     }
 
-    public function External()
+    public function Externals()
     {
-        return $this->hasOne(External::class);
+        return $this->hasMany(External::class);
     }
 
     public function WorkForm()

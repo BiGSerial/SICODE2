@@ -12,6 +12,7 @@ class External extends Model
     protected $fillable = [
         'note_id',
         'user_id',
+        'entity_id',
         'entidade',
         'status',
         'completed',

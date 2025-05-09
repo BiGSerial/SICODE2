@@ -89,7 +89,7 @@ class TacitToApproval extends Command
 
             foreach ($approvals as $approval) {
 
-                if ($approval->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
+                if ($approval->files()->where('file_name', 'like', 'PROJETO%')->where('service_id', $this->serviceId)->exists()) {
                     ViabilityApproval::create([
                         'user_id' => $this->userId,
                         'note_id' => $approval->id,

@@ -143,7 +143,7 @@
                             @endphp
                             {{-- @dump($list->Productions) --}}
                             <tr class="align-middle" wire:key="{{ $list->id }}"
-                                wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
+                                wire:dblclick="navigateTo('{{ $list->note }}')">
 
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
                                     {{ $list->note }}

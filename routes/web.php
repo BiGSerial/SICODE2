@@ -81,6 +81,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/waiting_list', 'waiting_list')->name('waiting');
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
     Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
+    Route::get('/protocolNote/{note}', 'protocolNote')->name('protocolNote');
 
 });
 

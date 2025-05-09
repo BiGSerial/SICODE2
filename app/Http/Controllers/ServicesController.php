@@ -60,4 +60,14 @@ class ServicesController extends Controller
             'service' => $service,
         ]);
     }
+
+    public function protocolNote(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.noteprotocol', [
+            'service' => $service,
+            'note' => $request->route('note'),
+        ]);
+    }
 }

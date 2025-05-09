@@ -74,7 +74,7 @@ class TacitInApproval extends Command
                                 /**
                                  *Verifica que a obra está ainda no prazo e se não existe Retorno interno ativo
                                  */
-                                if ($approval->reclaims->isEmpty() && !$approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
+                                if ($approval->reclaims->isEmpty() && !$approval->note->files()->where('file_name', 'like', 'PROJETO%')->where('service_id', $this->serviceId)->exists()) {
 
 
                                     $production = null;
