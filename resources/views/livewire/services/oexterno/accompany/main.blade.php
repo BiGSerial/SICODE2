@@ -155,24 +155,24 @@
                                     <x-files.select-download-list :files='$list->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->External)
+
+                                    @if ($list->externals->isNotEmpty())
                                         <i class="ri-file-text-fill text-success fs-5"></i>
                                     @else
                                         <i class="ri-file-text-line text-danger fs-5"></i>
                                     @endif
-
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->external?->protocols->last()?->protocol }}
+                                    {{ $list->externals?->last()?->protocols?->last()?->protocol }}
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->external?->protocols->last()?->created_at?->format('d/m/Y H:i:s') }}
+                                    {{ $list->externals?->last()?->protocols?->last()?->created_at?->format('d/m/Y H:i:s') }}
                                 </td>
                                 <td class="fw-light text-center fw-bold">
-                                    {{ $list->external?->Comments?->last()?->title }}
+                                    {{ $list->externals?->last()?->Comments?->last()?->title }}
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->external?->entidade }}
+                                    {{ $list->externals?->last()?->entidade }}
                                 </td>
 
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>

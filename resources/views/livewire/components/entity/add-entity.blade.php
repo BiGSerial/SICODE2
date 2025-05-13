@@ -119,6 +119,143 @@
                                         </div>
                                     </div>
 
+                                    <div class="col-12">
+                                        <label class="form-label">Contatos e Portais:</label>
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button class="btn btn-primary btn-sm" type="button"
+                                                wire:click="addConctact">
+                                                <i class="ri-add-line"></i> Novo Contato
+                                            </button>
+                                            <button class="btn btn-primary btn-sm" type="button"
+                                                wire:click="addPortal">
+                                                <i class="ri-add-line"></i> Novo Portal
+                                            </button>
+                                        </div>
+
+                                        @if ($newContact)
+                                            <div class="card mb-3">
+                                                <div class="card-body">
+                                                    <div class="row g-2">
+                                                        <div class="col-md-6">
+                                                            <input type="text" class="form-control form-control-sm"
+                                                                wire:model.defer="newContact.name"
+                                                                placeholder="Nome do contato">
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <input type="email" class="form-control form-control-sm"
+                                                                wire:model.defer="newContact.email"
+                                                                placeholder="Email">
+                                                        </div>
+                                                        <div class="col-12 text-end">
+                                                            <button class="btn btn-secondary btn-sm"
+                                                                wire:click="$set('newContact', null)">Cancelar</button>
+                                                            <button class="btn btn-primary btn-sm"
+                                                                wire:click="saveContact">Salvar</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        @if ($newPortal)
+                                            <div class="card mb-3">
+                                                <div class="card-body">
+                                                    <div class="row g-2">
+                                                        <div class="col-12">
+                                                            <input type="url" class="form-control form-control-sm"
+                                                                wire:model.defer="newPortal.url"
+                                                                placeholder="URL do Portal">
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <input type="text" class="form-control form-control-sm"
+                                                                wire:model.defer="newPortal.user"
+                                                                placeholder="Usuário">
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <input type="password"
+                                                                class="form-control form-control-sm"
+                                                                wire:model.defer="newPortal.password"
+                                                                placeholder="Senha">
+                                                        </div>
+                                                        <div class="col-12 text-end">
+                                                            <button class="btn btn-secondary btn-sm"
+                                                                wire:click="$set('newPortal', null)">Cancelar</button>
+                                                            <button class="btn btn-primary btn-sm"
+                                                                wire:click="savePortal">Salvar</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        <div class="table-responsive mt-3">
+                                            @if ($entityEdit->contacts->isNotEmpty())
+                                                <table class="table table-sm table-bordered">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Tipo</th>
+                                                            <th>Informações</th>
+                                                            <th style="width: 50px">Ações</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach ($entityEdit->contacts as $index => $contact)
+                                                            <tr>
+                                                                <td class="align-middle">
+                                                                    @if (isset($contact->name))
+                                                                        <span class="badge bg-info">Contato</span>
+                                                                    @else
+                                                                        <span class="badge bg-success">Portal</span>
+                                                                    @endif
+                                                                </td>
+                                                                <td>
+                                                                    @if (isset($contact->name) && isset($contact->email))
+                                                                        <div class="d-flex flex-column">
+                                                                            <small><strong>Nome:</strong>
+                                                                                {{ $contact->name }}</small>
+                                                                            <small><strong>Email:</strong>
+                                                                                {{ $contact->email }}</small>
+                                                                        </div>
+                                                                    @endif
+
+                                                                    @if (isset($contact->url))
+                                                                        <div class="d-flex flex-column">
+                                                                            <small><strong>URL:</strong>
+                                                                                <a href="{{ $contact->url }}"
+                                                                                    target="_blank"
+                                                                                    class="text-decoration-none">
+                                                                                    {{ $contact->url }}
+                                                                                </a>
+                                                                            </small>
+                                                                            @if (isset($contact->user))
+                                                                                <small><strong>Usuário:</strong>
+                                                                                    {{ $contact->user }}</small>
+                                                                                <small><strong>Senha:</strong>
+                                                                                    {{ $contact->password }}</small>
+                                                                            @endif
+                                                                        </div>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="text-center align-middle">
+                                                                    <button type="button"
+                                                                        class="btn btn-danger btn-sm"
+                                                                        wire:click="removeContact({{ $contact->id }})"
+                                                                        title="Remover">
+                                                                        <i class="ri-delete-bin-2-line"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            @else
+                                                <div class="alert alert-info mb-0">
+                                                    Nenhum contato ou portal cadastrado.
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+
                                     <!-- Observations -->
                                     <div class="col-12">
                                         <div class="form-floating">
@@ -165,7 +302,7 @@
                                                         <td>{{ $list->name }}</td>
                                                         <td>
                                                             <button type="button" class="btn btn-primary btn-sm"
-                                                                wire:click="editEntity({{ $list->id }})">
+                                                                wire:click="entityEdit({{ $list->id }})">
                                                                 <i class="ri-edit-2-line"></i>
                                                             </button>
 

@@ -188,20 +188,73 @@ class SelectOptions
     public static function getProtocolReasons()
     {
         return [
-            (object)['reason' => 'Aguardando Alvará', 'value' => 'AGUARDANDO ALVARA'],
-            (object)['reason' => 'Aguardando Ajustes', 'value' => 'AGUARDANDO AJUSTES'],
-            (object)['reason' => 'Aguardando Comprovante', 'value' => 'AGUARDANDO COMPROVANTE'],
-            (object)['reason' => 'Aguardando Protocolo Presencial', 'value' => 'AGUARDANDO PROTOCOLO PRESENCIAL'],
-            (object)['reason' => 'Alvará em Anexo', 'value' => 'ALVARA EM ANEXO'],
-            (object)['reason' => 'Carta ao cliente', 'value' => 'CARTA AO CLIENTE'],
-            (object)['reason' => 'Deferido', 'value' => 'DEFERIDO'],
-            (object)['reason' => 'Envio de Taxa para Pagamento', 'value' => 'ENVIO DE TAXA PARA PAGAMENTO'],
-            (object)['reason' => 'Indeferido', 'value' => 'INDEFERIDO'],
-            (object)['reason' => 'Protocolado', 'value' => 'PROTOCOLADO'],
-            (object)['reason' => 'Retorno do Órgão', 'value' => 'RETORNO DO ORGAO'],
-            (object)['reason' => 'Solicitação de Ajustes', 'value' => 'SOLICITACAO DE AJUSTES'],
-            (object)['reason' => 'Taxa de Pagamento Paga', 'value' => 'TAXA DE PAGAMENTO PAGA']
-        ];
+                (object)[
+                    'reason' => 'Aguardando Alvará',
+                    'value'  => 'AGUARDANDO ALVARA',
+                    'prefix' => 'AGALVA',
+                ],
+                (object)[
+                    'reason' => 'Aguardando Ajustes',
+                    'value'  => 'AGUARDANDO AJUSTES',
+                    'prefix' => 'AGAJU',
+                ],
+                (object)[
+                    'reason' => 'Aguardando Comprovante',
+                    'value'  => 'AGUARDANDO COMPROVANTE',
+                    'prefix' => 'AGCOMP',
+                ],
+                (object)[
+                    'reason' => 'Aguardando Protocolo Presencial',
+                    'value'  => 'AGUARDANDO PROTOCOLO PRESENCIAL',
+                    'prefix' => 'AGPROTOPRE',
+                ],
+                (object)[
+                    'reason' => 'Alvará em Anexo',
+                    'value'  => 'ALVARA EM ANEXO',
+                    'prefix' => 'ALVAAN',
+                ],
+                (object)[
+                    'reason' => 'Carta ao cliente',
+                    'value'  => 'CARTA AO CLIENTE',
+                    'prefix' => 'CARTCLI',
+                ],
+                (object)[
+                    'reason' => 'Deferido',
+                    'value'  => 'DEFERIDO',
+                    'prefix' => 'DEFE',
+                ],
+                (object)[
+                    'reason' => 'Envio de Taxa para Pagamento',
+                    'value'  => 'ENVIO DE TAXA PARA PAGAMENTO',
+                    'prefix' => 'ENVITXPG',
+                ],
+                (object)[
+                    'reason' => 'Indeferido',
+                    'value'  => 'INDEFERIDO',
+                    'prefix' => 'INDEF ',
+                ],
+                (object)[
+                    'reason' => 'Protocolado',
+                    'value'  => 'PROTOCOLADO',
+                    'prefix' => 'PROTO',
+                ],
+                (object)[
+                    'reason' => 'Retorno do Órgão',
+                    'value'  => 'RETORNO DO ORGAO',
+                    'prefix' => 'RETOORG',
+                ],
+                (object)[
+                    'reason' => 'Solicitação de Ajustes',
+                    'value'  => 'SOLICITACAO DE AJUSTES',
+                    'prefix' => 'SOLAJUS',
+                ],
+                (object)[
+                    'reason' => 'Taxa de Pagamento Paga',
+                    'value'  => 'TAXA DE PAGAMENTO PAGA',
+                    'prefix' => 'TAXAPG',
+                ],
+            ];
+
     }
 
 

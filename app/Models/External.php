@@ -47,4 +47,14 @@ class External extends Model
         return $this->belongsToMany(Reclaim::class, 'external_reclaim');
     }
 
+    public function Entity()
+    {
+        return $this->belongsTo(Entity::class);
+    }
+
+    public function Files()
+    {
+        return $this->morphToMany(File::class, 'fileable');
+    }
+
 }

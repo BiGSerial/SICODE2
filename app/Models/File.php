@@ -65,4 +65,9 @@ class File extends Model
     {
         return $this->belongsToMany(Adsform::class, 'adsforms_files');
     }
+
+    public function Externals()
+    {
+        return $this->morphedByMany(External::class, 'fileable');
+    }
 }

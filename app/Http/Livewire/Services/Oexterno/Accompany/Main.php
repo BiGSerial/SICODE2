@@ -187,7 +187,7 @@ class Main extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->orderBy('external_updated_at')
+        $query->with('externals.protocols', 'externals.comments')->orderBy('external_updated_at')
             ->orderBy('notes.dt_status');
 
         return $query;

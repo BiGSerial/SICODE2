@@ -18,6 +18,7 @@ class Entity extends Model
         'map',
         'docs',
         'observations',
+        'nick',
     ];
 
     protected $casts = [
@@ -37,4 +38,6 @@ class Entity extends Model
     {
         return $this->hasMany(EntityContact::class);
     }
+
+    
 }

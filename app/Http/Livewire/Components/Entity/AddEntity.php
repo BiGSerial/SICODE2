@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Components\Entity;
 
 use App\Models\Entity;
+use App\Models\EntityContact;
 use App\Models\EntityType;
 use Livewire\Component;
 
@@ -13,6 +14,14 @@ class AddEntity extends Component
     public $selectedType;
     public $entityEdit;
     public $newDoc;
+    public $newPortal;
+    public $newContact;
+
+    // Show
+    public $showContactForm = false;
+    public $showPortalForm = false;
+
+
 
 
     protected $listeners = [
@@ -31,13 +40,74 @@ class AddEntity extends Component
         'entityEdit.map' => 'boolean',
         'entityEdit.docs' => 'nullable|array',
         'entityEdit.observations' => 'nullable|string',
+        'newPortal' => 'nullable',
+        'newPortal.url' => 'nullable|string|max:255',
+        'newPortal.user' => 'nullable|string|max:255',
+        'newPortal.password' => 'nullable|string|max:255',
+        'newContact' => 'nullable',
+        'newContact.name' => 'nullable|string|max:255',
+        'newContact.email' => 'nullable|string|max:255',
+
     ];
+
+    public function addConctact()
+    {
+        $this->newContact = new EntityContact();
+        $this->newPortal = null;
+    }
+
+    public function addPortal()
+    {
+        $this->newPortal = new EntityContact();
+        $this->newContact = null;
+    }
 
     public function openEntity()
     {
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'modalEntity',
         ]);
+    }
+
+    public function savePortal()
+    {
+        $this->entityEdit->contacts()->updateOrCreate([
+             'entity_id' => $this->entityEdit->id,
+             'url' => $this->newPortal['url'],
+         ], [
+             'entity_id' => $this->entityEdit->id,
+             'url' => $this->newPortal['url'],
+             'user' => $this->newPortal['user'],
+             'password' => $this->newPortal['password'],
+         ]);
+
+        $this->newPortal = null;
+
+        $this->emitSelf('refreshComponent');
+    }
+
+    public function saveContact()
+    {
+        $this->entityEdit->contacts()->updateOrCreate([
+            'entity_id' => $this->entityEdit->id,
+            'name' => $this->newContact['name'],
+        ], [
+            'entity_id' => $this->entityEdit->id,
+            'name' => $this->newContact['name'],
+            'email' => $this->newContact['email'],
+
+        ]);
+
+        $this->newContact = null;
+
+        $this->emitSelf('refreshComponent');
+    }
+
+    public function removeContact(EntityContact $contact)
+    {
+        $contact->delete();
+
+        $this->emitSelf('refreshComponent');
     }
 
     public function addEntity()
@@ -103,7 +173,7 @@ class AddEntity extends Component
         }
     }
 
-    public function editEntity(Entity $entity)
+    public function entityEdit(Entity $entity)
     {
         $this->entityEdit = $entity;
     }
@@ -113,6 +183,17 @@ class AddEntity extends Component
         $this->validate();
 
         if ($this->entityEdit) {
+
+            if (is_string($this->entityEdit->name)) {
+                $this->entityEdit->name = mb_strtoupper($this->entityEdit->name);
+            }
+            if (is_string($this->entityEdit->nick)) {
+                $this->entityEdit->nick = mb_strtoupper($this->entityEdit->nick);
+            }
+
+
+
+
             $this->entityEdit->save();
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
