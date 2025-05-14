@@ -3,10 +3,10 @@
 namespace App\Console\Commands\Update;
 
 use App\Custom\RegistroJson;
-use App\Models\Edp_depc\{BaseEP as Edp_depcBaseEP, Gpm};
+use App\Models\Edp_depc\BaseEP as Edp_depcBaseEP;
+use App\Models\Edp_depc\Gpm;
 use App\Models\Note;
 use Carbon\Carbon;
-use DateTime;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 
@@ -24,198 +24,130 @@ class BaseEP extends Command
      *
      * @var string
      */
-    protected $description = 'Update Table Notes with BaseEP Sql info';
+    protected $description = 'Update Table Notes with BaseEP SQL info';
 
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
-        $DaysAgo   = Carbon::now()->subDays($this->option('days'));
-        $chunkSize = 500;
+        $daysAgo = Carbon::now()->subDays($this->option('days'));
+        $chunkSize = $this->option('full') ? 1000 : 500;
 
-        if ($this->option('full')) {
-            $chunkSize = 1000;
-        }
+        $log = new RegistroJson('upd_baseEP', $this->options());
+        $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
 
-        $count = ['upd' => 0, 'ins' => 0, 'tins' => 1, 'errors' => 0];
-
-        $totalRecords = Edp_depcBaseEP::count();
-
-        $log = new RegistroJson('upd_baseEP', $this->option());
-        $log->setTotal($totalRecords);
-
-        // $totalRecords = Edp_depcBaseOV::where('ultimoStatus', 1)->count();
-        $progressBar = new ProgressBar($this->output, $totalRecords);
-
-        $progressBar->setFormat('<bg=blue;fg=white>UPDATE BaseEP: %current%/%max% </><fg=white;options=bold> [%tins%][I: %ins%/U: %upd%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%');
-        $progressBar->setMessage('Inserting in bulk');
-        $progressBar->start($totalRecords);
-
-        // Edp_depcBaseOV::where('ultimoStatus', 1)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
-        Edp_depcBaseEP::chunk($chunkSize, function ($records) use ($progressBar, &$count, &$log) {
-
-            $historic = null;
-
-            $notes = Note::whereIn('note', $records->pluck('nota'))->get();
-
-            foreach ($records as $record) {
-
-                $existingRecord = $notes->where('note', $record->nota)->first();
-
-                if ($existingRecord) {
-                    $atualizar = true;
-
-                    if ($this->option('full')) {
-                        $atualizar = true;
-                    }
-
-                    if ($atualizar &&
-                    $existingRecord->created_by === $record->criadoPor &&
-                    $existingRecord->dt_status === $record->dtCriacao &&
-                    $existingRecord->user === $record->notificador &&
-                    $existingRecord->numPedido === $record->descricao &&
-                    $existingRecord->pze === $record->PzE &&
-                    $existingRecord->num_material === $record->conjunto &&
-                    $existingRecord->material === $record->denomConjunto &&
-                    $existingRecord->nstats === $record->statusUsuario &&
-                    $existingRecord->status === $record->status
-                    ) {
-
-                    } else {
-
-                        try {
-                            $city = Gpm::where('gpm', $record->grpPlan)->first();
-
-                            $newStatus = false;
-                            if ($existingRecord->centerjob != $record->cenTrabResp) {
-                                $newStatus = true;
-                            }
-
-                            $chk = $existingRecord->update([
-                                'created_by' => $record->criadoPor,
-                                'dt_created' => "{$record->dtNota} 0:00:00",
-                                'dt_status'  => $newStatus ? now() : $existingRecord->dt_status,
-                                'user'       => $record->notificador,
-                                // 'value' => $record->valorLiq,
-                                // 'currency' => $record->moeda,
-                                // 'eq_venda' => $record->eqVenda,
-                                'numPedido' => $record->descricao,
-                                // 'client' => $record->emissorOV,
-                                // 'group1' => $record->grpCliente1,
-                                // 'group2' => $record->grpCliente2,
-                                // 'group3' => $record->grpCliente3,
-                                // 'group4' => $record->grpCliente4,
-                                // 'group5' => $record->grpCliente5,
-                                'pze'          => $record->PzE,
-                                'num_material' => $record->conjunto,
-                                'material'     => $record->denomConjunto,
-                                'nexp'         => $city ? $city->rdMunicipio : null,
-                                'lexp'         => $city ? $city->cidade : null,
-                                // 'pep' => $record->PEP,
-                                'nstats' => $record->statusUsuario,
-                                'status' => $record->status,
-                                // 'days' => $record->dias,
-                                // 'transaction' => $record->transicao,
-                                // 'validar_prazo' => $record->considerarPrazo,
-                                'rubrica' => $record->rubrica,
-                                // 'pze_tratado' => $record->PzETratado,
-                                // 'days_stat' => $record->diasNoStatus,
-                                // 'pze_parecer' => $record->parecerPrazo,
-                                // 'days_left' => $record->diasPVencimento,
-                                'centerjob' => $record->cenTrabResp,
-                                'type_note' => 1,
-                                'mesalization' => $record->mensalizacao,
-                                'txpriority' => $record->txtPrioridade,
-                            ]);
+        // Base query, optionally limiting by date
+        $baseQuery = Edp_depcBaseEP::query();
 
 
-                            if ($chk) {
-                                $count['upd']++;
-                            }
+        $total = $baseQuery->count();
+        $log->setTotal($total);
 
-                        } catch (\Throwable $th) {
-                            $log->setErrorMessage($th->getMessage());
-                        }
+        $bar = new ProgressBar($this->output, $total);
+        $bar->setFormat(
+            '<bg=blue;fg=white>UPDATE BaseEP: %current%/%max% </>' .
+            '<fg=white;options=bold> [%tins%][I: %ins%/U: %upd%] </>' .
+            '<fg=green>[%bar%]</> <fg=white;options=bold> %percent%%</> ' .
+            '<bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%'
+        );
+        $bar->setMessage('Starting', 'message');
+        $bar->start();
 
-                    }
+        // Process in ID-based chunks
+        $baseQuery->orderBy('id')->chunkById($chunkSize, function ($records) use ($bar, &$count) {
+            // Unique list of notas
+            $notas = $records->pluck('nota')->unique()->values();
+            // Preload existing notes
+            $existingNotes = Note::whereIn('note', $notas)
+                                 ->get()
+                                 ->keyBy('note');
 
-                } elseif (!$existingRecord) {
+            foreach ($notas as $nota) {
+                $record   = $records->firstWhere('nota', $nota);
+                $existing = $existingNotes->get($nota);
 
-                    try {
+                // Determine if update or create, comparing dt_created via Carbon parse
+                $modified = is_null($existing)
+                    || $this->option('full')
+                    || $existing->created_by   !== $record->criadoPor
+                    || Carbon::parse($existing->dt_created)->toDateString() !== Carbon::parse($record->dtNota)->toDateString()
+                    || $existing->user         !== $record->notificador
+                    || $existing->numPedido    !== $record->descricao
+                    || $existing->pze           != $record->PzE
+                    || $existing->num_material !== $record->conjunto
+                    || $existing->material     !== $record->denomConjunto
+                    || $existing->nstats       != $record->statusUsuario
+                    || $existing->status       != $record->status
+                    || $existing->centerjob    !== $record->cenTrabResp;
 
-                        $city = Gpm::where('gpm', $record->grpPlan)->first();
-
-                        $chk = Note::create([
-                            'note'       => $record->nota,
-                            'created_by' => $record->criadoPor,
-                            'dt_created' => "{$record->dtNota} 0:00:00",
-                            'dt_status'  => now(),
-                            'user'       => $record->notificador,
-                            // 'value' => $record->valorLiq,
-                            // 'currency' => $record->moeda,
-                            // 'eq_venda' => $record->eqVenda,
-                            'numPedido' => $record->descricao,
-                            // 'client' => $record->emissorOV,
-                            // 'group1' => $record->grpCliente1,
-                            // 'group2' => $record->grpCliente2,
-                            // 'group3' => $record->grpCliente3,
-                            // 'group4' => $record->grpCliente4,
-                            // 'group5' => $record->grpCliente5,
-                            'pze'          => $record->PzE,
-                            'num_material' => $record->conjunto,
-                            'material'     => $record->denomConjunto,
-                            'nexp'         => $city ? $city->rdMunicipio : null,
-                            'lexp'         => $city ? $city->cidade : null,
-                            // 'pep' => $record->PEP,
-                            'nstats' => $record->statusUsuario,
-                            'status' => $record->status,
-                            // 'days' => $record->dias,
-                            // 'transaction' => $record->transicao,
-                            // 'validar_prazo' => $record->considerarPrazo,
-                            'rubrica' => $record->rubrica,
-                            // 'pze_tratado' => $record->PzETratado,
-                            // 'days_stat' => $record->diasNoStatus,
-                            // 'pze_parecer' => $record->parecerPrazo,
-                            // 'days_left' => $record->diasPVencimento,
-                            'centerjob' => $record->cenTrabResp,
-                            'type_note' => 1,
-                            'mesalization' => $record->mensalizacao,
-                            'txpriority' => $record->txtPrioridade,
-                        ]);
-
-                        if ($chk) {
-                            $count['ins']++;
-                        }
-
-                    } catch (\Throwable $th) {
-                        $log->setErrorMessage($th->getMessage());
-                    }
+                if (! $modified) {
+                    $bar->advance();
+                    continue;
                 }
 
-                $progressBar->setMessage($count['tins'], 'tins');
-                $progressBar->setMessage($count['upd'], 'upd');
-                $progressBar->setMessage($count['ins'], 'ins');
-                $progressBar->setMessage('Charging to memory');
-                $progressBar->advance();
+                // Fetch city info once
+                $city = Gpm::firstWhere('gpm', $record->grpPlan);
+
+                // Prepare data payload, casting empty numeric fields to null
+                $data = [
+                    'created_by'   => $record->criadoPor,
+                    'dt_created'   => "{$record->dtNota} 00:00:00",
+                    'dt_status'    => $modified && $existing ? now() : ($existing->dt_status ?? now()),
+                    'user'         => $record->notificador,
+                    'numPedido'    => $record->descricao,
+                    'pze'          => $record->PzE !== '' ? $record->PzE : null,
+                    'num_material' => $record->conjunto !== '' ? $record->conjunto : null,
+                    'material'     => $record->denomConjunto !== '' ? $record->denomConjunto : null,
+                    'nexp'         => $city->rdMunicipio ?? null,
+                    'lexp'         => $city->cidade ?? null,
+                    'nstats'       => $record->statusUsuario,
+                    'status'       => $record->status,
+                    'rubrica'      => $record->rubrica,
+                    'centerjob'    => $record->cenTrabResp,
+                    'type_note'    => 1,
+                    'mesalization' => $record->mensalizacao,
+                    'txpriority'   => $record->txtPrioridade,
+                ];
+
+                // Upsert
+                $model = Note::updateOrCreate(
+                    ['note' => $nota],
+                    $data
+                );
+
+                // Count
+                if ($existing) {
+                    $count['upd']++;
+                } else {
+                    $count['ins']++;
+                    $existingNotes->put($nota, $model);
+                }
+
+                $bar->setMessage($count['tins'], 'tins');
+                $bar->setMessage($count['ins'], 'ins');
+                $bar->setMessage($count['upd'], 'upd');
+                $bar->advance();
             }
 
             $count['tins']++;
         });
 
+        // Mark stale type_note=1 records as canceled
+        $stale = Carbon::now()->subDay();
+        $cancelCount = Note::where('type_note', 1)
+            ->where('updated_at', '<', $stale)
+            ->update(['nstats' => 99]);
 
-        // Muda Status de todas as notas que não são mais trazidas atualiza
-        $limiteTempo = Carbon::now()->subDays(1);
+        $this->info("NOTAS CANCELADAS: {$cancelCount}");
 
-        $cancelNotes = Note::where('type_note', 1)->where('updated_at', '<', $limiteTempo)->update(['nstats' => 99]);
-        $this->info('NOTAS CANCELADAS: '.$cancelNotes);
-
+        // Log results
+        $bar->finish();
         $log->setCreated($count['ins']);
         $log->setUpdated($count['upd']);
         $log->save();
 
-        $progressBar->finish();
-        $this->info('Data transfer completed.');
+        $this->info('Data transfer completed: ' . ($count['ins'] + $count['upd']) . ' processed.');
 
         return 0;
     }
