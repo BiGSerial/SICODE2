@@ -35,14 +35,16 @@
                                 <div class="row g-3">
                                     <!-- Entity Type -->
                                     <div class="col-md-6">
-                                        <label for="entity_type_id" class="form-label">Tipo de Entidade</label>
-                                        <select name="entity_type_id" id="entity_type_id" class="form-select"
-                                            wire:model.defer="entityEdit.entity_type_id">
-                                            <option value="">Selecione...</option>
-                                            @foreach ($entityTypes as $type)
-                                                <option value="{{ $type->id }}">{{ $type->name }}</option>
-                                            @endforeach
-                                        </select>
+                                        <div class="form-floating">
+                                            <select name="entity_type_id" id="entity_type_id" class="form-select"
+                                                wire:model.defer="entityEdit.entity_type_id">
+                                                <option value="">Selecione...</option>
+                                                @foreach ($entityTypes as $type)
+                                                    <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <label for="entity_type_id" class="form-label">Tipo de Entidade</label>
+                                        </div>
                                     </div>
 
                                     <!-- Name -->
@@ -282,10 +284,11 @@
 
                             </div>
                             <div class="card-body">
+                                <input type="text" wire:model.live="search"
+                                    class="form-control form-control-sm border border-secondary mb-2"
+                                    placeholder="Pesquisar...">
                                 @if ($lists->isNotEmpty())
-                                    <input type="text" wire:model.live="search"
-                                        class="form-control form-control-sm border border-secondary"
-                                        placeholder="Pesquisar...">
+
                                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                         <table class="table table-sm table-condensed table-striped mt-2">
                                             <thead class="sticky-top bg-white">
@@ -307,7 +310,7 @@
                                                             </button>
 
                                                             <button type="button" class="btn btn-danger btn-sm"
-                                                                wire:click="delete({{ $list->id }})">
+                                                                wire:click="deleteEntity({{ $list->id }})">
                                                                 <i class="ri-delete-bin-2-line"></i>
                                                             </button>
 

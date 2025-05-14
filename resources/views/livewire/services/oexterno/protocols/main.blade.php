@@ -1,6 +1,9 @@
+@php
+    use App\Helpers\FileIcon;
+@endphp
 <div>
     <div class="row">
-        <div class="col-12 col-md-9">
+        <div class="col-12 col-md-10">
             <div class="card">
                 <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
                     Dados da Nota/OV
@@ -91,7 +94,7 @@
                                                 <div class="col-3">
                                                     <p class="fs-6 fw-bold py-0 my-0">Status:</p>
                                                     <p class="fs-6 py-0 my-0 text-primary">
-                                                        {{ $external->status }}</p>
+                                                        {{ $external->Comments?->last()?->title }}</p>
                                                 </div>
                                             </div>
                                         </button>
@@ -110,165 +113,186 @@
                                                         @if ($external->protocols->isEmpty())
                                                             <p class="text-center">Nenhum protocolo encontrado.</p>
                                                         @else
-                                                            <table class="table table-sm table-condensed table-striped">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>Protocolo</th>
-                                                                        <th>Motivo:</th>
-                                                                        <th>Data:</th>
-                                                                        <th></th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    @foreach ($external->protocols as $protocol)
-                                                                        <tr>
-                                                                            <td class="fw-bold">
-                                                                                {{ $protocol->protocol }}</td>
-                                                                            <td>{{ $protocol->description }}</td>
-                                                                            <td>{{ $protocol->created_at->format('d/m/Y H:i:s') }}
-                                                                            </td>
-                                                                            <td>
-                                                                                <div class="btn-group">
-
-                                                                                    <button type="button"
-                                                                                        class="btn btn-sm btn-outline-danger"
-                                                                                        wire:click="deleteProtocol({{ $protocol->id }})">
-                                                                                        Deletar
-                                                                                    </button>
-                                                                                </div>
-                                                                            </td>
+                                                            <div style="max-height: 250px; overflow-y: auto;"
+                                                                class="border rounded shadow mb-2">
+                                                                <table
+                                                                    class="table table-sm table-condensed table-striped">
+                                                                    <thead>
+                                                                        <tr class="sticky-top">
+                                                                            <th>Protocolo</th>
+                                                                            <th>Motivo:</th>
+                                                                            <th>Data:</th>
+                                                                            <th></th>
                                                                         </tr>
-                                                                    @endforeach
-                                                                </tbody>
-                                                            </table>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        @foreach ($external->protocols->sortByDesc('created_at') as $protocol)
+                                                                            <tr>
+                                                                                <td class="fw-bold">
+                                                                                    {{ $protocol->protocol }}</td>
+                                                                                <td>{{ $protocol->description }}</td>
+                                                                                <td>{{ $protocol->created_at->format('d/m/Y H:i:s') }}
+                                                                                </td>
+                                                                                <td>
+                                                                                    <div class="btn-group">
+
+                                                                                        <button type="button"
+                                                                                            @disabled($external->completed)
+                                                                                            class="btn btn-sm btn-outline-danger"
+                                                                                            wire:click="deleteProtocol({{ $protocol->id }})">
+                                                                                            Deletar
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        @endforeach
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
                                                         @endif
                                                     </div>
 
                                                     <div class="col-12">
                                                         <h6 class="mb-2 fw-bold">Informações da Entidade</h6>
                                                         @if ($external->entity)
-                                                            <table class="table table-sm table-condensed">
-                                                                <tbody>
-                                                                    <tr>
-                                                                        <td class="fw-bold">Nome:</td>
-                                                                        <td>{{ $external->entity->name }}</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="fw-bold">Apelido:</td>
-                                                                        <td>{{ $external->entidade }}</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="fw-bold">Precisa de Aprovação:</td>
-                                                                        <td>{{ $external->entity->approve ? 'SIM' : 'NÃO' }}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="fw-bold">EO:</td>
-                                                                        <td>{{ $external->entity->eon ? 'SIM' : 'NÃO' }}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="fw-bold">AUTOCAD:</td>
-                                                                        <td>{{ $external->entity->cad ? 'SIM' : 'NÃO' }}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="fw-bold">Mapa de Localização:</td>
-                                                                        <td>{{ $external->entity->map ? 'SIM' : 'NÃO' }}
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="fw-bold">Observações:</td>
-                                                                        <td>{{ $external->entity->observations }}
-                                                                        </td>
-                                                                    </tr>
-                                                                </tbody>
-                                                            </table>
+                                                            <div class="border rounded shadow mb-2 p-2">
+                                                                <table class="table table-sm table-condensed">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td class="fw-bold">Nome:</td>
+                                                                            <td>{{ $external->entity->name }}</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td class="fw-bold">Apelido:</td>
+                                                                            <td>{{ $external->entidade }}</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td class="fw-bold">Precisa de Aprovação:
+                                                                            </td>
+                                                                            <td>{{ $external->entity->approve ? 'SIM' : 'NÃO' }}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td class="fw-bold">EO:</td>
+                                                                            <td>{{ $external->entity->eon ? 'SIM' : 'NÃO' }}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td class="fw-bold">AUTOCAD:</td>
+                                                                            <td>{{ $external->entity->cad ? 'SIM' : 'NÃO' }}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td class="fw-bold">Mapa de Localização:
+                                                                            </td>
+                                                                            <td>{{ $external->entity->map ? 'SIM' : 'NÃO' }}
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td class="fw-bold">Observações:</td>
+                                                                            <td>{{ $external->entity->observations }}
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
 
                                                             <div class="row mb-3">
+
                                                                 <div class="col-4">
-                                                                    <h6 class="mb-2 fw-bold">Documentos Necessários</h6>
-                                                                    @if ($external->entity->docs)
-                                                                        <ul class="list-group list-group-flush">
-                                                                            @foreach ($external->entity->docs as $index => $document)
-                                                                                <li class="list-group-item py-1">
-                                                                                    #{{ $index + 1 }} -
-                                                                                    {{ $document }}
-                                                                                </li>
-                                                                            @endforeach
-                                                                        </ul>
-                                                                    @endif
+                                                                    <h6 class="mb-2 fw-bold">Documentos Necessários
+                                                                    </h6>
+                                                                    <div class="border rounded shadow mb-2">
+                                                                        @if ($external->entity->docs)
+                                                                            <ul class="list-group list-group-flush">
+                                                                                @foreach ($external->entity->docs as $index => $document)
+                                                                                    <li class="list-group-item py-1">
+                                                                                        #{{ $index + 1 }} -
+                                                                                        {{ $document }}
+                                                                                    </li>
+                                                                                @endforeach
+                                                                            </ul>
+                                                                        @endif
+                                                                    </div>
                                                                 </div>
                                                                 <div class="col-8">
-                                                                    <h6 class="mb-2 fw-bold">Contatos da Entidade</h6>
-                                                                    @if ($external->entity->contacts->isNotEmpty())
-                                                                        <div class="accordion accordion-flush"
-                                                                            id="contactsAccordion">
-                                                                            @foreach ($external->entity->contacts as $contact)
-                                                                                <div class="accordion-item"
-                                                                                    wire:key="external-contacts-{{ $contact->id }}">
-                                                                                    <h2 class="accordion-header"
-                                                                                        id="heading{{ $loop->index }}">
-                                                                                        <button
-                                                                                            class="accordion-button @if ($openExternalContactId !== $contact->id) collapsed @endif small py-1"
-                                                                                            type="button"
-                                                                                            data-bs-toggle="collapse"
-                                                                                            data-bs-target="#collapse{{ $loop->index }}"
-                                                                                            aria-expanded="false"
-                                                                                            aria-controls="collapse{{ $loop->index }}">
-                                                                                            {{-- ícone compacto --}}
-                                                                                            <i
-                                                                                                class="bi {{ isset($contact->name) ? 'bi-person-fill' : 'bi-globe' }} me-1"></i>
-                                                                                            {{ $contact->name ?? $contact->url }}
-                                                                                        </button>
-                                                                                    </h2>
-                                                                                    <div id="collapse{{ $loop->index }}"
-                                                                                        class="accordion-collapse collapse @if ($openExternalContactId === $contact->id) show @endif"
-                                                                                        aria-labelledby="heading{{ $loop->index }}"
-                                                                                        data-bs-parent="#contactsAccordion"
-                                                                                        x-data x-init="$el.addEventListener('shown.bs.collapse', function() {
-                                                                                            Livewire.emit('setOpenExternalContact', {{ $contact->id }});
-                                                                                        });">
-                                                                                        <div
-                                                                                            class="accordion-body small py-1">
-                                                                                            @isset($contact->email)
-                                                                                                <div><strong>Email:</strong>
-                                                                                                    <a href="mailto:{{ $contact->email }}"
-                                                                                                        class="link-secondary">
-                                                                                                        {{ $contact->email }}
-                                                                                                    </a>
-                                                                                                </div>
-                                                                                            @endisset
+                                                                    <h6 class="mb-2 fw-bold">Contatos da Entidade
+                                                                    </h6>
+                                                                    <div class="border rounded shadow p-2 mb-2">
+                                                                        @if ($external->entity->contacts->isNotEmpty())
+                                                                            <div class="accordion accordion-flush"
+                                                                                id="contactsAccordion">
+                                                                                @foreach ($external->entity->contacts as $contact)
+                                                                                    <div class="accordion-item"
+                                                                                        wire:key="external-contacts-{{ $contact->id }}">
+                                                                                        <h2 class="accordion-header"
+                                                                                            id="heading{{ $loop->index }}">
+                                                                                            <button
+                                                                                                class="accordion-button @if ($openExternalContactId !== $contact->id) collapsed @endif small py-1"
+                                                                                                type="button"
+                                                                                                data-bs-toggle="collapse"
+                                                                                                data-bs-target="#collapse{{ $loop->index }}"
+                                                                                                aria-expanded="false"
+                                                                                                aria-controls="collapse{{ $loop->index }}">
+                                                                                                {{-- ícone compacto --}}
+                                                                                                <i
+                                                                                                    class="bi {{ isset($contact->name) ? 'bi-person-fill' : 'bi-globe' }} me-1"></i>
+                                                                                                {{ $contact->name ?? $contact->url }}
+                                                                                            </button>
+                                                                                        </h2>
+                                                                                        <div id="collapse{{ $loop->index }}"
+                                                                                            class="accordion-collapse collapse @if ($openExternalContactId === $contact->id) show @endif"
+                                                                                            aria-labelledby="heading{{ $loop->index }}"
+                                                                                            data-bs-parent="#contactsAccordion"
+                                                                                            x-data
+                                                                                            x-init="$el.addEventListener('shown.bs.collapse', function() {
+                                                                                                Livewire.emit('setOpenExternalContact', {{ $contact->id }});
+                                                                                            });">
+                                                                                            <div
+                                                                                                class="accordion-body small py-1">
+                                                                                                @isset($contact->email)
+                                                                                                    <div>
+                                                                                                        <strong>Email:</strong>
+                                                                                                        <a href="mailto:{{ $contact->email }}"
+                                                                                                            class="link-secondary">
+                                                                                                            {{ $contact->email }}
+                                                                                                        </a>
+                                                                                                    </div>
+                                                                                                @endisset
 
-                                                                                            @isset($contact->url)
-                                                                                                <div><strong>URL:</strong>
-                                                                                                    <a href="{{ $contact->url }}"
-                                                                                                        target="_blank"
-                                                                                                        class="link-secondary">
-                                                                                                        {{ $contact->url }}
-                                                                                                    </a>
-                                                                                                </div>
-                                                                                            @endisset
+                                                                                                @isset($contact->url)
+                                                                                                    <div>
+                                                                                                        <strong>URL:</strong>
+                                                                                                        <a href="{{ $contact->url }}"
+                                                                                                            target="_blank"
+                                                                                                            class="link-secondary">
+                                                                                                            {{ $contact->url }}
+                                                                                                        </a>
+                                                                                                    </div>
+                                                                                                @endisset
 
-                                                                                            @isset($contact->user)
-                                                                                                <div>
-                                                                                                    <strong>Usuário:</strong>
-                                                                                                    {{ $contact->user }}
-                                                                                                </div>
-                                                                                            @endisset
-                                                                                            @isset($contact->password)
-                                                                                                <div><strong>Senha:</strong>
-                                                                                                    {{ $contact->password }}
-                                                                                                </div>
-                                                                                            @endisset
+                                                                                                @isset($contact->user)
+                                                                                                    <div>
+                                                                                                        <strong>Usuário:</strong>
+                                                                                                        {{ $contact->user }}
+                                                                                                    </div>
+                                                                                                @endisset
+                                                                                                @isset($contact->password)
+                                                                                                    <div>
+                                                                                                        <strong>Senha:</strong>
+                                                                                                        {{ $contact->password }}
+                                                                                                    </div>
+                                                                                                @endisset
+                                                                                            </div>
                                                                                         </div>
                                                                                     </div>
-                                                                                </div>
-                                                                            @endforeach
-                                                                        </div>
-                                                                    @endif
+                                                                                @endforeach
+                                                                            </div>
+                                                                        @endif
+                                                                    </div>
 
                                                                 </div>
+
                                                             </div>
                                                             <div class="col-12">
                                                                 <h6 class="mb-2 fw-bold">Comentários</h6>
@@ -280,11 +304,12 @@
                                                                         </div>
                                                                     </div>
                                                                 @else
-                                                                    <div class="card text-bg-light mb-2">
+                                                                    <div style="max-height: 250px; overflow-y: auto;"
+                                                                        class="border rounded shadow">
                                                                         <table
                                                                             class="table table-sm table-condensed table-striped">
                                                                             <thead>
-                                                                                <tr>
+                                                                                <tr class='sticky-top'>
                                                                                     <td class="fw-bold">Data:</td>
                                                                                     <td class="fw-bold">Usuário:</td>
                                                                                     <td class="fw-bold">Titulo:</td>
@@ -293,7 +318,7 @@
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
-                                                                                @foreach ($external->Comments as $comment)
+                                                                                @foreach ($external->Comments->sortByDesc('created_at') as $comment)
                                                                                     <tr>
                                                                                         <td>{{ $comment->created_at->format('d/m/Y H:i:s') }}
                                                                                         </td>
@@ -317,26 +342,58 @@
                                                 </div>
 
                                                 <div class="ms-3 col-3 d-flex flex-column">
-                                                    <button type="button" class="btn btn-outline-primary mb-2"
-                                                        wire:click="$emitTo('services.oexterno.actions.edit-entity-protocol', 'openEdityEntityProtocol', {{ $external->id }})">
-                                                        Editar
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-primary mb-2"
-                                                        wire:click="$emitTo('services.oexterno.actions.add-protocol', 'openAddProtocol', {{ $external->id }})">
-                                                        Adicionar Protocolo
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-primary mb-2"
-                                                        wire:click="$emitTo('services.oexterno.actions.add-comments', 'openAddComment', {{ $external->id }})">
-                                                        Adicionar Comentário
-                                                    </button>
-                                                    <button type="button" class="btn btn-success  mb-2"
-                                                        wire:click="$emitTo('services.oexterno.actions.close-protocol', 'openCloseProtocol', {{ $external->id }})">
-                                                        Encerrar Protocolo
-                                                    </button>
-                                                    <button type="button" class="btn btn-danger"
-                                                        wire:click="$emitTo('services.oexterno.actions.close-protocol', 'openCloseProtocol', {{ $external->id }})">
-                                                        Remover Entidade Protocolar
-                                                    </button>
+                                                    @if (!$external->completed)
+                                                        <button type="button" class="btn btn-outline-primary mb-2"
+                                                            wire:click="$emitTo('services.oexterno.actions.edit-entity-protocol', 'openEdityEntityProtocol', {{ $external->id }})">
+                                                            Editar
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-primary mb-2"
+                                                            wire:click="$emitTo('services.oexterno.actions.add-protocol', 'openAddProtocol', {{ $external->id }})">
+                                                            Adicionar Protocolo
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-primary mb-2"
+                                                            wire:click="$emitTo('services.oexterno.actions.add-comments', 'openAddComment', {{ $external->id }})">
+                                                            Adicionar Comentário
+                                                        </button>
+                                                        <button type="button" class="btn btn-primary  mb-2"
+                                                            wire:click="$emitTo('services.oexterno.actions.inter-return', 'openInternReturn', {{ $external->id }})">
+                                                            Retorno Interno
+                                                        </button>
+                                                        <button type="button" class="btn btn-success  mb-2">
+                                                            Encerrar Protocolo
+                                                        </button>
+                                                        <button type="button" class="btn btn-danger"
+                                                            wire:click="deleteProtocol({{ $external->id }})">
+                                                            Remover Entidade Protocolar
+                                                        </button>
+                                                    @endif
+                                                    @if ($external->files->isNotEmpty())
+                                                        <div class="card my-3">
+                                                            <h5 class="card-header my-0 py-1 text-bg-secondary">
+                                                                Arquivos
+                                                            </h5>
+                                                            <div class="overflow-auto" style="max-height: 200px;">
+                                                                <table
+                                                                    class="table table-sm table-condensed table-striped table-hover">
+                                                                    <tbody>
+                                                                        @foreach ($external->files as $file)
+                                                                            <tr wire:key="file-{{ $file->id }}"
+                                                                                style="cursor: pointer;"
+                                                                                wire:click="downloadFile({{ $file->id }})">
+                                                                                <td class="fs-4 align-middle"><i
+                                                                                        class="{{ FileIcon::getIcon($file->ext)->icon }}"></i>
+                                                                                </td>
+                                                                                <td class="fs-6 text-break">
+                                                                                    {{ $file->file_name }}
+                                                                                </td>
+
+                                                                            </tr>
+                                                                        @endforeach
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </div>
@@ -348,7 +405,7 @@
                 @endif
             </div>
         </div>
-        <div class="col-12 col-md-3 ">
+        <div class="col-12 col-md-2 ">
             <div class="card">
                 <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
                     Ações
@@ -376,3 +433,4 @@
     @livewire('services.oexterno.actions.edit-entity-protocol', key('edit-entity-protocol'))
     @livewire('services.oexterno.actions.add-protocol', key('add-protocol'))
     @livewire('services.oexterno.actions.add-comments', key('add-comment'))
+    @livewire('services.oexterno.actions.inter-return', key('internal_return'))

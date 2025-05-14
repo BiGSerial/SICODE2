@@ -208,10 +208,19 @@ class AddEntity extends Component
         $this->emitSelf('refreshComponent');
     }
 
-    public function deleteType()
+    public function deleteEntity(Entity $entity)
     {
+        if ($entity) {
+            $entity->delete();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'SUCESSO',
+                'html'     => 'Entidade excluída com sucesso.',
+            ]);
 
-        $this->emitSelf('refreshComponent');
+            $this->emit('refreshComponent');
+        }
     }
 
     public function getListsProperty()

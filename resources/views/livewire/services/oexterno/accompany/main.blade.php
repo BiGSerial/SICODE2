@@ -91,7 +91,7 @@
 
             </h4>
             <div class="table-responsive">
-                <table class="table table-sm  table-condensed table-hover">
+                <table class="table table-sm  table-condensed table-hover table-striped">
                     <thead class="table-dark">
                         <tr class="sticky-top">
 
@@ -118,28 +118,6 @@
 
                                 $daysleft = (new DaysLeft($list))->getDaysLeft();
 
-                                $status = '';
-
-                                if ($list->external) {
-                                    $lastUpdate = $list->external->updated_at;
-
-                                    if ($list->external->reclaims->isNotEmpty()) {
-                                        if (!$list->external->reclaims->last()->completed) {
-                                            $status = 'Aguardando CIP';
-                                        } else {
-                                            if ($list->external->reclaims?->last()->completed_at < $lastUpdate) {
-                                                $status = 'RI Finalizado';
-                                            } else {
-                                                $status = 'Aguardando Entidade';
-                                            }
-                                        }
-                                    } else {
-                                        $status = 'Aguardando Entidade';
-                                    }
-                                } else {
-                                    $status = 'Não Protocolado';
-                                }
-
                             @endphp
                             {{-- @dump($list->Productions) --}}
                             <tr class="align-middle" wire:key="{{ $list->id }}"
@@ -157,9 +135,15 @@
                                 <td class="text-center align-middle">
 
                                     @if ($list->externals->isNotEmpty())
-                                        <i class="ri-file-text-fill text-success fs-5"></i>
+                                        @php
+                                            $completed = $list->externals->where('completed', true)->count();
+                                            $total = $list->externals->count();
+                                        @endphp
+                                        <span
+                                            class="badge @if ($completed == $total) text-bg-success @else text-bg-danger @endif">
+                                            {{ $completed }} / {{ $total }}</span>
                                     @else
-                                        <i class="ri-file-text-line text-danger fs-5"></i>
+                                        <span class="badge text-bg-dark">0/0</span>
                                     @endif
                                 </td>
                                 <td class="fw-light text-center">
@@ -183,14 +167,39 @@
 
 
                                 <td class="fw-light text-center">{{ $list->nstats }}</td>
-                                {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
-                                <td class="fw-light text-center">
-                                    {{ Carbon::parse($list->dt_status)->diffInDays(Carbon::now(), false) }}
-                                    {{-- {{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }} --}}
+                                @php
+                                    $days = $list->dt_status->diffInDays();
+
+                                    if ($days > 120) {
+                                        $color = 'text-bg-danger';
+                                    } elseif ($days <= 60) {
+                                        $color = 'text-bg-success';
+                                    } else {
+                                        $color = 'text-bg-warning';
+                                    }
+                                    # code...
+                                @endphp
+                                <td class="fw-light text-center {{ $color }}">
+
+                                    <p class="my-0 py-0 fw-bold">{{ $list->dt_status->diffInDays() }} dias</p>
+                                    <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
+
                                 </td>
 
                                 <td class="fw-light text-center fw-bold">
-                                    {{ $status }}
+                                    @if ($list->externals->isNotEmpty())
+                                        @php
+                                            $completed = $list->externals->where('completed', true)->count();
+                                            $total = $list->externals->count();
+                                        @endphp
+                                        @if ($completed == $total)
+                                            <span class="badge text-bg-success">COMPLETADO</span>
+                                        @else
+                                            <span class="badge text-bg-primary">EM ANDAMENTO</span>
+                                        @endif
+                                    @else
+                                        <span class="badge text-bg-dark">SEM REGISTRO</span>
+                                    @endif
                                 </td>
 
 

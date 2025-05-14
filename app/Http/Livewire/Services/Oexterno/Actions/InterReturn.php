@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Services\Oexterno\Actions;
 use App\Models\External;
 use Livewire\Component;
 
-class AddComments extends Component
+class InterReturn extends Component
 {
     public $observations;
     public $title;
@@ -15,7 +15,7 @@ class AddComments extends Component
 
     protected $listeners = [
         'refreshComponent' => '$refresh',
-        'openAddComment',
+        'openInternReturn',
         'confirm_add_new_message' => 'confirm_add_new_message',
         'continue',
         'ErrorSaveFiles',
@@ -73,13 +73,14 @@ class AddComments extends Component
 
     }
 
-    public function openAddComment(External $external)
+    public function openInternReturn(External $external)
     {
+
         $this->external = $external;
 
         if ($this->external) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'modalAddComment',
+                'id' => 'modalInterReturn',
             ]);
         }
     }
@@ -133,6 +134,6 @@ class AddComments extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.actions.add-comments');
+        return view('livewire.services.oexterno.actions.inter-return');
     }
 }

@@ -3,12 +3,12 @@
 @endphp
 
 <div>
-    <div wire:ignore.self class="modal fade" id="modalAddComment" tabindex="-1" aria-labelledby="modalEntityProtocolLabel"
+    <div wire:ignore.self class="modal fade" id="modalInterReturn" tabindex="-1" aria-labelledby="modalEntityProtocolLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg bg-gray">
             <div class="modal-content">
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h5 class="modal-title" id="modalEntityProtocolLabel">NOVO Comentário</h5>
+                    <h5 class="modal-title" id="modalEntityProtocolLabel">Retorno Interno</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">

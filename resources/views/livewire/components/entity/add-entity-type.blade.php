@@ -59,10 +59,11 @@
 
                             </div>
                             <div class="card-body">
+                                <input type="text" wire:model.live="search"
+                                    class="form-control form-control-sm border border-secondary mb-2"
+                                    placeholder="Pesquisar...">
                                 @if ($lists->isNotEmpty())
-                                    <input type="text" wire:model.live="search"
-                                        class="form-control form-control-sm border border-secondary"
-                                        placeholder="Pesquisar...">
+
                                     <div class="table-responsible">
                                         <table class="table table-sm table-condensed table-striped mt-2">
                                             <thead>
@@ -82,7 +83,7 @@
                                                             </button>
                                                             @if ($list->entities->isEmpty())
                                                                 <button type="button" class="btn btn-danger btn-sm"
-                                                                    wire:click="delete({{ $list->id }})">
+                                                                    wire:click="deleteType({{ $list->id }})">
                                                                     <i class="ri-delete-bin-2-line"></i>
                                                                 </button>
                                                             @endif

@@ -53,6 +53,16 @@ class Main extends Component
         'perPage' => ['as' => 'pp'],
     ];
 
+    public function navigateTo($note)
+    {
+        return redirect()->to(
+            route('services.protocolNote', [
+                'service' => $this->service->uuid,
+                'note'    => $note,
+            ])
+        );
+    }
+
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();

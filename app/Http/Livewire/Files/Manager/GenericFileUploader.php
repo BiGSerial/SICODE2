@@ -87,9 +87,9 @@ class GenericFileUploader extends Component
 
         return implode('_', array_merge(
             [$typeSlug],
-            [$this->service],
+            [Str::substr($this->service, 0, 4)],
             $parts,
-            ["F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT)]
+            // ["F" . str_pad($index + 1, 2, '0', STR_PAD_LEFT)]
         ));
     }
 
@@ -125,7 +125,7 @@ class GenericFileUploader extends Component
                 try {
                     $file = File::create([
                         'note_id'       => $note_id,
-                        'file_name'     => "{$name}_Rev{$rev}",
+                        'file_name'     => "{$name}_N{$rev}",
                         'original_name' => $temp['original_name'],
                         'path'          => $path,
                         'ext'           => $temp['ext'],

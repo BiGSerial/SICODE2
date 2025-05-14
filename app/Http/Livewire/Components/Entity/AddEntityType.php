@@ -41,17 +41,22 @@ class AddEntityType extends Component
         $this->emitSelf('refreshComponent');
     }
 
-    public function deleteType()
+    public function deleteType(EntityType $entityType)
     {
-        if ($this->name && !$this->lists->contains('name', $this->name)) {
-            EntityType::updateOrCreate([
-                'name' => $this->name,
-            ], [
-                'name' => mb_strtoupper($this->name),
+
+        if ($entityType) {
+            $entityType->delete();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'SUCESSO',
+                'html'     => 'Entidade excluída com sucesso.',
             ]);
+
+            $this->emit('refreshComponent');
         }
 
-        $this->emitSelf('refreshComponent');
+
     }
 
 

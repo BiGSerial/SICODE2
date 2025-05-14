@@ -8,7 +8,8 @@
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg bg-gray">
             <div class="modal-content">
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h5 class="modal-title" id="modalEntityProtocolLabel">NOVO PROTOCOLO {{ $note->note }}</h5>
+                    <h5 class="modal-title" id="modalEntityProtocolLabel">NOVA ENTIDADE PROTOCOLAR {{ $note->note }}
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -76,7 +77,7 @@
                             </div>
 
                             <!-- Observations -->
-                            <div class="col-12">
+                            <div class="col-12 mb-2">
                                 <div class="form-floating">
                                     <textarea class="form-control" placeholder="Observações..." id="observations" name="observations" style="height: 100px;"
                                         wire:model.defer="observations">{{ old('observations') }}</textarea>

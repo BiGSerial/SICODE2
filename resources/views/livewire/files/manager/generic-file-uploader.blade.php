@@ -5,15 +5,18 @@
     x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
 
     <div class="mb-3">
-        <label class="form-label">Tipo de Envio</label>
-        <select wire:model="selectedType" class="form-select">
-            <option value="">— selecione —</option>
-            @foreach (SelectOptions::getProtocolReasons() as $type)
-                <option value="{{ $type->{$uploadColValue} }}">
-                    {{ $type->{$uploadColValue} }} – {{ $type->reason }}
-                </option>
-            @endforeach
-        </select>
+
+        <div class="form-floating">
+            <select wire:model="selectedType" class="form-select">
+                <option value="">— selecione —</option>
+                @foreach (SelectOptions::getProtocolReasons() as $type)
+                    <option value="{{ $type->{$uploadColValue} }}">
+                        {{ $type->{$uploadColValue} }} – {{ $type->reason }}
+                    </option>
+                @endforeach
+            </select>
+            <label class="form-label">Tipo de Envio</label>
+        </div>
     </div>
 
     <div class="mb-3">
@@ -37,7 +40,7 @@
                 </li>
             @endforeach
         </ul>
-        <button wire:click="saveFiles" class="btn btn-primary">Salvar Todos</button>
+        {{-- <button wire:click="saveFiles" class="btn btn-primary">Salvar Todos</button> --}}
     @endif
 
 </div>

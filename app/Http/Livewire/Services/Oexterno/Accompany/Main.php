@@ -147,19 +147,7 @@ class Main extends Component
 
         $query = Note::query();
 
-        $query->select('notes.*', new Expression('COALESCE(externals.updated_at, "2020-01-01") as external_updated_at'))
-            ->leftJoin('externals', 'notes.id', '=', 'externals.note_id');
 
-        // RuleBuilder::applyRules($query, $this->service->Status);
-
-        // if ($this->protocolar || $this->waiting) {
-        //     // $query = Note::query();
-        //     $query->when($this->protocolar, function ($q) {
-        //         return $q->where('nstats', 20);
-        //     })->when($this->waiting, function ($q) {
-        //         return $q->where('nstats', 11);
-        //     });
-        // }
 
         $query->where(function ($q) {
             $q->where('nstats', 11)
@@ -187,8 +175,8 @@ class Main extends Component
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with('externals.protocols', 'externals.comments')->orderBy('external_updated_at')
-            ->orderBy('notes.dt_status');
+        $query->with('externals.protocols', 'externals.comments')
+            ->orderBy('dt_status');
 
         return $query;
     }

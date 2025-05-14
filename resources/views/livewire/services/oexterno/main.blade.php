@@ -118,8 +118,8 @@
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
-                            <tr class="align-middle"
-                                wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
+                            <tr class="align-middle" wire:key="{{ $list->id }}"
+                                wire:dblclick="navigateTo('{{ $list->note }}')">
 
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
                                     {{ $list->note }}
@@ -131,7 +131,7 @@
                                     <x-files.select-download-list :files='$list->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->External)
+                                    @if ($list->Externals->isNotEmpty())
                                         <i class="ri-file-text-fill text-success fs-5"></i>
                                     @else
                                         <i class="ri-file-text-line text-danger fs-5"></i>
