@@ -1,5 +1,6 @@
 @php
     use App\Helpers\FileIcon;
+    use App\Custom\Notestatus;
 @endphp
 <div>
     <div class="row">
@@ -67,33 +68,39 @@
                         <div class="accordion" id="protocolAccordion">
                             @foreach ($note->externals as $external)
                                 <div class="accordion-item mb-2 shadow" wire:key="external-{{ $external->id }}">
-                                    <h2 class="accordion-header" id="heading{{ $external->id }}">
+                                    <h2 class="accordion-header " id="heading{{ $external->id }}">
                                         <button
-                                            class="accordion-button @if ($openExternalId !== $external->id) collapsed @endif"
+                                            class="accordion-button
+                                            @if ($openExternalId !== $external->id) collapsed @endif
+                                            @if ($external->completed) text-bg-success @endif"
                                             type="button" data-bs-toggle="collapse"
                                             data-bs-target="#collapse{{ $external->id }}" aria-expanded="false"
                                             aria-controls="collapse{{ $external->id }}">
                                             <div class="row w-100">
                                                 <div class="col-3">
                                                     <p class="fs-6 fw-bold py-0 my-0">Entidade:</p>
-                                                    <p class="fs-6 py-0 my-0 text-primary">
+                                                    <p
+                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
                                                         {{ $external->entity ? $external->entity->name : $external->entidade }}
                                                     </p>
                                                 </div>
                                                 <div class="col-3">
                                                     <p class="fs-6 fw-bold py-0 my-0">Ultimo Protocolo:</p>
-                                                    <p class="fs-6 py-0 my-0 text-primary">
+                                                    <p
+                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
                                                         {{ $external->protocols?->last()?->protocol }}</p>
                                                 </div>
 
                                                 <div class="col-3">
                                                     <p class="fs-6 fw-bold py-0 my-0">Data Abertura:</p>
-                                                    <p class="fs-6 py-0 my-0 text-primary">
+                                                    <p
+                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
                                                         {{ $external->created_at->format('d/m/Y') }}</p>
                                                 </div>
                                                 <div class="col-3">
                                                     <p class="fs-6 fw-bold py-0 my-0">Status:</p>
-                                                    <p class="fs-6 py-0 my-0 text-primary">
+                                                    <p
+                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
                                                         {{ $external->Comments?->last()?->title }}</p>
                                                 </div>
                                             </div>
@@ -359,7 +366,8 @@
                                                             wire:click="$emitTo('services.oexterno.actions.inter-return', 'openInternReturn', {{ $external->id }})">
                                                             Retorno Interno
                                                         </button>
-                                                        <button type="button" class="btn btn-success  mb-2">
+                                                        <button type="button" class="btn btn-success  mb-2"
+                                                            wire:click="toFinishEntity({{ $external->id }})">
                                                             Encerrar Protocolo
                                                         </button>
                                                         <button type="button" class="btn btn-danger"
@@ -391,6 +399,59 @@
                                                                         @endforeach
                                                                     </tbody>
                                                                 </table>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+
+                                                    @if ($external->reclaims->isNotEmpty())
+                                                        <div class="card my-3">
+                                                            <h5 class="card-header my-0 py-1 text-bg-secondary">
+                                                                Retorno Interno
+                                                            </h5>
+                                                            <div class="overflow-auto" style="max-height: 200px;">
+                                                                @if ($lastReclaim = $external->reclaims->last())
+                                                                    <div class="card-body p-2">
+                                                                        <div
+                                                                            class="d-flex justify-content-between align-items-center mb-1">
+                                                                            <span
+                                                                                class="text-primary fw-bold">{{ $lastReclaim->service->service }}</span>
+                                                                            <span
+                                                                                class="badge {{ Notestatus::status($lastReclaim->production?->status)->colorbg }}">
+                                                                                {{ Notestatus::status($lastReclaim->production?->status)->status }}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <div
+                                                                            class="d-flex justify-content-between align-items-center">
+                                                                            <small>
+                                                                                <i class="ri-user-line"></i>
+                                                                                @if ($lastReclaim->production)
+                                                                                    @if ($lastReclaim->production->user)
+                                                                                        {{ $lastReclaim->production->user->name }}
+                                                                                    @else
+                                                                                        Usuário Desconhecido
+                                                                                    @endif
+                                                                                @else
+                                                                                    Aguardando Atribuição
+                                                                                @endif
+                                                                            </small>
+                                                                            <small class="badge text-bg-danger">
+                                                                                @if ($lastReclaim->completed)
+                                                                                    {{ $lastReclaim->completed_at->diffInDays($lastReclaim->created_at) }}
+                                                                                    dias
+                                                                                @else
+                                                                                    {{ $lastReclaim->created_at->diffInDays() }}
+                                                                                    dias
+                                                                                @endif
+                                                                            </small>
+                                                                        </div>
+
+                                                                        <div class="text-muted small">
+                                                                            <i class="ri-calendar-line"></i>
+                                                                            {{ $lastReclaim->created_at->format('d/m/Y H:i') }}
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
                                                             </div>
                                                         </div>
                                                     @endif

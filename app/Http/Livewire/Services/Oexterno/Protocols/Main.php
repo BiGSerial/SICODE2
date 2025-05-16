@@ -22,6 +22,7 @@ class Main extends Component
         'setOpenExternal',
         'setOpenExternalContact',
         'confirmDeleteProtocol',
+        'confirmFinishEntity',
     ];
 
     public function mount()
@@ -39,6 +40,7 @@ class Main extends Component
                         'protocols' => function ($q2) {
                             $q2->orderBy('created_at', 'desc');
                         },
+                        'reclaims'
                     ]);
                 },
             ])
@@ -96,6 +98,64 @@ class Main extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'Erro ao remover entidade protocolar!',
+                'timer'    => 5000,
+            ]);
+        }
+        $this->external = null;
+        $this->emitSelf('refreshComponent');
+
+    }
+
+    public function toFinishEntity(External $external)
+    {
+
+
+        $this->external = $external->load('Entity');
+
+
+
+        if ($this->external) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Finalizar Entidade',
+                'msg'   => "
+                <p>Você deseja realmente finalizar o protocolo para: <br> <strong>{$this->external->entity?->nick}</strong> em <strong>{$this->external->note->note}</strong>?</p><p> Ao finalizar, Não será mais possível alterar status mensagens ou anexar novas evidências.</p>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Finalizar!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirmFinishEntity',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma entidade protocolar foi excluída.',
+            ]);
+        }
+    }
+
+    public function confirmFinishEntity()
+    {
+
+
+        if ($this->external) {
+            $this->external->status = 9;
+            $this->external->completed = true;
+            $this->external->save();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Entidade protocolar finalizada com sucesso!',
+                'timer'    => 5000,
+            ]);
+
+            $this->external->Comments()->create([
+                'user_id' => auth()->user()->id,
+                'title' => 'PROTOCOLO FINALIZADO',
+                'comment' => 'Protocolo finalizado com sucesso!',
+            ]);
+
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao finalizar entidade protocolar!',
                 'timer'    => 5000,
             ]);
         }

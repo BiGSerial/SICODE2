@@ -46,10 +46,109 @@
                             value="">
                         <label class="form-check-label" for="inlineRadio1">Ambos</label>
                     </div>
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'oexterno', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'oexterno', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'oexterno', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
+                    <div class="col d-flex justify-content-end gap-2">
+                        {{-- Tipos de Entidade → Entidades --}}
+                        @livewire(
+                            'components.filter.filter2',
+                            [
+                                'myKey' => 'entityTypes',
+                                'sendFilter' => 'entities',
+                                'modelClass' => \App\Models\EntityType::class,
+                                'column' => 'id',
+                                'filterLabel' => 'Tipos de Entidade',
+                                'groupFilter' => 'oexterno',
+                                'displayColumn' => 'name',
+                                'direction' => 'ASC',
+                                'customQuery' => null,
+                                'searchColumn' => 'name',
+                                'sendSearchColumn' => 'entity_type_id',
+                                'customBuilderMethod' => null,
+                            ],
+                            key('entityTypes')
+                        )
+
+                        {{-- Entidades --}}
+                        @livewire(
+                            'components.filter.filter2',
+                            [
+                                'myKey' => 'entities',
+                                'sendFilter' => null,
+                                'modelClass' => \App\Models\Entity::class,
+                                'column' => 'id',
+                                'filterLabel' => 'Entidades',
+                                'groupFilter' => 'oexterno',
+                                'displayColumn' => 'name',
+                                'direction' => 'ASC',
+                                'customQuery' => null,
+                                'searchColumn' => 'name',
+                                'sendSearchColumn' => 'entity_id',
+                                'customBuilderMethod' => null,
+                            ],
+                            key('entities')
+                        )
+
+                        {{-- Rubrica --}}
+                        @livewire(
+                            'components.filter.filter2',
+                            [
+                                'myKey' => 'rubrica',
+                                'sendFilter' => null,
+                                'modelClass' => \App\Models\Note::class,
+                                'column' => 'rubrica',
+                                'filterLabel' => 'Rúbrica',
+                                'groupFilter' => 'oexterno',
+                                'displayColumn' => 'rubrica',
+                                'direction' => 'ASC',
+                                'customQuery' => null,
+                                'searchColumn' => 'rubrica',
+                                'sendSearchColumn' => 'rubrica',
+                                'customBuilderMethod' => null,
+                            ],
+                            key('rubrica')
+                        )
+
+                        {{-- Região → Município --}}
+                        @livewire(
+                            'components.filter.filter2',
+                            [
+                                'myKey' => 'region',
+                                'sendFilter' => 'city',
+                                'modelClass' => \App\Models\Edp_depc\City::class,
+                                'column' => 'regiao',
+                                'filterLabel' => 'Região',
+                                'groupFilter' => 'oexterno',
+                                'displayColumn' => 'regiao',
+                                'direction' => 'ASC',
+                                'customQuery' => null,
+                                'searchColumn' => 'regiao',
+                                'sendSearchColumn' => 'regiao',
+                                'customBuilderMethod' => null,
+                            ],
+                            key('region')
+                        )
+
+                        {{-- Município --}}
+                        @livewire(
+                            'components.filter.filter2',
+                            [
+                                'myKey' => 'city',
+                                'sendFilter' => null,
+                                'modelClass' => \App\Models\Edp_depc\City::class,
+                                'column' => 'cidade',
+                                'filterLabel' => 'Município',
+                                'groupFilter' => 'oexterno',
+                                'displayColumn' => 'municipio',
+                                'direction' => 'ASC',
+                                'customQuery' => null,
+                                'searchColumn' => 'municipio',
+                                'sendSearchColumn' => 'cidade',
+                                'customBuilderMethod' => null,
+                            ],
+                            key('city')
+                        )
+
+                        @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
+                    </div>
                 </div>
             </div>
         </div>
@@ -93,7 +192,7 @@
             <div class="table-responsive">
                 <table class="table table-sm  table-condensed table-hover table-striped">
                     <thead class="table-dark">
-                        <tr class="sticky-top">
+                        <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
 
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Files</th>

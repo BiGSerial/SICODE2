@@ -22,16 +22,16 @@
         <!-- Search Input -->
         <div class="col">
             <div class="form-floating">
-                <input type="search" class="form-control" id="searchTerm" wire:model.debounce.300ms="searchTerm"
+                <input type="search" class="form-control" id="search" wire:model.debounce.300ms="search"
                     placeholder="Pesquisar">
-                <label for="searchTerm">Pesquisar</label>
+                <label for="search">Pesquisar</label>
             </div>
         </div>
 
         <!-- Type Select -->
         <div class="col-auto">
             <div class="form-floating">
-                <select class="form-select" id="searchType" wire:model="searchType">
+                <select class="form-select" id="searchType" wire:model="typeNote">
                     <option value="note">Note</option>
                     <option value="ov">OV</option>
                     <option value="both">Ambos</option>
@@ -42,11 +42,106 @@
 
         <!-- Right-aligned Dropdown -->
         <div class="col d-flex justify-content-end gap-2">
-            @livewire('components.filter.filter2', ['myKey' => 'entities', 'sendFilter' => '', 'modelClass' => 'App\Models\Entity', 'column' => 'id', 'filterLabel' => '', 'groupFilter' => '', 'displayColumn' => '', 'direction = 'ASC'' => '', 'customQuery = null' => '', 'searchColumn = null' => '', 'sendSearchColumn = null' => '', 'customBuilderMethod = null
-                ' => ''])
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'oexterno', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'oexterno', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'oexterno', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+            {{-- Tipos de Entidade → Entidades --}}
+            @livewire(
+                'components.filter.filter2',
+                [
+                    'myKey' => 'entityTypes',
+                    'sendFilter' => 'entities',
+                    'modelClass' => \App\Models\EntityType::class,
+                    'column' => 'id',
+                    'filterLabel' => 'Tipos de Entidade',
+                    'groupFilter' => 'oexterno',
+                    'displayColumn' => 'name',
+                    'direction' => 'ASC',
+                    'customQuery' => null,
+                    'searchColumn' => 'name',
+                    'sendSearchColumn' => 'entity_type_id',
+                    'customBuilderMethod' => null,
+                ],
+                key('entityTypes')
+            )
+
+            {{-- Entidades --}}
+            @livewire(
+                'components.filter.filter2',
+                [
+                    'myKey' => 'entities',
+                    'sendFilter' => null,
+                    'modelClass' => \App\Models\Entity::class,
+                    'column' => 'id',
+                    'filterLabel' => 'Entidades',
+                    'groupFilter' => 'oexterno',
+                    'displayColumn' => 'name',
+                    'direction' => 'ASC',
+                    'customQuery' => null,
+                    'searchColumn' => 'name',
+                    'sendSearchColumn' => 'entity_id',
+                    'customBuilderMethod' => null,
+                ],
+                key('entities')
+            )
+
+            {{-- Rubrica --}}
+            @livewire(
+                'components.filter.filter2',
+                [
+                    'myKey' => 'rubrica',
+                    'sendFilter' => null,
+                    'modelClass' => \App\Models\Note::class,
+                    'column' => 'rubrica',
+                    'filterLabel' => 'Rúbrica',
+                    'groupFilter' => 'oexterno',
+                    'displayColumn' => 'rubrica',
+                    'direction' => 'ASC',
+                    'customQuery' => null,
+                    'searchColumn' => 'rubrica',
+                    'sendSearchColumn' => 'rubrica',
+                    'customBuilderMethod' => null,
+                ],
+                key('rubrica')
+            )
+
+            {{-- Região → Município --}}
+            @livewire(
+                'components.filter.filter2',
+                [
+                    'myKey' => 'region',
+                    'sendFilter' => 'city',
+                    'modelClass' => \App\Models\Edp_depc\City::class,
+                    'column' => 'regiao',
+                    'filterLabel' => 'Região',
+                    'groupFilter' => 'oexterno',
+                    'displayColumn' => 'regiao',
+                    'direction' => 'ASC',
+                    'customQuery' => null,
+                    'searchColumn' => 'regiao',
+                    'sendSearchColumn' => 'regiao',
+                    'customBuilderMethod' => null,
+                ],
+                key('region')
+            )
+
+            {{-- Município --}}
+            @livewire(
+                'components.filter.filter2',
+                [
+                    'myKey' => 'city',
+                    'sendFilter' => null,
+                    'modelClass' => \App\Models\Edp_depc\City::class,
+                    'column' => 'cidade',
+                    'filterLabel' => 'Município',
+                    'groupFilter' => 'oexterno',
+                    'displayColumn' => 'municipio',
+                    'direction' => 'ASC',
+                    'customQuery' => null,
+                    'searchColumn' => 'municipio',
+                    'sendSearchColumn' => 'cidade',
+                    'customBuilderMethod' => null,
+                ],
+                key('city')
+            )
+
             @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
         </div>
     </div>
@@ -67,6 +162,7 @@
                     <tr class="sticky-top table-dark" style="z-index:1;">
                         <th scope="col" class="text-center">#</th>
                         <th scope="col" class="text-center">Note</th>
+                        <th scope="col" class="text-center">Rubrica</th>
                         <th scope="col" class="text-center">Service</th>
                         <th scope="col" class="text-center">Entidade</th>
                         <th scope="col" class="text-center">Data</th>
@@ -81,10 +177,13 @@
                 <tbody>
 
                     @foreach ($lists as $index => $list)
-                        <tr wire:key="return-{{ $list->id }}">
+                        <tr wire:key="return-{{ $list->id }}" wire:dblClick='navigateTo({{ $list->note->note }})'>
                             <td class="text-center">{{ $index + 1 }}</td>
-                            <td class="text-center">
+                            <td class="text-center fw-bold">
                                 {{ $list->note->note }}
+                            </td>
+                            <td class="text-center">
+                                {{ $list->note->rubrica }}
                             </td>
                             <td class="text-center">
                                 {{ $list->service->service }}

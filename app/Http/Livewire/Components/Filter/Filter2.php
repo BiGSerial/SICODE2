@@ -7,50 +7,43 @@ use Livewire\Component;
 
 class Filter2 extends Component
 {
-    public $model;
+    // instância do Model para consultas
+    public $model = null;
+
     // Coluna que popula o <option value="...">
-    public string  $column;
+    public string $column = '';
     // Coluna que aparece no label do <option>
-    public string  $displayColumn;
+    public string $displayColumn = '';
     // Coluna onde o campo de search interno já filtrava
-    public string  $searchColumn;
+    public string $searchColumn = '';
     // Coluna que o filtro vai enviar para o receptor (send_filter)
-    public string  $sendSearchColumn;
+    public string $sendSearchColumn = '';
 
-    public string  $direction;
-    public string  $groupFilter;
-    public string  $filterLabel;
-    public string  $receiverKey;
-    public ?string $sendFilter;
-    public ?string $customQuery;
-    public ?string $customBuilderMethod;
-    public string  $myKey;
+    public string  $direction = 'ASC';
+    public string  $groupFilter = '';
+    public string  $filterLabel = '';
+    public ?string  $receiverKey = '';
+    public ?string $sendFilter = null;
+    public ?string $customQuery = null;
+    public ?string $customBuilderMethod = null;
+    public string  $myKey = '';
 
-    public array   $items         = [];
+    // guarda filtros que vieram de outros componentes (cascade)
     public array   $receivedValue = [];
-    public bool    $isRefreshing  = false;
-    public string  $search        = '';
+
+    public array   $items = [];
+    public bool    $isRefreshing = false;
+    public string  $search = '';
 
     protected $listeners = [
         'refresh_filter'     => 'refreshMe',
         'refresh_myself'     => '$refresh',
-        'refresh_all_filter' => 'refreshAll',
+        'refresh_All_Filter' => 'refreshAll',
         'toUpdate'           => 'toUpdate',
     ];
 
     /**
-     * @param string      $myKey               chave única deste filtro
-     * @param string|null $sendFilter          myKey do outro filtro que deve receber
-     * @param string      $modelClass          FQN do Model, ex: App\Models\User::class
-     * @param string      $column              coluna que será o value do dropdown
-     * @param string      $filterLabel         texto do botão do filtro
-     * @param string      $groupFilter         sessão para agrupar filtros
-     * @param string      $displayColumn       coluna mostrada no dropdown
-     * @param string      $direction           ASC ou DESC
-     * @param string|null $customQuery         cláusula raw extra (whereRaw)
-     * @param string|null $searchColumn        coluna usada no campo de busca interna
-     * @param string|null $sendSearchColumn    coluna de destino no filtro receptor
-     * @param string|null $customBuilderMethod método para customizar o Builder
+     * Inicializa o componente, popula sessão e cascade filters
      */
     public function mount(
         string  $myKey,
@@ -69,7 +62,7 @@ class Filter2 extends Component
         // instancia model
         $this->model               = app($modelClass);
         $this->myKey               = $myKey;
-        $this->receiverKey         = $myKey;
+        // $this->receiverKey         = $receiverKey;
         $this->sendFilter          = $sendFilter;
         $this->column              = $column;
         $this->filterLabel         = $filterLabel;
@@ -91,25 +84,43 @@ class Filter2 extends Component
         if ($this->sendFilter) {
             session()->push("filter.{$this->groupFilter}.receiver.{$this->sendFilter}", $this->column);
         }
+
+        // monta receivedValue com filtros já aplicados
+        $receivers = session("filter.{$this->groupFilter}.receiver.{$this->receiverKey}", []);
+
+
+
+        foreach ($receivers as $col) {
+            $vals = session("filter.{$this->groupFilter}.{$col}", []);
+            if (!empty($vals)) {
+                $this->receivedValue[] = [
+                    'column'       => $col,
+                    'values'       => $vals,
+                    'targetColumn' => $this->sendSearchColumn,
+                ];
+            }
+        }
     }
 
+    // aplica o filtro atual e notifica receptor
     public function applyFilter()
     {
-        // salva no session
         session([
             "filter.{$this->groupFilter}.{$this->myKey}" => $this->items,
         ]);
 
-        // notifica lista pai e cascata pro receptor
         $payload = [
             'column'       => $this->column,
             'values'       => $this->items,
             'targetColumn' => $this->sendSearchColumn,
         ];
+
+
         $this->emitUp('refresh_list');
         $this->emit('refresh_filter', $this->sendFilter, $payload);
     }
 
+    // limpa este filtro e notifica receptor
     public function removeFilter()
     {
         session()->forget("filter.{$this->groupFilter}.{$this->myKey}");
@@ -120,17 +131,23 @@ class Filter2 extends Component
         $this->emit('refresh_filter', $this->sendFilter, $payload);
     }
 
-    public function refreshMe($mkey, $payload = [])
+    /**
+     * Recebe payload dos filtros de cascata
+     */
+    public function refreshMe($receiverKey, $payload = [])
     {
-        if ($mkey !== $this->receiverKey) {
+
+        if ($receiverKey !== $this->myKey) {
             return;
+        } else {
+            $this->receiverKey = $receiverKey;
         }
+
+        //  dd($receiverKey, $payload);
 
         $this->isRefreshing = true;
 
-        // payload deve ter column, values e targetColumn
         if (!empty($payload['values'])) {
-            // atualiza receivedValue substituindo mesma coluna
             $exists = false;
             foreach ($this->receivedValue as $i => $rec) {
                 if ($rec['column'] === $payload['column']) {
@@ -143,17 +160,21 @@ class Filter2 extends Component
                 $this->receivedValue[] = $payload;
             }
         } else {
-            // limpeza de filtro cascata
-            $this->receivedValue = array_filter($this->receivedValue, fn ($rec) => $rec['column'] !== $payload['column']);
+            $this->receivedValue = array_filter(
+                $this->receivedValue,
+                fn ($rec) => $rec['column'] !== $payload['column']
+            );
         }
 
+        $this->items = $this->filterLists->pluck($this->column)->toArray();
         $this->emitSelf('refresh_myself');
         $this->isRefreshing = false;
     }
 
     public function refreshAll()
     {
-        $this->items = session("filter.{$this->groupFilter}.{$this->column}", []);
+        dd('refreshAll');
+        $this->items = session("filter.{$this->groupFilter}", []);
         $this->emitSelf('refresh_myself');
     }
 
@@ -166,7 +187,7 @@ class Filter2 extends Component
     }
 
     /**
-     * Aqui montamos a query final do dropdown
+     * Constrói o dropdown com filtros internos + cascade
      */
     public function getFilterListsProperty()
     {
@@ -183,18 +204,17 @@ class Filter2 extends Component
             $query->whereRaw($this->customQuery);
         }
 
-        // aplica filtros recebidos em cascade
+        // aplica cascade filters
         foreach ($this->receivedValue as $rec) {
             $col = $rec['targetColumn'] ?? $rec['column'];
             $query->whereIn($col, $rec['values']);
         }
 
-        // hook custom via método
+        // hook custom
         if ($this->customBuilderMethod && method_exists($this, $this->customBuilderMethod)) {
             $query = $this->{$this->customBuilderMethod}($query);
         }
 
-        // agrupamento e ordenação
         $query->orderBy($this->displayColumn, $this->direction);
         $selects = [$this->column];
         if ($this->displayColumn !== $this->column) {
@@ -207,7 +227,7 @@ class Filter2 extends Component
 
     public function render()
     {
-        return view('livewire.components.filter.filter', [
+        return view('livewire.components.filter.filter2', [
             'filterLists' => $this->filterLists,
         ]);
     }

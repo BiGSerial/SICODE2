@@ -15,18 +15,99 @@ class WaitingReturn extends Component
     use TextFormatter;
 
     public $perPage = 50;
+    public $search = '';
+    public $typeNote = '';
+    public $service;
+
+
+    private $filter_group = 'oexterno';
+    private $filter;
 
 
     protected $paginationTheme = 'bootstrap';
 
+    public function mount($service)
+    {
+        $this->service = $service;
+
+    }
+
+    protected $listeners = [
+        'refresh_list' => '$refresh',
+
+    ];
+
+    public function navigateTo($note)
+    {
+
+        return redirect()->to(
+            route('services.protocolNote', [
+                'service' => $this->service,
+                'note'    => $note,
+            ])
+        );
+    }
+
     public function getListsProperty()
     {
+        if (!session()->isStarted()) {
+            session()->start();
+        }
+        $this->filter = session("filter.{$this->filter_group}", []);
+
+
+
         $query = Reclaim::query();
 
         $query->whereHas('externals', function ($q) {
             $q->where('status', 1);
-        })->with('externals.entity', 'note', 'service', 'production', 'comments', 'subcategory.category')
+        });
 
+        if (trim($this->search)) {
+            $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
+                ? str_replace('*', '%', $this->search)
+                : $this->search;
+
+            $query->where(function ($q) use ($wildcard) {
+                if (str_contains($wildcard, '%')) {
+                    $q->whereRelation('externals.note', function ($q) use ($wildcard) {
+                        $q->where('note', 'like', $wildcard);
+                    });
+                } else {
+                    $q->whereRelation('externals.note', function ($q) use ($wildcard) {
+                        $q->where('note', '=', $wildcard);
+                    });
+                }
+            });
+        }
+
+
+        if (isset($this->filter['entities']) && count($this->filter['entities'])) {
+
+
+            $query->whereRelation('externals', function ($q) {
+                $q->whereIn('entity_id', $this->filter['entities']);
+            });
+        }
+
+
+        if (isset($this->filter['rubrica']) && count($this->filter['rubrica'])) {
+            $query->whereRelation('note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+
+        if (isset($this->filter['city']) && count($this->filter['city'])) {
+            $query->whereRelation('note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
+        }
+
+
+
+
+
+        $query->with('externals.entity', 'note', 'service', 'production', 'comments', 'subcategory.category')
             ->orderBy('created_at', 'asc');
 
         return $query;

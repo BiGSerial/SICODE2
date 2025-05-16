@@ -19,6 +19,8 @@ class RemoveAll extends Component
             session_start();
         }
 
+        session()->forget("filter.{$this->group_filter}");
+
         if (isset($_SESSION['filter'][$this->group_filter])) {
             unset($_SESSION['filter'][$this->group_filter]);
 

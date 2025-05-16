@@ -256,12 +256,24 @@ class Main extends Component
             });
         });
 
-        $query->when($this->search, function ($q, $s) {
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%');
+        $query->when($this->search, function ($q) {
+
+
+            $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
+                   ? str_replace('*', '%', $this->search)
+                   : $this->search;
+
+            if (str_contains($wildcard, '%')) {
+                $type = 'like';
+            } else {
+                $type = '=';
+            }
+
+            return $q->where(function ($query) use ($wildcard, $type) {
+                $query->where('note', $type, $wildcard)
+                    ->orWhere('material', $type, $wildcard)
+                    ->orWhere('numPedido', $type, $wildcard)
+                    ->orWhere('group2', $type, $wildcard);
             });
         });
 
