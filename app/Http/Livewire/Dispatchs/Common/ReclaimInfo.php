@@ -16,10 +16,13 @@ class ReclaimInfo extends Component
     public ?Production $production = null;
     public $selectedFiles = [];
     public $setDays;
+    public $newComment;
+
 
     protected $listeners = [
         'getInfoResponse',
-        'refreshDays' => '$refresh'
+        'refreshDays' => '$refresh',
+        'refreshComponent' => '$refresh',
     ];
 
     public function getInfoResponse(Reclaim $reclaim)
@@ -31,6 +34,28 @@ class ReclaimInfo extends Component
         if ($this->reclaim) {
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'responserInfo',
+            ]);
+        }
+    }
+
+    public function addComment()
+    {
+        if (trim($this->newComment)) {
+            $this->reclaim->Comments()->create([
+                'user_id' => auth()->user()->id,
+                'message' => $this->newComment,
+            ]);
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'COMENTÁRIO ADICIONADO',
+                'timer'    => 2500,
+            ]);
+
+            $this->emitSelf('refreshComponent');
+            $this->reset([
+                'newComment',
             ]);
         }
     }

@@ -80,6 +80,7 @@ class ReturnD5 extends Component
 
     protected $listeners = [
         'refresh_list',
+        'refreshComponent' => '$refresh',
         'confirm_viability' => 'confirm_viability',
         'cleanAll' => 'closeall',
         'giveBack' => 'giveBack',

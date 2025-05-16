@@ -145,16 +145,15 @@ class AddEntityProtocol extends Component
     public function confirm_new_protocol()
     {
 
-        $entidade =  Entity::find($this->external->entity_id)->name;
+        $entidade =  Entity::find($this->external->entity_id)->nick;
 
 
 
         if ($this->external) {
             $this->external->note_id = $this->note->id;
-
             $this->external->user_id = auth()->user()->id;
             $this->external->entidade = $entidade;
-            $this->external->status = 1;
+            $this->external->status = 0;
 
             if ($this->external->save()) {
 

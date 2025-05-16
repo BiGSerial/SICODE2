@@ -18,8 +18,8 @@
             <div class="row align-items-end">
                 <div class="mb-3 col-md-2">
                     <label for="searchInput" class="form-label">Buscar</label>
-                    <input class="form-control" type="text" id="searchInput" placeholder="Informe a Nota/OV"
-                        wire:model.defer='search'>
+                    <input class="form-control" type="text" id="searchInput" placeholder="Informe a Nota/OV" 
+                        wire:model.defer='search' wire:keydown.enter='Search'>
                 </div>
 
                 <div class="mb-3 col-md-1">

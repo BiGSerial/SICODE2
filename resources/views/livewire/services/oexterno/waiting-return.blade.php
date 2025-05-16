@@ -1,372 +1,123 @@
-@php
-    use App\Custom\Viabilitiesstatus;
-    use App\Custom\Notestatus;
-    use Carbon\Carbon;
-
-@endphp
 <div>
+    @php
+        use App\Custom\Notestatus;
+    @endphp
+
     <x-show-loading />
-    <x-showselected :count="$selected" />
 
-
-
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <!-- Campo de busca com botão e tooltip -->
-        <div class="input-group me-3">
-            <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar"
-                wire:model.debounce.1s="search">
-            <span data-bs-toggle="tooltip" data-bs-trigger="hover" data-bs-placement="top" data-bs-content="Multinotas">
-                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
-                    data-bs-target="#modal_multi_notas" title="Multinotas">
-                    <i class="ri-checkbox-multiple-blank-fill"></i>
-                </button>
-            </span>
+    <div class="row g-3 mb-4 align-items-center">
+        <!-- Per Page Select -->
+        <div class="col-auto">
+            <div class="form-floating">
+                <select class="form-select" id="perPage" wire:model="perPage">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <label for="perPage">Itens por página</label>
+            </div>
         </div>
 
-        <!-- Botão de filtro para somente finalizados -->
-        <div class="me-3">
-            <button type="button" class="btn {{ $onlyFinished ? 'btn-success' : 'btn-outline-success' }}"
-                wire:click="$toggle('onlyFinished')"
-                title="{{ $onlyFinished ? 'Mostrar todos' : 'Mostrar somente finalizados' }}">
-
-                Finalizados
-            </button>
-        </div>
-        <!-- Botões do tipo radio para seleção individual -->
-        <div class="btn-group me-3" role="group" aria-label="Seleção de Opções">
-            <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
-                wire:model="typeNote" value="1">
-            <label class="btn btn-outline-primary" for="nota">Nota</label>
-
-            <input type="radio" class="btn-check" name="selecao" id="ov" autocomplete="off"
-                wire:model="typeNote" value="2">
-            <label class="btn btn-outline-primary" for="ov">Ov</label>
-
-            <input type="radio" class="btn-check" name="selecao" id="ambas" autocomplete="off"
-                wire:model="typeNote" value="">
-            <label class="btn btn-outline-primary" for="ambas">Ambas</label>
+        <!-- Search Input -->
+        <div class="col">
+            <div class="form-floating">
+                <input type="search" class="form-control" id="searchTerm" wire:model.debounce.300ms="searchTerm"
+                    placeholder="Pesquisar">
+                <label for="searchTerm">Pesquisar</label>
+            </div>
         </div>
 
-        <!-- Quatro botões alinhados -->
-        <div class="btn-group" role="group" aria-label="Ações">
-            @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'oexterno', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
+        <!-- Type Select -->
+        <div class="col-auto">
+            <div class="form-floating">
+                <select class="form-select" id="searchType" wire:model="searchType">
+                    <option value="note">Note</option>
+                    <option value="ov">OV</option>
+                    <option value="both">Ambos</option>
+                </select>
+                <label for="searchType">Tipo de busca</label>
+            </div>
+        </div>
+
+        <!-- Right-aligned Dropdown -->
+        <div class="col text-end d-flex justify-content-end gap-2">
+            @livewire('components.filter.filter', ['myKey' => 'entity', 'sendFilter' => '', 'model' => 'App\Models\Entity', 'column' => 'id', 'filter' => 'Entidade', 'group_filter' => 'oexterno', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('entities'))
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'oexterno', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'oexterno', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            {{-- @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'oexterno', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional')) --}}
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'oexterno', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'oexterno', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'oexterno', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
         </div>
     </div>
 
-    @if ($lists->isNotEmpty())
-        <div class="d-flex justify-content-between align-items-center mt-3">
-
-            <div>
-                {{ $lists->links() }}
-            </div>
-            <div>
-                Exibindo página {{ $lists->currentPage() }} de {{ $lists->lastPage() }}, total de
-                {{ $lists->total() }} registros.
-            </div>
+    <div class="card">
+        <div
+            class="card-header edp-bg-sprucegreen-70 edp-text-verde-dark d-flex justify-content-between align-items-center">
+            <h4 class="my-1 py-0">LISTA EM RETONO INTERNO</h4>
+            {{-- <button class="btn btn-sm btn-primary" wire:click.prevent="massAssign" wire:target="massAssign"
+                data-bs-toggle="tooltip" data-bs-placement="left" title="Atribuição em Massa">
+                <i class="ri-user-shared-line me-1"></i> Atribuir em Massa
+            </button> --}}
         </div>
-    @endif
-    <div class="card edp-bg-gray">
-        <div class="card-header d-flex justify-content-between align-items-center text-bg-danger">
-            <h4 class="fs-4 mb-0">RETORNO INTERNO EM ESPERA</h4>
-            {{-- <div>
-                <!-- Botão Exportar -->
-                <button type="button" class="btn btn-primary" wire:click.prevent="export_excel"
-                    wire:loading.attr="disabled">
-                    <span wire:loading.remove wire:target="export_excel">Exportar</span>
-                    <span wire:loading wire:target="export_excel">
-                        <i class="ri-loader-line animate-spin"></i> Carregando...
-                    </span>
-                </button>
-
-                <!-- Botão Aprovar em Massa -->
-                <button type="button" class="btn btn-primary" wire:click.prevent="preMassApprove" id="massApprove"
-                    @disabled(!count($selected)) wire:loading.attr="disabled">
-                    <span wire:loading.remove wire:target="preMassApprove">Aprovar em Massa</span>
-                    <span wire:loading wire:target="preMassApprove">
-                        <i class="ri-loader-line animate-spin"></i> Carregando...
-                    </span>
-                </button>
-            </div> --}}
-        </div>
-        @if ($lists->isNotEmpty())
-            <div class="table-responsive">
-                <table class="table table-striped table-hover table-condensed table-sm">
-                    <thead>
-                        <tr class="table-dark">
-                            <th class="text-center align-middle">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" wire:click.prevent="setSelectAll"
-                                        id="selectAll" title="Select All" @checked($this->chkAllSelected($lists))>
-
-                                </div>
-                            </th>
-                            @can('superadm')
-                                <th class="text-center align-middle">Responsável</th>
-                            @endcan
-                            <th class="text-center align-middle">Nota</th>
-                            <th class="text-center align-middle">Ordem</th>
-                            <th class="text-center align-middle">Files</th>
-                            <th class="text-center align-middle">Rubrica</th>
-                            <th class="text-center align-middle">Município</th>
-                            {{-- <th class="text-center align-middle">Empreiteira</th> --}}
-                            <th class="text-center align-middle">Sts Nota</th>
-                            <th class="text-center align-middle">Tempo</th>
-                            <th class="text-center align-middle">Em Atvd</th>
-                            <th class="text-center align-middle">Em Rslc</th>
-                            <th class="text-center align-middle">Motivo Rslc</th>
-                            <th class="text-center align-middle">Status</th>
-
-
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($lists as $list)
-                            <tr wire:key="linha-{{ $list->id }}" onclick="handleRowClick(this)"
-                                wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
-                                <td class="text-center align-middle">
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input border-1 border-secondary select"
-                                            wire:model.defer="selected" value="{{ $list->id }}">
-                                    </div>
-                                </td>
-                                @can('superadm')
-                                    @php
-                                        $name = '---';
-                                        if ($list->external) {
-                                            $name = explode(' ', $list->external->user->name);
-                                            $name = $name[0] . ' ' . end($name);
-                                        }
-                                    @endphp
-                                    <td class="text-center align-middle">
-                                        {{ $list->external ? $list->external->user->name : '---' }}
-                                    </td>
-                                @endcan
-                                <td class="text-center align-middle">{{ $list->note }}</td>
-                                <td class="text-center align-middle">
-                                    @if ($list->orders->isNotEmpty())
-                                        @foreach ($list->orders as $order)
-                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                        @endforeach
-                                    @else
-                                        ---
-                                    @endif
-                                </td>
-                                <td class="text-center align-middle">
-                                    <x-files.select-download-list :files='$list->Files' />
-                                </td>
-                                <td class="text-center align-middle">{{ $list->rubrica }}</td>
-                                <td class="text-center align-middle">{{ $list->lexp }}</td>
-                                {{-- <td class="text-center align-middle">
-                                    @if ($list->orders->isNotEmpty())
-                                        {{ isset($list->orders->last()->operations->first()->cenTrab) ? $list->orders->last()->operations->first()->cenTrab : '---' }}
-                                    @else
-                                        ---
-                                    @endif
-                                </td> --}}
-                                <td class="text-center align-middle">
-                                    {{ $list->type_note == 2 ? $list->nstats : $list->centerjob }}
-                                </td>
-                                @php
-
-                                    $color = '';
-                                    $attColor = '';
-                                    $rclColor = '';
-                                    $days = '';
-                                    $attDays = '';
-                                    $reclaim = $list->external->reclaims->isNotEmpty()
-                                        ? $list->external->reclaims->last()
-                                        : null;
-                                    $rclDays = '---';
-
-                                    $days = $list->dt_status->startOfDay()->diffInDays(Carbon::now());
-                                    $bdays = $list->dt_status
-                                        ->startOfDay()
-                                        ->diffInDaysFiltered(function (Carbon $date) {
-                                            return $date->isWeekday(); // Segunda a sexta
-                                        }, now()->startOfDay());
-
-                                    if ($bdays > 2) {
-                                        $color = 'text-bg-danger';
-                                    } elseif ($bdays <= 1) {
-                                        $color = 'text-bg-success';
-                                    } else {
-                                        $color = 'text-bg-warning';
-                                    }
-
-                                    $attDays = $list->external->created_at->startOfDay()->diffInDays(Carbon::now());
-                                    $attBdays = $list->external->created_at
-                                        ->startOfDay()
-                                        ->diffInDaysFiltered(function (Carbon $date) {
-                                            return $date->isWeekday(); // Segunda a sexta
-                                        }, now()->startOfDay());
-
-                                    if ($attBdays > 2) {
-                                        $attColor = 'text-bg-danger';
-                                    } elseif ($attBdays <= 1) {
-                                        $attColor = 'text-bg-success';
-                                    } else {
-                                        $attColor = 'text-bg-warning';
-                                    }
-
-                                    if (
-                                        $reclaim &&
-                                        ($rclDays = $reclaim->created_at->startOfDay()->diffInDays(Carbon::now()))
-                                    ) {
-                                        $rclBdays = $reclaim->created_at
-                                            ->startOfDay()
-                                            ->diffInDaysFiltered(function (Carbon $date) {
-                                                return $date->isWeekday(); // Segunda a sexta
-                                            }, now()->startOfDay());
-
-                                        if ($rclBdays > 2) {
-                                            $rclColor = 'text-bg-danger';
-                                        } elseif ($rclBdays <= 1) {
-                                            $rclColor = 'text-bg-success';
-                                        } else {
-                                            $rclColor = 'text-bg-warning';
-                                        }
-                                    }
-                                @endphp
-                                <td class="text-center align-middle border-right border-1 {{ $color }}">
-                                    {{ $days }}
-                                </td>
-                                <td class="text-center align-middle border-right border-1 {{ $attColor }}">
-                                    {{ $attDays }}
-                                </td>
-                                <td class="text-center align-middle {{ $rclColor }}">
-                                    {{ $rclDays }}
-                                </td>
-                                <td class="text-center align-middle ">
-                                    @if ($reclaim)
-                                        <div style="cursor: pointer; color: inherit;"
-                                            wire:click="$emitTo('dispatchs.common.reclaim-info', 'getInfoResponse', '{{ $reclaim->id }}')"
-                                            onmouseover="this.style.color='blue';"
-                                            onmouseout="this.style.color='inherit';" data-bs-toggle="tooltip"
-                                            data-bs-placement="top" title="clique para detalhes">
-                                            {{ $reclaim->category }}
-                                        </div>
-                                    @else
-                                        ----
-                                    @endif
-                                </td>
-                                <td class="text-center align-middle ">
-                                    @if ($reclaim && $reclaim->production)
-                                        <span
-                                            class="badge {{ Notestatus::status($reclaim->production->status)->colorbg }}">
-                                            {{ Notestatus::status($reclaim->production->status)->status }}
-                                        </span>
-                                    @elseif ($reclaim && !$reclaim->production)
-                                        <span class="badge text-secondary">Não Depachado</span>
-                                    @else
-                                        ----
-                                    @endif
-                                </td>
-
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+        @if ($lists->isEmpty())
         @else
-            <div class="card-body">
-                <h5 class="text-center">SEM OBRA PARA AVALIAÇÃO DE PROJETO</h5>
-            </div>
+            <table class="table table-sm table-striped table-hover table-condensed">
+                <thead>
+                    <tr class="sticky-top table-dark" style="z-index:1;">
+                        <th scope="col" class="text-center">#</th>
+                        <th scope="col" class="text-center">Note</th>
+                        <th scope="col" class="text-center">Service</th>
+                        <th scope="col" class="text-center">Entidade</th>
+                        <th scope="col" class="text-center">Data</th>
+                        <th scope="col" class="text-center">Solicitante</th>
+                        <th scope="col" class="text-center">Categoria</th>
+                        <th scope="col" class="text-center">Status</th>
+                        <th scope="col" class="text-center">Responsável</th>
+                        <th scope="col" class="text-center">Tempo em Execução</th>
+                        <th scope="col" class="text-center">Tempo Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    @foreach ($lists as $index => $list)
+                        <tr wire:key="return-{{ $list->id }}">
+                            <td class="text-center">{{ $index + 1 }}</td>
+                            <td class="text-center">
+                                {{ $list->note->note }}
+                            </td>
+                            <td class="text-center">
+                                {{ $list->service->service }}
+                            </td>
+                            <td class="text-center">
+                                {{ $list->externals?->first()?->entity?->nick }}
+                            </td>
+                            <td class="text-center">{{ $list->created_at->format('d/m/Y H:i:s') }}</td>
+                            <td class="text-center">{{ $list->comments?->first()->user->name }}</td>
+                            <td class="text-center">{{ $list->subcategory?->category->name }}</td>
+                            <td class="text-center"><span
+                                    class="badge {{ $list->production ? Notestatus::status($list->production->status)->colorbg : 'text-bg-secondary' }}">{{ $list->production ? Notestatus::status($list->production->status)->status : 'AGUARDANDO DESPACHO' }}</span>
+                            </td>
+                            <td class="text-center">{{ $list->production?->user?->name }}</td>
+                            <td
+                                class="text-center {{ $this->getColor($list->production?->att_at?->startOfDay()->diffInDays()) }}">
+                                {{ $list->created_at->startOfDay()->diffInDays() }} dias
+                            </td>
+                            <td
+                                class="text-center {{ $this->getColor($list->production?->att_at?->startOfDay()->diffInDays()) }}">
+                                {{ $list->created_at?->startOfDay()->diffInDays() }} dias</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         @endif
     </div>
-    @if ($lists->isNotEmpty())
-        <div class="d-flex justify-content-between align-items-center mt-3">
-
-            <div>
+    <div class="d-flex justify-content-end me-3">
                 {{ $lists->links() }}
+                <span class="text-muted">
+                    Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} itens
+                </span>
             </div>
-            <div>
-                Exibindo página {{ $lists->currentPage() }} de {{ $lists->lastPage() }}, total de
-                {{ $lists->total() }} registros.
-            </div>
-        </div>
-    @endif
-
-    {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1"
-        aria-labelledby="exampleModalLabel" aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
-                </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
-                </div>
-                <div class="modal-footer">
-
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-
-    {{-- Livewire Components --}}
-    @livewire('services.oexterno.actions.protocols', key('external_protocols'))
-    @livewire('dispatchs.common.reclaim-info', key('reclaim-info-intern-return'))
-
-    <script>
-        function handleRowClick(row) {
-            const oldRow = document.querySelector('.row-active');
-
-            if (oldRow) {
-                oldRow.classList.remove('table-primary');
-                oldRow.classList.remove('row-active');
-            }
-
-            if (row != oldRow) {
-                row.classList.add('table-primary');
-                row.classList.add('row-active');
-            } else {
-                row.classList.remove('table-primary');
-                row.classList.remove('row-active');
-            }
-        }
-
-
-        // document.addEventListener('DOMContentLoaded', function() {
-        //     const checkboxes = document.querySelectorAll('.select');
-        //     const massApproveBtn = document.getElementById('massApprove');
-
-        //     function updateMassApprove() {
-        //         let selectedCount = 0;
-        //         checkboxes.forEach(chk => {
-        //             if (chk.checked) {
-        //                 selectedCount++;
-        //             }
-        //         });
-        //         if (selectedCount > 1) {
-        //             massApproveBtn.removeAttribute('disabled');
-        //         } else {
-        //             massApproveBtn.setAttribute('disabled', true);
-        //         }
-        //     }
-
-        //     checkboxes.forEach(chk => {
-        //         chk.addEventListener('change', updateMassApprove);
-        //     });
-
-        //     // Initialize button state on page load
-        //     updateMassApprove();
-        // });
-    </script>
-
+</div>
 
 
 </div>

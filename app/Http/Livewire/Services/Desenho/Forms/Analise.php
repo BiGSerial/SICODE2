@@ -194,9 +194,13 @@ class Analise extends Component
 
             if ($this->production->d5) {
 
-                if ($this->production->Reclaim->category && ($this->production->Reclaim->category != 'LIBERAR EO')) {
+                if ($this->production->Reclaim?->category && ($this->production->Reclaim?->category != 'LIBERAR EO')) {
                     $this->conclusion = $this->production->Reclaim->category;
                     $this->needFiles = true;
+                    $this->updatedConclusion();
+                } else {
+                    $this->conclusion = 'RESOLUÇÃO INTERNA';
+
                     $this->updatedConclusion();
                 }
             }

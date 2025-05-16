@@ -112,6 +112,10 @@ class AddProtocol extends Component
 
     public function confirm_add_new_protocol()
     {
+        $this->external->status = 0;
+        $this->external->save();
+
+
         $this->external->Protocols()->updateOrCreate(['protocol' => $this->protocol], [
             'protocol' => $this->protocol,
             'description' => $this->observations,

@@ -9,6 +9,21 @@ class External extends Model
 {
     use HasFactory;
 
+    /**
+     * Será definido o status para que interaja em situações de retorno interno.
+     * A difinição padrão será:
+     * 0 - Pendente
+     * 1 - Aguardando Retorno Interno
+     * 2 - Reservado
+     * 3 - Reservado
+     * 4 - Reservado
+     * 5 - Reservado
+     * 6 - Reservado
+     * 7 - Reservado
+     * 8 - Reservado
+     * 9 - Encerrado
+     */
+
     protected $fillable = [
         'note_id',
         'user_id',

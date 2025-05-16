@@ -122,7 +122,7 @@
                             <tr class="align-middle"
                                 wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
 
-                                <td class="fw-light text-center">{{ $list->external?->user?->name }}</td>
+                                <td class="fw-light text-center">{{ $list->externals->first()?->user?->name }}</td>
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
                                     {{ $list->note }}
                                 </td>
@@ -133,10 +133,10 @@
                                     <x-files.select-download-list :files='$list->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($list->External)
+                                    @if ($list->externals->first())
                                         <p class="my-0 py-0"><i class="ri-file-text-fill text-success fs-5"></i></p>
                                         <p class="my-0 py-0">
-                                            {{ $list->External->Protocols->count() ? $list->External->Protocols->last()->protocol : '' }}
+                                            {{ $list->externals->first()->Protocols->count() ? $list->externals->first()->Protocols->last()->protocol : '' }}
                                         </p>
                                     @else
                                         <i class="ri-file-text-line text-danger fs-5"></i>
@@ -144,10 +144,10 @@
 
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->External->Comments->count() ? $list->External->Comments->last()->title : ' --- ' }}
+                                    {{ $list->externals->first()->Comments->count() ? $list->externals->first()->Comments->last()->title : ' --- ' }}
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->External->completed ? 'SIM' : 'NÃO' }}
+                                    {{ $list->externals->first()->completed ? 'SIM' : 'NÃO' }}
                                 </td>
                                 <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>
@@ -155,7 +155,7 @@
                                 <td class="fw-light text-center">{{ $list->material }}</td>
 
                                 <td class="fw-light text-center">
-                                    {{ date('d/m/Y H:i:s', strToTime($list->External->updated_at)) }}</td>
+                                    {{ date('d/m/Y H:i:s', strToTime($list->externals->first()->updated_at)) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -179,7 +179,7 @@
     </div>
 
     {{-- Livewire Components --}}
-    @livewire('services.oexterno.actions.protocols', key('external_protocols'))
+    @livewire('services.oexterno.actions.protocols', key('externals->first()_protocols'))
 </div>
 
 @push('script')

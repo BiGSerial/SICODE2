@@ -88,8 +88,7 @@
         <div
             class="card-header edp-bg-sprucegreen-70 edp-text-verde-dark d-flex justify-content-between align-items-center">
             <h4 class="my-1 py-0">LISTA EM RETONO INTERNO</h4>
-            <button class="btn btn-sm btn-primary"
-                wire:click.prevent="massAssign" wire:target="massAssign"
+            <button class="btn btn-sm btn-primary" wire:click.prevent="massAssign" wire:target="massAssign"
                 data-bs-toggle="tooltip" data-bs-placement="left" title="Atribuição em Massa">
                 <i class="ri-user-shared-line me-1"></i> Atribuir em Massa
             </button>
@@ -188,6 +187,10 @@
                                 $color = 'text-bg-info';
                             }
 
+                            if ($list->Externals->isNotEmpty()) {
+                                $color = 'text-bg-primary';
+                            }
+
                         @endphp
 
                         <tr wire:key="row-{{ $list->id }}">
@@ -210,6 +213,10 @@
                                     <li>
                                           <span class='fs-4 me-2 text-info'>■</span>
                                          Viabilidade
+                                    </li>
+                                    <li>
+                                          <span class='fs-4 me-2 text-primary'>■</span>
+                                         Orgão Externo
                                     </li>
                                 </ul>">
                                 {{ $list->Note->note }}

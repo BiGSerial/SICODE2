@@ -15,10 +15,12 @@ class Responserinfo extends Component
     public ?Production $production = null;
     public $selectedFiles = [];
     public $setDays;
+    public $newComment;
 
     protected $listeners = [
         'getInfoResponse',
-        'refreshDays' => '$refresh'
+        'refreshDays' => '$refresh',
+        'refreshCompanent' => '$refresh',
     ];
 
     public function getInfoResponse(Production $production)
@@ -31,6 +33,27 @@ class Responserinfo extends Component
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'responserInfo',
             ]);
+        }
+    }
+
+    public function addComment()
+    {
+        if (trim($this->newComment)) {
+            $this->production->Reclaim->Comments()->create([
+                'message' => $this->newComment,
+                'user_id' => auth()->user()->id,
+            ]);
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'COMENTÁRIO ADICIONADO',
+                'html'     => 'Seu comentário foi adicionado com sucesso.',
+                'timer'    => 2500,
+            ]);
+
+            $this->newComment = '';
+            $this->emitSelf('refreshCompanent');
         }
     }
 

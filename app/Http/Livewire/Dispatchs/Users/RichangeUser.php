@@ -124,7 +124,7 @@ class RichangeUser extends Component
 
                 DB::commit();
 
-                $this->cleanThis();
+                $this->cancelRIAction();
 
                 $this->emitUp('cleanAll');
 
@@ -156,8 +156,9 @@ class RichangeUser extends Component
         $this->cleanThis();
         $this->dispatchBrowserEvent('hideModal');
         $this->emitUp('cleaAll');
+        $this->emit('refreshComponent');
 
-        return;
+
     }
 
     public function cleanThis()

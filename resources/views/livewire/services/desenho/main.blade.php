@@ -67,7 +67,7 @@
         </div> --}}
     </div>
 
-    @can('superadm')
+    {{-- @can('superadm')
         <div class="row justify-content-start">
             <div class="col-2">
                 <input wire:model.bounce.2s="user_search" type="email"
@@ -92,7 +92,7 @@
                 </div>
             </div>
         </div>
-    @endcan
+    @endcan --}}
 
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">

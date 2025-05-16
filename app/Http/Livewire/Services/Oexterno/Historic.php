@@ -57,7 +57,7 @@ class Historic extends Component
         // $query->where(function($q){
         //     $q->
         // })
-        $query->whereHas('External', function ($q) {
+        $query->whereHas('Externals', function ($q) {
             $q->where('completed', true);
         });
 

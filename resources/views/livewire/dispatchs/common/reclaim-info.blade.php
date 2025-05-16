@@ -206,9 +206,9 @@
                             </div>
                             <div class="col-md-6">
 
-                                @if ($reclaim->Note->Viabilities->count() && $reclaim->Note->Viabilities->last()->Form)
+                                @if ($reclaim->Viabilities->count() && $reclaim->Viabilities->last()->Form)
                                     @php
-                                        $form = $reclaim->Note->Viabilities->last()->Form;
+                                        $form = $reclaim->Viabilities->last()->Form;
                                     @endphp
                                     <div class="card">
                                         <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RETORNO
@@ -279,45 +279,93 @@
                                         </div>
 
                                         <div class="table-responsive">
-                                            <table class="table table-sm table-striped-columns">
+                                            <table class="table table-sm table-striped-columns my-0 py-0">
                                                 <tbody>
+                                                    @php
+                                                        if ($reclaim->Viabilities->isNotEmpty()) {
+                                                            $origem = 'VIABILIDADE';
+                                                        } elseif ($reclaim->Waiting) {
+                                                            $origem = 'CONTRATAÇÃO';
+                                                        } elseif ($reclaim->Approvals->isNotEmpty()) {
+                                                            $origem = 'VALIDAÇÃO DE PROJETOS';
+                                                        } elseif ($reclaim->Externals->isNotEmpty()) {
+                                                            $origem = 'ENTIDADE EXTERNA';
+                                                        } else {
+                                                            $origem = 'DESCONHECIDO';
+                                                        }
+                                                    @endphp
+                                                    <tr>
+                                                        <td class="col-2 fw-bold align-middle text-end">Origem:</td>
+                                                        <td class="col  align-middle fw-bold">
+                                                            {{ $origem }}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="col-2 fw-bold align-middle text-end">Categoria:</td>
+                                                        <td class="col  align-middle">
+                                                            {{ $reclaim->Subcategory ? $reclaim->Subcategory->Category->name : '' }}
+                                                        </td>
+                                                    </tr>
                                                     <tr>
                                                         <td class="col-2 fw-bold align-middle text-end">Motivo:</td>
                                                         <td class="col  align-middle">
-                                                            {{ $reclaim->category }}
+                                                            {{ $reclaim->Subcategory ? $reclaim->Subcategory->name : $reclaim->category }}
                                                         </td>
                                                     </tr>
-
-                                                    @foreach ($reclaim->Comments as $comment)
-                                                        <tr>
-                                                            <td class="col-2 fw-bold  align-middle text-end">
-                                                                Solicitante:
-                                                            </td>
-                                                            <td class="col  align-middle">
-                                                                {{ $comment->User->name }} <span
-                                                                    class="fs-6">({{ $comment->User->email }})</span>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td class="col-2 fw-bold align-middle text-end">
-                                                                Commentario:
-                                                            </td>
-                                                            <td class="col align-middle align-middle">
-                                                                {{ $comment->message }}
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="mb-3">
-                                                            <td class="col-2 fw-bold align-middle text-end">Data:
-                                                            </td>
-                                                            <td class="col align-middle">
-                                                                {{ date('d/m/Y H:i', strToTime($comment->created_at)) }}
-                                                            </td>
-                                                        </tr>
-                                                    @endforeach
-
-
                                                 </tbody>
                                             </table>
+
+                                            <h4 class="card-header fs-5 my-2 py-1 edp-bg-sprucegreen-70 text-edp-verde">
+                                                Comentários</h4>
+                                            <div class="card-body">
+                                                <div style="max-height: 300px; overflow-y: auto;">
+                                                    @foreach ($reclaim->Comments as $index => $comment)
+                                                        <div class="card">
+                                                            <h6
+                                                                class="card-header my-0 py-1 @if ($comment->User->id == auth()->user()->id) text-bg-primary
+                                                                @else
+                                                                edp-bg-sprucegreen-50 text-white @endif">
+                                                                # {{ $index + 1 }} -
+                                                                {{ $comment->User->id == auth()->user()->id ? 'Você' : $comment->User->name }}
+                                                                <span
+                                                                    class="fs-6">{{ !($comment->User->id == auth()->user()->id) ? "({$comment->User->email})" : '' }}</span>
+                                                            </h6>
+                                                            <table class="table table-sm table-striped-columns">
+                                                                <tbody>
+                                                                    <tr>
+
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td class="col-2 fw-bold align-middle text-end">
+                                                                            Commentario:
+                                                                        </td>
+                                                                        <td class="col align-middle align-middle">
+                                                                            {{ $comment->message }}
+                                                                        </td>
+                                                                    </tr>
+
+                                                                </tbody>
+                                                            </table>
+                                                            <div class="card-footer py-1">
+                                                                <i class="bx bx-time-five"></i>
+                                                                {{ $comment->created_at->format('d/m/Y - H:i:s') }}
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            <div class="mt-3 p-2 card-footer">
+                                                <div class="form-group">
+                                                    <textarea class="form-control" wire:model.defer="newComment" rows="2" placeholder="Digite seu comentário..."></textarea>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <button class="btn btn-primary btn-sm" wire:click="addComment">
+                                                        <i class="bx bx-send align-middle"></i> Enviar
+                                                    </button>
+                                                </div>
+                                            </div>
+
+
                                         </div>
 
                                     </div>
