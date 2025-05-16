@@ -41,8 +41,9 @@
         </div>
 
         <!-- Right-aligned Dropdown -->
-        <div class="col text-end d-flex justify-content-end gap-2">
-            @livewire('components.filter.filter', ['myKey' => 'entity', 'sendFilter' => '', 'model' => 'App\Models\Entity', 'column' => 'id', 'filter' => 'Entidade', 'group_filter' => 'oexterno', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('entities'))
+        <div class="col d-flex justify-content-end gap-2">
+            @livewire('components.filter.filter2', ['myKey' => 'entities', 'sendFilter' => '', 'modelClass' => 'App\Models\Entity', 'column' => 'id', 'filterLabel' => '', 'groupFilter' => '', 'displayColumn' => '', 'direction = 'ASC'' => '', 'customQuery = null' => '', 'searchColumn = null' => '', 'sendSearchColumn = null' => '', 'customBuilderMethod = null
+                ' => ''])
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'oexterno', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
             @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'oexterno', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'oexterno', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
@@ -112,11 +113,11 @@
         @endif
     </div>
     <div class="d-flex justify-content-end me-3">
-                {{ $lists->links() }}
-                <span class="text-muted">
-                    Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} itens
-                </span>
-            </div>
+        {{ $lists->links() }}
+        <span class="text-muted">
+            Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} itens
+        </span>
+    </div>
 </div>
 
 
