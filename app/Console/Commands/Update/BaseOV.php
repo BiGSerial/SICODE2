@@ -44,11 +44,14 @@ class BaseOV extends Command
         $total = $baseQuery->count();
         $log->setTotal($total);
 
+
+
+        $this->info("Starting BaseOV data transfer...(Using updating of {$this->option('days')} days ago)");
+        $this->info("");
         $bar = new ProgressBar($this->output, $total);
         $bar->setFormat('%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%%');
         $bar->setMessage('start', 'message');
         $bar->start();
-
         // Process in chunks by ID for consistency
         $baseQuery->orderBy('id')->chunkById($chunkSize, function ($records) use ($bar, &$count) {
             // Unique OV list in this chunk

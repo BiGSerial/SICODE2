@@ -51,6 +51,9 @@ class BaseEP extends Command
             '<fg=green>[%bar%]</> <fg=white;options=bold> %percent%%</> ' .
             '<bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%'
         );
+
+        $this->info("Starting BaseOV data transfer...(Using updating of {$this->option('days')} days ago)");
+        $this->info("");
         $bar->setMessage('Starting', 'message');
         $bar->start();
 

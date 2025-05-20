@@ -205,6 +205,7 @@
                             <th scope="col" class="fw-bold text-center">Municipio</th>
                             <th scope="col" class="fw-bold text-center">Pedido</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
+                            <th scope="col" class="fw-bold text-center">Ult Movimantação</th>
                             <th scope="col" class="fw-bold text-center">Dias no Status</th>
                             {{-- <th scope="col" class="fw-bold text-center">Prazo Real</th> --}}
                             <th scope="col" class="fw-bold text-center">Situação</th>
@@ -216,6 +217,7 @@
                             @php
 
                                 $daysleft = (new DaysLeft($list))->getDaysLeft();
+                                $getLastMovement = $list->externals?->sortbydesc('updated_at')->first()?->updated_at;
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -266,6 +268,15 @@
 
 
                                 <td class="fw-light text-center">{{ $list->nstats }}</td>
+
+                                <td class="fw-light text-center ">
+
+                                    <p class="my-0 py-0 fw-bold">
+                                        {{ $getLastMovement?->diffForHumans(['parts' => 2, 'join' => ' e ', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
+                                    </p>
+
+
+                                </td>
                                 @php
                                     $days = $list->dt_status->diffInDays();
 
@@ -276,7 +287,6 @@
                                     } else {
                                         $color = 'text-bg-warning';
                                     }
-                                    # code...
                                 @endphp
                                 <td class="fw-light text-center {{ $color }}">
 
