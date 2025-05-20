@@ -129,7 +129,7 @@
                     @endif
 
                     @if ($d5 == 0 || $d5 == 1)
-                   
+
 
                         <div class="mb-3 col-3">
                             <label for="inputPassword" class="col-sm-12 col-form-label">Conclusão:</label>
@@ -139,6 +139,9 @@
                                 @foreach (SelectOptions::getSupervisionEnd() as $supEnd)
                                     <option value="{{ $supEnd->value }}" selected>{{ $supEnd->reason }}</option>
                                 @endforeach
+                                @if ($production->parcial == true)
+                                    <option value="reject">Rejeitar</option>
+                                @endif
                             </select>
 
                         </div>

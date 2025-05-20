@@ -38,4 +38,9 @@ class Analise extends Model
         'postes',
         'protocol',
     ];
+
+    public function production()
+    {
+        return $this->belongsTo(Production::class);
+    }
 }
