@@ -147,10 +147,33 @@ class Main extends Component
 
     public function hasProduction(Note $note)
     {
+
+        if ($note->WorkForm) {
+            $workForm = true;
+        } else {
+            $workForm = false;
+        }
+
         $production = $note->Productions->where('service_id', $this->service->uuid)->last();
 
+
         if ($production) {
-            return $production;
+            if ($production->completed && $production->partial && !$workForm) {
+                return $production;
+            } elseif ($production->completed && !$production->partial && $workForm) {
+                return $production;
+            } elseif ($production->completed && !$production->partial && $workForm) {
+                return $production;
+            } elseif (!$production->completed && !$production->partial && $workForm) {
+                return $production;
+            } elseif (!$production->completed && $production->partial && $workForm) {
+                return false;
+            } elseif (!$production->completed && $production->partial && !$workForm) {
+                return $production;
+            } else {
+                return false;
+            }
+
         } else {
             return false;
         }
