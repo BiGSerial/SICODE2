@@ -251,7 +251,7 @@ class Main extends Component
                 $q->where('nstats', 20)
                     ->where('type_note', 2);
             })->orWhere(function ($q) {
-                $q->where('nstats')
+                $q->where('centerjob', 'ORGAOEXT')
                     ->where('type_note', 1);
             });
         });

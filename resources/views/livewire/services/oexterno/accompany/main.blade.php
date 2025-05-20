@@ -1,9 +1,10 @@
-@php
-    use Carbon\Carbon;
-    use App\Helpers\DaysLeft;
-    use App\Helpers\SelectOptions;
-@endphp
 <div>
+    @php
+        use Carbon\Carbon;
+        use App\Helpers\DaysLeft;
+        use App\Helpers\SelectOptions;
+    @endphp
+
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
@@ -337,29 +338,30 @@
 
     {{-- Livewire Components --}}
     @livewire('services.oexterno.actions.protocols', key('external_protocols'))
-</div>
 
-@push('script')
-    <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
 
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
+    @push('script')
+        <script>
+            const copyTextCells = document.querySelectorAll('.copy-text');
+
+            copyTextCells.forEach(cell => {
+                cell.addEventListener('click', () => {
+                    const value = cell.getAttribute('data-value');
+                    copyToClipboard(value);
+                    livewire.emit('getCopy',
+                        `Valor "${value}" copiado para a área de transferência.`);
+                    // alert(`Valor "${value}" copiado para a área de transferência.`);
+                });
             });
-        });
 
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-    </script>
-@endpush
+            function copyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        </script>
+    @endpush
+</div>
