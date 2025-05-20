@@ -137,13 +137,10 @@ class Main extends Component
 
     public function getNotesProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+        if (!session()->isStarted()) {
+            session()->start();
         }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filter = session("filter.{$this->filter_group}", []);
 
         $query = Note::query();
 
@@ -173,6 +170,14 @@ class Main extends Component
 
         if (isset($this->filter['city'])) {
             $query->whereIn('lexp', $this->filter['city']);
+        }
+
+
+        if (isset($this->filter['entities']) && count($this->filter['entities'])) {
+
+            $query->whereRelation('externals', function ($q) {
+                $q->whereIn('entity_id', $this->filter['entities']);
+            });
         }
 
         $query->with('externals.protocols', 'externals.comments')

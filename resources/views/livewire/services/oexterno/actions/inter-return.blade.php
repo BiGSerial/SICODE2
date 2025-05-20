@@ -121,6 +121,9 @@
                                 @endif
                             @endif
                         </div>
+
+                        @livewire('files.manager.create-serv-files', ['note' => $external->note, 'service' => $theService], key('retusn_inter-' . $external->id))
+
                     @endif
                 </div>
 

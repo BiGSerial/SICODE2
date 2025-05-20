@@ -11,7 +11,9 @@ return new class () extends Migration {
     public function up(): void
     {
         Schema::table('externals', function (Blueprint $table) {
-            $table->foreignId('entity_id')->after('id')->nullable()->constrained('entities');
+            if (!Schema::hasColumn('externals', 'entity_id')) {
+                $table->foreignId('entity_id')->after('id')->nullable()->constrained('entities');
+            }
         });
     }
 
@@ -21,8 +23,10 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('externals', function (Blueprint $table) {
-            $table->dropForeign(['entity_id']);
-            $table->dropColumn('entity_id');
+            if (Schema::hasColumn('externals', 'entity_id')) {
+                $table->dropForeign(['entity_id']);
+                $table->dropColumn('entity_id');
+            }
         });
     }
 };

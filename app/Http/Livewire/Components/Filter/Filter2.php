@@ -169,13 +169,16 @@ class Filter2 extends Component
         $this->items = $this->filterLists->pluck($this->column)->toArray();
         $this->emitSelf('refresh_myself');
         $this->isRefreshing = false;
+
     }
 
     public function refreshAll()
     {
-        dd('refreshAll');
-        $this->items = session("filter.{$this->groupFilter}", []);
+
+        $this->items = [];
         $this->emitSelf('refresh_myself');
+
+
     }
 
     public function toUpdate($mkey)

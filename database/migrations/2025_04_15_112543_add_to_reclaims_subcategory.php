@@ -11,11 +11,12 @@ return new class () extends Migration {
     public function up(): void
     {
         Schema::table('reclaims', function (Blueprint $table) {
-            $table->foreignId('subcategory_id')
-                ->nullable()
-                ->constrained('subcategories')
-                ->onDelete('set null');
-
+            if (!Schema::hasColumn('reclaims', 'subcategory_id')) {
+                $table->foreignId('subcategory_id')
+                    ->nullable()
+                    ->constrained('subcategories')
+                    ->onDelete('set null');
+            }
         });
     }
 
@@ -25,8 +26,12 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('reclaims', function (Blueprint $table) {
-            $table->dropForeign(['subcategory_id']);
+            if (Schema::hasColumn('reclaims', 'subcategory_id')) {
+            if (Schema::hasColumn('reclaims', 'subcategory_id') && Schema::hasForeignKey('reclaims', 'reclaims_subcategory_id_foreign')) {
+                $table->dropForeign(['subcategory_id']);
+            }
             $table->dropColumn('subcategory_id');
+            }
         });
     }
 };

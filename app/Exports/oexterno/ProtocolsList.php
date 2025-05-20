@@ -1,0 +1,105 @@
+<?php
+
+namespace App\Exports\oexterno;
+
+use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+
+class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
+{
+    use Exportable;
+
+    protected $export;
+
+    public function __construct($export)
+    {
+        $this->export = $export;
+    }
+
+    public function query()
+    {
+        return $this->export;
+    }
+
+    public function chunkSize(): int
+    {
+        return 500;
+    }
+
+    public function headings(): array
+    {
+        return [
+            'Nota/OV',
+            'Protocolo',
+            'Ultimo Protocolo',
+            'Data Primeiro Protocolo',
+            'Hora Primeiro Protocolo',
+            'Status Ultimo Protocolo',
+            'Entidade',
+            'rubrica',
+            'Municipio',
+            'Pedido',
+            'Status',
+            'CentroTrabalho',
+            'Data Ultima Movimentação',
+            'Hora Ultima Movimentação',
+            'Data Status',
+            'Hora Status',
+            'Situação',
+        ];
+    }
+
+    public function map($row): array
+    {
+        dd($row);
+        return [
+
+        ];
+    }
+
+    public function properties(): array
+    {
+        return [
+            'creator'        => 'Sicode',
+            'lastModifiedBy' => 'Sicode',
+            'title'          => 'Survey List',
+            'description'    => 'List of all Survey notes',
+            'subject'        => 'Survey List',
+            'keywords'       => 'Survey, list, sicode',
+            'category'       => 'Survey',
+            'manager'        => 'Sicode',
+            'company'        => 'Sicode',
+        ];
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                    'font' => [
+                        'bold'  => true,
+                        'color' => ['rgb' => 'FFFFFF'],
+                    ],
+                    'fill' => [
+                        'fillType'   => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0000FF'],
+                    ],
+                ]);
+                $event->sheet->getStyle('A')->getNumberFormat()->setFormatCode('0');
+                $event->sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
+                $event->sheet->getStyle('C')->getNumberFormat()->setFormatCode('0');
+
+                $event->sheet->autoSize();
+            },
+        ];
+    }
+}

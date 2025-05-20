@@ -34,7 +34,7 @@ class AddEntityProtocol extends Component
     protected $rules = [
         'external' => 'nullable',
         'external.entity_id' => 'required|integer',
-        ''
+
     ];
 
     public function continue()
@@ -109,15 +109,13 @@ class AddEntityProtocol extends Component
 
     public function saveEntity()
     {
-        if (!trim($this->protocol)) {
-            $this->protocol = 'NA';
-        }
 
-        if (!trim($this->title) || !trim($this->observations)) {
+
+        if (!trim($this->protocol) || !trim($this->title) || !trim($this->observations)) {
             $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
-                    'title'    => 'Protocolo e Obsrvações são obrigatórias.',
+                    'title'    => 'Protocolo e Observações são obrigatórias.',
                     'html'      => 'NENHUMA ENTIDADE PROTOCOLAR FOI SELECIONADA.',
                     'timer'    => 5000,
                 ]);

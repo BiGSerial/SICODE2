@@ -6,11 +6,14 @@ use App\Custom\RuleBuilder;
 use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Facades\Excel;
 use ZipArchive;
 
 class Main extends Component
 {
     use WithPagination;
+    use Exportable;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -75,6 +78,18 @@ class Main extends Component
         if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {
             $this->rubrica_s = $_SESSION['filtro']['rubrica'];
         }
+    }
+
+    public function exportToExcel()
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Download em andamento...',
+            'timer'    => 2000,
+        ]);
+
+        return Excel::download(new \App\Exports\Oexterno\ProtocolsList($this->notes), 'protocols.xlsx');
     }
 
     public function copy($msg)
@@ -224,14 +239,11 @@ class Main extends Component
 
     public function getNotesProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-
+        if (!session()->isStarted()) {
+            session()->start();
         }
+        $this->filter = session("filter.{$this->filter_group}", []);
 
         $query = Note::query();
 

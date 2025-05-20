@@ -186,10 +186,12 @@
                 <h4 class="text-center">SEM DADOS EM {{ $service->service }}</h4>
             </div>
         @else
-            <h4 class="card-header fw-bold text-bg-secondary">{{ mb_strtoupper($service->service) }} ACOMPANHAMENTO
-                PROTOCOLO
-
-            </h4>
+            <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ mb_strtoupper($service->service) }} ACOMPANHAMENTO PROTOCOLO</h4>
+                <button wire:click="exportToExcel" class="btn btn-success">
+                    <i class="fas fa-file-excel me-2"></i>Exportar
+                </button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-sm  table-condensed table-hover table-striped">
                     <thead class="table-dark">

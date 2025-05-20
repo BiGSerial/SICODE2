@@ -24,10 +24,10 @@ class RemoveAll extends Component
         if (isset($_SESSION['filter'][$this->group_filter])) {
             unset($_SESSION['filter'][$this->group_filter]);
 
-            $this->emitUp('refresh_list');
-            $this->emit('refresh_All_Filter');
-
         }
+
+        $this->emitUp('refresh_list');
+        $this->emit('refresh_All_Filter');
 
     }
 

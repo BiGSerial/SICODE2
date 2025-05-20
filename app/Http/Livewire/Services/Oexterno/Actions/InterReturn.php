@@ -22,6 +22,7 @@ class InterReturn extends Component
     public $services;
     public $serviceSelected;
     public $production;
+    public $theService;
 
     public $external;
 
@@ -29,6 +30,9 @@ class InterReturn extends Component
         'refreshComponent' => '$refresh',
         'openInternReturn',
         'confirm_inter_return',
+        'continue',
+        'ErrorSaveFiles',
+        'savedFiles',
     ];
 
     protected $messages = [
@@ -37,9 +41,52 @@ class InterReturn extends Component
         'subcategorySelected.required' => 'O campo Sub-categoria é requerido.',
     ];
 
+    public function continue()
+    {
+        $this->dispatchBrowserEvent('swal', [
+                   'position' => 'center',
+                   'icon'     => 'success',
+                   'title'    => 'RETORNO INTERNO',
+                   'html'      => 'OBRA ENVIADA AO RETORNO INTERNO COM SUCESSO.',
+                   'timer'    => 5000,
+               ]);
+
+        $this->closeAll();
+    }
+
+
+    public function savedFiles()
+    {
+        $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'success',
+                    'title'    => 'RETORNO INTERNO',
+                    'html'      => 'OBRA EVIADA AO RETORNO INTERNO E EVIDÊNCIAS SALVAS COM SUCESSO.',
+                    'timer'    => 5000,
+                ]);
+
+        $this->closeAll();
+
+    }
+
+    public function ErrorSaveFiles()
+    {
+        $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'RETORNO INTERNO',
+                    'html'      => 'ENCONTRAMOS ERRO AO TENTAR SALVAR AS EVIDÊNCIAS, NENHUMA EVIDÊNCIA FOI SALVA. ADICIONE AS EVIDÊNCIAS EM UM NOVO COMENTÁRIO',
+
+                ]);
+
+        $this->closeAll();
+
+    }
+
     public function mount()
     {
         $this->serviceId = request()->route('service');
+        $this->theService = Service::where('uuid', $this->serviceId)->first();
         $this->categories = Category::orderBy('name')->get();
         $this->services = Service::where('canReturn', true)->orderBy('service')->get();
 
@@ -177,16 +224,7 @@ class InterReturn extends Component
 
         DB::commit();
 
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'Retorno Interno enviado com sucesso.',
-            'html'      => 'Retorno Interno enviado com sucesso.',
-            'timer'    => 5000,
-        ]);
-
-        $this->closeAll();
-        $this->emitUp('refreshComponent');
+        $this->emitTo('files.manager.create-serv-files', 'saveFiles');
     }
 
 
