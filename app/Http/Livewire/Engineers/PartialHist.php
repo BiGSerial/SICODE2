@@ -79,7 +79,7 @@ class PartialHist extends Component
 
         if ($this->search) {
             $query->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('Notes.Orders', 'ordem', 'like', '%' . $this->search . '%');
+                    ->orWhereRelation('Note.Orders', 'ordem', 'like', '%' . $this->search . '%');
         }
 
         if (isset($this->filters['rubrica']) && $this->filters['rubrica'] != '') {

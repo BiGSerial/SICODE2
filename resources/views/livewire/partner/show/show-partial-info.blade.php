@@ -138,7 +138,7 @@
                                     <div class="card">
                                         <div class="card-header text-bg-info">Parecer da Engenharia</div>
                                         <div class="card-body">
-                                            <p class="card-text">{{ $form->engineer_info }}</p>
+                                            <p class="card-text">{!! nl2br($form->engineer_info) !!}</p>
                                         </div>
                                         <div class="card-footer">
                                             <p class="py-1 my-0"><strong>Responsável:

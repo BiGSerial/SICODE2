@@ -288,15 +288,33 @@ class Jobform extends Component
 
             // Se for parcial, encerra a supervisão da parcial e libera para pagamento.
             if ($this->production->partial) {
+
                 if ($partial = $this->production->Note->Partials->last()) {
 
-                    if ($partial->allow && !$partial->supervision && !$partial->payment) {
+                    if ($this->analise->conclusion == 'reject') {
+
+                        $text = $partial->engineer_info ?? '';
+                        $text .= "\n ------------------------ \n" . "Nota/OV encerrada com rejeição em Fiscalização. \n" . "Motivo: " . $this->analise->info . "\n" . "Fiscal: " . auth()->user()->name;
+
+                        $partial->update([
+                           'supervision' => true,
+                           'deny' => true,
+                           'allow' => false,
+                           'complete' => true,
+                           'engineer_info' => $text,
+                           'supervision_at' => date('Y-m-d H:i:s'),
+                           'supervision_id' => Auth()->User()->id,
+                        ]);
+
+                    } elseif ($partial->allow && !$partial->supervision && !$partial->payment) {
                         $partial->update([
                             'supervision' => true,
                             'supervision_at' => date('Y-m-d H:i:s'),
                             'supervision_id' => Auth()->User()->id,
                         ]);
                     }
+
+
                 }
             }
 

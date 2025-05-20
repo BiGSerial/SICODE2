@@ -190,6 +190,9 @@
                                                     <option value="{{ $supEnd->value }}" selected>
                                                         {{ $supEnd->reason }}</option>
                                                 @endforeach
+                                                @if ($production->partial)
+                                                    <option value="reject">Rejeitar Obra</option>
+                                                @endif
                                             </select>
 
                                         </div>
