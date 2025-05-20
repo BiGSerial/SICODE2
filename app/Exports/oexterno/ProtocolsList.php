@@ -48,7 +48,6 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
             'Municipio',
             'Pedido',
             'Status',
-            'CentroTrabalho',
             'Data Ultima Movimentação',
             'Hora Ultima Movimentação',
             'Data Status',
@@ -59,9 +58,24 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
 
     public function map($row): array
     {
-        dd($row);
-        return [
 
+        return [
+            $row->note,
+            $row->externals?->where('completed', true)->count().'/' . $row->externals?->count(),
+            $row->externals?->last()?->protocols?->last()?->protocol,
+            $row->externals?->first()?->protocols?->first()?->created_at?->format('d/m/Y'),
+            $row->externals?->first()?->protocols?->first()?->created_at?->format('H:i'),
+            $row->externals?->last()?->status,
+            $row->externals?->last()?->entidade,
+            $row->rubrica,
+            $row->lexp,
+            $row->numPedido,
+            $row->nstats,
+            $row->externals?->first()?->comments?->first()?->created_at?->format('d/m/Y'),
+            $row->externals?->first()?->comments?->first()?->created_at?->format('H:i'),
+            $row->dt_status?->format('d/m/Y'),
+            $row->dt_status?->format('H:i'),
+            $row->externals->isEmpty() ? 'SEM REGISTRO' : (!$row->externals?->where('completed', false)->count() ? 'COMPLETO' : 'EM ANDAMENTO'),
         ];
     }
 
@@ -84,7 +98,7 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:P1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],
@@ -95,8 +109,7 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
                     ],
                 ]);
                 $event->sheet->getStyle('A')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('C')->getNumberFormat()->setFormatCode('0');
+
 
                 $event->sheet->autoSize();
             },

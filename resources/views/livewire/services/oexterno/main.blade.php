@@ -187,9 +187,9 @@
             </div>
         @else
             <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">{{ mb_strtoupper($service->service) }} ACOMPANHAMENTO PROTOCOLO</h4>
+                <h4 class="mb-0">{{ mb_strtoupper($service->service) }} A PROTOCOLAR</h4>
                 <button wire:click="exportToExcel" class="btn btn-success">
-                    <i class="fas fa-file-excel me-2"></i>Exportar
+                    <i class="ri-file-excel-2-line me-2"></i>Exportar
                 </button>
             </div>
             <div class="table-responsive">

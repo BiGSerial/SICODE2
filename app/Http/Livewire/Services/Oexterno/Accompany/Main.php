@@ -7,11 +7,14 @@ use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Query\Expression;
 use Livewire\{Component, WithPagination};
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Facades\Excel;
 use ZipArchive;
 
 class Main extends Component
 {
     use WithPagination;
+    use Exportable;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -63,6 +66,18 @@ class Main extends Component
                 'note'    => $note,
             ])
         );
+    }
+
+    public function exportToExcel()
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Download em andamento...',
+            'timer'    => 2000,
+        ]);
+
+        return Excel::download(new \App\Exports\Oexterno\ProtocolsList($this->notes), date('Ymd_his').'_protocols.xlsx');
     }
 
     public function mount($service)

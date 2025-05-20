@@ -89,7 +89,7 @@ class Main extends Component
             'timer'    => 2000,
         ]);
 
-        return Excel::download(new \App\Exports\Oexterno\ProtocolsList($this->notes), 'protocols.xlsx');
+        return Excel::download(new \App\Exports\Oexterno\ProtocolsList($this->notes), date('Ymd_his').'_protocols.xlsx');
     }
 
     public function copy($msg)
