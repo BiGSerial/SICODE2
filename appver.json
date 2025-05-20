@@ -1,6 +1,11 @@
 {
-    "appver": "1.19.3",
+    "appver": "1.19.4",
     "historic": [
+        {
+            "version": "1.19.4",
+            "description": "Fix att in Payment",
+            "date": "2025-05-20"
+        },
         {
             "version": "1.19.3",
             "description": "Fix Update Base OV and Note",
