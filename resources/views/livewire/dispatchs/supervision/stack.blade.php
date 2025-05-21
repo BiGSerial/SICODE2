@@ -436,16 +436,16 @@
                         @foreach ($lists as $list)
                             @php
                                 $partial = false;
-                                $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm->informed_at : null;
+                                $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm?->informed_at : null;
                                 $formBlock =
-                                    $list->Note->WorkForm && $list->Note->WorkForm->rejected
+                                    $list->Note->WorkForm && $list->Note->WorkForm?->rejected
                                         ? $list->Note->WorkForm->rejected
                                         : false;
 
-                                if ($list->Note->Partials->isNotEmpty()) {
+                                if ($list->Note->Partials?->isNotEmpty()) {
                                     if (
-                                        $list->Note->Partials->last()->allow &&
-                                        !$list->Note->Partials->last()->supervision
+                                        $list->Note->Partials?->last()->allow &&
+                                        !$list->Note->Partials?->last()->supervision
                                     ) {
                                         $partial = true;
                                     }
@@ -453,14 +453,14 @@
 
                                 if ($list->partial && $list->Note->Partials->isNotEmpty()) {
                                     $dateForm = $list->Note->Partials
-                                        ->where('allow', true)
-                                        ->last()
-                                        ->decision_at->diffInDays(now());
+                                        ?->where('allow', true)
+                                        ?->last()
+                                        ?->decision_at?->diffInDays(now());
                                 } elseif ($list->note->WorkForm) {
-                                    if ($list->note->WorkForm->informed_at) {
-                                        $dateForm = $list->Note->WorkForm->informed_at->diffInDays(now());
+                                    if ($list->note->WorkForm?->informed_at) {
+                                        $dateForm = $list->Note->WorkForm?->informed_at->diffInDays(now());
                                     } else {
-                                        $dateForm = $list->Note->WorkForm->created_at->diffInDays(now());
+                                        $dateForm = $list->Note->WorkForm?->created_at->diffInDays(now());
                                     }
                                 } else {
                                     $dateForm = 'ERRO';
@@ -489,8 +489,8 @@
                                         value="{{ $list->id }}" wire:model.defer="selected">
                                 </td>
                                 <td
-                                    class="fw-bold copy-text text-center @if ($partial) tableg-warning @else table-success @endif">
-                                    {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                    class="fw-bold copy-text text-center @if ($list->partial) table-warning @else table-success @endif">
+                                    {{ $list->partial ? 'PARCIAL' : 'FINAL' }}
                                 </td>
 
                                 <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">

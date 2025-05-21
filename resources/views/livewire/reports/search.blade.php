@@ -1,12 +1,13 @@
-@php
-    use Carbon\Carbon;
-    use Carbon\CarbonInterval;
-    use App\Custom\Notestatus;
-    use App\Helpers\FileIcon;
-    use App\Helpers\DaysLeft;
-
-@endphp
 <div>
+    @php
+        use Carbon\Carbon;
+        use Carbon\CarbonInterval;
+        use App\Custom\Notestatus;
+        use App\Helpers\FileIcon;
+        use App\Helpers\DaysLeft;
+        use Illuminate\Support\Str;
+
+    @endphp
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
@@ -18,7 +19,7 @@
             <div class="row align-items-end">
                 <div class="mb-3 col-md-2">
                     <label for="searchInput" class="form-label">Buscar</label>
-                    <input class="form-control" type="text" id="searchInput" placeholder="Informe a Nota/OV" 
+                    <input class="form-control" type="text" id="searchInput" placeholder="Informe a Nota/OV"
                         wire:model.defer='search' wire:keydown.enter='Search'>
                 </div>
 
@@ -158,7 +159,7 @@
                             </div>
                         </div>
 
-                        <div class="card border-0 mb-3 shadow-sm">
+                        <div class="card  edp-bg-sprucegreen-50 border-0 mb-3 shadow-sm">
                             <div
                                 class="card-header edp-bg-sprucegreen-100 text-edp-verde d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">ARQUIVOS</h5>
@@ -175,81 +176,106 @@
                                 </div>
                             </div>
                             @if ($lists->Files->count())
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-striped table-hover mb-0">
-                                        <thead class="table-dark">
-                                            <tr>
-                                                <th class="text-center"><input
-                                                        class="form-check-input border border-1 border-secondary"
-                                                        type="checkbox"></th>
-                                                <th class="text-center">Serviço</th>
-                                                <th class="text-center">Tipo</th>
-                                                <th class="text-center">Arquivo</th>
-                                                <th class="text-center">Data</th>
-                                                <th class="text-center">Tam</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @php
-                                                function formatFileSize($size)
-                                                {
-                                                    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-                                                    $unitIndex = 0;
+                                @php
+                                    $grouped = $lists->Files
+                                        ->sortBy('file_name')
+                                        ->groupBy(fn($file) => $file->Service->service ?? 'Outros');
 
-                                                    while ($size >= 1024 && $unitIndex < count($units) - 1) {
-                                                        $size /= 1024;
-                                                        $unitIndex++;
-                                                    }
+                                    // Ordena as chaves alfabeticamente e garante “Outros” por último
+                                    $services = $grouped->keys()->filter(fn($k) => $k !== 'Outros')->sort()->toArray();
+                                    $services[] = 'Outros';
+                                @endphp
+                                <div class="accordion" id="filesByServiceAccordion">
+                                    @foreach ($services as $serviceName)
+                                        @php
+                                            // recupera a coleção de arquivos deste serviço
+                                            $files = $grouped[$serviceName];
+                                            $slug = Str::slug($serviceName);
+                                        @endphp
 
-                                                    return number_format($size, 2) . ' ' . $units[$unitIndex];
-                                                }
-                                            @endphp
-                                            @foreach ($lists->Files->sortBy('file_name') as $file)
-                                                @php
-                                                    $f_exists = Storage::exists($file->path);
-                                                @endphp
-                                                <tr wire:key="file-{{ $file->id }}">
-                                                    <td class="text-center align-middle"><input
-                                                            class="form-check-input border border-1 border-secondary"
-                                                            type="checkbox" value="{{ $file->id }}"
-                                                            wire:model.defer="selectedFiles"></td>
-                                                    <td class="text-center align-middle">
-                                                        {{ isset($file->Service->service) ? $file->Service->service : '' }}
-                                                    </td>
-                                                    <td class="text-center align-middle"><i
-                                                            class="{{ FileIcon::getIcon($file->ext)->icon }} fs-4 align-middle"></i>
-                                                    </td>
-                                                    <td class="text-center align-middle"><span
-                                                            wire:click.prenvet="downloadFile({{ $file->id }})"
-                                                            style="cursor: pointer;">{{ $file->file_name }}</span></td>
-                                                    <td class="text-center align-middle">
-                                                        {{ $file->created_at->format('d/m/Y H:i:s') }}</td>
-                                                    <td class="text-center align-middle">
-                                                        @if ($f_exists)
-                                                            {{ formatFileSize(Storage::size($file->path)) }}
-                                                        @else
-                                                            ---
-                                                        @endif
-                                                    </td>
-                                                    <td class="text-center align-middle">
-                                                        @can('admin')
-                                                            <i class="ri-pencil-fill text-primary fs-5"
-                                                                style="cursor: pointer;"
-                                                                wire:click.prevent="$emitTo('files.manager.fileedit', 'editFile', {{ $file }})"></i>
-                                                            <i class="ri-delete-bin-2-line text-danger fs-5"
-                                                                wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $file }})"
-                                                                style="cursor: pointer;"></i>
-                                                        @endcan
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                        <div class="accordion-item border-secondary"
+                                            wire:key="service-{{ $slug }}">
+                                            <h2 class="accordion-header" id="headingService{{ $slug }}">
+                                                <button
+                                                    class="accordion-button edp-bg-sprucegreen-20 text-white {{ $openServiceId !== $slug ? 'collapsed' : '' }}"
+                                                    type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#collapseService{{ $slug }}"
+                                                    aria-expanded="{{ $openServiceId === $slug ? 'true' : 'false' }}"
+                                                    aria-controls="collapseService{{ $slug }}">
+                                                    {{ $serviceName }}
+                                                </button>
+                                            </h2>
+
+                                            <div id="collapseService{{ $slug }}"
+                                                class="accordion-collapse  collapse {{ $openServiceId === $slug ? 'show' : '' }}"
+                                                aria-labelledby="headingService{{ $slug }}"
+                                                data-bs-parent="#filesByServiceAccordion" x-data
+                                                x-init="$el.addEventListener('shown.bs.collapse', () => Livewire.emit('setOpenService', '{{ $slug }}'));">
+                                                <div class="accordion-body p-0">
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-striped table-hover mb-0">
+                                                            <thead class="table-dark">
+                                                                <tr>
+                                                                    <th class="text-center">
+                                                                        <input
+                                                                            class="form-check-input border border-1 border-secondary"
+                                                                            type="checkbox">
+                                                                    </th>
+                                                                    <th class="text-center">Arquivo</th>
+                                                                    <th class="text-center">Data</th>
+                                                                    <th class="text-center">Tam</th>
+                                                                    <th></th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach ($files as $file)
+                                                                    @php $exists = Storage::exists($file->path); @endphp
+                                                                    <tr wire:key="file-{{ $file->id }}">
+                                                                        <td class="text-center align-middle">
+                                                                            <input
+                                                                                class="form-check-input border border-1 border-secondary"
+                                                                                type="checkbox"
+                                                                                value="{{ $file->id }}"
+                                                                                wire:model.defer="selectedFiles">
+                                                                        </td>
+                                                                        <td class="text-start align-middle"
+                                                                            style="cursor: pointer;"
+                                                                            wire:click.prevent="downloadFile({{ $file->id }})">
+                                                                            <i
+                                                                                class="{{ FileIcon::getIcon($file->ext)->icon }} me-1"></i>
+                                                                            {{ $file->file_name }}
+                                                                        </td>
+                                                                        <td class="text-center align-middle">
+                                                                            {{ $file->created_at->format('d/m/Y H:i:s') }}
+                                                                        </td>
+                                                                        <td class="text-center align-middle">
+                                                                            {{ $exists ? formatFileSize(Storage::size($file->path)) : '---' }}
+                                                                        </td>
+                                                                        <td class="text-center align-middle">
+                                                                            @can('admin')
+                                                                                <i class="ri-pencil-fill text-primary fs-5"
+                                                                                    style="cursor: pointer;"
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit','editFile', {{ $file }} )"></i>
+                                                                                <i class="ri-delete-bin-2-line text-danger fs-5"
+                                                                                    style="cursor: pointer;"
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit','deleteFile', {{ $file }} )"></i>
+                                                                            @endcan
+                                                                        </td>
+                                                                    </tr>
+                                                                @endforeach
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
-                                <div class="card-footer">
-                                    <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles"><i
-                                            class="bx bxs-cloud-download"></i> Baixar Selecionados</button>
+
+                                <div class="card-footer text-end">
+                                    <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles">
+                                        <i class="bx bxs-cloud-download"></i> Baixar Selecionados
+                                    </button>
                                 </div>
                             @else
                                 <div class="card-body">

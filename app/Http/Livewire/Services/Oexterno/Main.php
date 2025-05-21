@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Oexterno;
 
 use App\Custom\RuleBuilder;
+use App\Exports\oexterno\ProtocolsList;
 use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
@@ -89,7 +90,7 @@ class Main extends Component
             'timer'    => 2000,
         ]);
 
-        return Excel::download(new \App\Exports\Oexterno\ProtocolsList($this->notes), date('Ymd_his').'_protocols.xlsx');
+        return Excel::download(new ProtocolsList($this->notes), date('Ymd_his').'_protocols.xlsx');
     }
 
     public function copy($msg)

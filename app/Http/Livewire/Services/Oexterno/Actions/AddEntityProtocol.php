@@ -34,7 +34,18 @@ class AddEntityProtocol extends Component
     protected $rules = [
         'external' => 'nullable',
         'external.entity_id' => 'required|integer',
+        'protocol' => 'required|string|max:255',
+        'observations' => 'required|string|max:65535',
+        'title' => 'required|string|max:255',
+    ];
 
+    protected $messages = [
+        'external.entity_id.required' => 'Selecione uma entidade.',
+        'external.entity_id.integer' => 'Selecione uma entidade.',
+        'protocol.required' => 'Protocolo é obrigatório.',
+        'protocol.max' => 'Protocolo deve ter no máximo 255 caracteres.',
+        'observations.required' => 'Observações são obrigatórias.',
+        'title.required' => 'Título é obrigatório.',
     ];
 
     public function continue()
@@ -109,7 +120,7 @@ class AddEntityProtocol extends Component
 
     public function saveEntity()
     {
-
+        $this->validate();
 
         if (!trim($this->protocol) || !trim($this->title) || !trim($this->observations)) {
             $this->dispatchBrowserEvent('swal', [

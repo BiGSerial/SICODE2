@@ -25,7 +25,7 @@
                         <a href="{{ route('services.waiting_return', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
                             <i class="bi bi-hourglass-split fs-4 text-white"></i> <span>AGUARDANDO RETORNO
-                                INTERNO</span>
+                                INTERNO</span> @livewire('components.count.oexterno.count-return', key('return-'))
                         </a>
                     </li>
                     <li>

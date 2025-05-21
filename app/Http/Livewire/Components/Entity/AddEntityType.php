@@ -38,7 +38,7 @@ class AddEntityType extends Component
             ]);
         }
 
-        $this->emitSelf('refreshComponent');
+        $$this->closeAll();
     }
 
     public function deleteType(EntityType $entityType)
@@ -53,7 +53,7 @@ class AddEntityType extends Component
                 'html'     => 'Entidade excluída com sucesso.',
             ]);
 
-            $this->emit('refreshComponent');
+            $this->closeAll();
         }
 
 
@@ -64,7 +64,7 @@ class AddEntityType extends Component
     {
         $this->editEntityType = $entityType;
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function saveEntityType()
@@ -83,7 +83,7 @@ class AddEntityType extends Component
             $this->editEntityType = null;
         }
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function getListsProperty()
@@ -91,6 +91,13 @@ class AddEntityType extends Component
         return EntityType::when(trim($this->search), function ($q) {
             $q->where('name', 'like', '%'.trim($this->search).'%');
         })->orderBy('name')->get();
+    }
+
+    public function closeAll()
+    {
+        // $this->dispatchBrowserEvent('hideModal');
+        $this->emitSelf('refreshComponent');
+        $this->emitUp('refreshComponent');
     }
 
     public function render()

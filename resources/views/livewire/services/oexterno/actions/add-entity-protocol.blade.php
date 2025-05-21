@@ -18,7 +18,7 @@
                             <!-- Entity Type -->
                             <div class="col-md-3">
                                 <div class="form-floating">
-                                    <select name="entity_type_id" id="entity_type_id" class="form-select"
+                                    <select name="entity_type_id" id="entity_type_id" class="form-select @error('selectedType') is-invalid @enderror"
                                         wire:model="selectedType">
                                         <option value="">Selecione...</option>
                                         @foreach ($entityTypes as $type)
@@ -26,23 +26,23 @@
                                         @endforeach
                                     </select>
                                     <label for="entity_type_id" class="form-label">Tipo de Entidade</label>
+                                    @error('selectedType') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
 
                             <!-- Name -->
                             <div class="col-md-3">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="search" search="search"
+                                    <input type="text" class="form-control @error('search') is-invalid @enderror" id="search" search="search"
                                         placeholder="Nome da entidade" value="{{ old('search') }}" wire:model="search">
                                     <label for="search">Buscar Entidade</label>
+                                    @error('search') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
 
-
-
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <select name="entity" id="entity" class="form-select"
+                                    <select name="entity" id="entity" class="form-select @error('external.entity_id') is-invalid @enderror"
                                         wire:model.defer="external.entity_id">
                                         <option value="">Selecione...</option>
                                         @foreach ($entities as $entity)
@@ -50,38 +50,40 @@
                                         @endforeach
                                     </select>
                                     <label for="entity" class="form-label">Tipo</label>
+                                    @error('external.entity_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
-
-
 
                             <!-- Protocolo -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="protocol" name="protocol"
+                                    <input type="text" class="form-control @error('protocol') is-invalid @enderror" id="protocol" name="protocol"
                                         placeholder="Apelido" value="{{ old('protocol') }}" wire:model.defer="protocol">
                                     <label for="protocol">Protocolo</label>
+                                    @error('protocol') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
 
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <select name="title" id="title" class="form-select" wire:model="title">
+                                    <select name="title" id="title" class="form-select @error('title') is-invalid @enderror" wire:model="title">
                                         <option value="">Selecione...</option>
                                         @foreach (SelectOptions::getProtocolReasons() as $reason)
                                             <option value="{{ $reason->value }}">{{ $reason->reason }}</option>
                                         @endforeach
                                     </select>
                                     <label for="title" class="form-label">Titulo</label>
+                                    @error('title') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
 
                             <!-- Observations -->
                             <div class="col-12 mb-2">
                                 <div class="form-floating">
-                                    <textarea class="form-control" placeholder="Observações..." id="observations" name="observations" style="height: 100px;"
+                                    <textarea class="form-control @error('observations') is-invalid @enderror" placeholder="Observações..." id="observations" name="observations" style="height: 100px;"
                                         wire:model.defer="observations">{{ old('observations') }}</textarea>
                                     <label for="observations">Descrição</label>
+                                    @error('observations') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
                         </div>

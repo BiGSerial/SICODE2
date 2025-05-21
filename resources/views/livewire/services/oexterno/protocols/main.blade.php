@@ -167,37 +167,44 @@
                                                                     <tbody>
                                                                         <tr>
                                                                             <td class="fw-bold">Nome:</td>
-                                                                            <td>{{ $external->entity->name }}</td>
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entity->name }}</td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="fw-bold">Apelido:</td>
-                                                                            <td>{{ $external->entidade }}</td>
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entidade }}</td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="fw-bold">Precisa de Aprovação:
                                                                             </td>
-                                                                            <td>{{ $external->entity->approve ? 'SIM' : 'NÃO' }}
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entity->approve ? 'SIM' : 'NÃO' }}
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="fw-bold">EO:</td>
-                                                                            <td>{{ $external->entity->eon ? 'SIM' : 'NÃO' }}
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entity->eon ? 'SIM' : 'NÃO' }}
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="fw-bold">AUTOCAD:</td>
-                                                                            <td>{{ $external->entity->cad ? 'SIM' : 'NÃO' }}
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entity->cad ? 'SIM' : 'NÃO' }}
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="fw-bold">Mapa de Localização:
                                                                             </td>
-                                                                            <td>{{ $external->entity->map ? 'SIM' : 'NÃO' }}
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entity->map ? 'SIM' : 'NÃO' }}
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="fw-bold">Observações:</td>
-                                                                            <td>{{ $external->entity->observations }}
+                                                                            <td class="align-middle">
+                                                                                {{ $external->entity->observations }}
                                                                             </td>
                                                                         </tr>
                                                                     </tbody>

@@ -15,6 +15,7 @@ class ToApprovalCount extends Component
             $query->where(function ($qq) {
                 $qq->whereIn('nstats', [46, 47, 48, 49, 50])
                 ->whereNotIn('rubrica', ['Incoporação'])
+                 ->Where('pze', '!=', 25)
                 ->where('type_note', 2);
             })
             ->orWhere(function ($qq) {
@@ -43,6 +44,7 @@ class ToApprovalCount extends Component
             $q->where('txpriority', '!=', 'Emergente')
               ->orWhereNull('txpriority');
         })
+
         ->with([
            'orders' => function ($q) {
                $q->where('statusSist', 'not like', 'ENT%')

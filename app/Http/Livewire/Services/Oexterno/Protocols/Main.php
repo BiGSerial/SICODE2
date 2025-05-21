@@ -71,7 +71,7 @@ class Main extends Component
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'Remover Entidade Protocolar',
                 'msg'   => "
-                <p>Você deseja realmente remover a entidade protocolar {$this->external->entity->nick}?<br> Ao remover, todas as associações com exceção dos arquivos serão perdidos.</p>
+                <p>Você deseja realmente remover a entidade protocolar {$this->external?->entity?->nick}?<br> Ao remover, todas as associações com exceção dos arquivos serão perdidos.</p>
                 ",
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Atribua!',

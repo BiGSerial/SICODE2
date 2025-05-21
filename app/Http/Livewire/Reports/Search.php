@@ -14,6 +14,7 @@ class Search extends Component
     public $search;
     public $selectedFiles = [];
     public $historico;
+    public $openServiceId;
 
     protected $queryString = [
         'search' => ['except' => '', 'as' => 's'],
@@ -21,7 +22,13 @@ class Search extends Component
 
     protected $listeners = [
         'update_list' => '$refresh',
+        'setOpenService',
     ];
+
+    public function setOpenService($serviceId)
+    {
+        $this->openServiceId = $serviceId;
+    }
 
     public function Search()
     {

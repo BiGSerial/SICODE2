@@ -36,7 +36,8 @@
                                     <!-- Entity Type -->
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <select name="entity_type_id" id="entity_type_id" class="form-select"
+                                            <select name="entity_type_id" id="entity_type_id"
+                                                class="form-select @error('entityEdit.entity_type_id') is-invalid @enderror"
                                                 wire:model.defer="entityEdit.entity_type_id">
                                                 <option value="">Selecione...</option>
                                                 @foreach ($entityTypes as $type)
@@ -44,54 +45,82 @@
                                                 @endforeach
                                             </select>
                                             <label for="entity_type_id" class="form-label">Tipo de Entidade</label>
+                                            @error('entityEdit.entity_type_id')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                     </div>
 
                                     <!-- Name -->
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="name" name="name"
-                                                placeholder="Nome da entidade" value="{{ old('name') }}"
-                                                wire:model.defer="entityEdit.name">
+                                            <input type="text"
+                                                class="form-control @error('entityEdit.name') is-invalid @enderror"
+                                                id="name" name="name" placeholder="Nome da entidade"
+                                                value="{{ old('name') }}" wire:model.defer="entityEdit.name">
                                             <label for="name">Nome</label>
+                                            @error('entityEdit.name')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                     </div>
 
                                     <!-- Nick -->
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="nick" name="nick"
-                                                placeholder="Apelido" value="{{ old('nick') }}"
-                                                wire:model.defer="entityEdit.nick">
+                                            <input type="text"
+                                                class="form-control @error('entityEdit.nick') is-invalid @enderror"
+                                                id="nick" name="nick" placeholder="Apelido"
+                                                value="{{ old('nick') }}" wire:model.defer="entityEdit.nick">
                                             <label for="nick">Apelido</label>
+                                            @error('entityEdit.nick')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                     </div>
 
                                     <!-- Boolean Flags como switches -->
                                     <div class="col-md-6 d-flex flex-wrap align-items-center">
                                         <div class="form-check form-switch me-3">
-                                            <input class="form-check-input" type="checkbox" id="approve"
-                                                name="approve" {{ old('approve') ? 'checked' : '' }}
+                                            <input
+                                                class="form-check-input @error('entityEdit.approve') is-invalid @enderror"
+                                                type="checkbox" id="approve" name="approve"
+                                                {{ old('approve') ? 'checked' : '' }}
                                                 wire:model.defer="entityEdit.approve">
                                             <label class="form-check-label" for="approve">Aprovação</label>
+                                            @error('entityEdit.approve')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                         <div class="form-check form-switch me-3">
-                                            <input class="form-check-input" type="checkbox" id="eon"
-                                                name="eon" {{ old('eon') ? 'checked' : '' }}
-                                                wire:model.defer="entityEdit.eon">
+                                            <input
+                                                class="form-check-input @error('entityEdit.eon') is-invalid @enderror"
+                                                type="checkbox" id="eon" name="eon"
+                                                {{ old('eon') ? 'checked' : '' }} wire:model.defer="entityEdit.eon">
                                             <label class="form-check-label" for="eon">Eo</label>
+                                            @error('entityEdit.eon')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                         <div class="form-check form-switch me-3">
-                                            <input class="form-check-input" type="checkbox" id="cad"
-                                                name="cad" {{ old('cad') ? 'checked' : '' }}
-                                                wire:model.defer="entityEdit.cad">
+                                            <input
+                                                class="form-check-input @error('entityEdit.cad') is-invalid @enderror"
+                                                type="checkbox" id="cad" name="cad"
+                                                {{ old('cad') ? 'checked' : '' }} wire:model.defer="entityEdit.cad">
                                             <label class="form-check-label" for="cad">Cad</label>
+                                            @error('entityEdit.cad')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                         <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="map"
-                                                name="map" {{ old('map') ? 'checked' : '' }}
-                                                wire:model.defer="entityEdit.map">
+                                            <input
+                                                class="form-check-input @error('entityEdit.map') is-invalid @enderror"
+                                                type="checkbox" id="map" name="map"
+                                                {{ old('map') ? 'checked' : '' }} wire:model.defer="entityEdit.map">
                                             <label class="form-check-label" for="map">Mapa</label>
+                                            @error('entityEdit.map')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                     </div>
 
@@ -100,7 +129,7 @@
                                         <label class="form-label">Documentos Nescessários</label>
                                         <div class="input-group mb-3">
                                             <input type="text" class="form-control" wire:model.defer="newDoc"
-                                                placeholder="Nome do documento">
+                                                placeholder="Nome do documento" wire:keydown.enter="addDoc">
                                             <button class="btn btn-primary" type="button" wire:click="addDoc">
                                                 <i class="ri-add-line"></i>
                                             </button>
@@ -174,8 +203,7 @@
                                                                 placeholder="Usuário">
                                                         </div>
                                                         <div class="col-md-6">
-                                                            <input type="password"
-                                                                class="form-control form-control-sm"
+                                                            <input type="text" class="form-control form-control-sm"
                                                                 wire:model.defer="newPortal.password"
                                                                 placeholder="Senha">
                                                         </div>

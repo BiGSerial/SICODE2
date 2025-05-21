@@ -53,18 +53,21 @@ class EditEntityProtocol extends Component
 
     public function saveEdit()
     {
-
-
+        
         if ($this->external) {
             $this->external->entidade = Entity::find($this->external->entity_id)->nick;
             $this->external->save();
         }
 
-        $this->dispatchBrowserEvent('hideModal');
+        $this->closeAll();
 
+    }
+
+    public function closeAll()
+    {
+        $this->dispatchBrowserEvent('hideModal');
         $this->external = null;
         $this->emitUp('refreshComponent');
-
     }
 
 

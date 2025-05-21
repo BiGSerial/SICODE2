@@ -236,6 +236,14 @@
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">
                                     {{ $list->note }}
+                                    @if ($list->pze == '25')
+                                        <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="NOTA EXPRESSA"
+                                            data-bs-content="Nota com prazo de execução de {{ $list->pze }} dias"
+                                            style="z-index: 9999;" data-bs-toggle="tooltip" data-bs-placement="top">
+                                            <i class="ri-fire-line text-danger fw-bold"></i>
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)

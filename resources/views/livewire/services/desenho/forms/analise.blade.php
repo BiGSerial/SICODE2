@@ -71,7 +71,8 @@
                             <div class="row g-3 align-items-end">
                                 <div class="col-lg-3">
                                     <label class="form-label fw-semibold">Finalidade</label>
-                                    <select class="form-select" wire:model="preresult">
+                                    <select class="form-select @error('preresult') is-invalid @enderror"
+                                        wire:model="preresult">
                                         @if ($production->d5)
                                             <option value="RESOLUCAO INTERNA">RESOLUÇÃO INTERNA (RI)</option>
                                         @else
@@ -83,66 +84,98 @@
                                             <option value="PROPOSTA MELHORAMENTO">PROPOSTA MELHORAMENTO</option>
                                         @endif
                                     </select>
+                                    @error('preresult')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label fw-semibold">ODI/DR</label>
-                                    <input type="text" class="form-control" wire:model.defer="odi"
-                                        @disabled(
+                                    <input type="text" class="form-control @error('odi') is-invalid @enderror"
+                                        wire:model.defer="odi" @disabled(
                                             ($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') ||
                                                 in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
+                                    @error('odi')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label fw-semibold">ODD/PEP</label>
-                                    <input type="text" class="form-control" wire:model.defer="odd"
-                                        @disabled(
+                                    <input type="text" class="form-control @error('odd') is-invalid @enderror"
+                                        wire:model.defer="odd" @disabled(
                                             ($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') ||
                                                 in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
+                                    @error('odd')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label fw-semibold">ODS</label>
-                                    <input type="text" class="form-control" wire:model.defer="ods"
-                                        @disabled(
+                                    <input type="text" class="form-control @error('ods') is-invalid @enderror"
+                                        wire:model.defer="ods" @disabled(
                                             ($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') ||
                                                 in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
+                                    @error('ods')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label fw-semibold">Postes</label>
-                                    <input type="number" min="0" max="300" class="form-control"
+                                    <input type="number" min="0" max="300"
+                                        class="form-control @error('postes') is-invalid @enderror"
                                         wire:model.defer="postes" @disabled(
                                             ($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') ||
                                                 in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
+                                    @error('postes')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
 
                             <div class="row g-3 mt-3">
                                 @if (($preresult === 'NORMAL' || $preresult === 'REVALIDACAO') && !$production->d5)
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input" type="checkbox" wire:model.defer="eo"
-                                            id="eoCheck">
+                                        <input class="form-check-input @error('eo') is-invalid @enderror"
+                                            type="checkbox" wire:model.defer="eo" id="eoCheck">
                                         <label class="form-check-label" for="eoCheck">EO</label>
+                                        @error('eo')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input" type="checkbox" wire:model.defer="iproject"
-                                            id="ipCheck">
+                                        <input class="form-check-input @error('iproject') is-invalid @enderror"
+                                            type="checkbox" wire:model.defer="iproject" id="ipCheck">
                                         <label class="form-check-label" for="ipCheck">iProject</label>
+                                        @error('iproject')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input" type="checkbox" wire:model.defer="cad"
-                                            id="cadCheck">
+                                        <input class="form-check-input @error('cad') is-invalid @enderror"
+                                            type="checkbox" wire:model.defer="cad" id="cadCheck">
                                         <label class="form-check-label" for="cadCheck">AutoCad</label>
+                                        @error('cad')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input" type="checkbox" wire:model.defer="cadastro"
-                                            id="cadCadastroCheck">
+                                        <input class="form-check-input @error('cadastro') is-invalid @enderror"
+                                            type="checkbox" wire:model.defer="cadastro" id="cadCadastroCheck">
                                         <label class="form-check-label" for="cadCadastroCheck">Cadastro</label>
+                                        @error('cadastro')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                 @endif
 
                                 @if ($cadastro)
                                     <div class="col-md-2">
                                         <label class="form-label fw-semibold">Postes Cadastro</label>
-                                        <input type="number" min="0" max="300" class="form-control"
+                                        <input type="number" min="0" max="300"
+                                            class="form-control @error('postes_c') is-invalid @enderror"
                                             wire:model.defer="postes_c">
+                                        @error('postes_c')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                 @endif
                             </div>
@@ -150,7 +183,8 @@
                             <div class="row g-3 mt-4">
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Conclusão</label>
-                                    <select class="form-select" wire:model="conclusion">
+                                    <select class="form-select @error('conclusion') is-invalid @enderror"
+                                        wire:model="conclusion">
                                         <option value="">Selecione...</option>
                                         @if ($production->d5)
                                             @foreach (SelectOptions::getReclaimsOptions() as $opt)
@@ -162,6 +196,9 @@
                                             @endforeach
                                         @endif
                                     </select>
+                                    @error('conclusion')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                         </form>
@@ -194,9 +231,10 @@
         <footer class="bg-white py-3 border-top">
             <div class="container d-flex justify-content-end gap-2">
                 <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
                 <button class="btn btn-success"
                     wire:click.prevent="to_finish({{ $analise->production_id }})">Encerrar</button>
-                <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
+
             </div>
         </footer>
     @else

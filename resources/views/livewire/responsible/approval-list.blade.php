@@ -101,7 +101,9 @@
 
                                     </div>
                                 </td>
-                                <td class="text-center align-middle">{{ $list->note }}</td>
+                                <td class="text-center align-middle">{{ $list->note }}
+
+                                </td>
                                 <td class="text-center align-middle">
                                     @if ($list->orders->isNotEmpty())
                                         @foreach ($list->orders as $order)

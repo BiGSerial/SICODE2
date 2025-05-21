@@ -280,7 +280,8 @@ class Main extends Component
             })->orWhere(function ($query) {
                 $query->whereIn('txpriority', ['Emergente']);
             })->orWhereHas('Viabilities')
-                ->orWhereHas('Waitings');
+                ->orWhereHas('Waitings')
+                ->orWhere('pze', 25);
         });
 
 

@@ -41,7 +41,7 @@
                                         wire:model.defer="external.entity_id">
                                         <option value="">Selecione...</option>
                                         @foreach ($entities as $entity)
-                                            <option value="{{ (int)$entity->id }}">{{ $entity->name }}</option>
+                                            <option value="{{ (int) $entity->id }}">{{ $entity->name }}</option>
                                         @endforeach
                                     </select>
                                     <label for="entity" class="form-label">Tipo</label>
@@ -50,8 +50,7 @@
                     @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary me-2"
-                        wire:click="$set('entityEdit', null)">Cancelar</button>
+                    <button type="button" class="btn btn-secondary me-2" wire:click="closeAll">Cancelar</button>
                     <button type="submit" class="btn btn-primary" wire:click="saveEdit">Salvar</button>
                 </div>
             </div>

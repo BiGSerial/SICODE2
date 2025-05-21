@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Components\Entity;
 
+use App\Helpers\TextFormatter;
 use App\Models\Entity;
 use App\Models\EntityContact;
 use App\Models\EntityType;
@@ -9,6 +10,8 @@ use Livewire\Component;
 
 class AddEntity extends Component
 {
+    use TextFormatter;
+
     public $name;
     public $search;
     public $selectedType;
@@ -33,7 +36,7 @@ class AddEntity extends Component
         'entityEdit' => 'nullable',
         'entityEdit.entity_type_id' => 'integer',
         'entityEdit.name' => 'string|max:255',
-        'entityEdit.nick' => 'string|max:20',
+        'entityEdit.nick' => 'string|max:80',
         'entityEdit.approve' => 'boolean',
         'entityEdit.eon' => 'boolean',
         'entityEdit.cad' => 'boolean',
@@ -83,7 +86,7 @@ class AddEntity extends Component
 
         $this->newPortal = null;
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function saveContact()
@@ -100,14 +103,14 @@ class AddEntity extends Component
 
         $this->newContact = null;
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function removeContact(EntityContact $contact)
     {
         $contact->delete();
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function addEntity()
@@ -133,17 +136,23 @@ class AddEntity extends Component
             ]);
         }
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function addDoc()
     {
         if ($this->newDoc) {
 
+            $arrayDocs = $this->formatTextLongToArray($this->newDoc);
+
             $docs = $this->entityEdit->docs ?? [];
 
+            foreach ($arrayDocs as $value) {
+                $docs[] = mb_strtoupper(trim($value));
+            }
 
-            $docs[] = mb_strtoupper(trim($this->newDoc));
+
+            // $docs[] = mb_strtoupper(trim($this->newDoc));
 
 
             $this->entityEdit->docs = $docs;
@@ -205,7 +214,7 @@ class AddEntity extends Component
             $this->entityEdit = null;
         }
 
-        $this->emitSelf('refreshComponent');
+        $this->closeAll();
     }
 
     public function deleteEntity(Entity $entity)
@@ -219,7 +228,7 @@ class AddEntity extends Component
                 'html'     => 'Entidade excluída com sucesso.',
             ]);
 
-            $this->emit('refreshComponent');
+            $this->closeAll();
         }
     }
 
@@ -235,6 +244,13 @@ class AddEntity extends Component
     public function getEntityTypesProperty()
     {
         return EntityType::orderBy('name')->get();
+    }
+
+    public function closeAll()
+    {
+        // $this->dispatchBrowserEvent('hideModal');
+        $this->emitSelf('refreshComponent');
+        $this->emitUp('refreshComponent');
     }
 
     public function render()

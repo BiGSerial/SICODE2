@@ -178,6 +178,17 @@
                                                     {{ $list->Note->note }}
                                                 @endif
 
+                                                @if ($list->Note->pze == '25')
+                                                    <span tabindex="0" data-bs-toggle="popover"
+                                                        data-bs-trigger="hover focus" data-bs-placement="top"
+                                                        data-bs-title="NOTA EXPRESSA"
+                                                        data-bs-content="Nota com prazo de execução de {{ $list->Note->pze }} dias"
+                                                        style="z-index: 9999;" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top">
+                                                        <i class="ri-fire-line text-danger fw-bold"></i>
+                                                    </span>
+                                                @endif
+
                                                 <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
