@@ -215,14 +215,14 @@ class Analise extends Component
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,png',
+                'files.*' => 'mimes:pdf,jpeg,jpg,png,gif,tiff,bmp,dwg,dxf,dwf,doc,docx,xls,xlsx,ppt,pptx'
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
-                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpp ou .png</span> </div></div>',
+                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpeg, .jpg, .png, .gif, .tiff, .bmp, .dwg, .dxf, .dwf, .doc, .docx, .xls, .xlsx, .ppt, .pptx</span> </div></div>',
 
             ]);
 
@@ -471,17 +471,17 @@ class Analise extends Component
 
 
 
-        if ($this->postes == '') {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'QUANTIDADE DE POSTES',
-                'html'     => 'Você não informou a quantidade de postes levantados.
-                ',
-            ]);
+        // if ($this->postes == '') {
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon'     => 'warning',
+        //         'title'    => 'QUANTIDADE DE POSTES',
+        //         'html'     => 'Você não informou a quantidade de postes levantados.
+        //         ',
+        //     ]);
 
-            return;
-        }
+        //     return;
+        // }
 
         if (!$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [

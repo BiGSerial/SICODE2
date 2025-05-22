@@ -307,10 +307,10 @@ class Main extends Component
             $q->orderBy('informed_at', 'asc');
         }]);
 
-        // Realizando o join com `work_reports` e `orders` e somando `moaberto`
-        $query->leftjoin('work_reports', 'notes.id', '=', 'work_reports.note_id')
-        ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
-        ->leftJoinSub(
+        // Get latest partial info including deny status
+        $latestPartialsSubquery = DB::table('partials')
+            ->select('note_id',
+                    DB::raw('MAX(id) as latest_partial_id'),
             DB::table('operation_resps')
             ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
             ->groupBy('note_id'),

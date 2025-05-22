@@ -217,25 +217,31 @@
                                     $block = true;
                                 }
 
-                                if ($partial = $list->Partials ? $list->Partials->last() : false) {
-                                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
-                                        $partial = false;
-                                    }
-                                } else {
-                                    $partial = false;
+                                $partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : false;
+
+                                if ($partial && $partial->deny && !$list->WorkForm) {
+                                    $block = true;
+                                    continue;
+                                } elseif ($partial && !$partial->supervision && !$list->WorkForm) {
+                                    $block = true;
+                                    continue;
                                 }
 
                                 $rowClass = '';
 
                                 if ($block) {
-                                    if ($production->status == 1) {
+                                    if ($partial && $partial->deny) {
                                         $rowClass = 'table-danger';
-                                    } elseif ($production->status == 2) {
-                                        $rowClass = 'table-primary';
-                                    } elseif ($production->status == 5) {
-                                        $rowClass = 'table-success';
                                     } else {
-                                        $rowClass = 'table-primary';
+                                        if ($production->status == 1) {
+                                            $rowClass = 'table-danger';
+                                        } elseif ($production->status == 2) {
+                                            $rowClass = 'table-primary';
+                                        } elseif ($production->status == 5) {
+                                            $rowClass = 'table-success';
+                                        } else {
+                                            $rowClass = 'table-primary';
+                                        }
                                     }
                                 }
 
@@ -454,6 +460,8 @@
                                             if (isset($production->User->name)) {
                                                 $name = explode(' ', $production->User->name);
                                                 $name = $name[0] . ' ' . end($name);
+                                            } elseif ($partial && $partial->deny && !$list->WorkForm) {
+                                                $name = 'PARCIAL REJEITADA';
                                             } else {
                                                 $name = 'DESCONHECIDO';
                                             }

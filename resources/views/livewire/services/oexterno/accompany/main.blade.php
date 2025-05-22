@@ -211,7 +211,7 @@
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Ult Movimantação</th>
                             <th scope="col" class="fw-bold text-center">Dias no Status</th>
-                            {{-- <th scope="col" class="fw-bold text-center">Prazo Real</th> --}}
+                            <th scope="col" class="fw-bold text-center">Total Dias</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
 
                         </tr>
@@ -296,6 +296,12 @@
 
                                     <p class="my-0 py-0 fw-bold">{{ $list->dt_status->diffInDays() }} dias</p>
                                     <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
+
+                                </td>
+                                <td class="fw-light text-center text-bg-secondary">
+
+                                    <p class="my-0 py-0 fw-bold">{{ $list->dt_created->diffInDays() }} dias</p>
+                                    <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>
 
                                 </td>
 
