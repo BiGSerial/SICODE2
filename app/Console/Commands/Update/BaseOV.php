@@ -31,6 +31,9 @@ class BaseOV extends Command
      */
     public function handle(): void
     {
+        // Banner com fundo azul e texto branco
+        $this->line('<options=bold;fg=white;bg=blue> BaseOV </>');
+
         $daysAgo = Carbon::now()->subDays($this->option('days'));
         $chunkSize = 500;
 
@@ -44,14 +47,15 @@ class BaseOV extends Command
         $total = $baseQuery->count();
         $log->setTotal($total);
 
-
-
         $this->info("Starting BaseOV data transfer...(Using updating of {$this->option('days')} days ago)");
-        $this->info("");
+        $this->info('');
+
+        // ProgressBar com tempo restante
         $bar = new ProgressBar($this->output, $total);
-        $bar->setFormat('%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%%');
+        $bar->setFormat("%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% (ETA: %remaining%)");
         $bar->setMessage('start', 'message');
         $bar->start();
+
         // Process in chunks by ID for consistency
         $baseQuery->orderBy('id')->chunkById($chunkSize, function ($records) use ($bar, &$count) {
             // Unique OV list in this chunk
@@ -60,7 +64,7 @@ class BaseOV extends Command
             $existingNotes = Note::whereIn('note', $ovList)->get()->keyBy('note');
 
             foreach ($ovList as $ov) {
-                $record = $records->firstWhere('OV', $ov);
+                $record   = $records->firstWhere('OV', $ov);
                 $existing = $existingNotes->get($ov);
 
                 // Determine if should update or create
@@ -69,10 +73,18 @@ class BaseOV extends Command
                     || $this->option('full')
                     || $this->option('force');
 
+
+
                 if (! $shouldUpdate) {
+                    $bar->setMessage($count['tins'], 'tins');
+                    $bar->setMessage($count['ins'], 'ins');
+                    $bar->setMessage($count['upd'], 'upd');
                     $bar->advance();
                     continue;
                 }
+
+
+
 
                 // Create historic entry if status changed
                 if ($existing && $existing->nstats != $record->numStat) {
@@ -120,17 +132,13 @@ class BaseOV extends Command
                     'type_note'     => 2,
                 ];
 
-                $model = Note::updateOrCreate(
-                    ['note' => $ov],
-                    $data
-                );
-
-                // Count operations
                 if ($existing) {
+                    $existing->update($data);
                     $count['upd']++;
                 } else {
-                    $count['ins']++;
+                    $model = Note::create(array_merge(['note' => $ov], $data));
                     $existingNotes->put($ov, $model);
+                    $count['ins']++;
                 }
 
                 // Advance progress

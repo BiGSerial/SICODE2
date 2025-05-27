@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Btzero;
 
 use App\Exports\SMC\Smcexport;
+use App\Exports\SMC\SmcListExport;
 use App\Models\Company;
 use App\Models\Note;
 use Livewire\Component;
@@ -30,7 +31,7 @@ class Listreports extends Component
 
     public function export_excel()
     {
-        return (new Smcexport($this->getListsProperty()->with('RamalForm', 'WorkForm')))->download(date('ymdhis').'-smc.xlsx');
+        return (new Smcexport($this->getListsProperty()->with('Note', 'Company, BtzeroEquipment', 'ReturnRamal')))->download(date('ymdhis').'-smc.xlsx');
     }
 
 
@@ -137,7 +138,9 @@ class Listreports extends Component
 
     public function render()
     {
-        return view('livewire.btzero.listreports', [
+        return view(
+            'livewire.btzero.listreports',
+            [
             'lists' => $this->lists->paginate(30)
             ]
         );

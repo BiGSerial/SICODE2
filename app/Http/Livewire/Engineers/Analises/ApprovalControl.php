@@ -6,6 +6,7 @@ use App\Exports\Responsible\Projeto\ControlExport;
 use App\Helpers\TextFormatter;
 use App\Models\File;
 use App\Models\Note;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -27,6 +28,11 @@ class ApprovalControl extends Component
     public $selected = [];
     public $select_all = false;
 
+    public $approvalDelete;
+
+    public $usersSelected = [];
+    public $userSearch = '';
+
     public $onlyFinished = false;
 
     private $filter_group = 'analises';
@@ -42,7 +48,10 @@ class ApprovalControl extends Component
         'update_list'  => '$refresh',
         'savedFiles',
         'confirm_approved',
+        'confirm_delete',
     ];
+
+
 
     public function buscarMulti()
     {
@@ -285,8 +294,14 @@ class ApprovalControl extends Component
 
         $query = Note::query();
 
+
+
         $query->whereHas('Approval', function ($q) {
             $q->where('approved', false);
+
+            if (count($this->usersSelected)) {
+                $q->whereIn('user_id', $this->usersSelected);
+            }
 
 
             if ($this->onlyFinished) {
@@ -364,11 +379,89 @@ class ApprovalControl extends Component
 
     }
 
+    public function getUsersProperty()
+    {
+        $query = User::query()->has('Approvals');
+
+        if (trim($this->userSearch)) {
+            $query->where('name', 'like', "%{$this->userSearch}%");
+        }
+
+        return $query->orderBy('name')->get();
+    }
+
+    public function applyUserFilter()
+    {
+        $this->usersSelected = array_unique($this->usersSelected);
+    }
+
+    public function clearUserFilter()
+    {
+        $this->usersSelected = [];
+    }
+
+    public function deleteApproval($id)
+    {
+        $note = Note::find($id);
+
+        if ($note->Approval()->exists()) {
+            $this->approvalDelete = $note->Approval;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Remover Aprovação',
+            'msg'           => "Você está prestes a remover a aprovação da nota <strong>{$note->note}</strong> do usuário <strong>{$this->approvalDelete->user->name}</strong>.
+                <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez removida essa aprovação ela não poderá ser revertida.</p>
+                <p class='fw-bold'>Deseja prosseguir?</p>
+                ",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Remova!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_delete',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma Aprovação foi removida.',
+        ]);
+    }
+
+    public function confirm_delete()
+    {
+        if ($this->approvalDelete) {
+            DB::beginTransaction();
+
+            try {
+                $this->approvalDelete->delete();
+            } catch (\Throwable $th) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'Erro ao remover Aprovação',
+                    'html'      => 'Erro: ' . $th->getMessage(),
+                    // 'timer'    => 2500,
+                ]);
+
+                DB::rollBack();
+
+                return;
+            }
+
+            DB::commit();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Aprovação removida com sucesso',
+                'timer'    => 2500,
+            ]);
+        }
+    }
 
     public function render()
     {
+
+
         return view('livewire.engineers.analises.approval-control', [
             'lists' => $this->lists->paginate(50),
+            'users'  => $this->users,
         ]);
     }
 }

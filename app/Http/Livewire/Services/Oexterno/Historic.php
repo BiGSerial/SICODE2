@@ -42,6 +42,17 @@ class Historic extends Component
 
     }
 
+    public function navigateTo($note)
+    {
+        return redirect()->to(
+            route('services.protocolNote', [
+                'service' => $this->service->uuid,
+                'note'    => $note,
+            ])
+        );
+    }
+
+
     public function getNotesProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {

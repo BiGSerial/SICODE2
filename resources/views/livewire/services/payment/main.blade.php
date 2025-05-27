@@ -217,31 +217,27 @@
                                     $block = true;
                                 }
 
-                                $partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : false;
-
-                                if ($partial && $partial->deny && !$list->WorkForm) {
-                                    $block = true;
-                                    continue;
-                                } elseif ($partial && !$partial->supervision && !$list->WorkForm) {
-                                    $block = true;
-                                    continue;
+                                if ($partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : null) {
+                                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
+                                        $partial = null;
+                                    }
+                                } else {
+                                    $partial = null;
                                 }
 
                                 $rowClass = '';
 
                                 if ($block) {
-                                    if ($partial && $partial->deny) {
+                                    if ($production->confirmed) {
                                         $rowClass = 'table-danger';
+                                    } elseif ($production->status == 1) {
+                                        $rowClass = 'table-danger';
+                                    } elseif ($production->status == 2) {
+                                        $rowClass = 'table-primary';
+                                    } elseif ($production->status == 5) {
+                                        $rowClass = 'table-success';
                                     } else {
-                                        if ($production->status == 1) {
-                                            $rowClass = 'table-danger';
-                                        } elseif ($production->status == 2) {
-                                            $rowClass = 'table-primary';
-                                        } elseif ($production->status == 5) {
-                                            $rowClass = 'table-success';
-                                        } else {
-                                            $rowClass = 'table-primary';
-                                        }
+                                        $rowClass = 'table-primary';
                                     }
                                 }
 

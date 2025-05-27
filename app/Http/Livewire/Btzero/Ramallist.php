@@ -2,6 +2,8 @@
 
 namespace App\Http\Livewire\Btzero;
 
+use App\Exports\SMC\Smcexport;
+use App\Exports\SMC\SmcListExport;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\RamalReport; // Ensure this model exists in your application
@@ -57,6 +59,11 @@ class Ramallist extends Component
 
     }
 
+    public function export_excel()
+    {
+        return (new SmcListExport($this->getListsProperty()->with('Note.WorkForm')))->download(date('ymd-his').'-SMC_HistoricList.xlsx');
+    }
+
     public function cleanAll()
     {
         $this->search = '';
@@ -94,10 +101,6 @@ class Ramallist extends Component
         }
 
         $query = RamalReport::Query();
-
-
-
-
 
 
         if (($this->date_in || $this->date_out)) {

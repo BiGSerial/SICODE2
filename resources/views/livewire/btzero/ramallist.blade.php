@@ -73,70 +73,128 @@
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row">
-
-                <div class="col-sm-4  col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="250">250</option>
-                        <option value="500">500</option>
-                    </select>
+            <div class="row g-3">
+                <!-- Per Page Select -->
+                <div class="col-sm-6 col-md-4 col-lg-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                        </select>
+                        <label for="perPageSelect">Registros por página</label>
+                    </div>
                 </div>
 
-                <div class="col-sm-8 col-md-2 col-xxl-2 mb-3">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                <!-- Search Input -->
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border border-secondary" id="searchInput"
+                            wire:model.debounce.2s="search" placeholder="Buscar">
+                        <label for="searchInput">Buscar</label>
+                    </div>
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <input type="date" id="date_in" class="form-control border border-secondary"
-                        wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Inicial">
+                <!-- Date Range -->
+                <div class="col-sm-6 col-md-4 col-lg-2">
+                    <div class="form-floating">
+                        <input type="date" id="date_in" class="form-control border border-secondary"
+                            wire:model="date_in" placeholder="Data Inicial">
+                        <label for="date_in">Data Inicial</label>
+                    </div>
                 </div>
 
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <input type="date" id="date_out" class="form-control border border-secondary"
-                        wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Final">
-                </div>
-                <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <select name="date_out" id="date_out" class="form-select border border-secondary"
-                        wire:model="informer" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title='Informado por'>
-                        <option value="">---</option>
-                        @if ($informers)
-                            @foreach ($informers as $informer)
-                                <option value="{{ $informer->id }}">{{ $informer->name }}</option>
-                            @endforeach
-
-                        @endif
-
-                    </select>
-                </div>
-                {{-- <div class="col-sm-4 col-md-2 col-xxl-1 mb-3">
-                    <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data por Coluna">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
-                    </select>
-                </div> --}}
-                <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button>
+                <div class="col-sm-6 col-md-4 col-lg-2">
+                    <div class="form-floating">
+                        <input type="date" id="date_out" class="form-control border border-secondary"
+                            wire:model="date_out" placeholder="Data Final">
+                        <label for="date_out">Data Final</label>
+                    </div>
                 </div>
 
-
-                <div class="col d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner_forms'], key('removeAll'))
+                <!-- Informer Select -->
+                <div class="col-sm-6 col-md-4 col-lg-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" wire:model="informer" id="informerSelect">
+                            <option value="">Selecione...</option>
+                            @if ($informers)
+                                @foreach ($informers as $informer)
+                                    <option value="{{ $informer->id }}">{{ $informer->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                        <label for="informerSelect">Informado por</label>
+                    </div>
                 </div>
 
+                <!-- Clear Button -->
+                <div class="col-sm-6 col-md-4 col-lg-1 d-flex align-items-center">
+                    <button class="btn btn-danger w-100" wire:click.prevent='cleanAll()' data-bs-toggle="tooltip"
+                        data-bs-placement="top" data-bs-title="Limpar Busca por Datas">
+                        <i class="ri-find-replace-line"></i>
+                    </button>
+                </div>
+
+                <!-- Filters -->
+                <div class="col-12 mt-3 d-flex flex-wrap gap-2 justify-content-end">
+                    @livewire(
+                        'components.filter.filter',
+                        [
+                            'myKey' => 'rubrica',
+                            'sendFilter' => '',
+                            'model' => 'App\Models\Note',
+                            'column' => 'rubrica',
+                            'filter' => 'Rubrica',
+                            'group_filter' => 'partner_forms',
+                            'values' => 'rubrica',
+                            'direction' => 'ASC',
+                            'query' => '',
+                        ],
+                        key('rubrica')
+                    )
+
+                    @livewire(
+                        'components.filter.filter',
+                        [
+                            'myKey' => 'region',
+                            'sendFilter' => 'city',
+                            'model' => 'App\Models\Edp_depc\City',
+                            'column' => 'regiao',
+                            'filter' => 'Regiao',
+                            'group_filter' => 'partner_forms',
+                            'values' => 'regiao',
+                            'direction' => 'ASC',
+                            'query' => '',
+                        ],
+                        key('region')
+                    )
+
+                    @livewire(
+                        'components.filter.filter',
+                        [
+                            'myKey' => 'city',
+                            'sendFilter' => '',
+                            'model' => 'App\Models\Edp_depc\City',
+                            'column' => 'cidade',
+                            'filter' => 'Municipio',
+                            'group_filter' => 'partner_forms',
+                            'values' => 'municipio',
+                            'direction' => 'ASC',
+                            'query' => '',
+                        ],
+                        key('city')
+                    )
+
+                    @livewire(
+                        'components.filter.remove-all',
+                        [
+                            'group_filter' => 'partner_forms',
+                        ],
+                        key('removeAll')
+                    )
+                </div>
             </div>
         </div>
     </div>
@@ -168,12 +226,12 @@
                     <div class="col">
                         <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">PATRIOMÔNIOS SMC INFORMADOS</h4>
                     </div>
-                    {{-- <div class="col-3 d-flex justify-content-end">
+                    <div class="col-3 d-flex justify-content-end">
 
                         <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
-                    </div> --}}
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">

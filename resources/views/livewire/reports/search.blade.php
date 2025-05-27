@@ -638,7 +638,7 @@
                                         @endif
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->RamalForm?->ReturnRamal?->last()->created_at
+                                        {{ $lists->RamalForm?->ReturnRamal?->last()?->created_at
                                             ? date('d/m/Y', strtotime($lists->RamalForm?->ReturnRamal?->last()?->created_at))
                                             : '---' }}
                                     </td>

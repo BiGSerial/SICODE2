@@ -221,7 +221,11 @@
                             @php
 
                                 $daysleft = (new DaysLeft($list))->getDaysLeft();
-                                $getLastMovement = $list->externals?->sortbydesc('updated_at')->first()?->updated_at;
+                                $getLastMovement = $list->externals
+                                    ?->sortbydesc('updated_at')
+                                    ->first()
+                                    ?->Comments?->sortbydesc('updated_at')
+                                    ->first()?->created_at;
 
                             @endphp
                             {{-- @dump($list->Productions) --}}

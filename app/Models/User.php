@@ -103,4 +103,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ServiceUser::class);
     }
+
+    public function Approvals()
+    {
+        return $this->hasMany(ViabilityApproval::class);
+    }
 }

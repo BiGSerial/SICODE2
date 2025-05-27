@@ -42,4 +42,5 @@ class Comment extends Model
     {
         return $this->belongsToMany(Reclaim::class);
     }
+
 }

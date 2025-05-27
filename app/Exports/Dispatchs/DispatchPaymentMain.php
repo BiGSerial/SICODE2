@@ -73,6 +73,8 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $company = $list->WorkForm?->Company->name;
             $date_info = $list->WorkForm?->informed_at;
             $pagamento = Carbon::parse($list->fimLancado);
+
+
         } elseif ($list->Partials->count() > 0) {
             $type = 'PARCIAL';
             $order = $list->Partials?->last()->Orders;
@@ -86,10 +88,18 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $date_info = null;
             $pagamento = null;
         }
+        $lastProd = $list->Productions->where('service_id', $this->service)->last();
 
+        if ($lastProd) {
+            if ($type == 'TOTAL' && $lastProd->partial) {
+                $lastProd = false;
+            } elseif ($type == 'PARCIAL' && $list->WorkForm) {
+                $lastProd = false;
+            }
+        }
 
         $ops = $order?->first()->Operations ?? collect();
-        $lastProd = $list->Productions->where('service_id', $this->service)->last();
+
 
         return [
             $list->note,
@@ -177,6 +187,14 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
                 $sheet->getStyle("A2:Q{$highestRow}")
                       ->getAlignment()
                       ->setWrapText(true);
+
+                // Format column A (Note) and C (Ordem) as numbers without decimals
+                $sheet->getStyle("A2:A{$highestRow}")
+                      ->getNumberFormat()
+                      ->setFormatCode('#');
+                $sheet->getStyle("C2:C{$highestRow}")
+                      ->getNumberFormat()
+                      ->setFormatCode('#');
             },
         ];
     }

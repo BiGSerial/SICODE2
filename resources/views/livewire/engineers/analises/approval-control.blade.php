@@ -8,62 +8,172 @@
     <x-show-loading />
     <x-showselected :count="$selected" />
 
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <!-- Campo de busca com botão e tooltip -->
-        <div class="input-group me-3">
-            <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar"
-                wire:model.debounce.1s="search">
-            <span data-bs-toggle="tooltip" data-bs-trigger="hover" data-bs-placement="top" data-bs-content="Multinotas">
+    <div class="container-fluid mb-4">
+        <div class="d-flex flex-wrap align-items-center filter-row" style="gap: .5rem;">
+
+            <!-- 1) Buscar + Multinotas -->
+            <div class="input-group flex-grow-1 flex-shrink-1" style="min-width: 200px; max-width: 600px;">
+                <input type="text" class="form-control" placeholder="Buscar..." wire:model.debounce.1s="search">
                 <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
                     data-bs-target="#modal_multi_notas" title="Multinotas">
                     <i class="ri-checkbox-multiple-blank-fill"></i>
                 </button>
-            </span>
-        </div>
+            </div>
 
-        <!-- Botão de filtro para somente finalizados -->
-        <div class="me-3">
-            <button type="button" class="btn {{ $onlyFinished ? 'btn-success' : 'btn-outline-success' }}"
+            <!-- 2) Finalizados -->
+            <button type="button" class="btn {{ $onlyFinished ? 'btn-success' : 'btn-outline-success' }} flex-shrink-0"
                 wire:click="$toggle('onlyFinished')"
                 title="{{ $onlyFinished ? 'Mostrar todos' : 'Mostrar somente finalizados' }}">
-
                 Finalizados
             </button>
-        </div>
 
-        <!-- Botões do tipo radio para seleção individual -->
-        <div class="btn-group me-3" role="group" aria-label="Seleção de Opções">
-            <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
-                wire:model="typeNote" value="1">
-            <label class="btn btn-outline-primary" for="nota">Nota</label>
+            <!-- 3) Tipo de Nota (radio) -->
+            <div class="btn-group flex-shrink-0" role="group">
+                <input type="radio" class="btn-check" name="tipo" id="nota" wire:model="typeNote"
+                    value="1">
+                <label class="btn btn-outline-primary" for="nota">Nota</label>
 
-            <input type="radio" class="btn-check" name="selecao" id="ov" autocomplete="off"
-                wire:model="typeNote" value="2">
-            <label class="btn btn-outline-primary" for="ov">Ov</label>
+                <input type="radio" class="btn-check" name="tipo" id="ov" wire:model="typeNote"
+                    value="2">
+                <label class="btn btn-outline-primary" for="ov">Ov</label>
 
-            <input type="radio" class="btn-check" name="selecao" id="ambas" autocomplete="off"
-                wire:model="typeNote" value="">
-            <label class="btn btn-outline-primary" for="ambas">Ambas</label>
-        </div>
+                <input type="radio" class="btn-check" name="tipo" id="ambas" wire:model="typeNote"
+                    value="">
+                <label class="btn btn-outline-primary" for="ambas">Ambas</label>
+            </div>
 
-        <!-- Quatro botões alinhados -->
-        {{-- <div class="btn-group" role="group" aria-label="Ações">
-            @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
-        </div> --}}
-        <div class="btn-group" role="group" aria-label="Ações">
-            @livewire('components.filter.filter', ['myKey' => 'operacao', 'sendFilter' => '', 'model' => 'App\Models\Operation', 'column' => 'cenTrab', 'filter' => 'Empreiteira', 'group_filter' => 'analises', 'values' => 'cenTrab', 'direction' => 'ASC', 'query' => "operacao = '0010'"], key('operacao'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            {{-- @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional')) --}}
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
+            <!-- 4) Filtros Livewire + Limpar -->
+            <div class="d-flex flex-wrap align-items-center controls flex-shrink-1" style="gap: .5rem;">
+                <!-- cada filtro é só um dropdown-button -->
+                @livewire(
+                    'components.filter.filter',
+                    [
+                        'myKey' => 'operacao',
+                        'sendFilter' => '',
+                        'model' => 'App\Models\Operation',
+                        'column' => 'cenTrab',
+                        'filter' => 'Empreiteira',
+                        'group_filter' => 'analises',
+                        'values' => 'cenTrab',
+                        'direction' => 'ASC',
+                        'query' => "operacao = '0010'",
+                    ],
+                    key('operacao')
+                )
+
+                @livewire(
+                    'components.filter.filter',
+                    [
+                        'myKey' => 'rubrica',
+                        'sendFilter' => '',
+                        'model' => 'App\Models\Note',
+                        'column' => 'rubrica',
+                        'filter' => 'Rubrica',
+                        'group_filter' => 'analises',
+                        'values' => 'rubrica',
+                        'direction' => 'ASC',
+                        'query' => '',
+                    ],
+                    key('rubrica')
+                )
+
+                @livewire(
+                    'components.filter.filter',
+                    [
+                        'myKey' => 'region',
+                        'sendFilter' => 'city',
+                        'model' => 'App\Models\Edp_depc\City',
+                        'column' => 'baseConstrucao',
+                        'filter' => 'Região',
+                        'group_filter' => 'analises',
+                        'values' => 'baseConstrucao',
+                        'direction' => 'ASC',
+                        'query' => '',
+                    ],
+                    key('region')
+                )
+
+                @livewire(
+                    'components.filter.filter',
+                    [
+                        'myKey' => 'city',
+                        'sendFilter' => '',
+                        'model' => 'App\Models\Edp_depc\City',
+                        'column' => 'cidade',
+                        'filter' => 'Município',
+                        'group_filter' => 'analises',
+                        'values' => 'cidade',
+                        'direction' => 'ASC',
+                        'query' => '',
+                    ],
+                    key('city')
+                )
+
+                <!-- seu dropdown “Mais Filtros” -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        Usuarios
+                        @if ($usersSelected)
+                            <span class="badge text-bg-secondary">{{ count($usersSelected) }}</span>
+                        @endif
+
+
+                    </button>
+                    <div class="dropdown-menu p-0" style="min-width: 220px;" wire:ignore.self>
+                        <!-- Fixed Search Input -->
+                        <div class="p-2 border-bottom">
+                            <input type="text" class="form-control" id="filterSearch" placeholder="Buscar filtros..."
+                                wire:model.debounce.1s="userSearch">
+                        </div>
+
+                        <!-- Scrollable Content -->
+                        <div style="max-height: 300px; overflow-y: auto; scrollbar-width: thin;" class="p-2">
+                            @if ($users)
+                                @foreach ($users as $theUser)
+                                    <div class="form-check mb-2" wire:key='user-{{ $theUser->id }}'>
+                                        <input class="form-check-input border-primary" type="checkbox" id="filter1"
+                                            wire:model.defer="usersSelected" value="{{ $theUser->id }}">
+                                        @php
+                                            $name = explode(' ', $theUser->name);
+                                            $name = $name[0] . ' ' . end($name);
+                                        @endphp
+                                        <label class="form-check-label" for="filter1">{{ $name }}</label>
+                                    </div>
+                                @endforeach
+                            @endif
+                        </div>
+
+                        <!-- Fixed Buttons -->
+                        <div class="p-2 border-top d-flex gap-2">
+                            <button class="btn btn-primary btn-sm flex-grow-1"
+                                wire:click="applyUserFilter">Aplicar</button>
+                            <button class="btn btn-danger btn-sm flex-grow-1"
+                                wire:click="clearUserFilter">Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- botão Limpar Todos -->
+                @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
+            </div>
+
         </div>
     </div>
+
+
+
+
+    @push('scripts')
+        <script>
+            document.getElementById('filterSearch').addEventListener('keyup', function() {
+                const searchText = this.value.toLowerCase();
+                document.querySelectorAll('.form-check').forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    item.style.display = text.includes(searchText) ? '' : 'none';
+                });
+            });
+        </script>
+    @endpush
 
     @if ($lists->isNotEmpty())
         <div class="d-flex justify-content-between align-items-center mt-3">
@@ -257,29 +367,18 @@
                                     @endif
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{-- <span wire:loading wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-loader-line text-success fs-4 fw-bold animate-spin"
-                                            style="cursor: not-allowed;"></i>
-                                    </span>
-                                    <span wire:loading.remove wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-checkbox-circle-line text-success fs-4 fw-bold"
-                                            wire:click.debounce.500ms.prevent="onlySelected({{ $list->id }})"
-                                            style="cursor: pointer;"></i>
-                                    </span>
-                                    <span wire:loading wire:target="onlySelected({{ $list->id }})">
-                                        <i class="ri-loader-line text-danger fs-4 fw-bold animate-spin"
-                                            style="cursor: not-allowed;"></i>
-                                    </span>
-                                    <span>
-                                        <i class="ri-close-circle-line text-danger fs-4 fw-bold"
-                                            wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
-                                            style="cursor: pointer;"></i>
-                                    </span> --}}
-                                    <span>
-                                        <i class="ri-play-circle-line text-success fs-4 fw-bold"
-                                            wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
-                                            style="cursor: pointer;"></i>
-                                    </span>
+                                    <div class="row">
+                                        <span>
+                                            <i class="ri-play-circle-line text-success fs-4 fw-bold"
+                                                wire:click.bounced.500ms.prevent="$emitTo('responsible.actions.reject-project', 'getInfoResponse', {{ $list->id }})"
+                                                style="cursor: pointer;"></i>
+                                        </span>
+                                        <span>
+                                            <i class="ri-delete-bin-line text-danger fs-4 fw-bold"
+                                                wire:click.bounced.500ms.prevent="deleteApproval({{ $list->id }})"
+                                                style="cursor: pointer;"></i>
+                                        </span>
+                                    </div>
                                 </td>
 
                             </tr>

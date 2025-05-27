@@ -620,10 +620,31 @@ class Main extends Component
         $query = $this->noteFilter->filter($this->search, $this->filter_group);
 
         if ($this->not_assigned && isset($this->service)) {
-            $query->whereDoesntHave('Productions', function ($sq) {
-                $sq->where('service_id', $this->service->uuid);
+            $query->where(function ($q) {
+
+
+                $q->whereDoesntHave('Productions', function ($q2) {
+                    $q2->where('service_id', $this->service->uuid);
+
+                })
+                
+                ->orWhereHas('Productions', function ($q2) {
+                    $q2->where('service_id', $this->service->uuid)
+                        ->where(function ($q3) {
+                            $q3->whereHas('Note.Partials')
+                                ->whereHas('Note.latestProduction', function ($q4) {
+                                    $q4->where('partial', false);
+                                });
+                        });
+                })
+                ->whereDoesntHave('latestProduction', function ($q2) {
+                    $q2->where('service_id', $this->service->uuid)
+                        ->where('completed', false);
+                });
+
             });
         }
+
 
         if ($this->multiSearch) {
             $query->when($this->multiSearch, function ($q) {

@@ -67,6 +67,12 @@ class Main extends Component
         );
     }
 
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
@@ -246,6 +252,9 @@ class Main extends Component
         }
         $this->filter = session("filter.{$this->filter_group}", []);
 
+
+
+
         $query = Note::query();
 
         // RuleBuilder::applyRules($query, $this->service->Status);
@@ -270,11 +279,9 @@ class Main extends Component
         });
 
         $query->when($this->search, function ($q) {
-
-
             $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
-                   ? str_replace('*', '%', $this->search)
-                   : $this->search;
+                ? str_replace('*', '%', $this->search)
+                : $this->search;
 
             if (str_contains($wildcard, '%')) {
                 $type = 'like';
@@ -286,9 +293,13 @@ class Main extends Component
                 $query->where('note', $type, $wildcard)
                     ->orWhere('material', $type, $wildcard)
                     ->orWhere('numPedido', $type, $wildcard)
-                    ->orWhere('group2', $type, $wildcard);
+                    ->orWhere('group2', $type, $wildcard)
+                    ->orWhereHas('Externals.Protocols', function ($q) use ($wildcard, $type) {
+                        $q->where('protocol', $type, $wildcard);
+                    });
             });
         });
+
 
         if ($this->typeNote) {
             $query->where('type_note', $this->typeNote);
@@ -305,8 +316,17 @@ class Main extends Component
         }
 
 
+        if (isset($this->filter['entities']) && count($this->filter['entities'])) {
+
+            $query->whereHas('externals', function ($q) {
+                $q->whereIn('entity_id', $this->filter['entities']);
+            });
+        }
+
+
         $query->with('Productions.User')
-        ->orderBy('dt_status');
+         ->orderBy('dt_created');
+
 
         return $query;
 

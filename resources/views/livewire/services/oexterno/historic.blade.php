@@ -119,8 +119,8 @@
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
-                            <tr class="align-middle"
-                                wire:dblclick="$emitTo('services.oexterno.actions.protocols', 'openProtocol', {{ $list }})">
+                            <tr class="align-middle" wire:dblclick="navigateTo('{{ $list->note }}')"
+                                wire:key='hist-{{ $list->id }}'>
 
                                 <td class="fw-light text-center">{{ $list->externals->first()?->user?->name }}</td>
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">

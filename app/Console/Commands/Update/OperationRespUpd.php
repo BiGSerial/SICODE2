@@ -31,7 +31,7 @@ class OperationRespUpd extends Command
     public function handle()
     {
         $operation = BaseOperationResp::where("operacao", "0040")
-        ->where('confFinal', '!=', 'X')
+        // ->where('confFinal', '!=', 'X')
         // ->where('fimLancado', '>=', Carbon::now()->subDays(7))
         ->orderBy('fimLancado', 'desc')
         ->count();
@@ -53,7 +53,7 @@ class OperationRespUpd extends Command
 
             $progressbar->start();
 
-            BaseOperationResp::where("operacao", "0040")->where('confFinal', '!=', 'X')->orderBy('fimLancado', 'asc')
+            BaseOperationResp::where("operacao", "0040")->orderBy('fimLancado', 'asc')
                 ->chunk(500, function ($operations) use (&$count, &$progressbar, &$log) {
 
                     $orders = Order::whereIn('ordem', $operations->pluck('ordem')->unique()->toArray())->get();

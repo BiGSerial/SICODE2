@@ -69,6 +69,11 @@ class Main extends Component
         );
     }
 
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
     public function exportToExcel()
     {
         $this->dispatchBrowserEvent('swal', [
@@ -168,11 +173,25 @@ class Main extends Component
         });
 
         $query->when($this->search, function ($q, $s) {
-            return $q->where(function ($query) use ($s) {
+
+            $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
+                ? str_replace('*', '%', $this->search)
+                : $this->search;
+
+            if (str_contains($wildcard, '%')) {
+                $type = 'like';
+            } else {
+                $type = '=';
+            }
+
+            return $q->where(function ($query) use ($s, $wildcard, $type) {
                 $query->where('note', 'like', '%' . $s . '%')
                     ->orWhere('material', 'like', '%' . $s . '%')
                     ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%');
+                    ->orWhere('group2', 'like', '%' . $s . '%')
+                    ->orWhereHas('Externals.Protocols', function ($q) use ($wildcard, $type) {
+                        $q->where('protocol', $type, $wildcard);
+                    });
             });
         });
 
@@ -191,13 +210,14 @@ class Main extends Component
 
         if (isset($this->filter['entities']) && count($this->filter['entities'])) {
 
-            $query->whereRelation('externals', function ($q) {
+
+            $query->whereHas('externals', function ($q) {
                 $q->whereIn('entity_id', $this->filter['entities']);
             });
         }
 
         $query->with('externals.protocols', 'externals.comments')
-            ->orderBy('dt_status');
+            ->orderBy('dt_created');
 
         return $query;
     }

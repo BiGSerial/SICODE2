@@ -59,27 +59,23 @@ class BaseEP extends Command
 
         // Process in ID-based chunks
         $baseQuery->orderBy('id')->chunkById($chunkSize, function ($records) use ($bar, &$count) {
-            // Unique list of notas
             $notas = $records->pluck('nota')->unique()->values();
-            // Preload existing notes
-            $existingNotes = Note::whereIn('note', $notas)
-                                 ->get()
-                                 ->keyBy('note');
+            $existingNotes = Note::whereIn('note', $notas)->get()->keyBy('note');
 
             foreach ($notas as $nota) {
                 $record   = $records->firstWhere('nota', $nota);
                 $existing = $existingNotes->get($nota);
 
-                // Determine if update or create, comparing dt_created via Carbon parse
+                // Verifica se é necessário atualizar ou criar
                 $modified = is_null($existing)
                     || $this->option('full')
                     || $existing->created_by   !== $record->criadoPor
                     || Carbon::parse($existing->dt_created)->toDateString() !== Carbon::parse($record->dtNota)->toDateString()
                     || $existing->user         !== $record->notificador
                     || $existing->numPedido    !== $record->descricao
-                    || $existing->pze           != $record->PzE
-                    || $existing->num_material !== $record->conjunto
-                    || $existing->material     !== $record->denomConjunto
+                    || $existing->pze           != ($record->PzE ?: null)
+                    || $existing->num_material !== ($record->conjunto ?: null)
+                    || $existing->material     !== ($record->denomConjunto ?: null)
                     || $existing->nstats       != $record->statusUsuario
                     || $existing->status       != $record->status
                     || $existing->centerjob    !== $record->cenTrabResp;
@@ -89,14 +85,14 @@ class BaseEP extends Command
                     continue;
                 }
 
-                // Fetch city info once
+                // Busca dados de cidade
                 $city = Gpm::firstWhere('gpm', $record->grpPlan);
 
-                // Prepare data payload, casting empty numeric fields to null
+                // Prepara payload
                 $data = [
                     'created_by'   => $record->criadoPor,
                     'dt_created'   => "{$record->dtNota} 00:00:00",
-                    'dt_status'    => $modified && $existing ? now() : ($existing->dt_status ?? now()),
+                    'dt_status'    => $existing ? now() : ($existing->dt_status ?? now()),
                     'user'         => $record->notificador,
                     'numPedido'    => $record->descricao,
                     'pze'          => $record->PzE !== '' ? $record->PzE : null,
@@ -113,18 +109,13 @@ class BaseEP extends Command
                     'txpriority'   => $record->txtPrioridade,
                 ];
 
-                // Upsert
-                $model = Note::updateOrCreate(
-                    ['note' => $nota],
-                    $data
-                );
-
-                // Count
                 if ($existing) {
+                    $existing->update($data);
                     $count['upd']++;
                 } else {
-                    $count['ins']++;
+                    $model = Note::create(array_merge(['note' => $nota], $data));
                     $existingNotes->put($nota, $model);
+                    $count['ins']++;
                 }
 
                 $bar->setMessage($count['tins'], 'tins');
@@ -136,7 +127,7 @@ class BaseEP extends Command
             $count['tins']++;
         });
 
-        // Mark stale type_note=1 records as canceled
+        // Marca notas antigas como canceladas
         $stale = Carbon::now()->subDay();
         $cancelCount = Note::where('type_note', 1)
             ->where('updated_at', '<', $stale)
@@ -144,7 +135,7 @@ class BaseEP extends Command
 
         $this->info("NOTAS CANCELADAS: {$cancelCount}");
 
-        // Log results
+        // Finaliza log
         $bar->finish();
         $log->setCreated($count['ins']);
         $log->setUpdated($count['upd']);

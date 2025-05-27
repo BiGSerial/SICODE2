@@ -50,6 +50,8 @@ class Note extends Model
         'postes',
         'mesalization',
         'txpriority',
+        'updated_at',
+        'created_at',
     ];
 
 
@@ -65,6 +67,11 @@ class Note extends Model
     public function Productions()
     {
         return $this->hasMany(Production::class);
+    }
+
+    public function latestProduction()
+    {
+        return $this->hasOne(Production::class)->latestOfMany('created_at');
     }
 
     public function Historic()

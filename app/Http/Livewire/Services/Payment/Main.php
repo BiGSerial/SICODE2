@@ -288,32 +288,64 @@ class Main extends Component
         $query = $this->noteFilter->filter($this->search, $this->filter_group);
 
         if ($this->not_assigned && isset($this->service)) {
-            $query->whereDoesntHave('Productions', function ($sq) {
-                $sq->where('service_id', $this->service->uuid);
+            $query->where(function ($q) {
+
+
+                $q->whereDoesntHave('Productions', function ($q2) {
+                    $q2->where('service_id', $this->service->uuid);
+
+                })
+
+                ->orWhereHas('Productions', function ($q2) {
+                    $q2->where('service_id', $this->service->uuid)
+                        ->where(function ($q3) {
+                            $q3->whereHas('Note.Partials')
+                                ->whereHas('Note.latestProduction', function ($q4) {
+                                    $q4->where('partial', false);
+                                });
+                        });
+                })
+
+                ->whereDoesntHave('latestProduction', function ($q2) {
+                    $q2->where('service_id', $this->service->uuid)
+                        ->where('completed', false);
+                });
+
             });
         }
 
-        $query->when($this->multiSearch, function ($q) {
-            $q->whereIn('note', $this->multiSearch)
-            ->orWhereRelation('Orders', function ($q) {
-                $q->whereIn('ordem', $this->multiSearch);
+
+        if ($this->multiSearch) {
+            $query->when($this->multiSearch, function ($q) {
+                $q->whereIn('note', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });
             });
-        })
-        ->when($this->typeNote, function ($q) {
+        } else {
+            $query->when($this->search, function ($q) {
+                $q->where('note', 'like', '%' . $this->search . '%')
+                    ->orWhereRelation('Orders', function ($q) {
+                        $q->where('ordem', 'like', '%' . $this->search . '%');
+                    });
+            });
+        }
+
+
+        $query->when($this->typeNote, function ($q) {
             $q->where('type_note', $this->typeNote);
         })
-
         ->with(['WorkForm' => function ($q) {
             $q->orderBy('informed_at', 'asc');
         }]);
 
-        // Get latest partial info including deny status
-        $latestPartialsSubquery = DB::table('partials')
-            ->select('note_id',
-                    DB::raw('MAX(id) as latest_partial_id'),
+        // Realizando o join com `work_reports` e `orders` e somando `moaberto`
+        $query->leftJoin('work_reports', 'notes.id', '=', 'work_reports.note_id')
+        ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
+        ->leftJoinSub(
             DB::table('operation_resps')
-            ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
-            ->groupBy('note_id'),
+                ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
+                ->groupBy('note_id'),
             'latest_operation_resps',
             'notes.id',
             '=',
@@ -325,7 +357,6 @@ class Main extends Component
             ->where('allow', true)
             ->where('deny', false)
             ->where('supervision', true)
-            ->where('payment', false)
             ->groupBy('note_id'),
             'latest_partials',
             'notes.id',
@@ -345,6 +376,19 @@ class Main extends Component
             'latest_operation_resps.latest_fimLancado as fimLancado',
             DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END as has_partials'),
         )
+        ->groupBy(
+            'notes.id',
+            'work_reports.created_at',
+            'notes.note',
+            'notes.lexp',
+            'notes.nstats',
+            'notes.rubrica',
+            'notes.centerjob',
+            'notes.mesalization',
+            'notes.days_left',
+            'notes.type_note',
+            'fimLancado'
+        )
         ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado', 'has_partials')
         ->orderBy('has_partials', 'desc')
         ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
@@ -354,8 +398,7 @@ class Main extends Component
         // Debugando o resultado para checar a consulta
         // dd($query->paginate(5));
 
-        return $query->paginate($this->perPage);
-
+        return $query;
     }
 
     // Rules Days Left
@@ -379,7 +422,7 @@ class Main extends Component
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
         return view('livewire.services.payment.main', [
-            'lists'  => $this->lists,
+            'lists'  => $this->lists->paginate($this->perPage),
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }

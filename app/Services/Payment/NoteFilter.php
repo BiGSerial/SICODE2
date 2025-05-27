@@ -56,7 +56,8 @@ class NoteFilter
                 });
             })->orWhere(function ($sq) {
                 $sq->whereHas('Partials', function ($q2) {
-                    $q2->where('supervision', true)
+                    $q2->where('deny', false)
+                        ->where('supervision', true)
                         ->where('payment', false);
                     $q2->when(isset($this->filters['company']), function ($sq) {
                         return $sq->where(function ($query) {
