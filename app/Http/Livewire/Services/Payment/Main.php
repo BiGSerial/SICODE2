@@ -390,9 +390,9 @@ class Main extends Component
             'fimLancado'
         )
         ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado', 'has_partials')
-        ->orderBy('has_partials', 'desc')
-        ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
-        ->orderBy('fimLancado', 'asc')
+        // ->orderBy('has_partials', 'desc')
+        // ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
+        ->orderBy('fimLancado', 'DESC')
         ->orderBy('total_moaberto', 'desc');
 
         // Debugando o resultado para checar a consulta
