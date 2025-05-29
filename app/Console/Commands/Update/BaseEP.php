@@ -34,6 +34,8 @@ class BaseEP extends Command
         $daysAgo = Carbon::now()->subDays($this->option('days'));
         $chunkSize = $this->option('full') ? 1000 : 500;
 
+
+
         $log = new RegistroJson('upd_baseEP', $this->options());
         $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
 

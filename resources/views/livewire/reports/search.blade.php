@@ -33,6 +33,8 @@
         </div>
     </div>
 
+
+
     @if ($lists)
         {{-- Dados da Nota --}}
         <div class="card border-0 mt-4 shadow edp-bg-sprucegreen-70 edp-text-verde-dark">
@@ -179,9 +181,7 @@
                                 <div>
                                     @can('admin')
                                         <button class="btn btn-sm btn-primary"
-                                            wire:click.prevent="
-                                                $emitTo('files.manager.createfiles','createFile',{{ $lists }})
-                                            ">
+                                            wire:click.prevent="$emitTo('files.manager.createfiles','createFile',{{ $lists }})">
                                             <i class="ri-chat-new-fill fs-5 align-middle"></i>
                                         </button>
                                         <button class="btn btn-sm btn-primary" wire:click="$emit('update_list')">
@@ -276,23 +276,11 @@
                                                                             @can('admin')
                                                                                 <i class="ri-pencil-fill text-primary fs-5"
                                                                                     style="cursor:pointer;"
-                                                                                    wire:click.prevent="
-                                                                                        $emitTo(
-                                                                                            'files.manager.fileedit',
-                                                                                            'editFile',
-                                                                                            {{ $file }}
-                                                                                        )
-                                                                                    ">
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit','editFile',{{ $file }}) ">
                                                                                 </i>
                                                                                 <i class="ri-delete-bin-2-line text-danger fs-5"
                                                                                     style="cursor:pointer;"
-                                                                                    wire:click.prevent="
-                                                                                        $emitTo(
-                                                                                            'files.manager.fileedit',
-                                                                                            'deleteFile',
-                                                                                            {{ $file }}
-                                                                                        )
-                                                                                    ">
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $file }})">
                                                                                 </i>
                                                                             @endcan
                                                                         </td>
@@ -398,14 +386,21 @@
                                         {{ $p->Service?->service ?? 'Desconhecido' }}
                                     </td>
                                     <td>{{ $p->status_note }}</td>
-                                    <td>{{ $p->User?->name ?? 'Desconhecido' }}</td>
+                                    <td>
+                                        @if ($p->User->email)
+                                            <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                style="cursor:pointer"
+                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $p->User->email }}', '_blank')">
+                                            </i>
+                                        @endif
+                                        {{ $p->User?->name ?? 'Desconhecido' }}
+
+                                    </td>
                                     <td>{{ $p->Company?->name ?? 'Desconhecido' }}</td>
                                     <td>
                                         <span class="badge {{ Notestatus::status($p->status)->colorbg }}"
                                             style="cursor:pointer;"
-                                            wire:click.prevent="
-                                                $emitTo('components.status.show-status',
-                                                         'showStatus', {{ $p }}, {{ $p->status }})
+                                            wire:click.prevent="$emitTo('components.status.show-status','showStatus', {{ $p }}, {{ $p->status }})
                                             ">
                                             {{ Notestatus::status($p->status)->status }}
                                         </span>
@@ -495,7 +490,15 @@
                                             </p>
                                         @endforeach
                                     </td>
-                                    <td class="align-middle">{{ $v->User->name }}</td>
+                                    <td class="align-middle">
+                                        @if ($v->User->email)
+                                            <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                style="cursor:pointer"
+                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $v->User->email }}', '_blank')">
+                                            </i>
+                                        @endif
+                                        {{ $v->User->name }}
+                                    </td>
                                     <td class="align-middle">{{ $v->hired ? 'SIM' : 'NÃO' }}</td>
                                     <td class="align-middle">{{ $v->tacit ? 'SIM' : 'NÃO' }}</td>
                                     <td class="align-middle">
@@ -624,13 +627,7 @@
                                     <td class="text-center align-middle">
                                         @if ($lists->RamalForm?->ReturnRamal?->count())
                                             <span class="badge bg-warning fw-bold" style="cursor:pointer;"
-                                                wire:click.prevent="
-                                                  $emitTo(
-                                                     'components.ramalform.view-reason-return',
-                                                     'ramalReturnViews',
-                                                     {{ $lists->RamalForm }}
-                                                  )
-                                                ">
+                                                wire:click.prevent="$emitTo('components.workform.view-reason-return', 'workReturnViews', {{ $lists->WorkForm }})">
                                                 {{ $lists->RamalForm?->ReturnRamal?->count() }}
                                             </span>
                                         @else
@@ -688,13 +685,7 @@
                                     <td class="text-center align-middle">
                                         @if ($lists->WorkForm->Returnwork->count())
                                             <span class="badge bg-warning fw-bold" style="cursor:pointer;"
-                                                wire:click.prevent="
-                                                  $emitTo(
-                                                    'components.workform.view-reason-return',
-                                                    'workReturnViews',
-                                                    {{ $lists->WorkForm }}
-                                                  )
-                                                ">
+                                                wire:click.prevent="$emitTo('components.workform.view-reason-return', 'workReturnViews', {{ $lists->WorkForm }})">
                                                 {{ $lists->WorkForm?->Returnwork?->count() }}
                                             </span>
                                         @else
