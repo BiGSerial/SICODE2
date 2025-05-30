@@ -179,9 +179,7 @@
                                 <div>
                                     @can('admin')
                                         <button class="btn btn-sm btn-primary"
-                                            wire:click.prevent="
-                                                $emitTo('files.manager.createfiles','createFile',{{ $lists }})
-                                            ">
+                                            wire:click.prevent="$emitTo('files.manager.createfiles', 'createFile', {{ $lists }})">
                                             <i class="ri-chat-new-fill fs-5 align-middle"></i>
                                         </button>
                                         <button class="btn btn-sm btn-primary" wire:click="$emit('update_list')">
@@ -276,23 +274,11 @@
                                                                             @can('admin')
                                                                                 <i class="ri-pencil-fill text-primary fs-5"
                                                                                     style="cursor:pointer;"
-                                                                                    wire:click.prevent="
-                                                                                        $emitTo(
-                                                                                            'files.manager.fileedit',
-                                                                                            'editFile',
-                                                                                            {{ $file }}
-                                                                                        )
-                                                                                    ">
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit', 'editFile', {{ $file }})">
                                                                                 </i>
                                                                                 <i class="ri-delete-bin-2-line text-danger fs-5"
                                                                                     style="cursor:pointer;"
-                                                                                    wire:click.prevent="
-                                                                                        $emitTo(
-                                                                                            'files.manager.fileedit',
-                                                                                            'deleteFile',
-                                                                                            {{ $file }}
-                                                                                        )
-                                                                                    ">
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $file }})">
                                                                                 </i>
                                                                             @endcan
                                                                         </td>
@@ -403,9 +389,7 @@
                                     <td>
                                         <span class="badge {{ Notestatus::status($p->status)->colorbg }}"
                                             style="cursor:pointer;"
-                                            wire:click.prevent="
-                                                $emitTo('components.status.show-status',
-                                                         'showStatus', {{ $p }}, {{ $p->status }})
+                                            wire:click.prevent="$emitTo('components.status.show-status', 'showStatus', {{ $p->id }}, {{ $p->status }})"
                                             ">
                                             {{ Notestatus::status($p->status)->status }}
                                         </span>
@@ -624,13 +608,7 @@
                                     <td class="text-center align-middle">
                                         @if ($lists->RamalForm?->ReturnRamal?->count())
                                             <span class="badge bg-warning fw-bold" style="cursor:pointer;"
-                                                wire:click.prevent="
-                                                  $emitTo(
-                                                     'components.ramalform.view-reason-return',
-                                                     'ramalReturnViews',
-                                                     {{ $lists->RamalForm }}
-                                                  )
-                                                ">
+                                                wire:click.prevent="$emitTo('components.ramalform.view-reason-return', 'ramalReturnViews', {{ $lists->RamalForm->id }})">
                                                 {{ $lists->RamalForm?->ReturnRamal?->count() }}
                                             </span>
                                         @else
@@ -688,14 +666,8 @@
                                     <td class="text-center align-middle">
                                         @if ($lists->WorkForm->Returnwork->count())
                                             <span class="badge bg-warning fw-bold" style="cursor:pointer;"
-                                                wire:click.prevent="
-                                                  $emitTo(
-                                                    'components.workform.view-reason-return',
-                                                    'workReturnViews',
-                                                    {{ $lists->WorkForm }}
-                                                  )
-                                                ">
-                                                {{ $lists->WorkForm?->Returnwork?->count() }}
+                                                wire:click.prevent="$emitTo('components.workform.view-reason-return', 'workReturnViews', {{ $lists->WorkForm->id }})">
+                                                {{ $lists->WorkForm->Returnwork->count() }}
                                             </span>
                                         @else
                                             ---

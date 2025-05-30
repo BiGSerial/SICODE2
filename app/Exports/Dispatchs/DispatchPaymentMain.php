@@ -80,7 +80,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $order = $list->Partials?->last()->Orders;
             $company = $list->Partials?->last()->Company->name;
             $date_info = $list->Partials?->last()->created_at;
-            $pagamento = $list->Partials?->last()->supervision_at->addDays(5);
+            $pagamento = Carbon::parse($list->fimLancado);
         } else {
             $type = 'DESCONHECIDO';
             $order = null;

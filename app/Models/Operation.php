@@ -24,6 +24,13 @@ class Operation extends Model
         'txtCenTrab',
     ];
 
+    protected $casts = [
+        'inicioPlanejado' => 'date',
+        'fimPlanejado' => 'date',
+        'inicioReal' => 'date',
+        'fimReal' => 'date',
+    ];
+
     public function Order()
     {
         return $this->belongsTo(Order::class);

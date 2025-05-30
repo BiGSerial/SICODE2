@@ -18,7 +18,6 @@
 @endsection
 
 @section('content')
-    {{-- @livewire('dispatchs.dashboard', ['service' => $service->uuid]) --}}
 @endsection
 
 @push('script')

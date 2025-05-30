@@ -196,10 +196,9 @@
                             <th class="align-middle text-center">CentroTrab</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
-                            <th class="align-middle text-center">Data Execução</th>
+                            <th class="align-middle text-center">Final OP20</th>
                             <th class="align-middle text-center">Data Informe</th>
-
-                            <th class="align-middle text-center">Prazo Pagamento</th>
+                            <th class="align-middle text-center">Disponível Em</th>
                             <th class="align-middle text-center">Data Vencimento</th>
 
                             <th class="align-middle text-center"></th>
@@ -241,15 +240,21 @@
                                     }
                                 }
 
-                                if ($partial) {
-                                    $date = $partial->supervision_at->addDays(5);
-                                } else {
-                                    $date = $list->fimLancado;
-                                }
+                                // if ($partial) {
+                                //     $date = $partial->supervision_at->addDays(5);
+                                // } else {
+                                //     $date = $list->fimLancado;
+                                // }
 
-                                $daysLeft = Carbon::parse($date)
+                                $date = $list->fimLancado;
+
+                                $daysLeft = Carbon::now()
                                     ->startOfDay()
-                                    ->diffInDays(Carbon::now()->startOfDay());
+                                    ->diffInDays(Carbon::parse($date)->startOfDay(), true);
+
+                                if (Carbon::parse($date)->startOfDay() < Carbon::now()->startOfDay()) {
+                                    $daysLeft = -$daysLeft;
+                                }
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -392,7 +397,7 @@
                                 <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
 
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->WorkForm ? date('d/m/Y', strToTime($list->WorkForm->date)) : '---' }}
+                                    {{ $list->WorkForm ? $list->WorkForm->earliest_fim_real?->format('d/m/Y') : '---' }}
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($list->WorkForm)
@@ -404,8 +409,8 @@
 
                                 <td scope="col"
                                     class="text-center text-center
-                                    @if ($daysLeft <= 2) text-bg-success
-                                    @elseif($daysLeft > 5)
+                                    @if ($daysLeft >= -2) text-bg-success
+                                    @elseif($daysLeft < -5)
                                         text-bg-danger
                                     @else
                                 text-bg-warning @endif
@@ -414,10 +419,10 @@
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                            <p>A Data Corresponde 40 Parcial/p>
-                            <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
+                            <p>A Data Corresponde 40 Parcial <br> para Parcial, corresponde a partir da data da fiscalização:</p>
+                            <span class='fs-4 text-success'>&#9632;</span> >= 5 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-warning'>&#9632;</span> < 5 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                             ">
                                     {{ $date ? Carbon::parse($date)->format('d/m/Y') : '---' }}

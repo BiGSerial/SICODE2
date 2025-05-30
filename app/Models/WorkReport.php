@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class WorkReport extends Model
 {
@@ -76,5 +78,29 @@ class WorkReport extends Model
     public function Adsform()
     {
         return $this->hasOne(Adsform::class);
+    }
+
+
+
+    // Agragações customizadas
+
+    public function getEarliestFimRealAttribute()
+    {
+        // 1) Junta pivot e operations
+        $minDateTime = DB::table('order_work_report as p')
+            ->join('operations as o', 'p.order_id', '=', 'o.order_id')
+            // 2) Filtra só o nosso work_report
+            ->where('p.work_report_id', $this->id)
+            // 3) Operação 0020
+            ->where('o.operacao', '0020')
+            // 4) Busca o mínimo de fimReal
+            ->min('o.fimReal');
+
+        if (! $minDateTime) {
+            return null;
+        }
+
+        // 5) Converte para só data (YYYY-MM-DD)
+        return Carbon::parse($minDateTime);
     }
 }
