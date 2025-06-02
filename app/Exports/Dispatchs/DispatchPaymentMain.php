@@ -80,7 +80,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $order = $list->Partials?->last()->Orders;
             $company = $list->Partials?->last()->Company->name;
             $date_info = $list->Partials?->last()->created_at;
-            $pagamento = $list->Partials?->last()->supervision_at->addDays(5);
+            $pagamento = Carbon::parse($list->fimLancado);
         } else {
             $type = 'DESCONHECIDO';
             $order = null;
@@ -112,7 +112,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $ops->where('operacao', '0010')->first()?->cenTrab ?? '---',
             $company,
             $list->lexp,
-            optional($list->WorkForm)->date?->format('d/m/Y') ?? '---',
+            optional($list->WorkForm)->earliest_fim_real?->format('d/m/Y') ?? '---',
             $date_info,
             $list->nstats ?? $list->centerjob,
             optional($pagamento)->format('d/m/Y') ?? '---',
@@ -120,6 +120,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $lastProd?->User->name ?? '---',
             $lastProd ? Notestatus::status($lastProd?->status)->status : '---',
         ];
+
     }
 
     /**
@@ -141,7 +142,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             'Data Execução',
             'Data Informe',
             'Status',
-            'Prazo Pagamento',
+            'Dt Final OP20',
             'Prazo Obra',
             'User Production',
             'Status Production',

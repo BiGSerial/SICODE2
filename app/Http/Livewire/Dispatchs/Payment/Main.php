@@ -627,7 +627,7 @@ class Main extends Component
                     $q2->where('service_id', $this->service->uuid);
 
                 })
-                
+
                 ->orWhereHas('Productions', function ($q2) {
                     $q2->where('service_id', $this->service->uuid)
                         ->where(function ($q3) {
@@ -688,6 +688,7 @@ class Main extends Component
             ->where('allow', true)
             ->where('deny', false)
             ->where('supervision', true)
+            ->where('payment', false)
             ->groupBy('note_id'),
             'latest_partials',
             'notes.id',
@@ -695,36 +696,55 @@ class Main extends Component
             'latest_partials.note_id'
         )
         ->leftJoin('partials', 'latest_partials.latest_partial_id', '=', 'partials.id')
-        ->select(
+        ->select([
+        'notes.id',
+        'notes.note',
+        'notes.lexp',
+        'notes.mesalization',
+        'notes.days_left',
+        'notes.type_note',
+        DB::raw('SUM(orders.moaberto) as total_moaberto'),
+        // Aqui definimos o CASE para escolher a data certa:
+        DB::raw("
+            CASE
+                WHEN work_reports.id IS NOT NULL
+                     AND latest_operation_resps.latest_fimLancado IS NOT NULL
+                    THEN latest_operation_resps.latest_fimLancado
+                WHEN work_reports.id IS NULL
+                     AND partials.supervision_at IS NOT NULL
+                    THEN partials.supervision_at
+                ELSE NULL
+            END as fimLancado
+        "),
+        // Se você ainda quiser sinalizar existência de partials:
+        DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END as has_partials'),
+        ])
+        ->groupBy([
             'notes.id',
             'notes.note',
             'notes.lexp',
             'notes.mesalization',
             'notes.days_left',
             'notes.type_note',
-            'work_reports.created_at as wCreated_at',
-            DB::raw('SUM(orders.moaberto) as total_moaberto'),
-            'latest_operation_resps.latest_fimLancado as fimLancado',
-            DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END as has_partials'),
-        )
-        ->groupBy(
-            'notes.id',
-            'work_reports.created_at',
-            'notes.note',
-            'notes.lexp',
-            'notes.nstats',
-            'notes.rubrica',
-            'notes.centerjob',
-            'notes.mesalization',
-            'notes.days_left',
-            'notes.type_note',
-            'fimLancado'
-        )
+            // Como usamos agregação em orders e CASE, precisamos agrupar pelo CASE também:
+            DB::raw("
+                CASE
+                    WHEN work_reports.id IS NOT NULL
+                        AND latest_operation_resps.latest_fimLancado IS NOT NULL
+                        THEN latest_operation_resps.latest_fimLancado
+                    WHEN work_reports.id IS NULL
+                        AND partials.supervision_at IS NOT NULL
+                        THEN partials.supervision_at
+                    ELSE NULL
+                END
+            "),
+            DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END'),
+        ])
         ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado', 'has_partials')
-        ->orderBy('has_partials', 'desc')
+        // ->orderBy('has_partials', 'desc')
         ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
-        ->orderBy('fimLancado', 'asc')
-        ->orderBy('total_moaberto', 'desc');
+        ->orderBy('fimLancado', 'ASC');
+        // ->orderBy('total_moaberto', 'desc');
 
         // Debugando o resultado para checar a consulta
         // dd($query->paginate(5));

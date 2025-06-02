@@ -281,6 +281,7 @@
                                                                                 <i class="ri-delete-bin-2-line text-danger fs-5"
                                                                                     style="cursor:pointer;"
                                                                                     wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $file }})">
+                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit', 'deleteFile', {{ $file }})">
                                                                                 </i>
                                                                             @endcan
                                                                         </td>

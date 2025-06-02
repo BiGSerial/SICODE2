@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DispatchController extends Controller
 {
@@ -107,8 +108,14 @@ class DispatchController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        return view('dispatchs.' . $service->folder . '.dashboard', [
-            'service' => $service,
-        ]);
+        if (view()->exists('dispatchs.' . $service->folder . '.main')) {
+
+            return view('dispatchs.' . $service->folder . '.dashboard', [
+                'service' => $service,
+            ]);
+        } else {
+            abort(403, 'Recurso não implementado.');
+        }
+
     }
 }

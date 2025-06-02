@@ -137,11 +137,25 @@ class Createfiles extends Component
 
     }
 
+    private function orderByOriginalName(array &$temps)
+    {
+        usort($temps, function ($a, $b) {
+            return strcmp($a['original_name'], $b['original_name']);
+        });
+    }
+
 
     public function saveFiles()
     {
         if (count($this->tempFiles)) {
+
+            if (count($this->tempFiles) > 1) {
+                $this->orderByOriginalName($this->tempFiles);
+            }
+
+
             foreach ($this->tempFiles as $tempFile) {
+
                 $this->rename($this->tempFiles, $tempFile['uploadType']);
             }
         }
