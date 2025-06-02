@@ -78,6 +78,9 @@ class Fileedit extends Component
                 'timer'    => 1500,
 
             ]);
+
+            $this->closeAll();
+
         } catch (\Throwable $th) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -92,7 +95,7 @@ class Fileedit extends Component
 
     protected $rules = [
         'file.file_name' => 'required|string|max:255',
-        'newFile' => 'nullable|file|mimes:jpg,png,pdf,doc,docx,odt,xls,xlsx,xlsm,ods|max:10240',
+        'newFile' => 'nullable|file|mimes:jpg,jpeg,png,gif,bmp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,txt,rtf,ppt,pptx,dwg,dxf,dwf,rvt,rfa,skp|max:20480',
     ];
 
 
@@ -102,15 +105,16 @@ class Fileedit extends Component
         $this->validate();
 
 
-        $this->file->file_name = mb_strtoupper($this->file->file_name);
+        $this->file->file_name = mb_strtoupper(explode('.', $this->file->file_name)[0]);
 
 
         if ($this->newFile) {
 
-            $path = $this->newFile->storeAs("/".dirname($this->file->path, 1), $this->file->file_name . '.' . $this->newFile->getClientOriginalExtension());
+            $path = $this->newFile->storeAs("/".dirname($this->file->path, 1), $this->file->file_name.'.'.$this->newFile->getClientOriginalExtension());
 
             if (Storage::exists($path)) {
-                if (Storage::exists($this->file->path)) {
+
+                if (Storage::exists($this->file->path) && $this->file->path !== $path) {
                     Storage::delete($this->file->path);
                 }
 
@@ -138,6 +142,8 @@ class Fileedit extends Component
         }
 
         $this->file->save();
+
+        $this->emitUp('update_list');
 
         session()->flash('message', 'Arquivo atualizado com sucesso!');
 

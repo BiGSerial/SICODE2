@@ -371,7 +371,7 @@
 
                                 <td scope="col"
                                     class="text-center text-center
-                                    @if ($daysLeft >= 2) text-bg-success
+                                    @if ($daysLeft >= -2) text-bg-success
                                     @elseif($daysLeft < -5)
                                         text-bg-danger
                                     @else
