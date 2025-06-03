@@ -11,7 +11,7 @@
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-white"></i> <span>Á PROTOCOLAR</span>
+                            <i class="bi bi-file-earmark-text fs-4 text-white"></i> <span>À PROTOCOLAR</span>
                         </a>
                     </li>
                     <li>

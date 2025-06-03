@@ -38,7 +38,7 @@ class AddEntityType extends Component
             ]);
         }
 
-        $$this->closeAll();
+        $this->closeAll();
     }
 
     public function deleteType(EntityType $entityType)

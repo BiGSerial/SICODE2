@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Oexterno\Accompany;
 
 use App\Custom\RuleBuilder;
 use App\Exports\oexterno\ProtocolsList;
+use App\Helpers\TextFormatter;
 use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Query\Expression;
@@ -16,6 +17,7 @@ class Main extends Component
 {
     use WithPagination;
     use Exportable;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -24,6 +26,10 @@ class Main extends Component
     public $perPage = 200;
 
     public $search;
+
+    public $advanceSearch;
+
+    public $multisearch = [];
 
     public $rubrica_s = [];
 
@@ -42,6 +48,10 @@ class Main extends Component
     // Filters
     private $filter_group = 'oexterno';
 
+    public $column = 'dt_created';
+    public $direction = 'asc';
+
+
     private $filter;
 
     protected $listeners = [
@@ -49,6 +59,7 @@ class Main extends Component
         'refresh_service'   => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
+         'refresh_All_Filter' => 'cleanAll',
     ];
 
     protected $queryString = [
@@ -69,9 +80,43 @@ class Main extends Component
         );
     }
 
+    public function setColumn($column)
+    {
+        if ($this->column === $column) {
+            $this->direction = $this->direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->column = $column;
+            $this->direction = 'asc';
+        }
+    }
+
     public function updatedSearch()
     {
+        if ($this->search = trim($this->search)) {
+
+            $this->multisearch = [];
+            $this->resetPage();
+        }
+    }
+
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->multisearch = $this->formatTextToArray($this->advanceSearch);
+            $this->search = '';
+            $this->advanceSearch = '';
+            $this->resetPage();
+            $this->dispatchBrowserEvent('hideModal');
+        }
+    }
+
+    public function cleanAll()
+    {
+        $this->search = '';
+        $this->advanceSearch = '';
+        $this->multisearch = [];
         $this->resetPage();
+        $this->dispatchBrowserEvent('hideModal');
     }
 
     public function exportToExcel()
@@ -172,11 +217,13 @@ class Main extends Component
                 ->where('type_note', 2);
         });
 
-        $query->when($this->search, function ($q, $s) {
+        $query->when(trim($this->search), function ($q, $s) {
 
-            $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
-                ? str_replace('*', '%', $this->search)
-                : $this->search;
+
+
+            $wildcard = str_contains($s, '*') || str_contains($s, '%')
+                ? str_replace('*', '%', $s)
+                : $s;
 
             if (str_contains($wildcard, '%')) {
                 $type = 'like';
@@ -184,13 +231,25 @@ class Main extends Component
                 $type = '=';
             }
 
-            return $q->where(function ($query) use ($s, $wildcard, $type) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%')
+            return $q->where(function ($query) use ($wildcard, $type) {
+                $query->where('note', $type, $wildcard)
+                    ->orWhere('material', $type, $wildcard)
+                    ->orWhere('numPedido', $type, $wildcard)
+                    ->orWhere('group2', $type, $wildcard)
                     ->orWhereHas('Externals.Protocols', function ($q) use ($wildcard, $type) {
                         $q->where('protocol', $type, $wildcard);
+                    });
+            });
+        });
+
+        $query->when($this->multisearch, function ($q) {
+            $q->where(function ($query) {
+                $query->whereIn('note', $this->multisearch)
+                    ->orWhereIn('material', $this->multisearch)
+                    ->orWhereIn('numPedido', $this->multisearch)
+                    ->orWhereIn('group2', $this->multisearch)
+                    ->orWhereHas('Externals.Protocols', function ($q) {
+                        $q->whereIn('protocol', $this->multisearch);
                     });
             });
         });
@@ -217,7 +276,7 @@ class Main extends Component
         }
 
         $query->with('externals.protocols', 'externals.comments')
-            ->orderBy('dt_created');
+            ->orderBy($this->column, $this->direction);
 
         return $query;
     }

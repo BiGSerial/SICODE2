@@ -71,47 +71,74 @@
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row">
-                <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="250">250</option>
-                        <option value="500">500</option>
-                    </select>
+            <div class="row g-3">
+                <!-- Per Page Select -->
+                <div class="col-12 col-sm-6 col-md-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                        </select>
+                        <label for="perPageSelect">Registros por página</label>
+                    </div>
                 </div>
 
-                <div class="col-2">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                <!-- Search Input -->
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border border-secondary" id="searchInput" 
+                            wire:model.debounce.2s="search" placeholder="Buscar">
+                        <label for="searchInput">Buscar</label>
+                    </div>
                 </div>
 
-                <div class="col-1">
-                    <input type="date" id="date_in" class="form-control border border-secondary"
-                        wire:model="date_in">
+                <!-- Date Range -->
+                <div class="col-12 col-sm-6 col-md-2">
+                    <div class="form-floating">
+                        <input type="date" id="date_in" class="form-control border border-secondary"
+                            wire:model="date_in" placeholder="Data inicial">
+                        <label for="date_in">Data inicial</label>
+                    </div>
                 </div>
 
-                <div class="col-1">
-                    <input type="date" id="date_out" class="form-control border border-secondary"
-                        wire:model="date_out">
+                <div class="col-12 col-sm-6 col-md-2">
+                    <div class="form-floating">
+                        <input type="date" id="date_out" class="form-control border border-secondary"
+                            wire:model="date_out" placeholder="Data final">
+                        <label for="date_out">Data final</label>
+                    </div>
                 </div>
 
-                <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
-                    </select>
+                <!-- Date Type Select -->
+                <div class="col-12 col-sm-6 col-md-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" wire:model="dateBy" id="dateBySelect">
+                            <option value="sended_at">Recebido</option>
+                            <option value="returned_at">Viabilizado</option>
+                            <option value="completed_at">Completado</option>
+                        </select>
+                        <label for="dateBySelect">Tipo de Data</label>
+                    </div>
                 </div>
-                <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()'><i class="ri-find-replace-line fs-5"></i></button></div>
-                <div class="col-5 d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'hiring_hist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring_hist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'hiring_hist', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'hiring_hist'], key('removeAll'))
+
+                <!-- Clear Button -->
+                <div class="col-12 col-sm-6 col-md-1 d-flex align-items-center">
+                    <button class="btn btn-danger w-100" wire:click.prevent='cleanAll()'>
+                        <i class="ri-find-replace-line fs-5"></i>
+                    </button>
+                </div>
+
+                <!-- Filters -->
+                <div class="col-12 mt-3">
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'hiring_hist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                        @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'hiring_hist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'hiring_hist', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                        @livewire('components.filter.remove-all', ['group_filter' => 'hiring_hist'], key('removeAll'))
+                    </div>
                 </div>
             </div>
         </div>

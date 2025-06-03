@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Oexterno;
 
 use App\Custom\RuleBuilder;
 use App\Exports\oexterno\ProtocolsList;
+use App\Helpers\TextFormatter;
 use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
@@ -15,6 +16,7 @@ class Main extends Component
 {
     use WithPagination;
     use Exportable;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -23,6 +25,10 @@ class Main extends Component
     public $perPage = 200;
 
     public $search;
+
+    public $advanceSearch;
+
+    public $multisearch = [];
 
     public $rubrica_s = [];
 
@@ -38,6 +44,9 @@ class Main extends Component
 
     public $typeNote = "";
 
+    public $column = 'dt_created';
+    public $direction = 'asc';
+
     // Filters
     private $filter_group = 'oexterno';
 
@@ -48,6 +57,7 @@ class Main extends Component
         'refresh_service'   => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
+        'refresh_All_Filter' => 'cleanAll'
     ];
 
     protected $queryString = [
@@ -69,7 +79,40 @@ class Main extends Component
 
     public function updatedSearch()
     {
+        if ($this->search = trim($this->search)) {
+            $this->multisearch = [];
+            $this->resetPage();
+        }
+    }
+
+    public function setColumn($column)
+    {
+        if ($this->column === $column) {
+            $this->direction = $this->direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->column = $column;
+            $this->direction = 'asc';
+        }
+    }
+
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->multisearch = $this->formatTextToArray($this->advanceSearch);
+            $this->search = '';
+            $this->advanceSearch = '';
+            $this->resetPage();
+            $this->dispatchBrowserEvent('hideModal');
+        }
+    }
+
+    public function cleanAll()
+    {
+        $this->search = '';
+        $this->advanceSearch = '';
+        $this->multisearch = [];
         $this->resetPage();
+        $this->dispatchBrowserEvent('hideModal');
     }
 
 
@@ -300,6 +343,18 @@ class Main extends Component
             });
         });
 
+        $query->when($this->multisearch, function ($q) {
+            $q->where(function ($query) {
+                $query->whereIn('note', $this->multisearch)
+                    ->orWhereIn('material', $this->multisearch)
+                    ->orWhereIn('numPedido', $this->multisearch)
+                    ->orWhereIn('group2', $this->multisearch)
+                    ->orWhereHas('Externals.Protocols', function ($q) {
+                        $q->whereIn('protocol', $this->multisearch);
+                    });
+            });
+        });
+
 
         if ($this->typeNote) {
             $query->where('type_note', $this->typeNote);
@@ -325,7 +380,7 @@ class Main extends Component
 
 
         $query->with('Productions.User')
-         ->orderBy('dt_created');
+         ->orderBy($this->column, $this->direction);
 
 
         return $query;

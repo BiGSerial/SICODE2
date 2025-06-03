@@ -15,6 +15,7 @@ use Livewire\WithPagination;
 use App\Custom\Notestatus;
 use App\Exports\Reports\ProductionFullExport;
 use App\Exports\Reports\ProductionsExportList;
+use App\Helpers\TextFormatter;
 use App\Jobs\ExportProductionListJob;
 use App\Jobs\ExportProductionReportJob;
 use Illuminate\Support\Facades\Auth;
@@ -22,10 +23,17 @@ use Illuminate\Support\Facades\Auth;
 class Productions extends Component
 {
     use WithPagination;
+    use TextFormatter;
+
     protected $paginationTheme = 'bootstrap';
 
     public $monthYear;
     public $company;
+    public $search;
+
+    public $advanceSearch;
+
+    public $multisearch = [];
 
     public $service = [];
 
@@ -38,7 +46,7 @@ class Productions extends Component
     public $d5 = false;
 
     public $cities;
-    public $search = false;
+
 
     protected $registers;
 
@@ -49,12 +57,12 @@ class Productions extends Component
     public function updatedCompany()
     {
 
-        $this->gotoPage(1);
+        $this->resetPage();
     }
 
     public function updatedService()
     {
-        $this->gotoPage(1);
+        $this->resetPage();
     }
 
     public function updatedMonthYear()
@@ -62,8 +70,27 @@ class Productions extends Component
 
         $this->dt_init = '';
         $this->dt_end = '';
-        $this->gotoPage(1);
+        $this->resetPage();
 
+    }
+
+    public function updatedSearch()
+    {
+        if (trim($this->search)) {
+            $this->multisearch = [];
+            $this->resetPage();
+        }
+    }
+
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->multisearch = $this->formatTextToArray($this->advanceSearch);
+            $this->search = '';
+            $this->advanceSearch = '';
+            $this->resetPage();
+            $this->dispatchBrowserEvent('hideModal');
+        }
     }
 
     public function Export()
@@ -141,10 +168,10 @@ class Productions extends Component
         ]);
     }
 
-    public function Search()
-    {
-        $this->search = true;
-    }
+    // public function Search()
+    // {
+    //     $this->search = true;
+    // }
 
     public function getListsProperty()
     {
@@ -232,6 +259,38 @@ class Productions extends Component
             $query->where('company_id', $this->company);
         }
 
+        if (trim($this->search)) {
+            $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
+               ? str_replace('*', '%', $this->search)
+               : $this->search;
+
+            if (str_contains($wildcard, '%')) {
+                $type = 'like';
+            } else {
+                $type = '=';
+            }
+
+
+            $query->where(function ($q) use ($wildcard, $type) {
+                $q->whereRelation('note', 'note', $type, $wildcard)
+                    ->orWhereRelation('note.orders', 'ordem', $type, $wildcard)
+                    ->orWhereRelation('note', 'material', $type, $wildcard);
+            });
+        }
+
+
+        if (count($this->multisearch)) {
+            $query->where(function ($q) {
+                $q->whereRelation('Note', function ($qs) {
+                    $qs->whereIn('note', $this->multisearch)
+                        ->orWhereIn('material', $this->multisearch);
+
+                })->orWhereRelation('Note.Orders', function ($qs) {
+                    $qs->whereIn('ordem', $this->multisearch);
+                });
+            });
+        }
+
         $query->with('User', 'Company', 'Service', 'Note', 'Analise')
             ->orderBy('completed_at');
 
@@ -266,13 +325,22 @@ class Productions extends Component
         return Production::select('service_id')->with('Service')->groupBy('Service_id')->get();
     }
 
+
+    public function cleanAll()
+    {
+        $this->search = '';
+        $this->multisearch = [];
+        $this->advanceSearch = "";
+        $this->dt_end = "";
+        $this->dt_init = "";
+        $this->monthYear = "";
+
+    }
+
     public function render()
     {
         // Verifique se o botão Gerar foi clicado
-        if ($this->search) {
-            $this->search = false;
 
-        }
 
         return view('livewire.reports.productions', [
             'month_list'   => $this->getMonthYearList(),

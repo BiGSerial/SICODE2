@@ -172,6 +172,7 @@
                         <th scope="col" class="text-center">Responsável</th>
                         <th scope="col" class="text-center">Tempo em Execução</th>
                         <th scope="col" class="text-center">Tempo Total</th>
+                        <th scope="col" class="text-center"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -197,7 +198,14 @@
                             <td class="text-center"><span
                                     class="badge {{ $list->production ? Notestatus::status($list->production->status)->colorbg : 'text-bg-secondary' }}">{{ $list->production ? Notestatus::status($list->production->status)->status : 'AGUARDANDO DESPACHO' }}</span>
                             </td>
-                            <td class="text-center">{{ $list->production?->user?->name }}</td>
+                            <td class="text-center">
+                                @if ($list->production?->user?->email)
+                                    <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                        style="cursor:pointer"
+                                        onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $list->production?->user?->email }}', '_blank')">
+                                    </i>
+                                @endif {{ $list->production?->user?->name }}
+                            </td>
                             <td
                                 class="text-center {{ $this->getColor($list->production?->att_at?->startOfDay()->diffInDays()) }}">
                                 {{ $list->created_at->startOfDay()->diffInDays() }} dias

@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\Note;
 use App\Models\Order;
+use App\Models\User;
 use App\Models\WorkReport;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -16,6 +17,7 @@ class Workreports extends Component
     public $search;
     public $s_order;
     public bool $hasFiles = false;
+    public $hasPartial;
 
 
     public $equipment;
@@ -290,6 +292,23 @@ class Workreports extends Component
                     }
                 }
 
+
+                if ($this->hasPartial) {
+
+                    $user = User::first();
+
+                    $this->hasPartial->update([
+                        'complete' => true,
+                        'allow' => false,
+                        'deny' => true,
+                        'engineer_id' => $user->id,
+                        'decision_at' => now(),
+                        'engineer_info' => 'Parcial cancelada automaticamente devido a entrada do informe final. (System Info)',
+                    ]);
+                }
+
+
+
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'success',
@@ -451,11 +470,119 @@ class Workreports extends Component
         // }
     }
 
+    private function getPositionPartial($note)
+    {
+        $partialOpen = $note->Partials()->where('complete', false)->first();
+
+        if ($partialOpen) {
+            if ($partialOpen->allow) {
+                return 'EM FISCALIZÇÃO';
+            }
+
+            if ($partialOpen->supervision) {
+                return 'EM PAGAMENTO';
+            }
+
+            if ($partialOpen->deny) {
+                return false;
+            }
+        }
+
+        return 'APROVAÇÂO DO ENGENHEIRO';
+    }
+
     public function toConfirmWork(Note $note)
     {
         $this->preNote = $note;
 
-        $this->dispatchBrowserEvent('alertar', [
+        if ($partialOpen = $note->Partials()->where('complete', false)->where('allow', true)->where('deny', false)->first()) {
+
+            $date = $partialOpen?->created_at;
+            $position = $this->getPositionPartial($note);
+
+
+            if ($position) {
+                $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'error',
+                        'title'    => 'Parcial Aberta',
+                        'html'     =>  "<p>
+                            A Nota/OV <strong>{$note->note}</strong> já possui uma parcial aberta autorizada para pagamento, com a seguinte situação: <strong>{$position}</strong>.
+
+                            <div class='card'>
+                                <div class='card-body text-center py-1'>
+                                    <p class='py-0 my-0'>Data de Abertura: <strong> {$date?->format('d/m/Y H:i') }</strong>.</p>
+                                </div>
+                            </div>
+
+                            Para informar a conclusão de obra, é necessário que a parcial seja concluída ou cancelada.
+                        </p>",
+                    ]);
+
+                return;
+            }
+        }
+
+
+
+
+        if ($partialTime = $note->Partials()->orderByDesc('created_at')->first()) {
+
+            if ($partialTime->complete && $partialTime->allow) {
+
+                if ($partialTime->payment_at->startOfDay()->diffInDays(now()->startOfDay()) <= 30) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'error',
+                        'title'    => 'Prazo para Novo Informe',
+                        'html'     =>  "<p>
+                            A Nota/OV <strong>{$note->note}</strong> teve uma medição parcial recente. Não é possível enviar o informe final neste intervalo.
+
+                            <div class='card'>
+                                <div class='card-body text-center py-1'>
+                                    <p class='py-0 my-0'> Conclusão do Informe Parcial: <strong>{$partialTime->payment_at?->format('d/m/Y H:i')}</strong>.</p>
+                                </div>
+                            </div>
+                            Data prevista para o Informe Final: <strong>{$partialTime->payment_at?->startOfDay()->addDays(30)?->format('d/m/Y')}</strong>.
+                        </p>",
+                    ]);
+
+                    return;
+                }
+
+            }
+
+
+        }
+
+
+        $this->hasPartial = $note->Partials()->where('complete', false)->where('allow', false)->where('deny', false)->first();
+
+
+
+        if ($this->hasPartial) {
+            $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'INFORMAR OBRA ' . $note->note . ' - PARCIAL ABERTA',
+            "msg"           => "
+                <div class='card'>
+                    <div class='card-body text-start'>
+                       <p> Você selecionou a Nota/OV <strong> " . $note->note . "</strong> para informar a conclusão de obra. Porém indentificamos que foi aberta uma Parcial ainda pendente de aprovação enviada pela: <strong> {$this->hasPartial->Company?->name}</strong></p>
+                       <p>Neste caso, ao prosseguir, essa <strong>parcial será cancelada e substituída</strong> por este informe FINAL.</p>
+
+                    </div>
+
+                </div>
+                <p>Deseja realmente proseguir com este informe?</p>
+            ",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Continuar com Informe',
+            'btnCanceltxt'  => 'Cancelar Informe',
+            'action'        => 'confirm_informe',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'O Formulário foi cancelado com sucesso.',
+        ]);
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
             'title'         => 'INFORMAR OBRA ' . $note->note,
             'msg'           => '
                 <div class="card">
@@ -472,6 +599,7 @@ class Workreports extends Component
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'O Formulário foi cancelado com sucesso.',
         ]);
+        }
     }
 
     public function cleanAll()
@@ -479,6 +607,7 @@ class Workreports extends Component
         $this->preNote = "";
         $this->search = "";
         $this->notes = "";
+        $this->hasPartial = "";
     }
 
     public function calcelForm()

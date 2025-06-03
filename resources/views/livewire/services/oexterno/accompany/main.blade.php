@@ -11,44 +11,54 @@
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row">
-                <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                        <option value="500">500</option>
-                    </select>
+            <div class="row g-3">
+                <!-- Per Page Select -->
+                <div class="col-12 col-sm-6 col-md-2 d-flex align-items-center">
+                    <div class="form-floating w-100">
+                        <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                            <option value="500">500</option>
+                        </select>
+                        <label for="perPageSelect">Registros por página</label>
+                    </div>
                 </div>
 
-                <div class="col-2">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
+                <!-- Search Input -->
+                <div class="col-12 col-sm-6 col-md-3 d-flex align-items-center">
+                    <div class="form-floating w-100">
+                        <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
+                            id="search" placeholder="Buscar">
+                        <label for="search">Buscar</label>
+                        <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                            data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                            <i class="ri-checkbox-multiple-blank-line"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="col-3">
+                <!-- Type Note Buttons -->
+                <div class="col-12 col-md-3 d-flex align-items-center">
+                    <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1"
+                            id="typeNote1">
+                        <label class="btn btn-outline-primary" for="typeNote1">Nota</label>
 
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2"
+                            id="typeNote2">
+                        <label class="btn btn-outline-primary" for="typeNote2">OV</label>
+
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value=""
+                            id="typeNote3">
+                        <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
+                    </div>
                 </div>
 
-                <div class="col-6 d-flex justify-content-end">
-                    <div class="form-check form-check-inline align-middle">
-                        <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote"
-                            value="1">
-                        <label class="form-check-label" for="inlineRadio1">Nota</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote"
-                            value="2">
-                        <label class="form-check-label" for="inlineRadio1">OV</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote"
-                            value="">
-                        <label class="form-check-label" for="inlineRadio1">Ambos</label>
-                    </div>
-                    <div class="col d-flex justify-content-end gap-2">
-                        {{-- Tipos de Entidade → Entidades --}}
+                <!-- Filters -->
+                <div class="col-12 col-md-4">
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
                         @livewire(
                             'components.filter.filter2',
                             [
@@ -60,55 +70,46 @@
                                 'groupFilter' => 'oexterno',
                                 'displayColumn' => 'name',
                                 'direction' => 'ASC',
-                                'customQuery' => null,
                                 'searchColumn' => 'name',
                                 'sendSearchColumn' => 'entity_type_id',
-                                'customBuilderMethod' => null,
                             ],
                             key('entityTypes')
                         )
 
-                        {{-- Entidades --}}
                         @livewire(
                             'components.filter.filter2',
                             [
                                 'myKey' => 'entities',
-                                'sendFilter' => null,
+                                'sendFilter' => '',
                                 'modelClass' => \App\Models\Entity::class,
                                 'column' => 'id',
                                 'filterLabel' => 'Entidades',
                                 'groupFilter' => 'oexterno',
                                 'displayColumn' => 'name',
                                 'direction' => 'ASC',
-                                'customQuery' => null,
                                 'searchColumn' => 'name',
                                 'sendSearchColumn' => 'entity_id',
-                                'customBuilderMethod' => null,
                             ],
                             key('entities')
                         )
 
-                        {{-- Rubrica --}}
                         @livewire(
                             'components.filter.filter2',
                             [
                                 'myKey' => 'rubrica',
-                                'sendFilter' => null,
+                                'sendFilter' => '',
                                 'modelClass' => \App\Models\Note::class,
                                 'column' => 'rubrica',
                                 'filterLabel' => 'Rúbrica',
                                 'groupFilter' => 'oexterno',
                                 'displayColumn' => 'rubrica',
                                 'direction' => 'ASC',
-                                'customQuery' => null,
                                 'searchColumn' => 'rubrica',
                                 'sendSearchColumn' => 'rubrica',
-                                'customBuilderMethod' => null,
                             ],
                             key('rubrica')
                         )
 
-                        {{-- Região → Município --}}
                         @livewire(
                             'components.filter.filter2',
                             [
@@ -120,30 +121,25 @@
                                 'groupFilter' => 'oexterno',
                                 'displayColumn' => 'regiao',
                                 'direction' => 'ASC',
-                                'customQuery' => null,
                                 'searchColumn' => 'regiao',
                                 'sendSearchColumn' => 'regiao',
-                                'customBuilderMethod' => null,
                             ],
                             key('region')
                         )
 
-                        {{-- Município --}}
                         @livewire(
                             'components.filter.filter2',
                             [
                                 'myKey' => 'city',
-                                'sendFilter' => null,
+                                'sendFilter' => '',
                                 'modelClass' => \App\Models\Edp_depc\City::class,
                                 'column' => 'cidade',
                                 'filterLabel' => 'Município',
                                 'groupFilter' => 'oexterno',
                                 'displayColumn' => 'municipio',
                                 'direction' => 'ASC',
-                                'customQuery' => null,
                                 'searchColumn' => 'municipio',
                                 'sendSearchColumn' => 'cidade',
-                                'customBuilderMethod' => null,
                             ],
                             key('city')
                         )
@@ -210,8 +206,20 @@
                             <th scope="col" class="fw-bold text-center">Pedido</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Ult Movimantação</th>
-                            <th scope="col" class="fw-bold text-center">Dias no Status</th>
-                            <th scope="col" class="fw-bold text-center">Total Dias</th>
+                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')"
+                                style="cursor: pointer;">Dias no
+                                Status @if ($column == 'dt_status')
+                                    <i
+                                        class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
+                                @endif
+                            </th>
+                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_created')"
+                                style="cursor: pointer;">Total
+                                Dias @if ($column == 'dt_created')
+                                    <i
+                                        class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
+                                @endif
+                            </th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
 
                         </tr>
@@ -347,6 +355,31 @@
                 de {{ $lists->total() }}
                 registros.</span>
         </div>
+    </div>
+
+
+    {{-- MODALS --}}
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
     {{-- Livewire Components --}}

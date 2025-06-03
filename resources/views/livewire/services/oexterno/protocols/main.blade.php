@@ -254,50 +254,40 @@
                                                                                                 {{ $contact->name ?? $contact->url }}
                                                                                             </button>
                                                                                         </h2>
-                                                                                        <div id="collapse{{ $loop->index }}"
-                                                                                            class="accordion-collapse collapse @if ($openExternalContactId === $contact->id) show @endif"
-                                                                                            aria-labelledby="heading{{ $loop->index }}"
-                                                                                            data-bs-parent="#contactsAccordion"
-                                                                                            x-data
-                                                                                            x-init="$el.addEventListener('shown.bs.collapse', function() {
-                                                                                                Livewire.emit('setOpenExternalContact', {{ $contact->id }});
-                                                                                            });">
-                                                                                            <div
-                                                                                                class="accordion-body small py-1">
-                                                                                                @isset($contact->email)
-                                                                                                    <div>
-                                                                                                        <strong>Email:</strong>
-                                                                                                        <a href="mailto:{{ $contact->email }}"
-                                                                                                            class="link-secondary">
-                                                                                                            {{ $contact->email }}
-                                                                                                        </a>
-                                                                                                    </div>
-                                                                                                @endisset
+                                                                                        <div class="accordion-body small py-1">
+                                                                                            @isset($contact->email)
+                                                                                                <div>
+                                                                                                    <strong>Email:</strong>
+                                                                                                    <a href="mailto:{{ $contact->email }}"
+                                                                                                        class="link-secondary">
+                                                                                                        {{ $contact->email }}
+                                                                                                    </a>
+                                                                                                </div>
+                                                                                            @endisset
 
-                                                                                                @isset($contact->url)
-                                                                                                    <div>
-                                                                                                        <strong>URL:</strong>
-                                                                                                        <a href="{{ $contact->url }}"
-                                                                                                            target="_blank"
-                                                                                                            class="link-secondary">
-                                                                                                            {{ $contact->url }}
-                                                                                                        </a>
-                                                                                                    </div>
-                                                                                                @endisset
+                                                                                            @isset($contact->url)
+                                                                                                <div>
+                                                                                                    <strong>URL:</strong>
+                                                                                                    <a href="{{ $contact->url }}"
+                                                                                                        target="_blank"
+                                                                                                        class="link-secondary">
+                                                                                                        {{ $contact->url }}
+                                                                                                    </a>
+                                                                                                </div>
+                                                                                            @endisset
 
-                                                                                                @isset($contact->user)
-                                                                                                    <div>
-                                                                                                        <strong>Usuário:</strong>
-                                                                                                        {{ $contact->user }}
-                                                                                                    </div>
-                                                                                                @endisset
-                                                                                                @isset($contact->password)
-                                                                                                    <div>
-                                                                                                        <strong>Senha:</strong>
-                                                                                                        {{ $contact->password }}
-                                                                                                    </div>
-                                                                                                @endisset
-                                                                                            </div>
+                                                                                            @isset($contact->user)
+                                                                                                <div>
+                                                                                                    <strong>Usuário:</strong>
+                                                                                                    {{ $contact->user }}
+                                                                                                </div>
+                                                                                            @endisset
+                                                                                            @isset($contact->password)
+                                                                                                <div>
+                                                                                                    <strong>Senha:</strong>
+                                                                                                    {{ $contact->password }}
+                                                                                                </div>
+                                                                                            @endisset
                                                                                         </div>
                                                                                     </div>
                                                                                 @endforeach
@@ -313,8 +303,7 @@
                                                                 @if (!$external->comments->isNotEmpty())
                                                                     <div class="card text-bg-info">
                                                                         <div class="card-body">
-                                                                            <p class="card-text">Nenhum comentário
-                                                                                encontrado.</p>
+                                                                            <p class="card-text text-break">Nenhum comentário encontrado.</p>
                                                                         </div>
                                                                     </div>
                                                                 @else
@@ -486,6 +475,9 @@
                     <button type="button" class="btn btn-outline-primary"
                         wire:click="$emitTo('components.entity.add-entity-type', 'openEntityType')">
                         Cadastrar Tipos de Entidades
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="history.back()">
+                        <i class="ri-arrow-left-line align-middle"></i> Voltar
                     </button>
 
 
