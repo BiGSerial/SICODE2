@@ -61,7 +61,7 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='exportToExcel_mylist'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
                     </div>
@@ -206,7 +206,8 @@
                                 </td>
                                 <td class="text-center align-middle">{{ $myViab->Company->name }}</td>
                                 <td class="text-center align-middle text-danger">
-                                    {{ Carbon::parse($myViab->updated_at)->diffForHumans() }}</td>
+                                    {{ Carbon::parse($myViab->updated_at)?->diffForHumans(['short' => true, 'parts' => 2]) }}
+                                </td>
                                 <td class="text-center align-middle"> <i
                                         class="ri-play-circle-line @if ($myViab->treplica) text-danger @else text-success @endif fs-4 me-2"
                                         style="cursor: pointer;"
@@ -254,14 +255,14 @@
         </div>
         {{-- FIM Paginador --}}
         <div class="card mb-2 edp-bg-gray">
-            <div class="card-header edp-bg-seoweedgreen-100 text-white">
+            <div class="card-header edp-bg-seoweedgreen-50 text-white">
                 <div class="row">
                     <div class="col">
                         <h4 class="my-0">VIABILIDADE EM TRATATIVA</h4>
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='exportToExcel_lists'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
                     </div>

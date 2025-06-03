@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Exports\Partner\WorkInformsExport;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
@@ -52,6 +53,12 @@ class Workedlist extends Component
         // $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
         // $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
         // $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+    }
+
+    public function exportToExcel()
+    {
+        return (new WorkInformsExport($this->lists))
+            ->download(date('Ymd_his').'-ListaObrasInformadas.xlsx');
     }
 
     public function updatedMonth()
@@ -106,7 +113,7 @@ class Workedlist extends Component
         $query = WorkReport::Query();
 
 
-        $query->where('rejected', false);
+        // $query->where('rejected', false);
 
 
         if (!auth()->user()->superadm) {

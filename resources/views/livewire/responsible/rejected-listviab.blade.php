@@ -59,7 +59,7 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='exportToExcel_mylist'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
                     </div>
@@ -259,7 +259,7 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='exportToExcel_lists'><i
                                 class="ri-file-excel-2-line align-middle"></i> Exportar</button>
 
                     </div>

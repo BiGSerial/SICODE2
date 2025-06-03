@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Responsible;
 
+use App\Exports\Viability\ViabilitiesRejectedExport;
 use App\Models\File;
 use App\Models\Viability;
 use Illuminate\Support\Facades\Storage;
@@ -32,6 +33,19 @@ class RejectedListviab extends Component
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
     ];
+
+
+    public function exportToExcel_mylist()
+    {
+        return (new ViabilitiesRejectedExport($this->my_lists))
+             ->download(date('Ymd_His').'-viabilidades_rejeitadas_para_responder.xlsx');
+    }
+
+    public function exportToExcel_lists()
+    {
+        return (new ViabilitiesRejectedExport($this->lists))
+             ->download(date('Ymd_His').'-viabilidades_rejeitadas_aguardando_resolucao.xlsx');
+    }
 
     // Sempre que atualizar a página, coloca para exibir o primeiro reegistro.
     public function updatedPerPage()
