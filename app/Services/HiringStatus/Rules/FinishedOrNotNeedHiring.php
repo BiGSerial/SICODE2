@@ -73,7 +73,27 @@ class FinishedOrNotNeedHiring implements RuleInterface
             };
         }
 
-        // 2) Caso (B): inconsistência
+
+        // 2) Caso especial: Obra contratada sem viabilidade
+        $operation = $note->orders
+            ->filter(fn ($order) => Str::startsWith($order->statusSist, ['ABER', 'LIB']))
+            ->flatMap(fn ($order) => $order->operations)
+            ->first(
+                fn ($op) =>
+                $op->operacao === '0010' && Str::startsWith($op->status, 'CONF')
+            );
+
+        if ($operation && $note->viabilities->isEmpty()) {
+            return [
+                'last_date'   => $operation->fimReal ?? $note->dt_status, // fallback se fimReal for null
+                'position'    => 'INCONSISTÊNCIA',
+                'local'       => 'OBRA CONTRATADA SEM REGISTRO PARA VIABILIDADE NO SICODE',
+                'register'    => null,
+                'responsible' => null,
+            ];
+        }
+
+        // 3) Caso (B): inconsistência
         return [
             'last_date'   => $note->dt_status,
             'position'    => 'INCONSISTÊNCIA',

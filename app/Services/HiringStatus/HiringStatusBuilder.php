@@ -43,6 +43,7 @@ class HiringStatusBuilder
             'tacit'      => 0,
             'local'      => null,
             'rubrica'   => $note->rubrica,
+            'updated_at' => now(),
         ];
 
         $matched = false;
