@@ -8,6 +8,7 @@ use App\Services\HiringStatus\Rules\ApprovalWithCompletedReclaimRule;
 use App\Services\HiringStatus\Rules\ApprovalWithoutReclaimsRule;
 use App\Services\HiringStatus\Rules\ApprovalWithPendingReclaimRule;
 use App\Services\HiringStatus\Rules\FinishedOrNotNeedHiring;
+use App\Services\HiringStatus\Rules\HiringDirectlyNoNeedApproveRule;
 use App\Services\HiringStatus\Rules\NoApprovalRule;
 use App\Services\HiringStatus\Rules\ViabilityApprovedHired;
 use App\Services\HiringStatus\Rules\ViabilityApprovedNotHiredRule;
@@ -44,6 +45,7 @@ class HiringStatusServiceProvider extends ServiceProvider
                 $app->make(ViabilityInProgressRule::class),
                 $app->make(ViabilityApprovedNotHiredRule::class),
                 $app->make(ViabilityApprovedHired::class),
+                $app->make(HiringDirectlyNoNeedApproveRule::class),
                 $app->make(FinishedOrNotNeedHiring::class),
 
             ]);

@@ -83,8 +83,9 @@
                             @php
                                 $company = $list->Company ? $list->Company->name : 'Desconhecido';
                             @endphp
-                            <td>{{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}</td>
                             <td>{{ $company }}</td>
+                            <td>{{ Carbon::parse($list->created_at)->format('d/m/Y H:i:s') }}</td>
+
                             <td class="@if (!$list->allow && !$list->deny) text-bg-info fw-bold @endif">
                                 @if (!$list->allow && !$list->deny)
                                     {{ Carbon::parse($list->created_at)->diffInDays() }}

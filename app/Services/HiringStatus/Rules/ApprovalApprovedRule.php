@@ -15,7 +15,7 @@ class ApprovalApprovedRule implements RuleInterface
      */
     public function supports(Note $note): bool
     {
-        if (!$note->approval) {
+        if (!$note->approval || $note->txpriority === 'Emergente') {
             return false;
         }
 

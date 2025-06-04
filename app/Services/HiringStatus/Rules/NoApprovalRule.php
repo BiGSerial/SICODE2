@@ -12,6 +12,10 @@ class NoApprovalRule implements RuleInterface
     */
     public function supports(Note $note): bool
     {
+        if ($note->txpriority === 'Emergente') {
+            return false;
+        }
+
         return $note->approval === null;
     }
 

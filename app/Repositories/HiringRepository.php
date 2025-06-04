@@ -44,10 +44,10 @@ class HiringRepository
         //     ->whereDoesntHave('Viabilities')
         //     ->whereDoesntHave('Waitings');
         // })
-        ->where(function ($q) {
-            $q->where('txpriority', '!=', 'Emergente')
-              ->orWhereNull('txpriority');
-        })
+        // ->where(function ($q) {
+        //     $q->where('txpriority', '!=', 'Emergente')
+        //       ->orWhereNull('txpriority');
+        // })
         ->with([
            'orders' => function ($q) {
                $q->where('statusSist', 'not like', 'ENT%')

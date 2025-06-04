@@ -526,34 +526,34 @@ class Workreports extends Component
 
 
 
-        if ($partialTime = $note->Partials()->orderByDesc('created_at')->first()) {
+        // if ($partialTime = $note->Partials()->orderByDesc('created_at')->first()) {
 
-            if ($partialTime->complete && $partialTime->allow) {
+        //     if ($partialTime->complete && $partialTime->allow) {
 
-                if ($partialTime->payment_at->startOfDay()->diffInDays(now()->startOfDay()) <= 30) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'error',
-                        'title'    => 'Prazo para Novo Informe',
-                        'html'     =>  "<p>
-                            A Nota/OV <strong>{$note->note}</strong> teve uma medição parcial recente. Não é possível enviar o informe final neste intervalo.
+        //         if ($partialTime->payment_at->startOfDay()->diffInDays(now()->startOfDay()) <= 30) {
+        //             $this->dispatchBrowserEvent('swal', [
+        //                 'position' => 'center',
+        //                 'icon'     => 'error',
+        //                 'title'    => 'Prazo para Novo Informe',
+        //                 'html'     =>  "<p>
+        //                     A Nota/OV <strong>{$note->note}</strong> teve uma medição parcial recente. Não é possível enviar o informe final neste intervalo.
 
-                            <div class='card'>
-                                <div class='card-body text-center py-1'>
-                                    <p class='py-0 my-0'> Conclusão do Informe Parcial: <strong>{$partialTime->payment_at?->format('d/m/Y H:i')}</strong>.</p>
-                                </div>
-                            </div>
-                            Data prevista para o Informe Final: <strong>{$partialTime->payment_at?->startOfDay()->addDays(30)?->format('d/m/Y')}</strong>.
-                        </p>",
-                    ]);
+        //                     <div class='card'>
+        //                         <div class='card-body text-center py-1'>
+        //                             <p class='py-0 my-0'> Conclusão do Informe Parcial: <strong>{$partialTime->payment_at?->format('d/m/Y H:i')}</strong>.</p>
+        //                         </div>
+        //                     </div>
+        //                     Data prevista para o Informe Final: <strong>{$partialTime->payment_at?->startOfDay()->addDays(30)?->format('d/m/Y')}</strong>.
+        //                 </p>",
+        //             ]);
 
-                    return;
-                }
+        //             return;
+        //         }
 
-            }
+        //     }
 
 
-        }
+        // }
 
 
         $this->hasPartial = $note->Partials()->where('complete', false)->where('allow', false)->where('deny', false)->first();
