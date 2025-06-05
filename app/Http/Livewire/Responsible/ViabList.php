@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Exports\parner\exportExcel;
+use App\Exports\Viability\ViabilitiesInProgressExport;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note, Viability};
 use Illuminate\Support\Facades\{Crypt, Storage};
@@ -62,11 +63,7 @@ class ViabList extends Component
 
     public function export_excel()
     {
-
-        return (new exportExcel($this->lists->get()->sortBy(function ($note) {
-            // Acessar a primeira 'Viability' e o campo 'sended_at'
-            return $note->Viabilities->first()->sended_at ?? null;
-        })))->download(date('YmdHis-') . 'exportViabilityParner.xlsx');
+        return (new ViabilitiesInProgressExport($this->lists))->download(date('Ymd_His') . '-EmViabilidadeExport.xlsx');
     }
 
     public function downloadFile($id)
