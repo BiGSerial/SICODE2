@@ -25,6 +25,8 @@ return new class () extends Migration {
             $table->boolean('completed')->default(false);
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
+
+            $table->unique(['protest_id', 'med_id'], 'med_protests_unique');
         });
     }
 

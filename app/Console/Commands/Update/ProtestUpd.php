@@ -64,7 +64,7 @@ class ProtestUpd extends Command
 
         $bar = new ProgressBar($this->output, $total);
         $bar->setFormat(
-            '<bg=blue;fg=white>UPDATE BaseEP: %current%/%max% </>' .
+            '<bg=blue;fg=white>UPDATE PROTEST LIST: %current%/%max% </>' .
             '<fg=white;options=bold> [%tins%][I: %ins%/U: %upd%] </>' .
             '<fg=green>[%bar%]</> <fg=white;options=bold> %percent%%</> ' .
             '<bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%'
@@ -74,7 +74,7 @@ class ProtestUpd extends Command
         $bar->start();
 
         $baseQuery->orderBy('id')
-            ->chunk(500, function ($protests) use ($bar, &$count) {
+            ->chunk(2000, function ($protests) use ($bar, &$count) {
                 $notas = $protests->pluck('nota')->unique()->values();
                 $existingNotes = Protest::whereIn('nota', $notas)->get()->keyBy('nota');
 

@@ -166,6 +166,7 @@
                                 $block = 0;
                                 $exception = false;
                                 $production = '';
+                                $lastProduction = '';
                                 $user = [];
 
                                 $production = $list->Productions->where('service_id', $this->service->uuid);
@@ -300,7 +301,7 @@
 
                                 @if (Auth()->User()->management ||
                                         Auth()->User()->superadm ||
-                                        ($count->last() !== null && $count->last()->user_id === Auth()->User()->id))
+                                        ($lastProduction && $lastProduction->user_id === Auth()->User()->id))
                                     <td class="fw-bold copy-text" data-value="{{ $list->note }}">
                                         {{ $list->note }}
                                     </td>

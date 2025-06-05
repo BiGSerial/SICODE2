@@ -1,0 +1,140 @@
+<?php
+
+namespace App\Console\Commands\Update;
+
+use App\Custom\RegistroJson;
+use App\Models\Edp_depc\BaseProtest;
+use App\Models\MedProtest;
+use App\Models\Protest;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Console\Helper\ProgressBar;
+
+class ProtestListUpd extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'sicode:upd_protestList {--onlyMeda}';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Atualiza a lista dos protestos no sistema SICODE';
+
+    /**
+     * Execute the console command.
+     */
+    public function handle()
+    {
+        $this->info('Iniciando atualização das Medidas de Protesto no sistema SICODE...');
+
+        $log = new RegistroJson('upd_protest_list', $this->options());
+        $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
+
+        $baseQuery = BaseProtest::query()->when(
+            $this->option('onlyMeda'),
+            fn ($query) => $query->where('statusSist', 'MEDA')
+        )->orderBy('nota', 'ASC')->orderBy('numOrdenacao', 'ASC');
+
+        $total = $baseQuery->count();
+        $log->setTotal($total);
+
+        $bar = new ProgressBar($this->output, $total);
+        $bar->setFormat(
+            '<bg=blue;fg=white>UPDATE PROTEST MED LIST: %current%/%max% </>' .
+            '<fg=white;options=bold> [%tins%][I: %ins%/U: %upd%] </>' .
+            '<fg=green>[%bar%]</> <fg=white;options=bold> %percent%%</> ' .
+            '<bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%'
+        );
+
+        $bar->setMessage('Iniciando...', 'message');
+        $bar->start();
+
+        $baseQuery->chunk(1000, function ($protests) use ($bar, &$count) {
+            $notas = $protests->pluck('nota')->unique()->values();
+            $existingProtests = Protest::whereIn('nota', $notas)->get()->keyBy('nota');
+
+            $protestIds = $existingProtests->pluck('id');
+            $existingMedProtests = MedProtest::whereIn('protest_id', $protestIds)
+                ->get()
+                ->keyBy(fn ($item) => $item->protest_id . '-' . $item->med_id);
+
+            $upsertData = [];
+
+            foreach ($protests as $record) {
+
+                $protest = $existingProtests->get($record->nota);
+
+                if (! $protest || is_null($record->numOrdenacao)) {
+                    $count['errors']++;
+                    $bar->advance();
+                    continue;
+                }
+
+                $key = $protest->id . '-' . $record->numOrdenacao;
+                $existing = $existingMedProtests->get($key);
+
+                $data = [
+                    'protest_id'         => $protest->id,
+                    'med_id'             => $record->numOrdenacao,
+                    'txtGrpCodificacao'  => $record->txtGrpCodificacao,
+                    'statusSist'         => $record->statusSist,
+                    'codMedida'          => $record->codMedida,
+                    'txtCodCodificacao'  => $record->txtCodCodificacao,
+                    'txtCodMedida'       => $record->txtCodMedida,
+                    'dtCriacaoMedida'    => $record->dtCriacaoMedida,
+                    'dtFimMedidaDesej'   => $record->dtFimMedidaDesej,
+                    'dtFimMedida'        => $record->dtFimMedida,
+                    'updated_at'         => now(),
+                ];
+
+                if (! $existing) {
+                    $data['created_at'] = now();
+                    $count['ins']++;
+                } else {
+                    $count['upd']++;
+                }
+
+                $upsertData[] = $data;
+
+                // Atualiza visual do progress bar
+                $bar->setMessage($count['tins'], 'tins');
+                $bar->setMessage($count['ins'], 'ins');
+                $bar->setMessage($count['upd'], 'upd');
+                $bar->advance();
+            }
+
+
+
+            if (!empty($upsertData)) {
+
+                MedProtest::upsert(
+                    $upsertData,
+                    ['protest_id', 'med_id'],
+                    [
+                        'txtGrpCodificacao',
+                        'statusSist',
+                        'codMedida',
+                        'txtCodCodificacao',
+                        'txtCodMedida',
+                        'dtCriacaoMedida',
+                        'dtFimMedidaDesej',
+                        'dtFimMedida',
+                        'updated_at'
+                    ]
+                );
+            }
+
+            $count['tins']++;
+        });
+
+        $this->info("\nAtualização concluída com sucesso!");
+        return 0;
+    }
+
+}
