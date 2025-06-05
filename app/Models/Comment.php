@@ -43,4 +43,9 @@ class Comment extends Model
         return $this->belongsToMany(Reclaim::class);
     }
 
+    public function commentable()
+    {
+        return $this->morphTo();
+    }
+
 }

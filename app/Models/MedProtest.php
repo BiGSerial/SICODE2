@@ -31,4 +31,20 @@ class MedProtest extends Model
         'completed_at' => 'datetime',
     ];
 
+    public function Protest()
+    {
+        return $this->belongsTo(Protest::class, 'protest_id');
+    }
+
+    public function Comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable');
+    }
+
+    public function assignments()
+    {
+        return $this->morphMany(UserAssignment::class, 'assignable');
+    }
+
+
 }

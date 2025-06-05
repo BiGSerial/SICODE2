@@ -26,5 +26,21 @@ class Protest extends Model
         'dtConclusaoDesej' => 'date',
     ];
 
-    
+
+    public function medProtests()
+    {
+        return $this->hasMany(MedProtest::class, 'protest_id');
+    }
+
+    public function Comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable');
+    }
+
+    public function assignments()
+    {
+        return $this->morphMany(UserAssignment::class, 'assignable');
+    }
+
+
 }

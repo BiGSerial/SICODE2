@@ -108,4 +108,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ViabilityApproval::class);
     }
+
+    public function assignments()
+    {
+        return $this->hasMany(UserAssignment::class);
+    }
 }
