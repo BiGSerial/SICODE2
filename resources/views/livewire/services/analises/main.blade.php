@@ -164,129 +164,64 @@
                         @foreach ($lists as $list)
                             @php
                                 $block = 0;
-                                $exception = false;
-                                $production = '';
-                                $lastProduction = '';
+                                $lastProduction = $list->Productions
+                                    ->where('service_id', $this->service->uuid)
+                                    ?->last();
+
+                                $productions = $list->Productions->where('service_id', $this->service->uuid);
+
                                 $user = [];
 
-                                $production = $list->Productions->where('service_id', $this->service->uuid);
+                                // Helper function to get formatted user info
+                                $getUserInfo = function ($production) use ($productions) {
+                                    $lastName = $production->User->name ?? 'Desconhecido';
+                                    $company = $production->Company->name ?? 'Desconhecido';
 
-                                if ($production->where('completed', false)->where('confirmed', false)->count()) {
-                                    $block = 1;
+                                    $nameArr = explode(' ', $lastName);
+                                    $lastName = count($nameArr) > 1 ? $nameArr[0] . ' ' . end($nameArr) : $nameArr[0];
 
-                                    $lastProduction = $production
-                                        ->where('completed', false)
-                                        ->where('confirmed', false)
-                                        ->last();
-
-                                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                                    $count = $production->count();
-
-                                    $lastName = explode(' ', $lastName);
-                                    $lastName =
-                                        count($lastName) > 1 ? $lastName[0] . ' ' . end($lastName) : $lastName[0];
-
-                                    $company = explode(' ', $company)[0];
-
-                                    $user = [
+                                    return [
                                         'lastUser' => $lastName,
-                                        'countProd' => $count,
-                                        'status' => $status,
-                                        'company' => $company,
+                                        'countProd' => $productions->count(),
+                                        'status' => $production->status ?? 'Desconhecido',
+                                        'company' => explode(' ', $company)[0],
                                     ];
-                                } elseif ($production->where('completed', true)->where('confirmed', false)->count()) {
+                                };
+
+                                // Check different production states
+                                if (
+                                    $lastProduction &&
+                                    $lastProduction->completed == false &&
+                                    $lastProduction->confirmed == false
+                                ) {
+                                    $block = 1;
+                                    $user = $getUserInfo($lastProduction);
+                                } elseif (
+                                    $lastProduction &&
+                                    $lastProduction->completed == true &&
+                                    $lastProduction->confirmed == false
+                                ) {
                                     $block = 2;
 
-                                    $lastProduction = $production
-                                        ->where('completed', true)
-                                        ->where('confirmed', false)
-                                        ->last();
-
-                                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                                    $count = $production->count();
-
-                                    $lastName = explode(' ', $lastName);
-                                    $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                    $company = explode(' ', $company)[0];
-
-                                    $user = [
-                                        'lastUser' => $lastName,
-                                        'countProd' => $count,
-                                        'status' => $status,
-                                        'company' => $company,
-                                    ];
-                                } elseif ($production->where('completed', true)->where('confirmed', true)->count()) {
-                                    if (
-                                        $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->where('dt_note', $list->dt_status)
-                                            ->where('noinconsistency', false)
-                                            ->where('type_note', 2)
-                                            ->count()
-                                    ) {
-                                        $block = 3;
-
-                                        $lastProduction = $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->where('dt_note', $list->dt_status)
-                                            ->where('noinconsistency', false)
-                                            ->where('type_note', 2)
-                                            ->last();
-
-                                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                                        $count = $production->count();
-
-                                        // Get First and Last name from User Name,
-                                        $lastName = explode(' ', $lastName);
-                                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                        // Get just first Company name.
-                                        $company = explode(' ', $company)[0];
-
-                                        $user = [
-                                            'lastUser' => $lastName,
-                                            'countProd' => $count,
-                                            'status' => $status,
-                                            'company' => $company,
-                                        ];
-                                    } else {
-                                        $lastProduction = $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->last();
-
-                                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                                        $count = $production->count();
-
-                                        $company = explode(' ', $company)[0];
-
-                                        $lastName = explode(' ', $lastName);
-                                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                        $user = [
-                                            'lastUser' => $lastName,
-                                            'countProd' => $count,
-                                            'status' => $status,
-                                            'company' => $company,
-                                        ];
-                                    }
+                                    $user = $getUserInfo($lastProduction);
+                                } elseif (
+                                    $lastProduction &&
+                                    $lastProduction->completed == true &&
+                                    $lastProduction->confirmed == true
+                                ) {
+                                    $block = 3;
+                                    $user = $getUserInfo($lastProduction);
+                                } elseif (
+                                    $lastProduction &&
+                                    $lastProduction->completed == true &&
+                                    $lastProduction->confirmed == true &&
+                                    $lastProduction->dh_status === $list->dt_status
+                                ) {
+                                    $block = 3;
+                                    $user = $getUserInfo($lastProduction);
                                 }
                             @endphp
+
                             {{-- @dump($list->Productions) --}}
                             <tr
                                 class="align-middle
