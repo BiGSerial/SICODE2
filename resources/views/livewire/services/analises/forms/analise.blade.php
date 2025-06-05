@@ -181,7 +181,7 @@
                 <div class="card-body">
                     <div class="row g-3">
                         {{-- Restrições --}}
-                        <div class="col-12 col-md-4 col-lg-3">
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
                                 <select class="form-select" id="restriction" wire:model="restriction"
                                     aria-label="Restrições">
@@ -196,20 +196,16 @@
                             </div>
                         </div>
 
-                        {{-- Motivo (só aparece quando $restriction != "") --}}
+                        {{-- Motivo --}}
                         @if ($restriction)
-                            <div class="col-12 col-md-4 col-lg-3">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                 <div class="form-floating">
                                     <select class="form-select" id="motivo" wire:model="motivo"
                                         aria-label="Motivo">
                                         <option value="">SELECIONE</option>
-
-                                        {{-- SERVIDAO --}}
                                         @if ($restriction === 'SERVIDAO')
                                             <option value="SERVIDAO">SERVIDAO</option>
                                         @endif
-
-                                        {{-- LOTEAMENTO --}}
                                         @if ($restriction === 'LOTEAMENTO')
                                             <option value="VILLAGE">VILLAGE DO SOL</option>
                                             <option value="BANANAL">RIO BANANAL</option>
@@ -217,20 +213,14 @@
                                             <option value="DM">DOMINGOS MARTINS</option>
                                             <option value="OUTROS">OUTROS</option>
                                         @endif
-
-                                        {{-- SEMMA --}}
                                         @if ($restriction === 'SEMMA')
                                             <option value="SERRA">SERRA</option>
                                             <option value="DM">DOMINGOS MARTINS</option>
                                             <option value="OUTROS">OUTROS</option>
                                         @endif
-
-                                        {{-- FUNAI --}}
                                         @if ($restriction === 'FUNAI')
                                             <option value="FUNAI">FUNAI</option>
                                         @endif
-
-                                        {{-- AMBIENTE --}}
                                         @if ($restriction === 'AMBIENTE')
                                             <option value="IEMA">IEMA</option>
                                             <option value="ICMBIO">ICMBIO</option>
@@ -241,13 +231,12 @@
                             </div>
                         @endif
 
-                        {{-- Município (quando $motivo === 'OUTROS' e cidade não informada no $note->lexp) --}}
+                        {{-- Município --}}
                         @if ($motivo === 'OUTROS' && (!trim($note->lexp) || $note->lexp == null))
-                            <div class="col-12 col-md-6 col-lg-4">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                 @if ($cities)
                                     <div class="form-floating">
-                                        <select class="form-select" id="municipio" wire:model.defer="municipio"
-                                            aria-label="Município">
+                                        <select class="form-select" id="municipio" wire:model.defer="municipio">
                                             <option value="" selected>Selecione...</option>
                                             @foreach ($cities as $city)
                                                 <option value="{{ $city->cidade }}">{{ $city->municipio }}</option>
@@ -265,9 +254,9 @@
                             </div>
                         @endif
 
-                        {{-- Reserva (quando IEMA ou ICMBIO) --}}
+                        {{-- Reserva --}}
                         @if ($motivo === 'IEMA' || $motivo === 'ICMBIO')
-                            <div class="col-12 col-md-4 col-lg-3">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                 <div class="form-floating">
                                     <input type="text" class="form-control" id="reserva"
                                         wire:model.defer="reserva" placeholder="Reserva">
@@ -276,21 +265,20 @@
                             </div>
                         @endif
 
-                        {{-- Botão "Gerar Carta" (só aparece quando há $restriction e $motivo selecionados) --}}
+                        {{-- Botão Gerar Carta --}}
                         @if ($restriction && $motivo)
-                            <div class="col-12 col-md-4 col-lg-2 d-flex align-items-end">
-                                <button class="btn btn-primary w-100"
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                <button class="btn btn-primary w-100 h-100"
                                     wire:click.prevent="gerarCarta('{{ $restriction }}', '{{ $motivo }}')">
                                     Gerar Carta
                                 </button>
                             </div>
                         @endif
 
-                        {{-- MMGD? --}}
-                        <div class="col-12 col-md-4 col-lg-3">
+                        {{-- MMGD --}}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select" id="mmgd" wire:model.defer="mmgd"
-                                    aria-label="MMGD">
+                                <select class="form-select" id="mmgd" wire:model.defer="mmgd">
                                     <option value="" selected>Selecione</option>
                                     <option value="SIM">SIM</option>
                                     <option value="NAO">NÃO</option>
@@ -299,24 +287,85 @@
                             </div>
                         </div>
 
-                        {{-- MMGD? --}}
-                        <div class="col-12 col-md-4 col-lg-3">
+                        {{-- Art.90 --}}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select" id="is45" wire:model.defer="is45"
-                                    aria-label="is45">
+                                <select class="form-select" id="is45" wire:model.defer="is45">
                                     <option value="" selected>Selecione</option>
-                                    <option value="SIM">SIM</option>
-                                    <option value="NAO">NÃO</option>
+                                    <option value="true">SIM</option>
+                                    <option value="false">NÃO</option>
                                 </select>
-                                <label for="is45">Art.90 (45 dias)?</label>
+                                <label for="is45" class="d-flex align-items-center">
+                                    Art.90 (45 dias)?
+                                    <i class="ri-information-line ms-1" style="cursor: pointer;"
+                                        data-bs-toggle="modal" data-bs-target="#art90Modal"></i>
+                                </label>
+
+                                <!-- Modal -->
+                                <div class="modal fade" id="art90Modal" tabindex="-1"
+                                    aria-labelledby="art90ModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="art90ModalLabel">Art. 90 - Lei nº
+                                                    14.195/2021</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                    aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p><strong>Art. 90.</strong> Nos casos enquadrados na Lei nº 14.195, de
+                                                    26 de agosto de 2021, os procedimentos necessários para a obtenção
+                                                    da conexão desde a solicitação até o início do fornecimento devem
+                                                    ser realizados em até 45 dias.</p>
+
+                                                <p><strong>§1º</strong> A distribuidora deve observar os seguintes
+                                                    prazos, contados sucessivamente a partir da solicitação do orçamento
+                                                    de conexão:</p>
+
+                                                <ul>
+                                                    <li><strong>I -</strong> até 10 dias: para a distribuidora elaborar
+                                                        e fornecer ao consumidor o orçamento de conexão, entregar os
+                                                        contratos e o documento ou meio para o pagamento se houver
+                                                        participação financeira;</li>
+                                                    <li><strong>II -</strong> até 5 dias: para o consumidor devolver
+                                                        para a distribuidora os contratos e demais documentos assinados
+                                                        e, caso aplicável, pagar os custos de participação financeira de
+                                                        sua responsabilidade, ou pactuar com a distribuidora como será
+                                                        realizado o pagamento;</li>
+                                                    <li><strong>III -</strong> até 30 dias: para a distribuidora
+                                                        realizar as obras de conexão, a vistoria e instalar os
+                                                        equipamentos de medição nas instalações do consumidor, observado
+                                                        o art. 89.</li>
+                                                </ul>
+
+                                                <p><strong>§2º</strong> Aplicam-se as disposições deste artigo às
+                                                    unidades consumidoras do Grupo A, sem microgeração ou minigeração
+                                                    distribuída, com as seguintes características:</p>
+
+                                                <ul>
+                                                    <li><strong>I -</strong> potência contratada de até 140 kW;</li>
+                                                    <li><strong>II -</strong> localização em área urbana;</li>
+                                                    <li><strong>III -</strong> distância até a rede de distribuição mais
+                                                        próxima até 150 metros; e</li>
+                                                    <li><strong>IV -</strong> não haja a necessidade de realização de
+                                                        obras de ampliação, de reforço ou de melhoria no sistema de
+                                                        distribuição de energia elétrica existente.</li>
+                                                </ul>
+
+                                                <p><strong>§3º</strong> Para as situações enquadradas neste artigo, a
+                                                    distribuidora deve dispensar a aprovação prévia de projeto das
+                                                    instalações de entrada de energia.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         {{-- Conclusão --}}
-                        <div class="col-12 col-md-6 col-lg-4">
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select" id="conclusion" wire:model.defer="conclusion"
-                                    aria-label="Conclusão">
+                                <select class="form-select" id="conclusion" wire:model.defer="conclusion">
                                     <option value="0" selected>Selecione</option>
                                     <option value="ISR - LIBERADO">ISR - LIBERADO</option>
                                     <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
@@ -329,35 +378,31 @@
                             </div>
                         </div>
 
-                        {{-- Informações (textarea) --}}
+                        {{-- Informações --}}
                         <div class="col-12">
-                            <div class="form-floating">
+                            <div class="form-floating position-relative">
                                 <textarea class="form-control" placeholder="Informações" id="info" style="height: 150px"
                                     wire:model.defer="info"></textarea>
                                 <label for="info">Informações</label>
-                                <span class="fw-bold">
-                                    <i class="ri-file-copy-line copyButton" data-id="infoTextArea2"
-                                        style="cursor: pointer;"></i>
-                                </span>
+                                <i class="ri-file-copy-line copyButton position-absolute end-2 bottom-2"
+                                    data-id="infoTextArea2" style="cursor: pointer;"></i>
                             </div>
                         </div>
 
-                        {{-- Carta (textarea) --}}
+                        {{-- Carta --}}
                         @if ($card)
                             <div class="col-12">
-                                <div class="form-floating">
+                                <div class="form-floating position-relative">
                                     <textarea class="form-control" placeholder="Carta" id="card" style="height: 200px" wire:model.defer="card"></textarea>
                                     <label for="card">Carta</label>
-                                    <span class="fw-bold">
-                                        <i class="ri-file-copy-line copyButton" data-id="infoTextArea"
-                                            style="cursor: pointer;"></i>
-                                    </span>
+                                    <i class="ri-file-copy-line copyButton position-absolute end-2 bottom-2"
+                                        data-id="infoTextArea" style="cursor: pointer;"></i>
                                 </div>
                             </div>
                         @endif
-                    </div> {{-- fim row --}}
-                </div> {{-- fim card-body --}}
-            </div> {{-- fim card Resultado Análise --}}
+                    </div>
+                </div>
+            </div>
 
             {{-- ======= Botões de Ação ======= --}}
             <div class="d-flex justify-content-end gap-2 mb-4">

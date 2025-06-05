@@ -62,6 +62,8 @@ class Analise extends Component
 
     public $analise;
 
+    public $is45;
+
     public $cities = false;
 
     protected $listeners = [
@@ -288,7 +290,7 @@ class Analise extends Component
         if ($chk) {
             $user = Auth()->User()->name;
 
-            Note::find($this->note->id)->update(['mmgd' => $mmgd]);
+            $this->note->update(['mmgd' => $mmgd, 'is45' => $this->is45]);
 
             Notetimeline::Create([
                 'note_id'      => $this->note->id,
