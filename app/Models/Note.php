@@ -52,6 +52,7 @@ class Note extends Model
         'txpriority',
         'updated_at',
         'created_at',
+        'is45',
     ];
 
 
@@ -155,5 +156,30 @@ class Note extends Model
     public function TempAdsInfos()
     {
         return $this->hasMany(TempAdsInfo::class);
+    }
+
+
+
+
+    // Note Resources
+
+    public function dueDate()
+    {
+        if ($this->is45) {
+            return $this->dt_created->addDays(45);
+        } elseif ($this->pze > 0) {
+            return $this->dt_created->addDays($this->pze);
+        } else {
+            return false; // Default to 30 days if no specific PZE is set
+        }
+    }
+
+    public function isLateDue()
+    {
+        $dueDate = $this->dueDate();
+        if ($dueDate) {
+            return now()->greaterThan($dueDate);
+        }
+        return false;
     }
 }
