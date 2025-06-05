@@ -1,6 +1,11 @@
 {
-    "appver": "1.20.2",
+    "appver": "1.20.3",
     "historic": [
+        {
+            "version": "1.20.3",
+            "description": "Fix, Report on Viability in progress. And fix Analise user block on view.",
+            "date": "2025-06-05"
+        },
         {
             "version": "1.20.2",
             "description": "Atualizado Listas, Exports Viabilidade, Parceira.",
