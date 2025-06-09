@@ -4,6 +4,28 @@
 @endphp
 <div>
 
+    @push('css')
+        <style>
+            @keyframes flame {
+                0% {
+                    transform: scaleX(1) scaleY(1);
+                }
+
+                25% {
+                    transform: scaleX(1) scaleY(0.8);
+                }
+
+                50% {
+                    transform: scaleX(-1) scaleY(0.8);
+                }
+
+                75% {
+                    transform: scaleX(-1) scaleY(1);
+                }
+            }
+        </style>
+    @endpush
+
     <x-show-loading />
 
     <x-showselected :count="$selected" />
@@ -351,6 +373,7 @@
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">DOE</th>
                             <th scope="col" class="fw-bold text-center">MMGD</th>
+                            <th scope="col" class="fw-bold text-center">Art90</th>
                             <th scope="col" class="fw-bold text-center">Criado Em</th>
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
@@ -515,8 +538,22 @@
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                <td class="fw-bold copy-text" data-value="{{ $list->note }}">
-                                    {{ $list->note }}
+                                <td class="fw-bold copy-text @if ($list->is45) text-bg-warning @endif"
+                                    data-value="{{ $list->note }}">
+                                    <span>
+                                        {{ $list->note }}
+                                        @if ($list->is45)
+                                            <span tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="top"
+                                                data-bs-title="NOTA EXPRESSA"
+                                                data-bs-content="Nota com prazo de execução de 45 dias"
+                                                style="z-index: 9999;" data-bs-toggle="tooltip"
+                                                data-bs-placement="top">
+                                                <i class="ri-fire-line text-danger fw-bold"
+                                                    style="display: inline-block; animation: flame 1s steps(1) infinite;"></i>
+                                            </span>
+                                        @endif
+                                    </span>
                                 </td>
                                 <td class="fw-bold text-success text-center">
                                     @if ($list->doe)
@@ -527,6 +564,11 @@
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         wire:click.prevent="check_mmgd({{ $list->id }})"
                                         value='{{ $list->id }}' @checked($list->mmgd)>
+                                </td>
+                                <td class="fw-bold text-danger text-center">
+                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
+                                        wire:click.prevent="check_is45({{ $list->id }})"
+                                        value='{{ $list->id }}' @checked($list->is45)>
                                 </td>
                                 <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
                                 </td>

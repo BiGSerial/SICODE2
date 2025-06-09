@@ -144,7 +144,7 @@ class Main extends Component
 
     public function export_excel()
     {
-    
+
         if (!count($this->selected)) {
             return (new SurveyExportList($this->getListsProperty(), $this->service->uuid))->download(date('YmdHis-') . 'exportSelectedSurvey.xlsx');
         }
@@ -1015,6 +1015,7 @@ class Main extends Component
 
 
         $query->with('Productions.User', 'Wpas')
+                    ->orderBy('is45', 'DESC')
                     ->orderBy('type_note', 'DESC')
                     ->orderBy('days_left');
 

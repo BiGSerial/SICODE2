@@ -256,6 +256,7 @@ class Main extends Component
         END as forms
         ")
         ->orderBy('priority', 'desc')
+        ->orderBy('Note.is45', 'desc')
         ->orderBy('d5', 'desc')
         ->orderBy('forms', 'desc')
         ->paginate($this->perPage);

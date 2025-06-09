@@ -172,7 +172,7 @@ class Todoviability extends Component
             });
         }
 
-        return $query->orderBy('sended_at', 'asc');
+        return $query->orderBy('Note.is45', 'desc')->orderBy('sended_at', 'asc');
 
     }
 

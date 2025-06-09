@@ -660,6 +660,7 @@ class Stack extends Component
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
+             ->orderBy('notes.is45', 'DESC')
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
@@ -723,6 +724,7 @@ class Stack extends Component
             ->when($this->note_type, function ($q) {
                 return $q->whereRelation('Note', 'type_note', $this->note_type);
             })
+            ->orderBy('notes.is45', 'DESC')
             ->orderBy('priority', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
             ->orderBy('notes.days_left', 'asc')

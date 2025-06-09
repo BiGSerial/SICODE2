@@ -292,8 +292,8 @@
                             <div class="form-floating">
                                 <select class="form-select" id="is45" wire:model.defer="is45">
                                     <option value="" selected>Selecione</option>
-                                    <option value="true">SIM</option>
-                                    <option value="false">NÃO</option>
+                                    <option value="1">SIM</option>
+                                    <option value="0">NÃO</option>
                                 </select>
                                 <label for="is45" class="d-flex align-items-center">
                                     Art.90 (45 dias)?
