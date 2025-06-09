@@ -150,68 +150,55 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
+                                // 1. Inicializa
                                 $block = 0;
-                                $exception = false;
-                                $lastProduction = $list->Productions
-                                    ->where('service_id', $this->service->uuid)
-                                    ?->last();
-
+                                // Coleta todas as produções deste serviço
                                 $productions = $list->Productions->where('service_id', $this->service->uuid);
-
+                                // Pega a última produção (ou null)
+                                $lastProduction = $productions->last();
                                 $user = [];
 
-                                // Helper function to get formatted user info
+                                // Helper para formatar dados do usuário
                                 $getUserInfo = function ($production) use ($productions) {
-                                    $lastName = $production->User->name ?? 'Desconhecido';
+                                    $fullName = $production->User->name ?? 'Desconhecido';
                                     $company = $production->Company->name ?? 'Desconhecido';
 
-                                    $nameArr = explode(' ', $lastName);
-                                    $lastName = count($nameArr) > 1 ? $nameArr[0] . ' ' . end($nameArr) : $nameArr[0];
+                                    $nameParts = explode(' ', $fullName);
+                                    $shortName =
+                                        count($nameParts) > 1 ? $nameParts[0] . ' ' . end($nameParts) : $nameParts[0];
 
                                     return [
-                                        'lastUser' => $lastName,
+                                        'lastUser' => $shortName,
                                         'countProd' => $productions->count(),
                                         'status' => $production->status ?? 'Desconhecido',
                                         'company' => explode(' ', $company)[0],
                                     ];
                                 };
 
-                                // Check different production states
-                                if (
-                                    $lastProduction &&
-                                    $lastProduction->completed == false &&
-                                    $lastProduction->confirmed == false
-                                ) {
+                                // 2. Se o dt_status mudou desde a última produção, libera (block = 0)
+                                if ($lastProduction && $lastProduction->dt_note != $list->dt_status) {
+                                    $user = $getUserInfo($lastProduction);
+                                }
+                                // 3. Caso contrário, avalia os estados de completed/confirmed
+                                elseif ($lastProduction && !$lastProduction->completed && !$lastProduction->confirmed) {
                                     $block = 1;
                                     $user = $getUserInfo($lastProduction);
                                 } elseif (
                                     $lastProduction &&
-                                    $lastProduction->completed == true &&
-                                    $lastProduction->confirmed == false
+                                    $lastProduction->completed &&
+                                    !$lastProduction->confirmed
                                 ) {
                                     $block = 2;
-
                                     $user = $getUserInfo($lastProduction);
-                                } elseif (
-                                    $lastProduction &&
-                                    $lastProduction->completed == true &&
-                                    $lastProduction->confirmed == true
-                                ) {
+                                } elseif ($lastProduction && $lastProduction->completed && $lastProduction->confirmed) {
                                     $block = 3;
-                                    $exception = true;
                                     $user = $getUserInfo($lastProduction);
-                                } elseif (
-                                    $lastProduction &&
-                                    $lastProduction->completed == true &&
-                                    $lastProduction->confirmed == true &&
-                                    $lastProduction->dh_status === $list->dt_status
-                                ) {
-                                    $exception = true;
+                                } elseif ($lastProduction && $lastProduction->dt_note === $list->dt_status) {
                                     $block = 3;
                                     $user = $getUserInfo($lastProduction);
                                 }
-
                             @endphp
+
 
                             <tr
                                 class="align-middle
