@@ -365,6 +365,7 @@ class ApprovalControl extends Component
 
 
         return $query
+                ->orderBy('is45', 'DESC')
                 ->orderBy('type_note', 'DESC')
                 ->orderBy('dt_status', 'ASC');
 

@@ -5,9 +5,8 @@
     x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
 
     <div class="mb-3">
-
         <div class="form-floating">
-            <select wire:model="selectedType" class="form-select">
+            <select wire:model="selectedType" class="form-select @error('selectedType') is-invalid @enderror">
                 <option value="">— selecione —</option>
                 @foreach (SelectOptions::getProtocolReasons() as $type)
                     <option value="{{ $type->{$uploadColValue} }}">
@@ -16,11 +15,28 @@
                 @endforeach
             </select>
             <label class="form-label">Tipo de Envio</label>
+            @error('selectedType')
+                <div class="invalid-feedback">
+                    {{ $message }}
+                </div>
+            @enderror
         </div>
     </div>
 
     <div class="mb-3">
-        <input type="file" wire:model="files" multiple class="form-control" @disabled(!$selectedType) />
+        <input type="file" wire:model="files" multiple class="form-control @error('files.*') is-invalid @enderror"
+            @disabled(!$selectedType) />
+        @error('files.*')
+            <div class="invalid-feedback">
+                {{ $message }}
+            </div>
+        @enderror
+        {{-- Adicionar validação para 'files' também, caso o array esteja vazio e seja requerido --}}
+        @error('files')
+            <div class="invalid-feedback">
+                {{ $message }}
+            </div>
+        @enderror
     </div>
 
     <div x-show="isUploading" class="mb-3">

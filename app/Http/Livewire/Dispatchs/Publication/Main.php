@@ -606,6 +606,7 @@ class Main extends Component
              where work_reports.note_id = notes.id
          ) desc
      ')
+     ->orderBy('is45', 'DESC')
      ->orderBy('prazo_final', 'ASC');
 
 

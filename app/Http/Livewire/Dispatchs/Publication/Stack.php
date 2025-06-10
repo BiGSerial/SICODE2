@@ -726,6 +726,7 @@ class Stack extends Component
         )
         ->with('Note.Orders', 'Company', 'User')
         ->orderBy('priority', 'DESC')
+        ->orderBy('notes.is45', 'DESC')
         ->orderBy('d5', 'DESC')
         ->orderBy('forms', 'DESC')
         ->orderBy('prazo_final', 'ASC');
