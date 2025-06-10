@@ -172,8 +172,10 @@ class Todoviability extends Component
             });
         }
 
-        return $query->orderBy('sended_at', 'asc');
-
+        return $query->join('notes', 'notes.id', '=', 'viabilities.note_id')
+                    ->orderBy('notes.is45', 'desc')
+                    ->orderBy('sended_at', 'asc')
+                    ->select('viabilities.*');
     }
 
     public function inActivityUpdade()

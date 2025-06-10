@@ -6,6 +6,7 @@ use App\Custom\GeradorCartas;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Analise extends Component
@@ -61,6 +62,8 @@ class Analise extends Component
     public $mmgd;
 
     public $analise;
+
+    public $is45;
 
     public $cities = false;
 
@@ -276,7 +279,13 @@ class Analise extends Component
             }
         }
 
-        $chk = $this->production->update([
+
+        DB::beginTransaction();
+
+        try {
+
+
+            $chk = $this->production->update([
             'status'       => 5,
             'completed_at' => date('Y-m-d H:i:s'),
             'completed'    => true,
@@ -285,23 +294,53 @@ class Analise extends Component
 
         ]);
 
-        if ($chk) {
-            $user = Auth()->User()->name;
+            if ($chk) {
+                $user = Auth()->User()->name;
 
-            Note::find($this->note->id)->update(['mmgd' => $mmgd]);
+                $this->note->update(['mmgd' => $mmgd, 'is45' => $this->is45]);
 
-            Notetimeline::Create([
-                'note_id'      => $this->note->id,
-                'service_id'   => $this->production->service_id,
-                'user_id'      => Auth()->User()->id,
-                'info'         => "Usuário {$user} encerrou a Nota/OV.",
-                'status'       => 5,
-                'productionId' => $this->production->id,
-            ]);
+                Notetimeline::Create([
+                    'note_id'      => $this->note->id,
+                    'service_id'   => $this->production->service_id,
+                    'user_id'      => Auth()->User()->id,
+                    'info'         => "Usuário {$user} encerrou a Nota/OV.",
+                    'status'       => 5,
+                    'productionId' => $this->production->id,
+                ]);
 
+
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'success',
+                            'title'    => 'Analise Concluída',
+                            'html'     => 'A análise foi concluída com sucesso. <br>
+                            <p class="text-bg-light mt-2 p-2">
+                                É importante salientar que, uma vez concluída, essa análise não poderá ser desfeita.
+                            </p>
+                                ',
+                            'timer'    => 5000,
+                        ]);
+
+            DB::commit();
             $this->clean();
             $this->dispatchBrowserEvent('hideModal');
             $this->emit('refresh_accomany');
+
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao concluir análise',
+                'html'     => "Ocorreu um erro ao tentar concluir a análise. <br>
+                    <p class='text-bg-light mt-2 p-2'>
+                        Por favor, tente novamente mais tarde ou entre em contato com o suporte.
+                    </p>
+                ",
+            ]);
         }
     }
 

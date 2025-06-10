@@ -144,7 +144,20 @@
                                         {{ $list->approval ? $list->approval->user->name : '---' }}
                                     </td>
                                 @endcan
-                                <td class="text-center align-middle">{{ $list->note }}</td>
+                                <td
+                                    class="text-center align-middle @if ($list->is45) text-bg-warning @endif">
+                                    {{ $list->note }}
+
+                                    @if ($list->is45)
+                                        <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="NOTA EXPRESSA"
+                                            data-bs-content="Nota com prazo de execução de 45 dias"
+                                            style="z-index: 9999;" data-bs-toggle="tooltip" data-bs-placement="top">
+                                            <i class="ri-fire-line text-danger fw-bold"
+                                                style="display: inline-block; animation: flame 1s steps(1) infinite;"></i>
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="text-center align-middle">
                                     @if ($list->orders->isNotEmpty())
                                         @foreach ($list->orders as $order)

@@ -4,6 +4,27 @@
     use Carbon\Carbon;
 @endphp
 <div>
+    @push('css')
+        <style>
+            @keyframes flame {
+                0% {
+                    transform: scaleX(1) scaleY(1);
+                }
+
+                25% {
+                    transform: scaleX(1) scaleY(0.8);
+                }
+
+                50% {
+                    transform: scaleX(-1) scaleY(0.8);
+                }
+
+                75% {
+                    transform: scaleX(-1) scaleY(1);
+                }
+            }
+        </style>
+    @endpush
     <x-show-loading />
     <x-showselected :count="$selected" />
 
@@ -120,7 +141,19 @@
 
                                     </div>
                                 </td>
-                                <td class="text-center align-middle {{ $colorAtt }}">{{ $list->note }}</td>
+                                <td
+                                    class="text-center align-middle  @if ($list->is45) text-bg-warning @else {{ $colorAtt }} @endif">
+                                    {{ $list->note }}
+                                    @if ($list->is45)
+                                        <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="NOTA EXPRESSA"
+                                            data-bs-content="Nota com prazo de execução de 45 dias"
+                                            style="z-index: 9999;" data-bs-toggle="tooltip" data-bs-placement="top">
+                                            <i class="ri-fire-line text-danger fw-bold"
+                                                style="display: inline-block; animation: flame 1s steps(1) infinite;"></i>
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="text-center align-middle {{ $colorAtt }}">
                                     @if ($list->orders->isNotEmpty())
                                         @foreach ($list->orders as $order)

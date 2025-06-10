@@ -154,6 +154,16 @@ class Main extends Component
         // $this->emitSelf('refresh_dispatch');
     }
 
+    public function check_is45(Note $note)
+    {
+        $note->is45 = !$note->is45;
+        $note->save();
+
+        // $this->emitSelf('refresh_dispatch');
+    }
+
+
+
     public function updatedCompanyS()
     {
 
@@ -617,6 +627,7 @@ class Main extends Component
         }
 
         $query->with('Productions.User')
+            ->orderBy('is45', 'DESC')
             ->orderBy('type_note', 'DESC')
             ->orderBy('days_left');
 

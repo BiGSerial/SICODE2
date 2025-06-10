@@ -25,23 +25,18 @@
     </style>
 @endpush
 
-
-
-
-
 <div>
-
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
     @if ($view_form)
-
         <div class="container">
-            <div class="card">
+            {{-- ======= Card: Informações da Nota ======= --}}
+            <div class="card mb-4">
                 <h4 class="card-header">Informações da Nota</h4>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-6">
+                        <div class="col-12 col-md-6 mb-3">
                             <dl class="row">
                                 <dt class="col-sm-4">Nota/Ov:</dt>
                                 <dd class="col-sm-8">{{ $note->note }}</dd>
@@ -51,13 +46,12 @@
                                 <dd class="col-sm-8">{{ $note->lexp }}</dd>
                             </dl>
                         </div>
-
-                        <div class="col-6">
+                        <div class="col-12 col-md-6 mb-3">
                             <dl class="row">
                                 <dt class="col-sm-4">Tipo:</dt>
                                 <dd class="col-sm-8">{{ $note->rubrica }}</dd>
                                 <dt class="col-sm-4">Data:</dt>
-                                <dd class="col-sm-8">{{ date('d/m/Y', strToTime($note->dt_status)) }}</dd>
+                                <dd class="col-sm-8">{{ date('d/m/Y', strtotime($note->dt_status)) }}</dd>
                                 <dt class="col-sm-4">Pedido:</dt>
                                 <dd class="col-sm-8">{{ $note->numPedido }}</dd>
                             </dl>
@@ -66,282 +60,364 @@
                 </div>
             </div>
 
-            <div class="card">
-                <h4 class="card-header">Informação de Analise</h4>
+            {{-- ======= Card: Informação de Análise ======= --}}
+            <div class="card mb-4">
+                <h4 class="card-header">Informação de Análise</h4>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Número de Instalação</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="ninst">
+                    <div class="row g-3">
+                        {{-- Número de Instalação --}}
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="ninst" wire:model.defer="ninst"
+                                    placeholder="Número de Instalação">
+                                <label for="ninst">Número de Instalação</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Número do Medidor</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="nmedidor">
+
+                        {{-- Número do Medidor --}}
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="nmedidor" wire:model.defer="nmedidor"
+                                    placeholder="Número do Medidor">
+                                <label for="nmedidor">Número do Medidor</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-2">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Patrimônio
-                                (ESTF):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="patrimonio">
+
+                        {{-- Patrimônio (ESTF) --}}
+                        <div class="col-12 col-md-6 col-lg-2">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="patrimonio" wire:model.defer="patrimonio"
+                                    placeholder="Patrimônio (ESTF)">
+                                <label for="patrimonio">Patrimônio (ESTF)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-2">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Latitude UTM
-                                (ESTF):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="lat">
+
+                        {{-- Latitude UTM (ESTF) --}}
+                        <div class="col-12 col-md-6 col-lg-2">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="lat" wire:model.defer="lat"
+                                    placeholder="Latitude UTM (ESTF)">
+                                <label for="lat">Latitude UTM (ESTF)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-2">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Longitude UTM
-                                (ESTF):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="lon">
+
+                        {{-- Longitude UTM (ESTF) --}}
+                        <div class="col-12 col-md-6 col-lg-2">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="lon" wire:model.defer="lon"
+                                    placeholder="Longitude UTM (ESTF)">
+                                <label for="lon">Longitude UTM (ESTF)</label>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
 
-
-            <div class="card">
+            {{-- ======= Card: Informação de Carga ======= --}}
+            <div class="card mb-4">
                 <h4 class="card-header">Informação de Carga</h4>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Carregamento Inicial:
-                                (%)</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="carga_ini">
+                    <div class="row g-3">
+                        {{-- Carregamento Inicial (%) --}}
+                        <div class="col-12 col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="carga_ini" wire:model.defer="carga_ini"
+                                    placeholder="Carregamento Inicial (%)">
+                                <label for="carga_ini">Carregamento Inicial (%)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-6">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Carregamento Final:
-                                (%):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="carga_fim">
+
+                        {{-- Carregamento Final (%) --}}
+                        <div class="col-12 col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="carga_fim" wire:model.defer="carga_fim"
+                                    placeholder="Carregamento Final (%)">
+                                <label for="carga_fim">Carregamento Final (%)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Queda:
-                                (%):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="queda">
+
+                        {{-- Queda (%) --}}
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="queda" wire:model.defer="queda"
+                                    placeholder="Queda (%)">
+                                <label for="queda">Queda (%)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Queda Max:
-                                (%):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="queda_max">
+
+                        {{-- Queda Máx (%) --}}
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="queda_max" wire:model.defer="queda_max"
+                                    placeholder="Queda Máx (%)">
+                                <label for="queda_max">Queda Máx (%)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Queda Cliente:
-                                (%):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="queda_cliente">
+
+                        {{-- Queda Cliente (%) --}}
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="queda_cliente"
+                                    wire:model.defer="queda_cliente" placeholder="Queda Cliente (%)">
+                                <label for="queda_cliente">Queda Cliente (%)</label>
                             </div>
                         </div>
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Numero de Vãos:
-                                (qtd):</label>
-                            <div class="col-sm-12">
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="vao">
+
+                        {{-- Número de Vãos (qtd) --}}
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="vao" wire:model.defer="vao"
+                                    placeholder="Número de Vãos (qtd)">
+                                <label for="vao">Número de Vãos (qtd)</label>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
 
-            <div class="card">
-                <h4 class="card-header">Resultado Analise</h4>
+            {{-- ======= Card: Resultado Análise ======= --}}
+            <div class="card mb-4">
+                <h4 class="card-header">Resultado Análise</h4>
                 <div class="card-body">
-
-                    <div class="row">
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Restrições:</label>
-                            <select class="form-select border border-secondary" aria-label="Default select example"
-                                wire:model="restriction">
-                                <option value="" selected>SEM RESTRIÇÃO</option>
-                                <option value="SERVIDAO">FAIXA DE SERVIDÃO</option>
-                                <option value="FUNAI">FUNAI</option>
-                                <option value="LOTEAMENTO">LOTEAMENTO CLANDESTINO</option>
-                                <option value="AMBIENTE">MEIO AMBIENTE</option>
-                                <option value="SEMMA">SEMMA</option>
-                            </select>
-                        </div>
-
-                        @if ($restriction)
-                            <div class="mb-3 col-3">
-                                <label for="inputPassword" class="col-sm-12 col-form-label">MOTIVO:</label>
-                                <select class="form-select border border-secondary"
-                                    aria-label="Default select example" wire:model="motivo">
-                                    <option value="" selected>SELECIONE</option>
-
-                                    {{-- SERVIDAO --}}
-                                    @if ($restriction === 'SERVIDAO')
-                                        <option value="">SERVIDAO</option>
-                                    @endif
-
-                                    {{-- LOTEAMENTO --}}
-                                    @if ($restriction === 'LOTEAMENTO')
-                                        <option value="VILLAGE">VILLAGE DO SOL</option>
-                                        <option value="BANANAL">RIO BANANAL</option>
-                                        <option value="SERRA">SERRA</option>
-                                        <option value="DM">DOMINGOS MARITNS</option>
-                                        <option value="OUTROS">OUTROS</option>
-                                    @endif
-
-                                    {{-- SEMMA --}}
-                                    @if ($restriction === 'SEMMA')
-                                        <option value="SERRA">SERRA</option>
-                                        <option value="DM">DOMINGOS MARITNS</option>
-                                        <option value="OUTROS">OUTROS</option>
-                                    @endif
-
-                                    {{-- SEMMA --}}
-                                    @if ($restriction === 'FUNAI')
-                                        <option value="FUNAI">FUNAI</option>
-                                    @endif
-
-                                    {{-- SEMMA --}}
-                                    @if ($restriction === 'AMBIENTE')
-                                        <option value="IEMA">IEMA</option>
-                                        <option value="ICMBIO">ICMBIO</option>
-                                    @endif
-
+                    <div class="row g-3">
+                        {{-- Restrições --}}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="restriction" wire:model="restriction"
+                                    aria-label="Restrições">
+                                    <option value="">SEM RESTRIÇÃO</option>
+                                    <option value="SERVIDAO">FAIXA DE SERVIDÃO</option>
+                                    <option value="FUNAI">FUNAI</option>
+                                    <option value="LOTEAMENTO">LOTEAMENTO CLANDESTINO</option>
+                                    <option value="AMBIENTE">MEIO AMBIENTE</option>
+                                    <option value="SEMMA">SEMMA</option>
                                 </select>
+                                <label for="restriction">Restrições</label>
                             </div>
-                        @endif
+                        </div>
 
-                        @if ($motivo === 'OUTROS' && (!trim($note->lexp) || $note->lexp == null))
-                            <div class="mb-3 col-3 text-danger">
-                                <label for="inputPassword" class="col-sm-12 col-form-label">MUNICÍPIO:</label>
-
-                                @if ($cities)
-                                    <select class="form-select border border-secondary"
-                                        aria-label="Default select example" wire:model.defer="municipio">
-                                        <option selected>Selecione...</option>
-                                        @foreach ($cities as $city)
-                                            <option value="{{ $city->cidade }}">{{ $city->municipio }}</option>
-                                        @endforeach
+                        {{-- Motivo --}}
+                        @if ($restriction)
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                <div class="form-floating">
+                                    <select class="form-select" id="motivo" wire:model="motivo"
+                                        aria-label="Motivo">
+                                        <option value="">SELECIONE</option>
+                                        @if ($restriction === 'SERVIDAO')
+                                            <option value="SERVIDAO">SERVIDAO</option>
+                                        @endif
+                                        @if ($restriction === 'LOTEAMENTO')
+                                            <option value="VILLAGE">VILLAGE DO SOL</option>
+                                            <option value="BANANAL">RIO BANANAL</option>
+                                            <option value="SERRA">SERRA</option>
+                                            <option value="DM">DOMINGOS MARTINS</option>
+                                            <option value="OUTROS">OUTROS</option>
+                                        @endif
+                                        @if ($restriction === 'SEMMA')
+                                            <option value="SERRA">SERRA</option>
+                                            <option value="DM">DOMINGOS MARTINS</option>
+                                            <option value="OUTROS">OUTROS</option>
+                                        @endif
+                                        @if ($restriction === 'FUNAI')
+                                            <option value="FUNAI">FUNAI</option>
+                                        @endif
+                                        @if ($restriction === 'AMBIENTE')
+                                            <option value="IEMA">IEMA</option>
+                                            <option value="ICMBIO">ICMBIO</option>
+                                        @endif
                                     </select>
+                                    <label for="motivo">Motivo</label>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Município --}}
+                        @if ($motivo === 'OUTROS' && (!trim($note->lexp) || $note->lexp == null))
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                @if ($cities)
+                                    <div class="form-floating">
+                                        <select class="form-select" id="municipio" wire:model.defer="municipio">
+                                            <option value="" selected>Selecione...</option>
+                                            @foreach ($cities as $city)
+                                                <option value="{{ $city->cidade }}">{{ $city->municipio }}</option>
+                                            @endforeach
+                                        </select>
+                                        <label for="municipio">Município</label>
+                                    </div>
                                 @else
-                                    <input type="text" class="form-control border border-secondary"
-                                        wire:model.defer="municipio">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="municipio"
+                                            wire:model.defer="municipio" placeholder="Município">
+                                        <label for="municipio">Município</label>
+                                    </div>
                                 @endif
-
                             </div>
                         @endif
 
+                        {{-- Reserva --}}
                         @if ($motivo === 'IEMA' || $motivo === 'ICMBIO')
-                            <div class="mb-3 col-2">
-                                <label for="inputPassword" class="col-sm-12 col-form-label">RESERVA:</label>
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="reserva">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="reserva"
+                                        wire:model.defer="reserva" placeholder="Reserva">
+                                    <label for="reserva">Reserva</label>
+                                </div>
                             </div>
                         @endif
 
-                        {{-- @if ($motivo === 'LOTEAMENTO' && $restriction === 'OUTROS')
-                            <div class="mb-3 col-2">
-                                <label for="inputPassword" class="col-sm-12 col-form-label">Municipio:</label>
-                                <input type="text" class="form-control border border-secondary"
-                                    wire:model.defer="reserva">
-                            </div>
-                        @endif --}}
-
-
+                        {{-- Botão Gerar Carta --}}
                         @if ($restriction && $motivo)
-                            <div class="mb-3 col-2">
-
-                                <label for="inputPassword" class="col-sm-12 col-form-label mt-3"></label>
-                                <button class="btn btn-primary align-bottom"
-                                    wire:click.prevent="gerarCarta('{{ $restriction }}', '{{ $motivo }}')">Gerar
-                                    Carta</button>
-
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                <button class="btn btn-primary w-100 h-100"
+                                    wire:click.prevent="gerarCarta('{{ $restriction }}', '{{ $motivo }}')">
+                                    Gerar Carta
+                                </button>
                             </div>
                         @endif
 
-                        <div class="mb-3 col-2">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">MMGD? <span
-                                    class="text-danger fw-bold">*</span></label>
-                            <select class="form-select border border-secondary" aria-label="Default select example"
-                                wire:model.defer="mmgd">
-                                <option value="" selected>Selecione</option>
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                            </select>
+                        {{-- MMGD --}}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="mmgd" wire:model.defer="mmgd">
+                                    <option value="" selected>Selecione</option>
+                                    <option value="SIM">SIM</option>
+                                    <option value="NAO">NÃO</option>
+                                </select>
+                                <label for="mmgd">MMGD?</label>
+                            </div>
                         </div>
 
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Conclusão: <span
-                                    class="text-danger fw-bold">*</span></label>
-                            <select class="form-select border border-secondary" aria-label="Default select example"
-                                wire:model.defer="conclusion">
-                                <option value="0" selected>Selecione</option>
-                                <option value="ISR - LIBERADO">ISR - LIBERADO</option>
-                                <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
-                                <option value="ENVIADO AO DESENHO">ENVIADO AO DESENHO</option>
-                                <option value="ENVIADO CARTA AO CLIENTE">ENVIADO CARTA AO CLIENTE</option>
-                                <option value="ENVIADO RESPOSTA EMPRESA">ENVIADO RESPOSTA EMPRESA</option>
-                                <option value="ENVIADO PARA O STATUS 21">ENVIADO PARA O STATUS 21</option>
-                            </select>
+                        {{-- Art.90 --}}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="is45" wire:model.defer="is45">
+                                    <option value="" selected>Selecione</option>
+                                    <option value="1">SIM</option>
+                                    <option value="0">NÃO</option>
+                                </select>
+                                <label for="is45" class="d-flex align-items-center">
+                                    Art.90 (45 dias)?
+                                    <i class="ri-information-line ms-1" style="cursor: pointer;"
+                                        data-bs-toggle="modal" data-bs-target="#art90Modal"></i>
+                                </label>
+
+                                <!-- Modal -->
+                                <div class="modal fade" id="art90Modal" tabindex="-1"
+                                    aria-labelledby="art90ModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="art90ModalLabel">Art. 90 - Lei nº
+                                                    14.195/2021</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                    aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p><strong>Art. 90.</strong> Nos casos enquadrados na Lei nº 14.195, de
+                                                    26 de agosto de 2021, os procedimentos necessários para a obtenção
+                                                    da conexão desde a solicitação até o início do fornecimento devem
+                                                    ser realizados em até 45 dias.</p>
+
+                                                <p><strong>§1º</strong> A distribuidora deve observar os seguintes
+                                                    prazos, contados sucessivamente a partir da solicitação do orçamento
+                                                    de conexão:</p>
+
+                                                <ul>
+                                                    <li><strong>I -</strong> até 10 dias: para a distribuidora elaborar
+                                                        e fornecer ao consumidor o orçamento de conexão, entregar os
+                                                        contratos e o documento ou meio para o pagamento se houver
+                                                        participação financeira;</li>
+                                                    <li><strong>II -</strong> até 5 dias: para o consumidor devolver
+                                                        para a distribuidora os contratos e demais documentos assinados
+                                                        e, caso aplicável, pagar os custos de participação financeira de
+                                                        sua responsabilidade, ou pactuar com a distribuidora como será
+                                                        realizado o pagamento;</li>
+                                                    <li><strong>III -</strong> até 30 dias: para a distribuidora
+                                                        realizar as obras de conexão, a vistoria e instalar os
+                                                        equipamentos de medição nas instalações do consumidor, observado
+                                                        o art. 89.</li>
+                                                </ul>
+
+                                                <p><strong>§2º</strong> Aplicam-se as disposições deste artigo às
+                                                    unidades consumidoras do Grupo A, sem microgeração ou minigeração
+                                                    distribuída, com as seguintes características:</p>
+
+                                                <ul>
+                                                    <li><strong>I -</strong> potência contratada de até 140 kW;</li>
+                                                    <li><strong>II -</strong> localização em área urbana;</li>
+                                                    <li><strong>III -</strong> distância até a rede de distribuição mais
+                                                        próxima até 150 metros; e</li>
+                                                    <li><strong>IV -</strong> não haja a necessidade de realização de
+                                                        obras de ampliação, de reforço ou de melhoria no sistema de
+                                                        distribuição de energia elétrica existente.</li>
+                                                </ul>
+
+                                                <p><strong>§3º</strong> Para as situações enquadradas neste artigo, a
+                                                    distribuidora deve dispensar a aprovação prévia de projeto das
+                                                    instalações de entrada de energia.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-
-
-                        <div class="mb-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Informações: <span
-                                    class="fw-bold"><i class="ri-file-copy-line copyButton" data-id="infoTextArea2"
-                                        style="cursor: pointer;"></i></span></label>
-                            <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8" wire:model.defer="info"></textarea>
+                        {{-- Conclusão --}}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="conclusion" wire:model.defer="conclusion">
+                                    <option value="0" selected>Selecione</option>
+                                    <option value="ISR - LIBERADO">ISR - LIBERADO</option>
+                                    <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
+                                    <option value="ENVIADO AO DESENHO">ENVIADO AO DESENHO</option>
+                                    <option value="ENVIADO CARTA AO CLIENTE">ENVIADO CARTA AO CLIENTE</option>
+                                    <option value="ENVIADO RESPOSTA EMPRESA">ENVIADO RESPOSTA EMPRESA</option>
+                                    <option value="ENVIADO PARA O STATUS 21">ENVIADO PARA O STATUS 21</option>
+                                </select>
+                                <label for="conclusion">Conclusão</label>
+                            </div>
                         </div>
 
+                        {{-- Informações --}}
+                        <div class="col-12">
+                            <div class="form-floating position-relative">
+                                <textarea class="form-control" placeholder="Informações" id="info" style="height: 150px"
+                                    wire:model.defer="info"></textarea>
+                                <label for="info">Informações</label>
+                                <i class="ri-file-copy-line copyButton position-absolute end-2 bottom-2"
+                                    data-id="infoTextArea2" style="cursor: pointer;"></i>
+                            </div>
+                        </div>
+
+                        {{-- Carta --}}
                         @if ($card)
-                            <div class="mb-3">
-                                <label for="inputPassword" class="col-sm-12 col-form-label">Carta: <span
-                                        class="fw-bold"><i class="ri-file-copy-line copyButton"
-                                            data-id="infoTextArea" style="cursor: pointer;"></i></span></label>
-                                <textarea id="infoTextArea" class="form-control border border-secondary" rows="15" wire:model.defer="card"></textarea>
+                            <div class="col-12">
+                                <div class="form-floating position-relative">
+                                    <textarea class="form-control" placeholder="Carta" id="card" style="height: 200px" wire:model.defer="card"></textarea>
+                                    <label for="card">Carta</label>
+                                    <i class="ri-file-copy-line copyButton position-absolute end-2 bottom-2"
+                                        data-id="infoTextArea" style="cursor: pointer;"></i>
+                                </div>
                             </div>
                         @endif
                     </div>
-
                 </div>
             </div>
 
-            <div class="d-flex justify-content-end">
-                <button class="btn btn-primary me-2" wire:click.prevent="save_info">SALVAR</button>
-                <button class="btn btn-warning me-2" wire:click.prevent="to_pause">PAUSAR</button>
-                <button class="btn btn-success me-2"
-                    wire:click.prevent="to_finish({{ $analise->production_id }})">ENCERRAR</button>
-
+            {{-- ======= Botões de Ação ======= --}}
+            <div class="d-flex justify-content-end gap-2 mb-4">
+                <button class="btn btn-primary" wire:click.prevent="save_info">SALVAR</button>
+                <button class="btn btn-warning" wire:click.prevent="to_pause">PAUSAR</button>
+                <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">
+                    ENCERRAR
+                </button>
             </div>
-        @else
-            <div class="loading-overlay">
-                <div class="loading-message">
-                    <h1>Carregando Dados...</h1>
-                </div>
+        </div> {{-- fim container --}}
+    @else
+        <div class="loading-overlay">
+            <div class="loading-message">
+                <h1>Carregando Dados...</h1>
             </div>
+        </div>
     @endif
-
-
 </div>

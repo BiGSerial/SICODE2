@@ -256,7 +256,21 @@
                                 data-bs-title="Duplo Clique para mais Opções">
                                 <td>
                                 </td>
-                                <td class="text-center align-middle">{{ $viability->Note->note }}</td>
+
+                                <td
+                                    class="text-center align-middle @if ($viability->Note->is45) text-bg-warning @endif">
+                                    {{ $viability->Note->note }}
+
+                                    @if ($viability->Note->is45)
+                                        <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="NOTA EXPRESSA"
+                                            data-bs-content="Nota com prazo de execução de 45 dias"
+                                            style="z-index: 9999;" data-bs-toggle="tooltip" data-bs-placement="top">
+                                            <i class="ri-fire-line text-danger fw-bold"
+                                                style="display: inline-block; animation: flame 1s steps(1) infinite;"></i>
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                     <x-files.select-download-list :files='$viability->Note->Files' />

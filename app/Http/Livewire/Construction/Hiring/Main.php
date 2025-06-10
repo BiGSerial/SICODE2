@@ -341,6 +341,7 @@ class Main extends Component
         }
 
         $query->orderBy('mesalization', 'ASC')
+            ->orderBy('is45', 'DESC')
             ->orderBy('type_note', 'ASC')
             ->orderBy('days_left')
             ->orderBy('note');

@@ -4,6 +4,27 @@
     use App\Helpers\DaysLeft;
 @endphp
 <div>
+    @push('css')
+        <style>
+            @keyframes flame {
+                0% {
+                    transform: scaleX(1) scaleY(1);
+                }
+
+                25% {
+                    transform: scaleX(1) scaleY(0.8);
+                }
+
+                50% {
+                    transform: scaleX(-1) scaleY(0.8);
+                }
+
+                75% {
+                    transform: scaleX(-1) scaleY(1);
+                }
+            }
+        </style>
+    @endpush
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
@@ -153,7 +174,8 @@
                                     <tr wire:key="work-{{ $list->id }}"
                                         wire:dblclick="showForm({{ $list }})"
                                         class="align-middle text-center align-middle ">
-                                        <td class="fw-bold {{ $class }}">
+                                        <td
+                                            class="fw-bold @if ($list->Note->is45) text-bg-warning @else {{ $class }} @endif">
                                             {{ $list->Note->note }}
                                             <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                 style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
@@ -172,6 +194,18 @@
 
                                             @if (!$list->Note->WorkForm && $list->Note->RamalForm)
                                                 <i class="ri-alert-line text-danger align-middle fs-4"></i>
+                                            @endif
+
+                                            @if ($list->Note->is45)
+                                                <span tabindex="0" data-bs-toggle="popover"
+                                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                                    data-bs-title="NOTA EXPRESSA"
+                                                    data-bs-content="Nota com prazo de execução de 45 dias"
+                                                    style="z-index: 9999;" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top">
+                                                    <i class="ri-fire-line text-danger fw-bold"
+                                                        style="display: inline-block; animation: flame 1s steps(1) infinite;"></i>
+                                                </span>
                                             @endif
                                         </td>
                                         <td class="align-middle {{ $class }}">
