@@ -202,7 +202,6 @@ class Main extends Component
 
     public function getListsProperty()
     {
-
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
@@ -212,55 +211,55 @@ class Main extends Component
         }
 
         return Production::where('service_id', $this->service->uuid)
-        ->when($this->user_s, function ($q) {
-            return $q->where('user_id', $this->user_s);
-        }, function ($q) {
-            return $q->where('user_id', auth()->id());
-        })
-        ->where('completed', false)
-        ->when($this->typeNote, function ($q) {
-            $q->whereRelation('Note', 'type_note', $this->typeNote);
-        })
-        ->when($this->search, function ($q, $s) {
-            return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                 ->orWhereRelation('Note', 'material', 'like', '%' . $s . '%');
-        })
-        ->when(isset($this->filters['city']), function ($q) {
-            $q->whereRelation('Note', 'lexp', $this->filters['city']);
-        })
-        ->when(isset($this->filters['rubrica']), function ($q) {
-            $q->whereRelation('Note', 'rubrica', $this->filters['rubrica']);
-        })
-        ->where(function ($q) {
-            $q->where('status', '!=', 28)
-              ->orWhereHas('Note.WorkForm');
-        })
-        ->whereDoesntHave('Note.RamalForm', function ($q) {
-            $q->where('rejected', true);
-        })
-        ->select('productions.*')
-        ->selectRaw("
-        CASE
-            WHEN (
-            SELECT COUNT(*)
-            FROM ramal_reports
-            WHERE ramal_reports.note_id = productions.note_id
-            ) > 0
-            AND (
-            SELECT COUNT(*)
-            FROM work_reports
-            WHERE work_reports.note_id = productions.note_id
-            ) = 0
-            THEN 1
-            ELSE 0
-        END as forms
-        ")
-        ->orderBy('priority', 'desc')
-        ->orderBy('Note.is45', 'desc')
-        ->orderBy('d5', 'desc')
-        ->orderBy('forms', 'desc')
-        ->paginate($this->perPage);
-
+            ->when($this->user_s, function ($q) {
+                return $q->where('user_id', $this->user_s);
+            }, function ($q) {
+                return $q->where('user_id', auth()->id());
+            })
+            ->where('completed', false)
+            ->when($this->typeNote, function ($q) {
+                $q->whereRelation('Note', 'type_note', $this->typeNote);
+            })
+            ->when($this->search, function ($q, $s) {
+                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
+                        ->orWhereRelation('Note', 'material', 'like', '%' . $s . '%');
+            })
+            ->when(isset($this->filters['city']), function ($q) {
+                $q->whereRelation('Note', 'lexp', $this->filters['city']);
+            })
+            ->when(isset($this->filters['rubrica']), function ($q) {
+                $q->whereRelation('Note', 'rubrica', $this->filters['rubrica']);
+            })
+            ->where(function ($q) {
+                $q->where('productions.status', '!=', 28)
+                  ->orWhereHas('Note.WorkForm');
+            })
+            ->whereDoesntHave('Note.RamalForm', function ($q) {
+                $q->where('rejected', true);
+            })
+            ->select('productions.*', 'notes.is45')
+            ->selectRaw("
+                CASE
+                    WHEN (
+                        SELECT COUNT(*)
+                        FROM ramal_reports
+                        WHERE ramal_reports.note_id = productions.note_id
+                    ) > 0
+                    AND (
+                        SELECT COUNT(*)
+                        FROM work_reports
+                        WHERE work_reports.note_id = productions.note_id
+                    ) = 0
+                    THEN 1
+                    ELSE 0
+                END as forms
+            ")
+            ->join('notes', 'notes.id', '=', 'productions.note_id')
+            ->orderBy('priority', 'desc')
+            ->orderBy('notes.is45', 'desc')
+            ->orderBy('d5', 'desc')
+            ->orderBy('forms', 'desc')
+            ->paginate($this->perPage);
     }
 
     public function getWaitingsProperty()

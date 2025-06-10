@@ -237,6 +237,13 @@ class Main extends Component
                     ->orderBy('type_note', 'desc');
             }])
             ->orderBy('priority', 'desc')
+            ->orderBy(function ($query) {
+                $query->select('is45')
+                    ->from('notes')
+                    ->whereColumn('productions.note_id', 'notes.id')
+                    ->orderBy('is45', 'DESC')
+                    ->limit(1);
+            })
             ->orderBy('d5', 'desc')
             ->orderBy(function ($query) {
                 $query->select('type_note')

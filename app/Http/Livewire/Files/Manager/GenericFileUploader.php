@@ -24,13 +24,18 @@ class GenericFileUploader extends Component
     public array  $identifiers     = [];
 
     public string $selectedType    = '';
-    public array  $files           = [];
-    public array  $tempFiles       = [];
+    public $files           = [];
+    public $tempFiles       = [];
     public string $service       = '';
 
     protected $listeners = [
         'saveFiles',
         'prepareFileUpload' => 'prepare',
+    ];
+
+    protected $messages = [
+        'files.*.file' => 'O arquivo deve ser um arquivo válido.',
+        'files.*.max'  => 'O arquivo não pode ser maior que 20MB.',
     ];
 
     public function mount(
@@ -66,7 +71,7 @@ class GenericFileUploader extends Component
 
     public function updatedFiles()
     {
-        $this->validate(['files.*' => 'file|max:10240']);
+        $this->validate(['files.*' => 'file|max:20480']);
 
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
