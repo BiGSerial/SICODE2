@@ -205,13 +205,15 @@
                             <th scope="col" class="fw-bold text-center">Pedido</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Ult Movimantação</th>
-                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')" style="cursor: pointer;">Dias no
+                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')"
+                                style="cursor: pointer;">Dias no
                                 Status @if ($column == 'dt_status')
                                     <i
                                         class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
                                 @endif
                             </th>
-                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_created')" style="cursor: pointer;">Total
+                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_created')"
+                                style="cursor: pointer;">Total
                                 Dias @if ($column == 'dt_created')
                                     <i
                                         class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
@@ -231,6 +233,16 @@
                                     ->first()
                                     ?->Comments?->sortbydesc('updated_at')
                                     ->first()?->created_at;
+
+                                $countDays = $list->dt_created->startOfDay()->diffInDays(now()->startOfDay());
+
+                                if ($countDays > 30) {
+                                    $color2 = 'text-bg-danger';
+                                } elseif ($countDays < 27) {
+                                    $color2 = 'text-bg-success';
+                                } else {
+                                    $color2 = 'text-bg-warning';
+                                }
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -307,7 +319,7 @@
                                     <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
 
                                 </td>
-                                <td class="fw-light text-center text-bg-secondary">
+                                <td class="fw-light text-center {{ $color2 }}">
 
                                     <p class="my-0 py-0 fw-bold">{{ $list->dt_created->diffInDays() }} dias</p>
                                     <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>

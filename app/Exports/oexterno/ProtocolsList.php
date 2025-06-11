@@ -52,6 +52,10 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
             'Hora Ultima Movimentação',
             'Data Status',
             'Hora Status',
+            'Dias Status',
+            'Data Criação',
+            'Hora Criação',
+            'Dias Criação',
             'Situação',
         ];
     }
@@ -65,7 +69,7 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
             $row->externals?->last()?->protocols?->last()?->protocol,
             $row->externals?->first()?->protocols?->first()?->created_at?->format('d/m/Y'),
             $row->externals?->first()?->protocols?->first()?->created_at?->format('H:i'),
-            $row->externals?->last()?->status,
+            $row->externals?->last()?->comments?->last()?->title,
             $row->externals?->last()?->entidade,
             $row->rubrica,
             $row->lexp,
@@ -75,6 +79,10 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
             $row->externals?->first()?->comments?->first()?->created_at?->format('H:i'),
             $row->dt_status?->format('d/m/Y'),
             $row->dt_status?->format('H:i'),
+            $row->dt_status?->startOfDay()->diffInDays(Carbon::now()->startOfDay()),
+            $row->dt_created?->format('d/m/Y'),
+            $row->dt_created?->format('H:i'),
+            $row->dt_created?->startOfDay()->diffInDays(Carbon::now()->startOfDay()),
             $row->externals->isEmpty() ? 'SEM REGISTRO' : (!$row->externals?->where('completed', false)->count() ? 'COMPLETO' : 'EM ANDAMENTO'),
         ];
     }
@@ -98,7 +106,8 @@ class ProtocolsList implements FromQuery, WithEvents, WithProperties, WithHeadin
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:P1')->applyFromArray([
+                $lastColumn = chr(64 + count($this->headings())); // Convert column count to letter (A=65, B=66, etc)
+                $event->sheet->getStyle('A1:' . $lastColumn . '1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],
