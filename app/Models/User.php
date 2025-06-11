@@ -109,8 +109,14 @@ class User extends Authenticatable
         return $this->hasMany(ViabilityApproval::class);
     }
 
-    public function assignments()
+    public function Assignments()
     {
         return $this->hasMany(UserAssignment::class);
     }
+
+
+
+
+    // Readeable Messages
+    
 }

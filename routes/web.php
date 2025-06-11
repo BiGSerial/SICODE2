@@ -83,6 +83,12 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
     Route::get('/protocolNote/{note}', 'protocolNote')->name('protocolNote');
 
+    Route::prefix('/protests')->name('protests.')->group(function () {
+        Route::get('/list', 'protests_list')->name('list');
+        Route::get('/closed', 'protests_closed')->name('closed');
+        Route::get('/view/{protest}', 'protests_view')->name('view');
+    });
+
 });
 
 Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {

@@ -70,4 +70,32 @@ class ServicesController extends Controller
             'note' => $request->route('note'),
         ]);
     }
+
+    // Reclamações
+    public function protests_list(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.protests.list', [
+            'service' => $service,
+        ]);
+    }
+
+    public function protests_closed(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.protests.closed', [
+            'service' => $service,
+        ]);
+    }
+
+    public function protests_view(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.protests.view', [
+            'service' => $service,
+        ]);
+    }
 }

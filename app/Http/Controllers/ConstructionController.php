@@ -67,4 +67,7 @@ class ConstructionController extends Controller
     {
         return view('construction.responser.main');
     }
+
+
+
 }

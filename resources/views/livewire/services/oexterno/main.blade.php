@@ -205,13 +205,15 @@
                             <th scope="col" class="fw-bold text-center">Pedido</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Ult Movimantação</th>
-                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')" style="cursor: pointer;">Dias no
+                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')"
+                                style="cursor: pointer;">Dias no
                                 Status @if ($column == 'dt_status')
                                     <i
                                         class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
                                 @endif
                             </th>
-                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_created')" style="cursor: pointer;">Total
+                            <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_created')"
+                                style="cursor: pointer;">Total
                                 Dias @if ($column == 'dt_created')
                                     <i
                                         class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
