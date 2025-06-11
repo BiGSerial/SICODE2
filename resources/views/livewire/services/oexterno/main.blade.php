@@ -234,6 +234,16 @@
                                     ?->Comments?->sortbydesc('updated_at')
                                     ->first()?->created_at;
 
+                                $countDays = $list->dt_created->startOfDay()->diffInDays(now()->startOfDay());
+
+                                if ($countDays > 30) {
+                                    $color2 = 'text-bg-danger';
+                                } elseif ($countDays < 27) {
+                                    $color2 = 'text-bg-success';
+                                } else {
+                                    $color2 = 'text-bg-warning';
+                                }
+
                             @endphp
                             {{-- @dump($list->Productions) --}}
                             <tr class="align-middle" wire:key="{{ $list->id }}"
@@ -309,7 +319,7 @@
                                     <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
 
                                 </td>
-                                <td class="fw-light text-center text-bg-secondary">
+                                <td class="fw-light text-center {{ $color2 }}">
 
                                     <p class="my-0 py-0 fw-bold">{{ $list->dt_created->diffInDays() }} dias</p>
                                     <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>
