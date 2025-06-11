@@ -102,7 +102,7 @@
                                     </div>
                                 </td>
                                 <td
-                                    class="text-center align-middle  @if ($list->is45) text-bg-warning @else {{ $colorAtt }} @endif">
+                                    class="text-center align-middle  @if ($list->is45) text-bg-warninggit @endif">
                                     {{ $list->note }}
                                     @if ($list->is45)
                                         <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
