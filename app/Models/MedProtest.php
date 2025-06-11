@@ -41,7 +41,7 @@ class MedProtest extends Model
         return $this->morphMany(Comment::class, 'commentable');
     }
 
-    public function assignments()
+    public function Assignments()
     {
         return $this->morphMany(UserAssignment::class, 'assignable');
     }

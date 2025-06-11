@@ -183,11 +183,10 @@
                             <th scope="col" class="fw-bold text-center">Tipo</th>
                             <th scope="col" class="fw-bold text-center">Data Abertura</th>
                             <th scope="col" class="fw-bold text-center">Data Conclusao Desejada</th>
-                            <th scope="col" class="fw-bold text-center">Centro</th>
+                            <th scope="col" class="fw-bold text-center">MEDE/TOTAL</th>
                             <th scope="col" class="fw-bold text-center">Município</th>
-
-                            <th scope="col" class="fw-bold text-center">Descrição</th>
-                            <th scope="col" class="fw-bold text-center">SubDescricao</th>
+                            <th scope="col" class="fw-bold text-center">Categoria</th>
+                            <th scope="col" class="fw-bold text-center">SubCategoria</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                     </thead>
                     <tbody>
@@ -209,9 +208,15 @@
                                     }
                                 }
 
+                                $totalMed = [
+                                    'closed' => $list->medProtests?->where('statusSist', 'MEDE')->count(),
+                                    'total' => $list->medProtests?->count(),
+                                ];
+
                             @endphp
                             {{-- @dump($list->Productions) --}}
-                            <tr class="align-middle" wire:key="{{ $list->id }}">
+                            <tr class="align-middle" wire:key="{{ $list->id }}"
+                                wire:dblClick='goTo({{ $list->nota }})'>
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
                                     {{ $index + 1 }}
                                 </td>
@@ -232,7 +237,8 @@
                                     {{ $list->dtConclusaoDesej?->format('d/m/Y') }}
                                 </td>
                                 <td class="fw-light text-center">
-                                    {{ $list->cenPlan }}
+                                    <span class="badge text-bg-dark">{{ $totalMed['closed'] }} /
+                                        {{ $totalMed['total'] }}</span>
                                 </td>
                                 <td class="fw-light text-center fw-bold">
                                     {{ $list->cidade }}
