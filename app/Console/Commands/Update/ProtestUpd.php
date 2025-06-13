@@ -48,6 +48,7 @@ class ProtestUpd extends Command
         't.id',
         't.nota',
         't.tipoNota',
+        't.txtGrpCodificacao',
         't.statUsuar',
         't.cidade',
         't.cenPlan',
@@ -86,6 +87,7 @@ class ProtestUpd extends Command
 
                     $modified = is_null($existiting)
                         || $existiting->tipoNota !== $record->tipoNota
+                        || $existiting->txtGrpCodificacao !== $record->txtGrpCodificacao
                         || $existiting->cenPlan !== $record->cenPlan
                         || $existiting->descSubCausa !== $record->descSubCausa
                         || $existiting->descCausa !== $record->descCausa
@@ -102,6 +104,7 @@ class ProtestUpd extends Command
                     $data = [
                          'nota'               => $record->nota,
                         'tipoNota'           => $record->tipoNota,
+                        'txtGrpCodificacao'  => $record->txtGrpCodificacao,
                         'dtAberturaNota'     => $record->dtAberturaNota,
                         'dtConclusaoDesej'   => $record->dtConclusaoDesej,
                         'cenPlan'            => $record->cenPlan,
@@ -133,6 +136,7 @@ class ProtestUpd extends Command
                 if (!empty($upsertData)) {
                     Protest::upsert($upsertData, ['nota'], [
                        'tipoNota',
+                        'txtGrpCodificacao',
                         'dtAberturaNota',
                         'dtConclusaoDesej',
                         'cenPlan',

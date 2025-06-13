@@ -34,11 +34,11 @@
                     <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
                         <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1"
                             id="typeNote1">
-                        <label class="btn btn-outline-primary" for="typeNote1">Nota</label>
+                        <label class="btn btn-outline-primary" for="typeNote1">NA</label>
 
                         <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2"
                             id="typeNote2">
-                        <label class="btn btn-outline-primary" for="typeNote2">OV</label>
+                        <label class="btn btn-outline-primary" for="typeNote2">OU</label>
 
                         <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value=""
                             id="typeNote3">
@@ -52,21 +52,21 @@
                         @livewire(
                             'components.filter.filter2',
                             [
-                                'myKey' => 'entityTypes',
-                                'sendFilter' => 'entities',
-                                'modelClass' => \App\Models\EntityType::class,
-                                'column' => 'id',
-                                'filterLabel' => 'Tipos de Entidade',
+                                'myKey' => 'group',
+                                'sendFilter' => '',
+                                'modelClass' => \App\Models\Protest::class,
+                                'column' => 'txtGrpCodificacao',
+                                'filterLabel' => 'Grupo',
                                 'groupFilter' => 'oexterno',
-                                'displayColumn' => 'name',
+                                'displayColumn' => 'txtGrpCodificacao',
                                 'direction' => 'ASC',
-                                'searchColumn' => 'name',
+                                'searchColumn' => '',
                                 'sendSearchColumn' => 'entity_type_id',
                             ],
                             key('entityTypes')
                         )
 
-                        @livewire(
+                        {{-- @livewire(
                             'components.filter.filter2',
                             [
                                 'myKey' => 'entities',
@@ -81,9 +81,9 @@
                                 'sendSearchColumn' => 'entity_id',
                             ],
                             key('entities')
-                        )
+                        ) --}}
 
-                        @livewire(
+                        {{-- @livewire(
                             'components.filter.filter2',
                             [
                                 'myKey' => 'rubrica',
@@ -98,7 +98,7 @@
                                 'sendSearchColumn' => 'rubrica',
                             ],
                             key('rubrica')
-                        )
+                        ) --}}
 
                         @livewire(
                             'components.filter.filter2',
@@ -181,12 +181,12 @@
                             <th scope="col" class="fw-bold text-center">#</th>
                             <th scope="col" class="fw-bold text-center">Numero</th>
                             <th scope="col" class="fw-bold text-center">Tipo</th>
+                            <th scope="col" class="fw-bold text-center">Grupo</th>
                             <th scope="col" class="fw-bold text-center">Data Abertura</th>
                             <th scope="col" class="fw-bold text-center">Data Conclusao Desejada</th>
                             <th scope="col" class="fw-bold text-center">MEDE/TOTAL</th>
+                            <th scope="col" class="fw-bold text-center">Descrição</th>
                             <th scope="col" class="fw-bold text-center">Município</th>
-                            <th scope="col" class="fw-bold text-center">Categoria</th>
-                            <th scope="col" class="fw-bold text-center">SubCategoria</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                     </thead>
                     <tbody>
@@ -226,10 +226,14 @@
                                 </td>
 
 
-                                <td class="text-center align-middle"> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                <td class="text-center align-middle "> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                     {{ $list->tipoNota }}
                                 </td>
-                                <td class="text-center align-middle">
+
+                                <td class="text-start align-middle text-uppercase fw-bold"> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                    {{ $list->txtGrpCodificacao }}
+                                </td>
+                                <td class="text-center align-middle text-bg-secondary">
                                     {{ $list->dtAberturaNota?->format('d/m/Y') }}
                                 </td>
                                 <td class="fw-light text-center {{ $color ?? '' }}">
@@ -240,14 +244,15 @@
                                     <span class="badge text-bg-dark">{{ $totalMed['closed'] }} /
                                         {{ $totalMed['total'] }}</span>
                                 </td>
-                                <td class="fw-light text-center fw-bold">
-                                    {{ $list->cidade }}
-                                </td>
-                                <td class="fw-light text-center">
-                                    {{ $list->descCausa }}
+
+                                <td class="fw-light text-start">
+                                    <p class="my-0 py-0 fs-6"> {{ $list->descCausa }}</p>
+                                    <p class="my-0 py-0 fs-6"> {{ $list->descSubCausa }}</p>
                                 </td>
 
-                                <td class="fw-light text-center">{{ $list->descSubCausa }}</td>
+                                <td class="fw-light text-start fw-bold">
+                                    {{ $list->cidade }}
+                                </td>
                                 <td class="fw-light text-center">{{ $list->statUsuar }}</td>
 
 

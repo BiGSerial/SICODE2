@@ -24,7 +24,7 @@
                     @if ($filterLists->count() > 0)
                         @foreach ($filterLists->unique($column) as $item)
                             @if ($item->{$displayColumn})
-                                <div class="dropdown-item d-flex align-items-center">
+                                <div class="dropdown-item d-flex align-items-center text-uppercase">
                                     <input type="checkbox" class="form-check-input border border-primary me-2"
                                         wire:model.defer="items" value="{{ $item->{$column} }}"
                                         id="filter-{{ $myKey }}-{{ $item->{$column} }}">

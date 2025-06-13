@@ -14,7 +14,6 @@ return new class () extends Migration {
             $table->id();
             $table->foreignId('protest_id')->constrained('protests')->onDelete('cascade');
             $table->integer('med_id')->unsigned()->nullable();
-            $table->string('txtGrpCodificacao')->nullable();
             $table->string('statusSist', 50)->nullable();
             $table->string('codMedida', 50)->nullable();
             $table->string('txtCodCodificacao')->nullable();

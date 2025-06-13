@@ -14,7 +14,7 @@ return new class () extends Migration {
             $table->id();
             $table->string('nota')->unique();
             $table->string('tipoNota');
-
+            $table->string('txtGrpCodificacao')->nullable();
 
             $table->date('dtAberturaNota')->nullable();
             $table->date('dtConclusaoDesej')->nullable();

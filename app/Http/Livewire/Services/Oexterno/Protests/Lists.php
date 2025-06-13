@@ -71,7 +71,8 @@ class Lists extends Component
             // ->when($this->typeNote, function ($query) {
             //     $query->where('type_note', $this->typeNote);
             // })
-            ->with('medProtests')
+            ->with(['medProtests'])
+           
             ->orderBy('dtConclusaoDesej', 'ASC')
             ->orderBy('dtAberturaNota', 'DESC')
             ->paginate($this->perPage);

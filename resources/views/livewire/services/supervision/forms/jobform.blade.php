@@ -196,26 +196,22 @@
                                             </select>
 
                                         </div>
-
-                                        <div class="mb-3 ">
-
-                                            {{-- @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision')) --}}
-                                            @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false], key('FilesSupervision'))
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="inputPassword" class="col-sm-12 col-form-label">Observações:
-                                                <span class="fw-bold"><i class="ri-file-copy-line copyButton"
-                                                        data-id="infoTextArea2"
-                                                        style="cursor: pointer;"></i></span></label>
-                                            <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8"
-                                                wire:model.defer="analise.info"></textarea>
-                                        </div>
                                     @endif
 
+                                    <div class="mb-3 ">
 
+                                        {{-- @livewire('files.filesupervision', ['note' => $production->Note, 'production' => $production], key('FilesSupervision')) --}}
+                                        @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false], key('FilesSupervision'))
+                                    </div>
 
-
+                                    <div class="mb-3">
+                                        <label for="inputPassword" class="col-sm-12 col-form-label">Observações:
+                                            <span class="fw-bold"><i class="ri-file-copy-line copyButton"
+                                                    data-id="infoTextArea2"
+                                                    style="cursor: pointer;"></i></span></label>
+                                        <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8"
+                                            wire:model.defer="analise.info"></textarea>
+                                    </div>
                                 </div>
                             </div>
                         </div>

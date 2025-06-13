@@ -82,7 +82,7 @@ class ProtestListUpd extends Command
                 $data = [
                     'protest_id'         => $protest->id,
                     'med_id'             => $record->numOrdenacao,
-                    'txtGrpCodificacao'  => $record->txtGrpCodificacao,
+
                     'statusSist'         => $record->statusSist,
                     'codMedida'          => $record->codMedida,
                     'txtCodCodificacao'  => $record->txtCodCodificacao,
@@ -117,7 +117,6 @@ class ProtestListUpd extends Command
                     $upsertData,
                     ['protest_id', 'med_id'],
                     [
-                        'txtGrpCodificacao',
                         'statusSist',
                         'codMedida',
                         'txtCodCodificacao',

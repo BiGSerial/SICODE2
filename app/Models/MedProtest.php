@@ -12,7 +12,6 @@ class MedProtest extends Model
     protected $fillable = [
         'protest_id',
         'med_id',
-        'txtGrpCodificacao',
         'statusSist',
         'codMedida',
         'txtCodCodificacao',
