@@ -203,12 +203,10 @@
                                 ) {
                                     $block = 2;
                                     $user = $getUserInfo($lastProduction);
-                                } elseif (
-                                    $lastProduction &&
-                                    $lastProduction->completed &&
-                                    $lastProduction->confirmed &&
-                                    $lastProduction->dt_note === $list->dt_status
-                                ) {
+                                } elseif ($lastProduction && $lastProduction->completed && $lastProduction->confirmed) {
+                                    $block = 3;
+                                    $user = $getUserInfo($lastProduction);
+                                } elseif ($lastProduction && $lastProduction->dt_note === $list->dt_status) {
                                     $block = 3;
                                     $user = $getUserInfo($lastProduction);
                                 }
