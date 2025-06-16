@@ -74,6 +74,7 @@
                                 {{ $lists->mmgd ? 'SIM' : 'NÃO' }}
                             </dd>
 
+
                             <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">STATUS ATUAL</dt>
                             <dd class="col-sm-8 fw-bold text-white text-uppercase">
                                 {{ $lists->nstats }}
@@ -90,6 +91,10 @@
                             <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">PRAZO OBRA</dt>
                             <dd class="col-sm-8 fw-bold text-warning text-uppercase">
                                 {{ $lastDate }}
+                            </dd>
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">CRITICIDADE</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">
+                                {{ $lists->txpriority ? $lists->txpriority : '---' }}
                             </dd>
                         </dl>
 
@@ -533,7 +538,7 @@
         @endif
 
         {{-- Informes de Obra --}}
-        @if ($lists->WorkForm || $lists->RamalForm || $lists->Partials)
+        @if ($lists->WorkForm || $lists->RamalForm || $lists->Partials->isNotEmpty())
             <div class="card border-0 mt-3 shadow">
                 <h5 class="card-header edp-bg-sprucegreen-100 text-edp-verde">INFORMES DE OBRA</h5>
                 <div class="table-responsive">
