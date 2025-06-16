@@ -1,7 +1,7 @@
 <div>
     <div class="row">
         <div class="col-12 col-md-10">
-            <div class="card mb-0 shadow rounded-bottom-0">
+            <div class="card mb-0 shadow rounded-bottom-0" style='z-index: 1;'>
                 <div class="card-header bg-primary text-white py-2">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Reclamação #{{ $protest->nota }}</h5>
@@ -12,7 +12,7 @@
                 <div class="card-body">
                     <div class="row g-3 mb-3" style="min-height: 200px;">
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
+                            <div class="border rounded p-3 h-100 border-secondary">
                                 <h6 class="text-muted mb-2">Informações Básicas</h6>
                                 <p class="mb-1"><strong>Nota:</strong> {{ $protest->nota }}</p>
                                 <p class="mb-1"><strong>Municipio:</strong> {{ $protest->cidade }}</p>
@@ -35,7 +35,7 @@
                         @endphp
 
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
+                            <div class="border rounded p-3 h-100 border-secondary">
                                 <h6 class="text-muted mb-2">Datas</h6>
                                 <p class="mb-1"><strong>Abertura:</strong>
                                     {{ $protest->dtAberturaNota?->format('d/m/Y') }}</p>
@@ -48,7 +48,7 @@
                         </div>
 
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
+                            <div class="border rounded p-3 h-100 border-secondary">
                                 <h6 class="text-muted mb-2">Status</h6>
                                 <p class="mb-1">
                                     <strong>Total Medidas:</strong>
@@ -63,14 +63,15 @@
                     </div>
                     <div class="row">
                         <div class="col-md-8">
-                            <div class="border rounded p-3">
+                            <div class="border rounded p-3 border-secondary">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="text-muted mb-2">Obras Associadas</h6>
-                                    <button class="btn btn-sm btn-primary" title="Adicionar obra">
+                                    <button class="btn btn-sm btn-primary" title="Adicionar obra"
+                                        wire:click.defer="$emitTo('services.oexterno.actions.protest.add-notes-relation', 'openAddNotesRelation', {{ $protest->id }})">
                                         <i class="ri-add-box-fill fs-6 align-middle text-center"></i>
                                     </button>
                                 </div>
-                                <table class="table table-condensed table-stripped table-sm table-hover">
+                                <table class="table table-condensed table-striped table-sm table-hover">
                                     <thead>
                                         <tr>
                                             <th>Nota/OV</th>
@@ -78,33 +79,26 @@
                                             <th>Rubrica</th>
                                             <th>Municipio</th>
                                             <th>Descrição</th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
+                                        @for ($i = 0; $i < 2; $i++)
+                                            <tr>
+                                                <td>OV{{ random_int(10000, 40000) }}</td>
+                                                <td>Maria do Carmo Rabelo Pinto</td>
+                                                <td>R001</td>
+                                                <td>Vitoria</td>
+                                                <td>Descrição da obra A</td>
+                                                <td>
+                                                    <i class="ri-play-circle-fill fs-5 align-middle text-primary"
+                                                        style="cursor: pointer;"></i>
+                                                    <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
+                                                        style="cursor: pointer;"></i>
+                                                </td>
+                                            </tr>
+                                        @endfor
 
-                                            <td>OV123456</td>
-                                            <td>Maria do Carmo Rabelo Pinto</td>
-                                            <td>R001</td>
-                                            <td>Vitoria</td>
-                                            <td>Descrição da obra A</td>
-                                        </tr>
-                                        <tr>
-
-                                            <td>OV789012</td>
-                                            <td>Joanete Rabelo Pinto</td>
-                                            <td>R002</td>
-                                            <td>Vitoria</td>
-                                            <td>Descrição da obra B</td>
-                                        </tr>
-                                        <tr>
-
-                                            <td>OV345678</td>
-                                            <td>Joanete Rabelo Pinto</td>
-                                            <td>R003</td>
-                                            <td>Vitoria</td>
-                                            <td>Descrição da obra C</td>
-                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -112,13 +106,13 @@
                     </div>
                 </div>
             </div>
-            <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0" style="z-index: -1">
+            <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-8">
-                            <div class="border rounded p-3">
-                                <h6 class="text-muted mb-2">Medidas:</h6>
-                                <table class="table table-condensed table-stripped table-sm table-hover">
+                            <div class="border rounded py-3 border-secondary">
+                                <h6 class="text-muted mb-2 ms-2">Medidas:</h6>
+                                <table class="table table-condensed table-striped table-sm table-hover ">
                                     <thead>
                                         <tr>
                                             <th>Status</th>
@@ -126,6 +120,7 @@
                                             <th>Data Criação</th>
                                             <th>Data Fim Desejada</th>
                                             <th>Data Fim</th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -149,6 +144,10 @@
                                                 </td>
                                                 <td>
                                                     {{ $medProtest->dtFimMedida?->format('d/m/Y') }}
+                                                </td>
+                                                <td>
+                                                    <i class="ri-play-circle-fill fs-5 align-middle text-primary"
+                                                        style="cursor: pointer;"></i>
                                                 </td>
                                             </tr>
 
@@ -180,4 +179,7 @@
             </div>
         </div>
     </div>
+
+    {{-- Livewire Components --}}
+    @livewire('services.oexterno.actions.protest.add-notes-relation', key('add-notes-relation-' . $protest->id))
 </div>

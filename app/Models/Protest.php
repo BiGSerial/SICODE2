@@ -27,6 +27,10 @@ class Protest extends Model
         'dtConclusaoDesej' => 'date',
     ];
 
+    public function Notes()
+    {
+        return $this->belongsToMany(Note::class);
+    }
 
     public function medProtests()
     {

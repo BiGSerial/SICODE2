@@ -153,6 +153,21 @@ class Note extends Model
     }
 
 
+    public function Protests()
+    {
+        return $this->belongsToMany(Protest::class);
+    }
+
+
+
+
+
+
+
+
+
+
+
     // Relação temporária
     public function TempAdsInfos()
     {
