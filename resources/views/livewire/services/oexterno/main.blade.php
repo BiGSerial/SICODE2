@@ -303,7 +303,7 @@
 
                                 </td>
                                 @php
-                                    $days = $list->dt_status->diffInDays();
+                                    $days = $list->dt_status?->startOfDay()->diffInDays();
 
                                     if ($days > 120) {
                                         $color = 'text-bg-danger';
@@ -315,13 +315,15 @@
                                 @endphp
                                 <td class="fw-light text-center {{ $color }}">
 
-                                    <p class="my-0 py-0 fw-bold">{{ $list->dt_status->diffInDays() }} dias</p>
+                                    <p class="my-0 py-0 fw-bold">
+                                        {{ $list->dt_status->startOfDay()->diffInDays() }} dias</p>
                                     <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
 
                                 </td>
                                 <td class="fw-light text-center {{ $color2 }}">
 
-                                    <p class="my-0 py-0 fw-bold">{{ $list->dt_created->diffInDays() }} dias</p>
+                                    <p class="my-0 py-0 fw-bold">
+                                        {{ $list->dt_created->startOfDay()->diffInDays() }} dias</p>
                                     <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>
 
                                 </td>
