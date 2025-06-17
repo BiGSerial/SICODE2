@@ -256,19 +256,54 @@
         </div>
     </div>
 
-    {{-- <script>
-        window.addEventListener('copyToClipboardTxt', event => {
-            navigator.clipboard.writeText(event.detail.text)
-                .then(() => {
 
-                    livewire.emit('copySuccess');
-                })
-                .catch(err => {
-                    console.error('Failed to copy text:', err);
-                });
-        });
-    </script> --}}
 
+    @push('script')
+        <script>
+            window.addEventListener('copySicodeAccess', async event => {
+
+
+                // Monta o texto no formato desejado
+                const acessoText = [
+                    '==== DADOS USUÁRIO ====',
+                    '',
+                    `Nome: ${event.detail.name}`,
+                    `Empresa: ${event.detail.company}`,
+                    '',
+                    '=== ACESSO AO SICODE ===',
+                    '',
+                    `Email: ${event.detail.email}`,
+                    'Senha: 123456',
+                    'Servidor: http://edpbr1204/es/',
+                    '',
+                    '====================',
+                    'Gerado em: ' + new Date().toLocaleString(),
+                ].join('\n');
+
+                console.log(acessoText);
+
+                try {
+                    await navigator.clipboard.writeText(acessoText);
+                    Livewire.emit('getCopy', 'Acesso ao SICODE copiado para a área de transferência');
+                } catch (err) {
+                    console.error('Falha ao copiar no Clipboard API', err);
+                }
+
+                // Cria um textarea temporário para copiar o texto
+                // const textArea2 = document.createElement('textarea');
+                // textArea2.value = acessoText;
+                // document.body.appendChild(textArea2);
+                // textArea2.select();
+                // document.execCommand('copy');
+
+                // document.body.removeChild(textArea2);
+
+
+                // Opcional: notifica via Livewire que copiou
+                Livewire.emit('getCopy', 'Acesso ao SICODE copiado para a área de transferência');
+            });
+        </script>
+    @endpush
 
 
 
