@@ -241,6 +241,15 @@ class Usuario extends Component
         if ($this->temporaryFirstPass) {
             $this->user->password = $this->temporaryPassword;
             $this->user->first_pass = $this->temporaryFirstPass;
+
+
+            $copyArray = [
+                'name' => $this->user->name,
+                'company' => $this->user->Company ? $this->user->Company->name : 'N/A',
+                'email' => $this->user->email,
+            ];
+
+            $this->dispatchBrowserEvent('copySicodeAccess', $copyArray);
         }
 
         $this->user->save();

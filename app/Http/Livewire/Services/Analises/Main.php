@@ -247,6 +247,8 @@ class Main extends Component
 
     }
 
+    
+
     public function render()
     {
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();

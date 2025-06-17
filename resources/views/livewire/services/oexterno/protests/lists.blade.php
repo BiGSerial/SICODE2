@@ -1,4 +1,7 @@
 <div>
+    {{-- Carrega o Loading da página --}}
+    <x-show-loading />
+    
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-3">

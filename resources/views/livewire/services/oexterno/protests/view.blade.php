@@ -1,4 +1,8 @@
 <div>
+
+    {{-- Carrega o Loading da página --}}
+    <x-show-loading />
+
     <div class="row">
         <div class="col-12 col-md-10">
             <div class="card mb-0 shadow rounded-bottom-0" style='z-index: 1;'>
@@ -66,41 +70,52 @@
                             <div class="border rounded p-3 border-secondary">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="text-muted mb-2">Obras Associadas</h6>
-                                    <button class="btn btn-sm btn-primary" title="Adicionar obra"
+                                    <button class="btn btn-sm btn-primary" title="Associar Nota/OV"
+                                        data-bs-toggle="tooltip"
                                         wire:click.defer="$emitTo('services.oexterno.actions.protest.add-notes-relation', 'openAddNotesRelation', {{ $protest->id }})">
                                         <i class="ri-add-box-fill fs-6 align-middle text-center"></i>
                                     </button>
                                 </div>
-                                <table class="table table-condensed table-striped table-sm table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Nota/OV</th>
-                                            <th>Cliente</th>
-                                            <th>Rubrica</th>
-                                            <th>Municipio</th>
-                                            <th>Descrição</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @for ($i = 0; $i < 2; $i++)
+                                @if ($protest->Notes->isNotEmpty())
+                                    <table class="table table-condensed table-striped table-sm table-hover">
+                                        <thead>
                                             <tr>
-                                                <td>OV{{ random_int(10000, 40000) }}</td>
-                                                <td>Maria do Carmo Rabelo Pinto</td>
-                                                <td>R001</td>
-                                                <td>Vitoria</td>
-                                                <td>Descrição da obra A</td>
-                                                <td>
-                                                    <i class="ri-play-circle-fill fs-5 align-middle text-primary"
-                                                        style="cursor: pointer;"></i>
-                                                    <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
-                                                        style="cursor: pointer;"></i>
-                                                </td>
+                                                <th>Nota/OV</th>
+                                                <th>Cliente</th>
+                                                <th>Rubrica</th>
+                                                <th>Municipio</th>
+                                                <th>Descrição</th>
+                                                <th>Serviço</th>
+                                                <th>Status</th>
+                                                <th></th>
                                             </tr>
-                                        @endfor
-
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            @forelse ($protest->Notes as $note)
+                                                <tr>
+                                                    <td>{{ $note->note }}</td>
+                                                    <td>{{ $note->client }}</td>
+                                                    <td>{{ $note->rubrica }}</td>
+                                                    <td>{{ $note->lexp }}</td>
+                                                    <td>{{ $note->material }}</td>
+                                                    <td>{{ $note->type_note == 2 ? $note->nstats : $note->centerjob }}
+                                                    </td>
+                                                    <td>
+                                                        {{-- <i class="ri-play-circle-fill fs-5 align-middle text-primary"
+                                                        style="cursor: pointer;"></i> --}}
+                                                        <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
+                                                            style="cursor: pointer;" title="Remover Associação"
+                                                            data-bs-toggle="tooltip"
+                                                            wire:click.prevent="removeNoteFromProtest({{ $note->id }})"></i>
+                                                    </td>
+                                                </tr>
+                                            @empty
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                @else
+                                    <h4 class="align-middle text-center my-2">Nenhuma Nota/OV Associada</h4>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -108,74 +123,71 @@
             </div>
             <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
                 <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <div class="border rounded py-3 border-secondary">
-                                <h6 class="text-muted mb-2 ms-2">Medidas:</h6>
-                                <table class="table table-condensed table-striped table-sm table-hover ">
-                                    <thead>
-                                        <tr>
-                                            <th>Status</th>
-                                            <th>Descrição</th>
-                                            <th>Data Criação</th>
-                                            <th>Data Fim Desejada</th>
-                                            <th>Data Fim</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse ($protest->medProtests?->sortByDesc('dtCriacaoMedida') as $medProtest)
-                                            <tr>
-                                                <td>
-                                                    @if ($medProtest->statusSist === 'MEDA')
-                                                        <span class="badge text-bg-danger">ABERTO</span>
-                                                    @else
-                                                        <span class="badge text-bg-secondary">FECHADO</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    {{ $medProtest->txtCodMedida }}
-                                                </td>
-                                                <td>
-                                                    {{ $medProtest->dtCriacaoMedida?->format('d/m/Y') }}
-                                                </td>
-                                                <td>
-                                                    {{ $medProtest->dtFimMedidaDesej?->format('d/m/Y') }}
-                                                </td>
-                                                <td>
-                                                    {{ $medProtest->dtFimMedida?->format('d/m/Y') }}
-                                                </td>
-                                                <td>
-                                                    <i class="ri-play-circle-fill fs-5 align-middle text-primary"
-                                                        style="cursor: pointer;"></i>
-                                                </td>
-                                            </tr>
 
-                                        @empty
-                                            <tr>
-                                                <td colspan="5" class="text-center text-muted">
-                                                    Nenhuma medida registrada.
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="border rounded py-3 border-secondary">
+                        <h6 class="text-muted mb-2 ms-2">Medidas:</h6>
+                        <table class="table table-condensed table-striped table-sm table-hover ">
+                            <thead class="text-center align-middle">
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Descrição</th>
+                                    <th>Data Criação</th>
+                                    <th>Data Fim Desejada</th>
+                                    <th>Data Fim</th>
+                                    <th>Responsável</th>
+                                    <th>Situação</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($protest->medProtests?->sortByDesc('dtCriacaoMedida') as $medProtest)
+                                    <tr class="text-center align-middle">
+                                        <td>
+                                            @if ($medProtest->statusSist === 'MEDA')
+                                                <span class="badge text-bg-success">ABERTO</span>
+                                            @else
+                                                <span class="badge text-bg-secondary">FECHADO</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            {{ $medProtest->txtCodMedida }}
+                                        </td>
+                                        <td class="text-bg-secondary">
+                                            {{ $medProtest->dtCriacaoMedida?->format('d/m/Y') }}
+                                        </td>
+                                        <td>
+                                            {{ $medProtest->dtFimMedidaDesej?->format('d/m/Y') }}
+                                        </td>
+                                        <td class="text-bg-secondary">
+                                            {{-- Use null-safe operator to avoid errors if dtFimMedida is null --}}
+                                            {{ $medProtest->dtFimMedida?->format('d/m/Y') }}
+                                        </td>
+                                        <td class="">
+                                            ----
+                                        </td>
+                                        <td class="">
+                                            ----
+                                        </td>
+                                        <td>
+                                            <i class="ri-play-circle-fill fs-5 align-middle text-primary"
+                                                style="cursor: pointer;"></i>
+                                        </td>
+                                    </tr>
 
-                        <div class="col-md-4">
-                            <div class="border rounded p-3">
-                                <h6 class="text-muted mb-2">Datas</h6>
-                                <p class="mb-1"><strong>Abertura:</strong>
-                                    {{ $protest->dtAberturaNota?->format('d/m/Y') }}</p>
-                                <p class="mb-1"><strong>Conclusão Prevista:</strong>
-                                    {{ $protest->dtConclusaoDesej?->format('d/m/Y') }}</p>
-                            </div>
-                        </div>
-
-
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            Nenhuma medida registrada.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+
+
+
             </div>
         </div>
     </div>

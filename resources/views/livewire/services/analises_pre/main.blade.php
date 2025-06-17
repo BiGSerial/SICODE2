@@ -87,7 +87,7 @@
                 {{ $lists->lastItem() }}
                 de {{ $lists->total() }}
                 registros.
-                @if ($update)
+                @if ($last_update)
                     Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
                 @endif
             </span>

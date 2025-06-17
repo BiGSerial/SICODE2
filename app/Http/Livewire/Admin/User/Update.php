@@ -180,6 +180,8 @@ class Update extends Component
 
     public function reset_pass()
     {
+
+        dd('Resetando senha do usuário: ' . $this->reset_user->name);
         try {
             $this->reset_user->password   = Hash::make(123456);
             $this->reset_user->first_pass = true;
@@ -191,6 +193,8 @@ class Update extends Component
                 'title'    => 'Senha aterado para o padrão "123456"',
                 'timer'    => 2500,
             ]);
+
+            $this->dispatchBrowserEvent('copySicodeAccess', $this->reset_user->email);
 
         } catch (\Throwable $th) {
             $this->dispatchBrowserEvent('swal', [

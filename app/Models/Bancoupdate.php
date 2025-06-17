@@ -16,4 +16,8 @@ class Bancoupdate extends Model
         'updates',
         'info',
     ];
+
+    protected $casts = [
+        'last_update' => 'datetime',
+    ];
 }

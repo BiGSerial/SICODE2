@@ -2,14 +2,16 @@
 
 namespace App\Http\Livewire\Services\Oexterno\Actions\Protest;
 
+use App\Models\Note;
 use App\Models\Protest;
 use Livewire\Component;
 
 class AddNotesRelation extends Component
 {
+    public $search = '';
     public $protest;
     public $note;
-    public $notes = [];
+
 
     protected $listeners = [
         'openAddNotesRelation',
@@ -32,7 +34,21 @@ class AddNotesRelation extends Component
     {
         if ($id) {
             $this->protest->Notes()->syncWithoutDetaching([$id]);
+            $this->emit('refreshComponent');
         }
+    }
+
+    public function removeNoteFromProtest($id)
+    {
+        if ($id) {
+            $this->protest->Notes()->detach($id);
+            $this->emit('refreshComponent');
+        }
+    }
+
+    public function getNotesProperty()
+    {
+        return Note::where('note', trim($this->search))->get();
     }
 
 
@@ -43,6 +59,8 @@ class AddNotesRelation extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.actions.protest.add-notes-relation');
+        return view('livewire.services.oexterno.actions.protest.add-notes-relation', [
+            'notes' => $this->notes,
+        ]);
     }
 }

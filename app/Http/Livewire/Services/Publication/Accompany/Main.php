@@ -325,6 +325,22 @@ class Main extends Component
 
     }
 
+    public function sendCopyToExcel()
+    {
+        $formattedData = $this->lists->map(function ($list) {
+            return [
+            $list->Note->note,
+            $list->Note->orders->pluck('ordem')->toArray(),
+            ];
+        });
+
+
+
+        $this->dispatchBrowserEvent('copyToExcel', [
+            'lists' => $formattedData
+        ]);
+    }
+
     public function render()
     {
 

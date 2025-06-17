@@ -14,14 +14,26 @@ class View extends Component
 
     public $protest;
 
+    protected $listeners = [
+        'refreshComponent' => '$refresh',
+    ];
+
     public function mount(Request $request)
     {
         $this->protest = Protest::where('nota', $request->route('protest'))->with('medProtests')->first();
-        
+
         if (!$this->protest) {
             abort(404, 'Protesto não encontrado');
         }
 
+    }
+
+    public function removeNoteFromProtest($id)
+    {
+        if ($id) {
+            $this->protest->Notes()->detach($id);
+            $this->emit('refreshComponent');
+        }
     }
 
     public function render()

@@ -106,6 +106,8 @@ class Create extends Component
 
             $this->emit('refresh_table_user');
 
+            $this->dispatchBrowserEvent('copySicodeAccess', $this->email);
+
             $this->clean_all();
 
         } else {

@@ -22,8 +22,8 @@
                                     <span class="visually-hidden">Carregando...</span>
                                 </div>
                             </div>
-                            <div wire:loading.remove class="text-center p-3">
-                                @if ($note)
+                            <div wire:loading.remove class="text-center py-0">
+                                @if ($notes->isNotEmpty())
                                     <table class="table table-condensed">
                                         <thead>
                                             <tr>
@@ -35,7 +35,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach ($note as $n)
+                                            @foreach ($notes as $n)
                                                 <tr>
                                                     <td>{{ $n->note }}</td>
                                                     <td>{{ $n->rubrica }}</td>
@@ -43,8 +43,8 @@
                                                     <td>{{ $n->client }}</td>
                                                     <td>
                                                         <button class="btn btn-sm btn-primary"
-                                                            wire:click="addNote({{ $n->id }})">
-                                                            Adicionar
+                                                            wire:click="addNoteToProtest({{ $n->id }})">
+                                                            <i class="ri-add-line"></i>
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -52,7 +52,7 @@
                                         </tbody>
                                     </table>
                                 @else
-                                    <h4 class="align-middle text-center">Nenhuma Nota/OV Encontrada ou Buscada</h4>
+                                    <h4 class="align-middle text-center my-2">Nenhuma Nota/OV Encontrada ou Buscada</h4>
                                 @endif
                             </div>
 
@@ -61,7 +61,7 @@
                         @if ($protest->Notes->isNotEmpty())
                             <div class="card">
                                 <h5 class="card-header">NOTAS ASSOCIADAS</h5>
-                                <table class="table table-condensed">
+                                <table class="table table-condensed table-striped table-hover table-sm">
                                     <thead>
                                         <tr>
                                             <th scope="col">Note</th>
@@ -79,10 +79,9 @@
                                                 <td>{{ $nNote->lexp }}</td>
                                                 <td>{{ $nNote->client }}</td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-primary"
-                                                        wire:click="addNote({{ $nNote->id }})">
-                                                        Remover
-                                                    </button>
+                                                    <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
+                                                        wire:click.prevent="removeNoteFromProtest({{ $nNote->id }})"
+                                                        style="cursor: pointer;"></i>
                                                 </td>
                                             </tr>
                                         @endforeach

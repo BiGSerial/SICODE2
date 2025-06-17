@@ -125,8 +125,12 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
-                        {{ mb_strtoupper($service->service) }}
+                    <h4 class="card-header fw-bold text-bg-danger d-flex justify-content-between">
+                        <div>ACOMPANHAMENTO - {{ mb_strtoupper($service->service) }}</div>
+                        <div>
+                            <i class="ri-file-copy-line" style="cursor: pointer;" wire:click.prevent="sendCopyToExcel"
+                                data-bs-toggle="tooltip" data-bs-placement="top" title="Copiar"></i>
+                        </div>
                     </h4>
 
                     <div class="table-responsive">
@@ -435,7 +439,7 @@
                                         }
 
                                     @endphp
-                                    <tr wire:key="work-{{ $list->id }}"
+                                    <tr wire:key="work_waiting-{{ $list->id }}"
                                         wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list->Note }})"
                                         class="align-middle text-center align-middle ">
                                         <td class="fw-bold {{ $class }}">
@@ -699,6 +703,53 @@
                 const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
                 myModal.show();
             })
+            // document.addEventListener('livewire:load', function() {
+            //     // Initialize popovers
+            //     ('[data-bs-toggle="popover"]').popover({
+            //         html: true,
+            //         sanitize: false,
+            //         trigger: 'hover focus',
+            //         placement: 'top'
+            //     });
+
+            // });
+
+            // Listen for Livewire browser event
+            window.addEventListener('copyToExcel', event => {
+                const data = event.detail;
+
+
+                const excelText = data.lists.map(row => {
+                    // Copiamos a linha original
+                    const cols = [...row];
+
+                    // Se for array na coluna 1, juntamos com CRLF e escapamos
+                    if (Array.isArray(cols[1]) && cols[1].length > 0) {
+                        // 1) junta com CRLF
+                        let cell = cols[1].join('\r\n');
+                        // 2) escapa aspas internas
+                        cell = cell.replace(/"/g, '""');
+                        // 3) envolve em aspas
+                        cols[1] = `"${cell}"`;
+                    }
+
+                    // Une as colunas com tab e depois cada linha com CRLF
+                    return cols.join('\t');
+                }).join('\r\n');
+
+                console.log(excelText);
+
+                // Copy to clipboard
+                const textArea = document.createElement('textarea');
+                textArea.value = excelText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                // Optional: Show success message
+                Livewire.emit('getCopy', 'Dados copiados para área de transferência');
+            });
         </script>
     @endpush
 
