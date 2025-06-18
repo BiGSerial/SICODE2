@@ -99,8 +99,8 @@
                     @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary me-2" wire:click="closeAll">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" wire:click="saveProtocol">Salvar</button>
+                    <button type="button" class="btn btn-secondary me-2" wire:click="closeAll">Fechar</button>
+
                 </div>
             </div>
         </div>
