@@ -54,7 +54,7 @@
 
                 <div class="col-md-4">
                     <div class="border rounded p-3 h-100 border-secondary">
-                        <h6 class="text-muted mb-2 text-primary">Status</h6>
+                        <h6 class="text-muted mb-2 text-primary">STATUS</h6>
                         <p class="mb-1">
                             <strong>Total Medidas:</strong>
                             <span class="badge bg-secondary">{{ $protest->medProtests?->count() }}</span>
@@ -124,26 +124,94 @@
                 <div class="col-md-4">
 
                     <div class="form-floating">
-                        <textarea class="form-control" placeholder="Leave a comment here" id="floatingTextarea" style="height: 150px"></textarea>
-                        <label for="floatingTextarea">Adicionar Comentários</label>
+                        <textarea class="form-control border-secondary" placeholder="Leave a comment here" id="floatingTextarea"
+                            style="height: 150px" wire:model.defer="comment"></textarea>
+                        <label for="floatingTextarea">ADICIONAR COMENTÁRIOS</label>
                     </div>
                     <div class="mt-2 text-end">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" wire:click.prevent="addComment">
                             <i class="ri-send-plane-fill me-1"></i> Enviar
                         </button>
                     </div>
 
                 </div>
-                <div class="col-md-8 h-100">
-                    <div class="border rounded p-3 border-secondary">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h6 class="text-muted mb-2 text-primary">OBSERVAÇÕES PARA <div id="strong">
-                                    {{ $protest->nota }}</div>:</h6>
+                <div class="col-md-8 h-100" style='min-height: 150px;'>
+                    {{-- Verifica se há observações para a nota --}}
+                    <div class="border rounded p-3 border-secondary h-100" style='min-height: 150px;'>
+                        <h6 class="mb-0 text-dark">
+                            <i class="bi bi-chat-dots me-2"></i>OBSERVAÇÔES PARA {{ $protest->nota }}:
+                            @if ($protest->comments->isNotEmpty())
+                                <span
+                                    class="badge bg-secondary ms-2 align-middle">{{ $protest->comments->count() }}</span>
+                            @endif
+                        </h6>
+                        <div class="card my-2">
+                            <div class="card-body" style="max-height: 300px; overflow-y: auto; scrollbar-width: thin;">
+                                {{-- Verifica se há comentários --}}
+                                @forelse($protest->comments as $comment)
+                                    <div class="comment-container">
+                                        <div
+                                            class="comment-item py-2 {{ !$loop->last ? 'border-bottom border-secondary' : '' }}">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="d-flex gap-2">
+                                                    <div class="comment-avatar">
+                                                        <i class="ri-user-line fs-4 text-primary align-middle"></i>
+                                                    </div>
+                                                    <div class="comment-content">
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-center w-100">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                @if ($comment->user?->email)
+                                                                    <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                                        style="cursor:pointer"
+                                                                        onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')">
+                                                                    </i>
+                                                                @endif
+                                                                <span
+                                                                    class="fw-bold {{ $comment->user_id === auth()->user()->id ? 'text-primary' : '' }}">{{ $comment->user->name }}</span>
+                                                                <small class="text-muted">
+                                                                    <i class="ri-time-line align-middle"></i>
+                                                                    {{ $comment->created_at->diffForHumans() }}
+                                                                </small>
+                                                            </div>
+                                                            @if (
+                                                                ($comment->created_at->diffInHours() < 1 && $comment->id === $protest->comments->max('id')) ||
+                                                                    auth()->user()->admin ||
+                                                                    auth()->user()->superadm)
+                                                                <i class="ri-delete-bin-fill text-danger"
+                                                                    style="cursor: pointer;"
+                                                                    wire:click="deleteComment({{ $comment->id }})"
+                                                                    title="Excluir comentário"></i>
+                                                            @endif
+                                                        </div>
+                                                        <p class="mb-0 text-secondary mt-1">
+                                                            {{ $comment->message }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                        </div>
-                        <div class="card">
-                            <div class="card-body">
-                                <h4 class="text-center">SEM OBBSERVAÇÕES</h4>
+                                    <style>
+                                        .comment-container::-webkit-scrollbar {
+                                            width: 5px;
+                                        }
+
+                                        .comment-container::-webkit-scrollbar-track {
+                                            background: #f1f1f1;
+                                        }
+
+                                        .comment-container::-webkit-scrollbar-thumb {
+                                            background: #888;
+                                            border-radius: 5px;
+                                        }
+                                    </style>
+                                @empty
+                                    <div class="alert alert-info text-center mb-0 mt-3" role="alert">
+                                        <i class="bi bi-info-circle me-2"></i> Não há observações para exibir.
+                                    </div>
+                                @endforelse
                             </div>
                         </div>
                     </div>
@@ -159,6 +227,7 @@
                 <table class="table table-condensed table-striped table-sm table-hover ">
                     <thead class="text-center align-middle">
                         <tr>
+                            <th>#</th>
                             <th>Status</th>
                             <th>Descrição</th>
                             <th>Data Criação</th>
@@ -174,6 +243,9 @@
                     <tbody>
                         @forelse ($protest->medProtests?->sortByDesc('dtCriacaoMedida') as $medProtest)
                             <tr class="text-center align-middle">
+                                <td class="fw-bold">
+                                    {{ $medProtest->med_id }}
+                                </td>
                                 <td>
                                     @if ($medProtest->statusSist === 'MEDA')
                                         <span class="badge text-bg-success">ABERTO</span>
@@ -209,7 +281,8 @@
                                 <td>
                                     @if ($medProtest->statusSist === 'MEDA')
                                         <i class="ri-play-circle-fill fs-5 align-middle text-success"
-                                            style="cursor: pointer;"></i>
+                                            style="cursor: pointer;"
+                                            wire:click.prevent="$emitTo('services.oexterno.actions.protest.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})"></i>
                                     @else
                                         <i class="ri-eye-fill fs-5 align-middle text-primary"
                                             style="cursor: pointer;"></i>
@@ -236,4 +309,7 @@
 
     {{-- Livewire Components --}}
     @livewire('services.oexterno.actions.protest.add-notes-relation', key('add-notes-relation-' . $protest->id))
+    @livewire('services.oexterno.actions.protest.control-med-protest', key('control-med-protest-' . $protest->id))
+
+    {{-- Modal de Controle de Medidas --}}
 </div>
