@@ -369,6 +369,18 @@
                                                 </span>
                                             @endif
                                         @endif
+
+                                        @if ($list->partial && !$list->Note->WorkForm)
+                                            <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                data-bs-title="Devolver Informe">
+                                                <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                    style="cursor: pointer;"
+                                                    wire:click.prevent="$emitTo('production.return.reject-inform-partial', 'toReturn', {{ $list }})"></i>
+                                            </span>
+                                        @endif
+
+
                                     </td>
                                     </tr>
                                 @endforeach
@@ -498,6 +510,8 @@
     @livewire('services.payment.forms.jobform', key('payment-form'))
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('partner.show.show-partial-info', key('show_partial_info'))
+    @livewire('production.return.reject-inform-partial', key('reject_inform_partial'))
+
 
     {{-- <div wire:init="checkOpen"></div> --}}
 

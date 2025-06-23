@@ -393,10 +393,10 @@
                                     </td>
                                     <td>{{ $p->status_note }}</td>
                                     <td>
-                                        @if ($p->User->email)
+                                        @if ($p->User?->email)
                                             <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
                                                 style="cursor:pointer"
-                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $p->User->email }}', '_blank')">
+                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $p->User?->email }}', '_blank')">
                                             </i>
                                         @endif
                                         {{ $p->User?->name ?? 'Desconhecido' }}
@@ -497,13 +497,13 @@
                                         @endforeach
                                     </td>
                                     <td class="align-middle">
-                                        @if ($v->User->email)
+                                        @if ($v->User?->email)
                                             <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
                                                 style="cursor:pointer"
-                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $v->User->email }}', '_blank')">
+                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $v->User?->email }}', '_blank')">
                                             </i>
                                         @endif
-                                        {{ $v->User->name }}
+                                        {{ $v->User?->name }}
                                     </td>
                                     <td class="align-middle">{{ $v->hired ? 'SIM' : 'NÃO' }}</td>
                                     <td class="align-middle">{{ $v->tacit ? 'SIM' : 'NÃO' }}</td>

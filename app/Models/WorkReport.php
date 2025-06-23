@@ -82,6 +82,8 @@ class WorkReport extends Model
 
 
 
+
+
     // Agragações customizadas
 
     public function getEarliestFimRealAttribute()

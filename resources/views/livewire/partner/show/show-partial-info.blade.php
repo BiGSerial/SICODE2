@@ -123,7 +123,7 @@
                                     <div class="card">
                                         <div class="card-header text-bg-primary">Observação da Empreiteira</div>
                                         <div class="card-body">
-                                            <p class="card-text">{{ $form->observation }}</p>
+                                            <p class="card-text">{!! nl2br($form->observation) !!}</p>
                                         </div>
                                         <div class="card-footer">
                                             <p class="py-1 my-0"><strong>Responsável: </strong>{{ $form->responsible }}

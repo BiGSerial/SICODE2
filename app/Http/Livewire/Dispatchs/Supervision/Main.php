@@ -1037,11 +1037,6 @@ class Main extends Component
                         $q->WhereIn('ordem', $this->multiSearch);
                     });
             });
-        } elseif (!$this->search && !count($this->multiSearch) && $this->base) {
-            $query->where(function ($q) {
-                return $q->whereIn('nexp', $this->base)
-                    ->orWhereNull('nexp');
-            });
         }
 
         if (count($this->rubrica_s)) {
@@ -1073,8 +1068,15 @@ class Main extends Component
         }
 
         if (isset($this->filter['city'])) {
-            $query->whereIn('lexp', $this->filter['city']);
+
+            $query->where(function ($q) {
+                return $q->orWhereIn('lexp', $this->filter['city'])
+                    ->orWhereNull('lexp')
+                     ->orWhere('lexp', '');
+            });
         }
+
+
 
         $query->with(['orders' => function ($q) {
             $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
@@ -1085,41 +1087,41 @@ class Main extends Component
         return $query;
     }
 
-    public function getBaseProperty()
-    {
-        try {
-            $query = City::query();
-            $filtersApplied = false;
+    // public function getBaseProperty()
+    // {
+    //     try {
+    //         $query = City::query();
+    //         $filtersApplied = false;
 
-            if (!empty($this->region_s)) {
-                $query->whereIn('regiao', $this->region_s);
-                $filtersApplied = true;
-            }
+    //         if (!empty($this->region_s)) {
+    //             $query->whereIn('regiao', $this->region_s);
+    //             $filtersApplied = true;
+    //         }
 
-            if (!empty($this->district_s)) {
-                $query->whereIn('baseConstrucao', $this->district_s);
-                $filtersApplied = true;
-            }
+    //         if (!empty($this->district_s)) {
+    //             $query->whereIn('baseConstrucao', $this->district_s);
+    //             $filtersApplied = true;
+    //         }
 
-            if (!empty($this->city_s)) {
-                $query->whereIn('cidade', $this->city_s);
-                $filtersApplied = true;
-            }
+    //         if (!empty($this->city_s)) {
+    //             $query->whereIn('cidade', $this->city_s);
+    //             $filtersApplied = true;
+    //         }
 
-            if (!$filtersApplied) {
-                return [];
-            }
+    //         if (!$filtersApplied) {
+    //             return [];
+    //         }
 
-            $result = $query->orderBy('cidade')
-                ->get()
-                ->pluck('rdMunicipio')
-                ->toArray();
+    //         $result = $query->orderBy('cidade')
+    //             ->get()
+    //             ->pluck('rdMunicipio')
+    //             ->toArray();
 
-            return $result;
-        } catch (\Throwable $th) {
-            return [];
-        }
-    }
+    //         return $result;
+    //     } catch (\Throwable $th) {
+    //         return [];
+    //     }
+    // }
 
     public function getToListsProperty()
     {

@@ -314,7 +314,7 @@
                                                 @endif
                                             @endif
 
-                                            @if ($list->Note->RamalForm)
+                                            @if ($list->partial && $list->Note->RamalForm && !$list->Note->WorkForm)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Devolver Informe">
@@ -334,8 +334,6 @@
                                                 </span>
                                             @endif
                                         </td>
-
-
                                     </tr>
                                 @endforeach
                             </tbody>
