@@ -58,7 +58,8 @@
                 <tbody>
                     @foreach ($lists as $list)
                         <tr class="text-center" style="cursor: pointer;"
-                            wire:dblclick.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
+                            wire:dblclick.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})"
+                            wire:key="partial-hist{{ $list->id }}">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
                             <td>
                                 @if ($list->Orders)
@@ -99,7 +100,9 @@
                     @endforeach
                 </tbody>
             </table>
+
         </div>
+        {{ $lists->links() }}
     @endif
 
     @livewire('partner.show.show-partial-info', key('show_partial_info'))

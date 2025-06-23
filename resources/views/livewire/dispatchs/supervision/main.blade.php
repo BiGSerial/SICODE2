@@ -269,9 +269,9 @@
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
-                                        {{ Carbon::parse($list->WorkForm->informed_at)->format('d/m/Y') }}
+                                        {{ Carbon::parse($list->WorkForm->informed_at)?->format('d/m/Y') }}
                                     @elseif ($list->Partials)
-                                        {{ Carbon::parse($list->Partials->last()->created_at)->format('d/m/Y') }}
+                                        {{ $list->Partials?->last()?->created_at?->format('d/m/Y') }}
                                     @endif
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
@@ -328,10 +328,9 @@
                                             false,
                                         );
                                     } elseif ($list->Partials) {
-                                        $days_left = Carbon::parse($list->Partials->last()->created_at)->diffInDays(
-                                            Carbon::now(),
-                                            false,
-                                        );
+                                        $days_left = $list->Partials
+                                            ?->last()
+                                            ?->created_at?->diffInDays(Carbon::now(), false);
                                     }
                                 @endphp
                                 <td scope="col"
