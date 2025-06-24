@@ -3,11 +3,13 @@
 namespace App\Console\Commands\Update;
 
 use App\Custom\RegistroJson;
+use App\Models\City;
 use App\Models\Edp_depc\BaseEP as Edp_depcBaseEP;
-use App\Models\Edp_depc\Gpm;
+// use App\Models\Edp_depc\Gpm;
 use App\Models\Note;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class BaseEP extends Command
@@ -31,120 +33,84 @@ class BaseEP extends Command
      */
     public function handle(): int
     {
-        $daysAgo = Carbon::now()->subDays($this->option('days'));
-        $chunkSize = $this->option('full') ? 1000 : 500;
+        $this->info('Starting process with V5 - Robust, Memory-Efficient Strategy.');
+        $log = new RegistroJson('upd_baseEP_v5', $this->options());
 
-
-
-        $log = new RegistroJson('upd_baseEP', $this->options());
-        $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
-
-        // Base query, optionally limiting by date
-        $baseQuery = Edp_depcBaseEP::query();
-
-
-        $total = $baseQuery->count();
-        $log->setTotal($total);
-
+        // --- ETAPA 1: Processamento Principal em Lotes ---
+        // Lemos a tabela de origem em pedaços para manter o uso de memória baixo.
+        $total = Edp_depcBaseEP::query()->count();
         $bar = new ProgressBar($this->output, $total);
-        $bar->setFormat(
-            '<bg=blue;fg=white>UPDATE BaseEP: %current%/%max% </>' .
-            '<fg=white;options=bold> [%tins%][I: %ins%/U: %upd%] </>' .
-            '<fg=green>[%bar%]</> <fg=white;options=bold> %percent%%</> ' .
-            '<bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%'
-        );
-
-        $this->info("Starting BaseOV data transfer...(Using updating of {$this->option('days')} days ago)");
-        $this->info("");
-        $bar->setMessage('Starting', 'message');
         $bar->start();
 
-        // Process in ID-based chunks
-        $baseQuery->orderBy('id')->chunkById($chunkSize, function ($records) use ($bar, &$count) {
-            $notas = $records->pluck('nota')->unique()->values();
-            $existingNotes = Note::whereIn('note', $notas)->get()->keyBy('note');
+        $dataToUpsert = [];
+        $chunkReadSize = 2000; // Tamanho do lote para ler da origem
+        $upsertBatchSize = 500; // Lotes de escrita. 500 é um número muito seguro.
+        $updateColumns = [ 'created_by', 'dt_created', 'dt_status', 'user', 'numPedido', 'pze', 'num_material', 'material', 'nexp', 'lexp', 'nstats', 'status', 'rubrica', 'centerjob', 'type_note', 'mesalization', 'txpriority', 'updated_at' ];
 
-            foreach ($notas as $nota) {
-                $record   = $records->firstWhere('nota', $nota);
+        Edp_depcBaseEP::query()->orderBy('id')->chunkById($chunkReadSize, function (Collection $sourceRecords) use ($bar, &$dataToUpsert, $upsertBatchSize, $updateColumns) {
+
+            // Dentro de cada lote, pegamos apenas as notas e cidades necessárias.
+            // O whereIn aqui terá no máximo o tamanho de $chunkReadSize (2000), o que é seguro.
+            $notasInChunk = $sourceRecords->pluck('nota')->unique();
+            $grpPlansInChunk = $sourceRecords->pluck('grpPlan')->unique()->filter();
+
+            $existingNotes = Note::whereIn('note', $notasInChunk)->get()->keyBy('note');
+            $cities = City::whereIn('gpm', $grpPlansInChunk)->get()->keyBy('gpm');
+
+            foreach ($sourceRecords as $record) {
+                $nota = $record->nota;
                 $existing = $existingNotes->get($nota);
 
-                // Verifica se é necessário atualizar ou criar
-                $modified = is_null($existing)
-                    || $this->option('full')
-                    || $existing->created_by   !== $record->criadoPor
-                    || Carbon::parse($existing->dt_created)->toDateString() !== Carbon::parse($record->dtNota)->toDateString()
-                    || $existing->user         !== $record->notificador
-                    || $existing->numPedido    !== $record->descricao
-                    || $existing->pze           != ($record->PzE ?: null)
-                    || $existing->num_material !== ($record->conjunto ?: null)
-                    || $existing->material     !== ($record->denomConjunto ?: null)
-                    || $existing->nstats       != $record->statusUsuario
-                    || $existing->status       != $record->status
-                    || $existing->centerjob    !== $record->cenTrabResp;
+                $modified = is_null($existing) || $this->option('full') || $existing->created_by !== $record->criadoPor || Carbon::parse($existing->dt_created)->toDateString() !== Carbon::parse($record->dtNota)->toDateString() || $existing->user !== $record->notificador || $existing->numPedido !== $record->descricao || $existing->pze != ($record->PzE ?: null) || $existing->num_material !== ($record->conjunto ?: null) || $existing->material !== ($record->denomConjunto ?: null) || $existing->nstats != $record->statusUsuario || $existing->status != $record->status || $existing->centerjob !== $record->cenTrabResp;
 
-                if (! $modified) {
-                    $bar->advance();
-                    continue;
+                if ($modified) {
+                    $city = $cities->get($record->grpPlan);
+                    $dataToUpsert[] = [ 'note' => $nota, 'created_by' => $record->criadoPor, 'dt_created' => "{$record->dtNota} 00:00:00", 'dt_status' => now(), 'user' => $record->notificador, 'numPedido' => $record->descricao, 'pze' => $record->PzE ?: null, 'num_material' => $record->conjunto ?: null, 'material' => $record->denomConjunto ?: null, 'nexp' => $city->rdMunicipio ?? null, 'lexp' => $city->cidade ?? null, 'nstats' => $record->statusUsuario, 'status' => $record->status, 'rubrica' => $record->rubrica, 'centerjob' => $record->cenTrabResp, 'type_note' => 1, 'mesalization' => $record->mesalizacao, 'txpriority' => $record->txtPrioridade, 'created_at' => $existing->created_at ?? now(), 'updated_at' => now() ];
                 }
-
-                // Busca dados de cidade
-                $city = Gpm::firstWhere('gpm', $record->grpPlan);
-
-                // Prepara payload
-                $data = [
-                    'created_by'   => $record->criadoPor,
-                    'dt_created'   => "{$record->dtNota} 00:00:00",
-                    'dt_status'    => $existing ? now() : ($existing->dt_status ?? now()),
-                    'user'         => $record->notificador,
-                    'numPedido'    => $record->descricao,
-                    'pze'          => $record->PzE !== '' ? $record->PzE : null,
-                    'num_material' => $record->conjunto !== '' ? $record->conjunto : null,
-                    'material'     => $record->denomConjunto !== '' ? $record->denomConjunto : null,
-                    'nexp'         => $city->rdMunicipio ?? null,
-                    'lexp'         => $city->cidade ?? null,
-                    'nstats'       => $record->statusUsuario,
-                    'status'       => $record->status,
-                    'rubrica'      => $record->rubrica,
-                    'centerjob'    => $record->cenTrabResp,
-                    'type_note'    => 1,
-                    'mesalization' => $record->mensalizacao,
-                    'txpriority'   => $record->txtPrioridade,
-                ];
-
-                if ($existing) {
-                    $existing->update($data);
-                    $count['upd']++;
-                } else {
-                    $model = Note::create(array_merge(['note' => $nota], $data));
-                    $existingNotes->put($nota, $model);
-                    $count['ins']++;
-                }
-
-                $bar->setMessage($count['tins'], 'tins');
-                $bar->setMessage($count['ins'], 'ins');
-                $bar->setMessage($count['upd'], 'upd');
                 $bar->advance();
             }
 
-            $count['tins']++;
+            if (count($dataToUpsert) >= $upsertBatchSize) {
+                Note::upsert($dataToUpsert, ['note'], $updateColumns);
+                $dataToUpsert = [];
+            }
         });
 
-        // Marca notas antigas como canceladas
-        $stale = Carbon::now()->subDay();
-        $cancelCount = Note::where('type_note', 1)
-            ->where('updated_at', '<', $stale)
-            ->update(['nstats' => 99]);
+        if (!empty($dataToUpsert)) {
+            Note::upsert($dataToUpsert, ['note'], $updateColumns);
+        }
 
-        $this->info("NOTAS CANCELADAS: {$cancelCount}");
-
-        // Finaliza log
         $bar->finish();
-        $log->setCreated($count['ins']);
-        $log->setUpdated($count['upd']);
-        $log->save();
+        $this->info("\nMain processing complete.");
 
-        $this->info('Data transfer completed: ' . ($count['ins'] + $count['upd']) . ' processed.');
+        // --- ETAPA 2: Lógica de Cancelamento Segura e com Baixo Uso de Memória ---
+        $this->info('Starting cancellation process...');
 
+        $sourceNotas = Edp_depcBaseEP::query()->pluck('nota');
+        $cancelCount = 0;
+        $stale = Carbon::now()->subDays(2);
+
+        Note::query()
+            ->where('type_note', 1)
+            ->where('updated_at', '<', $stale)
+            ->whereNotIn('nstats', [99])
+            ->select('id', 'note')
+            ->chunkById(2000, function (Collection $localNotesChunk) use ($sourceNotas, &$cancelCount) {
+
+                // Compara em PHP para não sobrecarregar o DB
+                $notesToCancel = $localNotesChunk->pluck('note')->diff($sourceNotas);
+
+                if ($notesToCancel->isNotEmpty()) {
+                    // O whereIn aqui é no máximo do tamanho do chunk (2000), o que é seguro.
+                    Note::whereIn('note', $notesToCancel)->update([
+                        'nstats' => 99,
+                    ]);
+                    $cancelCount += $notesToCancel->count();
+                }
+            });
+
+        $this->info("Cancellation complete. Cancelled notes: {$cancelCount}");
+        $this->info('Process finished successfully.');
         return 0;
     }
 }

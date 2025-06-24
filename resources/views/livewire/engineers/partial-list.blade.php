@@ -47,6 +47,7 @@
         <div class="card mt-4">
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
                 LISTA DE OBRAS PARCIAIS AGUARDANDO APROVAÇÂO.
+
             </div>
             <table class="table table-sm table-striped table-hover">
                 <thead>
@@ -114,6 +115,13 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>{{ $lists->links() }}</div>
+            <small>
+                Mostrando {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de
+                {{ $lists->total() }} registros
+            </small>
         </div>
     @endif
 
