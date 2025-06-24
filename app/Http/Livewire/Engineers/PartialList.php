@@ -52,10 +52,8 @@ class PartialList extends Component
         }
 
         $query = Partial::query();
-        $query->where(function ($query) {
-            $query->where('allow', 0)
-                  ->Where('deny', 0);
-        });
+        $query->where('allow', 0)
+                   ->Where('deny', 0);
 
         if (!auth()->user()->superadm) {
 
@@ -67,8 +65,8 @@ class PartialList extends Component
         }
 
         if ($this->search) {
-            $query->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('Notes.Orders', 'ordem', 'like', '%' . $this->search . '%');
+            $query->whereRelation('Note', 'note', trim($this->search))
+                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
         }
 
         if (isset($this->filters['rubrica']) && $this->filters['rubrica'] != '') {
@@ -87,7 +85,7 @@ class PartialList extends Component
             $query->whereBetween('created_at', [$this->dt_in, $this->dt_out]);
         }
 
-        return $query->orderBy('created_at', 'desc')->paginate($this->perPage);
+        return $query->orderBy('created_at', 'ASC')->paginate($this->perPage);
     }
 
     public function partialStatus(Partial $partial): array
