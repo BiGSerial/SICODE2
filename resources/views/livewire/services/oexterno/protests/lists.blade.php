@@ -1,7 +1,7 @@
 <div>
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
-    
+
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-3">
@@ -181,9 +181,10 @@
                 <table class="table table-sm  table-condensed table-hover table-striped">
                     <thead class="table-dark">
                         <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                            <th scope="col" class="fw-bold text-center">#</th>
+                            {{-- <th scope="col" class="fw-bold text-center">#</th> --}}
                             <th scope="col" class="fw-bold text-center">Numero</th>
                             <th scope="col" class="fw-bold text-center">Tipo</th>
+                            <th scope="col" class="fw-bold text-center">Nota/Ov Ref</th>
                             <th scope="col" class="fw-bold text-center">Grupo</th>
                             <th scope="col" class="fw-bold text-center">Data Abertura</th>
                             <th scope="col" class="fw-bold text-center">Data Conclusao Desejada</th>
@@ -195,19 +196,27 @@
                     <tbody>
                         @foreach ($lists as $index => $list)
                             @php
-                                if ($list->dtConclusaoDesej?->endOfDay()->isPast()) {
-                                    $vencimento = 'ATRASADA';
-                                    $days = $list->dtConclusaoDesej?->endOfDay()->diffInDays(now());
-                                }
 
-                                if ($list->dtConclusaoDesej?->isFuture()) {
-                                    $vencimento = 'NO PRAZO';
-                                    $color = 'text-bg-success';
-                                } else {
-                                    if ($days <= 10) {
-                                        $color = 'text-bg-warning';
-                                    } else {
+                                $vencimento = 'Indefinido';
+                                $color = 'text-bg-secondary';
+
+                                if ($list->dtConclusaoDesej) {
+                                    $hoje = now()->startOfDay();
+                                    $dataConclusao = $list->dtConclusaoDesej->startOfDay();
+
+                                    if ($hoje->gt($dataConclusao)) {
+                                        $vencimento = 'ATRASADO';
                                         $color = 'text-bg-danger';
+                                    } else {
+                                        $diasRestantes = $hoje->diffInDays($dataConclusao);
+
+                                        if ($diasRestantes <= 3) {
+                                            $vencimento = 'VENCENDO';
+                                            $color = 'text-bg-warning';
+                                        } else {
+                                            $vencimento = 'NO PRAZO';
+                                            $color = 'text-bg-success';
+                                        }
                                     }
                                 }
 
@@ -218,11 +227,11 @@
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
-                            <tr class="align-middle" wire:key="{{ $list->id }}"
+                            <tr class="align-middle text-center" wire:key="{{ $list->id }}-{{ $list->nota }}"
                                 wire:dblClick='goTo({{ $list->nota }})'>
-                                <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
-                                    {{ $index + 1 }}
-                                </td>
+                                {{-- <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
+                                    <span class="badge {{ $color }}">{{ $vencimento }}</span>
+                                </td> --}}
 
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
                                     {{ $list->nota }}
@@ -231,6 +240,10 @@
 
                                 <td class="text-center align-middle "> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                     {{ $list->tipoNota }}
+                                </td>
+
+                                <td class="text-center align-middle text-primary fw-bold">
+                                    {{ $list->Notes->isNotEmpty() ? $list->Notes[0]->note : '--' }}
                                 </td>
 
                                 <td class="text-start align-middle text-uppercase fw-bold"> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
