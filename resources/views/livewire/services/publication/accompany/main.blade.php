@@ -179,7 +179,7 @@
                                         wire:dblclick="showForm({{ $list }})"
                                         class="align-middle text-center align-middle ">
                                         <td
-                                            class="fw-bold @if ($list->Note->is45) text-bg-warning @else {{ $class }} @endif">
+                                            class="fw-bold @if ($list->Note->is45) text-bg-info @else {{ $class }} @endif">
                                             {{ $list->Note->note }}
                                             <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                 style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
@@ -314,7 +314,7 @@
                                                 @endif
                                             @endif
 
-                                            @if ($list->partial && $list->Note->RamalForm && !$list->Note->WorkForm)
+                                            @if (!$list->Note->WorkForm && $list->Note->RamalForm)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
                                                     data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                     data-bs-title="Devolver Informe">
