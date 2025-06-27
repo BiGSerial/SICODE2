@@ -1,106 +1,217 @@
 <div>
     <div wire:ignore.self class="modal fade" id="controlModProtestModal" tabindex="-1"
         aria-labelledby="modalEntityProtocolLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-xl bg-gray">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h5 class="modal-title" id="modalEntityProtocolLabel">CONTROLE DO DESDOBRAMENTO PARA:
+                    <h5 class="modal-title" id="modalEntityProtocolLabel">
+                        CONTROLE DO DESDOBRAMENTO PARA:
                         <strong
                             class="text-white">{{ $modProtest?->protest?->nota }}#{{ $modProtest?->med_id }}</strong>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="row mb-3">
+
+                <div class="modal-body p-4">
+                    <!-- First Row -->
+                    <div class="row g-3 mb-4">
+                        <!-- Basic Info Card -->
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100 border-secondary">
-                                <h6 class="text-muted mb-2 text-primary">INFORMAÇÕES BÁSICAS</h6>
-                                <p class="mb-1"><strong>Nota:</strong> {{ $modProtest?->protest?->nota }}</p>
-                                <p class="mb-1"><strong>Municipio:</strong> {{ $modProtest?->protest?->cidade }}</p>
-                                <p class="mb-1"><strong>Grupo:</strong>
-                                    {{ $modProtest?->protest?->txtGrpCodificacao }}</p>
-                                <p class="mb-1"><strong>Causa:</strong> {{ $modProtest?->protest?->descCausa }}</p>
-                                <p class="mb-1"><strong>SubCausa:</strong> {{ $modProtest?->protest?->descSubCausa }}
-                                </p>
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary mb-3">INFORMAÇÕES BÁSICAS</h6>
+                                    <p class="mb-2"><strong>Nota:</strong> {{ $modProtest?->protest?->nota }}</p>
+                                    <p class="mb-2"><strong>Municipio:</strong> {{ $modProtest?->protest?->cidade }}
+                                    </p>
+                                    <p class="mb-2"><strong>Grupo:</strong>
+                                        {{ $modProtest?->protest?->txtGrpCodificacao }}</p>
+                                    <p class="mb-2"><strong>Causa:</strong> {{ $modProtest?->protest?->descCausa }}
+                                    </p>
+                                    <p class="mb-2"><strong>SubCausa:</strong>
+                                        {{ $modProtest?->protest?->descSubCausa }}</p>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-8">
-                            <div class="border rounded p-3 h-100 border-secondary">
-                                <h6 class="text-muted mb-2 text-primary">INFORMAÇÕES NOTAS ASSOCIADAS</h6>
-                                <p class="mb-1"><strong>Nota:</strong>
-                                    {{ $modProtest?->protest?->Notes->isNotEmpty() ? $modProtest?->protest?->Notes[$notePage]?->note : '--' }}
-                                </p>
-                                <p class="mb-1"><strong>Rubrica:</strong>
-                                    {{ $modProtest?->protest?->Notes->isNotEmpty() ? $modProtest?->protest?->Notes[$notePage]?->rubrica : '--' }}
-                                </p>
-                                <p class="mb-1"><strong>Municipio:</strong>
-                                    {{ $modProtest?->protest?->Notes->isNotEmpty() ? $modProtest?->protest?->Notes[$notePage]?->lexp : '--' }}
-                                </p>
 
-                                <p class="mb-1"><strong>Cliente:</strong>
-                                    {{ $modProtest?->protest?->Notes->isNotEmpty() ? $modProtest?->protest?->Notes[$notePage]?->client : '--' }}
-                                </p>
-                                <p class="mb-1">
-                                    @if ($modProtest?->protest?->Notes[$notePage]?->type_note == 2)
-                                        <strong>Status:</strong>
-                                        {{ $modProtest?->protest?->Notes->isNotEmpty() ? $modProtest?->protest?->Notes[$notePage]?->nstats : '--' }}
-                                    @elseif($modProtest?->protest?->Notes[$notePage]?->type_note == 1)
-                                        <strong>CentroTrabalho:</strong>
-                                        {{ $modProtest?->protest?->Notes->isNotEmpty() ? $modProtest?->protest?->Notes[$notePage]?->centerJob : '--' }}
+                        <!-- Associated Notes Card -->
+                        <div class="col-md-8">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary mb-3">INFORMAÇÕES NOTAS ASSOCIADAS</h6>
+                                    @if ($modProtest?->protest?->notes->isNotEmpty())
+                                        <!-- Notes content -->
+                                        <div class="mb-3">
+                                            <p class="mb-2"><strong>Nota:</strong>
+                                                {{ $modProtest?->protest?->Notes[$notePage]?->note ?? '--' }}</p>
+                                            <p class="mb-2"><strong>Rubrica:</strong>
+                                                {{ $modProtest?->protest?->Notes[$notePage]?->rubrica ?? '--' }}</p>
+                                            <p class="mb-2"><strong>Municipio:</strong>
+                                                {{ $modProtest?->protest?->Notes[$notePage]?->lexp ?? '--' }}</p>
+                                            <p class="mb-2"><strong>Cliente:</strong>
+                                                {{ $modProtest?->protest?->Notes[$notePage]?->client ?? '--' }}</p>
+                                            <!-- Status or CentroTrabalho -->
+                                            @if ($modProtest?->protest?->Notes[$notePage]?->type_note == 2)
+                                                <p class="mb-2"><strong>Status:</strong>
+                                                    {{ $modProtest?->protest?->Notes[$notePage]?->nstats ?? '--' }}</p>
+                                            @elseif($modProtest?->protest?->Notes[$notePage]?->type_note == 1)
+                                                <p class="mb-2"><strong>CentroTrabalho:</strong>
+                                                    {{ $modProtest?->protest?->Notes[$notePage]?->centerJob ?? '--' }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                        <!-- Navigation buttons -->
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <button wire:click="previousNote" class="btn btn-sm btn-outline-secondary"
+                                                {{ $notePage <= 0 ? 'disabled' : '' }}>
+                                                <i class="fas fa-chevron-left"></i> Anterior
+                                            </button>
+                                            <button wire:click="nextNote" class="btn btn-sm btn-outline-secondary"
+                                                {{ $notePage >= $modProtest?->protest?->Notes?->count() - 1 ? 'disabled' : '' }}>
+                                                Próximo <i class="fas fa-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-secondary mb-0">
+                                            <div class="text-center">SEM NOTAS ASSOCIADAS</div>
+                                        </div>
                                     @endif
-                                </p>
-                                <p class="my-0 py-0">
-                                <div class="d-flex justify-content-end align-items-center my-0 py-0">
-                                    <button wire:click="previousNote" class="btn btn-sm btn-outline-secondary me-2"
-                                        {{ $notePage <= 0 ? 'disabled' : '' }}>
-                                        <i class="fas fa-chevron-left"></i> Anterior
-                                    </button>
-                                    <button wire:click="nextNote" class="btn btn-sm btn-outline-secondary"
-                                        {{ $notePage >= $modProtest?->protest?->Notes?->count() - 1 ? 'disabled' : '' }}>
-                                        Próximo <i class="fas fa-chevron-right"></i>
-                                    </button>
                                 </div>
-                                </p>
                             </div>
-
                         </div>
-
                     </div>
-                    <div class="row mb-3">
+
+                    <!-- Second Row -->
+                    <div class="row g-3">
+                        <!-- Service Selection Card -->
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100 border-secondary">
-                                <h6 class="text-muted mb-2 text-primary">SELECIONAR SERVIÇO PARA ATIVIDADE</h6>
-                                <div class="form-floating mb-3">
-                                    <select class="form-select" id="serviceType" wire:model="selectedService">
-                                        <option value="">Selecione um serviço</option>
-                                        @forelse ($serviceList as $service)
-                                            <option value="{{ $service->uuid }}">{{ $service->service }}</option>
-                                        @empty
-                                            <option value="">Nenhum serviço disponível</option>
-                                        @endforelse
-                                    </select>
-                                    <label for="serviceType">Tipo de Serviço</label>
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary mb-3">SELECIONAR SERVIÇO PARA ATIVIDADE</h6>
+                                    <div class="mb-3">
+                                        <select class="form-select form-select-lg mb-3" wire:model="selectedService">
+                                            <option value="">Selecione um serviço</option>
+                                            @forelse ($serviceList as $service)
+                                                <option value="{{ $service->uuid }}">{{ $service->service }}</option>
+                                            @empty
+                                                <option value="">Nenhum serviço disponível</option>
+                                            @endforelse
+                                        </select>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="requireTracking"
+                                            wire:model="needsEvidence">
+                                        <label class="form-check-label" for="requireTracking">Acompanhamento</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="needsConfirmation"
+                                            wire:model="needsConfirmation">
+                                        <label class="form-check-label" for="needsConfirmation">Exigir
+                                            Confirmação</label>
+                                    </div>
                                 </div>
-
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" id="needsConfirmation"
-                                        wire:model="needsConfirmation">
-                                    <label class="form-check-label" for="needsConfirmation">Exigir Confirmação</label>
-                                </div>
-
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="requireTracking"
-                                        wire:model="needsEvidence">
-                                    <label class="form-check-label" for="requireTracking">Acompanhamento</label>
-                                </div>
-
                             </div>
-
                         </div>
-                        <div class="col-md-8">
-                            <div class="border rounded p-3 h-100 border-secondary">
-                                <h6 class="text-muted mb-2 text-primary">SELECIONAR SERVIÇO PARA ATIVIDADE</h6>
 
+                        <!-- Comments Section -->
+                        <div class="col-md-8">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary mb-3">
+                                        <i class="bi bi-chat-dots me-2"></i>OBSERVAÇÕES
+                                        @if ($modProtest?->comments?->isNotEmpty())
+                                            <span
+                                                class="badge bg-secondary ms-2">{{ $modProtest->comments?->count() }}</span>
+                                        @endif
+                                    </h6>
+
+                                    <!-- Comments List -->
+                                    <div class="comments-section border border-secondary rounded mb-3 p-2"
+                                        style="max-height: 250px; overflow-y: auto;">
+
+                                        @if ($modProtest?->Comments?->isNotEmpty())
+                                            @foreach ($modProtest?->Comments as $comment)
+                                                <div class="comment-container">
+                                                    <div
+                                                        class="comment-item py-2 {{ !$loop->last ? 'border-bottom border-secondary' : '' }}">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div class="d-flex gap-2">
+                                                                <div class="comment-avatar">
+                                                                    <i
+                                                                        class="ri-user-line fs-4 text-primary align-middle"></i>
+                                                                </div>
+                                                                <div class="comment-content">
+                                                                    <div
+                                                                        class="d-flex justify-content-between align-items-center w-100">
+                                                                        <div class="d-flex align-items-center gap-2">
+                                                                            @if ($comment->user?->email)
+                                                                                <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                                                    style="cursor:pointer"
+                                                                                    onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')">
+                                                                                </i>
+                                                                            @endif
+                                                                            <span
+                                                                                class="fw-bold {{ $comment->user_id === auth()->user()->id ? 'text-primary' : '' }}">{{ $comment->user->name }}</span>
+                                                                            <small class="text-muted">
+                                                                                <i
+                                                                                    class="ri-time-line align-middle"></i>
+                                                                                {{ $comment->created_at->diffForHumans() }}
+                                                                            </small>
+                                                                        </div>
+                                                                        @if (
+                                                                            ($comment->created_at->diffInHours() < 1 && $comment->id === $modProtest->comments->max('id')) ||
+                                                                                auth()->user()->admin ||
+                                                                                auth()->user()->superadm)
+                                                                            <i class="ri-delete-bin-fill text-danger"
+                                                                                style="cursor: pointer;"
+                                                                                wire:click="deleteComment({{ $comment->id }})"
+                                                                                title="Excluir comentário"></i>
+                                                                        @endif
+                                                                    </div>
+                                                                    <p class="mb-0 text-secondary mt-1">
+                                                                        {{ $comment->message }}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <style>
+                                                    .comment-container::-webkit-scrollbar {
+                                                        width: 5px;
+                                                    }
+
+                                                    .comment-container::-webkit-scrollbar-track {
+                                                        background: #f1f1f1;
+                                                    }
+
+                                                    .comment-container::-webkit-scrollbar-thumb {
+                                                        background: #888;
+                                                        border-radius: 5px;
+                                                    }
+                                                </style>
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info mb-0">
+                                                <i class="bi bi-info-circle me-2"></i>Não há observações para
+                                                exibir.
+                                            </div>
+                                        @endif
+
+                                    </div>
+
+                                    <!-- Comment Input -->
+                                    <div class="comment-input">
+                                        <textarea class="form-control mb-2" rows="3" wire:model.defer="comment"
+                                            placeholder="Digite seu comentário..."></textarea>
+                                        <div class="text-end">
+                                            <button type="button" class="btn btn-primary"
+                                                wire:click.prevent="addComment">
+                                                <i class="ri-send-plane-fill me-1"></i> Enviar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -108,3 +219,4 @@
             </div>
         </div>
     </div>
+</div>

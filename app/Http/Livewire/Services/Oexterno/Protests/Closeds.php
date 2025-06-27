@@ -62,29 +62,20 @@ class Closeds extends Component
             })
             ->when($this->inPrazo, function ($query) {
                 if ($this->inPrazo == 1) {
-                    $query->whereHas('medProtests', function ($query) {
-                        $query->whereColumn('med_protests.dtFimMedida', '>', 'protests.dtConclusaoDesej');
+                    $query->whereHas('medProtests', function ($q) {
+                        $q->whereColumn('med_protests.dtFimMedida', '>', 'protests.dtConclusaoDesej');
                     });
                 } elseif ($this->inPrazo == 2) {
-                    $query->whereHas('medProtests', function ($query) {
-                        $query->whereColumn('med_protests.dtFimMedida', '<=', 'protests.dtConclusaoDesej');
-                    });
+                    $query->whereDoesntHave('medProtests', function ($q) {
+                        $q->whereColumn('med_protests.dtFimMedida', '>', 'protests.dtConclusaoDesej');
+                    })->has('medProtests');
                 }
             })
             ->when($this->search, function ($query) {
-
                 $formatted = $this->formatWithWildcard($this->search);
-
-
-
-                $query->where(function ($q) use ($formatted) {
-                    $q->where('nota', $formatted->type, $formatted->search);
-                });
+                $query->where('nota', $formatted->type, $formatted->search);
             })
-            // ->when($this->typeNote, function ($query) {
-            //     $query->where('type_note', $this->typeNote);
-            // })
-            ->with(['medProtests'])
+            ->with(['MedProtests'])
 
             ->orderBy('dtConclusaoDesej', 'ASC')
             ->orderBy('dtAberturaNota', 'DESC')
