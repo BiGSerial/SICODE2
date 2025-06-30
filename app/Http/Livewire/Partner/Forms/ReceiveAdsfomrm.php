@@ -67,8 +67,10 @@ class ReceiveAdsfomrm extends Component
 
     public function hydrate()
     {
-        if ($this->theAdsPath) {
+        if (is_null($this->theAds) && $this->theAdsPath) {
             $this->theAds = new Ads($this->theAdsPath);
+        } else {
+            $this->theAds = $this->theAds;
         }
     }
 
@@ -139,9 +141,11 @@ class ReceiveAdsfomrm extends Component
     {
         $this->process = false;
 
-        $path = $this->file->getRealPath();
+        if (is_null($this->theAds) && $this->theAdsPath) {
 
-        $this->theAds = new Ads($path);
+
+            $this->theAds = new Ads($this->theAdsPath);
+        }
 
         if (!$this->theAds->exists()) {
             $this->dispatchBrowserEvent('swal', [
@@ -151,7 +155,7 @@ class ReceiveAdsfomrm extends Component
                 'html' => "O ARQUIVO NÃO CONRRESPONDE AO MODELO DIGITAL ENTREGUE, NEM POSSUI AS INFORMAÇÕES NESCESSÁRIAS.",
             ]);
 
-            $this->removeTempFile($path);
+            $this->removeTempFile($this->theAdsPath);
 
             return;
         }
@@ -166,7 +170,7 @@ class ReceiveAdsfomrm extends Component
                 'html' => "A ADS REFERE-SE A OBRA <STRONG>{$this->theAds->note}</STRONG>. ENVIE A ADS CORRESPONDENTE A OBRA <STRONG>{$this->note->note}</STRONG>. .",
             ]);
 
-            $this->removeTempFile($path);
+            $this->removeTempFile($this->theAdsPath);
 
             return;
         }
@@ -179,7 +183,7 @@ class ReceiveAdsfomrm extends Component
                 'html' => "A ADS INFORMADA PARECE NÃO ESTAR SINALIZADA COMO FINAL. VERIFIQUE O ARQUIVO E TENTE NOVAMENTE.",
             ]);
 
-            $this->removeTempFile($path);
+            $this->removeTempFile($this->theAdsPath);
 
             return;
         }

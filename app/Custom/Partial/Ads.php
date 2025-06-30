@@ -3,77 +3,78 @@
 namespace App\Custom\Partial;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
 
 class Ads implements WithCalculatedFormulas
 {
-    public string $note;
-    public string $company;
-    public string $contract;
-    public string $center;
-    public string $deposit;
-    public float $value = 0.0;
-    public bool $partial;
+    /** @var Worksheet[] Caminho ⇒ sheet “Check-list” já carregada */
+    private static array $cache = [];
 
-    public $spreadsheet;
-
+    private Worksheet $checklist;
     private bool $exists = false;
 
+    public string $note     = '';
+    public string $company  = '';
+    public string $contract = '';
+    public string $center   = '';
+    public string $deposit  = '';
+    public float  $value    = 0.0;
+    public bool   $partial  = false;
+
+    /**
+     * @param string $path Caminho completo do arquivo .xlsx/.xls
+     */
     public function __construct(string $path)
     {
-
         if (! is_readable($path)) {
             return;
         }
 
-        $reader = IOFactory::createReader('Xlsx');
-        $reader->setReadDataOnly(true);
-        $reader->setLoadSheetsOnly(['ADS', 'Check-list']);
-        $reader->setReadFilter(new ADSReadFilter());
+        // Carrega e filtra só uma vez por caminho
+        if (! isset(self::$cache[$path])) {
+            $reader = IOFactory::createReader('Xlsx');
+            $reader->setReadDataOnly(true);
+            $reader->setLoadSheetsOnly(['Check-list']);
+            $reader->setReadFilter(new ADSReadFilter());
 
+            try {
+                $ss = $reader->load($path);
+                $sheet = $ss->getSheetByName('Check-list');
+            } catch (\Throwable) {
+                return;
+            }
 
-        try {
-            $this->spreadsheet = $reader->load($path);
-        } catch (\Throwable $e) {
+            self::$cache[$path] = $sheet;
+        }
+
+        $this->checklist = self::$cache[$path];
+
+        if (! $this->checklist) {
             return;
         }
 
-        $cl = $this->spreadsheet->getSheetByName('Check-list');
-        if (! $cl) {
-            return;
-        }
-
-
-
-        $this->note     = (string) $this->getCachedValue($cl, 'G4');
-        $this->company  = (string) $this->getCachedValue($cl, 'G5');
-        $this->contract = (string) $this->getCachedValue($cl, 'G6');
-        $this->center   = (string) $this->getCachedValue($cl, 'G7');
-        $this->deposit  = (string) $this->getCachedValue($cl, 'G8');
-        $this->value  = (float) $this->getCachedValue($cl, 'Q13');
-        $this->partial  = (bool)   $this->getCachedValue($cl, 'W7');
+        // Preenche propriedades
+        $this->note     = (string) $this->getCell('G4');
+        $this->company  = (string) $this->getCell('G5');
+        $this->contract = (string) $this->getCell('G6');
+        $this->center   = (string) $this->getCell('G7');
+        $this->deposit  = (string) $this->getCell('G8');
+        $this->value    = (float)   $this->getCell('Q13');
+        $this->partial  = (bool)    $this->getCell('W7');
 
         $this->exists = true;
-
     }
 
-    private function getCachedValue($sheet, string $coord)
+    private function getCell(string $coord): mixed
     {
-        $cell = $sheet->getCell($coord);
+        $cell = $this->checklist->getCell($coord);
         $old  = $cell->getOldCalculatedValue();
-        if ($old !== null) {
-            return $old;
-        }
-        return $cell->getCalculatedValue();
-    }
 
-    public function setExists(bool $exists)
-    {
-        $this->exists = $exists;
+        return $old !== null
+            ? $old
+            : $cell->getCalculatedValue();
     }
-
 
     public function exists(): bool
     {
@@ -104,10 +105,8 @@ class Ads implements WithCalculatedFormulas
     {
         return $this->partial;
     }
-
     public function getValue(): float
     {
         return $this->value;
     }
-
 }
