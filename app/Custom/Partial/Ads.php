@@ -14,6 +14,7 @@ class Ads implements WithCalculatedFormulas
     public string $contract;
     public string $center;
     public string $deposit;
+    public float $value = 0.0;
     public bool $partial;
 
     public $spreadsheet;
@@ -22,40 +23,50 @@ class Ads implements WithCalculatedFormulas
 
     public function __construct(string $path)
     {
-        
-        try {
-            // Configurar o filtro de leitura
-            $reader = IOFactory::createReader('Xlsx');
-            $reader->setReadFilter(new ADSReadFilter());
-            $this->spreadsheet = $reader->load($path);
 
-            if (
-                !$this->spreadsheet->sheetNameExists('ADS') ||
-                !$this->spreadsheet->sheetNameExists('Check-list')
-            ) {
-                $this->setExists(false);
-            }
-
-            $sheet = $this->spreadsheet->getSheetByName('Check-list');
-
-            if ($sheet) {
-                $this->note = trim($sheet->getCell('G4')->getCalculatedValue());
-                $this->company = trim($sheet->getCell('G5')->getCalculatedValue());
-                $this->contract = trim($sheet->getCell('G6')->getCalculatedValue());
-                $this->center = trim($sheet->getCell('G7')->getCalculatedValue());
-                $this->deposit = trim($sheet->getCell('G8')->getCalculatedValue());
-                $this->partial = $sheet->getCell('W7')->getValue() ? true : false;
-
-
-                $this->setExists(true);
-            } else {
-                $this->setExists(false);
-            }
-
-        } catch (\Exception $e) {
-            $this->setExists(false);
+        if (! is_readable($path)) {
+            return;
         }
 
+        $reader = IOFactory::createReader('Xlsx');
+        $reader->setReadDataOnly(true);
+        $reader->setLoadSheetsOnly(['ADS', 'Check-list']);
+        $reader->setReadFilter(new ADSReadFilter());
+
+
+        try {
+            $this->spreadsheet = $reader->load($path);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        $cl = $this->spreadsheet->getSheetByName('Check-list');
+        if (! $cl) {
+            return;
+        }
+
+
+
+        $this->note     = (string) $this->getCachedValue($cl, 'G4');
+        $this->company  = (string) $this->getCachedValue($cl, 'G5');
+        $this->contract = (string) $this->getCachedValue($cl, 'G6');
+        $this->center   = (string) $this->getCachedValue($cl, 'G7');
+        $this->deposit  = (string) $this->getCachedValue($cl, 'G8');
+        $this->value  = (float) $this->getCachedValue($cl, 'Q13');
+        $this->partial  = (bool)   $this->getCachedValue($cl, 'W7');
+
+        $this->exists = true;
+
+    }
+
+    private function getCachedValue($sheet, string $coord)
+    {
+        $cell = $sheet->getCell($coord);
+        $old  = $cell->getOldCalculatedValue();
+        if ($old !== null) {
+            return $old;
+        }
+        return $cell->getCalculatedValue();
     }
 
     public function setExists(bool $exists)
@@ -64,41 +75,39 @@ class Ads implements WithCalculatedFormulas
     }
 
 
-    public function exist()
+    public function exists(): bool
     {
         return $this->exists;
     }
-    // Métodos GET
+
     public function getNote(): string
     {
-        return $this->note ?? '';
+        return $this->note;
     }
-
     public function getCompany(): string
     {
-        return $this->company ?? '';
+        return $this->company;
     }
-
     public function getContract(): string
     {
-        return $this->contract ?? '';
+        return $this->contract;
     }
-
     public function getCenter(): string
     {
-        return $this->center ?? '';
+        return $this->center;
     }
-
     public function getDeposit(): string
     {
-        return $this->deposit ?? '';
+        return $this->deposit;
     }
-
     public function getPartial(): bool
     {
-        return $this->partial ?? false;
+        return $this->partial;
     }
 
-
+    public function getValue(): float
+    {
+        return $this->value;
+    }
 
 }

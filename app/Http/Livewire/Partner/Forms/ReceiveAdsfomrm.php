@@ -85,6 +85,7 @@ class ReceiveAdsfomrm extends Component
             $this->theAdsPath = null;
             $this->theAds = null;
         }
+
     }
 
     public function hasFile($hasFile)
@@ -142,7 +143,7 @@ class ReceiveAdsfomrm extends Component
 
         $this->theAds = new Ads($path);
 
-        if (!$this->theAds->exist()) {
+        if (!$this->theAds->exists()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
@@ -154,6 +155,8 @@ class ReceiveAdsfomrm extends Component
 
             return;
         }
+
+
 
         if ($this->theAds->note != $this->note->note) {
             $this->dispatchBrowserEvent('swal', [
@@ -180,6 +183,8 @@ class ReceiveAdsfomrm extends Component
 
             return;
         }
+
+        $this->amount = $this->theAds->getValue();
 
         $this->process = true;
     }
