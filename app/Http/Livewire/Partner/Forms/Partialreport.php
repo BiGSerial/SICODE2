@@ -78,7 +78,7 @@ class Partialreport extends Component
 
         $this->theAds = new Ads($path);
 
-        if (!$this->theAds->exist()) {
+        if (!$this->theAds->exists()) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -116,6 +116,8 @@ class Partialreport extends Component
 
             return;
         }
+
+        $this->amount = $this->theAds->getValue();
 
         $this->process = true;
     }

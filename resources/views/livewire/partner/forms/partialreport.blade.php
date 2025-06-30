@@ -193,7 +193,7 @@
             </div>
 
             @if ($process)
-                @if ($myAds && $myAds->exist())
+                @if ($myAds && $myAds->exists())
                     <div class="card mt-3 mx-auto" style="max-width: 600px;">
                         <h5 class="card-header edp-bg-sprucegreen-70 text-edp-verde">DADOS DA ADS</h5>
                         <div class="card-body">

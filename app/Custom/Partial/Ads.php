@@ -3,102 +3,110 @@
 namespace App\Custom\Partial;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
 
 class Ads implements WithCalculatedFormulas
 {
-    public string $note;
-    public string $company;
-    public string $contract;
-    public string $center;
-    public string $deposit;
-    public bool $partial;
+    /** @var Worksheet[] Caminho ⇒ sheet “Check-list” já carregada */
+    private static array $cache = [];
 
-    public $spreadsheet;
-
+    private Worksheet $checklist;
     private bool $exists = false;
 
+    public string $note     = '';
+    public string $company  = '';
+    public string $contract = '';
+    public string $center   = '';
+    public string $deposit  = '';
+    public float  $value    = 0.0;
+    public bool   $partial  = false;
+
+    /**
+     * @param string $path Caminho completo do arquivo .xlsx/.xls
+     */
     public function __construct(string $path)
     {
-        
-        try {
-            // Configurar o filtro de leitura
-            $reader = IOFactory::createReader('Xlsx');
-            $reader->setReadFilter(new ADSReadFilter());
-            $this->spreadsheet = $reader->load($path);
-
-            if (
-                !$this->spreadsheet->sheetNameExists('ADS') ||
-                !$this->spreadsheet->sheetNameExists('Check-list')
-            ) {
-                $this->setExists(false);
-            }
-
-            $sheet = $this->spreadsheet->getSheetByName('Check-list');
-
-            if ($sheet) {
-                $this->note = trim($sheet->getCell('G4')->getCalculatedValue());
-                $this->company = trim($sheet->getCell('G5')->getCalculatedValue());
-                $this->contract = trim($sheet->getCell('G6')->getCalculatedValue());
-                $this->center = trim($sheet->getCell('G7')->getCalculatedValue());
-                $this->deposit = trim($sheet->getCell('G8')->getCalculatedValue());
-                $this->partial = $sheet->getCell('W7')->getValue() ? true : false;
-
-
-                $this->setExists(true);
-            } else {
-                $this->setExists(false);
-            }
-
-        } catch (\Exception $e) {
-            $this->setExists(false);
+        if (! is_readable($path)) {
+            return;
         }
 
+        // Carrega e filtra só uma vez por caminho
+        if (! isset(self::$cache[$path])) {
+            $reader = IOFactory::createReader('Xlsx');
+            $reader->setReadDataOnly(true);
+            $reader->setLoadSheetsOnly(['Check-list']);
+            $reader->setReadFilter(new ADSReadFilter());
+
+            try {
+                $ss = $reader->load($path);
+                $sheet = $ss->getSheetByName('Check-list');
+            } catch (\Throwable) {
+                return;
+            }
+
+            self::$cache[$path] = $sheet;
+        }
+
+        $this->checklist = self::$cache[$path];
+
+        if (! $this->checklist) {
+            return;
+        }
+
+        // Preenche propriedades
+        $this->note     = (string) $this->getCell('G4');
+        $this->company  = (string) $this->getCell('G5');
+        $this->contract = (string) $this->getCell('G6');
+        $this->center   = (string) $this->getCell('G7');
+        $this->deposit  = (string) $this->getCell('G8');
+        $this->value    = (float)   $this->getCell('Q13');
+        $this->partial  = (bool)    $this->getCell('W7');
+
+        $this->exists = true;
     }
 
-    public function setExists(bool $exists)
+    private function getCell(string $coord): mixed
     {
-        $this->exists = $exists;
+        $cell = $this->checklist->getCell($coord);
+        $old  = $cell->getOldCalculatedValue();
+
+        return $old !== null
+            ? $old
+            : $cell->getCalculatedValue();
     }
 
-
-    public function exist()
+    public function exists(): bool
     {
         return $this->exists;
     }
-    // Métodos GET
+
     public function getNote(): string
     {
-        return $this->note ?? '';
+        return $this->note;
     }
-
     public function getCompany(): string
     {
-        return $this->company ?? '';
+        return $this->company;
     }
-
     public function getContract(): string
     {
-        return $this->contract ?? '';
+        return $this->contract;
     }
-
     public function getCenter(): string
     {
-        return $this->center ?? '';
+        return $this->center;
     }
-
     public function getDeposit(): string
     {
-        return $this->deposit ?? '';
+        return $this->deposit;
     }
-
     public function getPartial(): bool
     {
-        return $this->partial ?? false;
+        return $this->partial;
     }
-
-
-
+    public function getValue(): float
+    {
+        return $this->value;
+    }
 }

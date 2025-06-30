@@ -232,40 +232,50 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+        // Ensure session is active
+        if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
         }
 
+        // Initialize filter from session if available
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
         $query = Note::query();
 
-        $query->where(function ($query) {
-            $query->where(function ($qq) {
-                $qq->when(!$this->allCenters, function ($q) {
-                    $q->whereIn('nstats', [46, 47, 48, 49, 50]);
-                })
-                ->whereNotIn('rubrica', ['Incoporação'])
-                ->where('type_note', 2);
-            })
-            ->orWhere(function ($qq) {
-                $qq->where('type_note', 1)
-                ->when(!$this->allCenters, function ($q) {
-                    $q->where('centerjob', 'like', 'VIAB%');
+        // Base query conditions
+        if (!$this->allCenters) {
+            $query->where(function ($query) {
+                $query->where(function ($qq) {
+                    $qq->when(!$this->allCenters, function ($q) {
+                        $q->whereIn('nstats', [46, 47, 48, 49, 50]);
+                    })
+                    ->whereNotIn('rubrica', ['Incoporação'])
+                    ->where('type_note', 2);
                 })
                 ->orWhere(function ($qq) {
-                    $qq->where('centerjob', '')
+                    $qq->where('type_note', 1)
+                    ->when(!$this->allCenters, function ($q) {
+                        $q->where('centerjob', 'like', 'VIAB%');
+                    })
+                    ->orWhere(function ($qq) {
+                        $qq->where('centerjob', '')
                         ->where('type_note', 1);
+                    });
                 });
             });
-        })
-        ->whereHas('Orders', function ($q) {
+        }
+
+        // Condition for 'Orders' relationship (always required)
+        $query->whereHas('Orders', function ($q) {
+            // These specific restrictions on statusSist and Operations are only applied if allCenters is false
+
+            $q->where('statusSist', 'not like', 'ENTE%')
+                ->where('statusSist', 'not like', 'ENCE%');
+
             if (!$this->allCenters) {
-                $q->where('statusSist', 'not like', 'ENTE%')
-                ->where('statusSist', 'not like', 'ENCE%')
-                ->where(function ($q) {
+                $q->where(function ($q) { // This block is what we're now conditionally ignoring
                     $q->whereRelation('Operations', function ($sq) {
                         $sq->where('operacao', '0010')
                             ->where('status', 'like', 'ABER%');
@@ -273,24 +283,28 @@ class Main extends Component
                 });
             }
 
-        })->where(function ($query) {
-            $query->whereHas('Approval', function ($q) {
-                $q->where('approved', true);
-
-            })->orWhere(function ($query) {
-                $query->whereIn('txpriority', ['Emergente']);
-            })->orWhereHas('Viabilities')
-                ->orWhereHas('Waitings')
-                ->orWhere('pze', 25);
         });
 
+        // Approval, Priority, Viabilities, Waitings, or PZE conditions
+        if (!$this->allCenters) {
+            $query->where(function ($query) {
+                $query->whereHas('Approval', function ($q) {
+                    $q->where('approved', true);
+                })
+                ->orWhere(function ($query) {
+                    $query->whereIn('txpriority', ['Emergente']);
+                })
+                ->orWhereHas('Viabilities')
+                ->orWhereHas('Waitings')
+                ->orWhere('pze', 25);
+            });
+        }
 
-
+        // Search functionality
         if ($this->search) {
-
             $this->multiSearch = [];
             $this->advanceSearch = '';
-            $this->allCenters = false;
+            $this->allCenters = false; // Setting allCenters to false when search is active
 
             $query->where(function ($query) {
                 $query->where('note', 'like', '%' . $this->search . '%')
@@ -303,43 +317,49 @@ class Main extends Component
             });
         }
 
+        // Multi-search functionality
         if ($this->multiSearch) {
-            $query->whereIn('note', $this->multiSearch)
-                ->orWhereIn('lexp', $this->multiSearch)
-                ->orWhereIn('rubrica', $this->multiSearch)
-                ->orWhereIn('centerjob', $this->multiSearch)
-                ->orWhereRelation('Orders', function ($query) {
-                    $query->whereIn('ordem', $this->multiSearch);
-                });
+            $query->where(function ($query) {
+                $query->whereIn('note', $this->multiSearch)
+                    ->orWhereIn('lexp', $this->multiSearch)
+                    ->orWhereIn('rubrica', $this->multiSearch)
+                    ->orWhereIn('centerjob', $this->multiSearch)
+                    ->orWhereRelation('Orders', function ($query) {
+                        $query->whereIn('ordem', $this->multiSearch);
+                    });
+            });
         }
 
+        // Session filters
         if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
-            $query->whereRelation('Orders.Operations', function ($query) {
+            $query->whereHas('Orders.Operations', function ($query) {
                 $query->where('operacao', '0010')
                     ->where('status', 'like', 'ABER%')
                     ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['empreiteira'])
-                    ->orWhere('cenTrab', '');
+                    ->orWhere('cenTrab', ''); // Allow empty cenTrab
             });
         }
 
         if (isset($_SESSION['filter'][$this->filter_group]['city'])) {
             $query->where(function ($query) {
                 $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['city'])
-                    ->orWhere('lexp', '');
+                    ->orWhere('lexp', ''); // Allow empty lexp
             });
         }
 
         if (isset($_SESSION['filter'][$this->filter_group]['rubrica'])) {
             $query->where(function ($query) {
                 $query->whereIn('rubrica', $_SESSION['filter'][$this->filter_group]['rubrica'])
-                    ->orWhere('rubrica', '');
+                    ->orWhere('rubrica', ''); // Allow empty rubrica
             });
         }
 
+        // Type note filter
         if ($this->typeNote) {
             $query->where('type_note', $this->typeNote);
         }
 
+        // Ordering
         $query->orderBy('mesalization', 'ASC')
             ->orderBy('is45', 'DESC')
             ->orderBy('type_note', 'ASC')
