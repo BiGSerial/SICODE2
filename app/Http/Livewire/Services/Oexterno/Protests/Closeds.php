@@ -71,6 +71,9 @@ class Closeds extends Component
                     })->has('medProtests');
                 }
             })
+            ->when($this->typeNote, function ($query) {
+                $query->where('tipoNota', $this->typeNote);
+            })
             ->when($this->search, function ($query) {
                 $formatted = $this->formatWithWildcard($this->search);
                 $query->where('nota', $formatted->type, $formatted->search);

@@ -23,7 +23,7 @@ class Lists extends Component
     public $search;
     public $advanceSearch;
     public $multisearch = [];
-    public $typeNote = "";
+    public $type = "";
 
 
     // Filters
@@ -32,10 +32,14 @@ class Lists extends Component
 
 
     protected $queryString = [
-       'typeNote' => ['except' => '', 'as' => 'tipo'],
+       'type' => ['except' => '', 'as' => 'tipo'],
        'search'  => ['except' => '', 'as' => 'buscar'],
        'page'    => ['except' => 1, 'as' => 'p'],
        'perPage' => ['as' => 'pp'],
+    ];
+
+    protected $listeners = [
+        'refresh_list' => '$refresh',
     ];
 
     public function mount($service)
@@ -51,31 +55,68 @@ class Lists extends Component
         ]);
     }
 
+    public function buscarMulti()
+    {
+        if ($this->advanceSearch) {
+            $this->multisearch = $this->formatTextToArray($this->advanceSearch);
+            $this->search = '';
+            $this->advanceSearch = '';
+            $this->resetPage();
+            $this->dispatchBrowserEvent('hideModal');
+        }
+    }
+
     public function getListsProperty()
     {
-        return Protest::query()
+
+
+        if (!session()->isStarted()) {
+            session()->start();
+        }
+        $this->filter = session("filter.{$this->filter_group}", []);
+
+        $query = Protest::query()
             ->whereHas('medProtests', function ($query) {
                 $query->where('statusSist', 'MEDA');
             })
 
             ->when($this->search, function ($query) {
 
+                $this->multisearch = '';
+                $this->advanceSearch = '';
+                $this->resetPage();
+
                 $formatted = $this->formatWithWildcard($this->search);
-
-
 
                 $query->where(function ($q) use ($formatted) {
                     $q->where('nota', $formatted->type, $formatted->search);
                 });
             })
-            // ->when($this->typeNote, function ($query) {
-            //     $query->where('type_note', $this->typeNote);
-            // })
-            ->with(['medProtests'])
-           
-            ->orderBy('dtConclusaoDesej', 'ASC')
-            ->orderBy('dtAberturaNota', 'DESC')
-            ->paginate($this->perPage);
+            ->when($this->type, function ($query) {
+                $query->where('tipoNota', $this->type)
+                    ->orWhereRelation('Notes', function ($q) {
+                        $q->whereIn('note', $this->type);
+                    });
+            })
+            ->when($this->multisearch, function ($query) {
+                $query->whereIn('nota', $this->multisearch)
+                    ->orWhereRelation('Notes', function ($q) {
+                        $q->whereIn('note', $this->multisearch);
+                    });
+            });
+
+        if (isset($this->filter['city'])) {
+
+            $query->whereIn('cidade', $this->filter['city']);
+        }
+
+
+        $query->with(['medProtests'])
+
+        ->orderBy('dtConclusaoDesej', 'ASC')
+        ->orderBy('dtAberturaNota', 'DESC');
+
+        return $query->paginate($this->perPage);
     }
 
     public function render()

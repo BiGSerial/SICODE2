@@ -35,11 +35,11 @@
                 <!-- Type Note Buttons -->
                 <div class="col-12 col-md-3 d-flex align-items-center">
                     <div class="btn-group w-100 my-0" role="group" aria-label="Tipo de Nota">
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1"
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="NA"
                             id="typeNote1">
                         <label class="btn btn-outline-primary" for="typeNote1">NA</label>
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2"
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="OU"
                             id="typeNote2">
                         <label class="btn btn-outline-primary" for="typeNote2">OU</label>
 
@@ -185,7 +185,7 @@
             </div>
         @else
             <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">RECLAMAÇÕES EM ABERTO</h4>
+                <h4 class="mb-0">RECLAMAÇÕES FECHADAS</h4>
                 <button wire:click="exportToExcel" class="btn btn-success">
                     <i class="ri-file-excel-2-line me-2"></i>Exportar
                 </button>

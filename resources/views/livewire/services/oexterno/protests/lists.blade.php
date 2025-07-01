@@ -35,15 +35,15 @@
                 <!-- Type Note Buttons -->
                 <div class="col-12 col-md-3 d-flex align-items-center">
                     <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1"
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="type" value="NA"
                             id="typeNote1">
                         <label class="btn btn-outline-primary" for="typeNote1">NA</label>
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2"
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="type" value="OU"
                             id="typeNote2">
                         <label class="btn btn-outline-primary" for="typeNote2">OU</label>
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value=""
+                        <input type="radio" class="btn-check" name="typeNote" wire:model="type" value=""
                             id="typeNote3">
                         <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
                     </div>
@@ -107,7 +107,7 @@
                             'components.filter.filter2',
                             [
                                 'myKey' => 'region',
-                                'sendFilter' => 'city',
+                                'sendFilter' => 'aRegional',
                                 'modelClass' => \App\Models\Edp_depc\City::class,
                                 'column' => 'regiao',
                                 'filterLabel' => 'Região',
@@ -118,6 +118,23 @@
                                 'sendSearchColumn' => 'regiao',
                             ],
                             key('region')
+                        )
+
+                        @livewire(
+                            'components.filter.filter2',
+                            [
+                                'myKey' => 'aRegional',
+                                'sendFilter' => 'city',
+                                'modelClass' => \App\Models\Edp_depc\City::class,
+                                'column' => 'regiao',
+                                'filterLabel' => 'Regional',
+                                'groupFilter' => 'oexterno',
+                                'displayColumn' => 'regional',
+                                'direction' => 'ASC',
+                                'searchColumn' => 'regional',
+                                'sendSearchColumn' => 'regional',
+                            ],
+                            key('regional')
                         )
 
                         @livewire(
@@ -279,6 +296,30 @@
                 </table>
             </div>
         @endif
+
+    </div>
+
+    {{-- MODALS --}}
+    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+
+
+        <div class="modal-dialog">
+
+            <div class="modal-content edp-bg-stategrey-50">
+                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
+                    Buscar Multi-Notas
+                </div>
+                <div>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
+                        wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                </div>
+            </div>
+
+        </div>
 
     </div>
 
