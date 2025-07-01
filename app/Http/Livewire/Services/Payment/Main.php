@@ -7,6 +7,7 @@ use Livewire\{Component, WithPagination};
 use App\Services\Payment\NoteFilter;
 use App\Helpers\TextFormatter;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class Main extends Component
@@ -38,6 +39,8 @@ class Main extends Component
 
     public $partial = false;
     public $partials;
+
+    public $partialDate;
 
     //Botão de  nao atribuído.
     public $not_assigned = false;
@@ -106,117 +109,100 @@ class Main extends Component
         }
     }
 
-    public function to_accompany(Note $note, bool $partial)
+    public function to_accompany(Note $note)
     {
-
-
-
-
         $this->note = $note;
-        $this->partial = $partial;
 
-        // if ($partial = $this->note->Partials && !$this->note->WorkForm ? $this->note->Partials->last() : null) {
-        //     if ($partial && $partial->allow && $partial->supervision && !$partial->payment) {
-        //         $this->partial = true;
-        //     }
-        // } else {
-        //     $this->partial = false;
-        // }
+        // 1. Pegar a parcial mais recente
+        $latestPartial = $note->partials()
+                              ->orderByDesc('created_at')
+                              ->first();
 
+        // 2. Verificar se esta parcial atende aos critérios
+        $this->partial = false;
+        $this->partialDate = null;
 
-
-
-        if ($this->partial) {
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Atribuir Tarefa',
-                'msg'   => "
-                Você deseja atribuir a NOTA/OV (PARCIAL) para você?</br></br>
-                <div class='card card-light'>
-                <div class='card-body'>
-                <p><strong>NOTA/OV estará disponível em acompanhamento como
-                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
-                </div>
-                </div>
-                ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Atribua!',
-                'btnCanceltxt'  => 'Não, Cancele!',
-                'action'        => 'confirm_accompany',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhum serviço foi atribuído.',
-
-            ]);
-
-        } else {
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Atribuir Tarefa',
-                'msg'   => "
-                Você deseja atribuir a NOTA/OV para você?</br></br>
-                <div class='card card-light'>
-                <div class='card-body'>
-                <p><strong>NOTA/OV estará disponível em acompanhamento como
-                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
-                </div>
-                </div>
-                ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Atribua!',
-                'btnCanceltxt'  => 'Não, Cancele!',
-                'action'        => 'confirm_accompany',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhum serviço foi atribuído.',
-
-            ]);
+        if ($latestPartial
+            && $latestPartial->allow
+            && $latestPartial->supervision
+            && ! $latestPartial->payment
+        ) {
+            $this->partial     = true;
+            $this->partialDate = $latestPartial->created_at;
         }
 
-
+        // 3. Disparar o alerta (texto praticamente idêntico aos dois casos)
+        $this->dispatchBrowserEvent('alertar', [
+            'title'          => 'Atribuir Tarefa',
+            'msg'            => "
+            Você deseja atribuir a NOTA/OV "
+                . ($this->partial ? "(PARCIAL) " : "")
+                . "para você?</br></br>
+            <div class='card card-light'>
+              <div class='card-body'>
+                <p><strong>NOTA/OV estará disponível em acompanhamento como
+                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
+              </div>
+            </div>
+        ",
+            'icon'           => 'warning',
+            'btnOktxt'       => 'Sim, Atribua!',
+            'btnCanceltxt'   => 'Não, Cancele!',
+            'action'         => 'confirm_accompany',
+            'cancel_titulo'  => 'Cancelado!',
+            'cancel_msg'     => 'Nenhum serviço foi atribuído.',
+        ]);
     }
 
     public function add_to_accompany()
     {
-        $user = User::with('Employee.Contract')->find(Auth()->User()->id);
+        // 1. Defina o "dt" que vamos usar: parcial ou data original da nota
+        $dt = $this->partial
+            ? $this->partialDate     // data de criação da parcial
+            : $this->note->dt_status; // data padrão da nota
 
-        $check = Production::where('note_id', $this->note->id)->where(function ($q) {
-            return $q->where('completed', false)
-                ->Where('service_id', $this->service->uuid);
-        })->with('User', 'Service')->first();
+        // 2. Verificar duplicação: mesmo note_id, service_id e dhstats = $dt
+        $exists = Production::where('note_id', $this->note->id)
+            ->where('service_id', $this->service->uuid)
+            ->where('dhstats', $dt)
+            ->exists();
 
-        if ($check) {
-            $name = $check->User ? $check->User->name : 'Desconhecido';
-
+        if ($exists) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'OOOOPS! NOTA/OV TRATADA OU EM TRATAMENTO',
-                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$name}</strong>",
-
+                'title'    => 'OOOOPS! NOTA/OV JÁ ATRIBUÍDA',
+                'html'     => "<strong>{$this->note->note}</strong> já foi atribuída para esta mesma parcial em "
+                               . \Carbon\Carbon::parse($dt)->format('d/m/Y H:i')
             ]);
-
             return;
         }
 
-        $production = Production::Create([
+        // 3. Buscar usuário e criar produção normalmente
+        $user = User::with('Employee.Contract')
+                    ->find(Auth::id());
+
+        $production = Production::create([
             'note_id'     => $this->note->id,
             'service_id'  => $this->service->uuid,
             'user_id'     => $user->id,
             'company_id'  => $user->Employee->Contract->company_id,
             'dispatch_by' => $user->id,
             'att_by'      => $user->id,
-            'dt_note'     => $this->note->dt_status,
+            'dt_note'     => $dt,
             'status_note' => $this->note->nstats,
-            'dispatch_at' => date('Y-m-d H:i:s'),
-            'att_at'      => date('Y-m-d H:i:s'),
+            'dispatch_at' => now(),
+            'att_at'      => now(),
             'status'      => 2,
-            'dhstats'     => $this->note->dt_status,
+            'dhstats'     => $dt,
             'partial'     => $this->partial,
         ]);
 
         if ($production) {
-
-            Notetimeline::Create([
+            Notetimeline::create([
                 'note_id'      => $this->note->id,
                 'service_id'   => $production->service_id,
-                'user_id'      => Auth()->User()->id,
+                'user_id'      => $user->id,
                 'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
                 'status'       => 2,
                 'productionId' => $production->id,
@@ -240,37 +226,46 @@ class Main extends Component
 
     public function hasProduction(Note $note)
     {
+        // 1) Flag se a nota tem WorkForm
+        $hasWorkForm = (bool) $note->WorkForm;
 
-        if ($note->WorkForm) {
-            $workForm = true;
-        } else {
-            $workForm = false;
-        }
+        // 2) Última parcial criada na nota
+        $lastPartial = $note->partials()
+                            ->orderByDesc('created_at')
+                            ->first();
 
-        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+        // 3) Última produção (qualquer) para este serviço
+        $lastProduction = $note->productions()
+                               ->where('service_id', $this->service->uuid)
+                               ->orderByDesc('created_at')
+                               ->first();
 
-
-        if ($production) {
-            if ($production->completed && $production->partial && !$workForm) {
-                return $production;
-            } elseif ($production->completed && !$production->partial && $workForm) {
-                return $production;
-            } elseif ($production->completed && !$production->partial && $workForm) {
-                return $production;
-            } elseif (!$production->completed && !$production->partial && $workForm) {
-                return $production;
-            } elseif (!$production->completed && $production->partial && $workForm) {
-                return false;
-            } elseif (!$production->completed && $production->partial && !$workForm) {
-                return $production;
-            } else {
-                return false;
-            }
-
-        } else {
+        // 4) Se não existe produção, retorna false
+        if (! $lastProduction) {
             return false;
         }
+
+        // 5) Caso seja uma produção PARCIAL
+        if ($lastProduction->partial) {
+            // se não tiver parcial, não há match
+            if (! $lastPartial) {
+                return false;
+            }
+            // compara created_at da parcial com dt_note da produção
+            $partialDate    = $lastPartial->created_at->format('Y-m-d H:i:s');
+            $productionDate = Carbon::parse($lastProduction->dt_note)
+                                    ->format('Y-m-d H:i:s');
+            return $partialDate === $productionDate
+                ? $lastProduction
+                : false;
+        }
+
+        // 6) Caso seja produção COMPLETA, mantém a lógica de WorkForm
+        return $lastProduction->partial !== $hasWorkForm
+            ? $lastProduction
+            : false;
     }
+
 
 
 

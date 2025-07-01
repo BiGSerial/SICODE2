@@ -8,6 +8,7 @@ use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\Payment\NoteFilter;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -147,36 +148,44 @@ class Main extends Component
 
     public function hasProduction(Note $note)
     {
+        // 1) Flag se a nota tem WorkForm
+        $hasWorkForm = (bool) $note->WorkForm;
 
-        if ($note->WorkForm) {
-            $workForm = true;
-        } else {
-            $workForm = false;
-        }
+        // 2) Última parcial criada na nota
+        $lastPartial = $note->partials()
+                            ->orderByDesc('created_at')
+                            ->first();
 
-        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+        // 3) Última produção (qualquer) para este serviço
+        $lastProduction = $note->productions()
+                               ->where('service_id', $this->service->uuid)
+                               ->orderByDesc('created_at')
+                               ->first();
 
-
-        if ($production) {
-            if ($production->completed && $production->partial && !$workForm) {
-                return $production;
-            } elseif ($production->completed && !$production->partial && $workForm) {
-                return $production;
-            } elseif ($production->completed && !$production->partial && $workForm) {
-                return $production;
-            } elseif (!$production->completed && !$production->partial && $workForm) {
-                return $production;
-            } elseif (!$production->completed && $production->partial && $workForm) {
-                return false;
-            } elseif (!$production->completed && $production->partial && !$workForm) {
-                return $production;
-            } else {
-                return false;
-            }
-
-        } else {
+        // 4) Se não existe produção, retorna false
+        if (! $lastProduction) {
             return false;
         }
+
+        // 5) Caso seja uma produção PARCIAL
+        if ($lastProduction->partial) {
+            // se não tiver parcial, não há match
+            if (! $lastPartial) {
+                return false;
+            }
+            // compara created_at da parcial com dt_note da produção
+            $partialDate    = $lastPartial->created_at->format('Y-m-d H:i:s');
+            $productionDate = Carbon::parse($lastProduction->dt_note)
+                                    ->format('Y-m-d H:i:s');
+            return $partialDate === $productionDate
+                ? $lastProduction
+                : false;
+        }
+
+        // 6) Caso seja produção COMPLETA, mantém a lógica de WorkForm
+        return $lastProduction->partial !== $hasWorkForm
+            ? $lastProduction
+            : false;
     }
 
     public function setSelectAll()
@@ -324,46 +333,66 @@ class Main extends Component
 
     public function confirm_att()
     {
-        if ($this->type === '2') {
+        // 1) Carrega as notas selecionadas
+        $this->notes = Note::find($this->selected);
 
-            if (!$this->user_s) {
-                $this->dispatchBrowserEvent('swal', [
+        // 2) Para cada nota, verifica se já existe produção
+        $blocked = [];
+        foreach ($this->notes as $note) {
+            if ($existing = $this->hasProduction($note)) {
+                // formata data legível
+                $when = \Carbon\Carbon::parse($existing->dt_note)
+                                      ->format('d/m/Y H:i');
+                $blocked[] = "{$note->note} (em {$when})";
+            }
+        }
+
+        // 3) Se alguma nota estiver “bloqueada”, exibe erro e não abre o modal
+        if (count($blocked)) {
+            $lista = implode('<br>– ', $blocked);
+            return $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Algumas notas não podem ser despachadas',
+                'html'     => "As seguintes notas já possuem produção:<br>– {$lista}",
+            ]);
+        }
+
+        // 4) Gera a string “para” (usuário ou empresa), como antes
+        if ($this->type === '2') {
+            if (! $this->user_s) {
+                return $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
                     'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
                     'timer'    => 2500,
                 ]);
-
-                return;
             }
-
-            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
+            $para = User::find($this->user_s)->name
+                  . ' da '
+                  . Company::find($this->company_s)->name;
         } else {
-
-            if (!$this->company_s) {
-                $this->dispatchBrowserEvent('swal', [
+            if (! $this->company_s) {
+                return $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
                     'title'    => 'Nenhuma empresa foi selecionada para despacho!',
                     'timer'    => 2500,
                 ]);
-
-                return;
             }
-
-            $para = (Company::find($this->company_s))->name;
+            $para = Company::find($this->company_s)->name;
         }
 
+        // 5) Se tudo OK, dispara o modal de confirmação em massa
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
+            'msg'           => "Você está prestes a despachar {$this->notes->count()} nota(s) para {$para}.",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Despache!',
             'btnCanceltxt'  => 'Não, Cancele',
             'action'        => 'confirm_dispatch',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
-
+            'cancel_msg'    => 'Nenhuma nota foi removida.',
         ]);
     }
 
@@ -407,140 +436,166 @@ class Main extends Component
 
     public function confirmed_att()
     {
+        $dispatcherId = auth()->id();
+        $now          = Carbon::now()->format('Y-m-d H:i:s');
+        $errors       = new Collection();
 
-        $erros = [];
+        // Pré-busca quem é o destinatário (user ou company)
+        $targetName = $this->getDispatchTargetName();
+        if ($targetName === false) {
+            return;
+        }
 
-        if ($this->type == '2') {
+        foreach ($this->notes as $note) {
+            // 1) já existe produção “aberta”?
+            $exists = Production::where('note_id', $note->id)
+                ->where('service_id', $this->service->uuid)
+                ->where('confirmed', false)
+                ->first();
 
-            foreach ($this->notes as $key => $note) {
-
-                if ($partial = $note->Partials && !$note->WorkForm ? $note->Partials->last() : false) {
-                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
-                        $partial = false;
-                    } else {
-                        $partial = true;
-                    }
-                } else {
-                    $partial = false;
-                }
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id'     => $note->id,
-                        'service_id'  => $this->service->uuid,
-                        'user_id'     => $this->user_s,
-                        'company_id'  => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'att_by'      => Auth()->User()->id,
-                        'dt_note'     => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'centroTrab'  => $note->centerjob,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'att_at'      => date('Y-m-d H:i:s'),
-                        'status'      => 2,
-                        'partial'     => $partial,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    if (trim($this->user_s)) {
-                        $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
-                    } else {
-                        $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
-                    }
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id'      => $production->id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 2,
-                            'productionId' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
+            if ($exists) {
+                $errors->push([
+                    'note' => $note->note,
+                    'when' => Carbon::parse($exists->dt_note)->format('d/m/Y H:i'),
+                ]);
+                continue;
             }
-        } else {
 
-            foreach ($this->notes as $key => $note) {
+            // 2) detecta parcial (model ou null)
+            $partialModel = $note->partials()
+                                 ->orderByDesc('created_at')
+                                 ->first();
 
+            $isPartial = $partialModel
+                && $partialModel->allow
+                && $partialModel->supervision
+                && ! $partialModel->payment;
 
-                if ($partial = $note->Partials && !$note->WorkForm ? $note->Partials->last() : false) {
-                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
-                        $partial = false;
-                    } else {
-                        $partial = true;
-                    }
-                } else {
-                    $partial = false;
-                }
+            // 3) define dt_note: parcial->created_at ou dt_status da nota
+            $dtNote = $isPartial
+                ? $partialModel->created_at->format('Y-m-d H:i:s')
+                : $note->dt_status;
 
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id'     => $note->id,
-                        'service_id'  => $this->service->uuid,
-                        'company_id'  => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'dt_note'     => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'centroTrab'  => $note->centerjob,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'status'      => 1,
-                        'partial'     => $partial,
-                    ]);
+            // 4) monta dados comuns
+            $data = [
+                'note_id'     => $note->id,
+                'service_id'  => $this->service->uuid,
+                'dispatch_by' => $dispatcherId,
+                'dt_note'     => $dtNote,
+                'status_note' => $note->nstats,
+                'centroTrab'  => $note->centerjob ?? null,
+                'dispatch_at' => $now,
+                'partial'     => (bool) $isPartial,
+            ];
 
-                    $user = Auth()->User()->name;
+            // 5) campos específicos por tipo
+            if ($this->type === '2') {
+                $data = array_merge($data, [
+                    'user_id'  => $this->user_s,
+                    'company_id' => $this->company_s,
+                    'att_by'     => $dispatcherId,
+                    'att_at'     => $now,
+                    'status'     => 2,
+                ]);
+            } else {
+                $data = array_merge($data, [
+                    'company_id' => $this->company_s,
+                    'status'     => 1,
+                ]);
+            }
 
-                    if (trim($this->user_s)) {
-                        $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
-                    } else {
-                        $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
-                    }
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id'      => $production->id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 1,
-                            'productionId' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
+            // 6) cria produção e timeline
+            $production = Production::create($data);
+            if ($production) {
+                Notetimeline::create([
+                    'note_id'      => $production->id,
+                    'service_id'   => $production->service_id,
+                    'user_id'      => $dispatcherId,
+                    'info'         => "Usuário " . auth()->user()->name
+                                      . " despachou a Nota/OV para: {$targetName}",
+                    'status'       => $data['status'],
+                    'productionId' => $production->id,
+                ]);
             }
         }
 
-        if (count($erros)) {
-
-            $info = '<br>';
-
-            foreach ($erros as $err) {
-                $info .= $err . ' => ' . isset($err->load('User')->User->name) ? $err->load('User')->User->name : 'Desconhecido' . '\n';
-            }
-
+        // 7) feedback final
+        if ($errors->isNotEmpty()) {
+            $lines = $errors
+                ->map(fn ($e) => "{$e['note']} (já em {$e['when']})")
+                ->implode("<br>– ");
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Notas Despachadas com sucesso parcial!',
-                'msg'      => "Foram Despachadas com sucesso, porém, algumas ja se enconram em controle: {$info}",
-                'timer'    => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Algumas notas não foram despachadas',
+                'html'     => "As seguintes notas já tinham produção:<br>– {$lines}",
+                'timer'    => 3000,
             ]);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'success',
-                'title'    => 'Notas Despachadas com sucesso!',
+                'title'    => 'Notas despachadas com sucesso!',
                 'timer'    => 2500,
             ]);
         }
 
         $this->closeall();
+    }
+
+    /**
+     * Retorna o nome do alvo de despacho ou dispara um swal de warning
+     * e devolve false em caso de falta de seleção.
+     */
+    private function getDispatchTargetName()
+    {
+        if ($this->type === '2') {
+            if (! $this->user_s) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhum usuário selecionado para despacho individual!',
+                    'timer'    => 2500,
+                ]);
+                return false;
+            }
+            $user = User::find($this->user_s);
+            $company = Company::find($this->company_s);
+            return ($user->name ?? 'Desconhecido')
+                 . ' da '
+                 . ($company->name ?? 'Desconhecido');
+        }
+
+        // despachar por empresa
+        if (! $this->company_s) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa selecionada para despacho!',
+                'timer'    => 2500,
+            ]);
+            return false;
+        }
+        $company = Company::find($this->company_s);
+        return $company->name ?? 'Desconhecido';
+    }
+
+    /**
+     * Retorna true/false se esta nota deve ser marcada como parcial
+     */
+    private function detectPartial(Note $note): bool
+    {
+        $partial = $note->partials()
+                        ->orderByDesc('created_at')
+                        ->first();
+
+        if (! $partial) {
+            return false;
+        }
+
+        return $partial->allow
+            && $partial->supervision
+            && ! $partial->payment;
     }
 
     public function closeall()
