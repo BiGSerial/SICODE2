@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-
 class UserAssignment extends Model
 {
     use HasFactory;
@@ -20,6 +19,9 @@ class UserAssignment extends Model
        'ended_at',
        'due_at',
        'completed',
+       'responsible',
+         'monitoring',
+         'transfered',
     ];
 
     protected $casts = [
@@ -27,6 +29,9 @@ class UserAssignment extends Model
         'ended_at' => 'datetime',
         'due_at' => 'datetime',
         'completed' => 'boolean',
+        'responsible' => 'boolean',
+        'monitoring' => 'boolean',
+        'transfered' => 'boolean',
     ];
 
     /**

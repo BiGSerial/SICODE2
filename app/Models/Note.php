@@ -155,7 +155,12 @@ class Note extends Model
 
     public function Protests()
     {
-        return $this->belongsToMany(Protest::class);
+        return $this->morphToMany(Protest::class, 'noteable');
+    }
+
+    public function MedProtests()
+    {
+        return $this->morphToMany(MedProtest::class, 'noteable');
     }
 
 

@@ -10,14 +10,15 @@ return new class () extends Migration {
      */
     public function up(): void
     {
-        Schema::create('note_protest', function (Blueprint $table) {
+        Schema::create('noteables', function (Blueprint $table) {
             $table->id();
             $table->foreignId('note_id')
                 ->constrained('notes')
                 ->onDelete('cascade');
-            $table->foreignId('protest_id')
-                ->constrained('protests')
-                ->onDelete('cascade');
+
+            $table->morphs('noteable');
+
+            $table->timestamps();
         });
     }
 
@@ -26,6 +27,6 @@ return new class () extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('note_protest');
+        Schema::dropIfExists('noteables');
     }
 };

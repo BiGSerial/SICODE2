@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Oexterno\Actions\Protest;
 use App\Models\Comment;
 use App\Models\MedProtest;
 use App\Models\Service;
+use App\Models\User;
 use Livewire\Component;
 
 class ControlMedProtest extends Component
@@ -13,6 +14,12 @@ class ControlMedProtest extends Component
     public $notePage = 0;
     public $needsEvidence = 0;
     public $needsConfirmation = 0;
+    public $serviceId;
+    public $userId;
+    public $userList = [];
+
+    public $responsible;
+    public $monitoring;
 
     public $deleteCommentId;
     public $comment = '';
@@ -23,6 +30,21 @@ class ControlMedProtest extends Component
         'openModProtestControl',
         'refreshComponent' => '$refresh',
     ];
+
+    public function updatedServiceId($value)
+    {
+
+        if ($value === 'construction') {
+            $this->userList = User::where('responsible', true)->orderBy('name')->get();
+        } elseif ($value === 'maintenance') {
+            $this->userList = User::where('engineer', true)->orderBy('name')->get();
+        } else {
+            $this->userList = User::whereRelation('ToServices', 'service_id', $value)
+                ->orderBy('name')
+                ->get();
+        }
+
+    }
 
     public function mount()
     {

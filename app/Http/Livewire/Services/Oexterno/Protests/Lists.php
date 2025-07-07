@@ -93,10 +93,7 @@ class Lists extends Component
                 });
             })
             ->when($this->type, function ($query) {
-                $query->where('tipoNota', $this->type)
-                    ->orWhereRelation('Notes', function ($q) {
-                        $q->whereIn('note', $this->type);
-                    });
+                $query->where('tipoNota', $this->type);
             })
             ->when($this->multisearch, function ($query) {
                 $query->whereIn('nota', $this->multisearch)
