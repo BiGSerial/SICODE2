@@ -164,7 +164,7 @@
 
                                         <!-- Role Toggle Buttons -->
                                         <div class="row g-2">
-                                            <div class="col-md-4">
+                                            {{-- <div class="col-md-4">
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox"
                                                         id="executorToggle" wire:model="isExecutor">
@@ -173,8 +173,8 @@
                                                         <i class="bi bi-person-gear me-1"></i>Executante
                                                     </label>
                                                 </div>
-                                            </div>
-                                            <div class="col-md-4">
+                                            </div> --}}
+                                            {{-- <div class="col-md-4">
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox"
                                                         id="responsibleToggle" wire:model="isResponsible">
@@ -183,7 +183,7 @@
                                                         <i class="bi bi-person-check me-1"></i>Responsável
                                                     </label>
                                                 </div>
-                                            </div>
+                                            </div> --}}
                                             <div class="col-md-4">
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox"

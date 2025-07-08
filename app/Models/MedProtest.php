@@ -21,6 +21,8 @@ class MedProtest extends Model
         'dtFimMedida',
         'completed',
         'completed_at',
+        'needsEvidence',
+        'needsConfirmation',
     ];
 
     protected $casts = [

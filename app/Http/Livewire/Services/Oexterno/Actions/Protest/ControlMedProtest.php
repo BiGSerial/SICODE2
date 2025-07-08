@@ -6,6 +6,7 @@ use App\Models\Comment;
 use App\Models\MedProtest;
 use App\Models\Service;
 use App\Models\User;
+use App\Models\UserAssignment;
 use Livewire\Component;
 
 class ControlMedProtest extends Component
@@ -17,6 +18,7 @@ class ControlMedProtest extends Component
     public $serviceId;
     public $userId;
     public $userList = [];
+    public $isEngineer = false;
 
     public $responsible;
     public $monitoring;
@@ -25,6 +27,8 @@ class ControlMedProtest extends Component
     public $comment = '';
 
     public $serviceList = [];
+
+    public $usersTemporarilyAssigned = [];
 
     protected $listeners = [
         'openModProtestControl',
@@ -45,6 +49,8 @@ class ControlMedProtest extends Component
         }
 
     }
+
+    
 
     public function mount()
     {
