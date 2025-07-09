@@ -76,7 +76,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->cad ? 'Sim' : 'Não',
             $row->cadastro ? 'Sim' : 'Não',
             $row->postes_c,
-            $row->postes_l,
+            $row->note->postes,
             $row->postes_u,
             CarbonInterval::seconds($row->stopped)->cascade()->forHumans(['short' => true]),
             $row->d5 ? 'Sim' : 'Não',
