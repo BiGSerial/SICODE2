@@ -92,6 +92,15 @@ class Main extends Component
         'confirm_dispatch'  => 'confirmed_att',
     ];
 
+    protected $queryString = [
+        'search'         => ['except' => '', 'as' => 'busca'],
+
+        'note_type'      => ['except' => '', 'as' => 'tipo'],
+
+
+        'multiSearch',
+    ];
+
     public function mount($service)
     {
 
