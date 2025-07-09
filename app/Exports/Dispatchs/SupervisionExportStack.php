@@ -45,7 +45,7 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
         return [
             'Tipo','Nota/OV', 'DD', 'Sts WPA', 'MMGD', 'Rubrica', 'Municipio', 'Descrição', 'Despachado Por',
             'Emp Despachante', 'Atribuído Por', 'Emp Atribuidor', 'Fiscal', 'Emp Fiscal', 'Dt Despacho',
-            'Dt Atribuição', 'Dt Fiscalização', 'Dt Informe', 'Dt ADS', 'Status'
+            'Dt Atribuição', 'Dt Fiscalização', 'Dt Informe', 'Dt ADS', 'Empresa Informe', 'Informado Por', 'Status Informe', 'Motivo Rejeição Informe', 'Observação Informe', 'Status Produção'
         ];
     }
 
@@ -60,15 +60,17 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
             $adsInfomed = $row->Note->WorkForm?->Adsform?->created_at?->format('d/m/Y H:i') ?? '';
         }
 
+
+
         return [
             $row->partial ? 'Parcial' : 'Final',
             $row->Note->note,
-            $row->Note->Wpas?->last()->dd ?? '',
-            $row->Note->Wpas?->last()->ststusexec ?? '',
+            $row->Note->Wpas?->last()?->dd ?? '',
+            $row->Note->Wpas?->last()?->execstats ?? '',
             $row->Note->mmgd ? 'Sim' : 'Não',
             $row->Note->rubrica,
             $row->Note->lexp,
-            $row->Note->description,
+            $row->Note->material,
             $row->Dispatcher->name ?? '',
             $row->Dispatcher->Company->name ?? '',
             $row->Att->name ?? '',
@@ -80,6 +82,12 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
             $row->completed_at ? $row->completed_at->format('d/m/Y') : '',
             $informed_at,
             $adsInfomed,
+            $row->Note->WorkForm?->Company?->name,
+            $row->Note->WorkForm?->informer,
+            $row->Note->WorkForm?->rejected ? 'REJEITADO' : 'NORMAL',
+            $row->Note->WorkForm?->rejected ? $row->Note->WorkForm?->Returnwork?->last()?->category : '',
+            $row->Note->WorkForm?->rejected ? $row->Note->WorkForm?->Returnwork?->last()?->text_obs : '',
+
             Notestatus::status($row->status)->status,
         ];
     }

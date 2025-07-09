@@ -80,7 +80,8 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->postes_u,
             CarbonInterval::seconds($row->stopped)->cascade()->forHumans(['short' => true]),
             $row->d5 ? 'Sim' : 'Não',
-            $row->confirmed ? 'Sim' : 'Não',
+            $row->d5 ? $row->Reclaim?->category : '',
+            $row->confirmed ? 'CONFIRMADO' : 'NAO CONFIRMADO',
             Notestatus::status($row->status)->status,
             $row->Analise ? $row->Analise->conclusion : '',
             $row->partial ? 'PARCIAL' : 'NORMAL',
@@ -127,6 +128,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Postes/Ativos',
             'Parado',
             'RetornoInterno',
+            'RI Categoria',
             'Situação',
             'Produção',
             'Conclusão',
@@ -159,8 +161,10 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
+                $highestColumn = $event->sheet->getHighestColumn();
+
                 // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:AO1')->applyFromArray([
+                $event->sheet->getStyle('A1:' . $highestColumn . '1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
