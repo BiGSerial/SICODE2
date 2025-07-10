@@ -130,36 +130,30 @@
 
                                         <!-- Select User with Floating Label -->
                                         <div class="form-floating mb-3">
-                                            @if ($serviceId)
-                                                <select class="form-select" id="selectUser" wire:model="selectedUser"
-                                                    wire:loading.attr="disabled" wire:target="serviceId">
-                                                    <option value="">Selecione um usuário</option>
-                                                    @forelse ($userList as $user)
+
+                                            <select class="form-select" id="selectUser" wire:model="selectedUser"
+                                                wire:loading.attr="disabled" wire:target="updatedServiceId">
+                                                <option value="">Selecione um usuário</option>
+                                                @if (!empty($userList))
+                                                    @foreach ($userList as $user)
                                                         <option value="{{ $user->id }}">{{ $user->name }}
                                                         </option>
+                                                    @endforeach
 
-                                                    @empty
-                                                        <option value="">Nenhum usuário disponível</option>
-                                                    @endforelse
-                                                </select>
-                                                <label for="selectUser">Usuário</label>
-                                                <div class="position-absolute top-50 end-0 translate-middle-y me-3"
-                                                    wire:loading wire:target="serviceId">
-                                                    <div class="spinner-border spinner-border-sm text-primary"
-                                                        role="status">
-                                                        <span class="visually-hidden">Carregando...</span>
-                                                    </div>
+                                                @endif
+                                            </select>
+                                            <label for="selectUser">Usuário</label>
+                                            <div class="position-absolute top-50 end-0 translate-middle-y me-3"
+                                                wire:loading wire:target="updatedServiceId">
+                                                <div class="spinner-border spinner-border-sm text-primary"
+                                                    role="status">
+                                                    <span class="visually-hidden">Carregando...</span>
                                                 </div>
-                                                <div wire:loading.remove wire:target="serviceId">
-                                                    <!-- Content loaded -->
-                                                </div>
-                                            @else
-                                                <select class="form-select" id="selectUser" disabled>
-                                                    <option value="">Selecione o tipo de atividade primeiro
-                                                    </option>
-                                                </select>
-                                                <label for="selectUser">Usuário</label>
-                                            @endif
+                                            </div>
+                                            <div wire:loading.remove wire:target="serviceId">
+                                                <!-- Content loaded -->
+                                            </div>
+
                                         </div>
 
                                         <!-- Role Toggle Buttons -->
@@ -186,8 +180,8 @@
                                             </div> --}}
                                             <div class="col-md-4">
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox"
-                                                        id="engineerToggle" wire:model="isEngineer">
+                                                    <input class="form-check-input" type="checkbox" id="engineerToggle"
+                                                        wire:model="isEngineer">
                                                     <label class="form-check-label fw-bold text-info"
                                                         for="engineerToggle">
                                                         <i class="bi bi-person-badge me-1"></i>Engenheiro
@@ -209,58 +203,61 @@
                                             <h6 class="text-muted mb-2">Usuários Atribuídos:</h6>
                                             <div class="user-list border border-secondary rounded p-3"
                                                 style="max-height: 250px; overflow-y: auto;">
-                                                <div
-                                                    class="d-flex align-items-center justify-content-between border-bottom py-2">
-                                                    <div class="d-flex align-items-center">
-                                                        <i class="bi bi-person-circle fs-5 text-primary me-2"></i>
-                                                        <div>
-                                                            <div class="d-flex align-items-center">
-                                                                <span class="fw-medium">João Silva</span>
-                                                                <div class="ms-2">
-                                                                    <span
-                                                                        class="badge bg-success me-1">Executante</span>
-                                                                    <span class="badge bg-warning">Responsável</span>
-                                                                </div>
-                                                            </div>
-                                                            <small class="text-muted">
-                                                                <i class="bi bi-calendar-plus me-1"></i>Atribuído:
-                                                                15/12/2024
-                                                                <span class="ms-2"><i
-                                                                        class="bi bi-calendar-check me-1"></i>Conclusão:
-                                                                    --</span>
-                                                            </small>
-                                                        </div>
-                                                    </div>
-                                                    <button class="btn btn-sm btn-outline-danger"
-                                                        wire:click="removeUser(1)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                                <div
-                                                    class="d-flex align-items-center justify-content-between border-bottom py-2">
-                                                    <div class="d-flex align-items-center">
-                                                        <i class="bi bi-person-circle fs-5 text-primary me-2"></i>
-                                                        <div>
-                                                            <div class="d-flex align-items-center">
-                                                                <span class="fw-medium">Maria Santos</span>
-                                                                <div class="ms-2">
+
+                                                @if (!empty($usersTemporarilyAssigned))
+                                                    @foreach ($usersTemporarilyAssigned as $user)
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-center mb-2">
+                                                            <span class="text-secondary">
+                                                                {{ $user['name'] }}
+
+                                                                @if ($user['isEngineer'])
                                                                     <span class="badge bg-info">Engenheiro</span>
-                                                                </div>
-                                                            </div>
-                                                            <small class="text-muted">
-                                                                <i class="bi bi-calendar-plus me-1"></i>Atribuído:
-                                                                14/12/2024
-                                                                <span class="ms-2"><i
-                                                                        class="bi bi-calendar-check me-1"></i>Conclusão:
-                                                                    16/12/2024</span>
-                                                            </small>
+                                                                @endif
+
+                                                                @if (!$user['isEngineer'])
+                                                                    <span
+                                                                        class="badge text-bg-warning">Responsável</span>
+                                                                @endif
+                                                            </span>
+                                                            <button type="button" class="btn btn-sm btn-danger"
+                                                                wire:click="removeUserAssignment('{{ $user['id'] }}')">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
                                                         </div>
+                                                    @endforeach
+                                                @endif
+
+                                                @if ($modProtest?->Assignments?->isNotEmpty())
+                                                    @foreach ($modProtest?->Assignments as $assignment)
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-center mb-2">
+                                                            <span class="text-secondary">
+                                                                {{ $assignment->user->name }}
+                                                                @if ($assignment->monitoring)
+                                                                    <span class="badge bg-info">Engenheiro</span>
+                                                                @endif
+                                                                @if (!$assignment->monitoring)
+                                                                    <span
+                                                                        class="badge text-bg-warning">Responsável</span>
+                                                                @endif
+                                                            </span>
+                                                            <button type="button" class="btn btn-sm btn-danger"
+                                                                wire:click="removeUserAssignment('{{ $assignment->id }}')">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    @endforeach
+
+
+                                                @endif
+
+                                                @if ($modProtest?->Assignments?->isEmpty() && empty($usersTemporarilyAssigned))
+                                                    <div class="alert alert-secondary mb-0">
+                                                        <i class="bi bi-info-circle me-2"></i>Nenhum usuário atribuído.
                                                     </div>
-                                                    <button class="btn btn-sm btn-outline-danger"
-                                                        wire:click="removeUser(2)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
+                                                @endif
+
                                             </div>
                                         </div>
                                     </div>

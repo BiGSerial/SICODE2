@@ -16,8 +16,8 @@ class ControlMedProtest extends Component
     public $needsEvidence = 0;
     public $needsConfirmation = 0;
     public $serviceId;
-    public $userId;
-    public $userList = [];
+    public $selectedUser;
+    public $userList;
     public $isEngineer = false;
 
     public $responsible;
@@ -50,7 +50,7 @@ class ControlMedProtest extends Component
 
     }
 
-    
+
 
     public function mount()
     {
@@ -145,6 +145,34 @@ class ControlMedProtest extends Component
             ]);
         }
     }
+
+    public function addUserAssignment()
+    {
+
+        // dd($this->selectedUser, $this->isEngineer);
+
+        if (empty($this->usersTemporarilyAssigned)) {
+            $this->usersTemporarilyAssigned[] = [
+                'id'   => $this->selectedUser,
+                'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
+                'isEngineer' => $this->isEngineer,
+            ];
+        } else {
+            $userExists = collect($this->usersTemporarilyAssigned)->contains(function ($user) {
+                return $user['id'] === $this->selectedUser;
+            });
+
+            if (!$userExists) {
+                $this->usersTemporarilyAssigned[] = [
+                    'id'   => $this->selectedUser,
+                    'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
+                    'isEngineer' => $this->isEngineer,
+                ];
+            }
+        }
+    }
+
+
 
 
     public function openModProtestControl(MedProtest $modProtest)

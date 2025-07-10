@@ -4,6 +4,7 @@ namespace App\Console\Commands\SqlLog;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Repositories\HiringRepository;
 use App\Services\HiringStatus\HiringStatusBuilder;
 use App\Models\SicodeSql\HiringStatus;
@@ -84,6 +85,17 @@ class HiringStatusLog extends Command
 
                 // Executa upsert em sub-lotes
                 foreach (array_chunk($batch, $maxRows) as $subBatch) {
+
+                    // Logar o subBatch antes do upsert
+                    Log::debug('SubBatch a ser inserido/atualizado:', $subBatch);
+
+                    // Capturar a query SQL gerada
+                    DB::listen(function ($query) {
+                        Log::info("SQL Query: {$query->sql}");
+                        Log::info("SQL Bindings: " . json_encode($query->bindings));
+                        Log::info("SQL Time: {$query->time}ms");
+                    });
+
                     HiringStatus::upsert(
                         $subBatch,
                         ['note_id'],
