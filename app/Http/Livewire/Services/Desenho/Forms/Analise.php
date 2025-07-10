@@ -137,11 +137,12 @@ class Analise extends Component
         // Verficando a existencia de uma analise ja atriobuida para esta produção
         $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
 
+
         if ($this->analise) {
 
             $this->conclusion = $this->analise->conclusion;
             $this->info       = $this->analise->info;
-            $this->postes     = $this->production->postes_u ? $this->production->postes_u : '';
+            $this->postes     = $this->production->postes_u ? $this->production->postes_u : ($this->note->postes_u ? $this->note->postes : '');
             $this->odi        = $this->production->odi;
             $this->odd        = $this->production->odd;
             $this->ods        = $this->production->ods;
@@ -157,6 +158,7 @@ class Analise extends Component
             // ModelsAnalise::Create(['production_id' => $productionId]);
             $this->production->Analise()->create();
             $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
+            $this->postes     = $this->production->postes_u ? $this->production->postes_u : ($this->note->postes_u ? $this->note->postes : '');
         }
 
         if ($this->production && $this->note) {
