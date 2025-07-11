@@ -78,6 +78,8 @@ class Analise extends Component
 
     public $hasFile = false;
 
+    public $ma;
+
     protected $listeners = [
         'open_analise_lev' => 'openAnalise',
         'analise_clean'    => 'clean',
@@ -143,6 +145,7 @@ class Analise extends Component
             // $this->documento = $this->analise->documento;
             $this->postes = (int) $this->analise->postes_u;
             $this->doe    = $this->analise->doe;
+            $this->ma     = $this->analise->ma;
         } else {
             $this->clean_form();
             $this->production->Analise()->create();
@@ -380,6 +383,7 @@ class Analise extends Component
             'status'       => 5,
             'completed_at' => date('Y-m-d H:i:s'),
             'postes_u'     => (int) $this->postes,
+            'ma'          => $this->ma ? true : false,
             'completed'    => true,
             'confirmed'    => false,
             'priority'     => false,
@@ -389,7 +393,7 @@ class Analise extends Component
         if ($chk) {
             $user = Auth()->User()->name;
 
-            if (!$this->note->update(['doe' => $this->doe == 'SIM' ? true : false, 'postes' => (int) $this->postes])) {
+            if (!$this->note->update(['doe' => $this->doe == 'SIM' ? true : false, 'ma' => $this->ma == 'SIM' ? true : false, 'postes' => (int) $this->postes])) {
                 $this->dispatchBrowserEvent('torrada', [
                     'status'   => 'danger',
                     'menssage' => 'Não foi possível atualizar o DOE na Nota.',
@@ -644,6 +648,7 @@ class Analise extends Component
         $this->area          = '';
         $this->endereco      = '';
         $this->postes        = '';
+        $this->ma          = false;
 
     }
 

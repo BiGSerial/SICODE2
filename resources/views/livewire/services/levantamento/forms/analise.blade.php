@@ -10,9 +10,7 @@
             align-items: center;
             justify-content: center;
             background-color: rgba(0, 0, 0, 0.2);
-            /* opcional: fundo escurecido */
             z-index: 9999;
-            /* para garantir que o overlay esteja na frente de tudo */
         }
 
         .loading-message {
@@ -25,121 +23,174 @@
     </style>
 @endpush
 
-
-
 @php
     use App\Helpers\SelectOptions;
-
 @endphp
 
-<div>
-
-    {{-- Carrega o Loading da página --}}
+<div class=" min-vh-100 d-flex flex-column">
     <x-show-loading />
 
     @if ($view_form)
-        <div class="container">
-            <div class="card">
-                <h4 class="card-header">Informações da Nota</h4>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-6">
-                            <dl class="row">
-                                <dt class="col-sm-4">Nota/Ov:</dt>
-                                <dd class="col-sm-8">{{ $note->note }}</dd>
-                                <dt class="col-sm-4">Cliente:</dt>
-                                <dd class="col-sm-8">{{ $note->client }}</dd>
-                                <dt class="col-sm-4">Município</dt>
-                                <dd class="col-sm-8">{{ $note->lexp }}</dd>
-                                <dt class="col-sm-4 text-danger">MMGD</dt>
-                                <dd class="col-sm-8 text-danger">{{ $note->mmgd ? 'SIM' : 'NÃO' }}</dd>
-                            </dl>
-                        </div>
+        <main class="container my-5 flex-grow-1">
 
-                        <div class="col-6">
-                            <dl class="row">
-                                <dt class="col-sm-4">Tipo:</dt>
-                                <dd class="col-sm-8">{{ $note->rubrica }}</dd>
-                                <dt class="col-sm-4">Data:</dt>
-                                <dd class="col-sm-8">{{ date('d/m/Y', strToTime($note->dt_status)) }}</dd>
-                                <dt class="col-sm-4">Pedido:</dt>
-                                <dd class="col-sm-8">{{ $note->numPedido }}</dd>
-                            </dl>
+            {{-- Seção 1: Informações da Nota --}}
+            <section id="info-nota" class="mb-5">
+                <h2 class="h4 mb-3">1. Informações da Nota</h2>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-5">Nota/OV:</dt>
+                                    <dd class="col-7">{{ $note->note }}</dd>
+
+                                    <dt class="col-5">Cliente:</dt>
+                                    <dd class="col-7">{{ $note->client }}</dd>
+
+                                    <dt class="col-5">Município:</dt>
+                                    <dd class="col-7">{{ $note->lexp }}</dd>
+
+                                    <dt class="col-5 text-danger">MMGD:</dt>
+                                    <dd class="col-7 text-danger">{{ $note->mmgd ? 'SIM' : 'NÃO' }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-5">Tipo:</dt>
+                                    <dd class="col-7">{{ $note->rubrica }}</dd>
+
+                                    <dt class="col-5">Data:</dt>
+                                    <dd class="col-7">{{ date('d/m/Y', strtotime($note->dt_status)) }}</dd>
+
+                                    <dt class="col-5">Pedido:</dt>
+                                    <dd class="col-7">{{ $note->numPedido }}</dd>
+                                </dl>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
+            {{-- Seção 2: Resultado Levantamento --}}
+            <section id="resultado-levantamento" class="mb-5">
+                <h2 class="h4 mb-3">2. Resultado do Levantamento</h2>
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <form class="row g-4">
 
+                            <div class="col-lg-3">
+                                <label class="form-label fw-semibold">Postes</label>
+                                <input type="number" min="0" max="500"
+                                    class="form-control border border-1 @error('postes') is-invalid @enderror"
+                                    wire:model.defer="postes">
+                                @error('postes')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
 
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Depende Órgão Externo</label>
+                                <select class="form-select border border-1 @error('doe') is-invalid @enderror"
+                                    wire:model.defer="doe">
+                                    <option value="">Selecione...</option>
+                                    <option value="SIM">SIM</option>
+                                    <option value="NAO">NÃO</option>
+                                    <option value="NAO SEI">NÃO SEI</option>
+                                </select>
+                                @error('doe')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
 
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Haverá Interferência em Vegetação</label>
+                                <select class="form-select border border-1 @error('ma') is-invalid @enderror"
+                                    wire:model.defer="ma">
+                                    <option value="">Selecione...</option>
+                                    <option value="SIM">SIM</option>
+                                    <option value="NAO">NÃO</option>
+                                </select>
+                                @error('ma')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
 
-            <div class="card">
-                <h4 class="card-header">Resultado Levantamento</h4>
-                <div class="card-body">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Conclusão</label>
+                                <select class="form-select border border-1 @error('conclusion') is-invalid @enderror"
+                                    wire:model="conclusion">
+                                    <option value="">Selecione...</option>
+                                    @foreach (SelectOptions::getSurveyConclusions() as $option)
+                                        <option value="{{ $option->value }}">{{ $option->reason }}</option>
+                                    @endforeach
+                                </select>
+                                @error('conclusion')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
 
-                    <div class="row">
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Postes:</label>
-                            <input type="number" min="0" max="500"
-                                class="form-control border border-secondary" wire:model.defer="postes">
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            {{-- Seção 3: Arquivos & Informações --}}
+            <section id="arquivos-info" class="mb-5">
+                <h2 class="h4 mb-3">3. Arquivos & Informações</h2>
+                <div class="card shadow-sm">
+                    <div class="card-body">
+
+                        @livewire(
+                            'files.manager.create-prod-files',
+                            [
+                                'production' => $production,
+                                'needFiles' => false,
+                            ],
+                            key('production_' . $production->id)
+                        )
+
+                        @if ($nota_divergente ?? false)
+                            <div class="alert alert-danger mt-3">
+                                O arquivo parece divergente da nota/OV trabalhada.
+                            </div>
+                        @endif
+
+                        <div class="mt-4">
+                            <label class="form-label fw-semibold">
+                                Informações Adicionais
+                                <i class="ri-file-copy-line copyButton" data-id="infoTextArea"
+                                    style="cursor: pointer;"></i>
+                            </label>
+                            <textarea id="infoTextArea" class="form-control border border-1 @error('info') is-invalid @enderror" rows="6"
+                                wire:model.defer="info"></textarea>
+                            @error('info')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
-
-                        <div class="mb-3 col-2">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Depende Orgão Externo:</label>
-                            <select class="form-select border border-secondary" aria-label="Default select example"
-                                wire:model.defer="doe">
-                                <option value="0" selected>Selecione</option>
-                                {{-- <option value="DEPENDE DE ORGAO EXTERNO">DEPENDE DE ORGÃO EXTERNO</option> --}}
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="NAO SEI">NÃO SEI</option>
-                                {{-- <option value="INSPECAO REJEITADA">INSPEÇÃO REJEITADA</option>
-                                <option value="INSPECAO REJEITADA">INSPEÇÃO APROVADA</option> --}}
-                            </select>
-                        </div>
-
-                        <div class="mb-3 col-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Conclusão:</label>
-                            <select class="form-select border border-secondary" aria-label="Default select example"
-                                wire:model="conclusion">
-                                <option value="" selected>Selecione</option>
-                                @foreach (SelectOptions::getSurveyConclusions() as $option)
-                                    <option value="{{ $option->value }}">{{ $option->reason }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        {{-- Files Upload --}}
-                        @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false])
-
-                        <div class="mb-3">
-                            <label for="inputPassword" class="col-sm-12 col-form-label">Informações: <span
-                                    class="fw-bold"><i class="ri-file-copy-line copyButton" data-id="infoTextArea2"
-                                        style="cursor: pointer;"></i></span></label>
-                            <textarea id="infoTextArea2" class="form-control border border-secondary" rows="8" wire:model.defer="info"></textarea>
-                        </div>
-
 
                     </div>
-
                 </div>
-            </div>
+            </section>
 
+        </main>
 
-            <div class="d-flex justify-content-end">
-                {{ (int) $hasFile }}
-                <button class="btn btn-primary me-2" wire:click.prevent="save_info">SALVAR</button>
-                <button class="btn btn-warning me-2" wire:click.prevent="to_pause">PAUSAR</button>
-                <button class="btn btn-success me-2"
-                    wire:click.prevent="to_finish({{ $analise->production_id }})">ENCERRAR</button>
-
+        <footer class="bg-white py-3 border-top">
+            <div class="container d-flex justify-content-end gap-2">
+                <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
+                <button class="btn btn-success"
+                    wire:click.prevent="to_finish({{ $analise->production_id }})">Encerrar</button>
             </div>
-        @else
-            <div class="loading-overlay">
-                <div class="loading-message">
-                    <h1>Carregando Dados...</h1>
-                </div>
+        </footer>
+    @else
+        <div class="loading-overlay">
+            <div class="loading-message">
+                <h1>Carregando Dados...</h1>
             </div>
+        </div>
     @endif
 </div>

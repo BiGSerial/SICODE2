@@ -53,6 +53,7 @@ class Note extends Model
         'updated_at',
         'created_at',
         'is45',
+        'ma', // New field for MA (Mesalization)
     ];
 
 

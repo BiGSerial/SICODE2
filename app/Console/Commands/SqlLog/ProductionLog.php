@@ -83,6 +83,7 @@ class ProductionLog extends Command
                             'postes_c' => $production->postes_c,
                             'centroTrab' => $production->centroTrab,
                             'noinconsistency' => $production->noinconsistency,
+                            'ma' => $production->ma,
                         ]
                     );
 

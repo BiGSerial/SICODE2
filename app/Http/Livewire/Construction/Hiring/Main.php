@@ -176,7 +176,7 @@ class Main extends Component
 
 
 
-        return (new HiringListExport($export->get()))->download(date('YmdHis-') . 'exportViabilityAccompany.xlsx');
+        return (new HiringListExport($export))->download(date('YmdHis-') . 'exportViabilityAccompany.xlsx');
     }
 
 

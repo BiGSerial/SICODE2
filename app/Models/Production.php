@@ -53,6 +53,7 @@ class Production extends Model
         'd5',
         'cad',
         'partial',
+        'ma',
     ];
 
     protected $casts = [
