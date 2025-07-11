@@ -104,6 +104,7 @@ class BaseEP extends Command
                     // O whereIn aqui é no máximo do tamanho do chunk (2000), o que é seguro.
                     Note::whereIn('note', $notesToCancel)->update([
                         'nstats' => 99,
+                        'centerjob' => 'LIMBO',
                     ]);
                     $cancelCount += $notesToCancel->count();
                 }
