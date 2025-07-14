@@ -54,7 +54,7 @@ class HiringListExport implements FromQuery, WithEvents, WithProperties, WithHea
     public function headings(): array
     {
         return [
-            'Ordem', 'Note', 'Rubrica',  'Material', 'Municipio', 'Status Ordem', 'Status OV/NOTA', 'Status 0010', 'Centro OP10', 'Prazo Restante',  'Situação'
+            'Ordem', 'Note', 'Pep', 'Rubrica',  'Material', 'Municipio', 'Status Ordem', 'Status OV/NOTA', 'Status 0010', 'Centro OP10', 'Prazo Restante',  'Situação'
         ];
     }
 
@@ -94,6 +94,7 @@ class HiringListExport implements FromQuery, WithEvents, WithProperties, WithHea
         return [
             $row->ordem,
             $row->note->note,
+            $row->pep,
             $row->note->rubrica,
             $row->note->material,
             $row->note->lexp,

@@ -22,14 +22,14 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
 
     public $exports;
 
-    public function __construct(array $data)
+    public function __construct($data)
     {
         $this->exports = $data;
     }
 
     public function query()
     {
-        return Viability::query(); // Substitua pelo seu modelo e ajuste a consulta conforme necessário
+        return $this->exports; // Substitua pelo seu modelo e ajuste a consulta conforme necessário
     }
 
     public function headings(): array

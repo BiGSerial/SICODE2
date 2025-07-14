@@ -25,7 +25,7 @@ class Viabilities extends Component
     public function Export()
     {
         // return (new viabilityexport($this->lists->limit(5000)->get()))->download(date('YmdHis-') . 'exportViabilityHiring.xlsx');
-        return (new viabilityQueryExport($this->getListsProperty()->with('Company', 'User', 'Note', 'Engineer')->get()->toArray()))->download(date('YmdHis-') . 'exportViabilityHiring.xlsx');
+        return (new viabilityQueryExport($this->lists->with('Company', 'User', 'Note', 'Engineer')))->download(date('YmdHis-') . 'exportViabilityHiring.xlsx');
     }
 
     public function getListsProperty()
