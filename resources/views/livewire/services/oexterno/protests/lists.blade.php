@@ -198,7 +198,7 @@
                 <table class="table table-sm  table-condensed table-hover table-striped">
                     <thead class="table-dark">
                         <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                            {{-- <th scope="col" class="fw-bold text-center">#</th> --}}
+                            <th scope="col" class="fw-bold text-center">#</th>
                             <th scope="col" class="fw-bold text-center">Numero</th>
                             <th scope="col" class="fw-bold text-center">Tipo</th>
                             <th scope="col" class="fw-bold text-center">Nota/Ov Ref</th>
@@ -242,13 +242,25 @@
                                     'total' => $list->medProtests?->count(),
                                 ];
 
+                                $medProtest = $list->medProtests?->where('completed', false)->first();
+                                $assignments = $medProtest?->Assignments?->where('responsible', true);
+                                $hasResponsible = $assignments && $assignments->isNotEmpty();
+
+                                if ($hasResponsible) {
+                                    $hasResponsibleColor = 'text-bg-primary';
+                                } else {
+                                    $hasResponsibleColor = '';
+                                }
+
                             @endphp
                             {{-- @dump($list->Productions) --}}
                             <tr class="align-middle text-center" wire:key="{{ $list->id }}-{{ $list->nota }}"
                                 wire:dblClick='goTo({{ $list->nota }})'>
-                                {{-- <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
-                                    <span class="badge {{ $color }}">{{ $vencimento }}</span>
-                                </td> --}}
+                                <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
+                                    @if ($hasResponsible)
+                                        <span class="badge {{ $hasResponsibleColor }}">EM ANDAMENTO</span>
+                                    @endif
+                                </td>
 
                                 <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
                                     {{ $list->nota }}

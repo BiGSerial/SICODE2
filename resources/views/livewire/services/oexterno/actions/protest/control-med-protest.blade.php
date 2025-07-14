@@ -81,7 +81,7 @@
                     </div>
 
                     <!-- Second Row -->
-                    <div class="row g-3">
+                    <div class="row mt-3">
                         <!-- Service Selection Card -->
                         <div class="col-md-4">
                             <div class="card h-100 shadow-sm">
@@ -101,12 +101,12 @@
                                     </div>
                                     <div class="form-check form-switch mb-3">
                                         <input class="form-check-input" type="checkbox" id="requireTracking"
-                                            wire:model="needsEvidence">
+                                            wire:model="modProtest.needsConfirmation">
                                         <label class="form-check-label" for="requireTracking">Acompanhamento</label>
                                     </div>
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="needsConfirmation"
-                                            wire:model="needsEvidence">
+                                            wire:model="modProtest.needsEvidence">
                                         <label class="form-check-label" for="needsConfirmation">Exigir Evidencia</label>
                                     </div>
                                 </div>
@@ -221,7 +221,7 @@
                                                                 @endif
                                                             </span>
                                                             <button type="button" class="btn btn-sm btn-danger"
-                                                                wire:click="removeUserAssignment('{{ $user['id'] }}')">
+                                                                wire:click="removeTempUserAssignment('{{ $user['id'] }}')">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </div>
@@ -267,103 +267,128 @@
                         </div>
                     </div>
 
-                    <!-- Comments Section -->
-                    <div class="col-md-12">
-                        <div class="card h-100 shadow-sm">
+                    <div class="col-md-12 mt-3">
+                        <div class="card py-2">
                             <div class="card-body">
                                 <h6 class="card-title text-primary mb-3">
-                                    <i class="bi bi-chat-dots me-2"></i>OBSERVAÇÕES PARA
-                                    {{ $modProtest?->protest?->nota }} - #{{ $modProtest?->med_id }}
-                                    @if ($modProtest?->comments?->isNotEmpty())
-                                        <span
-                                            class="badge text-bg-secondary ms-2">{{ $modProtest->comments?->count() }}</span>
-                                    @endif
+                                    <i class="bi bi-clipboard-data me-2"></i>SALVAR DESDOBRAMENTO
                                 </h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-success w-100"
+                                            wire:click="saveMeasures">
+                                            <i class="bi bi-check-circle me-2"></i>Salvar Medidas
+                                        </button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-secondary w-100"
+                                            wire:click="cancelChanges">
+                                            <i class="bi bi-x-circle me-2"></i>Cancelar Alterações
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                <!-- Comments List -->
-                                <div class="comments-section border border-secondary rounded mb-3 p-2"
-                                    style="max-height: 250px; overflow-y: auto;">
+                        <!-- Comments Section -->
+                        <div class="col-md-12 mt-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary mb-3">
+                                        <i class="bi bi-chat-dots me-2"></i>OBSERVAÇÕES PARA
+                                        {{ $modProtest?->protest?->nota }} - #{{ $modProtest?->med_id }}
+                                        @if ($modProtest?->comments?->isNotEmpty())
+                                            <span
+                                                class="badge text-bg-secondary ms-2">{{ $modProtest->comments?->count() }}</span>
+                                        @endif
+                                    </h6>
 
-                                    @if ($modProtest?->Comments?->isNotEmpty())
-                                        @foreach ($modProtest?->Comments as $comment)
-                                            <div class="comment-container">
-                                                <div
-                                                    class="comment-item py-2 {{ !$loop->last ? 'border-bottom border-secondary' : '' }}">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div class="d-flex gap-2">
-                                                            <div class="comment-avatar">
-                                                                <i
-                                                                    class="ri-user-line fs-4 text-primary align-middle"></i>
-                                                            </div>
-                                                            <div class="comment-content">
-                                                                <div
-                                                                    class="d-flex justify-content-between align-items-center w-100">
-                                                                    <div class="d-flex align-items-center gap-2">
-                                                                        @if ($comment->user?->email)
-                                                                            <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
-                                                                                style="cursor:pointer"
-                                                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')">
-                                                                            </i>
-                                                                        @endif
-                                                                        <span
-                                                                            class="fw-bold {{ $comment->user_id === auth()->user()->id ? 'text-primary' : '' }}">{{ $comment->user->name }}</span>
-                                                                        <small class="text-muted">
-                                                                            <i class="ri-time-line align-middle"></i>
-                                                                            {{ $comment->created_at->diffForHumans() }}
-                                                                        </small>
-                                                                    </div>
-                                                                    @if (
-                                                                        ($comment->created_at->diffInHours() < 1 && $comment->id === $modProtest->comments->max('id')) ||
-                                                                            auth()->user()->admin ||
-                                                                            auth()->user()->superadm)
-                                                                        <i class="ri-delete-bin-fill text-danger"
-                                                                            style="cursor: pointer;"
-                                                                            wire:click="deleteComment({{ $comment->id }})"
-                                                                            title="Excluir comentário"></i>
-                                                                    @endif
+                                    <!-- Comments List -->
+                                    <div class="comments-section border border-secondary rounded mb-3 p-2"
+                                        style="max-height: 250px; overflow-y: auto;">
+
+                                        @if ($modProtest?->Comments?->isNotEmpty())
+                                            @foreach ($modProtest?->Comments as $comment)
+                                                <div class="comment-container">
+                                                    <div
+                                                        class="comment-item py-2 {{ !$loop->last ? 'border-bottom border-secondary' : '' }}">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div class="d-flex gap-2">
+                                                                <div class="comment-avatar">
+                                                                    <i
+                                                                        class="ri-user-line fs-4 text-primary align-middle"></i>
                                                                 </div>
-                                                                <p class="mb-0 text-secondary mt-1">
-                                                                    {{ $comment->message }}
-                                                                </p>
+                                                                <div class="comment-content">
+                                                                    <div
+                                                                        class="d-flex justify-content-between align-items-center w-100">
+                                                                        <div class="d-flex align-items-center gap-2">
+                                                                            @if ($comment->user?->email)
+                                                                                <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                                                    style="cursor:pointer"
+                                                                                    onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')">
+                                                                                </i>
+                                                                            @endif
+                                                                            <span
+                                                                                class="fw-bold {{ $comment->user_id === auth()->user()->id ? 'text-primary' : '' }}">{{ $comment->user->name }}</span>
+                                                                            <small class="text-muted">
+                                                                                <i
+                                                                                    class="ri-time-line align-middle"></i>
+                                                                                {{ $comment->created_at->diffForHumans() }}
+                                                                            </small>
+                                                                        </div>
+                                                                        @if (
+                                                                            ($comment->created_at->diffInHours() < 1 && $comment->id === $modProtest->comments->max('id')) ||
+                                                                                auth()->user()->admin ||
+                                                                                auth()->user()->superadm)
+                                                                            <i class="ri-delete-bin-fill text-danger"
+                                                                                style="cursor: pointer;"
+                                                                                wire:click="deleteComment({{ $comment->id }})"
+                                                                                title="Excluir comentário"></i>
+                                                                        @endif
+                                                                    </div>
+                                                                    <p class="mb-0 text-secondary mt-1">
+                                                                        {{ $comment->message }}
+                                                                    </p>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                <style>
+                                                    .comment-container::-webkit-scrollbar {
+                                                        width: 5px;
+                                                    }
+
+                                                    .comment-container::-webkit-scrollbar-track {
+                                                        background: #f1f1f1;
+                                                    }
+
+                                                    .comment-container::-webkit-scrollbar-thumb {
+                                                        background: #888;
+                                                        border-radius: 5px;
+                                                    }
+                                                </style>
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info mb-0">
+                                                <i class="bi bi-info-circle me-2"></i>Não há observações para
+                                                exibir.
                                             </div>
+                                        @endif
 
-                                            <style>
-                                                .comment-container::-webkit-scrollbar {
-                                                    width: 5px;
-                                                }
+                                    </div>
 
-                                                .comment-container::-webkit-scrollbar-track {
-                                                    background: #f1f1f1;
-                                                }
-
-                                                .comment-container::-webkit-scrollbar-thumb {
-                                                    background: #888;
-                                                    border-radius: 5px;
-                                                }
-                                            </style>
-                                        @endforeach
-                                    @else
-                                        <div class="alert alert-info mb-0">
-                                            <i class="bi bi-info-circle me-2"></i>Não há observações para
-                                            exibir.
+                                    <!-- Comment Input -->
+                                    <div class="comment-input">
+                                        <textarea class="form-control mb-2" rows="3" wire:model.defer="comment"
+                                            placeholder="Digite seu comentário..."></textarea>
+                                        <div class="text-end">
+                                            <button type="button" class="btn btn-primary"
+                                                wire:click.prevent="addComment">
+                                                <i class="ri-send-plane-fill me-1"></i> Enviar
+                                            </button>
                                         </div>
-                                    @endif
-
-                                </div>
-
-                                <!-- Comment Input -->
-                                <div class="comment-input">
-                                    <textarea class="form-control mb-2" rows="3" wire:model.defer="comment"
-                                        placeholder="Digite seu comentário..."></textarea>
-                                    <div class="text-end">
-                                        <button type="button" class="btn btn-primary"
-                                            wire:click.prevent="addComment">
-                                            <i class="ri-send-plane-fill me-1"></i> Enviar
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -373,4 +398,3 @@
             </div>
         </div>
     </div>
-</div>

@@ -50,6 +50,18 @@ class ControlMedProtest extends Component
 
     }
 
+    protected function rules()
+    {
+        return [
+            'modProtest.needsEvidence' => 'boolean',
+            'modProtest.needsConfirmation' => 'boolean',
+            'modProtest.completed' => 'boolean',
+            'modProtest.completed_at' => 'nullable|date',
+            'needsEvidence' => 'boolean',
+            'needsConfirmation' => 'boolean',
+        ];
+    }
+
 
 
     public function mount()
@@ -173,6 +185,82 @@ class ControlMedProtest extends Component
     }
 
 
+    public function removeTempUserAssignment($userId)
+    {
+        $this->usersTemporarilyAssigned = collect($this->usersTemporarilyAssigned)
+            ->reject(function ($user) use ($userId) {
+                return $user['id'] === $userId;
+            })->values()->all();
+    }
+
+
+    public function removeUserAssignment($userId)
+    {
+        $userAssignment = UserAssignment::where('assignable_id', $this->modProtest->id)
+            ->where('assignable_type', MedProtest::class)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($userAssignment) {
+            $userAssignment->delete();
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Usuário removido com sucesso!',
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'danger',
+                'menssage' => 'Usuário não encontrado para remoção.',
+            ]);
+        }
+    }
+
+
+    public function saveMeasures()
+    {
+        // if (empty($this->usersTemporarilyAssigned)) {
+        //     $this->dispatchBrowserEvent('torrada', [
+        //         'status'   => 'warning',
+        //         'menssage' => 'Nenhum usuário atribuído para salvar as medidas.',
+        //     ]);
+        //     return;
+        // }
+
+        // $this->modProtest->needsEvidence = $this->needsEvidence;
+        // $this->modProtest->needsConfirmation = $this->needsConfirmation;
+        $this->modProtest->save();
+
+        $this->modProtest->Assignments()->updateOrCreate(
+            [
+                 'user_id' => auth()->id(),
+                 'assignable_id' => $this->modProtest->id,
+                 'assignable_type' => MedProtest::class,
+             ],
+            [
+                 'responsible' => true,
+             ]
+        );
+
+        foreach ($this->usersTemporarilyAssigned as $user) {
+            $this->modProtest->Assignments()->updateOrCreate(
+                [
+                    'user_id' => $user['id'],
+                    'assignable_id' => $this->modProtest->id,
+                    'assignable_type' => MedProtest::class,
+                ],
+                [
+                    'monitoring' => $user['isEngineer'],
+                ]
+            );
+        }
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => 'Medidas salvas com sucesso!',
+        ]);
+
+        $this->cancelChanges();
+    }
 
 
     public function openModProtestControl(MedProtest $modProtest)
@@ -189,6 +277,26 @@ class ControlMedProtest extends Component
             ]);
         }
     }
+
+    public function cancelChanges()
+    {
+        $this->modProtest = null;
+        $this->notePage = 0;
+        $this->needsEvidence = 0;
+        $this->needsConfirmation = 0;
+        $this->serviceId = null;
+        $this->selectedUser = null;
+        $this->userList = [];
+        $this->isEngineer = false;
+
+        $this->responsible = null;
+        $this->monitoring = null;
+
+        $this->usersTemporarilyAssigned = [];
+
+        $this->dispatchBrowserEvent('hideModal');
+    }
+
 
     public function render()
     {

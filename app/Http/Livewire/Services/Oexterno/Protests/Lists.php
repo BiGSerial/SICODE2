@@ -77,7 +77,11 @@ class Lists extends Component
 
         $query = Protest::query()
             ->whereHas('medProtests', function ($query) {
-                $query->where('statusSist', 'MEDA');
+                $query->where('statusSist', 'MEDA')
+                        ->orWhere(function ($query) {
+                            $query->where('needsConfirmation', true)
+                                ->where('completed', false);
+                        });
             })
 
             ->when($this->search, function ($query) {

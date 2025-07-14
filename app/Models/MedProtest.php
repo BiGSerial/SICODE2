@@ -30,6 +30,9 @@ class MedProtest extends Model
         'dtFimMedidaDesej' => 'date',
         'dtFimMedida' => 'date',
         'completed_at' => 'datetime',
+        'completed' => 'boolean',
+        'needsEvidence' => 'boolean',
+        'needsConfirmation' => 'boolean',
     ];
 
     public function Notes()

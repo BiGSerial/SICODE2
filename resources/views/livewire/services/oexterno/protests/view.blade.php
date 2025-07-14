@@ -228,13 +228,14 @@
                     <thead class="text-center align-middle">
                         <tr>
                             <th>#</th>
+                            <th></th>
                             <th>Status</th>
                             <th>Descrição</th>
                             <th>Data Criação</th>
                             <th>Data Fim Desejada</th>
                             <th>Data Fim</th>
                             <th>Acompanhado Por</th>
-                            <th>Serviço</th>
+
                             <th>Responsável</th>
                             <th>Situação</th>
                             <th></th>
@@ -242,43 +243,52 @@
                     </thead>
                     <tbody>
                         @forelse ($protest->medProtests?->sortByDesc('dtCriacaoMedida') as $medProtest)
+                            @php
+                                $color =
+                                    $medProtest->needsConfirmation && !$medProtest->completed ? 'table-warning' : '';
+                            @endphp
                             <tr class="text-center align-middle">
-                                <td class="fw-bold">
+                                <td class="fw-bold {{ $color }}">
                                     {{ $medProtest->med_id }}
                                 </td>
-                                <td>
+                                <td class="fw-bold {{ $color }}">
+                                    @if ($medProtest->needsConfirmation)
+                                        <i class="ri-eye-line fs-5 align-middle text-primary" data-bs-toggle="tooltip"
+                                            data-bs-placement="top" title="Em acompanhamento"></i>
+                                    @endif
+                                </td>
+                                <td class="{{ $color }}">
+                                    {{-- Verifica o status da medida --}}
                                     @if ($medProtest->statusSist === 'MEDA')
                                         <span class="badge text-bg-success">ABERTO</span>
                                     @else
                                         <span class="badge text-bg-secondary">FECHADO</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td class="{{ $color }}">
                                     {{ $medProtest->txtCodMedida }}
                                 </td>
                                 <td class="text-bg-secondary">
                                     {{ $medProtest->dtCriacaoMedida?->format('d/m/Y') }}
                                 </td>
-                                <td>
+                                <td class="{{ $color }}">
                                     {{ $medProtest->dtFimMedidaDesej?->format('d/m/Y') }}
                                 </td>
                                 <td class="text-bg-secondary">
                                     {{-- Use null-safe operator to avoid errors if dtFimMedida is null --}}
                                     {{ $medProtest->dtFimMedida?->format('d/m/Y') }}
                                 </td>
-                                <td class="">
-                                    ----
+                                <td class="{{ $color }}">
+                                    {{ $medProtest->Assignments?->where('responsible', true)->last()?->user?->name ?? 'N/A' }}
                                 </td>
-                                <td class="">
-                                    ----
+                                <td class="{{ $color }}">
+                                    {{ $medProtest->Assignments?->where('responsible', false)->where('monitoring', false)->last()?->user?->name ?? 'N/A' }}
                                 </td>
-                                <td class="">
-                                    ----
+                                <td class="{{ $color }}">
+                                    {{ $medProtest->Assignments?->where('responsible', false)->where('monitoring', false)->last() ? ($medProtest->completed ? 'Concluída' : 'Pendente') : 'N/A' }}
                                 </td>
-                                <td class="">
-                                    ----
-                                </td>
-                                <td>
+
+                                <td class="{{ $color }}">
                                     @if ($medProtest->statusSist === 'MEDA')
                                         <i class="ri-play-circle-fill fs-5 align-middle text-success"
                                             style="cursor: pointer;"
