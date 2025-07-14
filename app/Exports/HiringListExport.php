@@ -94,7 +94,7 @@ class HiringListExport implements FromQuery, WithEvents, WithProperties, WithHea
         return [
             $row->ordem,
             $row->note->note,
-            $row->note->pep,
+            $row->pep,
             $row->note->rubrica,
             $row->note->material,
             $row->note->lexp,
