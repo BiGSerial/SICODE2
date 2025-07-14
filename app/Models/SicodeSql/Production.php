@@ -50,6 +50,7 @@ class Production extends Model
         'noinconsistency',
         'completed_at',
         'confirmed_at',
+        'ma',
     ];
 
     public function Productions()

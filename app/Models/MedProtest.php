@@ -40,6 +40,7 @@ class MedProtest extends Model
         return $this->morphToMany(
             Note::class,
             'noteable',
+            'noteables'
         );
     }
 
