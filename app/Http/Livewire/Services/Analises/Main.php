@@ -236,9 +236,7 @@ class Main extends Component
             });
         }
 
-        if ($this->assigned_mmgd) {
-            $query->where('material', 'like', '%MMGD%');
-        }
+        $query->whereNotIn('num_material', [21, 78, 79]);
 
         $query->with('Productions.User')
             ->orderBy('days_left', 'ASC');
