@@ -1,6 +1,11 @@
 {
-    "appver": "1.21.0",
+    "appver": "1.21.1",
     "historic": [
+        {
+            "version": "1.21.1",
+            "description": "Fix SQL Log Production, Filter on Analise User List",
+            "date": "2025-07-16"
+        },
         {
             "version": "1.21.0",
             "description": "Insert Art90 Notes sign.",
