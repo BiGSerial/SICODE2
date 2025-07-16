@@ -1,0 +1,281 @@
+<div>
+    <div>
+
+        {{-- Carrega o Loading da página --}}
+        <x-show-loading />
+
+
+
+        <div class="card mb-0 shadow rounded-bottom-0" style='z-index: 1;'>
+            <div
+                class="card-header  {{ $medProtest->protest?->tipoNota == 'NA' ? 'text-bg-primary' : 'text-bg-danger' }} py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">RECLAMAÇÃO <span class="fw-bold">{{ $medProtest->protest->nota }}</span> - Medida
+                        Número: #<span class="fw-bold">{{ $medProtest->med_id }}</span></h5>
+                    <span
+                        class="badge bg-light {{ $medProtest->protest?->tipoNota == 'NA' ? 'text-primary' : 'text-danger' }}">{{ $medProtest->protest->tipoNota }}</span>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="row g-3 mb-3" style="min-height: 200px;">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 border-secondary">
+                            <h6 class="text-muted mb-2 text-primary">INFORMAÇÕES BÁSICAS</h6>
+                            <p class="mb-1"><strong>Campo 1:</strong> Valor 1</p>
+                            <p class="mb-1"><strong>Campo 2:</strong> Valor 2</p>
+                            <p class="mb-1"><strong>Campo 3:</strong> Valor 3</p>
+                            <p class="mb-1"><strong>Campo 4:</strong> Valor 4</p>
+                            <p class="mb-1"><strong>Campo 5:</strong> Valor 5</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 border-secondary">
+                            <h6 class="text-muted mb-2 text-primary">DATAS:</h6>
+                            <p class="mb-1"><strong>Data 1:</strong> 01/01/2024</p>
+                            <p class="mb-1"><strong>Data 2:</strong> 31/12/2024</p>
+                            <p class="mb-1"><strong>Status:</strong>
+                                <span class="badge bg-success">Ativo</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 border-secondary">
+                            <h6 class="text-muted mb-2 text-primary">STATUS</h6>
+                            <p class="mb-1">
+                                <strong>Total Items:</strong>
+                                <span class="badge bg-secondary">5</span>
+                            </p>
+                            <p class="mb-1">
+                                <strong>Última Atualização:</strong>
+                                <span class="badge bg-info">Hoje</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="border rounded p-3 border-secondary">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="text-muted mb-2 text-primary">ITENS ASSOCIADOS:</h6>
+                                <button class="btn btn-sm btn-primary" title="Adicionar Item" data-bs-toggle="tooltip">
+                                    <i class="ri-add-box-fill fs-6 align-middle text-center"></i>
+                                </button>
+                            </div>
+                            <table class="table table-condensed table-striped table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Nome</th>
+                                        <th>Categoria</th>
+                                        <th>Local</th>
+                                        <th>Descrição</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>001</td>
+                                        <td>Item 1</td>
+                                        <td>Categoria A</td>
+                                        <td>Local 1</td>
+                                        <td>Descrição do item</td>
+                                        <td>Ativo</td>
+                                        <td>
+                                            <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
+                                                style="cursor: pointer;" title="Remover Item"
+                                                data-bs-toggle="tooltip"></i>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>002</td>
+                                        <td>Item 2</td>
+                                        <td>Categoria B</td>
+                                        <td>Local 2</td>
+                                        <td>Descrição do item</td>
+                                        <td>Inativo</td>
+                                        <td>
+                                            <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
+                                                style="cursor: pointer;" title="Remover Item"
+                                                data-bs-toggle="tooltip"></i>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <textarea class="form-control border-secondary" placeholder="Deixe um comentário" id="floatingTextarea"
+                                style="height: 150px"></textarea>
+                            <label for="floatingTextarea">ADICIONAR COMENTÁRIOS</label>
+                        </div>
+                        <div class="mt-2 text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ri-send-plane-fill me-1"></i> Enviar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-8 h-100" style='min-height: 150px;'>
+                        <div class="border rounded p-3 border-secondary h-100" style='min-height: 150px;'>
+                            <h6 class="mb-0 text-dark">
+                                <i class="bi bi-chat-dots me-2"></i>COMENTÁRIOS:
+                                <span class="badge bg-secondary ms-2 align-middle">2</span>
+                            </h6>
+                            <div class="card my-2">
+                                <div class="card-body"
+                                    style="max-height: 300px; overflow-y: auto; scrollbar-width: thin;">
+                                    <div class="comment-container">
+                                        <div class="comment-item py-2 border-bottom border-secondary">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="d-flex gap-2">
+                                                    <div class="comment-avatar">
+                                                        <i class="ri-user-line fs-4 text-primary align-middle"></i>
+                                                    </div>
+                                                    <div class="comment-content">
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-center w-100">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                                    style="cursor:pointer"></i>
+                                                                <span class="fw-bold text-primary">Usuário 1</span>
+                                                                <small class="text-muted">
+                                                                    <i class="ri-time-line align-middle"></i>
+                                                                    há 2 horas
+                                                                </small>
+                                                            </div>
+                                                            <i class="ri-delete-bin-fill text-danger"
+                                                                style="cursor: pointer;" title="Excluir comentário"></i>
+                                                        </div>
+                                                        <p class="mb-0 text-secondary mt-1">
+                                                            Este é um comentário de exemplo.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="comment-item py-2">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="d-flex gap-2">
+                                                    <div class="comment-avatar">
+                                                        <i class="ri-user-line fs-4 text-primary align-middle"></i>
+                                                    </div>
+                                                    <div class="comment-content">
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-center w-100">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                                    style="cursor:pointer"></i>
+                                                                <span class="fw-bold">Usuário 2</span>
+                                                                <small class="text-muted">
+                                                                    <i class="ri-time-line align-middle"></i>
+                                                                    há 1 dia
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                        <p class="mb-0 text-secondary mt-1">
+                                                            Outro comentário de exemplo.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <style>
+                                        .comment-container::-webkit-scrollbar {
+                                            width: 5px;
+                                        }
+
+                                        .comment-container::-webkit-scrollbar-track {
+                                            background: #f1f1f1;
+                                        }
+
+                                        .comment-container::-webkit-scrollbar-thumb {
+                                            background: #888;
+                                            border-radius: 5px;
+                                        }
+                                    </style>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
+            <div class="card-body">
+                <div class="border rounded py-3 border-secondary">
+                    <h6 class="text-muted mb-2 ms-2 text-primary">LISTA DE ITENS:</h6>
+                    <table class="table table-condensed table-striped table-sm table-hover ">
+                        <thead class="text-center align-middle">
+                            <tr>
+                                <th>#</th>
+                                <th></th>
+                                <th>Status</th>
+                                <th>Descrição</th>
+                                <th>Data Criação</th>
+                                <th>Data Prazo</th>
+                                <th>Data Conclusão</th>
+                                <th>Responsável</th>
+                                <th>Executor</th>
+                                <th>Situação</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="text-center align-middle table-warning">
+                                <td class="fw-bold">001</td>
+                                <td class="fw-bold">
+                                    <i class="ri-eye-line fs-5 align-middle text-primary" data-bs-toggle="tooltip"
+                                        data-bs-placement="top" title="Em acompanhamento"></i>
+                                </td>
+                                <td>
+                                    <span class="badge text-bg-success">ABERTO</span>
+                                </td>
+                                <td>Descrição do item 1</td>
+                                <td class="text-bg-secondary">01/01/2024</td>
+                                <td>31/01/2024</td>
+                                <td class="text-bg-secondary">-</td>
+                                <td>Responsável 1</td>
+                                <td>Executor 1</td>
+                                <td>Pendente</td>
+                                <td>
+                                    <i class="ri-play-circle-fill fs-5 align-middle text-success"
+                                        style="cursor: pointer;"></i>
+                                </td>
+                            </tr>
+                            <tr class="text-center align-middle">
+                                <td class="fw-bold">002</td>
+                                <td class="fw-bold"></td>
+                                <td>
+                                    <span class="badge text-bg-secondary">FECHADO</span>
+                                </td>
+                                <td>Descrição do item 2</td>
+                                <td class="text-bg-secondary">15/01/2024</td>
+                                <td>28/01/2024</td>
+                                <td class="text-bg-secondary">25/01/2024</td>
+                                <td>Responsável 2</td>
+                                <td>Executor 2</td>
+                                <td>Concluída</td>
+                                <td>
+                                    <i class="ri-eye-fill fs-5 align-middle text-primary"
+                                        style="cursor: pointer;"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {{-- Componentes Livewire podem ser adicionados aqui --}}
+
+    </div>
+
+</div>

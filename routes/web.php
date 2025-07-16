@@ -1,7 +1,8 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
+use App\Models\Protest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\{Auth, Route};
 
@@ -233,6 +234,16 @@ Route::prefix('/system')->controller(SystemController::class)->name('system.')->
     Route::get('/commands/status/{pid}', 'checkStatus')->name('artisan.status');
 
 });
+
+
+Route::prefix('/protests')->controller(ProtestController::class)->name('protests.')->middleware('auth')->group(function () {
+    Route::get('/', 'main')->name('main');
+    Route::get('/view/{medProtestId}', 'view')->name('view');
+});
+
+
+
+
 
 Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middleware('auth')->group(function () {
     Route::get('/chkList_FTVEO/{id?}', 'checkList')->name('checklist');

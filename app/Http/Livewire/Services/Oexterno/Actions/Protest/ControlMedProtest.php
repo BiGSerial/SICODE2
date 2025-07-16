@@ -29,10 +29,12 @@ class ControlMedProtest extends Component
     public $serviceList = [];
 
     public $usersTemporarilyAssigned = [];
+    public $userAssignment;
 
     protected $listeners = [
         'openModProtestControl',
         'refreshComponent' => '$refresh',
+        'removeUserAssigment152030' => 'confirmRemoveUserAssignment',
     ];
 
     public function updatedServiceId($value)
@@ -194,23 +196,53 @@ class ControlMedProtest extends Component
     }
 
 
-    public function removeUserAssignment($userId)
+    public function removeUserAssignment(UserAssignment $userAssignment)
     {
-        $userAssignment = UserAssignment::where('assignable_id', $this->modProtest->id)
-            ->where('assignable_type', MedProtest::class)
-            ->where('user_id', $userId)
-            ->first();
+
 
         if ($userAssignment) {
-            $userAssignment->delete();
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Usuário removido com sucesso!',
+
+            $this->userAssignment = $userAssignment;
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Remover Usuario?',
+                'msg'   => "
+                    Você deseja remover o usuário <strong>{$userAssignment->user->name}</strong> da atribuição?</br></br>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Remover!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'removeUserAssigment152030',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhum comentário Removido.',
+
             ]);
+
+
         } else {
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'danger',
                 'menssage' => 'Usuário não encontrado para remoção.',
+            ]);
+        }
+    }
+
+    public function confirmRemoveUserAssignment()
+    {
+        if ($this->userAssignment) {
+            $this->userAssignment->delete();
+            $this->userAssignment = null;
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Usuário removido com sucesso!',
+            ]);
+
+            $this->emit('refreshComponent');
+        } else {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'danger',
+                'menssage' => 'Nenhum usuário selecionado para remoção.',
             ]);
         }
     }
@@ -294,6 +326,7 @@ class ControlMedProtest extends Component
 
         $this->usersTemporarilyAssigned = [];
 
+        $this->emitUp('refreshComponent');
         $this->dispatchBrowserEvent('hideModal');
     }
 
