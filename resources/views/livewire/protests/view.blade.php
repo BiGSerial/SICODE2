@@ -22,35 +22,48 @@
                     <div class="col-md-4">
                         <div class="border rounded p-3 h-100 border-secondary">
                             <h6 class="text-muted mb-2 text-primary">INFORMAÇÕES BÁSICAS</h6>
-                            <p class="mb-1"><strong>Campo 1:</strong> Valor 1</p>
-                            <p class="mb-1"><strong>Campo 2:</strong> Valor 2</p>
-                            <p class="mb-1"><strong>Campo 3:</strong> Valor 3</p>
-                            <p class="mb-1"><strong>Campo 4:</strong> Valor 4</p>
-                            <p class="mb-1"><strong>Campo 5:</strong> Valor 5</p>
+                            <p class="mb-1"><strong>Grupo Codificação:</strong>
+                                {{ $medProtest->protest?->txtGrpCodificacao }}
+                            </p>
+                            <p class="mb-1"><strong>Centro Plan:</strong>
+                                {{ $medProtest->protest?->cenPlan }}</p>
+                            <p class="mb-1"><strong>Status Usuario:</strong> {{ $medProtest->protest?->statUsuar }}
+                            </p>
+                            <p class="mb-1"><strong>Causa:</strong> {{ $medProtest->protest?->descCausa }}</p>
+                            <p class="mb-1"><strong>Sub Causa:</strong> {{ $medProtest->protest?->descSubCausa }}</p>
+                            <p class="mb-1"><strong>Anexar Evidência Obrigatória?:</strong>
+                                {{ $medProtest->needsEvidence ? 'SIM' : 'NÃO' }}</p>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="border rounded p-3 h-100 border-secondary">
-                            <h6 class="text-muted mb-2 text-primary">DATAS:</h6>
-                            <p class="mb-1"><strong>Data 1:</strong> 01/01/2024</p>
-                            <p class="mb-1"><strong>Data 2:</strong> 31/12/2024</p>
-                            <p class="mb-1"><strong>Status:</strong>
-                                <span class="badge bg-success">Ativo</span>
+                            <h6 class="text-muted mb-2 text-primary">DATAS RECLAMAÇÃO:</h6>
+                            <p class="mb-1"><strong>Data Abertura:</strong>
+                                {{ $medProtest->protest?->dtAberturaNota->format('d/m/Y') }}</p>
+                            <p class="mb-1"><strong>Data Conclusão Desejada:</strong>
+                                {{ $medProtest->protest?->dtConclusaoDesej->format('d/m/Y') }}</p>
+                            <p class="mb-1"><strong>Previsão Conclusão Desejado:</strong>
+                                {!! $medProtest->protest?->dtConclusaoDesej < now()
+                                    ? '<span class="badge text-bg-danger">VENCIDO</span>'
+                                    : '<span class="badge text-bg-success">NO PRAZO</span>' !!}
                             </p>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="border rounded p-3 h-100 border-secondary">
-                            <h6 class="text-muted mb-2 text-primary">STATUS</h6>
-                            <p class="mb-1">
-                                <strong>Total Items:</strong>
-                                <span class="badge bg-secondary">5</span>
-                            </p>
-                            <p class="mb-1">
-                                <strong>Última Atualização:</strong>
-                                <span class="badge bg-info">Hoje</span>
+                            <h6 class="text-muted mb-2 text-primary">DATAS DESTA MEDIDA:</h6>
+                            <p class="mb-1"><strong>Data Abertura:</strong>
+                                {{ $medProtest->dtCriacaoMedida?->format('d/m/Y') }}</p>
+                            <p class="mb-1"><strong>Data Conclusão Desejada:</strong>
+                                {{ $medProtest->dtFimMedidaDesej?->format('d/m/Y') }}</p>
+                            <p class="mb-1"><strong>Previsão Conclusão Desejado:</strong>
+                                {!! $medProtest->dtFimMedidaDesej && $medProtest->dtFimMedidaDesej < now()
+                                    ? '<span class="badge text-bg-danger">VENCIDO</span>'
+                                    : ($medProtest->dtFimMedidaDesej
+                                        ? '<span class="badge text-bg-success">NO PRAZO</span>'
+                                        : '<span class="badge text-bg-secondary">NÃO ESPECIFICADO</span>') !!}
                             </p>
                         </div>
                     </div>
@@ -125,41 +138,53 @@
                         <div class="border rounded p-3 border-secondary h-100" style='min-height: 150px;'>
                             <h6 class="mb-0 text-dark">
                                 <i class="bi bi-chat-dots me-2"></i>COMENTÁRIOS:
-                                <span class="badge bg-secondary ms-2 align-middle">2</span>
+                                <span
+                                    class="badge bg-secondary ms-2 align-middle">{{ $medProtest->comments?->count() }}</span>
                             </h6>
                             <div class="card my-2">
                                 <div class="card-body"
                                     style="max-height: 300px; overflow-y: auto; scrollbar-width: thin;">
                                     <div class="comment-container">
-                                        <div class="comment-item py-2 border-bottom border-secondary">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div class="d-flex gap-2">
-                                                    <div class="comment-avatar">
-                                                        <i class="ri-user-line fs-4 text-primary align-middle"></i>
-                                                    </div>
-                                                    <div class="comment-content">
-                                                        <div
-                                                            class="d-flex justify-content-between align-items-center w-100">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
-                                                                    style="cursor:pointer"></i>
-                                                                <span class="fw-bold text-primary">Usuário 1</span>
-                                                                <small class="text-muted">
-                                                                    <i class="ri-time-line align-middle"></i>
-                                                                    há 2 horas
-                                                                </small>
+                                        @if ($medProtest->comments->isNotEmpty())
+                                            @foreach ($medProtest->comments as $comment)
+                                                <div class="comment-item py-2 border-bottom border-secondary">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div class="d-flex gap-2">
+                                                            <div class="comment-avatar">
+                                                                <i
+                                                                    class="ri-user-line fs-4 text-primary align-middle"></i>
                                                             </div>
-                                                            <i class="ri-delete-bin-fill text-danger"
-                                                                style="cursor: pointer;" title="Excluir comentário"></i>
+                                                            <div class="comment-content">
+                                                                <div
+                                                                    class="d-flex justify-content-between align-items-center w-100">
+                                                                    <div class="d-flex align-items-center gap-2">
+                                                                        <i class="bx bxl-microsoft-teams text-primary fs-4 align-middle"
+                                                                            style="cursor:pointer"></i>
+                                                                        <span
+                                                                            class="fw-bold text-primary">{{ $comment->user->name }}</span>
+                                                                        <small class="text-muted">
+                                                                            <i class="ri-time-line align-middle"></i>
+                                                                            {{ $comment->created_at->diffForHumans() }}
+                                                                        </small>
+                                                                    </div>
+                                                                    @if ($comment->user_id == auth()->id() && $comment->created_at->diffInMinutes() < 5 && $loop->last)
+                                                                        <i class="ri-delete-bin-fill text-danger"
+                                                                            style="cursor: pointer;"
+                                                                            title="Excluir comentário"></i>
+                                                                    @endif
+
+                                                                </div>
+                                                                <p class="mb-0 text-secondary mt-1">
+                                                                    {!! $comment->message !!}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <p class="mb-0 text-secondary mt-1">
-                                                            Este é um comentário de exemplo.
-                                                        </p>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                        <div class="comment-item py-2">
+                                            @endforeach
+
+                                        @endif
+                                        {{-- <div class="comment-item py-2">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div class="d-flex gap-2">
                                                     <div class="comment-avatar">
@@ -184,7 +209,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </div> --}}
                                     </div>
 
                                     <style>

@@ -11,6 +11,7 @@ class Main extends Component
     {
         return MedProtest::WhereHas('Assignments', function ($q) {
             $q->where('user_id', auth()->id())
+            //   ->where('responsible', false)
               ->where('completed', false)
               ->where('transfered', false);
         })->with('Protest', 'Assignments.user', 'Comments.user', 'Notes')->get();

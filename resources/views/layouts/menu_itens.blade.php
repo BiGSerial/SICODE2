@@ -59,6 +59,19 @@
     </li>
 @endcan
 
+<li class="nav-item dropdown mx-2">
+    <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+        data-bs-toggle="dropdown" aria-expanded="false">
+        RECLAMAÇÕES
+    </a>
+    <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
+        style="background-color: #dbd8d8">
+        <li><a class="dropdown-item" href="{{ route('protests.main') }}"><i
+                    class="ri-account-pin-box-fill align-middle text-primary"></i>RECLAMAÇÕES</a>
+        </li>
+
+    </ul>
+</li>
 
 @can('management')
     <li class="nav-item dropdown mx-2">
