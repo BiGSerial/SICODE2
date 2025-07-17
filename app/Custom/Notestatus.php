@@ -208,10 +208,10 @@ class Notestatus
             ],
             // 28
             [
-                'status'  => 'Publicado',
+                'status'  => 'Pub Parcial',
                 'icon'    => 'ri-map-pin-time-line',
-                'colorbg' => 'text-bg-success',
-                'color'   => 'success',
+                'colorbg' => 'text-bg-warning',
+                'color'   => 'warning',
             ],
             // 29
             [

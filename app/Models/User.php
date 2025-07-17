@@ -99,6 +99,11 @@ class User extends Authenticatable
         return $this->hasOne(D5Return::class);
     }
 
+    public function Files()
+    {
+        return $this->hasMany(File::class);
+    }
+
     public function ToServices()
     {
         return $this->hasMany(ServiceUser::class);

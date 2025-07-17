@@ -3,7 +3,9 @@
 namespace App\Http\Livewire\Files\Manager;
 
 use App\Exports\Files\FilesList;
+use App\Models\Company;
 use App\Models\File;
+use App\Models\Note;
 use App\Models\Service;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -19,6 +21,11 @@ class Filesmanager extends Component
     public $services;
     public $service;
     public $noFile = false;
+    public $companies;
+    public $companySelected;
+    public $rubrics;
+    public $rubricSelected;
+    public $selectedFiles = [];
 
     protected $paginationTheme = 'bootstrap';
 
@@ -35,6 +42,18 @@ class Filesmanager extends Component
     public function mount()
     {
         $this->services = Service::whereIn('uuid', File::pluck('service_id')->unique())->get();
+
+    }
+
+
+    public function selectAll()
+    {
+        $this->selectedFiles = $this->lists->pluck('id')->toArray();
+    }
+
+    public function deselectAll()
+    {
+        $this->selectedFiles = [];
     }
 
     public function updatingSearch()
@@ -46,6 +65,21 @@ class Filesmanager extends Component
     {
         return (new FilesList($this->lists->get()))->download(date('YmdHis-') . 'exportFilesList.xlsx');
     }
+
+    public function formatFileSize(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $unitIndex = 0;
+
+        while ($bytes >= 1024 && $unitIndex < count($units) - 1) {
+            $bytes /= 1024;
+            $unitIndex++;
+        }
+
+        return number_format($bytes, 2, ',', '.') . ' ' . $units[$unitIndex];
+    }
+
+
 
 
     public function checkFilesExists()
@@ -106,6 +140,98 @@ class Filesmanager extends Component
     }
 
 
+    public function downloadZip()
+    {
+        if (empty($this->selectedFiles)) {
+            $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Nenhum arquivo selecionado!',
+            'timer'    => 3000,
+            ]);
+            return;
+        }
+
+        $files = File::whereIn('id', $this->selectedFiles)->get();
+
+        if ($files->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'Arquivos não encontrados!',
+            'timer'    => 3000,
+            ]);
+            return;
+        }
+
+        $zip = new \ZipArchive();
+        $zipFileName = 'arquivos_' . date('YmdHis') . '.zip';
+        $zipPath = storage_path('app/temp/' . $zipFileName);
+
+        // Criar diretório temp se não existir
+        if (!file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE) === true) {
+            $addedFiles = 0;
+
+            foreach ($files as $file) {
+                // Verificar se o arquivo existe no storage e localmente
+                if (Storage::exists($file->path)) {
+                    $fullPath = storage_path('app/' . $file->path);
+
+                    // Verificar se o arquivo físico existe no sistema de arquivos
+                    if (file_exists($fullPath) && is_readable($fullPath)) {
+                        $fileName = $file->file_name;
+                        // Adicionar extensão se não estiver presente
+                        if ($file->ext && !str_ends_with($fileName, '.' . $file->ext)) {
+                            $fileName .= '.' . $file->ext;
+                        }
+                        $zip->addFile($fullPath, $fileName);
+                        $addedFiles++;
+                    }
+                }
+            }
+
+            $zip->close();
+
+            if ($addedFiles > 0) {
+                // Verificar se o ZIP foi criado com sucesso antes de fazer download
+                if (file_exists($zipPath)) {
+                    return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+                } else {
+                    $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'Erro ao gerar arquivo ZIP!',
+                    'timer'    => 3000,
+                    ]);
+                }
+            } else {
+                // Verificar se o arquivo ZIP existe antes de tentar removê-lo
+                if (file_exists($zipPath)) {
+                    unlink($zipPath);
+                }
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'Nenhum arquivo válido encontrado!',
+                    'timer'    => 3000,
+                ]);
+            }
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'Erro ao criar arquivo ZIP!',
+            'timer'    => 3000,
+            ]);
+        }
+    }
+
+
+
     public function getListsProperty()
     {
         return File::when($this->noFile, function ($q) {
@@ -120,11 +246,30 @@ class Filesmanager extends Component
         ->when($this->service, function ($q) {
             $q->where('service_id', $this->service);
         })
+        ->when($this->companySelected, function ($q) {
+            $q->whereHas('User', function ($sq) {
+                $sq->where('company_id', $this->companySelected);
+            });
+        })
+         ->when($this->rubricSelected, function ($q) {
+             $q->whereHas('Note', function ($sq) {
+                 $sq->where('rubrica', $this->rubricSelected);
+             });
+         })
         ->orderBy('file_name');
     }
 
+
+
+
     public function render()
     {
+        $this->companies = Company::whereHas('Users.Files')->orderBy('name')->get();
+        $this->rubrics = Note::select('rubrica')->whereNotNull('rubrica')
+            ->distinct()
+            ->orderBy('rubrica')
+            ->get();
+
         return view('livewire.files.manager.filesmanager', [
             'lists' => $this->lists->paginate($this->perPage),
         ]);

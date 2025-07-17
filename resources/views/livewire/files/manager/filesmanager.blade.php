@@ -6,7 +6,7 @@
     <!-- Formulário de Busca e Seleção de Quantidade por Página -->
     <div class="row mb-3">
 
-        <div class="col-md-3">
+        <div class="col-md-1">
             <select class="form-select" wire:model="perPage">
                 <option value="5">5 por página</option>
                 <option value="10">10 por página</option>
@@ -29,6 +29,27 @@
             </select>
         </div>
 
+        <div class="col-md-2">
+            <select class="form-select" wire:model="companySelected">
+                <option value="">Todos</option>
+                @if ($companies->count())
+                    @foreach ($companies as $company)
+                        <option value="{{ $company->id }}">{{ $company->name }}</option>
+                    @endforeach
+                @endif
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <select class="form-select" wire:model="rubricSelected">
+                <option value="">Todos</option>
+                @if ($rubrics->count())
+                    @foreach ($rubrics as $rubric)
+                        <option value="{{ $rubric['rubrica'] }}">{{ $rubric['rubrica'] }}</option>
+                    @endforeach
+                @endif
+            </select>
+        </div>
         <div class="col-md-4">
             <input type="text" class="form-control" placeholder="Buscar por nome do arquivo ou Nota"
                 wire:model.debounce.300ms="search">
@@ -57,6 +78,12 @@
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" wire:loading
                 wire:target="checkFilesExists"></span>
             Check</button>
+        <button class="btn btn-success ms-2" wire:click.prevent="downloadZip" wire:loading.attr="disabled"
+            wire:target="downloadZip">
+            <i class="ri-download-2-line align-middle" wire:loading.remove wire:target="downloadZip"></i>
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" wire:loading
+                wire:target="downloadZip"></span>
+            Download Selecionados</button>
     </div>
 
     <!-- Renderização dos links de paginação -->
@@ -83,36 +110,23 @@
             <table class="table table-sm table-condensed table-hover">
                 <thead>
                     <tr class="table-dark">
-                        <th class="text-center"></th>
+                        <th class="text-center">
+                            <input type="checkbox" class="form-check-input" wire:click="selectAll">
+                        </th>
                         <th class="text-center">Nota</th>
                         <th class="text-center">Nome</th>
                         <th class="text-center">Ext</th>
                         <th class="text-center">Tam</th>
                         <th class="text-center">Serviço</th>
                         <th class="text-center">Usuário</th>
+                        <th class="text-center">Empresa</th>
                         <th class="text-center">Data Criação</th>
                         <th class="text-center"></th>
                     </tr>
                 </thead>
                 <tbody>
                     @if ($lists->count())
-                        @php
 
-                            // Funções
-                            function formatFileSize($size)
-                            {
-                                $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-                                $unitIndex = 0;
-
-                                while ($size >= 1024 && $unitIndex < count($units) - 1) {
-                                    $size /= 1024;
-                                    $unitIndex++;
-                                }
-
-                                return number_format($size, 2) . ' ' . $units[$unitIndex];
-                            }
-
-                        @endphp
                         @foreach ($lists as $list)
                             @php
                                 $f_exists = Storage::exists($list->path);
@@ -123,13 +137,16 @@
                                 @if (!$f_exists) table-warning @endif
 
                             ">
-                                <td class="text-center align-middle"></td>
+                                <td class="text-center align-middle">
+                                    <input type="checkbox" class="form-check-input" wire:model.defer="selectedFiles"
+                                        value="{{ $list->id }}">
+                                </td>
                                 <td class="text-center align-middle">{{ $list->Note->note }}</td>
                                 <td class="text-center align-middle">{{ $list->file_name }}</td>
                                 <td class="text-center align-middle">{{ $list->ext }}</td>
                                 <td class="text-center align-middle">
                                     @if ($f_exists)
-                                        {{ formatFileSize(Storage::size($list->path)) }}
+                                        {{ $this->formatFileSize(Storage::size($list->path)) }}
                                     @else
                                         ---
                                     @endif
@@ -138,6 +155,7 @@
                                     {{ isset($list->Service->service) ? $list->Service->service : '---' }}
                                 </td>
                                 <td class="text-center align-middle">{{ $list->User->name }}</td>
+                                <td class="text-center align-middle">{{ $list->User->Company?->name }}</td>
                                 <td class="text-center align-middle">
                                     {{ date('d/m/Y H:i:s', strtotime($list->created_at)) }}
                                 </td>
