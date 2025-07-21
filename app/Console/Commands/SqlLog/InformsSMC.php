@@ -60,7 +60,7 @@ class InformsSMC extends Command
             foreach ($chunk as $ramal) {
                 $payload[] = [
                     'smc_id'      => $ramal->id,
-                    'note_id'     => $ramal->note_id,
+                    'note'     => $ramal->Note->note,
                     'company'  => $ramal->Company->name,
                     'user'     => $ramal->User->name,
                     'date'        => $ramal->date,
@@ -83,7 +83,7 @@ class InformsSMC extends Command
                     $batch,
                     ['smc_id'], // coluna única
                     [           // colunas a atualizar em caso de conflito
-                        'note_id', 'company', 'user', 'date', 'equipment',
+                        'note', 'company', 'user', 'date', 'equipment',
                         'connection', 'observation', 'retry', 'created_in',
                         'updated_in', 'rejected', 'rejected_at', 'informed_at',
                         'updated_at'
