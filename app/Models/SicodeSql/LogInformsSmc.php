@@ -23,7 +23,7 @@ class LogInformsSmc extends Model
 
     protected $fillable = [
         'smc_id',
-        'note_id',
+        'note',
         'company',
         'user',
         'date',
