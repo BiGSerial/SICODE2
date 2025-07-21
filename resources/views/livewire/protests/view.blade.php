@@ -236,68 +236,88 @@
                 </div>
             </div>
         </div>
-        <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
-            <div class="card-body">
-                <div class="border rounded py-3 border-secondary">
-                    <h6 class="text-muted mb-2 ms-2 text-primary">LISTA DE ITENS:</h6>
-                    <table class="table table-condensed table-striped table-sm table-hover ">
-                        <thead class="text-center align-middle">
-                            <tr>
-                                <th>#</th>
-                                <th></th>
-                                <th>Status</th>
-                                <th>Descrição</th>
-                                <th>Data Criação</th>
-                                <th>Data Prazo</th>
-                                <th>Data Conclusão</th>
-                                <th>Responsável</th>
-                                <th>Executor</th>
-                                <th>Situação</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="text-center align-middle table-warning">
-                                <td class="fw-bold">001</td>
-                                <td class="fw-bold">
-                                    <i class="ri-eye-line fs-5 align-middle text-primary" data-bs-toggle="tooltip"
-                                        data-bs-placement="top" title="Em acompanhamento"></i>
-                                </td>
-                                <td>
-                                    <span class="badge text-bg-success">ABERTO</span>
-                                </td>
-                                <td>Descrição do item 1</td>
-                                <td class="text-bg-secondary">01/01/2024</td>
-                                <td>31/01/2024</td>
-                                <td class="text-bg-secondary">-</td>
-                                <td>Responsável 1</td>
-                                <td>Executor 1</td>
-                                <td>Pendente</td>
-                                <td>
-                                    <i class="ri-play-circle-fill fs-5 align-middle text-success"
-                                        style="cursor: pointer;"></i>
-                                </td>
-                            </tr>
-                            <tr class="text-center align-middle">
-                                <td class="fw-bold">002</td>
-                                <td class="fw-bold"></td>
-                                <td>
-                                    <span class="badge text-bg-secondary">FECHADO</span>
-                                </td>
-                                <td>Descrição do item 2</td>
-                                <td class="text-bg-secondary">15/01/2024</td>
-                                <td>28/01/2024</td>
-                                <td class="text-bg-secondary">25/01/2024</td>
-                                <td>Responsável 2</td>
-                                <td>Executor 2</td>
-                                <td>Concluída</td>
-                                <td>
-                                    <i class="ri-eye-fill fs-5 align-middle text-primary"
-                                        style="cursor: pointer;"></i>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+        <div class="row g-1">
+            <div class="col-7">
+                <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
+                    <div class="card-body">
+                        <div class="border rounded py-3 border-secondary">
+                            <h6 class="text-muted mb-2 ms-2 text-primary">LISTA DE ITENS:</h6>
+                            <table class="table table-condensed table-striped table-sm table-hover ">
+                                <thead class="text-center align-middle">
+                                    <tr>
+                                        <th>#</th>
+                                        <th></th>
+                                        <th>Status</th>
+                                        <th>Descrição</th>
+                                        <th>Data Criação</th>
+                                        <th>Data Prazo</th>
+                                        <th>Data Conclusão</th>
+                                        <th>Responsável</th>
+                                        <th>Executor</th>
+                                        <th>Situação</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="text-center align-middle table-warning">
+                                        <td class="fw-bold">001</td>
+                                        <td class="fw-bold">
+                                            <i class="ri-eye-line fs-5 align-middle text-primary"
+                                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                                title="Em acompanhamento"></i>
+                                        </td>
+                                        <td>
+                                            <span class="badge text-bg-success">ABERTO</span>
+                                        </td>
+                                        <td>Descrição do item 1</td>
+                                        <td class="text-bg-secondary">01/01/2024</td>
+                                        <td>31/01/2024</td>
+                                        <td class="text-bg-secondary">-</td>
+                                        <td>Responsável 1</td>
+                                        <td>Executor 1</td>
+                                        <td>Pendente</td>
+                                        <td>
+                                            <i class="ri-play-circle-fill fs-5 align-middle text-success"
+                                                style="cursor: pointer;"></i>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-center align-middle">
+                                        <td class="fw-bold">002</td>
+                                        <td class="fw-bold"></td>
+                                        <td>
+                                            <span class="badge text-bg-secondary">FECHADO</span>
+                                        </td>
+                                        <td>Descrição do item 2</td>
+                                        <td class="text-bg-secondary">15/01/2024</td>
+                                        <td>28/01/2024</td>
+                                        <td class="text-bg-secondary">25/01/2024</td>
+                                        <td>Responsável 2</td>
+                                        <td>Executor 2</td>
+                                        <td>Concluída</td>
+                                        <td>
+                                            <i class="ri-eye-fill fs-5 align-middle text-primary"
+                                                style="cursor: pointer;"></i>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-5">
+                <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
+                    <div class="card-body">
+                        <div class="border rounded py-3 border-secondary">
+                            <h6 class="text-muted mb-2 ms-2 text-primary">AQUIVOS:</h6>
+                            <div class="card text-bg-info">
+                                <div class="card-body p-2">
+                                    <h5 class="text-center">NENHUM ARQUIVO ASSOCIADO</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
