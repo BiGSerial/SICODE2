@@ -1,6 +1,11 @@
 {
-    "appver": "1.21.1",
+    "appver": "1.21.2",
     "historic": [
+        {
+            "version": "1.21.2",
+            "description": "Adicionado novos SQL Inserts e melhorias",
+            "date": "2025-07-21"
+        },
         {
             "version": "1.21.1",
             "description": "Fix SQL Log Production, Filter on Analise User List",

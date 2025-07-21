@@ -51,6 +51,8 @@ class Production extends Model
         'completed_at',
         'confirmed_at',
         'ma',
+        'partial',
+        'partial_at',
     ];
 
     public function Productions()

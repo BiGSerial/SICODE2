@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands\tools;
+namespace App\Console\Commands\Tools;
 
 use Illuminate\Console\Command;
 use Maatwebsite\Excel\Facades\Excel;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Symfony\Component\Console\Helper\ProgressBar;
 
-class uploadExcelTool extends Command
+class UploadExcelTool extends Command
 {
     /**
      * The name and signature of the console command.
