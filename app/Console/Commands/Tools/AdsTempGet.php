@@ -1,6 +1,7 @@
 <?php
+namespace App\Console\Commands\Tools;
 
-namespace App\Console\Commands\tools;
+
 
 use App\Models\Edp_cipqa\OldAdsList;
 use App\Models\Note;
