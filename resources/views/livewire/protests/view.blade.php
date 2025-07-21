@@ -72,64 +72,66 @@
                     <div class="col-md-12">
                         <div class="border rounded p-3 border-secondary">
                             <div class="d-flex justify-content-between align-items-center">
-                                <h6 class="text-muted mb-2 text-primary">ITENS ASSOCIADOS:</h6>
+                                <h6 class="text-muted mb-2 text-primary">NOTAS ASSOCIADAS:</h6>
                                 <button class="btn btn-sm btn-primary" title="Adicionar Item" data-bs-toggle="tooltip">
                                     <i class="ri-add-box-fill fs-6 align-middle text-center"></i>
                                 </button>
                             </div>
-                            <table class="table table-condensed table-striped table-sm table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Código</th>
-                                        <th>Nome</th>
-                                        <th>Categoria</th>
-                                        <th>Local</th>
-                                        <th>Descrição</th>
-                                        <th>Status</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>001</td>
-                                        <td>Item 1</td>
-                                        <td>Categoria A</td>
-                                        <td>Local 1</td>
-                                        <td>Descrição do item</td>
-                                        <td>Ativo</td>
-                                        <td>
-                                            <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
-                                                style="cursor: pointer;" title="Remover Item"
-                                                data-bs-toggle="tooltip"></i>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>002</td>
-                                        <td>Item 2</td>
-                                        <td>Categoria B</td>
-                                        <td>Local 2</td>
-                                        <td>Descrição do item</td>
-                                        <td>Inativo</td>
-                                        <td>
-                                            <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
-                                                style="cursor: pointer;" title="Remover Item"
-                                                data-bs-toggle="tooltip"></i>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            @if ($medProtest->notes->isNotEmpty())
+                                <table class="table table-condensed table-striped table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Nota</th>
+                                            <th>Rubrica</th>
+                                            <th>Municipio</th>
+                                            <th>Material</th>
+                                            <th>Descrição</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($medProtest->notes as $note)
+                                            <tr>
+                                                <td>{{ $note->note }}</td>
+                                                <td>{{ $note->rubrica }}</td>
+                                                <td>{{ $note->lexp }}</td>
+                                                <td>{{ $note->material }}</td>
+                                                <td>{{ $note->description }}</td>
+                                                <td>{{ $note->nstats }}</td>
+                                                <td>
+                                                    <i class="ri-delete-bin-fill fs-5 align-middle text-danger"
+                                                        style="cursor: pointer;" title="Remover Item"
+                                                        data-bs-toggle="tooltip"></i>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            @else
+                                <div class="card text-bg-info mt-2">
+                                    <div class="card-body">
+                                        <p class="mb-0 text-center">Nenhuma nota associada a esta medida.</p>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
                 <div class="row mt-3">
                     <div class="col-md-4">
                         <div class="form-floating">
-                            <textarea class="form-control border-secondary" placeholder="Deixe um comentário" id="floatingTextarea"
-                                style="height: 150px"></textarea>
+                            <textarea class="form-control border-secondary @error('comment') is-invalid @enderror" placeholder="Deixe um comentário"
+                                id="floatingTextarea" style="height: 150px" wire:model.defer="comment"></textarea>
+                            @error('comment')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
                             <label for="floatingTextarea">ADICIONAR COMENTÁRIOS</label>
                         </div>
                         <div class="mt-2 text-end">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" wire:click="addComment">
                                 <i class="ri-send-plane-fill me-1"></i> Enviar
                             </button>
                         </div>
@@ -170,7 +172,8 @@
                                                                     @if ($comment->user_id == auth()->id() && $comment->created_at->diffInMinutes() < 5 && $loop->last)
                                                                         <i class="ri-delete-bin-fill text-danger"
                                                                             style="cursor: pointer;"
-                                                                            title="Excluir comentário"></i>
+                                                                            title="Excluir comentário"
+                                                                            wire:click="removeComment({{ $comment->id }})"></i>
                                                                     @endif
 
                                                                 </div>
