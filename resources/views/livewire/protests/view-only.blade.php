@@ -51,10 +51,10 @@
 
                 @php
                     $now = now();
-                    $dtConclusao = $medProtest->protest->dtConclusaoDesej;
+                    $dtConclusao = $medProtest->dtFimMedida;
                     $daysDiff = $dtConclusao ? $now->diffInDays($dtConclusao, false) : 0;
 
-                    if ($dtConclusao && $dtConclusao->isPast()) {
+                    if ($dtConclusao && $dtConclusao->isPast($medProtest->protest->dtConclusaoDesej)) {
                         $status = ['color' => 'danger', 'text' => 'Vencida', 'icon' => 'ri-close-circle-line'];
                     } elseif ($daysDiff > 3) {
                         $status = ['color' => 'success', 'text' => 'No Prazo', 'icon' => 'ri-check-circle-line'];
@@ -79,7 +79,7 @@
                                         <span
                                             class="badge bg-{{ $status['color'] }} px-3 py-2">{{ $status['text'] }}</span>
                                     </div>
-                                    @if ($dtConclusao && !$dtConclusao->isPast())
+                                    @if ($dtConclusao && !$dtConclusao->isPast($medProtest->protest->dtConclusaoDesej))
                                         <small class="text-muted">{{ abs($daysDiff) }} dias restantes</small>
                                     @elseif($dtConclusao)
                                         <small class="text-danger">{{ abs($daysDiff) }} dias em atraso</small>
@@ -94,12 +94,19 @@
                                         <span
                                             class="fw-medium small">{{ $medProtest->protest->dtAberturaNota?->format('d/m/Y') }}</span>
                                     </div>
+                                    <div class="d-flex justify-content-between align-items-center  mb-2">
+                                        <span class="text-muted small">
+                                            <i class="ri-flag-line me-1"></i>Conclusão Desejada:
+                                        </span>
+                                        <span
+                                            class="fw-medium small">{{ $medProtest->protest->dtConclusaoDesej?->format('d/m/Y') }}</span>
+                                    </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="text-muted small">
                                             <i class="ri-flag-line me-1"></i>Conclusão:
                                         </span>
                                         <span
-                                            class="fw-medium small">{{ $medProtest->protest->dtConclusaoDesej?->format('d/m/Y') }}</span>
+                                            class="fw-medium small">{{ $medProtest->dtFimMedida?->format('d/m/Y') }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -109,10 +116,11 @@
 
                 @php
                     $now = now();
-                    $dtConclusao = $medProtest->dtFimMedidaDesej;
-                    $daysDiff = $dtConclusao ? $now->diffInDays($dtConclusao, false) : 0;
+                    $dtConclusao = $medProtest->dtFimMedida;
+                    $daysDiff = $dtConclusao ? $medProtest->dtFimMedidaDesej->diffInDays($dtConclusao, false) : 0;
+                    $assignment = $medProtest->assignments?->where('user', true)->where('completed', true)->first();
 
-                    if ($dtConclusao && $dtConclusao->isPast()) {
+                    if ($dtConclusao && $dtConclusao->isPast($medProtest->dtFimMedidaDesej)) {
                         $status = ['color' => 'danger', 'text' => 'Vencida', 'icon' => 'ri-close-circle-line'];
                     } elseif ($daysDiff > 3) {
                         $status = ['color' => 'success', 'text' => 'No Prazo', 'icon' => 'ri-check-circle-line'];
@@ -150,12 +158,35 @@
                                         <span
                                             class="fw-medium small">{{ $medProtest->dtCriacaoMedida?->format('d/m/Y') }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex justify-content-between align-items-center  mb-2">
+                                        <span class="text-muted small">
+                                            <i class="ri-flag-line me-1"></i>Conclusão Desejada:
+                                        </span>
+                                        <span
+                                            class="fw-medium small">{{ $medProtest->dtFimMedidaDesej?->format('d/m/Y') }}</span>
+
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center  mb-2">
                                         <span class="text-muted small">
                                             <i class="ri-flag-line me-1"></i>Conclusão:
                                         </span>
                                         <span
-                                            class="fw-medium small">{{ $medProtest->dtFimMedidaDesej?->format('d/m/Y') }}</span>
+                                            class="fw-medium small">{{ $medProtest->dtFimMedida?->format('d/m/Y') }}</span>
+
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-cente">
+                                        <span class="text-muted small">
+                                            <i class="ri-flag-line me-1"></i>Usuario Responsável:
+                                        </span>
+                                        <span class="fw-medium small">{{ $assignment?->User?->name }}</span>
+
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted small">
+                                            <i class="ri-flag-line me-1"></i>Conclusão Sicode:
+                                        </span>
+                                        <span
+                                            class="fw-medium small">{{ $assignment?->ended_at?->format('d/m/Y H:i:s') }}</span>
 
                                     </div>
                                 </div>
@@ -420,7 +451,7 @@
     </style>
 
     <div class="row g-1">
-        @if (!$medProtest->Assignment?->where('responsible', false)->where('completed', false)->first())
+        @if (false)
             <div class="col-md-7">
                 <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
                     <div class="card-body">
@@ -753,7 +784,7 @@
             </div>
         @endif
 
-        <div class="{{ !$medProtest->completed ? 'col-md-5' : 'col-md-12' }}">
+        <div class="col-md-12">
             <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0 ">
                 <div class="card-body">
                     <div class="border rounded py-3 border-secondary">
@@ -761,7 +792,7 @@
 
                         <div>
                             <x-files.attachments :files="$medProtest->evidenceFiles"
-                                deleteAction="{{ !$medProtest->completed ? 'deleteFile' : '' }}"
+                                deleteAction="{{ auth()->user()->superadm ? 'deleteFile' : '' }}"
                                 downloadAction="downloadFile" card="" />
                         </div>
 

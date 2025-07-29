@@ -10,17 +10,18 @@
                     <li>
                         <a href="{{ route('protests.main') }}" class="nav-item edp-text-verde-dark">
                             <i class="bi bi-file-earmark-text fs-4 text-white"></i> <span>AGUARDANDO RESOLUÇÃO</span>
+                            @livewire('components.count.protest.count-protests', ['type' => 'U'], key('menu_protests_has_protests_user'))
                         </a>
                     </li>
                     <li>
-                        <a href="" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('protests.accompany') }}" class="nav-item edp-text-verde-dark">
                             <i class="bi bi-file-earmark-text fs-4 text-warning"></i> <span>ACOMPANHAMENTO
-                                RECLAMAÇÃO</span>
+                                RECLAMAÇÃO</span> @livewire('components.count.protest.count-protests', ['type' => 'M'], key('menu_protests_has_protests_monitoring'))
                         </a>
                     </li>
 
                     <li>
-                        <a href="" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('protests.history') }}" class="nav-item edp-text-verde-dark">
                             <i class="bi bi-clock-history fs-4 text-white"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>

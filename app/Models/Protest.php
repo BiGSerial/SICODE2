@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Collection;
 
 class Protest extends Model
 {
@@ -23,7 +25,7 @@ class Protest extends Model
         'descSubCausa',
     ];
 
-    protected $appends = ['data_final_valida'];
+    protected $appends = ['data_final_valida', 'all_notes'];
 
     protected $casts = [
         'dtAberturaNota' => 'date',
@@ -36,7 +38,7 @@ class Protest extends Model
             Note::class,
             'noteable',
             'noteables'
-        );
+        )->withPivot('id');
     }
 
     public function medProtests()
@@ -52,6 +54,20 @@ class Protest extends Model
     public function assignments()
     {
         return $this->morphMany(UserAssignment::class, 'assignable');
+    }
+
+    public function evidenceFiles(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            EvidenceFile::class,   // destino final
+            MedProtest::class,     // intermediário
+            'protest_id',          // FK em med_protests que aponta pra protests.id
+            'evidenciable_id',     // FK em evidence_files que aponta pra med_protests.id
+            'id',                  // PK local em protests
+            'id'                   // PK local em med_protests
+        )
+        ->where('evidenciable_type', MedProtest::class)
+        ->whereNull('evidence_files.deleted_at'); // já que EvidenceFile usa SoftDeletes
     }
 
 
@@ -74,6 +90,16 @@ class Protest extends Model
                 return $this->medProtests()->latest('dtFimMedida')->first()?->dtFimMedida;
             },
         );
+    }
+
+    public function getAllNotesAttribute(): Collection
+    {
+        $this->loadMissing('notes', 'medProtests.notes');
+
+        return $this->notes
+            ->merge($this->medProtests->flatMap->notes)
+            ->unique('id')
+            ->values();
     }
 
 

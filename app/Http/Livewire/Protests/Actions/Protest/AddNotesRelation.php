@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Livewire\Services\Oexterno\Actions\Protest;
+namespace App\Http\Livewire\Protests\Actions\Protest;
 
+use App\Models\MedProtest;
 use App\Models\Note;
-use App\Models\Protest;
 use Livewire\Component;
 
 class AddNotesRelation extends Component
 {
     public $search = '';
-    public $protest;
+    public $medProtest;
     public $note;
 
 
@@ -18,12 +18,11 @@ class AddNotesRelation extends Component
         'refreshComponent' => '$refresh',
     ];
 
-    public function openAddNotesRelation(Protest $protest)
+    public function openAddNotesRelation(MedProtest $medProtest)
     {
-        $this->reset(['search', 'note']);
-        $this->protest = $protest->load('Notes');
+        $this->medProtest = $medProtest->load('Notes');
 
-        if ($this->protest) {
+        if ($this->medProtest) {
             $this->dispatchBrowserEvent('showModal', [
                'id' => 'addNotesRelationModal',
             ]);
@@ -34,7 +33,7 @@ class AddNotesRelation extends Component
     public function addNoteToProtest($id)
     {
         if ($id) {
-            $this->protest->Notes()->syncWithoutDetaching([$id]);
+            $this->medProtest->Notes()->syncWithoutDetaching([$id]);
             $this->emit('refreshComponent');
         }
     }
@@ -42,7 +41,7 @@ class AddNotesRelation extends Component
     public function removeNoteFromProtest($id)
     {
         if ($id) {
-            $this->protest->Notes()->detach($id);
+            $this->medProtest->Notes()->detach($id);
             $this->emit('refreshComponent');
         }
     }
@@ -60,7 +59,7 @@ class AddNotesRelation extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.actions.protest.add-notes-relation', [
+        return view('livewire.protests.actions.protest.add-notes-relation', [
             'notes' => $this->notes,
         ]);
     }

@@ -20,6 +20,7 @@ return new class () extends Migration {
             $table->timestamp('due_at')->nullable();
             $table->boolean('completed')->default(false);
             $table->boolean('responsible')->default(false);
+            $table->boolean('user')->default(false);
             $table->boolean('monitoring')->default(false);
             $table->boolean('transfered')->default(false);
             $table->timestamps();

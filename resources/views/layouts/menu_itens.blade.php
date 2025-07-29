@@ -59,15 +59,18 @@
     </li>
 @endcan
 
-<li class="nav-item dropdown mx-2">
+<li class="nav-item dropdown mx-2 position-relative">
     <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
         data-bs-toggle="dropdown" aria-expanded="false">
         RECLAMAÇÕES
+
     </a>
+    @livewire('components.count.protest.has-protests', key('menu_protests'))
     <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
         style="background-color: #dbd8d8">
         <li><a class="dropdown-item" href="{{ route('protests.main') }}"><i
-                    class="ri-account-pin-box-fill align-middle text-primary"></i>RECLAMAÇÕES</a>
+                    class="ri-account-pin-box-fill align-middle text-primary"></i>RECLAMAÇÕES @livewire('components.count.protest.count-protests', key('menu_protests_count'))</a>
+
         </li>
 
     </ul>

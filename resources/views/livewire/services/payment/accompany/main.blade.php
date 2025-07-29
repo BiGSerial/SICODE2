@@ -109,6 +109,8 @@
                             <div class="col-3 d-flex justify-content-end">
                                 <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
                                         class="ri-file-excel-2-line"></i> Exportar</button>
+                                <button class="btn btn-sm btn-secondary" onclick="cleanLocalStorage()"
+                                    title="Limpar LocalStorage"><i class="ri-delete-bin-line"></i></button>
                             </div>
                         </div>
                     </div>
@@ -546,6 +548,11 @@
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
+        }
+
+        function cleanLocalStorage() {
+            localStorage.clear();
+            livewire.emit('refresh_accomany');
         }
 
         window.addEventListener("showModal2", function(e) {

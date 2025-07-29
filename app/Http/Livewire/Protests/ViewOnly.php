@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
-class View extends Component
+class ViewOnly extends Component
 {
     use WithFileUploads;
 
@@ -319,7 +319,7 @@ class View extends Component
 
     public function render()
     {
-        return view('livewire.protests.view', [
+        return view('livewire.protests.view-only', [
             'medProtest' => $this->medProtest,
         ]);
     }

@@ -6,13 +6,14 @@
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde border-0">
                     <h5 class="modal-title fw-bold" id="modalEntityProtocolLabel">
                         <i class="ri-link me-2"></i>ASSOCIAR NOTA/OV PARA
-                        <span class="badge bg-light text-dark ms-2">{{ $protest?->nota }}</span>
+                        <span class="badge bg-light text-dark ms-2">{{ $medProtest?->protest?->nota }} -
+                            #{{ $medProtest?->med_id }}</span>
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4 edp-bg-gray">
-                    @if ($protest)
+                    @if ($medProtest)
                         <!-- Search Section -->
                         <div class="row mb-4">
                             <div class="col-12">
@@ -27,7 +28,7 @@
                         </div>
 
                         <!-- Available Notes Section -->
-                        <div class="card border-0 shadow mb-4">
+                        <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-white border-bottom">
                                 <h6 class="my-1 mb-0 text-muted">
                                     <i class="ri-file-list-3-line me-2"></i>NOTAS DISPONÍVEIS
@@ -93,18 +94,18 @@
                         </div>
 
                         <!-- Associated Notes Section -->
-                        <div class="card border-0 shadow">
+                        <div class="card border-0 shadow-sm">
                             <div class="card-header bg-primary text-white">
                                 <h6 class="my-1 mb-0">
                                     <i class="ri-links-line me-2"></i>NOTAS ASSOCIADAS
-                                    @if ($protest->Notes->isNotEmpty())
+                                    @if ($medProtest->Notes->isNotEmpty())
                                         <span
-                                            class="badge bg-light text-primary ms-2">{{ $protest->Notes->count() }}</span>
+                                            class="badge bg-light text-primary ms-2">{{ $medProtest->Notes->count() }}</span>
                                     @endif
                                 </h6>
                             </div>
                             <div class="card-body p-0">
-                                @if ($protest->Notes->isNotEmpty())
+                                @if ($medProtest->Notes->isNotEmpty())
                                     <div class="table-responsive">
                                         <table class="table table-striped table-hover mb-0">
                                             <thead class="table-light">
@@ -125,7 +126,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach ($protest->Notes as $nNote)
+                                                @foreach ($medProtest->Notes as $nNote)
                                                     <tr class="align-middle">
                                                         <td class="fw-medium">{{ $nNote->note }}</td>
                                                         <td>{{ $nNote->rubrica }}</td>
@@ -155,7 +156,7 @@
                     @endif
                 </div>
                 <div class="modal-footer edp-bg-sprucegreen-100 border-top-0">
-                    <button type="button" class="btn btn-outline-primary rounded-pill px-4" wire:click="closeAll">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" wire:click="closeAll">
                         <i class="ri-close-line me-1"></i>Fechar
                     </button>
                 </div>

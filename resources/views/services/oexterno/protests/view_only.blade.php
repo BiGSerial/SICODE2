@@ -4,21 +4,22 @@
     <nav aria-label="breadcrumb" class="py-0 my-0">
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
-                <li class="breadcrumb-item">Reclamação</li>
-                <li class="breadcrumb-item">View</li>
+                <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                <li class="breadcrumb-item">Serviços</li>
+                <li class="breadcrumb-item">{{ $service->service }}</li>
+                <li class="breadcrumb-item">Reclamações</li>
+                <li class="breadcrumb-item active" aria-current="page">View</li>
             </ol>
         </ol>
     </nav>
 @endsection
 
-
 @section('menu')
-    @include('protest.menu')
+    @include('services.oexterno.menu')
 @endsection
 
 @section('content')
-    @livewire('protests.view', ['medProtestId' => $medProtestId], key('protests.view'))
+    @livewire('services.oexterno.protests.view', ['service' => $service->uuid])
 @endsection
 
 @push('script')
@@ -58,5 +59,25 @@
                 }
             })
         });
+    </script>
+
+    <script>
+        window.addEventListener('copyToBoard', function(e) {
+            copyToClipboard();
+        });
+
+
+
+        function copyToClipboard() {
+            const textToCopy = document.getElementById('clipboard-data').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.textContent = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+
+        }
     </script>
 @endpush

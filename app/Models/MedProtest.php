@@ -41,7 +41,7 @@ class MedProtest extends Model
             Note::class,
             'noteable',
             'noteables'
-        );
+        )->withPivot('id');
     }
 
     public function Protest()
@@ -57,6 +57,11 @@ class MedProtest extends Model
     public function Assignments()
     {
         return $this->morphMany(UserAssignment::class, 'assignable');
+    }
+
+    public function EvidenceFiles()
+    {
+        return $this->morphMany(EvidenceFile::class, 'evidenciable');
     }
 
 

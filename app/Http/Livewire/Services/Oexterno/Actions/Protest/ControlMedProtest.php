@@ -14,7 +14,7 @@ class ControlMedProtest extends Component
     public $modProtest;
     public $notePage = 0;
     public $needsEvidence = 0;
-    public $needsConfirmation = 0;
+    public $needsConfirmation = true;
     public $serviceId;
     public $selectedUser;
     public $userList;
@@ -259,18 +259,19 @@ class ControlMedProtest extends Component
         // }
 
         // $this->modProtest->needsEvidence = $this->needsEvidence;
-        // $this->modProtest->needsConfirmation = $this->needsConfirmation;
+        // $this->modProtest->needsConf irmation = $this->needsConfirmation;
         $this->modProtest->save();
 
         $this->modProtest->Assignments()->updateOrCreate(
             [
-                 'user_id' => auth()->id(),
-                 'assignable_id' => $this->modProtest->id,
-                 'assignable_type' => MedProtest::class,
-             ],
+                'user_id' => auth()->id(),
+                'assignable_id' => $this->modProtest->id,
+                'assignable_type' => MedProtest::class,
+            ],
             [
-                 'responsible' => true,
-             ]
+                'responsible' => true,
+                'started_at' => now(),
+            ]
         );
 
         foreach ($this->usersTemporarilyAssigned as $user) {
@@ -282,6 +283,8 @@ class ControlMedProtest extends Component
                 ],
                 [
                     'monitoring' => $user['isEngineer'],
+                    'user' => !$user['isEngineer'],
+                    'started_at' => now(),
                 ]
             );
         }
@@ -297,15 +300,20 @@ class ControlMedProtest extends Component
 
     public function openModProtestControl(MedProtest $modProtest)
     {
-        $this->modProtest = $modProtest->load('protest', 'comments');
+        $this->modProtest = $modProtest->load('protest', 'comments', 'assignments.user');
 
         if ($this->modProtest) {
 
             $this->notePage = 0;
 
+            if ($this->modProtest->assignments->isEmpty()) {
+                $this->modProtest->needsConfirmation = true;
+            }
+            # code...
+
 
             $this->dispatchBrowserEvent('showModal', [
-               'id' => 'controlModProtestModal',
+                'id' => 'controlModProtestModal',
             ]);
         }
     }
@@ -326,7 +334,7 @@ class ControlMedProtest extends Component
 
         $this->usersTemporarilyAssigned = [];
 
-        $this->emitUp('refreshComponent');
+        $this->emit('refreshComponent');
         $this->dispatchBrowserEvent('hideModal');
     }
 

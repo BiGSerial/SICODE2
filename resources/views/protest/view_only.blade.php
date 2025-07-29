@@ -18,7 +18,7 @@
 @endsection
 
 @section('content')
-    @livewire('protests.view', ['medProtestId' => $medProtestId], key('protests.view'))
+    @livewire('protests.view-only', ['medProtestId' => $medProtestId], key('protests.view_only'))
 @endsection
 
 @push('script')

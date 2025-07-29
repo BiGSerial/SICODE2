@@ -239,6 +239,10 @@ Route::prefix('/system')->controller(SystemController::class)->name('system.')->
 Route::prefix('/protests')->controller(ProtestController::class)->name('protests.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/view/{medProtestId}', 'view')->name('view');
+    Route::get('/view_only/{medProtestId}', 'view_only')->name('view_only');
+    Route::get('/accompany', 'accompany')->name('accompany');
+
+    Route::get('/history', 'history')->name('history');
 });
 
 

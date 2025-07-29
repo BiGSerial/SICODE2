@@ -78,7 +78,7 @@ class CreateProdFiles extends Component
                     'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
                     'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp',
                 ];
-                $maxSizeBytes = 10 * 1024 * 1024; // 10MB
+                $maxSizeBytes = 40 * 1024 * 1024; // 40MB
 
                 if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {
                     $this->dispatchBrowserEvent('swal', [
@@ -324,7 +324,7 @@ class CreateProdFiles extends Component
 
     protected $rules = [
 
-        'files.*' => 'nullable|file|mimes:jpg,png,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:10240',
+        'files.*' => 'nullable|file|mimes:jpg,png,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:41943', // 40MB
     ];
 
 
