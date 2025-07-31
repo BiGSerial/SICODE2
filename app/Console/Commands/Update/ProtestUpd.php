@@ -48,6 +48,7 @@ class ProtestUpd extends Command
         't.id',
         't.nota',
         't.tipoNota',
+        't.codecodf',
         't.txtGrpCodificacao',
         't.statUsuar',
         't.cidade',
@@ -104,6 +105,7 @@ class ProtestUpd extends Command
                     $data = [
                          'nota'               => $record->nota,
                         'tipoNota'           => $record->tipoNota,
+                        'codecodf'           => $record->codecodf,
                         'txtGrpCodificacao'  => $record->txtGrpCodificacao,
                         'dtAberturaNota'     => $record->dtAberturaNota,
                         'dtConclusaoDesej'   => $record->dtConclusaoDesej,
@@ -136,6 +138,7 @@ class ProtestUpd extends Command
                 if (!empty($upsertData)) {
                     Protest::upsert($upsertData, ['nota'], [
                        'tipoNota',
+                        'codecodf',
                         'txtGrpCodificacao',
                         'dtAberturaNota',
                         'dtConclusaoDesej',

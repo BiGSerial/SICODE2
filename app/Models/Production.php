@@ -146,4 +146,9 @@ class Production extends Model
     {
         return $this->hasOne(D5Return::class);
     }
+
+    public function Notetimelines()
+    {
+        return $this->hasMany(Notetimeline::class);
+    }
 }

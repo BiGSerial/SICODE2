@@ -15,6 +15,7 @@ class Protest extends Model
     protected $fillable = [
         'nota',
         'tipoNota',
+        'codecodf',
         'txtGrpCodificacao',
         'dtAberturaNota',
         'dtConclusaoDesej',

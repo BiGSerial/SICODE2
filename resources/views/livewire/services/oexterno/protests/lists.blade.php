@@ -173,6 +173,7 @@
                             <th scope="col" class="text-center" style="width: 50px;">M</th>
                             <th scope="col" class="text-center" style="width: 120px;">Número</th>
                             <th scope="col" class="text-center" style="width: 80px;">Tipo</th>
+                            <th scope="col" class="text-center" style="width: 80px;">Cod</th>
                             <th scope="col" class="text-center" style="width: 120px;">Nota/OV Ref</th>
                             <th scope="col" class="text-center" style="width: 150px;">Grupo</th>
                             <th scope="col" class="text-center" style="width: 120px;">Data Abertura</th>
@@ -251,6 +252,10 @@
 
                                 <td class="text-center">
                                     <span class="badge bg-light text-dark">{{ $list->tipoNota }}</span>
+                                </td>
+
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark">{{ $list->codecodf }}</span>
                                 </td>
 
                                 <td class="text-center fw-bold text-primary">

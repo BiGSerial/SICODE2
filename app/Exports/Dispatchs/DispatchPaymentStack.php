@@ -44,7 +44,7 @@ class DispatchPaymentStack implements
     public function query()
     {
         return $this->data
-            ->with(['Note.WorkForm.Orders.Operations', 'Note.Partials.Orders.Operations', 'Company', 'User'])
+            ->with(['Note.WorkForm.Orders.Operations', 'Note.Partials.Orders.Operations', 'Company', 'User', 'Notetimelines'])
             ->where('service_id', $this->service)
             ->orderBy('dispatch_at', 'asc');
     }
@@ -92,6 +92,7 @@ class DispatchPaymentStack implements
 
         // ]);
 
+
         return [
             $row->partial ? "PARCIAL" : "TOTAL",
             $row->note->note,
@@ -107,6 +108,8 @@ class DispatchPaymentStack implements
             $lastPaydate?->format('Y-m-d'),
             $lastPaydate?->addDays(5)->format('Y-m-d'),
             Notestatus::status($row->status)->status,
+            $row->notetimelines?->where('status', $row->status)?->last()?->info
+
         ];
     }
 
@@ -130,6 +133,7 @@ class DispatchPaymentStack implements
             'Data do Informe',
             'Prazo Pagamento',
             'Status',
+            'Info Status',
         ];
     }
 
@@ -157,7 +161,8 @@ class DispatchPaymentStack implements
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // estiliza a linha de cabeçalho (A1:M1)
-                $event->sheet->getStyle('A1:N1')->applyFromArray([
+                $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($this->headings()));
+                $event->sheet->getStyle('A1:' . $lastColumn . '1')->applyFromArray([
                     'font' => [
                     'bold'  => true,
                     'color' => ['rgb' => 'FFFFFF'],

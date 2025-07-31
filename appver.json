@@ -1,6 +1,11 @@
 {
-    "appver": "1.21.2",
+    "appver": "1.22.0",
     "historic": [
+        {
+            "version": "1.22.0",
+            "description": "Protest Implemented and New DashBoard",
+            "date": "2025-07-30"
+        },
         {
             "version": "1.21.2",
             "description": "Adicionado novos SQL Inserts e melhorias",
