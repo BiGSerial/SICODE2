@@ -13,12 +13,17 @@ class Jobform extends Component
 {
     public ?Production $production = null;
     public ?Analise $analise = null;
+    public $needFiles = false;
+    public $hasFile = false;
 
     protected $listeners = [
         'showProduction',
         'confirmFinish' => 'save',
         'confirmParcial' => 'savePublish',
-        'closeAll'
+        'closeAll',
+        'hasFile',
+        'savedFiles',
+        'continue' => 'toContinue',
     ];
 
     protected $rules = [
@@ -34,6 +39,12 @@ class Jobform extends Component
             'analise.postes.numeric' => 'O campo [Qtd de Ativos] só aceita números.',
             'analise.conclusion.required' => 'O campo [Resultado] é Obrigatório.',
         ];
+    }
+
+
+    public function hasFile($value)
+    {
+        $this->hasFile = $value;
     }
 
     public function showProduction(Production $production)
@@ -249,15 +260,16 @@ class Jobform extends Component
 
                 DB::commit();
 
+                 $this->emitTo('files.manager.create-publication-files', 'saveFiles');
 
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'Encerrado com Sucesso',
-                    'timer'    => 2500
-                ]);
+                // $this->dispatchBrowserEvent('swal', [
+                //     'position' => 'center',
+                //     'icon'     => 'success',
+                //     'title'    => 'Encerrado com Sucesso',
+                //     'timer'    => 2500
+                // ]);
 
-                $this->closeAll();
+                // $this->closeAll();
             }
         } catch (\Throwable $th) {
 
@@ -304,15 +316,16 @@ class Jobform extends Component
 
                 DB::commit();
 
+                $this->emitTo('files.manager.create-publication-files', 'saveFiles');
 
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'Publicado com Sucesso',
-                    'timer'    => 2500
-                ]);
+                // $this->dispatchBrowserEvent('swal', [
+                //     'position' => 'center',
+                //     'icon'     => 'success',
+                //     'title'    => 'Publicado com Sucesso',
+                //     'timer'    => 2500
+                // ]);
 
-                $this->closeAll();
+                // $this->closeAll();
             }
         } catch (\Throwable $th) {
 
@@ -328,6 +341,28 @@ class Jobform extends Component
             return;
         }
     }
+
+    public function savedFiles()
+    {
+        $this->closeAll();
+        $this->emitTo('files.manager.create-publication-files', 'cleanFiles');
+
+
+    }
+
+    public function toContinue()
+    {
+        $this->closeAll();
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'ENCERRADO COM SUCESSO',
+            'html'     => 'Nota/OV encerrada com sucesso.',
+            'timer'   => 2500,
+        ]);
+
+    }
+
 
     public function closeAll()
     {

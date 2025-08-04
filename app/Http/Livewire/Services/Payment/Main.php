@@ -240,30 +240,66 @@ class Main extends Component
                                ->orderByDesc('created_at')
                                ->first();
 
-        // 4) Se não existe produção, retorna false
-        if (! $lastProduction) {
-            return false;
-        }
 
-        // 5) Caso seja uma produção PARCIAL
-        if ($lastProduction->partial) {
-            // se não tiver parcial, não há match
-            if (! $lastPartial) {
+
+
+
+        // 5) Se hasWorkForm existe, ignora qualquer relação com lastPartial
+        if ($hasWorkForm) {
+
+            if (!$lastProduction) {
                 return false;
             }
-            // compara created_at da parcial com dt_note da produção
-            $partialDate    = $lastPartial->created_at->format('Y-m-d H:i:s');
-            $productionDate = Carbon::parse($lastProduction->dt_note)
-                                    ->format('Y-m-d H:i:s');
-            return $partialDate === $productionDate
-                ? $lastProduction
-                : false;
+            // Se produção não é parcial
+            if (!$lastProduction->partial) {
+                // Se dt_status da nota é mais recente que dt_note da produção, retorna false
+                if ($note->dt_status > $lastProduction->dt_note) {
+                    return false;
+                }
+                // Se produção não está completa, retorna true
+                if (!$lastProduction->completed) {
+                    return $lastProduction;
+                }
+            }
+
+            if ($lastProduction->partial) {
+
+                if ($lastProduction->completed) {
+                    // Se produção parcial está completa, retorna false
+                    return false;
+                } else {
+                    // Se produção parcial não está completa, retorna true
+                    return $lastProduction;
+                }
+            }
         }
 
-        // 6) Caso seja produção COMPLETA, mantém a lógica de WorkForm
-        return $lastProduction->partial !== $hasWorkForm
-            ? $lastProduction
-            : false;
+        // 6) Se lastPartial existe e não existe hasWorkForm
+        if ($lastPartial && !$hasWorkForm) {
+            // Se não existe lastProduction, retorna false
+            if (!$lastProduction) {
+                return false;
+            }
+
+            // Se lastProduction é parcial e está completa
+            if ($lastProduction->partial && !$lastProduction->completed) {
+
+
+
+                return $lastProduction;
+            }
+
+            if ($lastProduction->partial && $lastProduction->completed) {
+
+                if ($lastProduction->created_at < $lastPartial->created_at) {
+                    return false;
+                }
+
+                return $lastProduction;
+            }
+        }
+
+        return $lastProduction;
     }
 
 
@@ -277,6 +313,9 @@ class Main extends Component
             $this->not_assigned = true;
         }
     }
+
+
+
 
     public function getListsProperty()
     {

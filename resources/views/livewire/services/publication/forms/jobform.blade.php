@@ -109,13 +109,12 @@
                             <div class="card">
                                 <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RESOLUÇÃO</h5>
                                 <div class="card-body">
-                                    <div class="mb-3 col-md-1">
-                                        <label for="ativos" class="form-label">Qtd Ativos</label>
+                                    <div class="form-floating mb-3 col-md-1">
                                         <input type="number" id="ativos" class="form-control border-secondary"
-                                            wire:model.defer="analise.postes">
+                                            wire:model.defer="analise.postes" placeholder="Qtd Ativos">
+                                        <label for="ativos">Qtd Ativos</label>
                                     </div>
-                                    <div class="mb-3 col-md-3">
-                                        <label for="resultado" class="form-label">Resultado</label>
+                                    <div class="form-floating mb-3 col-md-3">
                                         <select id="resultado" class="form-select border-secondary"
                                             wire:model.defer="analise.conclusion">
                                             <option value="">Selecione...</option>
@@ -123,15 +122,27 @@
                                                 <option value="{{ $item->value }}">{{ $item->info }}</option>
                                             @endforeach
                                         </select>
+                                        <label for="resultado">Resultado</label>
                                     </div>
-                                    <div class="mb-3 col-md-6">
-                                        <label for="info" class="form-label">Observação</label>
-                                        <textarea type="number" id="info" rows="5" class="form-control border-secondary"
-                                            wire:model.defer="analise.info"></textarea>
+                                    <div class="form-floating mb-3 col-md-6">
+                                        <textarea id="info" rows="5" class="form-control border-secondary" wire:model.defer="analise.info"
+                                            placeholder="Observação" rows="5"></textarea>
+                                        <label for="info">Observação</label>
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="card">
+                                <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">Arquivos</h5>
+                                <div class="card-body">
+                                    @livewire('files.manager.create-publication-files', ['production' => $production, 'needFiles' => false], key('create-publication-files-' . $production->id))
+                                </div>
+                            </div>
                         </div>
+
+
+
+
                     </div>
                     <div class="modal-footer edp-bg-stategrey-100">
                         <button type="button" class="btn btn-secondary" wire:click.prevent="saveForm()">SALVAR</button>

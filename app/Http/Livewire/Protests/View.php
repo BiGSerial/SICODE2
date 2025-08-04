@@ -271,7 +271,7 @@ class View extends Component
     {
         $this->tempFiles = [];
         $this->reset('files'); // Also clear any current files in the Livewire property
-        $this->dispatch('showAlert', ['type' => 'info', 'message' => 'Todos os arquivos temporários foram limpos.']);
+       
     }
 
     // Helper function to get file icon class based on extension
