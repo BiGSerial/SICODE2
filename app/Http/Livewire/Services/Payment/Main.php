@@ -224,83 +224,88 @@ class Main extends Component
         }
     }
 
+    /**
+     * Verifica se a nota tem produção associada, considerando regras específicas
+     *
+     * @param Note $note
+     * @return Production|bool|null
+     */
     public function hasProduction(Note $note)
     {
-        // 1) Flag se a nota tem WorkForm
+        // 1) Verifica se a nota tem WorkForm associado (flag booleana)
         $hasWorkForm = (bool) $note->WorkForm;
 
-        // 2) Última parcial criada na nota
+        // 2) Pega a última parcial criada na nota
         $lastPartial = $note->partials()
-                            ->orderByDesc('created_at')
-                            ->first();
+            ->orderByDesc('created_at')
+            ->first();
 
-        // 3) Última produção (qualquer) para este serviço
+        // 3) Pega a última produção (qualquer) para este serviço específico
         $lastProduction = $note->productions()
-                               ->where('service_id', $this->service->uuid)
-                               ->orderByDesc('created_at')
-                               ->first();
+            ->where('service_id', $this->service->uuid)
+            ->orderByDesc('created_at')
+            ->first();
 
-
-
-
-
-        // 5) Se hasWorkForm existe, ignora qualquer relação com lastPartial
+        // 4) Se existe WorkForm, ignora relação com parciais e segue regras específicas
         if ($hasWorkForm) {
 
+            // 4.1) Se não existe produção, retorna false (não há produção a considerar)
             if (!$lastProduction) {
                 return false;
             }
-            // Se produção não é parcial
+
+            // 4.2) Se a última produção NÃO é parcial
             if (!$lastProduction->partial) {
-                // Se dt_status da nota é mais recente que dt_note da produção, retorna false
+                // Se a data de status da nota é mais recente que a data da produção, retorna false (produção desatualizada)
                 if ($note->dt_status > $lastProduction->dt_note) {
                     return false;
                 }
-                // Se produção não está completa, retorna true
+                // Se a produção não está completa, retorna o objeto da última produção (bloqueia)
                 if (!$lastProduction->completed) {
                     return $lastProduction;
                 }
             }
 
+            // 4.3) Se a última produção É parcial
             if ($lastProduction->partial) {
-
+                // Se a parcial está completa, retorna false (nada a bloquear)
                 if ($lastProduction->completed) {
-                    // Se produção parcial está completa, retorna false
                     return false;
                 } else {
-                    // Se produção parcial não está completa, retorna true
+                    // Se a parcial não está completa, retorna o objeto da última produção (bloqueia)
                     return $lastProduction;
                 }
             }
         }
 
-        // 6) Se lastPartial existe e não existe hasWorkForm
+        // 5) Se existe uma parcial e não existe WorkForm, segue regras específicas
         if ($lastPartial && !$hasWorkForm) {
-            // Se não existe lastProduction, retorna false
+
+            // 5.1) Se não existe produção, retorna false (não há produção a considerar)
             if (!$lastProduction) {
                 return false;
             }
 
-            // Se lastProduction é parcial e está completa
+            // 5.2) Se a última produção é parcial e NÃO está completa, retorna o objeto (bloqueia)
             if ($lastProduction->partial && !$lastProduction->completed) {
-
-
-
                 return $lastProduction;
             }
 
+            // 5.3) Se a última produção é parcial E está completa
             if ($lastProduction->partial && $lastProduction->completed) {
-
+                // Se a data da produção é anterior à parcial, retorna false (não há produção a considerar)
                 if ($lastProduction->created_at < $lastPartial->created_at) {
                     return false;
                 }
-
+                // Caso contrário, retorna o objeto da produção (bloqueia)
                 return $lastProduction;
             }
         }
 
+        // 6) Caso não caia em nenhum cenário acima, retorna o objeto da última produção (pode ser null)
         return $lastProduction;
     }
+
 
 
 

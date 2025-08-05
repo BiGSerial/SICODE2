@@ -260,15 +260,29 @@
                                                 <!-- Saved Users -->
                                                 @if ($modProtest?->assignments?->isNotEmpty())
                                                     @foreach ($modProtest?->assignments as $assignment)
+                                                        @php
+                                                            $typeUser = '';
+                                                            $rowClass = '';
+
+                                                            if ($assignment->monitoring) {
+                                                                $typeUser = 'Engenheiro';
+                                                                $rowClass = 'text-bg-info';
+                                                            } elseif ($assignment->responsible) {
+                                                                $typeUser = 'Responsável';
+                                                                $rowClass = 'text-bg-warning';
+                                                            } else {
+                                                                $typeUser = 'Usuário';
+                                                                $rowClass = 'text-bg-success';
+                                                            }
+                                                        @endphp
                                                         <div
                                                             class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
                                                             <div class="d-flex align-items-center gap-2">
                                                                 <i class="bi bi-person-check-fill text-success"></i>
                                                                 <span
                                                                     class="fw-medium">{{ $assignment->getRelation('user')->name }}</span>
-                                                                <span
-                                                                    class="badge {{ $assignment->monitoring ? 'bg-info' : 'bg-warning' }}">
-                                                                    {{ $assignment->monitoring ? 'Engenheiro' : 'Responsável' }}
+                                                                <span class="badge {{ $rowClass }}">
+                                                                    {{ $typeUser }}
                                                                 </span>
                                                             </div>
                                                             <button type="button"

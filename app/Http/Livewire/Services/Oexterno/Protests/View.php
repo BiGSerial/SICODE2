@@ -242,6 +242,10 @@ class View extends Component
 
         if ($medProtest) {
             $medProtest->update(['completed' => false, 'completed_at' => null]);
+            $medProtest->Assignments()->where('completed', true)->update([
+                'completed' => false,
+                'ended_at' => null,
+            ]);
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',

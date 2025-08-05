@@ -147,9 +147,10 @@
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Final OP20</th>
                             <th class="align-middle text-center">Data Informe</th>
-                            <th class="align-middle text-center">Disponível Em</th>
-                            <th class="align-middle text-center">Data Vencimento</th>
 
+                            <th class="align-middle text-center">Ads</th>
+                            <th class="align-middle text-center">Fiscalizado</th>
+                            <th class="align-middle text-center">Data Vencimento</th>
                             <th class="align-middle text-center"></th>
                         </tr>
                     </thead>
@@ -369,13 +370,57 @@
                                     @endif
                                 </td>
 
+
+
+                                @php
+                                    if ($list->WorkForm?->Adsform) {
+                                        $daysLeft = $list->WorkForm?->Adsform
+                                            ? $list->WorkForm?->Adsform->created_at->diffInDays(Carbon::now(), true)
+                                            : null;
+                                    } elseif ($partial) {
+                                        $daysLeft = $partial
+                                            ? $partial->created_at->diffInDays(Carbon::now(), true)
+                                            : null;
+                                    } else {
+                                        $daysLeft = null;
+                                    }
+
+                                    $prazoClass = '';
+
+                                    if ($daysLeft) {
+                                        if ($daysLeft && $daysLeft > 20) {
+                                            $prazoClass = 'text-bg-danger';
+                                        } elseif ($daysLeft && $daysLeft < 15) {
+                                            $prazoClass = 'text-bg-success';
+                                        } else {
+                                            $prazoClass = 'text-bg-warning';
+                                        }
+                                    }
+                                @endphp
                                 <td scope="col"
                                     class="text-center text-center
-                                    @if ($daysLeft >= -2) text-bg-success
-                                    @elseif($daysLeft < -5)
-                                        text-bg-danger
+                                    {{ $prazoClass ?? 'text-bg-info' }}"
+                                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                    data-bs-title="Prazo Pagamento"
+                                    data-bs-content="
+                            <p>A Data Corresponde a entrega da ADS <br>:</p>
+                            <span class='fs-4 text-success'>&#9632;</span> > 15 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+                            <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
+                            {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+                            ">
+                                    @if ($list->WorkForm?->Adsform)
+                                        {{ $list->WorkForm->Adsform->created_at?->format('d/m/Y H:i:s') }}
                                     @else
-                                text-bg-warning @endif
+                                        ----
+                                    @endif
+                                </td>
+
+
+                                <td scope="col"
+                                    class="text-center text-center
+                                   text-bg-secondary
                                 "
                                     style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
@@ -450,9 +495,7 @@
                             <td></td>
                             <td></td>
                             <td></td>
-
-
-
+                            <td></td>
                         </tr>
                     </tfoot>
                 </table>

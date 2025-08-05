@@ -73,6 +73,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $company = $list->WorkForm?->Company->name;
             $date_info = $list->WorkForm?->informed_at;
             $pagamento = Carbon::parse($list->fimLancado);
+            $dt_ads = $list->WorkForm?->Adsform?->created_at;
 
 
         } elseif ($list->Partials->count() > 0) {
@@ -81,12 +82,14 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $company = $list->Partials?->last()->Company->name;
             $date_info = $list->Partials?->last()->created_at;
             $pagamento = Carbon::parse($list->fimLancado);
+            $dt_ads = $date_info;
         } else {
             $type = 'DESCONHECIDO';
             $order = null;
             $company = null;
             $date_info = null;
             $pagamento = null;
+            $dt_ads = null;
         }
         $lastProd = $list->Productions->where('service_id', $this->service)->last();
 
@@ -114,7 +117,8 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $list->lexp,
             optional($list->WorkForm)->earliest_fim_real?->format('d/m/Y') ?? '---',
             $date_info,
-            $list->nstats ?? $list->centerjob,
+            $dt_ads ? $dt_ads->format('d/m/Y') : '---',
+            $list->type_note == 2 ? $list->nstats : $list->centerjob,
             optional($pagamento)->format('d/m/Y') ?? '---',
             (new DaysLeft($list))->getLastDate(),
             $lastProd?->User->name ?? '---',
@@ -141,6 +145,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             'Município',
             'Data Execução',
             'Data Informe',
+            'Data Ads',
             'Status',
             'Dt Final OP20',
             'Prazo Obra',
@@ -180,12 +185,16 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
 
                 ]);
                 // estiliza só o header e colunas fixas
-                $sheet->getStyle('A1:Q1')->applyFromArray([/* … */]);
+                $highestColumn = $sheet->getHighestColumn();
+                $sheet->getStyle("A1:{$highestColumn}1")->applyFromArray([
+                    'font' => ['bold' => true,'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID,'startColor' => ['rgb' => '0000FF']],
+                ]);
                 foreach (range('A', 'Q') as $col) {
                     $sheet->getColumnDimension($col)->setWidth(15);
                 }
                 $highestRow = $sheet->getHighestRow();
-                $sheet->getStyle("A2:Q{$highestRow}")
+                $sheet->getStyle("A2:{$highestColumn}{$highestRow}")
                       ->getAlignment()
                       ->setWrapText(true);
 
