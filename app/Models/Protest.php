@@ -24,6 +24,8 @@ class Protest extends Model
         'statUsuar',
         'descCausa',
         'descSubCausa',
+        'descricao',
+        'resume',
     ];
 
     protected $appends = ['data_final_valida', 'all_notes'];

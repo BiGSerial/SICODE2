@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Services\Oexterno\Protests;
+namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Models\Comment;
 use App\Models\EvidenceFile;
@@ -263,6 +263,6 @@ class View extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.protests.view');
+        return view('livewire.protests.dispatch.view');
     }
 }

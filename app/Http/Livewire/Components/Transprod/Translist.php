@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Components\Transprod;
 
 use App\Models\{Notetimeline, Notify, Prodtransfer, Production, Service, User};
+use App\Notifications\SystemNotification;
 use Livewire\Component;
 
 class Translist extends Component
@@ -106,13 +107,25 @@ class Translist extends Component
 
                 ]);
 
-                Notify::create([
-                    'user_id' => $this->transfer_prod->from,
-                    'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
-                    'info'    => 'O usuário aceitou sua solicitação para ' . $production->Note->note,
-                    'status'  => 1,
-                    'link'    => $url,
-                ]);
+                // Notify::create([
+                //     'user_id' => $this->transfer_prod->from,
+                //     'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
+                //     'info'    => 'O usuário aceitou sua solicitação para ' . $production->Note->note,
+                //     'status'  => 1,
+                //     'link'    => $url,
+                // ]);
+
+                $user = User::find($this->transfer_prod->from);
+                $userName = auth()->User()->name;
+                if ($user) {
+                    $user->notify(new SystemNotification(
+                        'Transferência Aceita',
+                        "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi aceita por <strong>{$userName}</strong>.",
+                        '',
+                        1,
+                        []
+                    ));
+                }
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -181,13 +194,25 @@ class Translist extends Component
 
                 ]);
 
-                Notify::create([
-                    'user_id' => $this->transfer_prod->from,
-                    'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
-                    'info'    => 'O usuário rejeitou sua solicitação para ' . $production->Note->note,
-                    'status'  => 0,
-                    'link'    => $url,
-                ]);
+                // Notify::create([
+                //     'user_id' => $this->transfer_prod->from,
+                //     'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
+                //     'info'    => 'O usuário rejeitou sua solicitação para ' . $production->Note->note,
+                //     'status'  => 0,
+                //     'link'    => $url,
+                // ]);
+
+                $user = User::find($this->transfer_prod->from);
+                $userName = auth()->User()->name;
+                if ($user) {
+                    $user->notify(new SystemNotification(
+                        'Transferência Rejeitada',
+                        "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi rejeitada por <strong>{$userName}</strong>.",
+                        '',
+                        0,
+                        []
+                    ));
+                }
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',

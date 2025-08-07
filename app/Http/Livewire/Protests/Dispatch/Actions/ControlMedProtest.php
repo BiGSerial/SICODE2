@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Services\Oexterno\Actions\Protest;
+namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
 use App\Models\Comment;
 use App\Models\MedProtest;
@@ -341,6 +341,6 @@ class ControlMedProtest extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.actions.protest.control-med-protest');
+        return view('livewire.protests.dispatch.actions.control-med-protest');
     }
 }

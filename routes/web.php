@@ -243,6 +243,7 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
     Route::get('/accompany', 'accompany')->name('accompany');
 
     Route::get('/history', 'history')->name('history');
+    Route::get('/print/{medProtestId}', 'print')->name('print');
 });
 
 

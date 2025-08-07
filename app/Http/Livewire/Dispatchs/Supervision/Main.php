@@ -7,6 +7,7 @@ use App\Exports\Dispatchs\SupervisionExportList;
 use App\Exports\ExportDDExcel;
 use App\Exports\ExportDDSupervision;
 use App\Helpers\TextFormatter;
+use App\Jobs\ExportSupervisionList;
 use App\Models\Bancoupdate;
 use App\Models\Company;
 use App\Models\Edp_depc\City;
@@ -182,11 +183,66 @@ class Main extends Component
 
     public function export_excel()
     {
-        if (!count($this->selected)) {
-            return (new SupervisionExportList($this->getListsProperty(), $this->service->uuid))->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+        // if (!count($this->selected)) {
+        //     ExportSupervisionList::dispatch(
+        //         $this->getListsProperty(), // Atenção: pode precisar ser um clone/filtro se for QueryBuilder
+        //         $this->service->uuid,
+        //         auth()->user()->id
+        //     );
+
+
+        //     $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon' => 'success',
+        //         'title' => 'Seu relatório está sendo gerado. Você será avisado quando estiver pronto!',
+        //         'timer' => 3000,
+        //     ]);
+
+        //     return;
+        // }
+
+        // ExportSupervisionList::dispatch(
+        //     $this->getListsProperty()->find($this->selected), // Atenção: pode precisar ser um clone/filtro se for QueryBuilder
+        //     $this->service->uuid,
+        //     auth()->user()->id
+        // );
+
+        // $this->dispatchBrowserEvent('swal', [
+        //         'position' => 'center',
+        //         'icon' => 'success',
+        //         'title' => 'Seu relatório está sendo gerado. Você será avisado quando estiver pronto!',
+        //         'timer' => 3000,
+        //     ]);
+
+        // return;
+
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
         }
 
-        return (new SupervisionExportList($this->getListsProperty()->find($this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportSupervisionList.xlsx');
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
+        ExportSupervisionList::dispatch([
+            'search'      => $this->search,
+            'multiSearch' => $this->multiSearch,
+            'rubrica_s'   => $this->rubrica_s,
+            'typeNote'    => $this->typeNote,
+            'not_assigned' => $this->not_assigned,
+            'filter'      => $this->filter,
+            'serviceUuid' => $this->service->uuid,
+            'user_id'     => auth()->user()->id,
+        ]);
+
+        $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'success',
+                'title' => 'Seu relatório está sendo gerado. Você será avisado quando estiver pronto!',
+                'timer' => 3000,
+            ]);
+
+        return;
     }
 
 

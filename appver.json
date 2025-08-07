@@ -1,6 +1,11 @@
 {
-    "appver": "1.22.1",
+    "appver": "1.23.0",
     "historic": [
+        {
+            "version": "1.23.0",
+            "description": "Queues, jobs, and Notifications",
+            "date": "2025-08-06"
+        },
         {
             "version": "1.22.1",
             "description": "Fix sicode problemas, and created column ADS date in Payment section.",

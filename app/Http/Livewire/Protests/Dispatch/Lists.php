@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Services\Oexterno\Protests;
+namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Helpers\TextFormatter;
 use App\Models\Protest;
@@ -122,7 +122,7 @@ class Lists extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.protests.lists', [
+        return view('livewire.protests.dispatch.lists', [
             'lists' => $this->lists
         ]);
     }

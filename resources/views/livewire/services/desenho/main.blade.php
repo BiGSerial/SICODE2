@@ -157,6 +157,7 @@
                                         <th scope="col" class="fw-bold">Municipio</th>
                                         <th scope="col" class="fw-bold">Zona</th>
                                         <th scope="col" class="fw-bold">Descrição</th>
+                                        <th scope="col" class="fw-bold">Postes_L</th>
                                         <th scope="col" class="fw-bold">Dias Atribuido</th>
                                         <th scope="col" class="fw-bold">Prazo Real</th>
                                         <th scope="col" class="fw-bold">Status</th>
@@ -222,8 +223,12 @@
                                             <td class="fw-light">{{ $list->Note->group1 }}</td>
                                             <td class="fw-light">{{ $list->Note->material }}</td>
                                             <td class="fw-light">
+                                                {{ $list->note->postes ?? '---' }}
+                                            </td>
+                                            <td class="fw-light">
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                             </td>
+
                                             <td scope="col"
                                                 class="text-center
                                         @if ($list->Note->days_left < 0) text-bg-secondary
@@ -395,5 +400,15 @@
             const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
             myModal.show();
         })
+
+        window.addEventListener("hideModal2", function(e) {
+            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
+            myModal.hide();
+        })
+
+        // Monitor modal close event for analise_form
+        document.getElementById('analise_form').addEventListener('hidden.bs.modal', function(event) {
+            Livewire.emitTo('services.desenho.forms.analise', 'analise_clean');
+        });
     </script>
 @endpush

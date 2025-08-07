@@ -246,7 +246,20 @@
                                 <i class="ri-calendar-line me-1"></i>
                                 Período
                             </label>
-                            <input type="month" wire:model="selectedMonth" class="filter-select" />
+                            <div class="row">
+                                <div class="col-12 mb-2">
+                                    <input type="month" wire:model="selectedMonth" class="filter-select"
+                                        max="{{ date('Y-m') }}" />
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <input type="date" wire:model="dt_in" class="filter-select"
+                                        max="{{ date('Y-m-d') }}" placeholder="Data Início" />
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" wire:model="dt_out" class="filter-select"
+                                        max="{{ date('Y-m-d') }}" placeholder="Data Fim" />
+                                </div>
+                            </div>
                         </div>
                         <div class="filter-group">
                             <button type="button" class="filter-select export-btn" wire:click="exportToExcel"
@@ -914,6 +927,30 @@
                     @endif
                 </div>
             </div>
+
+
+
+            <div class="activity-card mt-4">
+                <div class="activity-header">
+                    <h5 class="activity-title">
+                        <i class="ri-exchange-line me-2"></i>
+                        Transferências Pendentes
+                        <span class="badge bg-warning text-dark ms-2 d-none" id="transfercount">3 Pendentes</span>
+                    </h5>
+
+                </div>
+
+                <div class="activity-body">
+                    @livewire('home.tools.transfer-notes', ['idCount' => 'transfercount'], key('transfer-notes'))
+                </div>
+            </div>
+
+
+
+
+
+
+
         </div>
     </div>
 </div>

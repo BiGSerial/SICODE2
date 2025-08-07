@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Services\Oexterno\Protests;
+namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Helpers\TextFormatter;
 use App\Models\Protest;
@@ -88,7 +88,7 @@ class Closeds extends Component
 
     public function render()
     {
-        return view('livewire.services.oexterno.protests.closeds', [
+        return view('livewire.protests.dispatch.closeds', [
             'lists' => $this->lists
         ]);
     }

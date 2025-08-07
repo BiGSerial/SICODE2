@@ -57,6 +57,7 @@ class ProtestUpd extends Command
         't.dtConclusaoDesej',
         't.descCausa',
         't.descSubCausa',
+        't.descricao',
     ]);
 
 
@@ -103,7 +104,7 @@ class ProtestUpd extends Command
                     }
 
                     $data = [
-                         'nota'               => $record->nota,
+                        'nota'               => $record->nota,
                         'tipoNota'           => $record->tipoNota,
                         'codecodf'           => $record->codecodf,
                         'txtGrpCodificacao'  => $record->txtGrpCodificacao,
@@ -114,6 +115,7 @@ class ProtestUpd extends Command
                         'statUsuar'          => $record->statUsuar,
                         'descCausa'          => $record->descCausa,
                         'descSubCausa'       => $record->descSubCausa,
+                        'descricao'          => $record->descricao,
                         'updated_at'         => now(),
                         'created_at'         => is_null($existiting) ? now() : $existiting->created_at,
                     ];
@@ -147,6 +149,7 @@ class ProtestUpd extends Command
                         'statUsuar',
                         'descCausa',
                         'descSubCausa',
+                        'descricao',
                         'updated_at',
                         'created_at'
                     ]);

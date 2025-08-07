@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Components\Transprod;
 
 use App\Models\{Notify, Prodtransfer, Production, User};
+use App\Notifications\SystemNotification;
 use Livewire\Component;
 
 class Transprod extends Component
@@ -90,18 +91,41 @@ class Transprod extends Component
                 'status'        => 19,
             ]);
 
+
+
+
             $this->production->update([
                 'block'  => true,
                 'status' => 19,
             ]);
 
-            Notify::create([
-                'user_id' => $transfer->to,
-                'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
-                'info'    => 'O usuário ' . Auth()->User()->name . ' deseja transferir para você a nota/ov ' . $this->production->Note->note . ' em ' . $this->production->Service->service,
-                'status'  => 3,
-                'link'    => $url,
-            ]);
+            // Notify::create([
+            //     'user_id' => $transfer->to,
+            //     'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
+            //     'info'    => 'O usuário ' . Auth()->User()->name . ' deseja transferir para você a nota/ov ' . $this->production->Note->note . ' em ' . $this->production->Service->service,
+            //     'status'  => 3,
+            //     'link'    => $url,
+            // ]);
+
+
+
+            $user_to = User::find($this->user_transfer_id); // UUID do destinatário
+
+            if ($user_to) {
+                $user_to->notify(new SystemNotification(
+                    'TRANSFERÊNCIA DE PRODUÇÃO',
+                    'O usuário ' . Auth()->user()->name .
+                    ' deseja transferir para você a nota/ov ' . $this->production->Note->note .
+                    ' em ' . $this->production->Service->service,
+                    route('services.accompany', ['service' => $this->production->service_id]),
+                    3,
+                    [
+                        'production_id' => $this->production->id,
+                        'service_id'    => $this->production->service_id,
+                        'from'          => Auth()->User()->id,
+                    ]
+                ));
+            }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -116,8 +140,8 @@ class Transprod extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'OOOPS, Algo de errado aconteceu....',
-                'timer'    => 2500,
+                'title'    => 'OOOPS, Algo de errado aconteceu....' . $th->getMessage(),
+                'timer'    => 8000,
             ]);
         }
     }

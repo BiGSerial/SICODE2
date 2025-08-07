@@ -142,7 +142,7 @@ class Analise extends Component
 
             $this->conclusion = $this->analise->conclusion;
             $this->info       = $this->analise->info;
-            $this->postes     = $this->production->postes_u ? $this->production->postes_u : ($this->note->postes_u ? $this->note->postes : '');
+            $this->postes     = ($this->analise->postes && $this->analise->postes > 0) ? $this->analise->postes : (($this->production->postes_u && $this->production->postes_u > 0) ? $this->production->postes_u : $this->note->postes);
             $this->odi        = $this->production->odi;
             $this->odd        = $this->production->odd;
             $this->ods        = $this->production->ods;
@@ -158,7 +158,7 @@ class Analise extends Component
             // ModelsAnalise::Create(['production_id' => $productionId]);
             $this->production->Analise()->create();
             $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
-            $this->postes     = $this->production->postes_u ? $this->production->postes_u : ($this->note->postes_u ? $this->note->postes : '');
+            $this->postes     = $this->note->postes;
         }
 
         if ($this->production && $this->note) {
@@ -338,6 +338,11 @@ class Analise extends Component
 
     //     }
 
+    public function updatedPreresult()
+    {
+        $this->postes     = ($this->analise?->postes && $this->analise?->postes > 0) ? $this->analise->postes : (($this->production->postes_u && $this->production->postes_u > 0) ? $this->production->postes_u : $this->note->postes);
+    }
+
     public function updatedConclusion()
     {
 
@@ -356,6 +361,7 @@ class Analise extends Component
             $this->odd      = '';
             $this->ods      = '';
         }
+
 
         $this->info = '';
 
@@ -444,6 +450,8 @@ class Analise extends Component
         }
 
         $this->emit('stop_note', ['productionId' => $this->production->id, 'noteId' => $this->production->note_id, 'limit' => $this->limit_pause]);
+
+        $this->postes = null;
 
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'pause_note',
@@ -682,8 +690,8 @@ class Analise extends Component
         $this->restriction = null;
         $this->card        = null;
         $this->view_form   = false;
-        $this->postes      = '';
-
+        $this->postes        = null;
+        $this->postes_c      = null;
 
 
     }
@@ -711,8 +719,8 @@ class Analise extends Component
         $this->matricula     = '';
         $this->area          = '';
         $this->endereco      = '';
-        $this->postes        = '';
-        $this->postes_c      = '';
+        $this->postes        = null;
+        $this->postes_c      = null;
         $this->odi           = '';
         $this->odd           = '';
         $this->ods           = '';

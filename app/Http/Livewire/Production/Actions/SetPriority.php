@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Production\Actions;
 
 use App\Models\Priority;
 use App\Models\Production;
+use App\Notifications\SystemNotification;
 use Livewire\Component;
 
 class SetPriority extends Component
@@ -79,6 +80,15 @@ class SetPriority extends Component
                     'global'     => false,
                 ]);
             }
+
+            $this->production->User->notify(new SystemNotification(
+                $this->production->priority ? 'PRIORIDADE DEFINIDA' : 'PRIORIDADE REMOVIDA',
+                'O usuário ' . auth()->user()->name .
+                ($this->production->priority ? ' definiu prioridade para a nota/ov ' : ' removeu prioridade da nota/ov <strong>') . $this->production->Note->note .
+                '</strong> em <strong>' . $this->production->Service->service . '</strong>.<br> <strong> Motivo: </strong> ' . $this->priority_reason,
+                route('services.accompany', ['service' => $this->production->service_id]),
+                2 // status
+            ));
 
             $this->emitUp('refresh_list');
 

@@ -431,51 +431,11 @@
                                 </td>
                                 <td class="fw-bold fs-5 {{ $color }}">
 
-                                    {{-- @if (!$list->completed)
-                                                <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Iniciar.">
-                                                    <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                        style="cursor: pointer;"
-                                                        wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                </span>
-                                                <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Transferir.">
-                                                    <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                        style="cursor: pointer;"
-                                                        wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                </span>
-                                            @endif --}}
-                                    <div class="dropdown" style="position: inherit">
-                                        <button class="btn btn-danger btn-sm dropdown-toggle" type="button"
-                                            data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="ri-menu-fill"></i>
-                                        </button>
-                                        <ul class="dropdown-menu  edp-bg-gray">
-                                            @if ($list->status == 1)
-                                                <li><a class="dropdown-item" href="#"
-                                                        wire:click.prevent="get_single_note({{ $list->id }})"><i
-                                                            class="ri-user-shared-fill text-primary align-middle"></i>
-                                                        Atribuir</a></li>
-                                            @else
-                                                @if (!$list->completed)
-                                                    <li><a class="dropdown-item" href="#"
-                                                            wire:click.prevent="to_remove_add({{ $list->id }})"><i
-                                                                class="ri-user-received-2-line text-danger align-middle"></i>
-                                                            Desatribuir</a></li>
-                                                @endif
-                                                {{-- <li><a class="dropdown-item" href="#"><i
-                                                            class="ri-exchange-line text-primary align-middle"></i>
-                                                        Transferir</a></li> --}}
-                                            @endif
-                                            {{-- @livewire('production.actions.attribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('attribute-' . $list->id)) --}}
-                                            @livewire('production.actions.reattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
-                                            @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
-                                            @livewire('production.actions.delete', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('delete-' . $list->id))
-                                            {{-- @livewire('audits.prodbutton', ['prod' => $list->id, 'service' => $this->service->uuid], key('audit-' . $list->id)) --}}
-                                        </ul>
-                                    </div>
+
+
+                                    <x-production.action-production :production="$list" />
+
+
 
                                 </td>
 
