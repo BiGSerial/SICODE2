@@ -19,12 +19,14 @@
     <div class="container-fluid mt-5">
         <div class="row mt-5">
 
-            <div class="col-8">
+            <div class="col-md-8">
                 @livewire('config.system.updatelog', key('systemLogUpdates'))
+
             </div>
-            <div class="col-4">
+            <div class="col-md-4">
                 @livewire('config.system.sysspecs', key('systemSpecs'))
             </div>
+           
         </div>
     </div>
 @endsection

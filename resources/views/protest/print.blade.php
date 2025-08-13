@@ -227,9 +227,11 @@
                 </div>
             </div>
             <div class="details-block">
-                <div><strong>Causa:</strong> {{ $medProtest->Protest->descCausa }}</div>
-                <div><strong>Subcausa:</strong> {{ $medProtest->Protest->descSubCausa }}.</div>
-                <div><strong>Descrição:</strong> </div>
+                <div><strong>Causa:</strong> {{ $medProtest->txtCodCodificacao }}</div>
+                <div><strong>Subcausa:</strong> {{ $medProtest->txtCodMedida }}.</div>
+                <div><strong>Descrição:</strong>
+                    {{ $medProtest->protest?->comments->last()?->message }}
+                </div>
             </div>
 
             <!-- Medidas/Procedimentos -->

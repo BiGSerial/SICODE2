@@ -38,42 +38,7 @@
                 </div>
             </ul>
         </li>
-        <li class="nav-item">
-            <a class="nav-link collapsed" data-bs-target="#protests-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-menu-button-wide"></i><span>RECLAMAÇÔES</span><i class="bi bi-chevron-down ms-auto"></i>
-            </a>
-            <ul id="protests-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
-                <div class="border-start border-3 mb-1 py-0">
-                    <li>
-                        <a href="{{ route('services.protests.list', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="ri-wechat-pay-line fs-4 text-white fs-thin"></i> <span>EM ABERTO</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('services.protests.closed', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="ri-wechat-pay-fill fs-4 text-warning fs-thin"></i> <span>ENCERRADOS</span>
 
-                        </a>
-                    </li>
-                    {{-- <li>
-                        <a href="{{ route('services.waiting_return', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-hourglass-split fs-4 text-white"></i> <span>AGUARDANDO RETORNO
-                                INTERNO</span> @livewire('components.count.oexterno.count-return', key('return-'))
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-clock-history fs-4 text-white"></i> <span>MEU HISTÓRICO</span>
-                        </a>
-                    </li> --}}
-
-                </div>
-            </ul>
-        </li>
     </ul>
 
 

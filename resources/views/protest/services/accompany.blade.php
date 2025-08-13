@@ -6,7 +6,7 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
                 <li class="breadcrumb-item">Reclamação</li>
-                <li class="breadcrumb-item active">Meu Histórico</li>
+                <li class="breadcrumb-item active">Reclamação Acompanhamento</li>
             </ol>
         </ol>
     </nav>
@@ -14,9 +14,9 @@
 
 
 @section('menu')
-    @include('protest.menu')
+    @include('protest.services.menu')
 @endsection
 
 @section('content')
-    @livewire('protests.history', key('protests.history'))
+    @livewire('protests.services.accompany', key('protests.accompany'))
 @endsection

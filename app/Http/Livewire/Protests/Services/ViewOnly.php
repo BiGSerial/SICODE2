@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Protests;
+namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\EvidenceFile;
 use App\Models\MedProtest;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
-class View extends Component
+class ViewOnly extends Component
 {
     use WithFileUploads;
 
@@ -271,7 +271,7 @@ class View extends Component
     {
         $this->tempFiles = [];
         $this->reset('files'); // Also clear any current files in the Livewire property
-       
+        $this->dispatch('showAlert', ['type' => 'info', 'message' => 'Todos os arquivos temporários foram limpos.']);
     }
 
     // Helper function to get file icon class based on extension
@@ -319,7 +319,7 @@ class View extends Component
 
     public function render()
     {
-        return view('livewire.protests.view', [
+        return view('livewire.protests.services.view-only', [
             'medProtest' => $this->medProtest,
         ]);
     }

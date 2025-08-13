@@ -1,11 +1,11 @@
-@php
-    use Carbon\Carbon;
-    use App\Helpers\NotifyStatus;
-@endphp
-<div wire:poll.20s>
-    <li class="nav-item dropdown mx-3">
+<div wire:poll.8s>
+    <li class="nav-item dropdown mx-3" id="notification-dropdown">
+        @php
+            use Carbon\Carbon;
+            use App\Helpers\NotifyStatus;
+        @endphp
 
-        <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown">
+        <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notification-toggle">
             <i class="bi bi-bell align-middle text-edp-verde"></i>
             @if ($notifies->whereNull('read_at')->count())
                 <span class="badge bg-danger badge-number">{{ $notifies->whereNull('read_at')->count() }}</span>
@@ -13,45 +13,66 @@
         </a><!-- End Notification Icon -->
 
         <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" wire:ignore.self
-            style="max-height: 500px; overflow-y: auto; scrollbar-width: thin;">
+            style="max-height: 500px; overflow-y: auto; scrollbar-width: thin;" id="notification-menu">
+
             <li class="dropdown-header sticky-top bg-white">
                 Você possuí <strong>{{ $notifies->whereNull('read_at')->count() }}</strong> notificações novas.
                 @if ($notifies->whereNull('read_at')->count())
-                    <a href="#"><span class="badge rounded-pill bg-primary p-2 ms-2"
-                            wire:click.prevent="recognize_all">Reconhecer Tudo</span></a>
+                    <a href="#" wire:click.prevent="recognize_all" class="badge rounded-pill bg-primary p-2 ms-2">
+                        Reconhecer Tudo
+                    </a>
                 @endif
             </li>
+
             <li>
                 <hr class="dropdown-divider">
             </li>
+
             @if ($notifies->isNotEmpty())
                 @foreach ($notifies->take($total_notifies) as $notify)
                     @php
-                        // Se seu NotifyStatus trabalha com array, envie o status do data
                         $status = NotifyStatus::getStatus($notify->data['status'] ?? null);
                     @endphp
-                    <a wire:key='{{ $notify->id }}' href="" class="nav-link"
-                        wire:click.prevent="readed('{{ $notify->id }}')"
-                        style="{{ $notify->read_at ? 'background-color: #d3d3d3' : '' }}">
-                        <li class="notification-item">
+                    <li class="notification-item" style="{{ $notify->read_at ? 'background-color: #d3d3d3' : '' }}">
+                        <a wire:key="{{ $notify->id }}" href="#"
+                            wire:click.prevent="readed('{{ $notify->id }}')"
+                            class="d-flex align-items-start text-decoration-none">
                             <i class="{{ $status->icon ?? '' }} {{ $status->color ?? '' }}"></i>
-                            <div>
-                                <h6 class="fw-bold">{{ $notify->data['titulo'] ?? '-' }}</h6>
-                                <p>{!! $notify->data['mensagem'] ?? '-' !!}</p>
-                                <p class="mt-3">{{ Carbon::parse($notify->created_at)->diffForHumans() }}</p>
+                            <div class="ms-2">
+                                <h6 class="fw-bold text-secondary">{{ $notify->data['titulo'] ?? '-' }}</h6>
+                                <p class="mb-1">{!! $notify->data['mensagem'] ?? '-' !!}</p>
+                                <p class="mt-3 mb-0 text-muted small">
+                                    {{ Carbon::parse($notify->created_at)->diffForHumans() }}</p>
                             </div>
-                        </li>
-                    </a>
+                        </a>
+                    </li>
                     <li>
                         <hr class="dropdown-divider">
                     </li>
                 @endforeach
             @endif
+
             <li class="dropdown-footer">
                 <a href="#">Mostrar todas as Notificações</a>
             </li>
-
         </ul><!-- End Notification Dropdown Items -->
-
     </li><!-- End Notification Nav -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', function(event) {
+                const dropdown = document.getElementById('notification-dropdown');
+                const dropdownMenu = document.getElementById('notification-menu');
+
+                if (dropdown && !dropdown.contains(event.target)) {
+                    const bsDropdown = bootstrap.Dropdown.getInstance(
+                        dropdown.querySelector('[data-bs-toggle="dropdown"]')
+                    );
+                    if (bsDropdown && dropdownMenu.classList.contains('show')) {
+                        bsDropdown.hide();
+                    }
+                }
+            });
+        });
+    </script>
 </div>

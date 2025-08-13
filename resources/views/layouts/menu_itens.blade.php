@@ -68,7 +68,22 @@
     @livewire('components.count.protest.has-protests', key('menu_protests'))
     <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
         style="background-color: #dbd8d8">
-        <li><a class="dropdown-item" href="{{ route('protests.main') }}"><i
+        @once
+            <li style="background-color: #ffffff; color: white;">
+                <h6 class="dropdown-header">DESPACHOS</h6>
+            </li>
+        @endonce
+        <li><a class="dropdown-item" href="{{ route('protests.dispatch.lists') }}"><i
+                    class="ri-account-pin-box-fill align-middle text-danger"></i>RECLAMAÇÕES</a>
+
+        </li>
+
+        @once
+            <li style="background-color: #ffffff; color: white;">
+                <h6 class="dropdown-header">SERVIÇOS</h6>
+            </li>
+        @endonce
+        <li><a class="dropdown-item" href="{{ route('protests.services.main') }}"><i
                     class="ri-account-pin-box-fill align-middle text-primary"></i>RECLAMAÇÕES @livewire('components.count.protest.count-protests', key('menu_protests_count'))</a>
 
         </li>

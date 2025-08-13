@@ -5,21 +5,20 @@
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                <li class="breadcrumb-item">Serviços</li>
-                <li class="breadcrumb-item">{{ $service->service }}</li>
+                <li class="breadcrumb-item">Dispatch</li>
                 <li class="breadcrumb-item">Reclamações</li>
-                <li class="breadcrumb-item active" aria-current="page">Fechados</li>
+                <li class="breadcrumb-item active" aria-current="page">View</li>
             </ol>
         </ol>
     </nav>
 @endsection
 
 @section('menu')
-    @include('services.oexterno.menu')
+    @include('protest.dispatch.menu')
 @endsection
 
 @section('content')
-    @livewire('services.oexterno.protests.closeds', ['service' => $service->uuid])
+    @livewire('protests.dispatch.view', ['service' => $service->uuid])
 @endsection
 
 @push('script')

@@ -13,9 +13,9 @@
 
 
 @section('menu')
-    @include('protest.menu')
+    @include('protest.services.menu')
 @endsection
 
 @section('content')
-    @livewire('protests.main', key('protests.main'))
+    @livewire('protests.services.main', key('protests.main'))
 @endsection

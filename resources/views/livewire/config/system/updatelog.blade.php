@@ -1,91 +1,135 @@
-@php
-    use Carbon\Carbon;
+@php use Carbon\Carbon; @endphp
 
-@endphp
+<div>
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-clock-history me-2"></i>Histórico de Atualizações
+            </h5>
 
-<div wire:poll.30s>
-    @if ($logUpdates)
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h5 class="card-title mb-0">Log de Atualização</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-9">
-                        <select class="form-select form-select-sm" aria-label="Small select example"
-                            wire:model.defer="singleTask">
-                            <option value="" selected>Todos</option>
-                            @foreach ($tasks as $task)
-                                <option value="{{ $task }}">{{ $task }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <button class="btn btn-sm btn-primary" wire:click.prevent="selectTask">Selecionar</button>
-                    </div>
-                </div>
-            </div>
-
-            @if ($logs->isNotEmpty())
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th class="text-center">Tarefa</th>
-                            <th class="text-center">Criados</th>
-                            <th class="text-center">Atualizados</th>
-                            <th class="text-center">Total</th>
-                            <th class="text-center">Inicio</th>
-                            <th class="text-center">Fim</th>
-                            <th class="text-center">Tempo</th>
-                            <th class="text-center">Executado</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        @foreach ($logs as $log)
-                            @if (is_array($log) && isset($log['tarefa']))
-                                <tr>
-                                    <td class="text-center">{{ $log['tarefa'] }}</td>
-                                    <td class="text-center">{{ $log['created'] }}</td>
-                                    <td class="text-center">{{ $log['updated'] }}</td>
-                                    <td class="text-center">{{ $log['total'] }}</td>
-                                    @php
-                                        $start = Carbon::parse($log['date_inicio']);
-                                        $end = Carbon::parse($log['date_fim']);
-                                        $difference = '';
-
-                                        // Verifica a diferença de tempo e exibe no formato desejado
-                                        if ($start && $end) {
-                                            if ($start->diffInSeconds($end) < 60) {
-                                                $difference = $start->diffInSeconds($end) . ' seg';
-                                            } elseif ($start->diffInMinutes($end) < 60) {
-                                                $difference = $start->diffInMinutes($end) . ' min';
-                                            } elseif ($start->diffInHours($end) < 24) {
-                                                $difference = $start->diffInHours($end) . ' horas';
-                                            } else {
-                                                $difference = $start->diffInDays($end) . ' dias';
-                                            }
-                                        } else {
-                                            $difference = 'Tempo não disponível';
-                                        }
-                                    @endphp
-                                    <td class="text-center">{{ $start ? $start->format('d/m/Y H:i:s') : 'N/A' }}</td>
-                                    <td class="text-center">{{ $end ? $end->format('d/m/Y H:i:s') : 'N/A' }}</td>
-                                    <td class="text-center">{{ $difference }}</td>
-                                    <td class="text-center">{{ $end ? $end->diffForHumans() : 'N/A' }}</td>
-
-                                </tr>
-                            @endif
+            <div class="d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm">
+                    <label class="input-group-text" for="taskSelect">Tarefa</label>
+                    <select id="taskSelect" class="form-select form-select-sm" wire:model.live="singleTask">
+                        <option value="">Todas</option>
+                        @foreach ($tasks as $task)
+                            <option value="{{ $task }}">{{ $task }}</option>
                         @endforeach
-                    </tbody>
-
-                </table>
-
-                <!-- Links de paginação -->
-                <div class="ms-2">
-                    {{ $logs->links() }}
+                    </select>
                 </div>
+
+                <button class="btn btn-sm btn-light" wire:click="resetCursor" title="Limpar e recarregar">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="list-group list-group-flush">
+            @forelse ($logs as $log)
+                @php
+                    $id = $log['id'] ?? '—';
+                    $tarefa = $log['tarefa'] ?? 'N/A';
+
+                    $start = !empty($log['date_inicio'] ?? null) ? Carbon::parse($log['date_inicio']) : null;
+                    $end = !empty($log['date_fim'] ?? null) ? Carbon::parse($log['date_fim']) : null;
+
+                    $difference = 'N/A';
+                    if ($start && $end) {
+                        $sec = $start->diffInSeconds($end);
+                        if ($sec < 60) {
+                            $difference = $sec . ' seg';
+                        } elseif ($sec < 3600) {
+                            $difference = intdiv($sec, 60) . ' min';
+                        } elseif ($sec < 86400) {
+                            $difference = intdiv($sec, 3600) . ' h';
+                        } else {
+                            $difference = intdiv($sec, 86400) . ' dias';
+                        }
+                    }
+
+                    $collapseId = 'log-details-' . $id;
+                @endphp
+
+                <div class="list-group-item" wire:key="log-{{ $id }}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary">#{{ $id }}</span>
+                            <span class="badge text-bg-primary">{{ $tarefa }}</span>
+                            <small class="text-muted">{{ $start ? $start->format('d/m/Y H:i') : 'N/A' }}</small>
+                        </div>
+
+                        <div class="d-flex gap-3 align-items-center">
+                            <span class="badge bg-info text-dark">
+                                <i class="bi bi-stopwatch me-1"></i> {{ $difference }}
+                            </span>
+
+                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
+                                data-bs-target="#{{ $collapseId }}">
+                                <i class="bi bi-eye"></i> Ver mais
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="collapse mt-3" id="{{ $collapseId }}">
+                        <div class="card card-body p-2 bg-light border">
+                            <div class="row g-2">
+                                <div class="col-md-3"><strong>Criados:</strong> {{ $log['created'] ?? 0 }}</div>
+                                <div class="col-md-3"><strong>Atualizados:</strong> {{ $log['updated'] ?? 0 }}</div>
+                                <div class="col-md-3"><strong>Total:</strong> {{ $log['total'] ?? 0 }}</div>
+                                <div class="col-md-3"><strong>Erros:</strong> {{ $log['erros'] ?? 0 }}</div>
+
+                                <div class="col-md-6"><strong>Início:</strong>
+                                    {{ $start ? $start->format('d/m/Y H:i:s') : 'N/A' }}</div>
+                                <div class="col-md-6"><strong>Fim:</strong>
+                                    {{ $end ? $end->format('d/m/Y H:i:s') : 'N/A' }}</div>
+
+                                <div class="col-md-6">
+                                    <strong>Executado:</strong> {{ $end ? $end->diffForHumans() : 'N/A' }}
+                                </div>
+
+                                <div class="col-md-6">
+                                    <strong>Note Updated:</strong> {{ $log['noteupdated'] ?? 'N/A' }}
+                                </div>
+
+                                <div class="col-12">
+                                    <strong>Opções:</strong>
+                                    <pre class="mb-0" style="white-space:pre-wrap">{{ json_encode($log['options'] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                                </div>
+
+                                @if (!empty($log['errosMSGs'] ?? []))
+                                    <div class="col-12">
+                                        <strong>Mensagens de Erro:</strong>
+                                        <ul class="mb-0">
+                                            @foreach ($log['errosMSGs'] ?? [] as $msg)
+                                                <li>{{ $msg }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="list-group-item text-center text-muted py-4">
+                    Nenhum registro encontrado.
+                </div>
+            @endforelse
+        </div>
+
+        <div class="card-footer text-center">
+            @if ($hasMore)
+                <button class="btn btn-sm btn-outline-primary" wire:click="loadMore" wire:loading.attr="disabled">
+                    <i class="bi bi-chevron-down me-1"></i> Carregar mais
+                </button>
+            @else
+                <span class="text-muted small">Fim do histórico</span>
             @endif
         </div>
-    @endif
+    </div>
+
+    <div wire:loading.flex class="w-100 py-3 justify-content-center">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <span class="ms-2 small text-muted">Carregando…</span>
+    </div>
 </div>

@@ -27,6 +27,8 @@ class ControlMedProtest extends Component
     public $comment = '';
 
     public $serviceList = [];
+    public $selectedService = '';
+    public $userSearch = '';
 
     public $usersTemporarilyAssigned = [];
     public $userAssignment;
@@ -66,9 +68,17 @@ class ControlMedProtest extends Component
 
 
 
+    function updatedUserSearch()
+    {
+        $this->userList = User::when($this->serviceId, function($q){
+            $q->whereRelation('ToServices', 'service_id', $this->serviceId);
+        })->where('name', 'like', '%' . $this->userSearch . '%')->orderBy('name')->get();
+    }
+
     public function mount()
     {
         $this->serviceList = Service::orderBy('service')->get();
+        $this->userList = User::orderBy('name')->get();
     }
 
     public function nextPage($noteList)
@@ -116,6 +126,16 @@ class ControlMedProtest extends Component
         }
 
     }
+
+    // public function getFilteredUsersProperty()
+    // {
+    //     return User::query()
+    //         ->when($this->selectedService, fn ($q) => $q->where('service_id', $this->selectedService))
+    //         ->when($this->userSearch, fn ($q) => $q->where('name', 'like', '%' . $this->userSearch . '%'))
+    //         ->get();
+    // }
+
+
 
     public function removeComment()
     {

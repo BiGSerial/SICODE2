@@ -41,15 +41,12 @@ class Closeds extends Component
        'inPrazo' => ['except' => '', 'as' => 'emPrazo'],
     ];
 
-    public function mount($service)
-    {
-        $this->service = $service;
-    }
+
 
     public function goTo($protestNote)
     {
-        return redirect()->route('services.protests.view', [
-            'service' => $this->service,
+        return redirect()->route('protests.dispatch.view', [
+
             'protest' => $protestNote
         ]);
     }

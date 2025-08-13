@@ -42,5 +42,10 @@ class AuthServiceProvider extends ServiceProvider
             });
         }
 
+        Gate::define('viewLogViewer', function (?User $user) {
+            return $user && $user->superadm
+                ? Response::allow()
+                : Response::deny('Você precisa ser Administrador ou Super Administrador para acessar o Log Viewer');
+        });
     }
 }

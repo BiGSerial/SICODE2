@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Protests\Actions\Protest;
+namespace App\Http\Livewire\Protests\Services\Actions;
 
 use App\Models\MedProtest;
 use App\Models\Note;
@@ -59,7 +59,7 @@ class AddNotesRelation extends Component
 
     public function render()
     {
-        return view('livewire.protests.actions.protest.add-notes-relation', [
+        return view('livewire.protests.services.actions.add-notes-relation', [
             'notes' => $this->notes,
         ]);
     }

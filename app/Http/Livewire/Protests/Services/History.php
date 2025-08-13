@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Protests;
+namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\MedProtest;
 use Livewire\Component;
@@ -36,7 +36,7 @@ class History extends Component
 
     public function render()
     {
-        return view('livewire.protests.history', [
+        return view('livewire.protests.services.history', [
             'list' => $this->list,
         ]);
     }

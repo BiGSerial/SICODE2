@@ -1,152 +1,153 @@
-@php
-    use Carbon\Carbon;
-@endphp
+<div>
+    @php
+        use Carbon\Carbon;
+    @endphp
 
-@push('css')
-    <style>
-        /* Cabeçalho moderno */
-        .protest-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 16px;
-            padding: 2rem 2rem 1.5rem 2rem;
-            color: white;
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
-            margin-bottom: 2rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .protest-header::before {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: 200px;
-            height: 200px;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 50%;
-            transform: translate(50px, -50px);
-        }
-
-        .protest-header .header-title {
-            font-size: 2.3rem;
-            font-weight: 700;
-            color: white;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, .08);
-        }
-
-        .protest-header .header-subtitle {
-            font-size: 1.1rem;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        .protest-header .header-description {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.98rem;
-        }
-
-        .modern-card {
-            background: #fff;
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.09);
-            margin-bottom: 1.25rem;
-            overflow: hidden;
-        }
-
-        .modern-card-body {
-            padding: 1.35rem;
-        }
-
-        .modern-card-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #6c757d;
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: .5px;
-        }
-
-        .modern-card-value {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: #2c3e50;
-        }
-
-        .badge-status {
-            font-size: 1rem;
-            padding: .5em 1.3em;
-        }
-
-        .progress {
-            height: 8px;
-        }
-
-        .avatar-circle {
-            font-size: 14px;
-            font-weight: 600;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .message-bubble {
-            border: 1px solid #e9ecef;
-            transition: all 0.2s;
-        }
-
-        .chat-container {
-            height: 340px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: #6c757d #f8f9fa;
-        }
-
-        .chat-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .chat-container::-webkit-scrollbar-thumb {
-            background: #6c757d;
-        }
-
-        .chat-container::-webkit-scrollbar-thumb:hover {
-            background: #495057;
-        }
-
-        .table {
-            font-size: .98rem;
-        }
-
-        .table th,
-        .table td {
-            vertical-align: middle;
-        }
-
-        @media (max-width: 900px) {
+    @push('css')
+        <style>
+            /* Cabeçalho moderno */
             .protest-header {
-                padding: 1rem;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 16px;
+                padding: 2rem 2rem 1.5rem 2rem;
+                color: white;
+                box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
+                margin-bottom: 2rem;
+                position: relative;
+                overflow: hidden;
             }
 
-            .header-title {
-                font-size: 1.5rem;
+            .protest-header::before {
+                content: '';
+                position: absolute;
+                right: 0;
+                top: 0;
+                width: 200px;
+                height: 200px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 50%;
+                transform: translate(50px, -50px);
+            }
+
+            .protest-header .header-title {
+                font-size: 2.3rem;
+                font-weight: 700;
+                color: white;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, .08);
+            }
+
+            .protest-header .header-subtitle {
+                font-size: 1.1rem;
+                color: rgba(255, 255, 255, 0.9);
+            }
+
+            .protest-header .header-description {
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 0.98rem;
+            }
+
+            .modern-card {
+                background: #fff;
+                border: none;
+                border-radius: 16px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.09);
+                margin-bottom: 1.25rem;
+                overflow: hidden;
             }
 
             .modern-card-body {
-                padding: .8rem;
+                padding: 1.35rem;
+            }
+
+            .modern-card-title {
+                font-size: 1rem;
+                font-weight: 600;
+                color: #6c757d;
+                margin-bottom: 1rem;
+                text-transform: uppercase;
+                letter-spacing: .5px;
             }
 
             .modern-card-value {
-                font-size: 1.5rem;
+                font-size: 2.2rem;
+                font-weight: 700;
+                color: #2c3e50;
             }
-        }
-    </style>
-@endpush
 
-<div>
+            .badge-status {
+                font-size: 1rem;
+                padding: .5em 1.3em;
+            }
+
+            .progress {
+                height: 8px;
+            }
+
+            .avatar-circle {
+                font-size: 14px;
+                font-weight: 600;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .message-bubble {
+                border: 1px solid #e9ecef;
+                transition: all 0.2s;
+            }
+
+            .chat-container {
+                height: 340px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: #6c757d #f8f9fa;
+            }
+
+            .chat-container::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .chat-container::-webkit-scrollbar-thumb {
+                background: #6c757d;
+            }
+
+            .chat-container::-webkit-scrollbar-thumb:hover {
+                background: #495057;
+            }
+
+            .table {
+                font-size: .98rem;
+            }
+
+            .table th,
+            .table td {
+                vertical-align: middle;
+            }
+
+            @media (max-width: 900px) {
+                .protest-header {
+                    padding: 1rem;
+                }
+
+                .header-title {
+                    font-size: 1.5rem;
+                }
+
+                .modern-card-body {
+                    padding: .8rem;
+                }
+
+                .modern-card-value {
+                    font-size: 1.5rem;
+                }
+            }
+        </style>
+    @endpush
+
+
     <x-show-loading />
 
     {{-- ==== Cabeçalho Moderno ==== --}}
@@ -158,9 +159,26 @@
                         <div class="header-icon me-3">
                             <i class="ri-error-warning-line fs-2"></i>
                         </div>
+                        @php
+
+                            switch ($protest->tipoNota) {
+                                case 'OU':
+                                    $tipo = 'Ouvidoria';
+                                    break;
+                                case 'NA':
+                                    $tipo = 'Atendimento';
+                                    break;
+                                case 'PR':
+                                    $tipo = 'Procon';
+                                    break;
+                                default:
+                                    $tipo = 'Reclamação';
+                                    break;
+                            }
+                        @endphp
                         <div>
                             <h1 class="header-title mb-0">
-                                Reclamação #{{ $protest->nota }}
+                                {{ $tipo }} #{{ $protest->nota }}
                                 <span class="badge bg-light text-primary ms-2">{{ $protest->tipoNota }}</span>
                             </h1>
                             <div class="header-subtitle text-white-50">{{ $protest->cidade }} —
@@ -211,9 +229,12 @@
                                 class="fw-medium">{{ $protest->txtGrpCodificacao }}</span></div>
                         <div class="border-top pt-2 mt-2">
                             <span class="text-muted small d-block">Causa:</span>
-                            <span class="fw-medium small">{{ $protest->descCausa }}</span>
+                            <span
+                                class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodCodificacao }}</span>
                             <span class="text-muted small d-block mt-1">SubCausa:</span>
-                            <span class="fw-medium small">{{ $protest->descSubCausa }}</span>
+                            <span class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodMedida }}</span>
+                            <span class="text-muted small d-block mt-1">Descrição:</span>
+                            <span class="fw-medium small">{{ $protest->comments->last()?->message }}</span>
                         </div>
                     </div>
                 </div>
@@ -312,7 +333,7 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="modern-card-title"><i class="ri-building-line me-1"></i>Obras Associadas</span>
                 <button class="btn btn-sm btn-warning"
-                    wire:click.defer="$emitTo('services.oexterno.actions.protest.add-notes-relation', 'openAddNotesRelation', {{ $protest->id }})">
+                    wire:click.defer="$emitTo('protests.dispatch.actions.add-notes-relation', 'openAddNotesRelation', {{ $protest->id }})">
                     <i class="ri-add-box-fill me-1"></i>Associar
                 </button>
             </div>
@@ -347,12 +368,14 @@
                                             class="badge bg-info bg-opacity-10 text-info">{{ $note->type_note == 2 ? $note->nstats : $note->centerjob }}</span>
                                     </td>
                                     <td>
+
                                         <button class="btn btn-sm btn-outline-danger" title="Remover Associação"
                                             data-bs-toggle="tooltip"
                                             wire:click.prevent="removeNoteFromProtest({{ $note->pivot->id }})"
                                             onclick="return confirm('Remover esta associação?')">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>
+
                                     </td>
                                 </tr>
                             @endforeach
@@ -383,6 +406,7 @@
                             <tr class="text-center">
                                 <th>#</th>
                                 <th>Status</th>
+                                <th>Cod</th>
                                 <th>Descrição</th>
                                 <th>Data Criação</th>
                                 <th>Data Fim Desejada</th>
@@ -420,6 +444,9 @@
                                         @if ($medProtest->needsConfirmation)
                                             <i class="ri-eye-line fs-5 text-primary" data-bs-toggle="tooltip"
                                                 title="Em acompanhamento"></i>
+                                        @else
+                                            <i class="ri-eye-line fs-5 text-light" data-bs-toggle="tooltip"
+                                                title="Em acompanhamento"></i>
                                         @endif
                                     </td>
                                     <td>
@@ -428,6 +455,10 @@
                                         @else
                                             <span class="badge bg-secondary">FECHADO</span>
                                         @endif
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="badge bg-secondary bg-opacity-10 text-secondary">{{ $medProtest->codMedida }}</span>
                                     </td>
                                     <td>
                                         <div class="text-truncate" style="max-width: 200px;"
@@ -446,9 +477,21 @@
                                         @endif
                                     </td>
                                     <td>
+                                        @php
+                                            $color = '';
+
+                                            if (
+                                                $medProtest->dtFimMedida &&
+                                                $medProtest->dtFimMedida <= $medProtest->dtFimMedidaDesej
+                                            ) {
+                                                $color = 'bg-success';
+                                            } else {
+                                                $color = 'bg-danger';
+                                            }
+                                        @endphp
                                         @if ($medProtest->dtFimMedida)
                                             <span
-                                                class="badge bg-success bg-opacity-10 text-success">{{ $medProtest->dtFimMedida->format('d/m/Y') }}</span>
+                                                class="badge {{ $color }} bg-opacity-10 text-{{ str_replace('bg-', '', $color) }}">{{ $medProtest->dtFimMedida->format('d/m/Y') }}</span>
                                         @else
                                             <span class="text-muted">-</span>
                                         @endif
@@ -460,7 +503,7 @@
                                             class="badge {{ $badgeClass }} bg-opacity-10 text-{{ str_replace('bg-', '', $badgeClass) }}">{{ $statusSit }}</span>
                                     </td>
                                     <td>
-                                        @if (($medProtest->needsConfirmation && $medProtest->completed) || $medProtest->statusSist === 'MEDA')
+                                        @if ($medProtest->needsConfirmation || $medProtest->statusSist === 'MEDA')
                                             @if ($assignment?->completed)
                                                 @if (!$resp->completed)
                                                     <button class="btn btn-sm btn-outline-success"
@@ -475,14 +518,15 @@
                                                     </button>
                                                 @else
                                                     <button class="btn btn-sm btn-outline-primary"
-                                                        title="Visualizar Medida" data-bs-toggle="tooltip">
-                                                        <i class="ri-eye-line"></i>
+                                                        title="Gerenciar Medida" data-bs-toggle="tooltip"
+                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
+                                                        <i class="ri-play-circle-line"></i>
                                                     </button>
                                                 @endif
                                             @else
                                                 <button class="btn btn-sm btn-outline-primary"
                                                     title="Gerenciar Medida" data-bs-toggle="tooltip"
-                                                    wire:click.prevent="$emitTo('services.oexterno.actions.protest.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
+                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
                                                     <i class="ri-play-circle-line"></i>
                                                 </button>
                                             @endif
@@ -495,7 +539,7 @@
                                             @if ($medProtest->Assignments->isNotEmpty())
                                                 <button class="btn btn-sm btn-outline-primary"
                                                     title="Visualizar Medida" data-bs-toggle="tooltip"><i
-                                                        class="ri-eye-line"></i></button>
+                                                        class="ri-eye-line"></i></button> c
                                             @else
                                                 <button class="btn btn-sm btn-outline-secondary"
                                                     title="Sem Medida Registrada" disabled><i
@@ -522,80 +566,90 @@
 
     <div class="modern-card">
         <div class="modern-card-body">
-            <div class="modern-card-title mb-2"><i class="ri-chat-3-line me-2"></i>Discussão e Comentários
+            <div class="modern-card-title mb-2"><i class="ri-chat-3-line me-2"></i>Observações para
+                #{{ $protest?->nota }}
+                <p class="fw-light my-0 py-1" style="font-size: 0.75rem;">A última observação estará visível para
+                    todos os usuários das
+                    medidas.</p>
             </div>
-            <div class="form-floating mb-3">
-                <textarea class="form-control @error('comment') is-invalid @enderror" placeholder="Digite seu comentário..."
-                    id="floatingTextarea" style="height: 80px" wire:model.defer="comment"></textarea>
-                <label for="floatingTextarea">Seu comentário</label>
-                @error('comment')
-                    <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
-                @enderror
-                <div class="d-grid mt-2">
-                    <button type="submit" class="btn btn-primary" wire:click.prevent="addComment">
-                        <i class="ri-send-plane-fill me-1"></i> Enviar Comentário
-                    </button>
-                </div>
-            </div>
-            <div class="chat-container border rounded bg-light">
-                @forelse($protest->comments->sortBy('created_at') as $comment)
-                    <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
-                        <div class="d-flex gap-3">
-                            <div class="flex-shrink-0">
-                                <div class="avatar-circle bg-primary text-white">
-                                    {{ strtoupper(substr($comment->user->name, 0, 2)) }}
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span
-                                            class="fw-semibold {{ $comment->user_id === auth()->user()->id ? 'text-primary' : 'text-dark' }}">{{ $comment->user->name }}</span>
-                                        @if ($comment->user?->email)
-                                            <button class="btn btn-sm btn-outline-primary p-1"
-                                                onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')"
-                                                title="Abrir chat no Teams">
-                                                <i class="bx bxl-microsoft-teams fs-6"></i>
-                                            </button>
-                                        @endif
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <small class="text-muted"><i
-                                                class="ri-time-line me-1"></i>{{ $comment->created_at->diffForHumans() }}</small>
-                                        @if (
-                                            ($comment->created_at->diffInHours() < 1 && $comment->id === $protest->comments->max('id')) ||
-                                                auth()->user()->admin ||
-                                                auth()->user()->superadm)
-                                            <button class="btn btn-sm btn-outline-danger p-1"
-                                                wire:click="deleteComment({{ $comment->id }})"
-                                                title="Excluir comentário"
-                                                onclick="return confirm('Excluir este comentário?')">
-                                                <i class="ri-delete-bin-line fs-6"></i>
-                                            </button>
-                                        @endif
-                                    </div>
-                                </div>
-                                <div
-                                    class="message-bubble p-3 rounded-3 {{ $comment->user_id === auth()->user()->id ? 'bg-primary bg-opacity-10' : 'bg-light' }}">
-                                    <p class="mb-0 text-dark">{{ $comment->message }}</p>
-                                </div>
-                            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-floating mb-3">
+                        <textarea class="form-control @error('comment') is-invalid @enderror" placeholder="Digite sua observação..."
+                            id="floatingTextarea" style="height: 200px" wire:model.defer="comment"></textarea>
+                        <label for="floatingTextarea">Sua Observação</label>
+                        @error('comment')
+                            <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
+                        @enderror
+                        <div class="d-grid mt-2">
+                            <button type="submit" class="btn btn-primary" wire:click.prevent="addComment">
+                                <i class="ri-send-plane-fill me-1"></i> Enviar Observação
+                            </button>
                         </div>
                     </div>
-                @empty
-                    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-                        <i class="ri-chat-3-line fs-1 mb-3 opacity-50"></i>
-                        <h5 class="mb-2">Nenhum comentário ainda</h5>
-                        <p class="mb-0 text-center">Seja o primeiro a comentar nesta reclamação</p>
+                </div>
+                <div class="col-md-8">
+                    <div class="chat-container border rounded bg-light">
+                        @forelse($protest->comments->sortByDesc('created_at') as $comment)
+                            <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
+                                <div class="d-flex gap-3">
+                                    <div class="flex-shrink-0">
+                                        <div class="avatar-circle bg-primary text-white">
+                                            {{ strtoupper(substr($comment->user->name, 0, 2)) }}
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span
+                                                    class="fw-semibold {{ $comment->user_id === auth()->user()->id ? 'text-primary' : 'text-dark' }}">{{ $comment->user->name }}</span>
+                                                @if ($comment->user?->email)
+                                                    <button class="btn btn-sm btn-outline-primary p-1"
+                                                        onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')"
+                                                        title="Abrir chat no Teams">
+                                                        <i class="bx bxl-microsoft-teams fs-6"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <small class="text-muted"><i
+                                                        class="ri-time-line me-1"></i>{{ $comment->created_at->diffForHumans() }}</small>
+                                                @if (
+                                                    ($comment->created_at->diffInHours() < 1 && $comment->id === $protest->comments->max('id')) ||
+                                                        auth()->user()->admin ||
+                                                        auth()->user()->superadm)
+                                                    <button class="btn btn-sm btn-outline-danger p-1"
+                                                        wire:click="deleteComment({{ $comment->id }})"
+                                                        title="Excluir comentário"
+                                                        onclick="return confirm('Excluir este comentário?')">
+                                                        <i class="ri-delete-bin-line fs-6"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="message-bubble p-3 rounded-3 {{ $comment->user_id === auth()->user()->id ? 'bg-primary bg-opacity-10' : 'bg-light' }}">
+                                            <p class="mb-0 text-dark">{{ $comment->message }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        @empty
+                            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                                <i class="ri-chat-3-line fs-1 mb-3 opacity-50"></i>
+                                <h5 class="mb-2">Nenhum comentário ainda</h5>
+                                <p class="mb-0 text-center">Seja o primeiro a comentar nesta reclamação</p>
+                            </div>
+                        @endforelse
                     </div>
-                @endforelse
+                </div>
+
+
             </div>
         </div>
-
-
     </div>
-
     {{-- ==== Livewire Modals (Fora do layout principal) ==== --}}
-    @livewire('services.oexterno.actions.protest.add-notes-relation', key('add-notes-relation-' . $protest->id))
-    @livewire('services.oexterno.actions.protest.control-med-protest', key('control-med-protest-' . $protest->id))
+    @livewire('protests.dispatch.actions.add-notes-relation', key('add-notes-relation-' . $protest->id))
+    @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest-' . $protest->id))
 </div>

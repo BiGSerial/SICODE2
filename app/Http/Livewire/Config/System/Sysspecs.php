@@ -6,86 +6,285 @@ use Livewire\Component;
 
 class Sysspecs extends Component
 {
+    // Discos
+    public array $disks = [];
 
-    public $freeSpace;
-    public $totalSpace;
-    public $memoryUsed;
-    public $memoryPeak;
-    public $memoryTotal;
-    public $memoryFree;
-    public $load;
+    // Memória
+    public int $memTotal = 0;
+    public int $memUsed = 0;
+    public int $memFree = 0;
+    public int $memCached = 0;
+    public int $memBuffers = 0;
+    public int $memSReclaim = 0;
+    public int $swapTotal = 0;
+    public int $swapUsed = 0;
+    public int $swapFree = 0;
+
+    // CPU
+    public float $cpuUsage = 0.0;
+    public int $cpuCores = 1;
+    public ?int $cpuTempC = null;
+    public array $load = ['1min'=>0.0,'5min'=>0.0,'15min'=>0.0];
+
+    // Uptime
+    public string $uptimeHuman = '—';
+
+    // Top processos
+    public array $topProcs = [];
+
+    // PHP atual
+    public float $phpMemUsed = 0.0;
+    public float $phpMemPeak = 0.0;
+
+    // SO
+    public string $osFamily = 'linux';
+    private string $defaultPath = '/';
+
+    // Estado anterior p/ CPU%
+    private ?int $prevCpuTotal = null;
+    private ?int $prevCpuIdle  = null;
 
     public function mount()
     {
+        $this->detectOS();
+        $this->primeCpuStat();
         $this->updateSystemStatus();
-    }
-
-    public function updateSystemStatus()
-    {
-        // Detectar o sistema operacional
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            $directory = 'C:/'; // Diretório raiz no Windows
-            $memoryInfo = shell_exec('systeminfo');
-            $totalMatches = [];
-            $freeMatches = [];
-            preg_match('/Total Physical Memory:\s*([0-9,]+)/', $memoryInfo, $totalMatches);
-            preg_match('/Available Physical Memory:\s*([0-9,]+)/', $memoryInfo, $freeMatches);
-
-            if (isset($totalMatches[1])) {
-                $this->memoryTotal = str_replace(',', '', $totalMatches[1]) / 1024;
-            } else {
-                $this->memoryTotal = 0;
-            }
-
-            if (isset($freeMatches[1])) {
-                $this->memoryFree = str_replace(',', '', $freeMatches[1]) / 1024;
-            } else {
-                $this->memoryFree = 0;
-            }
-        } else {
-            $directory = '/dados/sites'; // Diretório específico no Linux
-            $memoryInfo = shell_exec('free -m');
-            $lines = explode("\n", $memoryInfo);
-            $memoryData = explode(" ", preg_replace('!\s+!', ' ', $lines[1]));
-
-            if (isset($memoryData[1])) {
-                $this->memoryTotal = $memoryData[1];
-            } else {
-                $this->memoryTotal = 0;
-            }
-
-            if (isset($memoryData[3])) {
-                $this->memoryFree = $memoryData[3] + $memoryData[5] + $memoryData[6];
-            } else {
-                $this->memoryFree = 0;
-            }
-        }
-
-        // Espaço disponível no drive
-        $this->freeSpace = round(disk_free_space($directory) / 1024 / 1024 / 1024, 2);
-        $this->totalSpace = round(disk_total_space($directory) / 1024 / 1024 / 1024, 2);
-
-        // Uso de memória
-        $this->memoryUsed = round(memory_get_usage() / 1024 / 1024, 2);
-        $this->memoryPeak = round(memory_get_peak_usage() / 1024 / 1024, 2);
-
-        // Carga do sistema
-        if (function_exists('sys_getloadavg')) {
-            $load = sys_getloadavg();
-        } else {
-            $output = shell_exec('cat /proc/loadavg');
-            $load = explode(' ', $output);
-        }
-
-        $this->load = [
-            '1min' => isset($load[0]) ? $load[0] : 0,
-            '5min' => isset($load[1]) ? $load[1] : 0,
-            '15min' => isset($load[2]) ? $load[2] : 0
-        ];
     }
 
     public function render()
     {
         return view('livewire.config.system.sysspecs');
+    }
+
+    public function updateSystemStatus()
+    {
+        $this->updateCpu();
+        $this->updateLoadAndUptime();
+        $this->updateMemory();
+        $this->updateSwap();
+        $this->updateDisks();
+        $this->updateTopProcs();
+        $this->updatePhpProcess();
+        $this->updateCpuTempIfAvailable();
+    }
+
+    /* ===================== Sistema ===================== */
+
+    private function detectOS(): void
+    {
+        $isWin = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+        $this->osFamily = $isWin ? 'windows' : 'linux';
+        $this->defaultPath = $isWin ? 'C:\\' : '/';
+    }
+
+    private function primeCpuStat(): void
+    {
+        if ($this->osFamily === 'linux') {
+            [$t, $i] = $this->readProcStatTotals();
+            $this->prevCpuTotal = $t;
+            $this->prevCpuIdle  = $i;
+        }
+    }
+
+    private function updateCpu(): void
+    {
+        if ($this->osFamily === 'linux') {
+            $cores = (int) @shell_exec('nproc 2>/dev/null');
+            $this->cpuCores = $cores > 0 ? $cores : max(1, (int) @shell_exec("grep -c ^processor /proc/cpuinfo 2>/dev/null"));
+
+            [$t, $i] = $this->readProcStatTotals();
+            if ($this->prevCpuTotal !== null && $this->prevCpuIdle !== null) {
+                $dt = max(1, $t - $this->prevCpuTotal);
+                $di = max(0, $i - $this->prevCpuIdle);
+                $this->cpuUsage = round((1 - ($di / $dt)) * 100, 1);
+            }
+            $this->prevCpuTotal = $t;
+            $this->prevCpuIdle  = $i;
+        } else {
+            $this->cpuCores = (int) (getenv('NUMBER_OF_PROCESSORS') ?: 1);
+        }
+    }
+
+    private function readProcStatTotals(): array
+    {
+        $stat = @file_get_contents('/proc/stat');
+        if ($stat === false) return [0,0];
+        if (preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)?\s+(\d+)?\s+(\d+)?/m', $stat, $m)) {
+            $user=(int)$m[1]; $nice=(int)$m[2]; $sys=(int)$m[3]; $idle=(int)$m[4];
+            $iow = isset($m[5]) ? (int)$m[5] : 0;
+            $irq = isset($m[6]) ? (int)$m[6] : 0;
+            $sft = isset($m[7]) ? (int)$m[7] : 0;
+            $total = $user + $nice + $sys + $idle + $iow + $irq + $sft;
+            return [$total, $idle + $iow];
+        }
+        return [0,0];
+    }
+
+    private function updateLoadAndUptime(): void
+    {
+        if ($this->osFamily === 'linux') {
+            $avg = function_exists('sys_getloadavg') ? sys_getloadavg() : [0,0,0];
+            $this->load = [
+                '1min'  => isset($avg[0]) ? round((float)$avg[0], 2) : 0.0,
+                '5min'  => isset($avg[1]) ? round((float)$avg[1], 2) : 0.0,
+                '15min' => isset($avg[2]) ? round((float)$avg[2], 2) : 0.0,
+            ];
+            $u = @file_get_contents('/proc/uptime');
+            if ($u !== false) {
+                $secs = (int)floatval(explode(' ', trim($u))[0]);
+                $this->uptimeHuman = $this->humanSeconds($secs);
+            }
+        }
+    }
+
+    private function updateMemory(): void
+    {
+        if ($this->osFamily === 'linux') {
+            $meminfo = @file('/proc/meminfo', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            $map=[];
+            if ($meminfo) {
+                foreach ($meminfo as $line) {
+                    if (preg_match('/^(\w+):\s+(\d+)/', $line, $m)) $map[$m[1]]=(int)$m[2];
+                }
+            }
+            $total = $map['MemTotal'] ?? 0;
+            $free  = $map['MemFree'] ?? 0;
+            $buf   = $map['Buffers'] ?? 0;
+            $cached= $map['Cached'] ?? 0;
+            $srec  = $map['SReclaimable'] ?? 0;
+            $used  = max(0, $total - ($free + $buf + $cached + $srec));
+
+            $this->memTotal   = (int) round($total / 1024);
+            $this->memUsed    = (int) round($used  / 1024);
+            $this->memFree    = (int) round(($total - $used) / 1024);
+            $this->memBuffers = (int) round($buf   / 1024);
+            $this->memCached  = (int) round($cached/ 1024);
+            $this->memSReclaim= (int) round($srec  / 1024);
+        }
+    }
+
+    private function updateSwap(): void
+    {
+        if ($this->osFamily === 'linux') {
+            $meminfo = @file('/proc/meminfo', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            $map=[];
+            if ($meminfo) foreach ($meminfo as $line) if (preg_match('/^(\w+):\s+(\d+)/', $line, $m)) $map[$m[1]]=(int)$m[2];
+            $st=$map['SwapTotal']??0; $sf=$map['SwapFree']??0; $su=max(0,$st-$sf);
+            $this->swapTotal=(int)round($st/1024); $this->swapFree=(int)round($sf/1024); $this->swapUsed=(int)round($su/1024);
+        }
+    }
+
+    private function updateDisks(): void
+    {
+        $this->disks = [];
+        if ($this->osFamily === 'linux') {
+            $out = @shell_exec('df -P -B1 2>/dev/null');
+            if ($out) {
+                $lines = preg_split('/\r?\n/', trim($out));
+                array_shift($lines);
+                foreach ($lines as $ln) {
+                    $p = preg_split('/\s+/', trim($ln));
+                    if (count($p) < 6) continue;
+                    [$fs,$blocks,$used,$avail,$pcent,$mount] = array_slice($p,0,6);
+                    if (strpos($fs,'tmpfs')===0 || strpos($fs,'devtmpfs')===0) continue;
+                    $total = (int)$blocks; $u=(int)$used; $f=(int)$avail;
+                    $pct = $total>0 ? ($u/$total)*100 : 0;
+                    $this->disks[] = [
+                        'fs'=>$fs, 'mount'=>$mount,
+                        'total'=>$this->humanBytes($total),
+                        'used'=>$this->humanBytes($u),
+                        'free'=>$this->humanBytes($f),
+                        'used_pct'=>round($pct,1),
+                    ];
+                }
+                return;
+            }
+        }
+        // Fallback único
+        $free  = @disk_free_space($this->defaultPath) ?: 0;
+        $total = @disk_total_space($this->defaultPath) ?: 0;
+        $used  = max(0,$total-$free);
+        $pct   = $total>0 ? ($used/$total)*100 : 0;
+        $this->disks[] = [
+            'fs'=>'—','mount'=>$this->defaultPath,
+            'total'=>$this->humanBytes($total),
+            'used'=>$this->humanBytes($used),
+            'free'=>$this->humanBytes($free),
+            'used_pct'=>round($pct,1),
+        ];
+    }
+
+    private function updateTopProcs(): void
+    {
+        $this->topProcs = [];
+        if ($this->osFamily === 'linux') {
+            $out = @shell_exec("ps -eo pid,comm,%cpu,%mem --no-headers --sort=-%cpu | head -n 5");
+            if ($out) {
+                foreach (preg_split('/\r?\n/', trim($out)) as $ln) {
+                    if (!$ln) continue;
+                    $parts = preg_split('/\s+/', trim($ln));
+                    if (count($parts)<4) continue;
+                    $pid = array_shift($parts);
+                    $mem = array_pop($parts);
+                    $cpu = array_pop($parts);
+                    $cmd = implode(' ', $parts);
+                    $this->topProcs[] = ['pid'=>(int)$pid,'cmd'=>$cmd,'cpu'=>(float)$cpu,'mem'=>(float)$mem];
+                }
+            }
+        }
+    }
+
+    private function updatePhpProcess(): void
+    {
+        $this->phpMemUsed = round(memory_get_usage() / 1024 / 1024, 2);
+        $this->phpMemPeak = round(memory_get_peak_usage() / 1024 / 1024, 2);
+    }
+
+    private function updateCpuTempIfAvailable(): void
+    {
+        if ($this->osFamily !== 'linux') { $this->cpuTempC = null; return; }
+        $candidates = ['/sys/class/thermal/thermal_zone0/temp','/sys/class/hwmon/hwmon0/temp1_input'];
+        foreach ($candidates as $p) {
+            if (is_readable($p)) {
+                $raw = trim((string) @file_get_contents($p));
+                if ($raw!=='') { $v=(int)$raw; $this->cpuTempC = $v>1000 ? (int)round($v/1000) : $v; return; }
+            }
+        }
+        $this->cpuTempC = null;
+    }
+
+    /* ===================== Utils ===================== */
+
+    private function humanBytes(int|float $bytes): string
+    {
+        $units=['B','KB','MB','GB','TB','PB']; $i=0; $v=(float)$bytes;
+        while ($v>=1024 && $i<count($units)-1) { $v/=1024; $i++; }
+        return sprintf('%.2f %s',$v,$units[$i]);
+    }
+
+    private function humanSeconds(int $sec): string
+    {
+        $d=intdiv($sec,86400); $sec%=86400;
+        $h=intdiv($sec,3600);  $sec%=3600;
+        $m=intdiv($sec,60);
+        if($d>0) return "{$d}d {$h}h {$m}m";
+        if($h>0) return "{$h}h {$m}m";
+        return "{$m}m";
+    }
+
+    public function barClass(float $pct): string
+    {
+        return $pct >= 90 ? 'bg-danger' : ($pct >= 75 ? 'bg-warning' : 'bg-success');
+    }
+
+    public function badgeClass(float $pct): string
+    {
+        return $pct >= 90 ? 'text-bg-danger' : ($pct >= 75 ? 'text-bg-warning' : 'text-bg-success');
+    }
+
+    public function loadBadge(float $load): string
+    {
+        $ratio = $this->cpuCores > 0 ? ($load / $this->cpuCores) * 100 : 0;
+        return $this->badgeClass($ratio);
     }
 }

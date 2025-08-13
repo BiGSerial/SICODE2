@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class MedProtest extends Model
 {
@@ -62,6 +63,22 @@ class MedProtest extends Model
     public function EvidenceFiles()
     {
         return $this->morphMany(EvidenceFile::class, 'evidenciable');
+    }
+
+    public function TechnicalReport()
+    {
+        return $this->hasOne(TechnicalReport::class);
+    }
+
+
+    public function getAllNotesAttribute(): Collection
+    {
+        $this->loadMissing('Notes', 'Protest.Notes');
+
+        return $this->Notes
+            ->merge($this->Protest->Notes ?? collect())
+            ->unique('id')
+            ->values();
     }
 
 

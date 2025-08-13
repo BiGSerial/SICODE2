@@ -1,0 +1,209 @@
+<?php
+
+namespace App\Jobs\Reports;
+
+use App\Exports\Reports\ProductionsExportList;
+use App\Models\Production;
+use App\Models\Service;
+use App\Models\User;
+use App\Notifications\SystemNotification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
+
+class ExportProductionJob implements ShouldQueue
+{
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
+
+    public array $params;
+    public string $userId;
+
+    public $tries   = 2;
+    public $backoff = [30, 120];
+
+    public function __construct(array $params, string $userId)
+    {
+        $this->params = $params;
+        $this->userId = $userId;
+    }
+
+    public function handle(): void
+    {
+        $user         = User::find($this->userId);
+        $includeOpen  = (bool)($this->params['complete'] ?? false); // incluir não concluídos?
+        $wantD5       = (bool)($this->params['d5'] ?? false);
+        $filePath     = null;
+        $serviceLabel = '';
+
+        try {
+            $query = Production::query()
+                ->select([
+                    'id','user_id','company_id','service_id','dispatch_by',
+                    'note_id','att_by',
+                    'dt_note','dispatch_at','att_at','completed_at',
+                    'odi','odd','ods','eo','iproject','cad','cadastro',
+                    'postes_c','postes_u','stopped','d5','confirmed','status','completed',
+                    'partial','partial_at',
+                ])
+                ->where('rejected', false)
+                // completed?
+                ->when(!$includeOpen, fn ($q) => $q->where('completed', true))
+                // empresa
+                ->when(($this->params['company'] ?? null), fn ($q, $company) => $q->where('company_id', $company))
+                // serviços
+                ->when(!empty($this->params['service'] ?? []), fn ($q) => $q->whereIn('service_id', $this->params['service']))
+                // mês/ano
+                ->when(($this->params['monthYear'] ?? null), function ($q, $ym) use ($includeOpen) {
+                    $start = date('Y-m-01 00:00:00', strtotime($ym));
+                    $end   = date('Y-m-t 23:59:59', strtotime($ym));
+                    $q->where(function ($w) use ($includeOpen, $start, $end) {
+                        $w->whereBetween('completed_at', [$start, $end]);
+                        if ($includeOpen) {
+                            $w->orWhere('completed', false);
+                        }
+                    });
+                })
+                // dt_init
+                ->when(($this->params['dt_init'] ?? null), function ($q, $dt) use ($includeOpen) {
+                    $start = date('Y-m-d 00:00:00', strtotime($dt));
+                    $q->where(function ($w) use ($includeOpen, $start) {
+                        $w->where('completed_at', '>=', $start);
+                        if ($includeOpen) {
+                            $w->orWhere('completed', false);
+                        }
+                    });
+                })
+                // dt_end
+                ->when(($this->params['dt_end'] ?? null), function ($q, $dt) use ($includeOpen) {
+                    $end = date('Y-m-d 23:59:59', strtotime($dt));
+                    $q->where(function ($w) use ($includeOpen, $end) {
+                        $w->where('completed_at', '<=', $end);
+                        if ($includeOpen) {
+                            $w->orWhere('completed', false);
+                        }
+                    });
+                })
+                // D5: se não marcado, exclui D5; se marcado, inclui todos (D5 e não-D5), como no componente
+                ->when(!$wantD5, fn ($q) => $q->where('d5', false))
+                // search simples
+                ->when(strlen(trim($this->params['search'] ?? '')) > 0, function ($q) {
+                    $search = trim($this->params['search']);
+                    $wildcard = (str_contains($search, '*') || str_contains($search, '%'))
+                        ? str_replace('*', '%', $search)
+                        : $search;
+                    $type = str_contains($wildcard, '%') ? 'like' : '=';
+                    $q->where(function ($w) use ($wildcard, $type) {
+                        $w->whereRelation('note', 'note', $type, $wildcard)
+                          ->orWhereRelation('note.orders', 'ordem', $type, $wildcard)
+                          ->orWhereRelation('note', 'material', $type, $wildcard);
+                    });
+                })
+                // multisearch
+                ->when(!empty($this->params['multisearch'] ?? []), function ($q) {
+                    $arr = array_values(array_filter($this->params['multisearch']));
+                    $q->where(function ($w) use ($arr) {
+                        $w->whereRelation('Note', function ($qs) use ($arr) {
+                            $qs->whereIn('note', $arr)
+                               ->orWhereIn('material', $arr);
+                        })
+                          ->orWhereRelation('Note.Orders', function ($qs) use ($arr) {
+                              $qs->whereIn('ordem', $arr);
+                          });
+                    });
+                })
+                ->with([
+                    'Dispatcher:id,name',
+                    'Dispatcher.Employee.Contract.company:id,name',
+                    'Att:id,name',
+                    'Att.Employee.Contract.company:id,name',
+                    'User:id,name',
+                    'Company:id,name',
+                    'Service:uuid,service',
+                    'Note:id,note,material,group2,group5,lexp,postes,nexp,doe,rubrica,type_note',
+                    'Note.RamalForm:id,note_id,created_at',
+                    'Note.WorkForm:id,note_id,informed_at,rejected,created_at',
+                    'Analise',
+                    'Reclaim:id,category',
+                ])
+                ->orderBy('completed_at');
+
+            $rowEstimate = (clone $query)->toBase()->count();
+
+            // Nome do serviço (se 1 selecionado)
+            $serviceLabel = '';
+            if (!empty($this->params['service']) && count($this->params['service']) === 1) {
+                $serviceLabel = Service::whereIn('uuid', $this->params['service'])->first()?->service ?? '';
+            }
+
+            $suffix     = $serviceLabel ? '_' . $serviceLabel : '';
+            $filePath   = 'exports/' . now()->format('YmdHis') . $suffix . '_productions.xlsx';
+
+            // Exporta
+            (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
+
+            // Notifica sucesso
+            if ($user && Storage::disk('local')->exists($filePath)) {
+                $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
+                $user->notify(new SystemNotification(
+                    'Exportação concluída!',
+                    'Seu relatório de Produções' . $serviceText . ' está pronto para download.<br><br>Clique para baixar.',
+                    Storage::url($filePath),
+                    4,
+                    []
+                ));
+            } else {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
+            }
+
+        } catch (Throwable $e) {
+            Log::error('ExportProductionJob falhou', [
+                'user_id' => $this->userId,
+                'params'  => $this->params,
+                'error'   => $e->getMessage(),
+            ]);
+
+            if ($filePath && Storage::disk('local')->exists($filePath)) {
+                Storage::disk('local')->delete($filePath);
+            }
+
+            if ($user) {
+                $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
+                $user->notify(new SystemNotification(
+                    'Erro na exportação',
+                    'Não foi possível gerar o relatório de Produções' . $serviceText . ' no momento. Tente novamente com um filtro menor ou fale com o suporte.',
+                    null,
+                    5,
+                    []
+                ));
+            }
+
+            throw $e;
+        }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::critical('ExportProductionJob FAILED', [
+            'user_id' => $this->userId,
+            'error'   => $exception->getMessage(),
+        ]);
+
+        if ($user = User::find($this->userId)) {
+            $user->notify(new SystemNotification(
+                'Exportação falhou',
+                'A geração do relatório de Produções falhou após novas tentativas. Nossa equipe já foi informada. Tente novamente mais tarde.',
+                null,
+                5,
+                []
+            ));
+        }
+    }
+}

@@ -4,18 +4,18 @@ namespace App\Exports\Reports;
 
 use App\Custom\Notestatus;
 use App\Models\Edp_depc\City;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\RegistersEventListeners;
 use App\Models\Production;
-use Carbon\Carbon;
 use Carbon\CarbonInterval;
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\RegistersEventListeners;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class ProductionsExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
@@ -25,35 +25,49 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
     protected $data;
     private $cities;
+    private $rowEstimate;
 
-    public function __construct($data)
+    /** Quantas linhas usar como amostra para estimar larguras (quanto maior, mais preciso / mais lento) */
+    private int $autosizeSampleRows = 200;
+
+    /** Limiares/limites para heurística de largura */
+    private int $shortColMaxLen = 18;   // até 18 chars = pode usar autosize
+    private int $minWidth       = 12;   // largura mínima para colunas longas
+    private int $maxWidth       = 60;   // largura máxima para colunas longas
+    private int $padding        = 2;    // “folga” para colunas longas (maxLen + padding)
+
+    public function __construct($data, ?int $rowEstimate = null)
     {
-        $this->data = $data;
-        $this->cities = City::all();
+        $this->data   = $data;
+        $this->rowEstimate = $rowEstimate ?? 0;
+        $this->cities = City::all(); // cache em memória p/ map()
     }
 
     public function query()
     {
+        // IMPORTANTE: garanta que o query que chega aqui já está com os eager loads necessários
+        // (User, Company, Service, Note, Dispatcher, Analise, Reclaim, Note.RamalForm, Note.WorkForm etc.)
+        // para evitar N+1 no map().
         return $this->data;
     }
 
     public function chunkSize(): int
     {
+        // Pode aumentar para 2000/3000 se seu banco/worker aguentar
         return 1000;
     }
 
     public function map($row): array
     {
-
-
+        // Evita Carbon::parse quando já são instâncias de Carbon (tipicamente são)
         $city = $this->cities->firstWhere('rdMunicipio', $row->Note->nexp);
 
         return [
-            $row->Dispatcher ? $row->Dispatcher->name : '',
-            isset($row->Dispatcher->Employee->Contract->company->name) ? $row->Dispatcher->Employee->Contract->company->name : '',
-            $row->User ? $row->User->name : '',
-            $row->Company ? $row->Company->name : '',
-            $row->Service ? $row->Service->service : '',
+            $row->Dispatcher?->name ?? '',
+            $row->Dispatcher->Employee->Contract->company->name ?? '',
+            $row->User?->name ?? '',
+            $row->Company?->name ?? '',
+            $row->Service?->service ?? '',
             $row->Note->rubrica,
             $row->Note->type_note,
             $row->Note->note,
@@ -62,12 +76,12 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->group5,
             $row->Note->material,
             $row->Note->lexp,
-            $city ? $city->centro : '',
-            $city ? $city->baseConstrucao : '',
-            Carbon::parse($row->dt_note)->format('d/m/Y H:i:s'),
-            Carbon::parse($row->dispatch_at)->format('d/m/Y H:i:s'),
-            Carbon::parse($row->att_at)->format('d/m/Y H:i:s'),
-            Carbon::parse($row->completed_at)->format('d/m/Y H:i:s'),
+            $city?->centro ?? '',
+            $city?->baseConstrucao ?? '',
+            $row->dt_note?->format('d/m/Y H:i:s'),
+            $row->dispatch_at?->format('d/m/Y H:i:s'),
+            $row->att_at?->format('d/m/Y H:i:s'),
+            $row->completed_at?->format('d/m/Y H:i:s'),
             $row->odi,
             $row->odd,
             $row->ods,
@@ -76,21 +90,21 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->cad ? 'Sim' : 'Não',
             $row->cadastro ? 'Sim' : 'Não',
             $row->postes_c,
-            $row->note->postes,
+            $row->Note->postes,
             $row->postes_u,
-            CarbonInterval::seconds($row->stopped)->cascade()->forHumans(['short' => true]),
+            $row->stopped ? CarbonInterval::seconds($row->stopped)->cascade()->forHumans(['short' => true]) : '',
             $row->d5 ? 'Sim' : 'Não',
-            $row->d5 ? $row->Reclaim?->category : '',
+            $row->d5 ? ($row->Reclaim?->category ?? '') : '',
             $row->confirmed ? 'CONFIRMADO' : 'NAO CONFIRMADO',
             Notestatus::status($row->status)->status,
-            $row->Analise ? $row->Analise->conclusion : '',
+            $row->Analise->conclusion ?? '',
             $row->partial ? 'PARCIAL' : 'NORMAL',
             $row->Note->RamalForm ? 'SIM' : 'NÃO',
-            $row->Note->RamalForm?->created_at->format('d/m/Y H:i:s'),
+            $row->Note->RamalForm?->created_at?->format('d/m/Y H:i:s'),
             $row->partial_at?->format('d/m/Y H:i:s'),
             $row->Note->WorkForm ? 'SIM' : 'NÃO',
             $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
-            $row->Note->WorkForm && $row->Note->WorkForm->rejected ? 'REJEITADO' : 'NORMAL',
+            ($row->Note->WorkForm && $row->Note->WorkForm->rejected) ? 'REJEITADO' : 'NORMAL',
         ];
     }
 
@@ -139,8 +153,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Informe Final',
             'Data Informe Final',
             'Status Informe Final',
-
-
         ];
     }
 
@@ -159,23 +171,60 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
     public function registerEvents(): array
     {
+
+
+        if ($this->rowEstimate > 10000) {
+            return []; // evita AfterSheet pesado
+        }
+
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $highestColumn = $event->sheet->getHighestColumn();
+                $sheet = $event->sheet->getDelegate();
 
-                // Define o estilo para a primeira linha
-                $event->sheet->getStyle('A1:' . $highestColumn . '1')->applyFromArray([
-                    'font' => [
-                        'bold'  => true,
-                        'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
-                    ],
+                // Estilo do header
+                $highestColumn = $sheet->getHighestColumn();
+                $headerRange   = 'A1:' . $highestColumn . '1';
+                $sheet->getStyle($headerRange)->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                     'fill' => [
                         'fillType'   => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
+                        'startColor' => ['rgb' => '0000FF'],
                     ],
                 ]);
 
-                $event->sheet->autoSize();
+                // ===== Heurística de largura por coluna =====
+                $highestRow          = (int) $sheet->getHighestRow();
+                $highestColumnIndex  = Coordinate::columnIndexFromString($highestColumn);
+                $sampleLastRow       = min($highestRow, 1 + $this->autosizeSampleRows); // inclui o header (linha 1)
+
+                for ($colIndex = 1; $colIndex <= $highestColumnIndex; $colIndex++) {
+                    $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+
+                    // 1) Comece pelo tamanho do cabeçalho
+                    $headerValue = (string) ($sheet->getCell($colLetter . '1')->getValue() ?? '');
+                    $maxLen = mb_strlen($headerValue);
+
+                    // 2) Amostra das primeiras N linhas
+                    for ($row = 2; $row <= $sampleLastRow; $row++) {
+                        $val = $sheet->getCell($colLetter . $row)->getValue();
+                        if ($val instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+                            $val = $val->getPlainText();
+                        }
+                        $len = mb_strlen((string) $val);
+                        if ($len > $maxLen) {
+                            $maxLen = $len;
+                        }
+                    }
+
+                    // 3) Decisão: autosize só para colunas curtas; demais com largura fixa
+                    if ($maxLen <= $this->shortColMaxLen) {
+                        // autosize é custoso, mas aceitável para colunas "curtas"
+                        $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+                    } else {
+                        $width = min(max($maxLen + $this->padding, $this->minWidth), $this->maxWidth);
+                        $sheet->getColumnDimension($colLetter)->setWidth($width);
+                    }
+                }
             },
         ];
     }

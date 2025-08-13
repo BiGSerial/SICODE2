@@ -37,7 +37,7 @@
                                 <td>{{ $item->Assignments->where('responsible', true)->first()?->User->name }}</td>
                                 <td>{{ $item->comments->isNotEmpty() ? $item->comments->first()->message : 'SEM OBSERVAÇÃO' }}
                                 </td>
-                                <td><a href="{{ route('protests.view', $item->id) }}"><i
+                                <td><a href="{{ route('protests.services.view', $item->id) }}"><i
                                             class="ri-play-circle-fill fs-4 align-middle text-success"
                                             style="cursor: pointer;"></i></a></td>
                             </tr>

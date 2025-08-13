@@ -237,12 +237,22 @@ Route::prefix('/system')->controller(SystemController::class)->name('system.')->
 
 
 Route::prefix('/protests')->controller(ProtestController::class)->name('protests.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->name('main');
-    Route::get('/view/{medProtestId}', 'view')->name('view');
-    Route::get('/view_only/{medProtestId}', 'view_only')->name('view_only');
-    Route::get('/accompany', 'accompany')->name('accompany');
 
-    Route::get('/history', 'history')->name('history');
+    Route::prefix('/services')->name('services.')->group(function () {
+        Route::get('/', 'main')->name('main');
+        Route::get('/view/{medProtestId}', 'view')->name('view');
+        Route::get('/view_only/{medProtestId}', 'view_only')->name('view_only');
+        Route::get('/accompany', 'accompany')->name('accompany');
+        Route::get('/history', 'history')->name('history');
+    });
+
+    Route::prefix('/dispatch')->name('dispatch.')->group(function () {
+        Route::get('/', 'dispatch_lists')->name('lists');
+        Route::get('/view/{protest}', 'dispatch_view')->name('view');
+        Route::get('/view_only/{protest}', 'dispatch_view_only')->name('view_only');
+        Route::get('/closeds', 'dispatch_closeds')->name('closeds');
+    });
+
     Route::get('/print/{medProtestId}', 'print')->name('print');
 });
 

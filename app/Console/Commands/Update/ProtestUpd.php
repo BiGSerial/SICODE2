@@ -93,7 +93,8 @@ class ProtestUpd extends Command
                         || $existiting->cenPlan !== $record->cenPlan
                         || $existiting->descSubCausa !== $record->descSubCausa
                         || $existiting->descCausa !== $record->descCausa
-                        || $existiting->statUsuar !== $record->statUsuar;
+                        || $existiting->statUsuar !== $record->statUsuar
+                        || $existiting->descricao !== $record->descricao;
 
                     if (!$modified) {
                         $bar->setMessage($count['tins'], 'tins');

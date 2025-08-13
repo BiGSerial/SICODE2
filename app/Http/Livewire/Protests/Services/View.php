@@ -1,21 +1,23 @@
 <?php
 
-namespace App\Http\Livewire\Protests;
+namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\EvidenceFile;
 use App\Models\MedProtest;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
-class ViewOnly extends Component
+class View extends Component
 {
     use WithFileUploads;
 
     public $medProtest;
     public $comment;
+    public $conclusion = '';
 
     public $filesConfig = [
         'disk' => 'public',
@@ -42,6 +44,8 @@ class ViewOnly extends Component
         'comment.required' => 'O comentário é obrigatório.',
         'comment.string' => 'O comentário deve ser uma string.',
         'comment.min' => 'O comentário deve ter pelo menos 10 caracteres.',
+        'conclusion.required' => 'O parecer final é obrigatório.',
+        'conclusion.min'     => 'O parecer final deve ter pelo menos 10 caracteres.',
         'files.*.mimes' => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
         'files.*.max' => 'Cada arquivo não pode ter mais de 10MB.',
         'files.max' => 'Você pode anexar no máximo 5 arquivos de cada vez.',
@@ -85,69 +89,149 @@ class ViewOnly extends Component
 
     public function finishMedProtest()
     {
+        // Validações rápidas de UX: antes de abrir o confirm
+        $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
+        $hasEvidence   = $this->medProtest->evidenceFiles()->count() > 0;
+        $hasConclusion = mb_strlen(trim((string) $this->conclusion)) >= 10;
 
-
-        $this->dispatchBrowserEvent('alertar', [
-               'title'         => 'FINALIZAR MEDIDA DE RECLAMAÇÃO',
-               'msg'           => "Você tem certeza que deseja finalizar esta medida de reclamação?",
-               'icon'          => 'question',
-               'btnOktxt'      => 'Sim, Finalizar!',
-               'btnCanceltxt'  => 'Não, Cancele',
-               'action'        => 'confirmFinishMedProtest',
-               'cancel_titulo' => 'Cancelado!',
-               'cancel_msg'    => 'Ação Cancelada.',
-
-           ]);
-    }
-
-    public function finish()
-    {
-        $userAssigned = $this->medProtest->Assignments()?->where('completed', false)->where('responsible', false)->where('monitoring', false)->first();
-
-        if (!$userAssigned) {
+        if ($needsEvidence && !$hasEvidence) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Você não está designado para esta medida de reclamação!',
-                'timer'    => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Evidências pendentes',
+                'text'     => 'Esta medida exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
+                'timer'    => 6000,
             ]);
             return;
         }
 
-        $userAssigned->update([
-            'completed' => true,
-            'ended_at' => now(),
-        ]);
-
-        if (!$this->medProtest->needsConfirmation) {
-
-            $this->medProtest->update([
-                'completed' => true,
-                'completed_at' => now(),
+        if (!$hasConclusion) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Parecer final obrigatório',
+                'text'     => 'Informe o parecer final (mínimo 10 caracteres) para concluir o laudo.',
+                'timer'    => 6000,
             ]);
-
-            $this->medProtest->Assignments()->where('completed', false)->update([
-                'completed' => true,
-                'ended_at' => now(),
-            ]);
-
+            return;
         }
 
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'Medida de Reclamação finalizada com sucesso!',
-            'timer'    => 5000,
+        // Abre o confirm padrão que você já usa
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'FINALIZAR MEDIDA DE RECLAMAÇÃO',
+            'msg'           => "Você tem certeza que deseja finalizar esta medida de reclamação?",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Finalizar!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirmFinishMedProtest',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Ação Cancelada.',
+        ]);
+    }
+
+    public function finish()
+    {
+        // validações de segurança no servidor
+        $this->validate([
+            'conclusion' => 'required|min:10',
         ]);
 
-        $this->emitSelf('refreshComponent'); // Refresh the component to reflect the changes
+        $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
+        if ($needsEvidence && !$this->medProtest->evidenceFiles()->exists()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center','icon' => 'error',
+                'title' => 'Evidências pendentes',
+                'text' => 'Esta medida exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
+                'timer' => 6000,
+            ]);
+            return;
+        }
+
+        $userAssigned = $this->medProtest->Assignments()
+            ->where('completed', false)
+            ->where('user', true)
+            ->where('monitoring', false)
+            ->first();
+
+        if (!$userAssigned) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center','icon' => 'error',
+                'title' => 'Você não está designado para esta medida de reclamação!',
+                'timer' => 5000,
+            ]);
+            return;
+        }
+
+        DB::beginTransaction();
+
+
+        try {
+            // Finaliza assignment do usuário
+            $userAssigned->update([
+                'completed' => true,
+                'ended_at'  => now(),
+            ]);
+
+            // Se não precisa de confirmação: encerra a MedProtest
+            if (!$this->medProtest->needsConfirmation) {
+                $this->medProtest->update([
+                    'completed'     => true,
+                    'completed_at'  => now(),
+                    'statusSist'    => 'ENCERRADO',
+                ]);
+
+                // amarra outros assignments
+                $this->medProtest->Assignments()
+                    ->where('completed', false)
+                    ->update([
+                        'completed' => true,
+                        'ended_at'  => now(),
+                    ]);
+            }
+
+            // cria/atualiza o relatório técnico (hasOne)
+            $this->medProtest->technicalReport()->updateOrCreate(
+                ['med_protest_id' => $this->medProtest->id],
+                [
+                    'title'           => 'Parecer Técnico - Reclamação '.$this->medProtest->protest?->nota,
+                    'initial_content' => null,
+                    'content'         => trim($this->conclusion),
+                    'report_date'     => now()->toDateString(),
+                    'user_id'         => auth()->id(),
+                ]
+            );
+
+
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center','icon' => 'error',
+                'title' => 'Erro ao finalizar medida de reclamação!',
+                'text' => $th->getMessage(),
+                'timer' => 6000,
+            ]);
+            return;
+        }
+
+        DB::commit();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center','icon' => 'success',
+            'title' => 'Medida de Reclamação finalizada com sucesso!',
+            'timer' => 5000,
+        ]);
+
+        // limpa o parecer depois de finalizar
+        $this->conclusion = '';
+        $this->emitSelf('refreshComponent');
     }
 
 
     public function mount($medProtestId)
     {
         $this->medProtest = MedProtest::with([
-            'Protest',
+            'Protest.Notes',
             'Comments.User',
             'Notes',
             'Assignments.User',
@@ -271,7 +355,7 @@ class ViewOnly extends Component
     {
         $this->tempFiles = [];
         $this->reset('files'); // Also clear any current files in the Livewire property
-        $this->dispatch('showAlert', ['type' => 'info', 'message' => 'Todos os arquivos temporários foram limpos.']);
+
     }
 
     // Helper function to get file icon class based on extension
@@ -317,9 +401,11 @@ class ViewOnly extends Component
     }
 
 
+
+
     public function render()
     {
-        return view('livewire.protests.view-only', [
+        return view('livewire.protests.services.view', [
             'medProtest' => $this->medProtest,
         ]);
     }

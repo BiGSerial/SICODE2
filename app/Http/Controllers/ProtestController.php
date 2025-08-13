@@ -9,27 +9,27 @@ class ProtestController extends Controller
 {
     public function main()
     {
-        return view('protest.main');
+        return view('protest.services.main');
     }
 
     public function view($medProtestId)
     {
-        return view('protest.view', ['medProtestId' => $medProtestId]);
+        return view('protest.services.view', ['medProtestId' => $medProtestId]);
     }
 
     public function view_only($medProtestId)
     {
-        return view('protest.view_only', ['medProtestId' => $medProtestId]);
+        return view('protest.services.view_only', ['medProtestId' => $medProtestId]);
     }
 
     public function accompany()
     {
-        return view('protest.accompany');
+        return view('protest.services.accompany');
     }
 
     public function history()
     {
-        return view('protest.history');
+        return view('protest.services.history');
     }
 
     public function print(int $medProtestId = 1)
@@ -37,5 +37,28 @@ class ProtestController extends Controller
         $medProtest = MedProtest::with('protest', 'EvidenceFiles', 'assignments')->find($medProtestId);
 
         return view('protest.print', ['medProtest' => $medProtest]);
+    }
+
+
+
+    // Dispatch Section
+    public function dispatch_lists()
+    {
+        return view('protest.dispatch.list');
+    }
+
+    public function dispatch_view($medProtestId)
+    {
+        return view('protest.dispatch.view', ['medProtestId' => $medProtestId]);
+    }
+
+    public function dispatch_view_only($medProtestId)
+    {
+        return view('protest.dispatch.view_only', ['medProtestId' => $medProtestId]);
+    }
+
+    public function dispatch_closeds()
+    {
+        return view('protest.dispatch.closed');
     }
 }

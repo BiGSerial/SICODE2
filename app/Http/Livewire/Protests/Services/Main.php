@@ -1,25 +1,24 @@
 <?php
 
-namespace App\Http\Livewire\Protests;
+namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\MedProtest;
 use Livewire\Component;
 
-class Accompany extends Component
+class Main extends Component
 {
     public function getListProperty()
     {
-        return MedProtest::WhereHas('Assignments', function ($q) {
+        return MedProtest::WhereHas('assignments', function ($q) {
             $q->where('user_id', auth()->id())
-                ->where('monitoring', false)
-                ->where('completed', false)
-                ->where('transfered', false);
+                ->where('user', true)
+                ->where('completed', false);
         })->with('Protest', 'Assignments.user', 'Comments.user', 'Notes')->get();
     }
 
     public function render()
     {
-        return view('livewire.protests.accompany', [
+        return view('livewire.protests.services.main', [
             'list' => $this->list,
         ]);
     }
