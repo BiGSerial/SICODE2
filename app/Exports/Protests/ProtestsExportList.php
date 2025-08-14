@@ -34,6 +34,7 @@ class ProtestsExportList implements FromQuery, WithHeadings, WithMapping, WithPr
         return [
             'M',                 // Acompanhamento (olhinho na view)
             'Nota',
+            'Tipo',
             'Cod',               // codMedida do medProtest selecionado
             'TipoReclamacao',    // txtCodCodificacao
             'CausaRaiz',         // txtCodMedida
@@ -49,37 +50,53 @@ class ProtestsExportList implements FromQuery, WithHeadings, WithMapping, WithPr
     {
         // === LÓGICA IGUAL À VIEW ===
 
-        // pega a medida “vigente” (mesma ordem da view)
+        // Pega a medida “vigente” (medProtest)
+        // A view usa sortBy('statusSist') e depois sortByDesc('med_id')
         $medProtest = optional($protest->medProtests)
             ->sortBy('statusSist')
             ->sortByDesc('med_id')
             ->first();
 
+        // Pega o último andamento do usuário (Assignment)
         $assignmentUser = optional($medProtest?->assignments)->where('user', true)->last();
 
-        // Coluna M (olho): mostra SIM quando existe needsConfirmation e ainda não foi concluído
+        // Coluna "M" (olho)
         $colM = (!$medProtest?->completed && $medProtest?->needsConfirmation) ? 'SIM' : '';
 
-        // Cod
-        $codMedida = $medProtest?->codMedida;
+        // Coluna "Tipo"
+        $tipoNota = $protest->tipoNota ?? '';
 
-        // TipoReclamacao / CausaRaiz
-        $tipoReclamacao = $medProtest?->txtCodCodificacao;
-        $causaRaiz      = $medProtest?->txtCodMedida;
+        // Coluna "Cod"
+        $codMedida = $medProtest?->codMedida ?? '';
 
-        // Origem (mesma extração da view)
+        // Coluna "TipoReclamacao"
+        $tipoReclamacao = $medProtest?->txtCodCodificacao ?? '';
+
+        // Coluna "CausaRaiz"
+        $causaRaiz = $medProtest?->txtCodMedida ?? '';
+
+        // Coluna "Origem" (com a lógica de extração corrigida)
         $origem = $protest->descricao ?? '';
-        $parts  = explode('Tipo de Solicitante: ', $origem);
-        if (!(count($parts) > 1)) {
+        $parts = explode('Tipo de Solicitante: ', $origem);
+        if (count($parts) > 1) {
+            $origem = $parts[1];
+        } else {
             $parts = explode('Nota de Atendimento ', $origem);
+            if (count($parts) > 1) {
+                $origem = $parts[1];
+            }
         }
-        $origem = count($parts) > 1 ? $parts[1] : ($protest->descricao ?? '');
 
-        // Datas
-        $dtAbertura = optional($protest->dtAberturaNota)?->format('d/m/Y');
-        $dtDesejada = optional($protest->dtConclusaoDesej)?->format('d/m/Y');
+        // Coluna "Município"
+        $municipio = $protest->cidade ?? '';
 
-        // Status (coluna da direita na view — andamento do assignment)
+        // Coluna "Abertura"
+        $dtAbertura = optional($protest->dtAberturaNota)->format('d/m/Y') ?? '';
+
+        // Coluna "Desejada"
+        $dtDesejada = optional($protest->dtConclusaoDesej)->format('d/m/Y') ?? '';
+
+        // Coluna "Status" (Pendente / Em Andamento / Concluído)
         if (!$assignmentUser) {
             $statusAndamento = 'Pendente';
         } elseif ($assignmentUser->completed) {
@@ -88,17 +105,21 @@ class ProtestsExportList implements FromQuery, WithHeadings, WithMapping, WithPr
             $statusAndamento = 'Em Andamento';
         }
 
+        // Retorno do array na ordem exata da sua tabela
         return [
             $colM,
-            $protest->nota,
+            $protest->nota ?? '',
+            $tipoNota,
             $codMedida,
             $tipoReclamacao,
             $causaRaiz,
-            strtoupper($origem),
-            $protest->cidade,
+            mb_strtoupper($origem), // Converte para maiúsculas como na sua view
+            $municipio,
             $dtAbertura,
             $dtDesejada,
             $statusAndamento,
+            // Deixe este campo em branco ou adicione a lógica se houver mais colunas
+            '',
         ];
     }
 
@@ -106,27 +127,16 @@ class ProtestsExportList implements FromQuery, WithHeadings, WithMapping, WithPr
 
     public function registerEvents(): array
     {
+        // A heurística de largura pode ser pesada para grandes exports.
+        // Você pode desabilitá-la para mais de X registros para evitar timeouts.
+        // Exemplo: if ($this->query()->count() > 10000) { return []; }
+
         return [
             \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $highestColumn = $sheet->getHighestColumn();
-                $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
 
-                // Auto-size all columns
-                for ($i = 1; $i <= $highestColumnIndex; $i++) {
-                    $column = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
-                    $sheet->getColumnDimension($column)->setAutoSize(true);
-                }
-
-                // Set minimum width for text columns (assuming last two columns are description fields)
-                if ($highestColumnIndex >= 2) {
-                    $descColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($highestColumnIndex - 1);
-                    $resumeColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($highestColumnIndex);
-                    $sheet->getColumnDimension($descColumn)->setWidth(30); // descricao
-                    $sheet->getColumnDimension($resumeColumn)->setWidth(30); // resume
-                }
-
-                // Style the header row (row 1) - blue background, white bold text
+                // Estilo do cabeçalho
                 $headerRange = 'A1:' . $highestColumn . '1';
                 $sheet->getStyle($headerRange)->applyFromArray([
                     'fill' => [
@@ -138,6 +148,54 @@ class ProtestsExportList implements FromQuery, WithHeadings, WithMapping, WithPr
                         'color' => ['rgb' => 'FFFFFF'],
                     ],
                 ]);
+
+                // --- Heurística de largura das colunas ---
+                $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+                $headings = $this->headings(); // Use o método headings para obter os títulos
+
+                for ($colIndex = 1; $colIndex <= $highestColumnIndex; $colIndex++) {
+                    $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+
+                    // Pega o título da coluna
+                    $headerTitle = $headings[$colIndex - 1] ?? '';
+
+                    // Larguras padrão
+                    $width = 20; // Largura padrão
+                    $autoSize = true;
+
+                    // Heurística de largura baseada nos títulos e tipo de dado
+                    // Ajuste os valores conforme o necessário
+                    switch ($headerTitle) {
+                        case 'Nota':
+                        case 'Tipo':
+                        case 'Cod':
+                        case 'Abertura':
+                        case 'Desejada':
+                        case 'Status':
+                            $width = 15;
+                            $autoSize = false;
+                            break;
+                        case 'Municipio':
+                            $width = 25;
+                            $autoSize = false;
+                            break;
+                        case 'Origem':
+                        case 'TipoReclamacao':
+                        case 'CausaRaiz':
+                            $width = 35;
+                            $autoSize = false;
+                            break;
+                        default:
+                            $autoSize = true; // Use auto-size para outras colunas
+                            break;
+                    }
+
+                    if ($autoSize) {
+                        $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+                    } else {
+                        $sheet->getColumnDimension($colLetter)->setWidth($width);
+                    }
+                }
             },
         ];
     }

@@ -19,7 +19,7 @@ trait WildcardFormmater
         $formattedString = str_replace('*', '%', $string);
 
         return (object)[
-            'search' => $formattedString,
+            'search' => trim($formattedString),
             'type' => $hasWildcard ? 'like' : '='
         ];
     }

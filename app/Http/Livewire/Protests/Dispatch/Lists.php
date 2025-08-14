@@ -6,6 +6,7 @@ use App\Exports\Protests\ProtestsExportList;
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ProtestExportListJob;
 use App\Models\Protest;
+use App\Traits\AppliesQueryFilters;
 use App\Traits\WildcardFormmater;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -17,6 +18,7 @@ class Lists extends Component
     use Exportable;
     use TextFormatter;
     use WildcardFormmater;
+    use AppliesQueryFilters;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -32,8 +34,7 @@ class Lists extends Component
 
 
     // Filters
-    private $filter_group = 'oexterno';
-    private $filter;
+    public $filtersState = [];
 
 
     protected $queryString = [
@@ -45,7 +46,36 @@ class Lists extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
+        'filters.updated' => 'onFiltersUpdated',
+        'filters.applied' => 'onFiltersUpdated',
     ];
+
+    public function onFiltersUpdated($payload = [])
+    {
+
+        $this->filtersState = $payload ?: [];
+        $this->resetPage();
+    }
+
+
+    protected function filtersMap(): array
+    {
+        return [
+            'city' => [
+                'type' => 'in',
+                'column' => 'cidade',
+            ],
+            'type' => [
+                'type' => 'equals',
+                'column' => 'tipoNota',
+            ],
+            'desired_between' => [
+                'type' => 'between_dates',
+                'column' => 'dtConclusaoDesej',
+            ],
+
+        ];
+    }
 
     public function mount()
     {
@@ -77,31 +107,21 @@ class Lists extends Component
     public function exportToExcel()
     {
 
-        if (!session()->isStarted()) {
-            session()->start();
-        }
-        $this->filter = session("filter.{$this->filter_group}", []);
+        $params = [
+         'filtersState' => $this->filtersState,
+         'search' => $this->search,
+         'multisearch' => $this->multisearch,
+    ];
 
-
-
-        $param = [
-            'search' => $this->search,
-            'type' => $this->type,
-            'multisearch' => $this->multisearch,
-            'filter' => $this->filter,
-        ];
-
-        ProtestExportListJob::dispatch($param, auth()->id());
-        // $export = new ProtestsExportList($this->getListsProperty());
-        // return $export->download('protests_list_' . date('Y-m-d_H-i-s') . '.xlsx');
+        ProtestExportListJob::dispatch($params, auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'EXPORTAÇÃO INICIADA',
-                    'text'     => 'A exportação foi iniciada, você receberá uma notificação quando estiver pronta.',
-                    'timer'    => 5000,
-                ]);
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'EXPORTAÇÃO INICIADA',
+            'text' => 'A exportação foi iniciada, você receberá uma notificação quando estiver pronta.',
+            'timer' => 5000,
+        ]);
     }
 
     public function buscarMulti()
@@ -119,10 +139,10 @@ class Lists extends Component
     {
 
 
-        if (!session()->isStarted()) {
-            session()->start();
-        }
-        $this->filter = session("filter.{$this->filter_group}", []);
+        // if (!session()->isStarted()) {
+        //     session()->start();
+        // }
+        // $this->filter = session("filter.{$this->filter_group}", []);
 
         $query = Protest::query()
             ->whereHas('medProtests', function ($query) {
@@ -131,29 +151,30 @@ class Lists extends Component
                             $query->where('needsConfirmation', true)
                                 ->where('completed', false);
                         });
-            })
-
-            ->when($this->search, function ($query) {
-
-                $this->multisearch = '';
-                $this->advanceSearch = '';
-                $this->resetPage();
-
-                $formatted = $this->formatWithWildcard($this->search);
-
-                $query->where(function ($q) use ($formatted) {
-                    $q->where('nota', $formatted->type, $formatted->search);
-                });
-            })
-            ->when($this->type, function ($query) {
-                $query->where('tipoNota', $this->type);
-            })
-            ->when($this->multisearch, function ($query) {
-                $query->whereIn('nota', $this->multisearch)
-                    ->orWhereRelation('Notes', function ($q) {
-                        $q->whereIn('note', $this->multisearch);
-                    });
             });
+
+        // Filtros Dinamicos do componente Livewire v2
+        $this->applyFilters($query, $this->filtersState, $this->filtersMap());
+
+        $query->when($this->search, function ($query) {
+
+            $this->multisearch = '';
+            $this->advanceSearch = '';
+            $this->resetPage();
+
+            $formatted = $this->formatWithWildcard($this->search);
+
+            $query->where(function ($q) use ($formatted) {
+                $q->where('nota', $formatted->type, $formatted->search);
+            });
+        })
+
+         ->when($this->multisearch, function ($query) {
+             $query->whereIn('nota', $this->multisearch)
+                 ->orWhereRelation('Notes', function ($q) {
+                     $q->whereIn('note', $this->multisearch);
+                 });
+         });
 
         if (isset($this->filter['city'])) {
 

@@ -1,3 +1,49 @@
+@php
+    $filters = [
+        [
+            'key' => 'type',
+            'label' => 'Tipo',
+            'type' => 'single',
+            'provider' => [
+                'type' => 'static',
+                'options' => [
+                    ['value' => 'OU', 'label' => 'Ouvidoria'],
+                    ['value' => 'NA', 'label' => 'Atendimento'],
+                    ['value' => 'PR', 'label' => 'Procon'],
+                ],
+            ],
+        ],
+        [
+            'key' => 'city',
+            'label' => 'Município',
+            'type' => 'multi',
+            'provider' => [
+                'type' => 'eloquent',
+                'model' => \App\Models\Protest::class,
+                'value' => 'cidade',
+                'label' => 'cidade',
+                'distinct' => true,
+                'orderBy' => ['cidade' => 'asc'],
+                'limit' => 300,
+            ],
+        ],
+
+        // [
+        //     'key' => 'search',
+        //     'label' => 'Pesquisar Nota',
+        //     'type' => 'text',
+        //     'placeholder' => 'Nº da Nota...',
+        // ],
+        [
+            'key' => 'desired_between',
+            'label' => 'Desejada (de/até)',
+            'type' => 'daterange',
+            'include_nulls' => false,
+            'treat_zero_date_as_null' => false,
+        ],
+    ];
+@endphp
+
 <div>
     {{-- Loading --}}
     <x-show-loading />
@@ -20,6 +66,7 @@
         </select>
     </div>
 
+    @livewire('components.filters.bar', ['config' => $filters, 'group' => 'protests', 'manualApply' => true], key('filters-bar'))
     {{-- Header da tabela / ações --}}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0 text-uppercase d-flex align-items-center gap-2">
@@ -47,6 +94,7 @@
                 <tr class="align-middle">
                     <th style="width:15px;">M</th>
                     <th>Nota</th>
+                    <th>Tipo</th>
                     <th>Cod</th>
                     <th>TipoReclamação</th>
                     <th>CausaRaiz</th>
@@ -90,7 +138,10 @@
                         </td>
 
                         <td class="fw-bold">{{ $list->nota }}</td>
-                        <td>{{ $medProtest?->codMedida }}</td>
+                        <td><span class="badge text-bg-secondary opacity-50">{{ $list?->tipoNota }}</span>
+                        </td>
+                        <td><span class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
+                        </td>
 
                         <td class="small">{{ $medProtest?->txtCodCodificacao }}</td>
                         <td class="small">{{ $medProtest?->txtCodMedida }}</td>
@@ -302,6 +353,7 @@
             </div>
         </div>
     </div>
+
 </div>
 
 <style>

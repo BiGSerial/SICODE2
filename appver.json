@@ -1,6 +1,11 @@
 {
-    "appver": "1.23.0",
+    "appver": "1.24.0",
     "historic": [
+        {
+            "version": "1.24.0",
+            "description": "Created Protests Area control",
+            "date": "2025-08-14"
+        },
         {
             "version": "1.23.0",
             "description": "Queues, jobs, and Notifications",

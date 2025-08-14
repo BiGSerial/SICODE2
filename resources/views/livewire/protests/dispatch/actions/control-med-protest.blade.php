@@ -314,7 +314,7 @@
                                         </div>
                                         <div class="col-lg-1">
                                             <button type="button" class="btn btn-primary w-100 h-100"
-                                                wire:click="addUserAssignment" @disabled($modProtest->completed)>
+                                                wire:click="addUserAssignment" @disabled($modProtest?->completed)>
                                                 <i class="ri-user-add-line me-1"></i>Add
                                             </button>
                                         </div>
@@ -378,7 +378,7 @@
                                                             <button type="button"
                                                                 class="btn btn-sm btn-outline-danger"
                                                                 wire:click="removeUserAssignment('{{ $assignment->id }}')"
-                                                                @disabled($modProtest->completed)>
+                                                                @disabled($modProtest?->completed)>
                                                                 <i class="ri-close-line"></i>
                                                             </button>
                                                         </div>
@@ -492,7 +492,7 @@
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <button type="button" class="btn btn-success w-100 py-3"
-                                                wire:click="saveMeasures" @disabled($modProtest->completed)>
+                                                wire:click="saveMeasures" @disabled($modProtest?->completed)>
                                                 <i class="ri-save-3-fill me-2"></i>
                                                 <span class="fw-medium">Salvar Medidas</span>
                                             </button>
