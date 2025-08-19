@@ -139,12 +139,15 @@
                                         <span>{{ $modProtest?->protest?->txtGrpCodificacao }}</span>
                                     </div>
                                     <div class="d-flex justify-content-between"><span class="text-muted">Causa:</span>
-                                        <span>{{ $modProtest?->protest?->descCausa }}</span>
+                                        <span>{{ $modProtest?->txtCodCodificacao }}</span>
                                     </div>
                                     <div class="d-flex justify-content-between"><span
                                             class="text-muted">SubCausa:</span>
-                                        <span>{{ $modProtest?->protest?->descSubCausa }}</span>
+                                        <span>{{ $modProtest?->txtCodMedida }}</span>
                                     </div>
+                                    <span class="text-muted small d-block mt-1">Descrição:</span>
+                                    <span
+                                        class="fw-medium small">{{ $modProtest?->protest?->comments->last()?->message }}</span>
                                 </div>
                             </div>
                         </div>
@@ -493,14 +496,21 @@
                                         <i class="ri-checkbox-multiple-line me-2"></i>Ações do Desdobramento
                                     </div>
                                     <div class="row g-3">
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <button type="button" class="btn btn-success w-100 py-3"
                                                 wire:click="saveMeasures" @disabled($modProtest?->completed)>
                                                 <i class="ri-save-3-fill me-2"></i>
                                                 <span class="fw-medium">Salvar Medidas</span>
                                             </button>
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-danger w-100 py-3"
+                                                wire:click="closeMeasure" @disabled($modProtest?->completed)>
+                                                <i class="ri-stop-circle-line me-2"></i>
+                                                <span class="fw-medium">Encerrar Medida</span>
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
                                             <button type="button" class="btn btn-outline-secondary w-100 py-3"
                                                 wire:click="cancelChanges">
                                                 <i class="ri-close-circle-line me-2"></i>

@@ -37,6 +37,7 @@ class ControlMedProtest extends Component
         'openModProtestControl',
         'refreshComponent' => '$refresh',
         'removeUserAssigment152030' => 'confirmRemoveUserAssignment',
+        'closeMeansure02110202' => 'closingMeasure',
     ];
 
     public function updatedServiceId($value)
@@ -319,6 +320,61 @@ class ControlMedProtest extends Component
         $this->cancelChanges();
     }
 
+    public function closeMeasure()
+    {
+        $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Encerrar Medida?',
+                'msg'   => "
+                    Você deseja encerrar a medida <strong>{$this->modProtest->id}</strong>?</br></br>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Encerrar!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'closeMeansure02110202',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma medida encerrada.',
+
+            ]);
+    }
+
+    public function closingMeasure()
+    {
+        $this->modProtest->update([
+            'completed' => true,
+            'completed_at' => now()
+        ]);
+
+        $this->modProtest->Assignments()->updateOrCreate(
+            [
+                'user_id' => auth()->id(),
+                'assignable_id' => $this->modProtest->id,
+                'assignable_type' => MedProtest::class,
+            ],
+            [
+                'responsible' => true,
+                'user' => true,
+                'started_at' => now(),
+            ]
+        );
+
+
+        foreach ($this->modProtest->load('assignments.user')->assignments as $user) {
+            $user->update(
+                [
+
+                    'completed' => true,
+                    'ended_at' => now(),
+                ]
+            );
+        }
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => 'Medidas Encerrada com sucesso!',
+        ]);
+
+        $this->cancelChanges();
+    }
 
     public function openModProtestControl(MedProtest $modProtest)
     {
