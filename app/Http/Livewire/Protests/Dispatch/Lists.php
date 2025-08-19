@@ -137,28 +137,38 @@ class Lists extends Component
 
     public function getListsProperty()
     {
-
-
-        // if (!session()->isStarted()) {
-        //     session()->start();
-        // }
-        // $this->filter = session("filter.{$this->filter_group}", []);
-
         $query = Protest::query()
-            ->whereHas('medProtests', function ($query) {
-                $query->where('statusSist', 'MEDA')
-                        ->orWhere(function ($query) {
-                            $query->where('needsConfirmation', true)
-                                ->where('completed', false);
-                        });
+            ->select('protests.*')
+            ->selectRaw("
+            CASE
+              WHEN protests.tipoNota = 'OU' THEN COALESCE(
+                (SELECT mp.dtFimMedidaDesej
+                   FROM med_protests mp
+                  WHERE mp.protest_id = protests.id
+                    AND mp.statusSist = 'MEDA'
+               ORDER BY mp.med_id DESC
+                  LIMIT 1),
+                (SELECT MAX(mp2.dtFimMedidaDesej)
+                   FROM med_protests mp2
+                  WHERE mp2.protest_id = protests.id)
+              )
+              ELSE protests.dtConclusaoDesej
+            END AS vencimento
+        ")
+            ->whereHas('medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                  ->orWhere(function ($q) {
+                      $q->where('needsConfirmation', true)
+                        ->where('completed', false);
+                  });
             });
 
-        // Filtros Dinamicos do componente Livewire v2
+        // Filtros dinâmicos do componente (mantido do seu código)
         $this->applyFilters($query, $this->filtersState, $this->filtersMap());
 
+        // Busca simples
         $query->when($this->search, function ($query) {
-
-            $this->multisearch = '';
+            $this->multisearch   = '';
             $this->advanceSearch = '';
             $this->resetPage();
 
@@ -167,28 +177,41 @@ class Lists extends Component
             $query->where(function ($q) use ($formatted) {
                 $q->where('nota', $formatted->type, $formatted->search);
             });
-        })
+        });
 
-         ->when($this->multisearch, function ($query) {
-             $query->whereIn('nota', $this->multisearch)
-                 ->orWhereRelation('Notes', function ($q) {
-                     $q->whereIn('note', $this->multisearch);
-                 });
-         });
+        // Busca múltipla
+        $query->when($this->multisearch, function ($query) {
+            $query->whereIn('nota', $this->multisearch)
+                  ->orWhereRelation('Notes', function ($q) {
+                      $q->whereIn('note', $this->multisearch);
+                  });
+        });
 
+        // Filtro por cidade (mantido)
         if (isset($this->filter['city'])) {
-
             $query->whereIn('cidade', $this->filter['city']);
         }
 
+        // Filtro por intervalo de "vencimento" (opcional)
+        if (!empty($this->filter['vencimento_from']) && !empty($this->filter['vencimento_to'])) {
+            // Como "vencimento" é alias, use HAVING em vez de WHERE
+            $query->havingRaw('vencimento BETWEEN ? AND ?', [
+                $this->filter['vencimento_from'],
+                $this->filter['vencimento_to'],
+            ]);
+        }
 
-        $query->with(['medProtests'])
+        // Eager load
+        $query->with(['medProtests']);
 
-        ->orderBy('dtConclusaoDesej', 'ASC')
-        ->orderBy('dtAberturaNota', 'DESC');
+        // Ordenação: mais antigo primeiro por "vencimento", empurrando NULLs para o fim (compatível com MariaDB/MySQL)
+        $query->orderByRaw('ISNULL(vencimento), vencimento ASC')
+              ->orderBy('dtAberturaNota', 'DESC');
 
         return $query;
     }
+
+
 
     public function render()
     {

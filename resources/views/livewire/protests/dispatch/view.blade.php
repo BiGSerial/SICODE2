@@ -194,9 +194,20 @@
             <div class="col-md-4 text-end">
                 @php
                     $now = now();
-                    $dtConclusao = $protest->dtConclusaoDesej;
+
+                    if ($protest->tipoNota == 'OU') {
+                        if ($protest->medProtests->where('statusSist' == 'MEDA')->isNotEmpty()) {
+                            $dtConclusao = $protest->medProtests->where('statusSist', 'MEDA')->last()->dtFimMedidaDesej;
+                        } else {
+                            $dtConclusao = $protest->medProtests->last()->dtFimMedidaDesej;
+                        }
+                    } else {
+                        $dtConclusao = $protest->dtConclusaoDesej;
+                    }
+
                     $daysDiff = $dtConclusao ? $now->diffInDays($dtConclusao, false) : 0;
-                    if ($dtConclusao && $dtConclusao->isPast()) {
+
+                    if ($dtConclusao && $dtConclusao->endOfDay()->isPast()) {
                         $status = ['color' => 'danger', 'text' => 'Vencida', 'icon' => 'ri-close-circle-line'];
                     } elseif ($daysDiff > 3) {
                         $status = ['color' => 'success', 'text' => 'No Prazo', 'icon' => 'ri-check-circle-line'];
@@ -262,8 +273,8 @@
                             <span class="fw-medium small">{{ $protest->dtAberturaNota?->format('d/m/Y') }}</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small"><i class="ri-flag-line me-1"></i>Conclusão:</span>
-                            <span class="fw-medium small">{{ $protest->dtConclusaoDesej?->format('d/m/Y') }}</span>
+                            <span class="text-muted small"><i class="ri-flag-line me-1"></i>Conclusão Desejada:</span>
+                            <span class="fw-medium small">{{ $dtConclusao?->format('d/m/Y') }}</span>
                         </div>
                     </div>
                 </div>
@@ -504,8 +515,8 @@
                                     </td>
                                     <td>
                                         @if ($medProtest->needsConfirmation || $medProtest->statusSist === 'MEDA')
-                                            @if ($assignment?->completed)
-                                                @if (!$resp->completed)
+                                            @if (!$medProtest->completed)
+                                                @if ($resp?->completed)
                                                     <button class="btn btn-sm btn-outline-success"
                                                         title="Aprovar Medida" data-bs-toggle="tooltip"
                                                         wire:click.prevent="approveMed({{ $medProtest->id }})">

@@ -95,7 +95,7 @@
                     <th style="width:15px;">M</th>
                     <th>Nota</th>
                     <th>Tipo</th>
-                    <th>Cod</th>
+                    {{-- <th>Cod</th> --}}
                     <th>TipoReclamação</th>
                     <th>CausaRaiz</th>
                     <th>Origem</th>
@@ -107,6 +107,44 @@
                 </tr>
             </thead>
             <tbody>
+                @php
+                    use Carbon\Carbon;
+
+                    function getVencimentoStatus($vencimento): array
+                    {
+                        $vencimento = Carbon::parse($vencimento);
+
+                        if ($vencimento->endOfDay()->isPast()) {
+                            return [
+                                'vencimento' => $vencimento->format('d/m/Y'),
+                                'color' => 'text-bg-danger',
+                                'text' => 'VENCIDO',
+                            ];
+                        } elseif ($vencimento->diffInDays() > 2) {
+                            return [
+                                'vencimento' => $vencimento->format('d/m/Y'),
+                                'color' => 'text-bg-success',
+                                'text' => 'NO PRAZO',
+                            ];
+                        } else {
+                            return [
+                                'vencimento' => $vencimento->format('d/m/Y'),
+                                'color' => 'text-bg-warning',
+                                'text' => 'VENCENDO',
+                            ];
+                        }
+                    }
+
+                    function extractOrigem($descricao)
+                    {
+                        $origem = explode('Tipo de Solicitante: ', $descricao);
+                        if (count($origem) <= 1) {
+                            $origem = explode('Nota de Atendimento ', $descricao);
+                        }
+                        return count($origem) > 1 ? $origem[1] : $descricao;
+                    }
+
+                @endphp
                 @forelse ($lists as $list)
                     @php
                         $statusColor = !$list->dtConclusaoDesej->isPast() ? 'success' : 'danger';
@@ -127,41 +165,45 @@
                         } elseif ($medProtest?->statusSist == 'MEDA' && $andamento && !$andamento?->completed) {
                             $color = 'table-primary';
                         }
+
+                        $due = getVencimentoStatus($list->vencimento);
+
                     @endphp
 
                     <tr wire:key='list-{{ $list->id }}' wire:dblclick="goTo({{ $list->nota }})"
-                        class="align-middle {{ $color }}">
-                        <td style="width:15px;">
+                        class="align-middle">
+                        <td class="{{ $color }}" style="width:15px;">
                             @if (!$medProtest?->completed && $medProtest?->needsConfirmation)
                                 <i class="ri-eye-line text-primary"></i>
                             @endif
                         </td>
 
-                        <td class="fw-bold">{{ $list->nota }}</td>
-                        <td><span class="badge text-bg-secondary opacity-50">{{ $list?->tipoNota }}</span>
+                        <td class="fw-bold {{ $color }}">{{ $list->nota }}</td>
+                        <td class="{{ $color }}"><span
+                                class="badge text-bg-secondary opacity-50">{{ $list?->tipoNota }}</span>
                         </td>
-                        <td><span class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
-                        </td>
+                        {{-- <td><span class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
+                        </td> --}}
 
-                        <td class="small">{{ $medProtest?->txtCodCodificacao }}</td>
-                        <td class="small">{{ $medProtest?->txtCodMedida }}</td>
+                        <td class="small {{ $color }}">{{ $medProtest?->txtCodCodificacao }}</td>
+                        <td class="small {{ $color }}">{{ $medProtest?->txtCodMedida }}</td>
 
                         @php
-                            $origem = explode('Tipo de Solicitante: ', $list->descricao);
-                            $origem = !(count($origem) > 1)
-                                ? explode('Nota de Atendimento ', $list->descricao)
-                                : $origem;
-                            $origem = count($origem) > 1 ? $origem[1] : $list->descricao;
+
+                            $origem = extractOrigem($list->descricao);
                         @endphp
 
-                        <td class="text-truncate text-uppercase" style="max-width:160px;"
+
+                        <td class="text-truncate text-uppercase {{ $color }}" style="max-width:160px;"
                             title="{{ $list->descricao }}">
                             {{ $origem }}
                         </td>
 
-                        <td class="small">{{ $list->cidade }}</td>
-                        <td><span class="text-muted small">{{ $list->dtAberturaNota?->format('d/m/Y') }}</span></td>
-                        <td><span class="text-muted small">{{ $list->dtConclusaoDesej?->format('d/m/Y') }}</span></td>
+                        <td class="small {{ $color }}">{{ $list->cidade }}</td>
+                        <td class="{{ $color }}"><span
+                                class="text-muted small">{{ $list->dtAberturaNota?->format('d/m/Y') }}</span></td>
+                        <td class="{{ $color }}"><span class="badge {{ $due['color'] }}">{{ $due['vencimento'] }}</span>
+                        </td>
 
                         @php
                             if (!$andamento) {
@@ -176,11 +218,11 @@
                             }
                         @endphp
 
-                        <td>
+                        <td class="{{ $color }}">
                             <span class="badge text-bg-{{ $statusColor }}">{{ $statusAndamento }}</span>
                         </td>
 
-                        <td>
+                        <td class="{{ $color }}">
                             <button class="btn btn-outline-primary btn-sm px-2"
                                 wire:click="showDetails({{ $list->id }})" title="Ver detalhes">
                                 <i class="ri-eye-line"></i>

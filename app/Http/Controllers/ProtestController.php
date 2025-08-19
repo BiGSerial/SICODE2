@@ -61,4 +61,26 @@ class ProtestController extends Controller
     {
         return view('protest.dispatch.closed');
     }
+
+    //Parner Section
+    public function partner_main()
+    {
+        return view('protest.partner.main');
+    }
+
+    public function partner_view($medProtestId)
+    {
+        return view('protest.partner.view', ['medProtestId' => $medProtestId]);
+    }
+
+    public function partner_view_only($medProtestId)
+    {
+        return view('protest.partner.view_only', ['medProtestId' => $medProtestId]);
+    }
+
+    public function partner_history()
+    {
+        return view('protest.partner.history');
+    }
+
 }

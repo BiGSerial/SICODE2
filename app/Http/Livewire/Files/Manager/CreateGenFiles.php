@@ -134,7 +134,16 @@ class CreateGenFiles extends Component
 
             $this->alertFile = false;
 
+            $FVTO = 0;
+
+
+
             foreach ($this->tempFiles as &$temp_file) {
+
+
+                if ($temp_file['uploadType'] == "FTVEO") {
+                    $FVTO++;
+                }
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
                     $this->alertFile = true;
@@ -142,6 +151,13 @@ class CreateGenFiles extends Component
                 }
             }
 
+
+
+            if ($FVTO > 0) {
+                $this->emitUp('hasFVTO', true);
+            } else {
+                $this->emitUp('hasFVTO', false);
+            }
 
             $this->emitUp('hasFile', true);
         } else {

@@ -37,17 +37,20 @@ class ControlMedProtest extends Component
         'openModProtestControl',
         'refreshComponent' => '$refresh',
         'removeUserAssigment152030' => 'confirmRemoveUserAssignment',
+        'closeMeansure02110202' => 'closingMeasure',
     ];
 
     public function updatedServiceId($value)
     {
 
         if ($value === 'construction') {
-            $this->userList = User::where('responsible', true)->orderBy('name')->get();
+            $this->userList = User::where('responsible', true)->whereNull('deleted_at')->orderBy('name')->get();
         } elseif ($value === 'maintenance') {
-            $this->userList = User::where('engineer', true)->orderBy('name')->get();
+            $this->userList = User::where('engineer', true)->whereNull('deleted_at')->orderBy('name')->get();
+        } elseif ($value === 'partner') {
+            $this->userList = User::where('onlyparner', true)->whereNull('deleted_at')->orderBy('name')->get();
         } else {
-            $this->userList = User::whereRelation('ToServices', 'service_id', $value)
+            $this->userList = User::whereNull('deleted_at')
                 ->orderBy('name')
                 ->get();
         }
@@ -68,17 +71,17 @@ class ControlMedProtest extends Component
 
 
 
-    function updatedUserSearch()
+    public function updatedUserSearch()
     {
-        $this->userList = User::when($this->serviceId, function($q){
+        $this->userList = User::when($this->serviceId, function ($q) {
             $q->whereRelation('ToServices', 'service_id', $this->serviceId);
-        })->where('name', 'like', '%' . $this->userSearch . '%')->orderBy('name')->get();
+        })->where('name', 'like', '%' . $this->userSearch . '%')->whereNull('deleted_at')->orderBy('name')->get();
     }
 
     public function mount()
     {
         $this->serviceList = Service::orderBy('service')->get();
-        $this->userList = User::orderBy('name')->get();
+        $this->userList = User::whereNull('deleted_at')->orderBy('name')->get();
     }
 
     public function nextPage($noteList)
@@ -317,6 +320,61 @@ class ControlMedProtest extends Component
         $this->cancelChanges();
     }
 
+    public function closeMeasure()
+    {
+        $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Encerrar Medida?',
+                'msg'   => "
+                    Você deseja encerrar a medida <strong>{$this->modProtest->id}</strong>?</br></br>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Encerrar!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'closeMeansure02110202',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma medida encerrada.',
+
+            ]);
+    }
+
+    public function closingMeasure()
+    {
+        $this->modProtest->update([
+            'completed' => true,
+            'completed_at' => now()
+        ]);
+
+        $this->modProtest->Assignments()->updateOrCreate(
+            [
+                'user_id' => auth()->id(),
+                'assignable_id' => $this->modProtest->id,
+                'assignable_type' => MedProtest::class,
+            ],
+            [
+                'responsible' => true,
+                'user' => true,
+                'started_at' => now(),
+            ]
+        );
+
+
+        foreach ($this->modProtest->load('assignments.user')->assignments as $user) {
+            $user->update(
+                [
+
+                    'completed' => true,
+                    'ended_at' => now(),
+                ]
+            );
+        }
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => 'Medidas Encerrada com sucesso!',
+        ]);
+
+        $this->cancelChanges();
+    }
 
     public function openModProtestControl(MedProtest $modProtest)
     {
