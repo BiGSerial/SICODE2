@@ -664,8 +664,9 @@ class Stack extends Component
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
+            ->orderBy('notes.days_left', 'ASC')
             ->orderBy('note_dt_status', 'ASC')
-            ->select('productions.*', 'notes.dt_created as note_dt_created', 'notes.dt_status as note_dt_status')
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'notes.dt_status as note_dt_status', 'notes.days_left')
             ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }

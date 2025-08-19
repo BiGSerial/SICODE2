@@ -638,6 +638,7 @@ class Main extends Component
         $query->with('Productions.User')
             ->orderBy('is45', 'DESC')
             ->orderBy('type_note', 'DESC')
+            ->orderBy('days_left', 'ASC')
             ->orderBy('dt_status');
 
         return $query;
