@@ -43,11 +43,13 @@ class ControlMedProtest extends Component
     {
 
         if ($value === 'construction') {
-            $this->userList = User::where('responsible', true)->orderBy('name')->get();
+            $this->userList = User::where('responsible', true)->whereNull('deleted_at')->orderBy('name')->get();
         } elseif ($value === 'maintenance') {
-            $this->userList = User::where('engineer', true)->orderBy('name')->get();
+            $this->userList = User::where('engineer', true)->whereNull('deleted_at')->orderBy('name')->get();
+        } elseif ($value === 'partner') {
+            $this->userList = User::where('onlyparner', true)->whereNull('deleted_at')->orderBy('name')->get();
         } else {
-            $this->userList = User::whereRelation('ToServices', 'service_id', $value)
+            $this->userList = User::whereNull('deleted_at')
                 ->orderBy('name')
                 ->get();
         }
@@ -68,17 +70,17 @@ class ControlMedProtest extends Component
 
 
 
-    function updatedUserSearch()
+    public function updatedUserSearch()
     {
-        $this->userList = User::when($this->serviceId, function($q){
+        $this->userList = User::when($this->serviceId, function ($q) {
             $q->whereRelation('ToServices', 'service_id', $this->serviceId);
-        })->where('name', 'like', '%' . $this->userSearch . '%')->orderBy('name')->get();
+        })->where('name', 'like', '%' . $this->userSearch . '%')->whereNull('deleted_at')->orderBy('name')->get();
     }
 
     public function mount()
     {
         $this->serviceList = Service::orderBy('service')->get();
-        $this->userList = User::orderBy('name')->get();
+        $this->userList = User::whereNull('deleted_at')->orderBy('name')->get();
     }
 
     public function nextPage($noteList)

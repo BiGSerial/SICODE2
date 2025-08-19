@@ -95,7 +95,7 @@
                     <th style="width:15px;">M</th>
                     <th>Nota</th>
                     <th>Tipo</th>
-                    <th>Cod</th>
+                    {{-- <th>Cod</th> --}}
                     <th>TipoReclamação</th>
                     <th>CausaRaiz</th>
                     <th>Origem</th>
@@ -140,8 +140,8 @@
                         <td class="fw-bold">{{ $list->nota }}</td>
                         <td><span class="badge text-bg-secondary opacity-50">{{ $list?->tipoNota }}</span>
                         </td>
-                        <td><span class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
-                        </td>
+                        {{-- <td><span class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
+                        </td> --}}
 
                         <td class="small">{{ $medProtest?->txtCodCodificacao }}</td>
                         <td class="small">{{ $medProtest?->txtCodMedida }}</td>

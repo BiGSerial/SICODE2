@@ -235,6 +235,7 @@
                                                     <option value="">Nenhum serviço disponível</option>
                                                 @endforelse
                                                 <option value="construction">--- Construção ---</option>
+                                                <option value="partner">--- Empreiteira ---</option>
                                                 <option value="maintenance">--- Engenharia ---</option>
                                             </select>
                                             <label for="serviceSelect">Filtrar por Serviço</label>
@@ -289,7 +290,9 @@
                                                     <option value="">Selecione um usuário</option>
                                                     @if (!empty($userList))
                                                         @foreach ($userList as $user)
-                                                            <option value="{{ $user->id }}">{{ $user->name }}
+                                                            <option value="{{ $user->id }}">
+                                                                <span>{{ mb_strtoupper($user->name) }} </span>-
+                                                                {{ $user->company?->name }}
                                                             </option>
                                                         @endforeach
                                                     @endif

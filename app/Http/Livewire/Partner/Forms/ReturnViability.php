@@ -14,6 +14,7 @@ class ReturnViability extends Component
     public $cities;
     public $reason = null;
     public $hasFile = false;
+    public $hasFVTO = false;
 
     // Controle
     public $changes;
@@ -21,6 +22,7 @@ class ReturnViability extends Component
     protected $listeners = [
         'openViability',
         'hasFile',
+        'hasFVTO',
         'savedFiles' => 'closeAll',
         '71848750afd86770dfc52096788e78c6' => 'save',
     ];
@@ -63,6 +65,12 @@ class ReturnViability extends Component
     public function hasFile($reason)
     {
         $this->hasFile = $reason;
+    }
+
+    public function hasFVTO($reason)
+    {
+
+        $this->hasFVTO = $reason;
     }
 
     public function openViability(Viability $viability)
@@ -188,10 +196,68 @@ class ReturnViability extends Component
             $this->viability->save();
 
 
-            DB::commit();
+
 
             if ($this->hasFile) {
+
+                if (!$this->hasFVTO) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => '<i class="fas fa-exclamation-triangle text-warning"></i> Ficha de Viabilidade Técnica',
+                        'html'     => "
+                        <div class='alert alert-warning border-0 shadow-sm' style='border-radius: 12px;'>
+                            <div class='d-flex align-items-center mb-3'>
+                                <div class='flex-shrink-0 me-3'>
+                                    <i class='fas fa-file-alt fa-2x text-warning'></i>
+                                </div>
+                                <div class='flex-grow-1'>
+                                    <h6 class='mb-1 fw-bold text-dark'>Documento Obrigatório Não Identificado</h6>
+                                    <small class='text-muted'>Ficha de Viabilidade Técnica de Execução de Obras</small>
+                                </div>
+                            </div>
+                            <p class='mb-0 text-dark-emphasis'>
+                                <i class='fas fa-info-circle me-2'></i>
+                                Não foi possível identificar a <strong>Ficha de Viabilidade Técnica de Execução de Obras</strong>.
+                                Por favor, selecione o tipo de arquivo (FICHA VIAB. TECNICA) correspondente e faça o upload novamente. Caso tenha anexado como outro tipo, remova o arquivo correspondente e anexe novamente com o tipo de envio correspondente.
+                            </p>
+                        </div>
+                        ",
+                    ]);
+
+                    return;
+                }
+
+                DB::commit();
+
                 $this->emitTo('files.manager.create-gen-files', 'saveFiles');
+
+            } else {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'ARQUIVO OBRIGATÓRIO',
+                    'html'     => " <div class='card text-bg-danger'><div class='card-body'>
+                    <div class='alert alert-danger border-0 shadow-sm' style='border-radius: 12px;'>
+                        <div class='d-flex align-items-center mb-3'>
+                            <div class='flex-shrink-0 me-3'>
+                                <i class='fas fa-upload fa-2x text-danger'></i>
+                            </div>
+                            <div class='flex-grow-1'>
+                                <h6 class='mb-1 fw-bold text-dark'>Arquivo Obrigatório</h6>
+                                <small class='text-muted'>Documentação necessária para prosseguir</small>
+                            </div>
+                        </div>
+                        <p class='mb-0 text-dark-emphasis'>
+                            <i class='fas fa-exclamation-circle me-2'></i>
+                            É obrigatório anexar a <strong>Ficha de Viabilidade Técnica de Execução de Obras</strong>
+                            e demais documentos previstos no contrato nesta etapa.
+                        </p>
+                    </div>
+                    </div></div> ",
+                ]);
+
+                return;
             }
 
 

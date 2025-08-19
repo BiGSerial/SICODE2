@@ -137,13 +137,6 @@ class Lists extends Component
 
     public function getListsProperty()
     {
-
-
-        // if (!session()->isStarted()) {
-        //     session()->start();
-        // }
-        // $this->filter = session("filter.{$this->filter_group}", []);
-
         $query = Protest::query()
             ->whereHas('medProtests', function ($query) {
                 $query->where('statusSist', 'MEDA')

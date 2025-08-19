@@ -253,6 +253,13 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
         Route::get('/closeds', 'dispatch_closeds')->name('closeds');
     });
 
+    Route::prefix('/partner')->name('partner.')->group(function () {
+        Route::get('/', 'partner_main')->name('main');
+        Route::get('/view/{medProtestId}', 'partner_view')->name('view');
+        Route::get('/view_only/{medProtestId}', 'partner_view_only')->name('view_only');
+        Route::get('/history', 'partner_history')->name('history');
+    });
+
     Route::get('/print/{medProtestId}', 'print')->name('print');
 });
 
