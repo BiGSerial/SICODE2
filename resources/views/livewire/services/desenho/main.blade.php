@@ -143,153 +143,182 @@
                             @endforeach
                         @endif
                     </h4>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped table-condensed">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th scope="col" class="fw-bold">Note</th>
-                                        <th scope="col" class="fw-bold">Files</th>
-                                        <th scope="col" class="fw-bold">DOE</th>
-                                        <th scope="col" class="fw-bold">GRP2</th>
-                                        <th scope="col" class="fw-bold">numPedido</th>
-                                        <th scope="col" class="fw-bold">Rubrica</th>
-                                        <th scope="col" class="fw-bold">Municipio</th>
-                                        <th scope="col" class="fw-bold">Zona</th>
-                                        <th scope="col" class="fw-bold">Descrição</th>
-                                        <th scope="col" class="fw-bold">Postes_L</th>
-                                        <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                        <th scope="col" class="fw-bold">Prazo Real</th>
-                                        <th scope="col" class="fw-bold">Status</th>
-                                        <th scope="col" class="fw-bold"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($lists as $list)
-                                        <tr class="align-middle @if ($list->priority) table-danger @endif">
-                                            <td
-                                                class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
-                                                @if ($list->d5)
-                                                    <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
-                                                        wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
-                                                        {{ $list->Note->note }}
-                                                    </span>
-                                                @else
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-condensed">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col" class="fw-bold">Note</th>
+                                    <th scope="col" class="fw-bold">Files</th>
+                                    <th scope="col" class="fw-bold">DOE</th>
+                                    <th scope="col" class="fw-bold">GRP2</th>
+                                    <th scope="col" class="fw-bold">numPedido</th>
+                                    <th scope="col" class="fw-bold">Rubrica</th>
+                                    <th scope="col" class="fw-bold">Municipio</th>
+                                    <th scope="col" class="fw-bold">Zona</th>
+                                    <th scope="col" class="fw-bold">Descrição</th>
+                                    <th scope="col" class="fw-bold">Postes_L</th>
+                                    <th scope="col" class="fw-bold">DStatus</th>
+                                    <th scope="col" class="fw-bold">Dias Atribuido</th>
+                                    <th scope="col" class="fw-bold">Prazo Real</th>
+                                    <th scope="col" class="fw-bold">Status</th>
+                                    <th scope="col" class="fw-bold"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php
+                                    function getDaysStatus($list): array
+                                    {
+                                        $days = $list->dt_status->diffInDays(now());
+
+                                        if ($days > 6) {
+                                            $bgColor = 'text-bg-danger';
+                                        } elseif ($days < 4) {
+                                            $bgColor = 'text-bg-success';
+                                        } else {
+                                            $bgColor = 'text-bg-warning';
+                                        }
+
+                                        return [
+                                            'days' => $days,
+                                            'bgColor' => $bgColor,
+                                        ];
+                                    }
+
+                                @endphp
+                                @foreach ($lists as $list)
+                                    @php
+                                        $dstatus = getDaysStatus($list->note);
+
+                                        $tableRowClass = '';
+                                        if ($list->priority) {
+                                            $tableRowClass = 'table-danger';
+                                        }
+                                    @endphp
+                                    <tr class="align-middle">
+                                        <td class="fw-bold {{ $tableRowClass }}">
+
+                                            @if ($list->d5)
+                                                <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
+                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
                                                     {{ $list->Note->note }}
-                                                @endif
+                                                </span>
+                                            @else
+                                                {{ $list->Note->note }}
+                                            @endif
 
-                                                @if ($list->Note->pze == '25')
-                                                    <span tabindex="0" data-bs-toggle="popover"
-                                                        data-bs-trigger="hover focus" data-bs-placement="top"
-                                                        data-bs-title="NOTA EXPRESSA"
-                                                        data-bs-content="Nota com prazo de execução de {{ $list->Note->pze }} dias"
-                                                        style="z-index: 9999;" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top">
-                                                        <i class="ri-fire-line text-danger fw-bold"></i>
-                                                    </span>
-                                                @endif
+                                            @if ($list->Note->pze == '25')
+                                                <span tabindex="0" data-bs-toggle="popover"
+                                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                                    data-bs-title="NOTA EXPRESSA"
+                                                    data-bs-content="Nota com prazo de execução de {{ $list->Note->pze }} dias"
+                                                    style="z-index: 9999;" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top">
+                                                    <i class="ri-fire-line text-danger fw-bold"></i>
+                                                </span>
+                                            @endif
 
-                                                <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="top"
+                                                data-bs-content="Copiar Número da Nota"> <i
+                                                    class="ri-file-copy-line"></i></span>
+
+                                            @if ($list->priority)
+                                                <i class="ri-alert-fill align-middle"
+                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
                                                     style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                     data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-content="Copiar Número da Nota"> <i
-                                                        class="ri-file-copy-line"></i></span>
+                                                    data-bs-title="Exibir Prioridade"
+                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle {{ $tableRowClass }}">
+                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                            <x-files.select-download-list :files='$list->Note->Files' />
 
-                                                @if ($list->priority)
-                                                    <i class="ri-alert-fill align-middle"
-                                                        wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                        style="cursor: pointer;" tabindex="0"
-                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                        data-bs-placement="top" data-bs-title="Exibir Prioridade"
-                                                        data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                                @endif
-                                            </td>
-                                            <td class="align-middle">
-                                                {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                                <x-files.select-download-list :files='$list->Note->Files' />
+                                        </td>
+                                        <td class="fw-bold text-success text-center {{ $tableRowClass }}">
+                                            @if ($list->Note->doe)
+                                                <i class="ri-checkbox-circle-line"></i>
+                                            @endif
+                                        </td>
+                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->group2 }}</td>
+                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->numPedido }}</td>
+                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->rubrica }}</td>
+                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->lexp }}</td>
+                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->group1 }}</td>
+                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->material }}</td>
+                                        <td class="fw-light {{ $tableRowClass }} text-center">
+                                            {{ $list->note->postes ?? '---' }}
+                                        </td>
+                                        <td class="fw-light text-center {{ $dstatus['bgColor'] }}" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Dias no Status"
+                                            data-bs-content="
+                                    <p>OBS: Os prazos para Nota não seguem com precisão, os prazos regulatórios como as OVs e deverão ser avaliados caso a caso.</p>
+                                    <span class='fs-4 text-success'>&#9632;</span> < 4 NO PRAZO <br>
+                                    <span class='fs-4 text-warning'>&#9632;</span> >= 4 VENCENDO <br>
+                                    <span class='fs-4 text-danger'>&#9632;</span> > 6 VENCIDO <br>
+                                    {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+                                    ">
+                                            {{ $dstatus['days'] }}
+                                        </td>
+                                        <td class="fw-light text-center">
+                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                        </td>
 
-                                            </td>
-                                            <td class="fw-bold text-success text-center">
-                                                @if ($list->Note->doe)
-                                                    <i class="ri-checkbox-circle-line"></i>
-                                                @endif
-                                            </td>
-                                            <td class="fw-light">
-                                                {{ $list->Note->group2 }}</td>
-                                            <td class="fw-light">{{ $list->Note->numPedido }}</td>
-                                            <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                            <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                            <td class="fw-light">{{ $list->Note->group1 }}</td>
-                                            <td class="fw-light">{{ $list->Note->material }}</td>
-                                            <td class="fw-light">
-                                                {{ $list->note->postes ?? '---' }}
-                                            </td>
-                                            <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                            </td>
-
-                                            <td scope="col"
-                                                class="text-center
-                                        @if ($list->Note->days_left < 0) text-bg-secondary
-                                        @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
-                                        table-danger
-                                        @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
-                                                tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                data-bs-placement="top" data-bs-title="Prazo Real"
-                                                data-bs-content="
+                                        <td scope="col"
+                                            class="text-center fw-light @if (isset($list->Note->days_left) && $list->Note->days_left < 0) text-bg-secondary @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6) table-danger @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10) table-warning @else table-success @endif"
+                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Prazo Real"
+                                            data-bs-content="
                                 <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
                                 <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                                 <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                 <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                 ">
-                                                {{ 30 - $list->Note->days_left }}
-                                            </td>
-                                            {{-- <td class="fw-light">
+                                            {{ isset($list->Note->days_left) ? 30 - $list->Note->days_left : '---' }}
+                                        </td>
+                                        {{-- <td class="fw-light">
                                                 {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
                                             </td> --}}
 
-                                            <td class="fw-light text-center">
+                                        <td class="fw-light text-center {{ $tableRowClass }}">
 
-                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                            </td>
-                                            <td class="fw-bold fs-5">
-                                                @if (!$list->block)
-                                                    @if (!$list->completed)
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Iniciar.">
-                                                            <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                        </span>
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Transferir.">
-                                                            <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                        </span>
-                                                    @endif
+                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                        </td>
+                                        <td class="fw-bold fs-5 {{ $tableRowClass }}">
+                                            @if (!$list->block)
+                                                @if (!$list->completed)
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Iniciar.">
+                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
+                                                    </span>
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Transferir.">
+                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                                    </span>
                                                 @endif
-                                            </td>
+                                            @endif
+                                        </td>
 
 
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
+
                 @endif
 
 

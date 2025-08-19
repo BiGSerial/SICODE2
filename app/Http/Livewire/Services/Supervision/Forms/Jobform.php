@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Supervision\Forms;
 
 use App\Models\Analise;
 use App\Models\D5Return;
+use App\Models\FiveNote;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use Carbon\Carbon;
@@ -19,10 +20,14 @@ class Jobform extends Component
 
 
     public $d5 = 2;
+
     public $return = [
-        'note' => '',
+        // 'note' => '',
         'reason' => '',
-        'description' => ''
+        'description' => '',
+        'loc_install' => '',
+        'codify' => '',
+        'sintoms' => '',
     ];
 
     protected $listeners = [
@@ -61,6 +66,10 @@ class Jobform extends Component
         $this->production = $production;
 
         if ($this->production) {
+
+            if ($this->production->FiveNotes->isNotEmpty()) {
+                $this->d5 = 1;
+            }
 
             if (isset($this->production->Analise)) {
                 $this->analise = $this->production->Analise;
@@ -318,16 +327,52 @@ class Jobform extends Component
                 }
             }
 
-            if ($this->d5 == '1') {
-                $d5 = D5Return::create([
-                    'production_id' => $this->production->id,
-                    'note_id' => $this->production->note_id,
-                    'user_id'    => Auth()->User()->id,
-                    'note' => $this->return['note'] ?? trim($this->return['note']),
-                    'reason' => $this->return['reason'],
-                    'description' => $this->return['description'] ?? trim($this->return['description']),
+            if ($this->d5 == '1' || $this->production->dfive) {
 
-                ]);
+                // $d5 = D5Return::create([
+                //     'production_id' => $this->production->id,
+                //     'note_id' => $this->production->note_id,
+                //     'user_id'    => Auth()->User()->id,
+                //     'note' => $this->return['note'] ?? trim($this->return['note']),
+                //     'reason' => $this->return['reason'],
+                //     'description' => $this->return['description'] ?? trim($this->return['description']),
+
+                // ]);
+
+                $note = $this->production->note;
+                $order = null;
+
+                if ($note) {
+                    if ($note->type_note == 1) {
+                        $oder = $note->Orders()->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%')->where('statusSist', 'not like', 'CANC%')->where('ordem', 'like', '170%')->first();
+                    } else {
+                        $oder = $note->Orders()->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%')->where('statusSist', 'not like', 'CANC%')->first();
+                    }
+                }
+
+                $fiveNote = FiveNote::updateOrCreate(
+                    [
+
+                        'note_id' => $this->production->note_id
+                    ],
+                    [
+                        'reason' => !$this->production->dfive ? $this->return['reason'] : $this->production->FiveNote->first()->reason,
+                        'description' => !$this->production->dfive ? $this->return['description'] ?? trim($this->return['description']) : $this->production->FiveNote->first()->description,
+                        'loc_install' => $this->return['loc_install'] ? trim($this->return['loc_install']) : null,
+                        'conjunto' => $this->production->Note->num_material,
+                        'pep' => $order?->pep,
+                        'e_pep' =>  $order?->pep,
+                        'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
+                        'sintoms' => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
+                        'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
+                    ]
+                );
+
+                if ($fiveNote) {
+                    $fiveNote->Productions()->syncWithoutDetaching([$this->production->id]);
+                }
+
+
             }
 
             Notetimeline::Create([
@@ -382,9 +427,11 @@ class Jobform extends Component
     {
         $this->analise = null;
         $this->return = [
-            'note' => null,
-            'reason' => null,
-            'description' => null
+            'reason' => '',
+            'description' => '',
+            'loc_install' => '',
+            'codify' => '',
+            'sintoms' => '',
         ];
 
 

@@ -457,8 +457,7 @@
                                         wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                                 </th>
                                 <th scope="col" class="fw-bold text-center">Note</th>
-                                <th scope="col" class="fw-bold text-center">DOE</th>
-                                <th scope="col" class="fw-bold text-center">MMGD</th>
+                                <th scope="col" class="fw-bold text-center">-</th>
                                 <th scope="col" class="fw-bold text-center">Grp2</th>
                                 <th scope="col" class="fw-bold text-center">Rubrica</th>
                                 <th scope="col" class="fw-bold text-center">Centro</th>
@@ -469,13 +468,36 @@
                                 <th scope="col" class="fw-bold text-center">Usuário</th>
                                 <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                                 <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
+                                <th scope="col" class="fw-bold text-center">DStatus</th>
                                 <th scope="col" class="fw-bold text-center">Prazo Real</th>
                                 <th scope="col" class="fw-bold text-center">Status</th>
                                 <th scope="col" class="fw-bold text-center"></th>
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                function getDaysStatus($list): array
+                                {
+                                    $days = $list->dt_status->diffInDays(now());
+
+                                    if ($days > 6) {
+                                        $bgColor = 'text-bg-danger';
+                                    } elseif ($days < 4) {
+                                        $bgColor = 'text-bg-success';
+                                    } else {
+                                        $bgColor = 'text-bg-warning';
+                                    }
+
+                                    return [
+                                        'days' => $days,
+                                        'bgColor' => $bgColor,
+                                    ];
+                                }
+                            @endphp
                             @foreach ($lists as $list)
+                                @php
+                                    $dstatus = getDaysStatus($list->note);
+                                @endphp
                                 <tr wire:key="line-{{ $list->id }}"
                                     class="align-middle
                                     @if ($list->block) table-primary @endif
@@ -517,14 +539,18 @@
                                                 style="cursor: pointer;"></i>
                                         @endif
                                     </td>
-                                    <td class="fw-bold text-success text-center">
+                                    <td
+                                        class="fw-bold text-success text-center @if ($list->priority) text-danger fw-bold @endif">
+
                                         @if ($list->Note->doe)
-                                            <i class="ri-checkbox-circle-line"></i>
+                                            <span class="badge text-bg-success" style="font-size: 0.5rem;">DOE</span>
+                                        @endif
+
+                                        @if ($list->Note->mmgd)
+                                            <span class="badge text-bg-warning" style="font-size: 0.5rem;">MMGD</span>
                                         @endif
                                     </td>
-                                    <td
-                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->Note->mmgd ? 'MMGD' : '' }}</td>
+
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                         {{ $list->Note->group2 }}</td>
@@ -570,6 +596,18 @@
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                         {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                    </td>
+                                    <td class="fw-light text-center {{ $dstatus['bgColor'] }}" tabindex="0"
+                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                        data-bs-placement="top" data-bs-title="Dias no Status"
+                                        data-bs-content="
+                                    <p>OBS: Os prazos para Nota não seguem com precisão, os prazos regulatórios como as OVs e deverão ser avaliados caso a caso.</p>
+                                    <span class='fs-4 text-success'>&#9632;</span> < 4 NO PRAZO <br>
+                                    <span class='fs-4 text-warning'>&#9632;</span> >= 4 VENCENDO <br>
+                                    <span class='fs-4 text-danger'>&#9632;</span> > 6 VENCIDO <br>
+                                    {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+                                    ">
+                                        {{ $dstatus['days'] }}
                                     </td>
                                     @php
                                         $daysleft = new DaysLeft($list->note);

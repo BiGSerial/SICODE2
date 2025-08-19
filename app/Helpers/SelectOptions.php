@@ -145,22 +145,41 @@ class SelectOptions
     public static function getD5Reasons()
     {
         return [
-            (object)['reason' => 'Falta de Materiais', 'value' => 'FALTA DE MATERIAIS'],
-            (object)['reason' => 'Reparo Passeio', 'value' => 'REPARO PASSEIO'],
-            (object)['reason' => 'Aterramento', 'value' => 'ATERRAMENTO'],
-            (object)['reason' => 'Inventário', 'value' => 'INVENTARIO'],
-            (object)['reason' => 'Pendência de Poda', 'value' => 'PENDENCIA DE PODA'],
-            (object)['reason' => 'Projeto', 'value' => 'PROJETO'],
-            (object)['reason' => 'Chave', 'value' => 'CHAVE'],
-            (object)['reason' => 'Condutor', 'value' => 'CONDUTOR'],
-            (object)['reason' => 'Conexão', 'value' => 'CONEXAO'],
-            (object)['reason' => 'Equipamento', 'value' => 'EQUIPAMENTO'],
-            (object)['reason' => 'Estrutura/Poste', 'value' => 'ESTRUTURA/POSTE'],
-            (object)['reason' => 'Isolador/Cadeia', 'value' => 'ISOLADOR/CADEIA'],
-            (object)['reason' => 'Padrão de Entrada', 'value' => 'PADRAO DE ENTRADA'],
-            (object)['reason' => 'Para-raio', 'value' => 'PARA-RAIO'],
-            (object)['reason' => 'Sinalização', 'value' => 'SINALIZACAO'],
-            (object)['reason' => 'Outros', 'value' => 'OUTROS']
+            (object)['reason' => '01 - Falta de Materiais', 'value' => '01_FALTA DE MATERIAIS'],
+            (object)['reason' => '02 - Reparo Passeio', 'value' => '02_REPARO PASSEIO'],
+            (object)['reason' => '03 - Aterramento', 'value' => '03_ATERRAMENTO'],
+            (object)['reason' => '04 - Inventário', 'value' => '04_INVENTARIO'],
+            (object)['reason' => '05 - Pendência de Poda', 'value' => '05_PENDENCIA DE PODA'],
+            (object)['reason' => '06 - Projeto', 'value' => '06_PROJETO'],
+            (object)['reason' => '07 - Chave', 'value' => '07_CHAVE'],
+            (object)['reason' => '08 - Condutor', 'value' => '08_CONDUTOR'],
+            (object)['reason' => '09 - Conexão', 'value' => '09_CONEXAO'],
+            (object)['reason' => '10 - Equipamento', 'value' => '10_EQUIPAMENTO'],
+            (object)['reason' => '11 - Estrutura/Poste', 'value' => '11_ESTRUTURA/POSTE'],
+            (object)['reason' => '12 - Isolador/Cadeia', 'value' => '12_ISOLADOR/CADEIA'],
+            (object)['reason' => '13 - Padrão de Entrada', 'value' => '13_PADRAO DE ENTRADA'],
+            (object)['reason' => '14 - Para-raio', 'value' => '14_PARA-RAIO'],
+            (object)['reason' => '15 - Sinalização', 'value' => '15_SINALIZACAO'],
+            (object)['reason' => '16 - Outros', 'value' => '16_OUTROS']
+        ];
+    }
+
+    public static function getD5codify()
+    {
+        return [
+            (object)['reason' => '001 - Reparo Urgente', 'value' => '001_REPARO URGENTE'],
+            (object)['reason' => '002 - Reparo', 'value' => '002_REPARO'],
+            (object)['reason' => '003 - Comunicação', 'value' => '003_COMUNICACAO'],
+            (object)['reason' => '004 - Solicitação', 'value' => '004_SOLICITACAO'],
+            (object)['reason' => '005 - Retorno de Divergência Projeto', 'value' => '005_RETORNO DE DIVERGENCIA PROJETO'],
+            (object)['reason' => '006 - Retorno de Divergência de Orçamento', 'value' => '006_RETORNO DE DIVERGENCIA DE ORCAMENTO'],
+            (object)['reason' => '007 - Alteração de Projeto', 'value' => '007_ALTERACAO DE PROJETO'],
+            (object)['reason' => '008 - Outros', 'value' => '008_OUTROS'],
+            (object)['reason' => '009 - Multa Prazo de Execução', 'value' => '009_MULTA PRAZO DE EXECUCAO'],
+            (object)['reason' => '010 - Multa Prazo de Devolução', 'value' => '010_MULTA PRAZO DE DEVOLUCAO'],
+            (object)['reason' => '011 - Multa Prazo Desigamento', 'value' => '011_MULTA PRAZO DESIGAMENTO'],
+            (object)['reason' => '012 - Multas', 'value' => '012_MULTAS'],
+
         ];
     }
 

@@ -211,6 +211,7 @@ class Main extends Component
             }, function ($q) {
                 return $q->where('user_id', Auth()->user()->id);
             })
+            ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where('completed', false)
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {
@@ -237,28 +238,10 @@ class Main extends Component
                     ->orderBy('type_note', 'desc');
             }])
             ->orderBy('priority', 'desc')
-            ->orderBy(function ($query) {
-                $query->select('is45')
-                    ->from('notes')
-                    ->whereColumn('productions.note_id', 'notes.id')
-                    ->orderBy('is45', 'DESC')
-                    ->limit(1);
-            })
+            ->orderBy('notes.is45', 'desc')
             ->orderBy('d5', 'desc')
-            ->orderBy(function ($query) {
-                $query->select('type_note')
-                    ->from('notes')
-                    ->whereColumn('productions.note_id', 'notes.id')
-                    ->orderBy('type_note', 'desc')
-                    ->limit(1);
-            })
-            ->orderBy(function ($query) {
-                $query->select('days_left')
-                    ->from('notes')
-                    ->whereColumn('productions.note_id', 'notes.id')
-                    ->orderBy('days_left', 'asc')
-                    ->limit(1);
-            })
+            ->orderBy('notes.dt_status')
+            ->select('productions.*', 'notes.dt_status', 'notes.is45', 'notes.type_note')
             ->paginate($this->perPage);
 
     }

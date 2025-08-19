@@ -664,8 +664,8 @@ class Stack extends Component
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created')
+            ->orderBy('note_dt_status', 'ASC')
+            ->select('productions.*', 'notes.dt_created as note_dt_created', 'notes.dt_status as note_dt_status')
             ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
@@ -734,70 +734,91 @@ class Stack extends Component
 
     public function getStatusProperty()
     {
-        return Production::with(['Note'])
-            ->orderBy('priority', 'DESC')
-            ->orderBy('d5', 'DESC')
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->where('confirmed', false)
-            ->where('service_id', $this->service->uuid)
-            ->when($this->search, function ($q) {
-                return $q->where(function ($query) {
-                    $query->whereHas('Note', function ($subquery) {
-                        return $subquery->where('note', 'like', '%' . $this->search . '%')
-                            ->orWhere('group2', 'like', '%' . $this->search . '%')
-                            ->orWhere('group3', 'like', '%' . $this->search . '%')
-                            ->orWhere('group4', 'like', '%' . $this->search . '%')
-                            ->orWhere('group5', 'like', '%' . $this->search . '%')
-                            ->orWhere('numPedido', 'like', '%' . $this->search . '%')
-                            ->orWhere('material', 'like', '%' . $this->search . '%')
-                            ->orWhere('lexp', 'like', '%' . $this->search . '%')
-                            ->orWhere('rubrica', 'like', '%' . $this->search . '%')
-                            ->orWhere('centerjob', 'like', '%' . $this->search . '%');
-                    });
-                });
-            })
-            ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
-            })
-            ->when($this->company_fs, function ($q) {
-                return $q->whereIn('company_id', $this->company_fs);
-            })
-            ->when($this->user_fs, function ($q) {
-                return $q->whereIn('user_id', $this->user_fs);
-            })
-            ->when($this->rubrica_s, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s)->orWhereNull('rubrica');
-                });
-            })
-            ->when($this->base, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('nexp', $this->base)->orWhereNull('nexp');
-                });
-            })
-            ->when($this->multiSearch, function ($q) {
-                return $q->whereHas('Note', function ($query) {
-                    return $query->whereIn('note', $this->multiSearch);
-                });
-            })
-            ->when($this->status_s, function ($q) {
-                return $q->whereIn('productions.status', $this->status_s)->orWhereNull('productions.status');
-            })
-            ->when($this->note_type, function ($q) {
-                return $q->whereRelation('Note', 'type_note', $this->note_type)->orWhereNull('type_note');
-            })
+        $user   = auth()->user();
+        $search = trim((string) $this->search);
 
+        $q = Production::query()
+            ->with(['note:id,dt_created,dt_status,type_note,note,group2,group3,group4,group5,numPedido,material,lexp,rubrica,centerjob,nexp']) // evita N+1
+            ->leftJoin('notes', 'notes.id', '=', 'productions.note_id') // garante ordenação por campo da nota e mantém registros mesmo sem nota
+            ->where('productions.confirmed', false)
+            ->where('productions.service_id', $this->service->uuid)
+            // Busca livre (Postgres: ILIKE case-insensitive)
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($qq) use ($search) {
+                    $like = "%{$search}%";
+                    $qq->where('notes.note', 'LIKE', $like)
+                        ->orWhere('notes.group2', 'LIKE', $like)
+                        ->orWhere('notes.group3', 'LIKE', $like)
+                        ->orWhere('notes.group4', 'LIKE', $like)
+                        ->orWhere('notes.group5', 'LIKE', $like)
+                        ->orWhere('notes.numPedido', 'LIKE', $like)
+                        ->orWhere('notes.material', 'LIKE', $like)
+                        ->orWhere('notes.lexp', 'LIKE', $like)
+                        ->orWhere('notes.rubrica', 'LIKE', $like)
+                        ->orWhere('notes.centerjob', 'LIKE', $like);
+                });
+            })
+            // Restrições por contrato do usuário logado
+            ->when(optional($user->contract)->company_id, function ($q, $companyId) {
+                $q->where('productions.company_id', $companyId);
+            })
+            // Filtros multi
+            ->when(!empty($this->company_fs), fn ($q) => $q->whereIn('productions.company_id', $this->company_fs))
+            ->when(!empty($this->user_fs), fn ($q) => $q->whereIn('productions.user_id', $this->user_fs))
+            ->when(!empty($this->multiSearch), fn ($q) => $q->whereIn('notes.note', $this->multiSearch))
+            // Rubrica: valores na lista OU nulo
+            ->when(!empty($this->rubrica_s), function ($q) {
+                $q->where(function ($qq) {
+                    $qq->whereIn('notes.rubrica', $this->rubrica_s)
+                       ->orWhereNull('notes.rubrica');
+                });
+            })
+            // Base (nexp): valores na lista OU nulo
+            ->when(!empty($this->base), function ($q) {
+                $q->where(function ($qq) {
+                    $qq->whereIn('notes.nexp', $this->base)
+                       ->orWhereNull('notes.nexp');
+                });
+            })
+            // Status: valores na lista OU nulo
+            ->when(!empty($this->status_s), function ($q) {
+                $q->where(function ($qq) {
+                    $qq->whereIn('productions.status', $this->status_s)
+                       ->orWhereNull('productions.status');
+                });
+            })
+            // Tipo de nota: valor exato OU nulo
+            ->when(!empty($this->note_type), function ($q) {
+                $q->where(function ($qq) {
+                    $qq->where('notes.type_note', $this->note_type)
+                       ->orWhereNull('notes.type_note');
+                });
+            })
+            // Ordenações por prioridade + campos da nota
+            ->orderBy('productions.priority', 'DESC')
+            ->orderBy('productions.d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            // Em Postgres, isso garante que nulos fiquem por último e respeita ASC
+            ->orderByRaw('notes.dt_status ASC')
+            // Selecione o que precisa (evita * ambíguo e colisão de colunas)
+            ->select([
+                'productions.*',
+                'notes.dt_created as note_dt_created',
+                'notes.dt_status  as note_dt_status',
+            ]);
 
+        // Dica: retorne o Builder para paginar na view/componente: $this->status->paginate(15)
+        return $q;
     }
+
 
     public function filterStatus($status)
     {
-        if ($status) {
+        if (!in_array($status, $this->status_s)) {
             $this->status_s   = [];
-            $this->status_s[] = $status;
+            $this->status_s[] = (int)$status;
+        } else {
+            $this->status_s   = [];
         }
     }
 

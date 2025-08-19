@@ -263,7 +263,8 @@
                             <tr class="align-middle text-center
                                 ">
 
-                                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }}
+                                <td class="fw-light fw-bold text-center {{ $rowClass }}">
+                                    <span class="badge text-bg-primary">D5</span> {{ $list->note }}
                                 </td>
                                 <td
                                     class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">

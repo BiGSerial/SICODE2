@@ -380,23 +380,44 @@
                             <th scope="col" class="fw-bold text-center">Municipio</th>
                             <th scope="col" class="fw-bold text-center">Material</th>
                             <th scope="col" class="fw-bold text-center">Grp2</th>
-                            <th scope="col" class="fw-bold text-center">Grp4</th>
+
                             <th scope="col" class="fw-bold text-center">Grp5</th>
                             <th scope="col" class="fw-bold text-center">Postes L</th>
                             <th scope="col" class="fw-bold text-center">Retorno</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
+                            <th scope="col" class="fw-bold text-center">DStatus</th>
                             <th scope="col" class="fw-bold text-center">Prazo Real</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            function getDaysStatus($list): array
+                            {
+                                $days = $list->dt_status->diffInDays(now());
+
+                                if ($days > 6) {
+                                    $bgColor = 'text-bg-danger';
+                                } elseif ($days < 4) {
+                                    $bgColor = 'text-bg-success';
+                                } else {
+                                    $bgColor = 'text-bg-warning';
+                                }
+
+                                return [
+                                    'days' => $days,
+                                    'bgColor' => $bgColor,
+                                ];
+                            }
+                        @endphp
                         @foreach ($lists as $list)
                             @php
                                 $block = 0;
                                 $exception = false;
                                 $production = '';
                                 $user = [];
+                                $dstatus = getDaysStatus($list);
 
                                 $production = $list->Productions->where('service_id', $this->service->uuid);
 
@@ -514,6 +535,19 @@
                                             'company' => $company,
                                         ];
                                     }
+
+                                    // Determine table row color based on block status
+                                }
+
+                                $tableRowClass = '';
+                                if ($block == 1 && $user['lastUser'] != 'Desconhecido') {
+                                    $tableRowClass = 'table-primary';
+                                } elseif ($block == 1 && $user['lastUser'] == 'Desconhecido') {
+                                    $tableRowClass = 'table-warning';
+                                } elseif ($block == 2) {
+                                    $tableRowClass = 'table-success';
+                                } elseif ($block == 3) {
+                                    $tableRowClass = 'table-danger';
                                 }
                             @endphp
 
@@ -521,24 +555,18 @@
 
                             <tr wire:key="{{ $list->id }}"
                                 class="align-middle
-                                    @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-primary
-                                    @elseif($block == 1 && $user['lastUser'] == 'Desconhecido')
-                                        table-warning
-                                    @elseif($block == 2)
-                                        table-success
-                                    @elseif($block == 3)
-                                        table-danger @endif
                                     ">
                                 <td>
-                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                    <input
+                                        class="form-check-input border border-1 border-primary {{ $tableRowClass }}"
+                                        type="checkbox" value="{{ $list->id }}" wire:model.defer="selected"
                                         @disabled($block && !$exception)>
                                 </td>
                                 {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                <td class="fw-bold copy-text @if ($list->is45) text-bg-warning @endif"
+                                <td class="fw-bold copy-text @if ($list->is45) text-bg-warning @endif {{ $tableRowClass }}"
                                     data-value="{{ $list->note }}">
                                     <span>
                                         {{ $list->note }}
@@ -555,37 +583,41 @@
                                         @endif
                                     </span>
                                 </td>
-                                <td class="fw-bold text-success text-center">
+                                <td class="fw-bold text-success text-center {{ $tableRowClass }}">
                                     @if ($list->doe)
                                         <i class="ri-checkbox-circle-line"></i>
                                     @endif
                                 </td>
-                                <td class="fw-bold text-danger text-center">
+                                <td class="fw-bold text-danger text-center {{ $tableRowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         wire:click.prevent="check_mmgd({{ $list->id }})"
                                         value='{{ $list->id }}' @checked($list->mmgd)>
                                 </td>
-                                <td class="fw-bold text-danger text-center">
+                                <td class="fw-bold text-danger text-center {{ $tableRowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         wire:click.prevent="check_is45({{ $list->id }})"
                                         value='{{ $list->id }}' @checked($list->is45)>
                                 </td>
-                                <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
+                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                    {{ date('d/m/Y', strToTime($list->dt_created)) }}
                                 </td>
-                                <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
-                                <td class="fw-light text-center">{{ $list->rubrica }}</td>
-                                <td class="fw-light text-center">{{ $list->lexp }}</td>
-                                <td class="fw-light text-center">{{ $list->material }}</td>
-                                <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
+                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                    {{ mb_strtoupper($list->numPedido) }}</td>
+                                <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->rubrica }}</td>
+                                <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->lexp }}</td>
+                                <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->material }}</td>
+                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                    {{ $list->group2 ? $list->group2 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}
+
+                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                    {{ $list->group5 ? $list->group5 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group5 ? $list->group5 : '_____' }}
+                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                    {{ $list->postes ? $list->postes : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->postes ? $list->postes : '_____' }}
-                                </td>
-                                <td class="fw-light text-center" tabindex="0" data-bs-toggle="popover"
-                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                <td class="fw-light text-center {{ $tableRowClass }}" tabindex="0"
+                                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Desenhos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
                                     @if ($user)
@@ -598,11 +630,23 @@
                                 </td>
 
                                 @if ($list->type_note != 1)
-                                    <td class="fw-light text-center">{{ $list->nstats }} </td>
+                                    <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->nstats }} </td>
                                 @else
                                     <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
                                             style="font-size: 8px;">{{ $list->nstats }}</span></td>
                                 @endif
+                                <td class="fw-light text-center {{ $dstatus['bgColor'] }}" tabindex="0"
+                                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
+                                    data-bs-title="Dias no Status"
+                                    data-bs-content="
+                                    <p>OBS: Os prazos para Nota não seguem com precisão, os prazos regulatórios como as OVs e deverão ser avaliados caso a caso.</p>
+                                    <span class='fs-4 text-success'>&#9632;</span> < 4 NO PRAZO <br>
+                                    <span class='fs-4 text-warning'>&#9632;</span> >= 4 VENCENDO <br>
+                                    <span class='fs-4 text-danger'>&#9632;</span> > 6 VENCIDO <br>
+                                    {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
+                                    ">
+                                    {{ $dstatus['days'] }}
+                                </td>
                                 <td scope="col"
                                     class="text-center
                                     @if ($list->days_left < 0) text-bg-secondary
@@ -626,7 +670,7 @@
                                 </td>
 
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $tableRowClass }}">
                                     @if ($list->pze_parecer === 'Vencido')
                                         <span class="badge text-bg-danger">VENCIDO</span>
                                     @elseif ($list->pze_parecer === 'Não vencido')
@@ -637,7 +681,7 @@
                                 </td>
 
 
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $tableRowClass }}">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"

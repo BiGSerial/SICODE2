@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Production extends Model
 {
@@ -51,6 +52,7 @@ class Production extends Model
         'block_wpa',
         'noinconsistency',
         'd5',
+        'dfive', // Added for D5 integration
         'cad',
         'partial',
         'ma', //Meio Ambiente
@@ -59,6 +61,7 @@ class Production extends Model
     protected $casts = [
         'manual'     => 'boolean',
         'mmgd'     => 'boolean',
+        'dfive' => 'boolean',
         'd5'     => 'boolean',
         'cad'    => 'boolean',
         'partial' => 'boolean',
@@ -150,5 +153,16 @@ class Production extends Model
     public function Notetimelines()
     {
         return $this->hasMany(Notetimeline::class);
+    }
+
+    public function FiveNotes(): MorphToMany
+    {
+        return $this->morphToMany(
+            FiveNote::class,
+            'productionable',
+            'productionables',
+            'production_id',
+            'productionable_id'
+        )->withTimestamps();
     }
 }
