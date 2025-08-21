@@ -103,9 +103,25 @@
                         <span class="badge text-bg-danger">OFF</span>
                     @endif
                 </button>
-
             </div>
         </div>
+
+        @if ($lists && $lists->contains(fn($item) => $item->fiveNote))
+            <div class="mb-3 mx-1">
+                <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                    data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas D5"
+                    data-bs-content="<p>Ao clicar, apenas as notas que possuem D5 estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+                    <button type="button" class="btn btn-warning" wire:click.prevent="filterD5()">
+                        Apenas D5
+                        @if ($filter_d5)
+                            <span class="badge text-bg-success">ON</span>
+                        @else
+                            <span class="badge text-bg-danger">OFF</span>
+                        @endif
+                    </button>
+                </div>
+            </div>
+        @endif
 
         {{-- <div class="mb-3 mx-1">
             <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
@@ -208,6 +224,31 @@
                     <tbody>
                         @php
                             $soma = 0;
+
+                            if (!function_exists('FiveStatus')) {
+                                function FiveStatus($list): object
+                                {
+                                    $object = (object) [
+                                        'exists' => false,
+                                        'bgColor' => '',
+                                        'message' => '',
+                                    ];
+
+                                    if ($five = $list->fiveNote) {
+                                        if (!$five->is_supervisioned) {
+                                            $object->exists = true;
+                                            $object->bgColor = 'text-bg-primary';
+                                            $object->message = 'Gerar D5 e reter carta';
+                                        } else {
+                                            $object->exists = true;
+                                            $object->bgColor = 'text-bg-success';
+                                            $object->message = 'D5 Fiscalizada Liberar carta';
+                                        }
+                                    }
+
+                                    return (object) $object;
+                                }
+                            }
                         @endphp
                         @foreach ($lists as $list)
                             @php
@@ -257,6 +298,8 @@
                                     $daysLeft = -$daysLeft;
                                 }
 
+                                $five = FiveStatus($list);
+
                             @endphp
                             {{-- @dump($list->Productions) --}}
 
@@ -264,7 +307,15 @@
                                 ">
 
                                 <td class="fw-light fw-bold text-center {{ $rowClass }}">
-                                    <span class="badge text-bg-primary">D5</span> {{ $list->note }}
+                                    @if ($five->exists)
+                                        <span class="badge {{ $five->bgColor }} fs-6" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Nota com D5"
+                                            data-bs-content="{{ $five->message }}"><span class="fw-bold">D5</span>
+                                            {{ $list->note }}</span>
+                                    @else
+                                        {{ $list->note }}
+                                    @endif
                                 </td>
                                 <td
                                     class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">

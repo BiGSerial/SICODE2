@@ -310,14 +310,6 @@ class Analise extends Component
     public function goFinish()
     {
 
-
-
-
-
-
-
-
-
         DB::beginTransaction();
 
         try {

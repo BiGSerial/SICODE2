@@ -164,9 +164,10 @@ class Note extends Model
         return $this->morphToMany(MedProtest::class, 'noteable');
     }
 
-
-
-
+    public function FiveNote()
+    {
+        return $this->hasOne(FiveNote::class);
+    }
 
 
 

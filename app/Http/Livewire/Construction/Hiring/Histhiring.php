@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Construction\Hiring;
 
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
@@ -15,6 +16,8 @@ class Histhiring extends Component
 {
     use WithFileUploads;
 
+    use TextFormatter;
+
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -24,8 +27,12 @@ class Histhiring extends Component
     public $cities;
 
     public $files_selected = [];
+    public $hasNoHired = false;
 
     public $search;
+    public $advancedSearch;
+    public $multipleSearch = [];
+
 
     // search by date
     public $date_in;
@@ -50,6 +57,31 @@ class Histhiring extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+    }
+
+    public function buscarMulti()
+    {
+        if ($this->advancedSearch) {
+
+            $this->multipleSearch = $this->formatTextToArray($this->advancedSearch);
+
+            if (count($this->multipleSearch) > 0) {
+                $this->search = null;
+                $this->goToPage(1);
+                $this->advancedSearch = null;
+
+                $this->dispatchBrowserEvent('hideModal');
+            }
+        }
+    }
+
+    public function updatedSearch()
+    {
+        if (trim($this->search)) {
+            $this->advancedSearch = null;
+            $this->multipleSearch = [];
+            $this->goToPage(1);
+        }
     }
 
     public function downloadFile($id)
@@ -104,6 +136,22 @@ class Histhiring extends Component
             if ($this->date_in && $this->date_out) {
                 $query->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
             }
+        }
+
+        if ($this->hasNoHired) {
+            $query->whereRelation('Orders.Operations', function ($q) {
+                $q->where('operacao', '0010')->where('status', 'NOT LIKE', 'CONF%');
+            });
+        }
+
+        if ($this->multipleSearch) {
+            $multipleSearch = $this->multipleSearch; //Define a variável fora das closures
+            $query->whereRElation('Note', function ($q) use ($multipleSearch) {
+                $q->whereIn('note', $multipleSearch)
+                  ->orWhereHas('orders', function ($q) use ($multipleSearch) {
+                      $q->whereIn('ordem', $multipleSearch);
+                  });
+            });
         }
 
         $query->orderBy('sended_at', 'DESC');

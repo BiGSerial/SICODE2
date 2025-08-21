@@ -142,6 +142,31 @@
                             <tbody>
                                 @php
                                     $soma = 0;
+
+                                    if (!function_exists('FiveStatus')) {
+                                        function FiveStatus($list): object
+                                        {
+                                            $object = (object) [
+                                                'exists' => false,
+                                                'bgColor' => '',
+                                                'message' => '',
+                                            ];
+
+                                            if ($five = $list->note->fiveNote) {
+                                                if (!$five->is_supervisioned) {
+                                                    $object->exists = true;
+                                                    $object->bgColor = 'text-bg-primary';
+                                                    $object->message = 'Gerar D5 e reter carta';
+                                                } else {
+                                                    $object->exists = true;
+                                                    $object->bgColor = 'text-bg-success';
+                                                    $object->message = 'D5 Fiscalizada Liberar carta';
+                                                }
+                                            }
+
+                                            return (object) $object;
+                                        }
+                                    }
                                 @endphp
                                 @foreach ($lists as $list)
                                     @php
@@ -151,7 +176,10 @@
                                         } else {
                                             $partial = null;
                                         }
+
+                                        $five = FiveStatus($list);
                                     @endphp
+
                                     @if ($partial)
                                         <tr wire:key="work-{{ $list->id }}"
                                             wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
@@ -174,12 +202,26 @@
 
                                     </td>
                                     <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->Note->note }}
-                                        <span class="copy-text" data-value="{{ $list->Note->note }}"
+
+
+                                        @if ($five->exists)
+                                            <span class="badge {{ $five->bgColor }} fs-6" tabindex="0"
+                                                data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                                data-bs-placement="top" data-bs-title="Nota com D5"
+                                                data-bs-content="{{ $five->message }}"
+                                                wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->Note->id }})"
+                                                style="cursor: pointer;" z-index="0">
+                                                <span class="fw-bold">D5</span>
+                                                {{ $list->Note->note }}
+                                            </span>
+                                        @else
+                                            {{ $list->Note->note }}
+                                        @endif
+                                        {{-- <span class="copy-text" data-value="{{ $list->Note->note }}"
                                             style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                             data-bs-trigger="hover focus" data-bs-placement="top"
                                             data-bs-content="Copiar Número da Nota"> <i
-                                                class="ri-file-copy-line"></i></span>
+                                                class="ri-file-copy-line"></i></span> --}}
 
                                         @if ($list->priority)
                                             <i class="ri-alert-fill align-middle"
@@ -513,6 +555,7 @@
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('partner.show.show-partial-info', key('show_partial_info'))
     @livewire('production.return.reject-inform-partial', key('reject_inform_partial'))
+    @livewire('components.d5.d5details', key('d5_details'))
 
 
     {{-- <div wire:init="checkOpen"></div> --}}

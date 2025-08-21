@@ -343,11 +343,8 @@ class Jobform extends Component
                 $order = null;
 
                 if ($note) {
-                    if ($note->type_note == 1) {
-                        $oder = $note->Orders()->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%')->where('statusSist', 'not like', 'CANC%')->where('ordem', 'like', '170%')->first();
-                    } else {
-                        $oder = $note->Orders()->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%')->where('statusSist', 'not like', 'CANC%')->first();
-                    }
+                    $order = $note->WorkForm?->Orders()->orderBy('ordem', 'asc')->first();
+                    $workForm = $note->WorkForm;
                 }
 
                 $fiveNote = FiveNote::updateOrCreate(
@@ -362,6 +359,7 @@ class Jobform extends Component
                         'conjunto' => $this->production->Note->num_material,
                         'pep' => $order?->pep,
                         'e_pep' =>  $order?->pep,
+                        'company_id' =>  $workForm?->company_id,
                         'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
                         'sintoms' => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
                         'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,

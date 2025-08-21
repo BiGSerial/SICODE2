@@ -2,12 +2,10 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
-use App\Exports\Protests\ProtestsExportList;
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ProtestExportListJob;
 use App\Models\Protest;
-use App\Traits\AppliesQueryFilters;
-use App\Traits\WildcardFormmater;
+use App\Traits\{AppliesQueryFilters, WildcardFormmater};
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -205,8 +203,7 @@ class Lists extends Component
         $query->with(['medProtests']);
 
         // Ordenação: mais antigo primeiro por "vencimento", empurrando NULLs para o fim (compatível com MariaDB/MySQL)
-        $query->orderByRaw('ISNULL(vencimento), vencimento ASC')
-              ->orderBy('dtAberturaNota', 'DESC');
+        $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
 
         return $query;
     }

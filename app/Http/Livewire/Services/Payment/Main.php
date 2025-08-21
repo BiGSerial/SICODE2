@@ -45,6 +45,8 @@ class Main extends Component
     //Botão de  nao atribuído.
     public $not_assigned = false;
 
+    public $filter_d5 = false;
+
     public $assigned_mmgd = false;
 
     public $count = [
@@ -80,6 +82,11 @@ class Main extends Component
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
 
+    }
+
+    public function filterD5()
+    {
+        $this->filter_d5 = !$this->filter_d5;
     }
 
     public function copy($msg)
@@ -373,10 +380,12 @@ class Main extends Component
 
         $query->when($this->typeNote, function ($q) {
             $q->where('type_note', $this->typeNote);
+        })->when($this->filter_d5, function ($q) {
+            $q->whereHas('FiveNote');
         })
         ->with(['WorkForm' => function ($q) {
             $q->orderBy('informed_at', 'asc');
-        }]);
+        }, 'FiveNote']);
 
         // Realizando o join com `work_reports` e `orders` e somando `moaberto`
         $query->leftJoin('work_reports', 'notes.id', '=', 'work_reports.note_id')

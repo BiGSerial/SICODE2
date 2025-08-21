@@ -164,8 +164,7 @@ class Lookatnotes extends Component
 
     public function render()
     {
-        return view(
-            'livewire.construction.hiring.lookatnotes',
+        return view('livewire.construction.hiring.lookatnotes',
             [
                 'lists' => $this->lists,
                 'service' => $this->service,
