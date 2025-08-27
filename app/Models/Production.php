@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Production extends Model
@@ -155,14 +157,14 @@ class Production extends Model
         return $this->hasMany(Notetimeline::class);
     }
 
-    public function FiveNotes(): MorphToMany
+    public function fiveNotes(): MorphToMany
     {
-        return $this->morphToMany(
+        return $this->morphedByMany(
             FiveNote::class,
-            'productionable',
-            'productionables',
-            'production_id',
-            'productionable_id'
+            'productionable',   // usa productionable_type/_id
+            'productionables',  // pivot
+            'production_id',    // FK deste model na pivot
+            'productionable_id' // FK do outro model na pivot
         )->withTimestamps();
     }
 }

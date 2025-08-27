@@ -28,8 +28,8 @@ class History extends Component
     public function getListProperty()
     {
         return MedProtest::WhereHas('Assignments', function ($q) {
-            $q
-              ->where('user', true)
+            $q->where('user_id', auth()->id())
+            //   ->where('user', true)
               ->where('completed', true);
         })->with('Protest', 'Assignments.user', 'Comments.user', 'Notes')->paginate($this->perPage);
     }

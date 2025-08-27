@@ -17,7 +17,13 @@ class SupervisionRepository
         return Note::query()
             ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id')
             ->where(function ($q) {
-                $q->orwhere(function ($sq) {
+                $q->orWhere(function ($q) {
+                    $q->whereHas('FiveNote', function ($q2) {
+                        $q2->where('is_supervisioned', false)
+                            ->where('is_completed', true);
+                    });
+                })
+                ->orwhere(function ($sq) {
                     $sq->whereHas('Partials', function ($q2) {
                         $q2->where('supervision', false)
                             ->where('allow', true);

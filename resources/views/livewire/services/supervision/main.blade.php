@@ -163,6 +163,12 @@
 
                                         $formBlock = $list->Note->WorkForm ? $list->Note->WorkForm->rejected : false;
 
+                                        if ($list->dfive) {
+                                            $dfive = $list->note->FiveNote;
+                                        } else {
+                                            $dfive = null;
+                                        }
+
                                         if ($dateForm) {
                                             $daysLeft = Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
                                         } else {
@@ -190,7 +196,15 @@
                                         </td>
                                         <td
                                             class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                            {{ $list->Note->note }}
+
+                                            @if ($dfive?->is_completed && !$dfive?->is_supervisioned)
+                                                <span class="badge text-bg-success fs-6"
+                                                    wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->Note->FiveNote->id }})"
+                                                    style="cursor: pointer;">D5
+                                                    {{ $list->Note->note }}</span>
+                                            @else
+                                                {{ $list->Note->note }}
+                                            @endif
                                             <span class="copy-text" data-value="{{ $list->Note->note }}"
                                                 style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                                 data-bs-trigger="hover focus" data-bs-placement="top"
@@ -393,6 +407,7 @@
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
+    @livewire('components.five-note.view-d5', key('ViewD5'))
 
     {{-- <div wire:init="checkOpen"></div> --}}
 

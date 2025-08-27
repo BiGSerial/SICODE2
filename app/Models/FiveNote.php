@@ -59,13 +59,20 @@ class FiveNote extends Model
 
     public function productions(): MorphToMany
     {
-        return $this->morphedByMany(
+        return $this->morphToMany(
             Production::class,
             'productionable',
             'productionables',
-            'productionable_id',
-            'production_id'
+            'productionable_id', // FK deste model (FiveNote) na pivot
+            'production_id'      // FK do outro (Production) na pivot
         )->withTimestamps();
     }
+
+    public function EvidenceFiles()
+    {
+        return $this->morphMany(EvidenceFile::class, 'evidenciable');
+    }
+
+
 
 }

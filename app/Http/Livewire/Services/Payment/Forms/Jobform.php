@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Payment\Forms;
 
 use App\Models\Analise;
+use App\Models\Company;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use Carbon\Carbon;
@@ -13,6 +14,8 @@ class Jobform extends Component
 {
     public ?Production $production = null;
     public ?Analise $analise = null;
+    public $companies;
+    public $five;
 
     protected $listeners = [
         'showProduction',
@@ -22,7 +25,22 @@ class Jobform extends Component
     protected $rules = [
         'analise.postes' => 'required|numeric',
         'analise.info' => 'nullable|string',
-        'analise.conclusion' => 'required|min:1'
+        'analise.conclusion' => 'required|min:1',
+        'five.note_d5' => 'required|string',
+        'five.reason' => 'nullable|string',
+        'five.description' => 'nullable|string',
+        'five.loc_install' => 'nullable|string',
+        'five.codify' => 'nullable|string',
+        'five.sintoms' => 'nullable|string',
+        'five.pep' => 'nullable|string',
+        'five.conjunto' => 'nullable|string',
+        'five.dispatch_at' => 'nullable|date',
+        'five.supervisioned_at' => 'nullable|date',
+        'five.payed_at' => 'nullable|date',
+        'five.company_id' => 'required|exists:companies,id'
+
+
+
     ];
 
     public function messages()
@@ -34,17 +52,31 @@ class Jobform extends Component
         ];
     }
 
+    public function mount()
+    {
+        $this->companies = Company::orderBy('name')->get();
+    }
+
     public function showProduction(Production $production)
     {
+        $this->five = null;
         $this->production = $production;
 
         if ($this->production) {
 
-            if (isset($this->production->Analise)) {
-                $this->analise = $this->production->Analise;
-            } else {
-                $this->analise = new Analise();
+            if ($this->production->note->FiveNote?->exists()) {
+                $this->five = $this->production->note->FiveNote;
             }
+
+            // Garantir a existência de Analise
+            $this->analise = $this->production->Analise()->firstOrCreate(
+                [], // Condições de busca (vazias pois já está relacionado à production)
+                [   // Valores padrão caso precise criar
+                    'postes' => 0,
+                    'info' => null,
+                    'conclusion' => null,
+                ]
+            );
 
             $this->status();
 
@@ -107,7 +139,15 @@ class Jobform extends Component
 
         try {
             if ($end) {
-                $this->validate();
+                if ($this->five) {
+                    $this->validate();
+                } else {
+                    $this->validate([
+                        'analise.postes' => 'required|numeric',
+                        'analise.info' => 'nullable|string',
+                        'analise.conclusion' => 'required|min:1',
+                    ]);
+                }
             }
 
             $this->production->Analise()->updateOrCreate([], $this->analise->toArray());
@@ -233,6 +273,27 @@ class Jobform extends Component
                 }
             }
 
+
+            if ($this->five) {
+                if (!$this->five->is_supervisioned) {
+                    $this->validate([
+                        'five.note_d5' => 'required|string',
+                        'five.company_id' => 'required|exists:companies,id'
+                    ]);
+                    $this->five->dispatch_at = now();
+                    $this->five->visible_partner = true;
+                    $this->five->is_payed = true;
+                    $this->five->payed_at = now();
+
+                } else {
+                    $this->five->is_archived = true;
+                }
+
+                $this->five->save();
+
+                $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
+            }
+
             if ($chk) {
                 $user = Auth()->User()->name;
 
@@ -263,7 +324,7 @@ class Jobform extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'NÃO FINALIZADO',
-                'html'     => 'Não COnseguimos encerrar a atividade, tente novamente.<br>' . $th->getMessage(),
+                'html'     => 'Não Conseguimos encerrar a atividade, tente novamente.<br>' . $th->getMessage(),
             ]);
 
             return;
@@ -272,6 +333,9 @@ class Jobform extends Component
 
     public function closeAll()
     {
+        $this->production = null;
+        $this->analise = null;
+        $this->five = null;
         $this->emitUp('refresh_list');
         $this->dispatchBrowserEvent('hideModal');
     }

@@ -12,7 +12,6 @@
     $imgExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
     $images = $files->filter(fn($f) => in_array(strtolower($f->extension), $imgExt));
     $others = $files->filter(fn($f) => !in_array(strtolower($f->extension), $imgExt));
-    $modalId = 'attCompModal_' . uniqid();
 
     if (!function_exists('__human_filesize')) {
         function __human_filesize($bytes, $decimals = 2)
@@ -52,166 +51,168 @@
     }
 @endphp
 
-<div {{ $attributes->merge(['class' => 'attachments-component ' . $class]) }}>
-    @if ($card)
-        <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0">
-            <div class="card-body">
-    @endif
+{{-- PASSO 1: Adicionar novas variáveis de estado (isLoading, modalContentWidth) --}}
+<div x-data="{
+    isWide: false,
+    viewingImage: null,
+    viewingTitle: '',
+    isLoading: false,
+    modalContentWidth: 'auto'
+}" class="attachments-component-wrapper">
 
-    <div class="attachments-comp-inner">
-        {{-- @if ($showHeader)
-            <h6 class="text-muted mb-3">{{ $header }}</h6>
-        @endif --}}
-
-        @if ($files->isNotEmpty())
-            {{-- usa Alpine para “container query” --}}
-            <div x-data="{ isWide: false }" x-init="() => {
-                isWide = $el.clientWidth >= 992;
-                window.addEventListener('resize', () => isWide = $el.clientWidth >= 992);
-            }" :class="{ 'attachments-comp-grid--wide': isWide }"
-                class="attachments-comp-grid">
-                {{-- arquivos --}}
-                @if ($others->isNotEmpty())
-                    <aside class="attachments-comp-files p-3">
-                        <h6 class="text-primary fw-bold mb-3">
-                            <i class="ri-file-list-3-line me-2"></i>
-                            Arquivos
-                            <span class="badge bg-primary-subtle text-primary ms-2">{{ $others->count() }}</span>
-                        </h6>
-                        @foreach ($others as $file)
-                            <div class="attachments-comp-file-item card mb-2 shadow-sm border-0">
-                                <div class="card-body d-flex align-items-center justify-content-between p-3">
-                                    <div class="d-flex align-items-center">
-                                        <div class="me-3">
-                                            <div class="attachments-comp-file-icon {{ __wrapper_class_for_ext($file->extension) }} rounded-2 d-flex align-items-center justify-content-center"
-                                                style="width:45px;height:45px;">
-                                                <i class="{{ __icon_for_ext($file->extension) }} fs-4"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h6 class="mb-1 fw-semibold text-truncate" style="max-width:180px"
-                                                title="{{ $file->stored_name }}">
-                                                {{ $file->stored_name }}
-                                            </h6>
-                                            <small class="text-muted d-block">
-                                                <i class="ri-file-line me-1"></i>{{ __human_filesize($file->size) }}
-                                                &middot;
-                                                <i
-                                                    class="ri-calendar-line me-1"></i>{{ optional($file->created_at)->format('d/m/Y') }}
-                                            </small>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        @if ($downloadAction)
-                                            <button wire:click="{{ $downloadAction }}({{ $file->id }})"
-                                                class="btn btn-outline-primary btn-sm rounded-pill">
-                                                <i class="ri-download-line"></i>
-                                            </button>
-                                        @endif
-                                        @if ($deleteAction)
-                                            <button wire:click="{{ $deleteAction }}({{ $file->id }})"
-                                                class="btn btn-outline-danger btn-sm rounded-pill">
-                                                <i class="ri-delete-bin-line"></i>
-                                            </button>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </aside>
-                @endif
-
-                {{-- galeria --}}
-                @if ($images->isNotEmpty())
-                    <section class="attachments-comp-gallery p-3">
-                        <h6 class="text-primary fw-bold mb-3">
-                            <i class="ri-image-line me-2"></i>
-                            Galeria de Imagens
-                            <span class="badge bg-primary-subtle text-primary ms-2">{{ $images->count() }}</span>
-                        </h6>
-                        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
-                            @foreach ($images as $image)
-                                <div class="col" style="min-width: 12rem">
-                                    <div class="attachments-comp-image-item card border-0 shadow-sm h-100">
-                                        <div class="position-relative">
-                                            <img src="{{ asset('storage/' . $image->path) }}"
-                                                class="card-img-top attachments-comp-image"
-                                                style="object-fit:cover;cursor:pointer;height:160px"
-                                                alt="{{ $image->stored_name }}" data-bs-toggle="modal"
-                                                data-bs-target="#{{ $modalId }}"
-                                                onclick="showImageModal_{{ $modalId }}('{{ asset('storage/' . $image->path) }}','{{ addslashes($image->stored_name) }}')">
-                                            <div class="position-absolute top-0 end-0 p-2">
-                                                <button class="btn btn-sm btn-dark bg-opacity-75 rounded-pill"
-                                                    data-bs-toggle="dropdown">
-                                                    <i class="ri-more-2-line"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    @if ($downloadAction)
-                                                        <li>
-                                                            <button class="dropdown-item"
-                                                                wire:click="{{ $downloadAction }}({{ $image->id }})">
-                                                                <i class="ri-download-line me-2"></i>Baixar
-                                                            </button>
-                                                        </li>
-                                                    @endif
-                                                    @if ($deleteAction)
-                                                        <li>
-                                                            <button class="dropdown-item text-danger"
-                                                                wire:click="{{ $deleteAction }}({{ $image->id }})">
-                                                                <i class="ri-delete-bin-line me-2"></i>Remover
-                                                            </button>
-                                                        </li>
-                                                    @endif
-                                                </ul>
-                                            </div>
-                                        </div>
-                                        <div class="card-body p-2 text-truncate">
-                                            <small class="d-block"
-                                                title="{{ $image->stored_name }}">{{ $image->stored_name }}</small>
-                                            <small class="text-muted d-block">{{ __human_filesize($image->size) }}
-                                                &middot; {{ optional($image->created_at)->format('d/m/Y') }}</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </section>
-                @endif
-            </div>
-        @else
-            <div class="text-center py-4 text-muted">
-                <i class="ri-file-unknow-line fs-1 mb-2"></i><br>Nenhum arquivo anexado.
-            </div>
+    <div {{ $attributes->merge(['class' => 'attachments-component ' . $class]) }}>
+        @if ($card)
+            <div class="card mb-0 mt-0 shadow-sm border-top-0 rounded-top-0">
+                <div class="card-body">
         @endif
+
+        <div class="attachments-comp-inner">
+            @if ($files->isNotEmpty())
+                <div x-init="() => {
+                    isWide = $el.clientWidth >= 992;
+                    window.addEventListener('resize', () => isWide = $el.clientWidth >= 992);
+                }" :class="{ 'attachments-comp-grid--wide': isWide }"
+                    class="attachments-comp-grid">
+
+                    @if ($others->isNotEmpty())
+                        <aside class="attachments-comp-files p-3">
+                            {{-- ... HTML para outros arquivos ... --}}
+                        </aside>
+                    @endif
+
+                    @if ($images->isNotEmpty())
+                        <section class="attachments-comp-gallery p-3">
+                            <h6 class="text-primary fw-bold mb-3">
+                                <i class="ri-image-line me-2"></i>
+                                Galeria de Imagens
+                                <span class="badge bg-primary-subtle text-primary ms-2">{{ $images->count() }}</span>
+                            </h6>
+                            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
+                                @foreach ($images as $image)
+                                    <div class="col" style="min-width: 12rem">
+                                        <div class="attachments-comp-image-item card border-0 shadow-sm h-100">
+                                            <div class="position-relative">
+                                                {{-- PASSO 2: Resetar o estado ao clicar em uma nova imagem --}}
+                                                <img src="{{ asset('storage/' . $image->path) }}"
+                                                    class="card-img-top attachments-comp-image"
+                                                    style="object-fit:cover;cursor:pointer;height:160px"
+                                                    alt="{{ $image->stored_name }}"
+                                                    @click="
+                                                        viewingImage = '{{ asset('storage/' . $image->path) }}';
+                                                        viewingTitle = '{{ addslashes($image->stored_name) }}';
+                                                        isLoading = true;
+                                                        modalContentWidth = 'auto';
+                                                    ">
+
+                                                <div class="position-absolute top-0 end-0 p-2">
+                                                    <button class="btn btn-sm btn-dark bg-opacity-75 rounded-pill"
+                                                        data-bs-toggle="dropdown">
+                                                        <i class="ri-more-2-line"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                        @if ($downloadAction)
+                                                            <li>
+                                                                <button class="dropdown-item"
+                                                                    wire:click="{{ $downloadAction }}({{ $image->id }})">
+                                                                    <i class="ri-download-line me-2"></i>Baixar
+                                                                </button>
+                                                            </li>
+                                                        @endif
+                                                        @if ($deleteAction)
+                                                            <li>
+                                                                <button class="dropdown-item text-danger"
+                                                                    wire:click="{{ $deleteAction }}({{ $image->id }})">
+                                                                    <i class="ri-delete-bin-line me-2"></i>Remover
+                                                                </button>
+                                                            </li>
+                                                        @endif
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div class="card-body p-2 text-truncate">
+                                                <small class="d-block"
+                                                    title="{{ $image->stored_name }}">{{ $image->stored_name }}</small>
+                                                <small class="text-muted d-block">{{ __human_filesize($image->size) }}
+                                                    &middot;
+                                                    {{ optional($image->created_at)->format('d/m/Y') }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
+                </div>
+            @else
+                <div class="text-center py-4 text-muted">
+                    <i class="ri-file-unknow-line fs-1 mb-2"></i><br>Nenhum arquivo anexado.
+                </div>
+            @endif
+        </div>
+
+        @if ($card)
     </div>
-
-    @if ($card)
-</div><!-- .card-body -->
-</div><!-- .card -->
+</div>
 @endif
+</div>
 
-@if ($images->isNotEmpty())
-    <div class="modal fade" id="{{ $modalId }}" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="{{ $modalId }}_title">Visualizar Imagem</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+{{-- PASSO 3: Modificar o modal para usar as novas variáveis e o evento @load --}}
+<template x-if="viewingImage">
+    <div x-show="viewingImage" @keydown.escape.window="viewingImage = null"
+        style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;"
+        class="p-4" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+
+        <div @click="viewingImage = null" style="position: relative; top: 0; left: 0; right: 0; bottom: 0;"></div>
+
+        {{-- Aplicando o tamanho dinâmico ao container do conteúdo do modal --}}
+        <div @click.stop class="bg-white rounded-3 shadow-lg d-flex flex-column"
+            :style="{ width: modalContentWidth, transition: 'width 0.3s ease' }"
+            style="z-index: 10000; max-width: 95vw; max-height: 95vh; overflow: hidden; left: 40%;">
+
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom" style="flex-shrink: 0;">
+                <h5 class="modal-title" x-text="viewingTitle"></h5>
+                <button type="button" class="btn-close" @click="viewingImage = null"></button>
+            </div>
+
+            <div class="modal-body text-center p-0"
+                style="flex-grow: 1; min-height: 150px; display: flex; align-items: center; justify-content: center;">
+                {{-- Opcional: Spinner de carregamento --}}
+                <div x-show="isLoading" class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
                 </div>
-                <div class="modal-body text-center p-0">
-                    <img id="{{ $modalId }}_img" src="" class="img-fluid" alt="">
-                </div>
+
+                {{-- A imagem agora tem o evento @load --}}
+                <img :src="viewingImage" class="img-fluid" x-show="!isLoading" style="display: none;"
+                    x-init="$el.style.display = 'block'" :alt="viewingTitle"
+                    @load="
+                            isLoading = false;
+                            const img = $event.target;
+                            const padding = 32; // espaço de segurança (16px de cada lado)
+                            const maxHeight = window.innerHeight - 120; // altura máxima (descontando header e margens)
+
+                            let targetWidth = img.naturalWidth;
+                            let targetHeight = img.naturalHeight;
+                            const ratio = targetWidth / targetHeight;
+
+                            if (targetHeight > maxHeight) {
+                                targetHeight = maxHeight;
+                                targetWidth = targetHeight * ratio;
+                            }
+
+                            const maxWidth = window.innerWidth - padding;
+                            if (targetWidth > maxWidth) {
+                                targetWidth = maxWidth;
+                            }
+
+                            modalContentWidth = targetWidth + 'px';
+                         ">
             </div>
         </div>
     </div>
-    <script>
-        function showImageModal_{{ $modalId }}(src, title) {
-            document.getElementById('{{ $modalId }}_img').src = src;
-            document.getElementById('{{ $modalId }}_title').textContent = title;
-        }
-    </script>
-@endif
-
+</template>
+</div>
 @push('css')
     <style>
         /* padrão: empilhado */
@@ -220,10 +221,12 @@
         }
 
         /* quando Alpine marcar isWide=true, aplica grid */
-        .attachments-comp-grid--wide {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 1rem;
+        @media (min-width: 992px) {
+            .attachments-comp-grid--wide {
+                display: grid;
+                grid-template-columns: 1fr 2fr;
+                gap: 1rem;
+            }
         }
 
         /* hover e ícones mantêm-se iguais */
@@ -235,7 +238,6 @@
         .attachments-comp-file-item:hover {
             transform: translateX(5px);
             border-left-color: var(--bs-primary) !important;
-            border-left: 4px solid var(--bs-primary) !important;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
         }
 
@@ -252,6 +254,10 @@
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
         }
 
+        .attachments-comp-image {
+            transition: transform .3s ease;
+        }
+
         .attachments-comp-image-item:hover .attachments-comp-image {
             transform: scale(1.05);
         }
@@ -262,6 +268,10 @@
 
         .attachments-component .btn:hover {
             transform: translateY(-2px);
+        }
+
+        .attachments-comp-file-icon {
+            transition: transform .25s;
         }
 
         .attachments-comp-file-icon--pdf {
@@ -300,4 +310,3 @@
         }
     </style>
 @endpush
-</div>

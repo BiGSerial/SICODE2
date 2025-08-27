@@ -218,6 +218,11 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/partialreport', 'partialreport')->name('report.partial');
     Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
     Route::get('/send_ads_form', 'sendAdsForm')->name('report.sendAdsForm');
+
+    Route::prefix('/note_d5')->name('note_d5.')->group(function () {
+        Route::get('/list', 'partner_d5_list')->name('list');
+        Route::get('/historic', 'partner_d5_historic')->name('historic');
+    });
 });
 
 Route::prefix('/btzero')->controller(BtzeroController::class)->name('btzero.')->middleware('auth')->group(function () {
@@ -258,6 +263,8 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
         Route::get('/view/{medProtestId}', 'partner_view')->name('view');
         Route::get('/view_only/{medProtestId}', 'partner_view_only')->name('view_only');
         Route::get('/history', 'partner_history')->name('history');
+
+
     });
 
     Route::get('/print/{medProtestId}', 'print')->name('print');

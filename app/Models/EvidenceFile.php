@@ -12,7 +12,7 @@ class EvidenceFile extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'user_id','original_name','stored_name','disk','path','mime', 'extension','size','sha256','uploaded_at'
+        'user_id','original_name','stored_name','disk','path','mime', 'extension','size','sha256','uploaded_at', 'origin'
     ];
 
     protected $casts = [

@@ -4,19 +4,24 @@ namespace App\Http\Livewire\Services\Supervision\Forms;
 
 use App\Models\Analise;
 use App\Models\D5Return;
+use App\Models\EvidenceFile;
 use App\Models\FiveNote;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class Jobform extends Component
 {
     public ?Production $production = null;
     public ?Analise $analise = null;
+    public $five;
+    public $origin = 'FISCALIZACAO';
 
     public $hasFile = false;
+    public $hasEvidence = false;
 
 
     public $d5 = 2;
@@ -34,6 +39,8 @@ class Jobform extends Component
         'showProduction',
         'confirmFinish' => 'save',
         'hasFile',
+        'hasEvidence',
+        'evidenceSaved',
         'savedFiles'
     ];
 
@@ -41,6 +48,8 @@ class Jobform extends Component
         'analise.postes' => 'required|numeric|min:0',
         'analise.info' => 'nullable|string',
         'analise.conclusion' => 'required',
+
+
 
     ];
 
@@ -59,16 +68,55 @@ class Jobform extends Component
         $this->hasFile = $value;
     }
 
+    public function hasEvidence($value)
+    {
+        $this->hasEvidence = $value;
+    }
+
+
+    public function downloadFile(EvidenceFile $file)
+    {
+        // dd(Storage::fileExists('public/'.$file->path));
+
+        if (Storage::fileExists('public/'.$file->path)) {
+            return Storage::download('public/'.$file->path);
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ARQUIVO INEXISTENTE!',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
+    }
+
+    public function deleteFile(EvidenceFile $file)
+    {
+        if ($file) {
+            $file->delete();
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Arquivo removido com sucesso!',
+            ]);
+            $this->emit('refreshComponent');
+        }
+    }
+
 
 
     public function showProduction(Production $production)
     {
-        $this->production = $production;
+
+        $this->five = null;
+        $this->production = $production->load('note.WorkForm.Company', 'note.WorkForm.Orders', 'note.fiveNote');
 
         if ($this->production) {
 
-            if ($this->production->FiveNotes->isNotEmpty()) {
+            if ($this->production->dfive) {
                 $this->d5 = 1;
+                $this->five = $this->production->note->FiveNote;
             }
 
             if (isset($this->production->Analise)) {
@@ -103,6 +151,7 @@ class Jobform extends Component
         } else {
             $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
+            $time = 0;
             if ($hist) {
                 $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
                 $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
@@ -327,7 +376,7 @@ class Jobform extends Component
                 }
             }
 
-            if ($this->d5 == '1' || $this->production->dfive) {
+            if ($this->d5 == 1 || $this->production->dfive) {
 
                 // $d5 = D5Return::create([
                 //     'production_id' => $this->production->id,
@@ -339,36 +388,61 @@ class Jobform extends Component
 
                 // ]);
 
-                $note = $this->production->note;
-                $order = null;
+                if (!$this->production->note->FiveNote) {
+                    $note = $this->production->note;
+                    $order = null;
 
-                if ($note) {
-                    $order = $note->WorkForm?->Orders()->orderBy('ordem', 'asc')->first();
-                    $workForm = $note->WorkForm;
+                    if ($note) {
+                        $order = $note->workForm?->Orders()->orderBy('ordem', 'asc')->first();
+                        $workForm = $note->workForm;
+                    }
+
+                    $fiveNote = FiveNote::updateOrCreate(
+                        [
+
+                            'note_id' => $this->production->note_id
+                        ],
+                        [
+                            'reason' => !$this->production->dfive ? $this->return['reason'] : $this->production->FiveNote->first()->reason,
+                            'description' => !$this->production->dfive ? $this->return['description'] ?? $this->return['description'] : $this->production->FiveNote->first()->description,
+                            'loc_install' => $this->return['loc_install'] ? trim($this->return['loc_install']) : null,
+                            'conjunto' => $this->production->Note->num_material,
+                            'pep' => $order?->pep,
+                            'e_pep' =>  $order?->pep,
+                            'company_id' => $this->production->note->workForm?->company_id,
+                            'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
+                            'sintoms' => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
+                            'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
+                        ]
+                    );
+
+                    if ($fiveNote) {
+                        $fiveNote->Productions()->syncWithoutDetaching([$this->production->id]);
+                    }
+                } else {
+
+                    if (!$this->five) {
+                        $this->five = $this->production->note->FiveNote;
+                    }
+
+                    if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
+                        $this->five->update([
+                            'is_completed' => false,
+                            'completed_at' => null,
+                        ]);
+                    } else {
+                        $this->five->update([
+                            'is_supervisioned' => true,
+                            'supervisioned_at' => now(),
+                        ]);
+                    }
+
+                    $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
+
                 }
 
-                $fiveNote = FiveNote::updateOrCreate(
-                    [
 
-                        'note_id' => $this->production->note_id
-                    ],
-                    [
-                        'reason' => !$this->production->dfive ? $this->return['reason'] : $this->production->FiveNote->first()->reason,
-                        'description' => !$this->production->dfive ? $this->return['description'] ?? trim($this->return['description']) : $this->production->FiveNote->first()->description,
-                        'loc_install' => $this->return['loc_install'] ? trim($this->return['loc_install']) : null,
-                        'conjunto' => $this->production->Note->num_material,
-                        'pep' => $order?->pep,
-                        'e_pep' =>  $order?->pep,
-                        'company_id' =>  $workForm?->company_id,
-                        'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
-                        'sintoms' => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
-                        'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
-                    ]
-                );
 
-                if ($fiveNote) {
-                    $fiveNote->Productions()->syncWithoutDetaching([$this->production->id]);
-                }
 
 
             }
@@ -390,9 +464,14 @@ class Jobform extends Component
             // $this->emitTo('files.filesupervision', 'save_files');
             DB::commit();
 
-            if ($this->hasFile) {
+            if (isset($fiveNote) && $this->hasEvidence) {
+
+                $this->emitTo('files.evidence.upload-evidence', 'saveEvidences', $fiveNote->id);
+            } elseif ($this->hasFile) {
+
                 $this->emitTo('files.manager.create-prod-files', 'saveFiles');
             } else {
+                dd('nenhum arquivo');
                 $this->closeAll();
 
             }
@@ -414,6 +493,15 @@ class Jobform extends Component
         }
     }
 
+    public function evidenceSaved()
+    {
+        if ($this->hasFile) {
+            $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+        } else {
+            $this->closeAll();
+        }
+    }
+
     public function savedFiles()
     {
 
@@ -424,6 +512,8 @@ class Jobform extends Component
     public function closeAll()
     {
         $this->analise = null;
+        $this->five = null;
+        $this->production = null;
         $this->return = [
             'reason' => '',
             'description' => '',

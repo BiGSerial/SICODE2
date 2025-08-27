@@ -106,22 +106,22 @@
             </div>
         </div>
 
-        @if ($lists && $lists->contains(fn($item) => $item->fiveNote))
-            <div class="mb-3 mx-1">
-                <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                    data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas D5"
-                    data-bs-content="<p>Ao clicar, apenas as notas que possuem D5 estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                    <button type="button" class="btn btn-warning" wire:click.prevent="filterD5()">
-                        Apenas D5
-                        @if ($filter_d5)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
-                </div>
+
+        <div class="mb-3 mx-1">
+            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas D5"
+                data-bs-content="<p>Ao clicar, apenas as notas que possuem D5 estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+                <button type="button" class="btn btn-warning" wire:click.prevent="filterD5()">
+                    Apenas D5
+                    @if ($filter_d5)
+                        <span class="badge text-bg-success">ON</span>
+                    @else
+                        <span class="badge text-bg-danger">OFF</span>
+                    @endif
+                </button>
             </div>
-        @endif
+        </div>
+
 
         {{-- <div class="mb-3 mx-1">
             <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
@@ -252,310 +252,234 @@
                         @endphp
                         @foreach ($lists as $list)
                             @php
-                                $block = false;
+                                // 1) Avaliação (já usa dados em memória por causa do load() no componente)
+                                $eval = $this->needBlock($list);
+                                $block = $eval['block'];
+                                $rowClass = $eval['color'];
+                                $production = $eval['production'] ?? null;
 
-                                if ($production = $this->hasProduction($list)) {
-                                    $block = true;
-                                }
+                                // 2) Derivados locais: WorkForm, última parcial válida (já limitada a 1), e conjunto de pedidos
+                                $wf = $list->WorkForm;
+                                $partial = !$wf ? $list->Partials->first() ?? null : null;
 
-                                if ($partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : null) {
-                                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
-                                        $partial = null;
-                                    }
-                                } else {
-                                    $partial = null;
-                                }
+                                // Escolhe o conjunto de orders em UM lugar só (evita vários ifs abaixo)
+                                $orders = $wf
+                                    ? $wf->Orders ?? collect()
+                                    : ($partial
+                                        ? $partial->Orders ?? collect()
+                                        : collect());
 
-                                $rowClass = '';
-
-                                if ($block) {
-                                    if ($production->confirmed) {
-                                        $rowClass = 'table-danger';
-                                    } elseif ($production->status == 1) {
-                                        $rowClass = 'table-danger';
-                                    } elseif ($production->status == 2) {
-                                        $rowClass = 'table-primary';
-                                    } elseif ($production->status == 5) {
-                                        $rowClass = 'table-success';
+                                // 3) FiveNote (só pra badge D5)
+                                $five = $list->FiveNote;
+                                $hasD5 = (bool) $five;
+                                $d5BadgeClass = '';
+                                $d5Msg = '';
+                                if ($hasD5) {
+                                    if ($five->is_supervisioned ?? false) {
+                                        $d5BadgeClass = 'text-bg-success';
+                                        $d5Msg = 'D5 Fiscalizada – liberar carta';
                                     } else {
-                                        $rowClass = 'table-primary';
+                                        $d5BadgeClass = 'text-bg-primary';
+                                        $d5Msg = 'Gerar D5 e reter carta';
                                     }
                                 }
 
-                                // if ($partial) {
-                                //     $date = $partial->supervision_at->addDays(5);
-                                // } else {
-                                //     $date = $list->fimLancado;
-                                // }
-
+                                // 4) Data de referência já veio da query como 'fimLancado' (evita recomputar)
                                 $date = $list->fimLancado;
+                                $dateC = $date ? \Carbon\Carbon::parse($date) : null;
 
-                                $daysLeft = Carbon::now()
-                                    ->startOfDay()
-                                    ->diffInDays(Carbon::parse($date)->startOfDay(), true);
-
-                                if (Carbon::parse($date)->startOfDay() < Carbon::now()->startOfDay()) {
-                                    $daysLeft = -$daysLeft;
+                                // 5) Prazo geral (mantive tua lógica, só evitando repetir parse)
+                                if ($dateC) {
+                                    $diff = now()->startOfDay()->diffInDays($dateC->startOfDay(), true);
+                                    $daysLeftSigned = $dateC->isBefore(now()->startOfDay()) ? -$diff : $diff;
+                                } else {
+                                    $daysLeftSigned = null;
                                 }
 
-                                $five = FiveStatus($list);
-
+                                // 6) Helperzinho local para status por operação (evita where() repetido na Collection)
+                                $statusFor = function ($order, $op) {
+                                    $ops = $order->Operations ?? collect();
+                                    $match = $ops->firstWhere('operacao', $op);
+                                    return $match && isset($match->status) ? explode(' ', $match->status)[0] : '---';
+                                };
                             @endphp
-                            {{-- @dump($list->Productions) --}}
 
-                            <tr class="align-middle text-center
-                                ">
-
+                            <tr class="align-middle text-center">
+                                {{-- Nota + D5 badge --}}
                                 <td class="fw-light fw-bold text-center {{ $rowClass }}">
-                                    @if ($five->exists)
-                                        <span class="badge {{ $five->bgColor }} fs-6" tabindex="0"
+                                    @if ($hasD5)
+                                        <span class="badge {{ $d5BadgeClass }} fs-6" tabindex="0"
                                             data-bs-toggle="popover" data-bs-trigger="hover focus"
                                             data-bs-placement="top" data-bs-title="Nota com D5"
-                                            data-bs-content="{{ $five->message }}"><span class="fw-bold">D5</span>
-                                            {{ $list->note }}</span>
+                                            data-bs-content="{{ $d5Msg }}">
+                                            <span class="fw-bold">D5</span> {{ $list->note }}
+                                        </span>
                                     @else
                                         {{ $list->note }}
                                     @endif
                                 </td>
+
+                                {{-- Tipo: PARCIAL/TOTAL (sem revalidar flags – já veio filtrada) --}}
                                 <td
-                                    class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">
-                                    {{ $partial ? 'PARCIAL' : 'TOTAL' }} </td>
-
-                                <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && !$partial)
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial)
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-
+                                    class="fw-light fw-bold text-center {{ $partial ? 'text-bg-warning' : 'text-bg-success' }}">
+                                    {{ $partial ? 'PARCIAL' : 'TOTAL' }}
                                 </td>
+
+                                {{-- Ordem --}}
+                                <td class="text-center align-middle {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
+                                </td>
+
+                                {{-- MOA (usar total_moaberto pra WF; value pra parcial) --}}
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->count() && !$partial)
-                                        {{-- @foreach ($list->WorkForm->Orders as $order)
-                                            @php
-                                                $soma += $order->moaberto;
-                                            @endphp
-                                            <p class="my-0 py-0">
-                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </p>
-                                        @endforeach --}}
-                                        @php
+                                    @php
+                                        if ($wf && !$partial) {
                                             $soma += $list->total_moaberto;
-                                        @endphp
+                                            $moa = $list->total_moaberto;
+                                        } elseif ($partial) {
+                                            $soma += $partial->value ?? 0;
+                                            $moa = $partial->value ?? 0;
+                                        } else {
+                                            $moa = 0;
+                                        }
+                                    @endphp
+                                    R$ {{ number_format($moa, 2, ',', '.') }}
+                                </td>
+
+                                {{-- OP30 / OP40 / OP50 --}}
+                                <td class="text-center align-middle {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $statusFor($order, '0030') }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
+                                </td>
+                                <td class="text-center align-middle {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $statusFor($order, '0040') }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
+                                </td>
+                                <td class="text-center align-middle {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $statusFor($order, '0050') }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
+                                </td>
+
+                                {{-- CentroTrab (OP 0010) --}}
+                                <td class="text-center align-middle {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        @php $op10 = $order->Operations?->firstWhere('operacao','0010'); @endphp
                                         <p class="my-0 py-0">
-                                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
+                                            {{ $op10 && isset($op10->cenTrab) ? explode(' ', $op10->cenTrab)[0] : '---' }}
                                         </p>
-                                    @elseif ($partial)
-                                        @php
-                                            $soma += $partial->value;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
-                                        </p>
-                                    @endif
-
-                                </td>
-                                {{-- <td class="text-center align-middle">
-                                    @if ($list->WorkForm->Orders->count())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->statusSist }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-
-                                </td> --}}
-
-                                <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-
-                                </td>
-                                <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-
-                                </td>
-                                <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-
-                                </td>
-                                <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
                                 </td>
 
+                                {{-- Empresa --}}
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        {{ $list->WorkForm->Company->name }}
-                                    @elseif ($partial)
-                                        {{ $partial->Company ? $partial->Company->name : '---' }}
-                                    @endif
+                                    {{ $wf ? $wf->Company->name ?? '---' : $partial?->Company?->name ?? '---' }}
                                 </td>
 
+                                {{-- Município --}}
                                 <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
 
+                                {{-- Final OP20 --}}
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->WorkForm ? $list->WorkForm->earliest_fim_real?->format('d/m/Y') : '---' }}
+                                    {{ $wf?->earliest_fim_real?->format('d/m/Y') ?? '---' }}
                                 </td>
+
+                                @php
+                                    $dtInf = $wf?->informed_at ?? ($wf?->created_at ?? $partial?->created_at);
+                                @endphp
                                 <td class="fw-light {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        {{ $list->WorkForm && $list->WorkForm->informed_at ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : $list->WorkForm->created_at->format('d/m/Y H:i:s') }}
-                                    @elseif ($partial)
-                                        {{ $partial->created_at?->format('d/m/Y H:i:s') }}
-                                    @endif
+                                    {{ $dtInf?->format('d/m/Y H:i:s') ?? '---' }}
                                 </td>
 
+                                {{-- ADS (mantido como no teu, sem consultas extras) --}}
                                 @php
-                                    if ($list->WorkForm?->Adsform) {
-                                        $daysLeft = $list->WorkForm?->Adsform
-                                            ? $list->WorkForm?->Adsform->created_at->diffInDays(Carbon::now(), true)
-                                            : null;
+                                    if ($wf?->Adsform) {
+                                        $adsDiff = $wf->Adsform->created_at->diffInDays(now(), true);
                                     } elseif ($partial) {
-                                        $daysLeft = $partial
-                                            ? $partial->created_at->diffInDays(Carbon::now(), true)
-                                            : null;
+                                        $adsDiff = $partial->created_at?->diffInDays(now(), true);
                                     } else {
-                                        $daysLeft = null;
+                                        $adsDiff = null;
                                     }
 
                                     $prazoClass = '';
-
-                                    if ($daysLeft) {
-                                        if ($daysLeft && $daysLeft > 20) {
-                                            $prazoClass = 'text-bg-danger';
-                                        } elseif ($daysLeft && $daysLeft < 15) {
-                                            $prazoClass = 'text-bg-success';
-                                        } else {
-                                            $prazoClass = 'text-bg-warning';
-                                        }
+                                    if (!is_null($adsDiff)) {
+                                        $prazoClass =
+                                            $adsDiff > 20
+                                                ? 'text-bg-danger'
+                                                : ($adsDiff < 15
+                                                    ? 'text-bg-success'
+                                                    : 'text-bg-warning');
                                     }
                                 @endphp
-                                <td scope="col"
-                                    class="text-center text-center
-                                    {{ $prazoClass ?? 'text-bg-info' }}"
+                                <td class="text-center {{ $prazoClass ?: 'text-bg-info' }}"
                                     style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                            <p>A Data Corresponde a entrega da ADS <br>:</p>
-                            <span class='fs-4 text-success'>&#9632;</span> > 15 DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
-                            {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                            ">
-                                    @if ($list->WorkForm?->Adsform)
-                                        {{ $list->WorkForm->Adsform->created_at?->format('d/m/Y H:i:s') }}
-                                    @else
-                                        ----
-                                    @endif
+                <p>A Data Corresponde a entrega da ADS:</p>
+                <span class='fs-4 text-success'>&#9632;</span> > 15 DIAS PARA VENCER <br>
+                <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
+                <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
+            ">
+                                    {{ $wf?->Adsform?->created_at?->format('d/m/Y H:i:s') ?? '----' }}
                                 </td>
 
-                                <td scope="col"
-                                    class="text-center text-center
-                                   text-bg-secondary
-                                "
-                                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
-                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                    data-bs-title="Prazo Pagamento"
+                                {{-- Data Vencimento (fimLancado) --}}
+                                <td class="text-center text-bg-secondary" style="background-color: inherit;"
+                                    tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="top" data-bs-title="Prazo Pagamento"
                                     data-bs-content="
-                            <p>A Data Corresponde 40 Parcial <br> para Parcial, corresponde a partir da data da fiscalização:</p>
-                            <span class='fs-4 text-success'>&#9632;</span> >= 5 DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> < 5 DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
-                            {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                            ">
-                                    {{ $date ? Carbon::parse($date)->format('d/m/Y') : '---' }}
+                <p>A Data Corresponde 40 Parcial (a partir da fiscalização):</p>
+                <span class='fs-4 text-success'>&#9632;</span> >= 5 DIAS PARA VENCER <br>
+                <span class='fs-4 text-warning'>&#9632;</span> < 5 DIAS PARA VENCER <br>
+                <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
+            ">
+                                    {{ $dateC ? $dateC->format('d/m/Y') : '---' }}
                                 </td>
 
+                                {{-- Prazo Restante (usa teu helper DaysLeft sem hits extras) --}}
                                 @php
-                                    $daysLeft = new DaysLeft($list);
-                                    $prazoClass = '';
-
-                                    if ($daysLeft->getDaysLeft() < 0) {
-                                        $prazoClass = 'text-bg-danger';
-                                    } elseif ($daysLeft->getDaysLeft() > 15) {
-                                        $prazoClass = 'text-bg-success';
-                                    } else {
-                                        $prazoClass = 'text-bg-warning';
-                                    }
+                                    $dl = new \App\Helpers\DaysLeft($list);
+                                    $prazoClass2 =
+                                        $dl->getDaysLeft() < 0
+                                            ? 'text-bg-danger'
+                                            : ($dl->getDaysLeft() > 15
+                                                ? 'text-bg-success'
+                                                : 'text-bg-warning');
                                 @endphp
-
-                                <!-- Prioridade de estilo da célula 'Prazo Restante' -->
-                                <td scope="col" class="text-center {{ $rowClass }}">
-                                    {{ $daysLeft->getLastDate() }}
-
-
+                                <td class="text-center {{ $rowClass }}">
+                                    {{ $dl->getLastDate() }}
                                 </td>
 
+                                {{-- Ação (play/ocupado) --}}
                                 <td class="fw-bold text-center {{ $rowClass }}">
                                     @if (!$block)
-                                        <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
+                                        <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="to_accompany({{ $list->id }}, {{ $partial ? 'true' : 'false' }})"
+                                            wire:click.prevent="to_accompany({{ $list->id }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="Enviar para Acompanhamento"></i>
                                     @else
                                         @php
-                                            if (isset($production->User->name)) {
-                                                $name = explode(' ', $production->User->name);
-                                                $name = $name[0] . ' ' . end($name);
-                                            } elseif ($partial && $partial->deny && !$list->WorkForm) {
+                                            if (isset($production?->User?->name)) {
+                                                $nameParts = explode(' ', $production->User->name);
+                                                $name = $nameParts[0] . ' ' . end($nameParts);
+                                            } elseif ($partial && ($partial->deny ?? false) && !$wf) {
                                                 $name = 'PARCIAL REJEITADA';
                                             } else {
                                                 $name = 'DESCONHECIDO';
@@ -563,11 +487,10 @@
                                         @endphp
                                         <span style="font-size: 11px">{{ $name }}</span>
                                     @endif
-
                                 </td>
-
                             </tr>
                         @endforeach
+
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
@@ -575,6 +498,7 @@
                             <td></td>
                             <td class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
+                            <td></td>
                             <td></td>
                             <td></td>
                             <td></td>
@@ -634,29 +558,30 @@
 
 
 
-</div>
 
-@push('script')
-    <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
 
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
+    @push('script')
+        <script>
+            const copyTextCells = document.querySelectorAll('.copy-text');
+
+            copyTextCells.forEach(cell => {
+                cell.addEventListener('click', () => {
+                    const value = cell.getAttribute('data-value');
+                    copyToClipboard(value);
+                    livewire.emit('getCopy',
+                        `Valor "${value}" copiado para a área de transferência.`);
+                    // alert(`Valor "${value}" copiado para a área de transferência.`);
+                });
             });
-        });
 
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-    </script>
-@endpush
+            function copyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        </script>
+    @endpush
+</div>

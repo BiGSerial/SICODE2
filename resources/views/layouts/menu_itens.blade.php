@@ -68,15 +68,17 @@
     @livewire('components.count.protest.has-protests', key('menu_protests'))
     <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
         style="background-color: #dbd8d8">
-        @once
-            <li style="background-color: #ffffff; color: white;">
-                <h6 class="dropdown-header">DESPACHOS</h6>
-            </li>
-        @endonce
-        <li><a class="dropdown-item" href="{{ route('protests.dispatch.lists') }}"><i
-                    class="ri-account-pin-box-fill align-middle text-danger"></i>RECLAMAÇÕES</a>
+        @can('operator')
+            @once
+                <li style="background-color: #ffffff; color: white;">
+                    <h6 class="dropdown-header">DESPACHOS</h6>
+                </li>
+            @endonce
+            <li><a class="dropdown-item" href="{{ route('protests.dispatch.lists') }}"><i
+                        class="ri-account-pin-box-fill align-middle text-danger"></i>RECLAMAÇÕES</a>
 
-        </li>
+            </li>
+        @endcan
 
         @once
             <li style="background-color: #ffffff; color: white;">

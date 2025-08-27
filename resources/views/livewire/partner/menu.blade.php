@@ -156,6 +156,33 @@
                     </div>
                 </ul>
             </li>
+
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#d5note-nav" data-bs-toggle="collapse" href="#">
+                    <i class="ri-file-text-line fw-light fs-5 text-info"></i><span>Notas D5</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
+
+                </a>
+
+                <ul id="d5note-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('partner.note_d5.list') }}" class="nav-item text-white">
+                                <i class="bi bi-file-earmark-text fs-5 text-white"></i> <span>AGUARDANDO
+                                    RESOLUÇÃO</span>
+
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('partner.note_d5.historic') }}" class="nav-item text-white">
+                                <i class="bi bi-clock-history fs-5 text-white"></i> <span>MEU HISTÓRICO</span>
+                            </a>
+                        </li>
+
+                    </div>
+                </ul>
+            </li>
         </ul>
 
     </aside>

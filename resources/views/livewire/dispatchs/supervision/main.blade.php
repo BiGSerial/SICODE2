@@ -171,39 +171,18 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $block = 0;
-                                $command = 0;
+                                $e = $this->needBlock($list); // ['block'=>.., 'command'=>.., 'color'=>.., 'reason'=>..]
+                                $rowClass = $e['color'];
+                                $block = $e['block'];
+                                $command = $e['command'];
+                                $production = $e['production'];
+
+                                // mantém tua lógica de “parcial” apenas pra exibir a tag:
                                 $partial = false;
-
-                                if ($production = $this->hasPublication($list)) {
-                                    if ($production->confirmed) {
-                                        $block = 4;
-                                        $command = 1;
-                                    } elseif ($production->completed) {
-                                        $block = 3;
-                                    } elseif ($production->status == 1) {
-                                        $block = 2;
-                                    } else {
-                                        $block = 1;
-                                    }
-                                }
-
                                 if ($list->Partials->count()) {
                                     if ($list->Partials->last()->allow && !$list->Partials->last()->supervision) {
                                         $partial = true;
                                     }
-                                }
-
-                                // Cores das linhas com base no status
-                                $rowClass = '';
-                                if ($block == 4) {
-                                    $rowClass = 'table-danger';
-                                } elseif ($block == 3) {
-                                    $rowClass = 'table-success';
-                                } elseif ($block == 2) {
-                                    $rowClass = 'table-warning';
-                                } elseif ($block == 1) {
-                                    $rowClass = 'table-primary';
                                 }
                             @endphp
 
@@ -235,7 +214,11 @@
                                 </td>
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">
-                                    {{ $list->note }}
+                                    @if ($list->FiveNote?->is_completed && !$list->FiveNote?->is_supervisioned)
+                                        <span class="badge text-bg-success fs-6">D5 {{ $list->note }}</span>
+                                    @else
+                                        {{ $list->note }}
+                                    @endif
                                     @if ($list->pze == '25')
                                         <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                             data-bs-placement="top" data-bs-title="NOTA EXPRESSA"

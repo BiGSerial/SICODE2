@@ -257,6 +257,15 @@ class Main extends Component
         }
     }
 
+    public function needBlock(Note $note): array
+    {
+        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+        // retorna estrutura pra view usar diretamente
+        return $eval;
+    }
+
+
+
     public function hasPublicationCount(Note $note)
     {
         return $note->Productions->where('service_id', $this->service->uuid)->count();
@@ -586,10 +595,17 @@ class Main extends Component
                 }
 
 
+                if ($note->FiveNote && $note->FiveNote->is_completed && !$note->FiveNote->is_supervisioned) {
+                    $dfive = true;
+                } else {
+                    $dfive = false;
+                }
 
 
 
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
+
+
+                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('completed', false)->first()) {
                     $production = Production::create([
                         'note_id' => $note->id,
                         'service_id' => $this->service->uuid,
@@ -604,6 +620,7 @@ class Main extends Component
                         'status' => 2,
                         'centroTrab' => $note->centerjob,
                         'partial' => $partial,
+                        'dfive' => $dfive,
                     ]);
 
                     $user = Auth()->User()->name;
@@ -644,6 +661,14 @@ class Main extends Component
                     }
                 } else {
                     $erros[] = $erro;
+                    $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Existe uma atividade em andamento para uma ou mais Notas/Ovs',
+                    'timer' => 5000,
+                ]);
+
+                    return;
                 }
             }
         } else {
@@ -656,8 +681,11 @@ class Main extends Component
                     $partial = 0;
                 }
 
-
-
+                if ($note->FiveNote && $note->FiveNote->is_completed && !$note->FiveNote->is_supervisioned) {
+                    $dfive = true;
+                } else {
+                    $dfive = false;
+                }
 
 
                 if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
@@ -694,6 +722,15 @@ class Main extends Component
                     }
                 } else {
                     $erros[] = $erro;
+                    $erros[] = $erro;
+                    $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Existe uma atividade em andamento para uma ou mais Notas/Ovs',
+                    'timer' => 5000,
+                ]);
+
+                    return;
                 }
             }
         }
@@ -1136,7 +1173,7 @@ class Main extends Component
 
         $query->with(['orders' => function ($q) {
             $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-        },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds'])
+        },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC');
 
