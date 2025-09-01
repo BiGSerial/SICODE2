@@ -14,7 +14,8 @@
 @endsection
 
 @section('menu')
-    @include('dispatchs.menu')
+    {{-- @include('dispatchs.menu') --}}
+    @include('dispatchs.pagamento.menu')
 @endsection
 
 @section('content')

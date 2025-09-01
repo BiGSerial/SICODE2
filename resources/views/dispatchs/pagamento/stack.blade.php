@@ -15,7 +15,8 @@
 
 @section('menu')
     {{-- @include('services.analises_pre.menu') --}}
-    @include('dispatchs.menu')
+    {{-- @include('dispatchs.menu') --}}
+    @include('dispatchs.pagamento.menu')
 @endsection
 
 @section('content')

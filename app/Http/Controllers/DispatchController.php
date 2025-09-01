@@ -108,9 +108,24 @@ class DispatchController extends Controller
     {
         $service = Service::where('uuid', $request->route('service'))->first();
 
-        if (view()->exists('dispatchs.' . $service->folder . '.main')) {
+        if (view()->exists('dispatchs.' . $service->folder . '.dashboard')) {
 
             return view('dispatchs.' . $service->folder . '.dashboard', [
+                'service' => $service,
+            ]);
+        } else {
+            abort(403, 'Recurso não implementado.');
+        }
+
+    }
+
+    public function waitingFiveNote(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.waitingFiveNote')) {
+
+            return view('dispatchs.' . $service->folder . '.waitingFiveNote', [
                 'service' => $service,
             ]);
         } else {

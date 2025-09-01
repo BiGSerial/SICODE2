@@ -18,6 +18,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Wpa;
 use App\Repositories\SupervisionRepository;
+use App\Services\Supervision\BlockEvaluator;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;

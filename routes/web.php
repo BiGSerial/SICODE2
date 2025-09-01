@@ -115,6 +115,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/intern_returns', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {
@@ -170,7 +171,7 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
     Route::get('/approval_list', 'approve_list')->name('approve_list');
     Route::get('/approval_control', 'approve_control')->name('approve_control');
     Route::get('/approval_history', 'approve_hist')->name('approve_hist');
-
+    Route::get('/partial_historic', 'partial_hist')->name('partial_hist');
 });
 
 

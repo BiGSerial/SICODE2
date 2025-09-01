@@ -47,7 +47,20 @@ class D5list extends Component
 
     public function getFivesProperty()
     {
-        return FiveNote::where('visible_partner', true)
+        $query = FiveNote::query();
+
+        if (!auth()->user()->superadm) {
+            if (Auth()->user()->Companies->isNotEmpty()) {
+                $query->where(function ($q) {
+                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                        ->orWhere('company_id', Auth()->user()->Company->id);
+                });
+            } else {
+                $query->where('company_id', Auth()->user()->Company->id);
+            }
+        }
+
+        $query->where('visible_partner', true)
             ->where('is_completed', false)
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -91,6 +104,8 @@ class D5list extends Component
                 $query->whereMonth('dispatch_at', $this->month);
             })
             ->orderBy('created_at', 'desc');
+
+        return $query;
     }
 
     public function downloadFile(EvidenceFile $file)

@@ -13,7 +13,7 @@ class PartialHist extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $search;
-    public $perPage = 50;
+    public $perPage = 100;
     public $selectedRow;
 
 
@@ -98,7 +98,10 @@ class PartialHist extends Component
             $query->whereBetween('created_at', [$this->dt_in, $this->dt_out]);
         }
 
-        return $query->orderBy('created_at', 'desc')->paginate($this->perPage);
+        return $query->orderBy('payment_at', 'desc')
+                    ->orderBy('supervision_at', 'desc')
+                    ->orderBy('created_at', 'desc')
+                    ->paginate($this->perPage);
     }
 
     public function partialStatus(Partial $partial): array

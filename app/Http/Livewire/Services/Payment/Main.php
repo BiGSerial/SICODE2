@@ -122,17 +122,13 @@ class Main extends Component
         $this->note = $note->loadMissing([
             'WorkForm',
             'FiveNote',
-            'Partials' => fn ($q) => $q->where('supervision', true)
-                                        ->where('allow', true)
-                                        ->where('deny', false)
-                                        ->where('payment', false)
-                                        ->orderByDesc('created_at'),
+            'Partials',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
                                         ->orderByDesc('created_at'),
         ]);
 
         // 1. Pegar a parcial mais recente
-        $latestPartial = $note->partials->first();
+        $latestPartial = $note->partials?->sortByDesc('created_at')->first();
 
         // 2. Verificar se esta parcial atende aos critérios
         $this->partial = false;
@@ -186,11 +182,7 @@ class Main extends Component
         $this->note->loadMissing([
             'WorkForm',
             'FiveNote',
-            'Partials' => fn ($q) => $q->where('supervision', true)
-                                        ->where('allow', true)
-                                        ->where('deny', false)
-                                        ->where('payment', false)
-                                        ->orderByDesc('created_at'),
+            'Partials',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
                                         ->orderByDesc('created_at'),
         ]);
@@ -230,7 +222,7 @@ class Main extends Component
             'att_at'      => now(),
             'status'      => 2,
             'dhstats'     => $dt,
-            'partial'     => $this->partial,
+            'partial'     => (bool) $this->partial,
             'dfive'       => $fiveNote,
         ]);
 
@@ -400,7 +392,7 @@ class Main extends Component
 
             -- 1: FiveNote prioritário
             WHEN EXISTS (
-                SELECT 1 FROM five_notes fn
+                SELECT 1 FROM five_notes as fn
                     WHERE fn.note_id = notes.id
                     AND fn.is_supervisioned = 1
                     AND fn.is_completed    = 1
@@ -453,7 +445,7 @@ class Main extends Component
         $base->when($this->typeNote, fn ($q) => $q->where('notes.type_note', $this->typeNote));
         $base->when($this->filter_d5, fn ($q) => $q->whereExists(function ($sq) {
             $sq->select(DB::raw(1))
-               ->from('five_notes fn')
+               ->from('five_notes as fn')
                ->whereColumn('fn.note_id', 'notes.id');
         }));
 
@@ -471,12 +463,7 @@ class Main extends Component
             'WorkForm.Company',
             'WorkForm.Orders.Operations',
             // apenas a ÚLTIMA parcial válida
-            'Partials' => fn ($q) => $q->where('allow', 1)
-                                    ->where('deny', 0)
-                                    ->where('supervision', 1)
-                                    ->where('payment', 0)
-                                    ->orderByDesc('created_at')
-                                    ->limit(1),
+            'Partials',
             'Partials.Company',
             'Partials.Orders.Operations',
             'FiveNote',

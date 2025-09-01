@@ -28,6 +28,7 @@ class ViewD5 extends Component
 
     public function getInfoResponse(FiveNote $five)
     {
+
         $this->five = $five;
 
         if ($this->five) {

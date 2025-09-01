@@ -458,6 +458,21 @@
                         @endphp
                         @foreach ($lists as $list)
                             @php
+
+                                $five = $list->note->fiveNote;
+                                $hasD5 = (bool) $five;
+                                $d5BadgeClass = '';
+                                $d5Msg = '';
+                                if ($hasD5) {
+                                    if ($five->is_supervisioned ?? false) {
+                                        $d5BadgeClass = 'text-bg-success';
+                                        $d5Msg = 'D5 Fiscalizada – liberar carta';
+                                    } else {
+                                        $d5BadgeClass = 'text-bg-primary';
+                                        $d5Msg = 'Gerar D5 e reter carta';
+                                    }
+                                }
+
                                 $daysLeft = $this->deadline($list->Note);
 
                                 if ($list->partial) {
@@ -481,10 +496,19 @@
 
                                 </td>
                                 <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                    @if ($hasD5 && !$list->d5)
+                                        <span class="badge {{ $d5BadgeClass }} fs-6" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Nota com D5"
+                                            data-bs-content="{{ $d5Msg }}"
+                                            wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->note->fiveNote->id }})"
+                                            style="cursor: pointer;">
 
-                                    @if ($list->d5)
-                                        <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
-                                            (RI)
+                                            <span class="fw-bold">D5</span> {{ $list->note->note }}
+                                        </span>
+                                    @elseif ($list->d5)
+                                        <span class="badge text-bg-primary fs-6">RI {{ $list->Note->note }}
+
                                         </span>
                                     @else
                                         {{ $list->Note->note }}
@@ -549,7 +573,7 @@
 
 
                                 <td class="fw-light text-center">
-                                   
+
                                     @if ($list->Note->WorkForm)
                                         <span class="my-0 py-0">
                                             {{ $list->Note->WorkForm?->Company?->name }}
@@ -865,7 +889,7 @@
     {{-- END MODALS --}}
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
-
+    @livewire('components.five-note.view-d5', key('view_d5_note'))
 </div>
 
 @push('script')

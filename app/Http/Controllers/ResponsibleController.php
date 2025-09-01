@@ -65,4 +65,9 @@ class ResponsibleController extends Controller
     {
         return view('responsible.approval_history');
     }
+
+    public function partial_hist()
+    {
+        return view('responsible.parcial_hist');
+    }
 }

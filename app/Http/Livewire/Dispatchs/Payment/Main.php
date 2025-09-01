@@ -4,8 +4,10 @@ namespace App\Http\Livewire\Dispatchs\Payment;
 
 use App\Custom\RuleBuilder;
 use App\Exports\Dispatchs\DispatchPaymentMain;
+use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\Payment\BlockEvaluator;
 use App\Services\Payment\NoteFilter;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,83 +20,63 @@ class Main extends Component
 
     protected $paginationTheme = 'bootstrap';
 
+    // Estado / filtros
     public $service;
-
     public $perPage = 100;
-
     public $search;
+    public $search_user;
 
     public $rubrica_s = [];
-
     public $rubrica_l;
 
     public $note;
-
     public $last_update;
 
     public $advanceSearch;
-
     public $multiSearch = [];
 
-    public $selectall;
-
+    public $selectall = false;
     public $selected = [];
 
     public $company_l;
-
     public $company_s;
-
     public $user_l;
-
     public $user_s;
 
     public $type;
-
     public $additionalData = [];
-
     public $notes;
-
     public $enter_dd;
 
     public $filteredLists;
-
-    public $search_user;
-
     public $note_type = '';
 
-    // Filtros
+    // Filtros de localidade/grupos
     public $region_l;
-
     public $region_s = [];
 
     public $district_l;
-
     public $district_s = [];
 
     public $city_l;
-
     public $city_s = [];
 
     public $group1_l;
-
     public $group1_s = [];
 
     public $group2_l;
-
     public $group2_s = [];
 
     public $group5_l;
-
     public $group5_s = [];
 
     public $not_assigned = false;
-
     public $typeNote = '';
 
+    public $filter_d5 = false;
 
-    // Filters
+    // Grupo de filtro (usado pelo NoteFilter)
     private $filter_group = 'payments';
-    private $filters;
 
     protected $listeners = [
         'refresh_dispatch'  => '$refresh',
@@ -121,150 +103,191 @@ class Main extends Component
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = optional(Note::orderByDesc('dt_status')->first())->dt_status;
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                  ->where('service', true);
+            });
+        })
+        ->orderBy('name', 'ASC')
+        ->get();
     }
 
     public function updatedSearch()
     {
         $this->multiSearch = [];
         $this->gotoPage(1);
-
     }
 
     public function updatedCompanyS()
     {
-
         $this->user_s = '';
+        $this->chargerList();
     }
 
+    /**
+     * EXPORTAÇÃO
+     * - Sem seleção: exporta tudo que está no filtro atual (sem paginação)
+     * - Com seleção: exporta apenas as selecionadas
+     */
     public function export_excel()
     {
-        if (!count($this->selected)) {
-            return (new DispatchPaymentMain($this->getListsProperty(), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
-        } else {
-            return (new DispatchPaymentMain($this->getListsProperty()->whereIn('id', $this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportPaymentList.xlsx');
-        }
+        $params = [
+        'service_uuid' => $this->service->uuid,
+        'search'       => $this->search,
+        'multiSearch'  => $this->multiSearch,
+        'typeNote'     => $this->typeNote,
+        'not_assigned' => $this->not_assigned,
+        // se você usar filtros de sessão via NoteFilter, mande-os aqui:
+        'company_ids'  => $this->company_s ? [$this->company_s] : null,
+        'rubricas'     => $this->rubrica_s ?: null,
+        'cities'       => $this->city_s ?: null,
+        // opcional: filtrar por D5
+        'filter_d5'    => property_exists($this, 'filter_d5') ? (bool)$this->filter_d5 : false,
+    ];
+
+        ExportDispatchPaymentJob::dispatch($params, (string)auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'info',
+            'title'    => 'Estamos gerando seu relatório!',
+            'html'     => 'Você será notificado quando o arquivo estiver pronto para download.',
+            'timer'    => 3000,
+        ]);
     }
 
+    public function filterD5()
+    {
+        $this->filter_d5 = !$this->filter_d5;
+    }
+
+    /**
+     * Regras para bloqueio/produção já existente
+     */
     public function hasProduction(Note $note)
     {
-        // 1) Verifica se a nota tem WorkForm associado (flag booleana)
-        $hasWorkForm = (bool) $note->WorkForm;
+        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
 
-        // 2) Pega a última parcial criada na nota
-        $lastPartial = $note->partials()
-            ->orderByDesc('created_at')
-            ->first();
-
-        // 3) Pega a última produção (qualquer) para este serviço específico
-        $lastProduction = $note->productions()
-            ->where('service_id', $this->service->uuid)
-            ->orderByDesc('created_at')
-            ->first();
-
-        // 4) Se existe WorkForm, ignora relação com parciais e segue regras específicas
-        if ($hasWorkForm) {
-
-            // 4.1) Se não existe produção, retorna false (não há produção a considerar)
-            if (!$lastProduction) {
-                return false;
-            }
-
-            // 4.2) Se a última produção NÃO é parcial
-            if (!$lastProduction->partial) {
-                // Se a data de status da nota é mais recente que a data da produção, retorna false (produção desatualizada)
-                if ($note->dt_status > $lastProduction->dt_note) {
-                    return false;
-                }
-                // Se a produção não está completa, retorna o objeto da última produção (bloqueia)
-                if (!$lastProduction->completed) {
-                    return $lastProduction;
-                }
-            }
-
-            // 4.3) Se a última produção É parcial
-            if ($lastProduction->partial) {
-                // Se a parcial está completa, retorna false (nada a bloquear)
-                if ($lastProduction->completed) {
-                    return false;
-                } else {
-                    // Se a parcial não está completa, retorna o objeto da última produção (bloqueia)
-                    return $lastProduction;
-                }
-            }
+        if ($production) {
+            return $production;
+        } else {
+            return false;
         }
-
-        // 5) Se existe uma parcial e não existe WorkForm, segue regras específicas
-        if ($lastPartial && !$hasWorkForm) {
-
-            // 5.1) Se não existe produção, retorna false (não há produção a considerar)
-            if (!$lastProduction) {
-                return false;
-            }
-
-            // 5.2) Se a última produção é parcial e NÃO está completa, retorna o objeto (bloqueia)
-            if ($lastProduction->partial && !$lastProduction->completed) {
-                return $lastProduction;
-            }
-
-            // 5.3) Se a última produção é parcial E está completa
-            if ($lastProduction->partial && $lastProduction->completed) {
-                // Se a data da produção é anterior à parcial, retorna false (não há produção a considerar)
-                if ($lastProduction->created_at < $lastPartial->created_at) {
-                    return false;
-                }
-                // Caso contrário, retorna o objeto da produção (bloqueia)
-                return $lastProduction;
-            }
-        }
-
-        // 6) Caso não caia em nenhum cenário acima, retorna o objeto da última produção (pode ser null)
-        return $lastProduction;
     }
 
+    public function needBlock(Note $note): array
+    {
+        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+        // retorna estrutura pra view usar diretamente
+        return $eval;
+    }
 
+    /**
+     * Selecionar todos os itens visíveis na página atual, desde que NÃO tenham produção aberta
+     */
     public function setSelectAll()
     {
+        if (!$this->lists) {
+            return;
+        }
 
+        $visibleItems = $this->lists->items();
+
+        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+
+        $evaluator = app(BlockEvaluator::class);
 
         if ($this->selectall) {
 
-            foreach ($this->getListsProperty()->paginate($this->perPage) as $item) {
-                $id = $item->id;
+            foreach ($visibleItems as $note) {
 
+                $id = (int) $note->id;
 
-                if (!in_array($id, $this->selected)) {
-
-                    $production =  !$item->Productions->isEmpty() ? $item->Productions()
-                    ->where(function ($q) {
-                        $q->Where('service_id', $this->service->uuid);
-                    })->count()
-                    : null;
-
-                    if (!$production) {
-                        $this->selected[] = $id;
-                    }
-
+                if (isset($selectedSet[$id])) {
+                    continue;
                 }
 
-            }
+                $eval = $evaluator->evaluate($note, $this->service);
 
+                if (
+                    ($eval['block'] === BlockEvaluator::FREE)
+                    // ||
+                    // (!empty($eval['command']) && $eval['command'] === true)
+                ) {
+                    $selectedSet[$id] = true;
+                }
+            }
         } else {
-            $visibleIds = $this->lists->pluck('id')->toArray();
-            $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
-                return !in_array($id, $visibleIds);
-            });
+            foreach ($visibleItems as $note) {
+                unset($selectedSet[(int) $note->id]);
+            }
         }
+
+        $this->selected = array_map('intval', array_keys($selectedSet));
+
     }
 
+    /**
+     * Marca/desmarca o checkbox "selecionar todos" de acordo com os itens visíveis
+     */
     public function checkAllSelect($items)
     {
+        $evaluator    = app(BlockEvaluator::class);
+        $eligiblePage = [];
 
-        $items = $items->pluck('id')->toArray();
+        foreach ($items as $note) {
+            $eval = $evaluator->evaluate($note, $this->service);
+            if (
+                ($eval['block'] === BlockEvaluator::FREE)
+                // ||
+                // (!empty($eval['command']) && $eval['command'] === true)
+            ) {
+                $eligiblePage[] = (int) $note->id;
+            }
+        }
 
-        $this->selectall = empty(array_diff($items, $this->selected));
+        // selectall fica true quando TODOS os elegíveis da página estão selecionados
+        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        foreach ($eligiblePage as $id) {
+            if (!isset($selectedSet[$id])) {
+                $this->selectall = false;
+                return false;
+            }
+        }
 
-        return $this->selectall;
+        $this->selectall = true;
+        return true;
+    }
+
+    protected function recomputeSelectAllFor(array $items): void
+    {
+        $evaluator    = app(BlockEvaluator::class);
+        $eligiblePage = [];
+
+        foreach ($items as $note) {
+            $eval = $evaluator->evaluate($note, $this->service);
+            if ($eval['block'] === BlockEvaluator::FREE || ($eval['command'] ?? false)) {
+                $eligiblePage[] = (int) $note->id;
+            }
+        }
+
+        // se não há elegíveis na página, não marcar o master
+        if (empty($eligiblePage)) {
+            $this->selectall = false;
+            return;
+        }
+
+        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        foreach ($eligiblePage as $id) {
+            if (!isset($selectedSet[$id])) {
+                $this->selectall = false;
+                return;
+            }
+        }
+
+        $this->selectall = true;
     }
 
     public function copy($msg)
@@ -277,17 +300,14 @@ class Main extends Component
 
     public function deadline(Note $note)
     {
-        $days = 10;
-        $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
+        $days       = 10;
+        $date_forms = optional($note->WorkForm)->informed_at;
 
         if ($date_forms) {
-
             $deadline_date = Carbon::parse($date_forms)->addDays($days);
-
             return Carbon::now()->diffInDays($deadline_date, false);
-        } else {
-            return 0;
         }
+        return 0;
     }
 
     public function filter_save()
@@ -326,7 +346,6 @@ class Main extends Component
         if (!isset($_SESSION)) {
             session_start();
         }
-
         if (isset($_SESSION['filtro']['desenho'])) {
             unset($_SESSION['filtro']['desenho']);
         }
@@ -337,13 +356,11 @@ class Main extends Component
     public function get_single_note($note)
     {
         $this->selected = [$note];
-
         $this->go_att_mass();
     }
 
     public function go_att_mass()
     {
-
         $this->clean();
 
         if (!count($this->selected)) {
@@ -353,16 +370,13 @@ class Main extends Component
                 'title'    => 'Nenhuma nota foi selecionada para despacho!',
                 'timer'    => 2500,
             ]);
-
             return;
         }
 
         $this->notes = Note::find($this->selected);
 
         if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
+            $this->dispatchBrowserEvent('showModal', ['id' => 'add_mass_notes']);
         }
     }
 
@@ -371,18 +385,15 @@ class Main extends Component
         // 1) Carrega as notas selecionadas
         $this->notes = Note::find($this->selected);
 
-        // 2) Para cada nota, verifica se já existe produção
+        // 2) Verifica bloqueios
         $blocked = [];
         foreach ($this->notes as $note) {
             if ($existing = $this->hasProduction($note)) {
-                // formata data legível
-                $when = \Carbon\Carbon::parse($existing->dt_note)
-                                      ->format('d/m/Y H:i');
+                $when = Carbon::parse($existing->dt_note)->format('d/m/Y H:i');
                 $blocked[] = "{$note->note} (em {$when})";
             }
         }
 
-        // 3) Se alguma nota estiver “bloqueada”, exibe erro e não abre o modal
         if (count($blocked)) {
             $lista = implode('<br>– ', $blocked);
             return $this->dispatchBrowserEvent('swal', [
@@ -393,32 +404,13 @@ class Main extends Component
             ]);
         }
 
-        // 4) Gera a string “para” (usuário ou empresa), como antes
-        if ($this->type === '2') {
-            if (! $this->user_s) {
-                return $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer'    => 2500,
-                ]);
-            }
-            $para = User::find($this->user_s)->name
-                  . ' da '
-                  . Company::find($this->company_s)->name;
-        } else {
-            if (! $this->company_s) {
-                return $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer'    => 2500,
-                ]);
-            }
-            $para = Company::find($this->company_s)->name;
+        // 3) Monta string "para"
+        $para = $this->getDispatchTargetName();
+        if ($para === false) {
+            return;
         }
 
-        // 5) Se tudo OK, dispara o modal de confirmação em massa
+        // 4) Confirmação
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Confirmar Despachar',
             'msg'           => "Você está prestes a despachar {$this->notes->count()} nota(s) para {$para}.",
@@ -431,6 +423,9 @@ class Main extends Component
         ]);
     }
 
+    /**
+     * Recebe colagem de “nota\tvalor” (linhas)
+     */
     public function add_dd()
     {
         if (!trim($this->enter_dd)) {
@@ -440,30 +435,27 @@ class Main extends Component
                 'title'    => 'Nenhuma empresa foi selecionada para despacho!',
                 'timer'    => 5000,
             ]);
-
             return;
         }
 
         $linhas = explode("\n", trim($this->enter_dd));
 
-        if ($linhas && count($linhas)) {
+        foreach ($linhas as $linha) {
+            if (!$linha) {
+                continue;
+            }
 
-            foreach ($linhas as $linha) {
+            $coluna = explode("\t", $linha);
 
-                if ($linha) {
+            if (
+                isset($coluna[0], $coluna[1]) &&
+                preg_match('/^[0-9]+$/', $coluna[0]) &&
+                preg_match('/^[0-9]+$/', $coluna[1])
+            ) {
+                $index = $this->notes?->search(fn ($note) => $note->note == $coluna[0]);
 
-                    $coluna = explode("\t", $linha);
-
-                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
-
-                        $index = $this->notes->search(function ($note) use ($coluna) {
-                            return $note->note == $coluna[0];
-                        });
-
-                        if ($index !== false) {
-                            $this->additionalData[$index] = $coluna[1];
-                        }
-                    }
+                if ($index !== false && $index !== null) {
+                    $this->additionalData[$index] = $coluna[1];
                 }
             }
         }
@@ -472,46 +464,62 @@ class Main extends Component
     public function confirmed_att()
     {
         $dispatcherId = auth()->id();
-        $now          = Carbon::now()->format('Y-m-d H:i:s');
+        $now          = now()->format('Y-m-d H:i:s');
         $errors       = new Collection();
 
-        // Pré-busca quem é o destinatário (user ou company)
         $targetName = $this->getDispatchTargetName();
         if ($targetName === false) {
             return;
         }
 
-        foreach ($this->notes as $note) {
-            // 1) já existe produção “aberta”?
-            $exists = Production::where('note_id', $note->id)
-                ->where('service_id', $this->service->uuid)
-                ->where('confirmed', false)
-                ->first();
+        if (empty($this->notes)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota selecionada!',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
 
-            if ($exists) {
+        foreach ($this->notes as $note) {
+
+
+
+            $note->loadMissing([
+                'WorkForm',
+                'FiveNote',
+                'Partials',
+                'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
+                                            ->orderByDesc('created_at'),
+            ]);
+
+            $fiveNote = $note->FiveNote ? true : false;
+
+            $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
+            if ($eval['block']) {
                 $errors->push([
                     'note' => $note->note,
-                    'when' => Carbon::parse($exists->dt_note)->format('d/m/Y H:i'),
+                    'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),
                 ]);
                 continue;
             }
 
-            // 2) detecta parcial (model ou null)
-            $partialModel = $note->partials()
-                                 ->orderByDesc('created_at')
-                                 ->first();
+            // 2) parcial elegível?
+            $partialModel = $note->partials()->orderByDesc('created_at')->first();
 
             $isPartial = $partialModel
                 && $partialModel->allow
                 && $partialModel->supervision
-                && ! $partialModel->payment;
+                && !$partialModel->payment;
 
-            // 3) define dt_note: parcial->created_at ou dt_status da nota
+            // 3) dt_note
             $dtNote = $isPartial
                 ? $partialModel->created_at->format('Y-m-d H:i:s')
                 : $note->dt_status;
 
-            // 4) monta dados comuns
+            // 4) dados comuns
             $data = [
                 'note_id'     => $note->id,
                 'service_id'  => $this->service->uuid,
@@ -521,40 +529,39 @@ class Main extends Component
                 'centroTrab'  => $note->centerjob ?? null,
                 'dispatch_at' => $now,
                 'partial'     => (bool) $isPartial,
+                'dfive'       => $fiveNote,
             ];
 
-            // 5) campos específicos por tipo
+            // 5) específicos por tipo
             if ($this->type === '2') {
-                $data = array_merge($data, [
-                    'user_id'  => $this->user_s,
+                $data += [
+                    'user_id'    => $this->user_s,
                     'company_id' => $this->company_s,
                     'att_by'     => $dispatcherId,
                     'att_at'     => $now,
                     'status'     => 2,
-                ]);
+                ];
             } else {
-                $data = array_merge($data, [
+                $data += [
                     'company_id' => $this->company_s,
                     'status'     => 1,
-                ]);
+                ];
             }
 
-            // 6) cria produção e timeline
+            // 6) cria produção + timeline
             $production = Production::create($data);
             if ($production) {
                 Notetimeline::create([
-                    'note_id'      => $production->id,
+                    'note_id'      => $production->id, // (verifique se aqui não deveria ser $note->id)
                     'service_id'   => $production->service_id,
                     'user_id'      => $dispatcherId,
-                    'info'         => "Usuário " . auth()->user()->name
-                                      . " despachou a Nota/OV para: {$targetName}",
+                    'info'         => "Usuário " . auth()->user()->name . " despachou a Nota/OV para: {$targetName}",
                     'status'       => $data['status'],
                     'productionId' => $production->id,
                 ]);
             }
         }
 
-        // 7) feedback final
         if ($errors->isNotEmpty()) {
             $lines = $errors
                 ->map(fn ($e) => "{$e['note']} (já em {$e['when']})")
@@ -578,14 +585,10 @@ class Main extends Component
         $this->closeall();
     }
 
-    /**
-     * Retorna o nome do alvo de despacho ou dispara um swal de warning
-     * e devolve false em caso de falta de seleção.
-     */
     private function getDispatchTargetName()
     {
         if ($this->type === '2') {
-            if (! $this->user_s) {
+            if (!$this->user_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
@@ -594,15 +597,12 @@ class Main extends Component
                 ]);
                 return false;
             }
-            $user = User::find($this->user_s);
+            $user    = User::find($this->user_s);
             $company = Company::find($this->company_s);
-            return ($user->name ?? 'Desconhecido')
-                 . ' da '
-                 . ($company->name ?? 'Desconhecido');
+            return ($user->name ?? 'Desconhecido') . ' da ' . ($company->name ?? 'Desconhecido');
         }
 
-        // despachar por empresa
-        if (! $this->company_s) {
+        if (!$this->company_s) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -613,24 +613,6 @@ class Main extends Component
         }
         $company = Company::find($this->company_s);
         return $company->name ?? 'Desconhecido';
-    }
-
-    /**
-     * Retorna true/false se esta nota deve ser marcada como parcial
-     */
-    private function detectPartial(Note $note): bool
-    {
-        $partial = $note->partials()
-                        ->orderByDesc('created_at')
-                        ->first();
-
-        if (! $partial) {
-            return false;
-        }
-
-        return $partial->allow
-            && $partial->supervision
-            && ! $partial->payment;
     }
 
     public function closeall()
@@ -651,7 +633,6 @@ class Main extends Component
 
     public function clean()
     {
-
         $this->company_s      = '';
         $this->enter_dd       = '';
         $this->user_s         = '';
@@ -664,185 +645,217 @@ class Main extends Component
 
     public function buscarMulti()
     {
-
         if ($this->advanceSearch) {
-
             $this->gotoPage(1);
-
             $this->search = '';
 
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
+            $multi = preg_split("/[\n,; ]+/", $this->advanceSearch);
+            $multi = array_filter(array_map('trim', $multi));
+            $this->multiSearch = array_values($multi);
         }
 
         if (count($this->multiSearch)) {
-
             $this->gotoPage(1);
-
             $this->closeall();
         }
     }
 
     public function filterStatus()
     {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
+        $this->not_assigned = !$this->not_assigned;
     }
 
+    /**
+     * QUERY BASE (reutilizável)
+     */
+    private function baseQuery()
+    {
+        $base = $this->noteFilter
+            ->filter($this->search, $this->filter_group)
+            ->select([
+                'notes.id',
+                'notes.note',
+                'notes.lexp',
+                'notes.mesalization',
+                'notes.days_left',
+                'notes.type_note',
+                'notes.nstats',
+                'notes.dt_status',
+                DB::raw('(SELECT COALESCE(SUM(o.moaberto),0) FROM orders o WHERE o.note_id = notes.id) AS total_moaberto'),
+            ]);
+
+        // latest_ops (MAX fimLancado)
+        $latestOps = DB::table('operation_resps')
+            ->select('note_id', DB::raw('MAX(fimLancado) AS latest_fimLancado'))
+            ->groupBy('note_id');
+
+        // latest_partials
+        $latestPartialBase = DB::table('partials as p')
+            ->selectRaw("
+                p.note_id,
+                p.supervision_at,
+                ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY p.id DESC) AS rn
+            ")
+            ->where('p.allow', 1)
+            ->where('p.deny', 0)
+            ->where('p.supervision', 1);
+
+        $latestPartials = DB::query()
+            ->fromSub($latestPartialBase, 't')
+            ->select('t.note_id', 't.supervision_at')
+            ->where('t.rn', 1);
+
+        // latest production por serviço
+        $latestProdBase = DB::table('productions as p')
+            ->selectRaw("
+                p.note_id,
+                p.id            AS latest_prod_id,
+                p.user_id       AS latest_user_id,
+                p.completed     AS latest_completed,
+                p.status        AS latest_status,
+                p.partial       AS latest_partial,
+                p.confirmed     AS latest_confirmed,
+                p.dfive         AS latest_dfive,
+                p.created_at    AS latest_created_at,
+                p.completed_at  AS latest_completed_at,
+                p.dhstats       AS latest_dhstats,
+                p.dt_note       AS latest_dt_note,
+                p.status_note   AS latest_status_note,
+                ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY p.created_at DESC, p.id DESC) AS rn
+            ")
+            ->where('p.service_id', $this->service->uuid);
+
+        $latestProd = DB::query()
+            ->fromSub($latestProdBase, 'u')
+            ->select([
+                'u.note_id',
+                'u.latest_prod_id',
+                'u.latest_user_id',
+                'u.latest_completed',
+                'u.latest_status',
+                'u.latest_partial',
+                'u.latest_confirmed',
+                'u.latest_dfive',
+                'u.latest_created_at',
+                'u.latest_completed_at',
+                'u.latest_dhstats',
+                'u.latest_dt_note',
+                'u.latest_status_note',
+            ])
+            ->where('u.rn', 1);
+
+        // JOINs
+        $base->leftJoinSub($latestOps, 'latest_ops', fn ($j) => $j->on('notes.id', '=', 'latest_ops.note_id'));
+        $base->leftJoinSub($latestPartials, 'latest_partials', fn ($j) => $j->on('notes.id', '=', 'latest_partials.note_id'));
+        $base->leftJoinSub($latestProd, 'lp', fn ($j) => $j->on('notes.id', '=', 'lp.note_id'));
+
+        // fimLancado (WorkForm => latest_ops; senão => partial supervision_at)
+        $base->addSelect(DB::raw("
+            CASE
+              WHEN EXISTS (SELECT 1 FROM work_reports wr WHERE wr.note_id = notes.id)
+                THEN latest_ops.latest_fimLancado
+              ELSE latest_partials.supervision_at
+            END AS fimLancado
+        "));
+
+        // BUCKET de ordenação
+        $base->addSelect(DB::raw("
+            CASE
+              WHEN latest_partials.supervision_at IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM work_reports wr WHERE wr.note_id = notes.id)
+                THEN 0
+              WHEN EXISTS (
+                    SELECT 1 FROM five_notes as fn
+                    WHERE fn.note_id = notes.id
+                      AND fn.is_supervisioned = 1
+                      AND fn.is_completed    = 1
+                      AND fn.is_archived     = 0
+                )
+                THEN 1
+              WHEN EXISTS (SELECT 1 FROM work_reports wr WHERE wr.note_id = notes.id)
+                THEN 2
+              ELSE 3
+            END AS sort_bucket
+        "));
+
+        // Filtros dinâmicos
+        if ($this->not_assigned && isset($this->service)) {
+            $base->where(function ($q) {
+                $q->whereNull('lp.latest_prod_id')
+                  ->orWhereNull('lp.latest_user_id')
+                  ->orWhere('lp.latest_user_id', 0);
+            });
+        }
+
+        if (!empty($this->multiSearch)) {
+            $ms = $this->multiSearch;
+            $base->where(function ($q) use ($ms) {
+                $q->whereIn('notes.note', $ms)
+                  ->orWhereExists(function ($sq) use ($ms) {
+                      $sq->select(DB::raw(1))
+                         ->from('orders')
+                         ->whereColumn('orders.note_id', 'notes.id')
+                         ->whereIn('orders.ordem', $ms);
+                  });
+            });
+        } elseif (!empty($this->search)) {
+            $s = '%' . $this->search . '%';
+            $base->where(function ($q) use ($s) {
+                $q->where('notes.note', 'like', $s)
+                  ->orWhereExists(function ($sq) use ($s) {
+                      $sq->select(DB::raw(1))
+                         ->from('orders')
+                         ->whereColumn('orders.note_id', 'notes.id')
+                         ->where('orders.ordem', 'like', $s);
+                  });
+            });
+        }
+
+        $base->when($this->typeNote, fn ($q) => $q->where('notes.type_note', $this->typeNote));
+
+        // Exibir apenas quem tem D5 (se existir $this->filter_d5)
+        if (property_exists($this, 'filter_d5') && $this->filter_d5) {
+            $base->whereExists(function ($sq) {
+                $sq->select(DB::raw(1))
+                   ->from('five_notes as fn')
+                   ->whereColumn('fn.note_id', 'notes.id');
+            });
+        }
+
+        // Ordenação final
+        $base->orderBy('sort_bucket', 'ASC')
+             ->orderByRaw('(fimLancado IS NULL) DESC')
+             ->orderBy('fimLancado', 'ASC');
+
+        return $base;
+    }
+
+    /**
+     * Propriedade computada usada no Blade: lista paginada
+     */
     public function getListsProperty()
     {
-        $query = $this->noteFilter->filter($this->search, $this->filter_group);
+        $page = $this->baseQuery()->paginate($this->perPage);
 
-        if ($this->not_assigned && isset($this->service)) {
-            $query->where(function ($q) {
+        // Carrega relações necessárias na página resultante
+        $page->load([
+            'WorkForm.Company',
+            'WorkForm.Orders.Operations',
+            'Partials',
+            'Partials.Company',
+            'Partials.Orders.Operations',
+            'FiveNote',
+            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
+                                          ->with('User')
+                                          ->orderByDesc('created_at'),
+        ]);
 
-
-                $q->whereDoesntHave('Productions', function ($q2) {
-                    $q2->where('service_id', $this->service->uuid);
-
-                })
-
-                ->orWhereHas('Productions', function ($q2) {
-                    $q2->where('service_id', $this->service->uuid)
-                        ->where(function ($q3) {
-                            $q3->whereHas('Note.Partials')
-                                ->whereHas('Note.latestProduction', function ($q4) {
-                                    $q4->where('partial', false);
-                                });
-                        });
-                })
-                ->whereDoesntHave('latestProduction', function ($q2) {
-                    $q2->where('service_id', $this->service->uuid)
-                        ->where('completed', false);
-                });
-
-            });
-        }
-
-
-        if ($this->multiSearch) {
-            $query->when($this->multiSearch, function ($q) {
-                $q->whereIn('note', $this->multiSearch)
-                    ->orWhereRelation('Orders', function ($q) {
-                        $q->whereIn('ordem', $this->multiSearch);
-                    });
-            });
-        } else {
-            $query->when($this->search, function ($q) {
-                $q->where('note', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('Orders', function ($q) {
-                        $q->where('ordem', 'like', '%' . $this->search . '%');
-                    });
-            });
-        }
-
-
-        $query->when($this->typeNote, function ($q) {
-            $q->where('type_note', $this->typeNote);
-        })
-        ->with(['WorkForm' => function ($q) {
-            $q->with('Adsform')
-            ->orderBy('informed_at', 'asc');
-        }, 'Partials']);
-
-        // Realizando o join com `work_reports` e `orders` e somando `moaberto`
-        $query->leftJoin('work_reports', 'notes.id', '=', 'work_reports.note_id')
-        ->leftJoin('orders', 'notes.id', '=', 'orders.note_id')
-        ->leftJoinSub(
-            DB::table('operation_resps')
-                ->select('note_id', DB::raw('MAX(fimLancado) as latest_fimLancado'))
-                ->groupBy('note_id'),
-            'latest_operation_resps',
-            'notes.id',
-            '=',
-            'latest_operation_resps.note_id'
-        )
-        ->leftJoinSub(
-            DB::table('partials')
-            ->select('note_id', DB::raw('MAX(id) as latest_partial_id'))
-            ->where('allow', true)
-            ->where('deny', false)
-            ->where('supervision', true)
-            ->where('payment', false)
-            ->groupBy('note_id'),
-            'latest_partials',
-            'notes.id',
-            '=',
-            'latest_partials.note_id'
-        )
-        ->leftJoin('partials', 'latest_partials.latest_partial_id', '=', 'partials.id')
-        ->select([
-        'notes.id',
-        'notes.note',
-        'notes.lexp',
-        'notes.mesalization',
-        'notes.days_left',
-        'notes.type_note',
-        DB::raw('SUM(orders.moaberto) as total_moaberto'),
-        // Aqui definimos o CASE para escolher a data certa:
-        DB::raw("
-            CASE
-                WHEN work_reports.id IS NOT NULL
-                     AND latest_operation_resps.latest_fimLancado IS NOT NULL
-                    THEN latest_operation_resps.latest_fimLancado
-                WHEN work_reports.id IS NULL
-                     AND partials.supervision_at IS NOT NULL
-                    THEN partials.supervision_at
-                ELSE NULL
-            END as fimLancado
-        "),
-        // Se você ainda quiser sinalizar existência de partials:
-        DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END as has_partials'),
-        ])
-        ->groupBy([
-            'notes.id',
-            'notes.note',
-            'notes.lexp',
-            'notes.mesalization',
-            'notes.days_left',
-            'notes.type_note',
-            // Como usamos agregação em orders e CASE, precisamos agrupar pelo CASE também:
-            DB::raw("
-                CASE
-                    WHEN work_reports.id IS NOT NULL
-                        AND latest_operation_resps.latest_fimLancado IS NOT NULL
-                        THEN latest_operation_resps.latest_fimLancado
-                    WHEN work_reports.id IS NULL
-                        AND partials.supervision_at IS NOT NULL
-                        THEN partials.supervision_at
-                    ELSE NULL
-                END
-            "),
-            DB::raw('CASE WHEN partials.id IS NOT NULL THEN 1 ELSE 0 END'),
-        ])
-        ->groupBy('notes.id', 'work_reports.created_at', 'notes.note', 'notes.lexp', 'notes.mesalization', 'notes.days_left', 'notes.type_note', 'fimLancado', 'has_partials')
-        // ->orderBy('has_partials', 'desc')
-        ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
-        ->orderBy('fimLancado', 'ASC');
-        // ->orderBy('total_moaberto', 'desc');
-
-        // Debugando o resultado para checar a consulta
-        // dd($query->paginate(5));
-
-        return $query;
+        return $page;
     }
 
+    /**
+     * Suporte a filtros de base (usado no Blade em selects dependentes)
+     */
     public function getBaseProperty()
     {
         try {
@@ -868,96 +881,104 @@ class Main extends Component
                 return [];
             }
 
-            $result = $query->orderBy('cidade')
+            return $query->orderBy('cidade')
                 ->get()
                 ->pluck('rdMunicipio')
                 ->toArray();
-
-            return $result;
         } catch (\Throwable $th) {
             return [];
         }
     }
 
-    public function render()
+
+
+
+    public function chargerList()
     {
-        // $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
-
-        //     return !$list->Productions
-        //         ->where('status_note', $list->nstats)
-        //         ->where('dt_note', $list->dt_status)
-        //         ->first();
-        // });
-
-        // if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-        //     $this->selectall = true;
-        // } else {
-        //     $this->selectall = false;
-        // }
-
-        // if (!Auth()->User()->contract) {
-        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
-        // } else {
-
-        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        // }
-
-        // $this->user_l = User::when($this->search_user, function ($q) {
-        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
-        // })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
-
         $this->company_l = Company::whereHas('toUsers', function ($query) {
             $query->whereRelation('ToServices', function ($q) {
                 $q->where('service_id', $this->service->uuid)
-                    ->where('service', true);
+                  ->where('service', true);
             });
         })
-            ->orderBy('name', 'ASC')
-            ->get();
+        ->orderBy('name', 'ASC')
+        ->get();
 
         $this->user_l = User::whereRelation('ToServices', function ($q) {
             $q->where('service_id', $this->service->uuid)
-                ->where('service', true);
+              ->where('service', true);
         })
-         ->where(function ($q) {
-             $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
-         })
-        ->when($this->search_user, function ($q) {
-            return $q->where('name', 'like', '%' . $this->search_user . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
-
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-
-        // Municipios Filtros
-        try {
-
-            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
-
-            $this->district_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-            $this->city_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
+            ->where(function ($q) {
+                $q->whereRelation('Company', 'company_id', $this->company_s)
+                  ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
             })
-                ->when($this->district_s, function ($q) {
-                    return $q->whereIn('baseConstrucao', $this->district_s);
-                })
-                ->select('rdMunicipio', 'cidade', 'municipio')
-                ->orderBy('cidade')
-                ->groupBy('rdMunicipio', 'cidade', 'municipio')
-                ->get();
-        } catch (\Illuminate\Database\QueryException $e) {
+            ->when($this->search_user, fn ($q) => $q->where('name', 'like', '%' . $this->search_user . '%'))
+            ->orderBy('name', 'ASC')
+            ->get();
 
-            $this->region_l   = [];
-            $this->district_l = [];
-            $this->city_l     = [];
-        }
+        $this->emitSelf('refresh_list');
+    }
+
+    public function render()
+    {
+
+        // $this->company_l = Company::whereHas('toUsers', function ($query) {
+        //     $query->whereRelation('ToServices', function ($q) {
+        //         $q->where('service_id', $this->service->uuid)
+        //           ->where('service', true);
+        //     });
+        // })
+        // ->orderBy('name', 'ASC')
+        // ->get();
+
+
+        // $this->user_l = User::whereRelation('ToServices', function ($q) {
+        //     $q->where('service_id', $this->service->uuid)
+        //       ->where('service', true);
+        // })
+        //     ->where(function ($q) {
+        //         $q->whereRelation('Company', 'company_id', $this->company_s)
+        //           ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+        //     })
+        //     ->when($this->search_user, fn ($q) => $q->where('name', 'like', '%' . $this->search_user . '%'))
+        //     ->orderBy('name', 'ASC')
+        //     ->get();
+
+
+        // $this->rubrica_l = Note::select('rubrica')
+        //     ->where('nstats', optional($this->service)->status)
+        //     ->orderBy('rubrica')
+        //     ->groupBy('rubrica')
+        //     ->get();
+
+
+        // try {
+        //     $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
+
+        //     $this->district_l = City::when($this->region_s, fn ($q) => $q->whereIn('regiao', $this->region_s))
+        //         ->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+
+        //     $this->city_l = City::when($this->region_s, fn ($q) => $q->whereIn('regiao', $this->region_s))
+        //         ->when($this->district_s, fn ($q) => $q->whereIn('baseConstrucao', $this->district_s))
+        //         ->select('rdMunicipio', 'cidade', 'municipio')
+        //         ->orderBy('cidade')
+        //         ->groupBy('rdMunicipio', 'cidade', 'municipio')
+        //         ->get();
+        // } catch (\Illuminate\Database\QueryException $e) {
+        //     $this->region_l   = [];
+        //     $this->district_l = [];
+        //     $this->city_l     = [];
+        // }
+
+        $lists = $this->lists;
+
+
+
+        $this->recomputeSelectAllFor($lists?->items() ?? []);
 
         return view('livewire.dispatchs.payment.main', [
-            'lists'  => $this->lists->paginate($this->perPage),
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'  => $this->lists, // chama getListsProperty()
+            'update' => Bancoupdate::orderByDesc('created_at')->first(),
         ]);
     }
 }

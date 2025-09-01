@@ -8,23 +8,51 @@
             </a>
             <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
+                    {{-- <li>
+                        <a href="{{ route('dispatch.dashboard', ['service' => $service->uuid]) }}"
+                            class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-speedometer2 fs-4"></i><span>DASHBOARD PARA
+                                {{ mb_strtoupper($service->service) }}</span>
+                        </a>
+                    </li> --}}
+                    {{-- @if (!Auth()->User()->contract) --}}
                     <li>
                         <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>PILHA LEVANTAMENTO</span>
+                            <i class="bi bi-list-ul fs-4"></i><span>LISTA PARA
+                                {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
+                    {{-- @endif --}}
+
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>ACOMPANHAMENTO</span>
+                            <i class="bi bi-sliders fs-4"></i><span>CONTROLE DE
+                                {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
 
+                    {{-- <li>
+                        <a href="{{ route('dispatch.d5', ['service' => $service->uuid]) }}"
+                            class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-arrow-return-left fs-4"></i><span>RETORNO INTERNO (RI) DE
+                                {{ mb_strtoupper($service->service) }}</span> @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
+                        </a>
+                    </li> --}}
 
+                    <li>
+                        <a href="{{ route('dispatch.waitingFiveNote', ['service' => $service->uuid]) }}"
+                            class="nav-item edp-text-verde-dark">
+                            <i class="bi bi-hourglass-split fs-4"></i><span>AGUARDANDO D5</span>
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>
     </ul>
 
+    <div class="col-12">
+        @livewire('production.users.occupation', ['service_id' => $service->uuid], key('production-' . $service->uuid))
+    </div>
 </aside>

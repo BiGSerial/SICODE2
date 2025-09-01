@@ -12,7 +12,7 @@ class BlockEvaluator
     public const HOLD_BLUE   = 1; // aberto / em andamento
     public const HOLD_YELLOW = 2; // “guarda” (status==1) ou pendência leve
     public const HOLD_GREEN  = 3; // completed
-    public const HOLD_RED    = 4; // confirmado ou “não refletiu no SAP”
+    public const HOLD_RED    = 4; // confirmado e “não refletiu no SAP”
 
     public function evaluate(Note $note, Service $service): array
     {
@@ -46,10 +46,7 @@ class BlockEvaluator
             return $this->res(self::FREE, true, 'no_production');
         }
 
-        // ===== Produção sem atribuição
-        if (empty($prod->user_id)) {
-            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
-        }
+
 
         // ===== 1) PRIORIDADE: FiveNote (is_completed && is_supervisioned && !is_archived)
         if ($five && ($five->is_completed ?? false) && ($five->is_supervisioned ?? false) && !($five->is_archived ?? false)) {
@@ -65,7 +62,11 @@ class BlockEvaluator
                 ($prod->created_at ?? null) &&
                 $five->completed_at < $prod->created_at
             ) {
-                return $this->res(self::HOLD_RED, false, 'fivenote_priority_prod_closed_not_reflected', $prod);
+                if ($prod->completed && $prod->confirmed) {
+                    return $this->res(self::HOLD_RED, false, 'fivenote_priority_prod_closed_not_reflected', $prod);
+                } else {
+                    return $this->res(self::HOLD_GREEN, false, 'fivenote_priority_prod_closed_not_reflected_completed', $prod);
+                }
             }
 
             return $this->res(self::FREE, true, 'fivenote_priority_prod_closed', $prod);
@@ -79,7 +80,11 @@ class BlockEvaluator
 
             $wfMark = $wf->informed_at ?? $wf->created_at;
             if ($wfMark && ($prod->created_at ?? null) && $prod->created_at > $wfMark) {
-                return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_after_prod', $prod);
+                if ($prod->completed && $prod->confirmed) {
+                    return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_after_prod_confirmed', $prod);
+                } elseif ($prod->completed && !$prod->confirmed) {
+                    return $this->res(self::HOLD_GREEN, false, 'workform_after_prod_not_confirmed', $prod);
+                }
             }
 
             if ($prod->completed && $prod->partial) {
@@ -97,7 +102,11 @@ class BlockEvaluator
                 return $this->res(self::FREE, true, 'partial_newer_than_prod', $prod);
             }
 
-            return $this->res(self::HOLD_RED, false, 'partial_older_than_prod', $prod);
+            if ($prod->completed && $prod->confirmed) {
+                return $this->res(self::HOLD_RED, false, 'partial_prod_closed_confirmed', $prod);
+            } elseif ($prod->completed && !$prod->confirmed) {
+                return $this->res(self::HOLD_GREEN, false, 'partial_prod_closed_not_confirmed', $prod);
+            }
         }
 
         // ===== 4) FALLBACK SAP (dt e status iguais => não refletiu)
@@ -109,6 +118,11 @@ class BlockEvaluator
             $prod->status_note == $note->nstats
         ) {
             return $this->res(self::HOLD_RED, true, 'sap_not_reflected_same_dt_and_status', $prod);
+        }
+
+        // ===== Produção sem atribuição
+        if (empty($prod->user_id)) {
+            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
         }
 
         // ===== 5) Estados herdados

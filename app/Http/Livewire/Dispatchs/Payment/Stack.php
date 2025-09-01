@@ -119,37 +119,81 @@ class Stack extends Component
 
     public function setSelectAll()
     {
+        if (!$this->lists) {
+            return;
+        }
 
-        $idsToKeep = $this->lists->pluck('id')->toArray();
+        $visibleItems = $this->lists->items();
+
+        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
 
         if ($this->selectAll) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
-                if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
+
+            foreach ($visibleItems as $note) {
+
+                $id = (int) $note->id;
+
+                if (isset($selectedSet[$id])) {
+                    continue;
                 }
+
+                $selectedSet[$id] = true;
             }
         } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
-                }
+            foreach ($visibleItems as $note) {
+                unset($selectedSet[(int) $note->id]);
             }
-            $this->selected = $newSelected;
         }
+
+        $this->selected = array_map('intval', array_keys($selectedSet));
+
     }
 
     public function checkAllSelect($items)
     {
+        $eligiblePage = [];
 
-        $items = $items->pluck('id')->toArray();
+        foreach ($items as $note) {
+            $eligiblePage[] = (int) $note->id;
+        }
 
-        $this->selectAll = empty(array_diff($items, $this->selected));
+        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
 
-        return $this->selectAll;
+        foreach ($eligiblePage as $id) {
+            if (!isset($selectedSet[$id])) {
+                $this->selectAll = false;
+                return false;
+            }
+        }
+
+        $this->selectAll = true;
+        return true;
+    }
+
+    protected function recomputeSelectAllFor(array $items): void
+    {
+
+        $eligiblePage = [];
+
+        foreach ($items as $note) {
+            $eligiblePage[] = (int) $note->id;
+        }
+
+        // se não há elegíveis na página, não marcar o master
+        if (empty($eligiblePage)) {
+            $this->selectAll = false;
+            return;
+        }
+
+        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        foreach ($eligiblePage as $id) {
+            if (!isset($selectedSet[$id])) {
+                $this->selectAll = false;
+                return;
+            }
+        }
+
+        $this->selectAll = true;
     }
 
     public function export_excel()
@@ -676,7 +720,7 @@ class Stack extends Component
 
     public function getExportsProperty()
     {
-        return Production::with(['Note'])
+        return Production::with(['Note.FiveNote'])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where('confirmed', false)
             ->where('service_id', $this->service->uuid)
@@ -991,6 +1035,10 @@ class Stack extends Component
             $this->district_l = [];
             $this->city_l     = [];
         }
+
+        $lists = $this->lists;
+
+        $this->recomputeSelectAllFor($lists?->items() ?? []);
 
         return view('livewire.dispatchs.payment.stack', [
             'allList' => $this->status->get(),

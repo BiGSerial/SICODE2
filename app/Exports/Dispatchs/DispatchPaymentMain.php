@@ -5,104 +5,93 @@ namespace App\Exports\Dispatchs;
 use App\Custom\Notestatus;
 use App\Helpers\DaysLeft;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\{
-    Exportable,
-    FromQuery,
-    WithMapping,
-    WithHeadings,
-    WithProperties,
-    WithEvents,
-    WithChunkReading,
-    ShouldAutoSize
+    Exportable, FromQuery, WithMapping, WithHeadings, WithProperties,
+    WithEvents, WithChunkReading, ShouldAutoSize
 };
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithProperties, WithEvents, WithChunkReading, ShouldAutoSize
 {
     use Exportable;
 
-    protected $data;
-    protected $service;
+    /** @var \Illuminate\Database\Eloquent\Builder */
+    protected Builder $queryBuilder;
+    protected string $serviceUuid;
 
-
-    public function __construct($data, $service)
+    public function __construct(Builder $queryBuilder, string $serviceUuid)
     {
-        $this->data = $data;
-        $this->service = $service;
-
+        $this->queryBuilder = $queryBuilder;
+        $this->serviceUuid  = $serviceUuid;
     }
 
-    /**
-     * Define a query para exportação usando chunking.
-     */
     public function query()
     {
-
-        return $this->data
-        ->with([
+        return $this->queryBuilder->with([
             'WorkForm.Orders.Operations',
             'WorkForm.Company',
             'Partials.Orders',
             'Partials.Company',
-            'Productions' => function ($q) {
-                $q->with(['User','Company']);
-            },
+            'Productions' => fn ($q) => $q->with(['User','Company']),
+            'FiveNote', // necessário para coluna de D5
         ]);
-
     }
 
-    /**
-     * Número de registros por chunk (ajuste conforme sua memória)
-     */
     public function chunkSize(): int
     {
         return 500;
     }
 
-    /**
-     * Mapeia cada nota para uma linha de Excel.
-     */
     public function map($list): array
     {
-
-
         if ($list->WorkForm) {
-            $type = 'TOTAL';
-            $order = $list->WorkForm?->Orders;
-            $company = $list->WorkForm?->Company->name;
+            $type      = 'TOTAL';
+            $order     = $list->WorkForm?->Orders;
+            $company   = $list->WorkForm?->Company->name;
             $date_info = $list->WorkForm?->informed_at;
-            $pagamento = Carbon::parse($list->fimLancado);
-            $dt_ads = $list->WorkForm?->Adsform?->created_at;
-
+            $pagamento = $list->fimLancado ? Carbon::parse($list->fimLancado) : null;
+            $dt_ads    = $list->WorkForm?->Adsform?->created_at ?? null;
 
         } elseif ($list->Partials->count() > 0) {
-            $type = 'PARCIAL';
-            $order = $list->Partials?->last()->Orders;
-            $company = $list->Partials?->last()->Company->name;
+            $type      = 'PARCIAL';
+            $order     = $list->Partials?->last()->Orders;
+            $company   = $list->Partials?->last()->Company->name;
             $date_info = $list->Partials?->last()->created_at;
-            $pagamento = Carbon::parse($list->fimLancado);
-            $dt_ads = $date_info;
+            $pagamento = $list->fimLancado ? Carbon::parse($list->fimLancado) : null;
+            $dt_ads    = $date_info;
         } else {
-            $type = 'DESCONHECIDO';
-            $order = null;
-            $company = null;
+            $type      = 'DESCONHECIDO';
+            $order     = null;
+            $company   = null;
             $date_info = null;
             $pagamento = null;
-            $dt_ads = null;
+            $dt_ads    = null;
         }
-        $lastProd = $list->Productions->where('service_id', $this->service)->last();
+
+        // Última produção do serviço atual
+        $lastProd = $list->Productions
+            ->where('service_id', $this->serviceUuid)
+            ->sortBy('created_at') // garante última
+            ->last();
 
         if ($lastProd) {
-            if ($type == 'TOTAL' && $lastProd->partial) {
-                $lastProd = false;
-            } elseif ($type == 'PARCIAL' && $list->WorkForm) {
-                $lastProd = false;
+            if ($type === 'TOTAL' && $lastProd->partial) {
+                $lastProd = null;
+            } elseif ($type === 'PARCIAL' && $list->WorkForm) {
+                $lastProd = null;
             }
         }
 
         $ops = $order?->first()->Operations ?? collect();
 
+        // --- Colunas de D5 ---
+        $fn        = $list->FiveNote;
+        $hasD5     = $fn ? 'SIM' : 'NÃO';
+        $numberD5  = $fn && !empty($fn->note_d5) ? (string)$fn->note_d5 : 'Gerar D5';
+        if (!$hasD5) {
+            $numberD5 = '-';
+        }
 
         return [
             $list->note,
@@ -116,20 +105,18 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $company,
             $list->lexp,
             optional($list->WorkForm)->earliest_fim_real?->format('d/m/Y') ?? '---',
-            $date_info,
-            $dt_ads ? $dt_ads->format('d/m/Y') : '---',
-            $list->type_note == 2 ? $list->nstats : $list->centerjob,
-            optional($pagamento)->format('d/m/Y') ?? '---',
+            $date_info ? Carbon::parse($date_info)->format('d/m/Y') : '---',
+            $dt_ads ? Carbon::parse($dt_ads)->format('d/m/Y') : '---',
+            $list->type_note == 2 ? $list->nstats : ($list->centerjob ?? '---'),
+            $pagamento ? $pagamento->format('d/m/Y') : '---',
             (new DaysLeft($list))->getLastDate(),
             $lastProd?->User->name ?? '---',
             $lastProd ? Notestatus::status($lastProd?->status)->status : '---',
+            $hasD5,
+            $numberD5,
         ];
-
     }
 
-    /**
-     * Cabeçalhos da planilha.
-     */
     public function headings(): array
     {
         return [
@@ -151,18 +138,19 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             'Prazo Obra',
             'User Production',
             'Status Production',
+            'Possui D5',
+            'Número D5',
         ];
     }
 
-    /**
-     * Propriedades do arquivo (mantém original).
-     */
     public function properties(): array
     {
+        $user = auth()->user();
+        $name = $user?->name ?? 'SICODE';
         return [
-            'creator'        => auth()->user()->name,
-            'lastModifiedBy' => auth()->user()->name,
-            'title'          => 'Relatorio Automatico Sicode',
+            'creator'        => $name,
+            'lastModifiedBy' => $name,
+            'title'          => 'Relatorio Automatico SICODE',
             'description'    => 'Arquivo gerado automaticamente via SICODE',
             'subject'        => 'Relatorios',
             'manager'        => 'Joao Paulo Mantovani',
@@ -170,41 +158,44 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
         ];
     }
 
-    /**
-     * Eventos para estilização (mantém original).
-     */
     public function registerEvents(): array
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-
-                $sheet = $event->sheet->getDelegate();
-                $sheet->getStyle('A1:Q1')->applyFromArray([
-                    'font' => ['bold' => true,'color' => ['rgb' => 'FFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID,'startColor' => ['rgb' => '0000FF']],
-
-                ]);
-                // estiliza só o header e colunas fixas
+                $sheet         = $event->sheet->getDelegate();
                 $highestColumn = $sheet->getHighestColumn();
+                $highestRow    = $sheet->getHighestRow();
+
+                // Header bold + fundo
                 $sheet->getStyle("A1:{$highestColumn}1")->applyFromArray([
-                    'font' => ['bold' => true,'color' => ['rgb' => 'FFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID,'startColor' => ['rgb' => '0000FF']],
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => [
+                        'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0000FF'],
+                    ],
                 ]);
-                foreach (range('A', 'Q') as $col) {
+
+                // Larguras dinâmicas
+                for ($col = 'A'; $col !== $highestColumn; $col = chr(ord($col) + 1)) {
                     $sheet->getColumnDimension($col)->setWidth(15);
                 }
-                $highestRow = $sheet->getHighestRow();
-                $sheet->getStyle("A2:{$highestColumn}{$highestRow}")
-                      ->getAlignment()
-                      ->setWrapText(true);
+                $sheet->getColumnDimension($highestColumn)->setWidth(15);
 
-                // Format column A (Note) and C (Ordem) as numbers without decimals
-                $sheet->getStyle("A2:A{$highestRow}")
-                      ->getNumberFormat()
-                      ->setFormatCode('#');
-                $sheet->getStyle("C2:C{$highestRow}")
-                      ->getNumberFormat()
-                      ->setFormatCode('#');
+                // Quebra de linha nas células (linhas de dados)
+                if ($highestRow > 1) {
+                    $sheet->getStyle("A2:{$highestColumn}{$highestRow}")
+                        ->getAlignment()->setWrapText(true);
+                }
+
+                // Formatação de números inteiros para Nota (A) e Ordem (C)
+                if ($highestRow > 1) {
+                    $sheet->getStyle("A2:A{$highestRow}")
+                        ->getNumberFormat()->setFormatCode('#');
+                    $sheet->getStyle("C2:C{$highestRow}")
+                        ->getNumberFormat()->setFormatCode('#');
+                    $sheet->getStyle("T2:T{$highestRow}")
+                        ->getNumberFormat()->setFormatCode('0');
+                }
             },
         ];
     }

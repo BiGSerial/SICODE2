@@ -11,7 +11,7 @@
                     <li>
                         <a href="{{ route('dispatch.dashboard', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>DASHBOARD PARA
+                            <i class="bi bi-speedometer2 fs-4"></i><span>DASHBOARD PARA
                                 {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
@@ -19,7 +19,7 @@
                     <li>
                         <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>LISTA PARA
+                            <i class="bi bi-list-ul fs-4"></i><span>LISTA PARA
                                 {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
@@ -28,14 +28,15 @@
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>CONTROLE DE {{ mb_strtoupper($service->service) }}</span>
+                            <i class="bi bi-sliders fs-4"></i><span>CONTROLE DE
+                                {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
 
                     <li>
                         <a href="{{ route('dispatch.d5', ['service' => $service->uuid]) }}"
                             class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>RETORNO INTERNO (RI) DE
+                            <i class="bi bi-arrow-return-left fs-4"></i><span>RETORNO INTERNO (RI) DE
                                 {{ mb_strtoupper($service->service) }}</span> @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
                         </a>
                     </li>

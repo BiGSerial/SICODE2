@@ -5,8 +5,9 @@
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                <li class="breadcrumb-item">Despacho</li>
-                <li class="breadcrumb-item active" aria-current="page">Lista {{ $service->service }}</li>
+                <li class="breadcrumb-item">Dispatch</li>
+                <li class="breadcrumb-item" aria-current="page">Aguardando D5</li>
+                <li class="breadcrumb-item active" aria-current="page">{{ $service->service }}</li>
             </ol>
         </ol>
     </nav>
@@ -14,14 +15,14 @@
 
 @section('menu')
     {{-- @include('services.analises_pre.menu') --}}
-    {{-- @include('dispatchs.menu'); --}}
+    {{-- @include('dispatchs.menu') --}}
     @include('dispatchs.pagamento.menu')
 @endsection
 
 @section('content')
-    @livewire('dispatchs.payment.main', ['service' => $service->uuid])
+    {{-- @livewire('dispatchs.payment.stack', ['service' => $service->uuid]) --}}
+    @livewire('dispatchs.payment.waiting-five-notes', ['service' => $service->uuid])
 @endsection
-
 
 @push('script')
     <script>
@@ -46,7 +47,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
 
-                    Livewire.emit(e.detail.action)
+                    Livewire.emit(e.detail.action, e.detail.chave)
 
                 } else if (
                     /* Read more about handling dismissals below */

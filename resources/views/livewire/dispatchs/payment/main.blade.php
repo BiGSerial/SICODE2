@@ -51,21 +51,41 @@
             @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
         </div>
-        <div class="mb-3">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus()">
-                    {{ Notestatus::status(1)->status }}
-                    @if ($not_assigned)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
 
+        <div class="btn-group">
+            <div class="mb-3">
+                <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                    data-bs-trigger="hover focus" data-bs-placement="right"
+                    data-bs-title="Exibir Apenas Notas Nao Atribuidas"
+                    data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+                    <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
+                        wire:click.prevent="filterStatus()">
+                        {{ Notestatus::status(1)->status }}
+                        @if ($not_assigned)
+                            <span class="badge text-bg-success">ON</span>
+                        @else
+                            <span class="badge text-bg-danger">OFF</span>
+                        @endif
+                    </button>
+
+                </div>
+
+
+            </div>
+
+            <div class="mb-3 mx-1">
+                <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                    data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas D5"
+                    data-bs-content="<p>Ao clicar, apenas as notas que possuem D5 estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+                    <button type="button" class="btn btn-warning" wire:click.prevent="filterD5()">
+                        Apenas D5
+                        @if ($filter_d5)
+                            <span class="badge text-bg-success">ON</span>
+                        @else
+                            <span class="badge text-bg-danger">OFF</span>
+                        @endif
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -132,7 +152,7 @@
                         <tr>
                             <th>
                                 <input class="form-check-input" type="checkbox" wire:model="selectall"
-                                    wire:click="setSelectAll">
+                                    wire:click="setSelectAll" @checked($this->checkAllSelect($lists))>
                             </th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Tipo</th>
@@ -160,18 +180,13 @@
                         @endphp
                         @foreach ($lists as $list)
                             @php
-                                $block = false;
-                                $command = false;
 
-                                if ($production = $this->hasProduction($list)) {
-                                    $block = true;
-
-                                    if ($production->confirmed) {
-                                        $command = true;
-                                    } else {
-                                        $command = false;
-                                    }
-                                }
+                                $eval = $this->needBlock($list);
+                                $block = $eval['block'];
+                                $rowClass = $eval['color'];
+                                $production = $eval['production'] ?? null;
+                                $command = $eval['command'];
+                                $reason = $eval['reason'] ?? null;
 
                                 if ($partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : null) {
                                     if (!($partial->allow && $partial->supervision && !$partial->payment)) {
@@ -181,27 +196,25 @@
                                     $partial = null;
                                 }
 
-                                $rowClass = '';
-
-                                if ($block) {
-                                    if ($production->confirmed) {
-                                        $rowClass = 'table-danger';
-                                    } elseif ($production->status == 1) {
-                                        $rowClass = 'table-danger';
-                                    } elseif ($production->status == 2) {
-                                        $rowClass = 'table-primary';
-                                    } elseif ($production->status == 5) {
-                                        $rowClass = 'table-success';
+                                $five = $list->FiveNote;
+                                $hasD5 = (bool) $five;
+                                $d5BadgeClass = '';
+                                $d5Msg = '';
+                                if ($hasD5) {
+                                    if ($five->is_supervisioned ?? false) {
+                                        $d5BadgeClass = 'text-bg-success';
+                                        $d5Msg = 'D5 Fiscalizada – liberar carta';
                                     } else {
-                                        $rowClass = 'table-primary';
+                                        $d5BadgeClass = 'text-bg-primary';
+                                        $d5Msg = 'Gerar D5 e reter carta';
                                     }
                                 }
 
-                                // if ($partial) {
-                                //     $date = $partial->supervision_at->addDays(5);
-                                // } else {
-                                //     $date = $list->fimLancado;
-                                // }
+                                if ($partial) {
+                                    $date = $partial->supervision_at->addDays(5);
+                                } else {
+                                    $date = $list->fimLancado;
+                                }
 
                                 $date = $list->fimLancado;
 
@@ -216,15 +229,26 @@
                             @endphp
                             {{-- @dump($list->Productions) --}}
 
-                            <tr class="align-middle text-center
-                                ">
+                            <tr
+                                class="align-middle text-center"
+                                wire:key="note-{{ $list->id }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary " type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
                                         @disabled($block)>
                                 </td>
 
-                                <td class="fw-light fw-bold text-center {{ $rowClass }}">{{ $list->note }}
+                                <td class="fw-light fw-bold text-center {{ $rowClass }}">
+                                    @if ($hasD5)
+                                        <span class="badge {{ $d5BadgeClass }} fs-6" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Nota com D5"
+                                            data-bs-content="{{ $d5Msg }}">
+                                            <span class="fw-bold">D5</span> {{ $list->note }}
+                                        </span>
+                                    @else
+                                        {{ $list->note }}
+                                    @endif
                                 </td>
 
                                 <td
@@ -461,7 +485,8 @@
                                         $name = 'DESCONHECIDO';
                                     }
                                 @endphp
-                                <td class="fw-bold text-center {{ $rowClass }}">
+                                <td class="fw-bold text-center {{ $rowClass }}" data-bs-toggle="tooltip"
+                                    data-bs-placement="top" title="{{ $reason }}">
                                     @if (!$block || $command)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
@@ -688,5 +713,7 @@
 
 
     {{-- END MODALS --}}
+
+
 
 </div>

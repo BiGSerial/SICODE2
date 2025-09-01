@@ -8,50 +8,50 @@
                         <i class="ri-check-double-line me-1"></i>
                         Finalizar atividade
                         @if (!empty($five))
-                            <span class="fivefx-pill ms-2">D5: {{ $five->note_d5 ?? '—' }}</span>
+                            <span class="fivefx-pill ms-2">D5: {{ $five?->note_d5 ?? '—' }}</span>
                         @endif
                     </h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Fechar"></button>
                 </div>
 
-                {{-- BODY (só mostra conteúdo se existir $five) --}}
+                {{-- BODY (só mostra conteúdo se existir $five?) --}}
                 <div class="modal-body fivefx-body">
                     @if (!empty($five))
                         {{-- Resumo compacto da D5 --}}
                         <div class="fivefx-grid mb-3">
                             <div>
                                 <div class="fivefx-k">Local de Instalação</div>
-                                <div class="fivefx-v">{{ $five->loc_install ?? '—' }}</div>
+                                <div class="fivefx-v">{{ $five?->loc_install ?? '—' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">Conjunto</div>
-                                <div class="fivefx-v">{{ $five->conjunto ?? '—' }}</div>
+                                <div class="fivefx-v">{{ $five?->conjunto ?? '—' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">PEP</div>
-                                <div class="fivefx-v">{{ $five->pep ?? '—' }}</div>
+                                <div class="fivefx-v">{{ $five?->pep ?? '—' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">Empresa</div>
-                                <div class="fivefx-v">{{ $five->company->name ?? '—' }}</div>
+                                <div class="fivefx-v">{{ $five?->company->name ?? '—' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">Motivo</div>
-                                <div class="fivefx-v">{{ $five->reason ?? '—' }}</div>
+                                <div class="fivefx-v">{{ $five?->reason ?? '—' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">Codificação</div>
-                                <div class="fivefx-v">{{ $five->codify ?? '—' }}</div>
+                                <div class="fivefx-v">{{ $five?->codify ?? '—' }}</div>
                             </div>
                             <div class="fivefx-col-span">
                                 <div class="fivefx-k">Detalhes</div>
-                                <div class="fivefx-long">{{ $five->description ?? '—' }}</div>
+                                <div class="fivefx-long">{{ $five?->description ?? '—' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">Despachado em</div>
                                 <div class="fivefx-v">
-                                    {{ optional($five->dispatch_at)->format('d/m/Y H:i') ?? '—' }}
+                                    {{ optional($five?->dispatch_at)->format('d/m/Y H:i') ?? '—' }}
                                 </div>
                             </div>
                         </div>
@@ -62,7 +62,7 @@
                                 <i class="ri-attachment-2 me-1"></i> Evidências anexadas
                             </h6>
 
-                            @php $files = $five->EvidenceFiles ?? collect(); @endphp
+                            @php $files = $five?->EvidenceFiles ?? collect(); @endphp
                             <x-files.attachments :files="$files" :downloadAction="'dowloadFile'" :showHeader="false"
                                 :card="false" />
                         </div>
@@ -75,15 +75,15 @@
 
                             <div class="fivefx-completion-list">
                                 @if ($five?->productions?->isNotEmpty())
-                                    @foreach ($five->productions as $production)
+                                    @foreach ($five?->productions as $production)
                                         <div class="fivefx-completion-card">
                                             <div class="fivefx-completion-header">
                                                 <div class="fivefx-completion-user">
                                                     <i class="ri-user-3-line fivefx-completion-avatar"></i>
                                                     <div>
                                                         <div class="fivefx-completion-name">
-                                                            {{ $production->user->name }}
-                                                            <a href="msteams://l/chat/0/0?users={{ $production->user?->email }}"
+                                                            {{ $production?->user?->name }}
+                                                            <a href="msteams://l/chat/0/0?users={{ $production?->user?->email }}"
                                                                 class="fivefx-teams-link ms-2"
                                                                 title="Iniciar conversa no Teams">
                                                                 <i
@@ -91,20 +91,20 @@
                                                             </a>
                                                         </div>
                                                         <div class="fivefx-completion-role">
-                                                            {{ $production->service->service }}</div>
+                                                            {{ $production?->service?->service }}</div>
                                                     </div>
                                                 </div>
                                                 <i class="ri-microsoft-line fivefx-teams-icon"></i>
                                             </div>
                                             <div class="fivefx-completion-body">
                                                 <div class="fivefx-completion-service">
-                                                    {{ $production->analise->conclusion }}</div>
+                                                    {{ $production?->analise?->conclusion }}</div>
                                                 <div class="five-tl-text mb-3">
-                                                    {!! nl2br($production->analise->info) !!}
+                                                    {!! nl2br($production?->analise?->info) !!}
                                                 </div>
                                                 <div class="fivefx-completion-date">
                                                     <i class="ri-calendar-check-line me-1"></i>
-                                                    Concluído em {{ $production->completed_at->format('d/m/Y H:i') }}
+                                                    Concluído em {{ $production?->completed_at?->format('d/m/Y H:i') }}
                                                 </div>
                                             </div>
                                         </div>

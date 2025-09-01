@@ -44,6 +44,15 @@
             <h4 class="text-center">SEM HISTÓRICO INFORMES PARCIAL</h4>
         </div>
     @else
+        <div class="d-flex justify-content-between align-items-center">
+            <small>
+                Página {{ $lists->currentPage() }} de {{ $lists->lastPage() }}
+                ({{ $lists->total() }} registros)
+            </small>
+            <div>
+                {{ $lists->links() }}
+            </div>
+        </div>
         <div class="card mt-4">
             <div class="card-header edp-bg-seoweedgreen-100 text-white">
                 Histórico de Obras Parciais Informadas
@@ -120,6 +129,15 @@
                 </tbody>
 
             </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+            <small>
+                Página {{ $lists->currentPage() }} de {{ $lists->lastPage() }}
+                ({{ $lists->total() }} registros)
+            </small>
+            <div>
+                {{ $lists->links() }}
+            </div>
         </div>
     @endif
 

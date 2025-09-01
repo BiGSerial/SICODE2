@@ -292,7 +292,8 @@
                                         </div>
                                     </div>
                                 </div>
-                            @else
+                            @elseif ($five && $five->is_supervisioned)
+                                {{-- BLOCO: Informações da D5 (quando já supervisionada) --}}
                                 <div class="card shadow-sm border-0 rounded-3 five-info">
                                     <div
                                         class="card-header py-3 bg-white border-0 d-flex justify-content-between align-items-center">
@@ -366,8 +367,8 @@
                                                     <div class="hi-body">
                                                         <div class="hi-k">Local de Instalação</div>
                                                         <div class="hi-v text-truncate"
-                                                            title="{{ $five->loc_install }}">
-                                                            {{ $five->loc_install ?? '—' }}</div>
+                                                            title="{{ $five?->loc_install }}">
+                                                            {{ $five?->loc_install ?? '—' }}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -379,7 +380,7 @@
                                                     <div class="hi-body">
                                                         <div class="hi-k">Empresa</div>
                                                         <div class="hi-v">
-                                                            {{ $five->company->name ?? '—' }}</div>
+                                                            {{ $five?->company?->name ?? '—' }}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -391,7 +392,7 @@
                                                     <div class="hi-body">
                                                         <div class="hi-k">Usuario</div>
                                                         <div class="hi-v">
-                                                            {{ $five->name ?? '—' }}</div>
+                                                            {{ $five?->name ?? '—' }}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -402,17 +403,17 @@
                                             <span class="chip">
                                                 <i class="ri-calendar-line"></i>
                                                 Criada:
-                                                {{ $five->created_at ? $five->created_at->format('d/m/Y H:i:s') : '—' }}
+                                                {{ $five->created_at ? $five->created_at?->format('d/m/Y H:i:s') : '—' }}
                                             </span>
                                             <span class="chip">
                                                 <i class="ri-calendar-line"></i>
                                                 Despachado em:
-                                                {{ $five->dispatched_at ? $five->dispatched_at->format('d/m/Y H:i:s') : '—' }}
+                                                {{ $five->dispatched_at ? $five->dispatched_at?->format('d/m/Y H:i:s') : '—' }}
                                             </span>
                                             <span class="chip">
                                                 <i class="ri-time-line"></i>
                                                 Concluído Em:
-                                                {{ $five->completed_at ? $five->completed_at->format('d/m/Y H:i:s') : '—' }}
+                                                {{ $five->completed_at ? $five->completed_at?->format('d/m/Y H:i:s') : '—' }}
                                             </span>
                                             <span class="chip chip-ok">
                                                 <i class="ri-shield-check-line"></i> Status: Finalizado
@@ -427,7 +428,7 @@
                                                     <span class="fw-semibold">Observações</span>
                                                 </div>
                                                 <div class="obs-box">
-                                                    {!! nl2br(e($five->description)) !!}
+                                                    {!! nl2br(e($five?->description)) !!}
                                                 </div>
                                             </div>
                                         @endif

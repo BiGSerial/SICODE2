@@ -102,6 +102,30 @@
                     </div>
                 </ul>
             </li>
+
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#informes_parcial-nav" data-bs-toggle="collapse"
+                    href="#">
+                    <i class="bi bi-menu-button-wide"></i><span>INFORMES PARCIAIS</span><i
+                        class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <ul id="informes_parcial-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+
+
+                        {{-- <li>
+                            <a href="{{ route('responsible.inform_obra') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> INFORME DE OBRA</span>
+                            </a>
+                        </li> --}}
+                        <li>
+                            <a href="{{ route('responsible.partial_hist') }}" class="nav-item edp-text-verde-dark">
+                                <i class="ri-play-circle-line fw-light fs-5"></i> <span> HISTÓRICO INFORME</span>
+                            </a>
+                        </li>
+                    </div>
+                </ul>
+            </li>
         </ul>
     </aside>
 </div>

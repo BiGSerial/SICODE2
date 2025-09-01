@@ -258,8 +258,7 @@ class Jobform extends Component
 
             if ($this->production->partial) {
 
-
-                if ($partial = $this->production->Note->Partials->last()) {
+                if ($partial = $this->production->Note->Partials->sortByDesc('created_at')->first()) {
 
 
                     if ($partial->allow && !$partial->deny && $partial->supervision && !$partial->payment) {

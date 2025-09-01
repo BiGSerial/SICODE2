@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Dispatchs\Supervision;
+namespace App\Services\Supervision;
 
 use App\Models\Note;
 use App\Models\Service;
@@ -72,7 +72,7 @@ class BlockEvaluator
 
             // Se a produção for posterior ao informed_at (ou created_at se não houver informed_at) => bloqueia
             $wfMark = $wf->informed_at ?? $wf->created_at;
-            if ($wfMark) {
+            if ($wfMark && !$prod->partial) {
                 if ($prod->created_at > $wfMark) {
                     // se produção ainda aberta => azul; se fechada => vermelho (não refletiu no SAP)
                     return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_after_prod', $prod);
@@ -84,7 +84,10 @@ class BlockEvaluator
                 }
             }
 
-            // Caso contrário, cai para a verificação SAP/fallback lá embaixo
+            if ($prod->partial && $prod->completed) {
+                // Se a produção for parcial e estiver completa, libera
+                return $this->res(self::FREE, true, 'workform_partial_completed', $prod);
+            }
         }
         // ===== 3) PARTIAL (só se não houver WorkForm válido acima)
         elseif ($validPartial) {
