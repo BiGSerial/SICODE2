@@ -20,7 +20,7 @@
 @endsection
 
 @section('content')
-    @livewire('partner.work-equipment', key('work-equipment' . time()))
+    @livewire('partner.work-equipment', key('work-equipment'))
 @endsection
 
 @push('script')

@@ -82,7 +82,7 @@ class Lists extends Component
 
     public function showDetails($id)
     {
-        $this->selected = Protest::find($id);
+        $this->selected = Protest::with(['medProtests' => fn ($q) => $q->orderBy('dtCriacaoMedida', 'DESC')->with('assignments.user')])->find($id);
         $this->showDetails = true;
     }
 
@@ -138,21 +138,25 @@ class Lists extends Component
         $query = Protest::query()
             ->select('protests.*')
             ->selectRaw("
-            CASE
-              WHEN protests.tipoNota = 'OU' THEN COALESCE(
-                (SELECT mp.dtFimMedidaDesej
-                   FROM med_protests mp
-                  WHERE mp.protest_id = protests.id
-                    AND mp.statusSist = 'MEDA'
-               ORDER BY mp.med_id DESC
-                  LIMIT 1),
-                (SELECT MAX(mp2.dtFimMedidaDesej)
-                   FROM med_protests mp2
-                  WHERE mp2.protest_id = protests.id)
-              )
-              ELSE protests.dtConclusaoDesej
-            END AS vencimento
-        ")
+                -- VENCIMENTO
+                CASE
+                    WHEN protests.tipoNota IN ('OU','PR') THEN (
+                        SELECT MAX(mp.dtFimMedidaDesej)
+                        FROM med_protests mp
+                        WHERE mp.protest_id = protests.id
+                    )
+                    ELSE protests.dtConclusaoDesej
+                END AS vencimento,
+                -- ABERTURA
+                CASE
+                    WHEN protests.tipoNota IN ('OU','PR') THEN (
+                        SELECT MAX(mp2.dtCriacaoMedida)
+                        FROM med_protests mp2
+                        WHERE mp2.protest_id = protests.id
+                    )
+                    ELSE protests.dtAberturaNota
+                END AS abertura
+            ")
             ->whereHas('medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
                   ->orWhere(function ($q) {

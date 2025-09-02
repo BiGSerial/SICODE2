@@ -1,84 +1,90 @@
-@push('css')
-    <style>
-        .loading {
-            position: fixed;
-            bottom: 0;
-            left: 25px;
-            z-index: 9999;
-            width: 215px;
-            height: 200px;
-            background-color: rgba(0, 0, 0, 0.4);
-        }
+@props([
+    'target' => null, // string|array|null
+    'text' => 'CARREGANDO...<br> AGUARDE...',
+])
 
-        .loading span {
-            position: absolute;
-            top: 70%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: white;
-            font-size: 20px;
+@php
+    $targetAttr = $target ? (is_array($target) ? implode(',', $target) : $target) : null;
+@endphp
 
-        }
-
-        .lds-facebook {
-            display: inline-block;
-            position: relative;
-            width: 80px;
-            height: 80px;
-            top: 25px;
-            left: 50%;
-            margin-left: -40px;
-        }
-
-        .lds-facebook div {
-            display: inline-block;
-            position: absolute;
-            left: 8px;
-            width: 16px;
-            background: #fff;
-            animation: lds-facebook 1.2s cubic-bezier(0, 0.5, 0.5, 1) infinite;
-        }
-
-        .lds-facebook div:nth-child(1) {
-            left: 8px;
-            animation-delay: -0.24s;
-        }
-
-        .lds-facebook div:nth-child(2) {
-            left: 32px;
-            animation-delay: -0.12s;
-        }
-
-        .lds-facebook div:nth-child(3) {
-            left: 56px;
-            animation-delay: 0;
-        }
-
-        @keyframes lds-facebook {
-            0% {
-                top: 8px;
-                height: 64px;
+@once
+    @push('css')
+        <style>
+            .loading {
+                position: fixed;
+                bottom: 0;
+                left: 25px;
+                z-index: 9999;
+                width: 215px;
+                height: 200px;
+                background-color: rgba(0, 0, 0, 0.4);
             }
 
-            50%,
-            100% {
-                top: 24px;
-                height: 32px;
+            .loading span {
+                position: absolute;
+                top: 70%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                color: white;
+                font-size: 20px;
             }
-        }
-    </style>
-@endpush
 
-<div>
-    {{-- LOADING PROGRESS --}}
-    <div class="loading" wire:loading>
-        <div class="lds-facebook">
-            <div></div>
-            <div></div>
-            <div></div>
-        </div>
-        <span class="placeholder-glow">CARREGANDO...<br> AGUARDE...</span>
-        {{-- LOADING PROGRESS --}}
+            .lds-facebook {
+                display: inline-block;
+                position: relative;
+                width: 80px;
+                height: 80px;
+                top: 25px;
+                left: 50%;
+                margin-left: -40px;
+            }
+
+            .lds-facebook div {
+                display: inline-block;
+                position: absolute;
+                left: 8px;
+                width: 16px;
+                background: #fff;
+                animation: lds-facebook 1.2s cubic-bezier(0, 0.5, 0.5, 1) infinite;
+            }
+
+            .lds-facebook div:nth-child(1) {
+                left: 8px;
+                animation-delay: -0.24s;
+            }
+
+            .lds-facebook div:nth-child(2) {
+                left: 32px;
+                animation-delay: -0.12s;
+            }
+
+            .lds-facebook div:nth-child(3) {
+                left: 56px;
+                animation-delay: 0;
+            }
+
+            @keyframes lds-facebook {
+                0% {
+                    top: 8px;
+                    height: 64px;
+                }
+
+                50%,
+                100% {
+                    top: 24px;
+                    height: 32px;
+                }
+            }
+        </style>
+    @endpush
+@endonce
+
+<div class="loading" wire:loading @if ($targetAttr) wire:target="{{ $targetAttr }}" @endif>
+    <div class="lds-facebook">
+        <div></div>
+        <div></div>
+        <div></div>
     </div>
+    <span class="placeholder-glow">{!! $text !!}</span>
 </div>

@@ -264,7 +264,8 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
         </footer>
     </main><!-- End #main -->
 
-    @livewire('components.modal.priority')
+    @livewire('components.modal.priority', key('modal.priority.sicode'))
+    @livewire('components.notify.all-notifies', key('notify.all.sicode'))
 
 
     @livewireScripts

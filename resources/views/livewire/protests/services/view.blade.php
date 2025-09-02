@@ -714,7 +714,7 @@
                         @endif
                     </div>
                     <div class="chat-container border rounded bg-light">
-                        @forelse($medProtest->comments->sortBy('created_at') as $comment)
+                        @forelse($medProtest->comments->sortByDesc('created_at') as $comment)
                             <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
                                 <div class="d-flex gap-3">
                                     <div class="flex-shrink-0">

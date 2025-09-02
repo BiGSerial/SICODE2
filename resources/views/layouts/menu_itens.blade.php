@@ -353,7 +353,12 @@
                             class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
                 </li>
             @endif
+            <li><a class="dropdown-item" href="{{ route('reports.equipments') }}"><i
+                        class="ri-tools-line align-middle text-primary"></i>EQUIPAMENTOS DECLARADOS</a>
+            </li>
         @endif
     </ul>
 
 </li>
+
+

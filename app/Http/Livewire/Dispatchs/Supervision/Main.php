@@ -1166,7 +1166,7 @@ class Main extends Component
             $query->where(function ($q) {
                 return $q->orWhereIn('lexp', $this->filter['city'])
                     ->orWhereNull('lexp')
-                     ->orWhere('lexp', '');
+                    ->orWhere('lexp', '');
             });
         }
 

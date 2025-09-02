@@ -19,3 +19,5 @@
 
     </ul>
 </li> --}}
+
+@stack('modals')

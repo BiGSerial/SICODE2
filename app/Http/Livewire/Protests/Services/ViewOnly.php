@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\EvidenceFile;
 use App\Models\MedProtest;
+use App\Notifications\SystemNotification;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
@@ -169,6 +170,22 @@ class ViewOnly extends Component
             'user_id' => auth()->id(),
             'message' => $this->comment,
         ]);
+
+        if ($responsible = $this->medProtest->Assignments()
+            ->where('user', false)
+            ->where('responsible', true)
+            ->first()?->User) {
+            $responsible->notify(new SystemNotification(
+                titulo: 'Novo comentário na Medida de Reclamação',
+                mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->medProtest->protest?->nota.'.',
+                link: route('protests.dispatch.view', $this->medProtest->protest?->nota), // ou outra rota que você tiver
+                status: 6,
+                extras: [
+                'med_protest_id' => $this->medProtest->id,
+                'commented_by'   => auth()->id(),
+                ]
+            ));
+        }
 
         $this->comment = '';
         $this->emit('refreshComponent'); // Refresh the component to show the new comment

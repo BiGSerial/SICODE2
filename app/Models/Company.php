@@ -51,4 +51,9 @@ class Company extends Model
     {
         return $this->hasMany(Centerjob::class);
     }
+
+    public function WorkReports()
+    {
+        return $this->hasMany(WorkReport::class);
+    }
 }

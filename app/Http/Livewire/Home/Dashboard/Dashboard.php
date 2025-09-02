@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Home\Dashboard;
 
+use App\Jobs\Home\PersonalProductionsJob;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Models\Service;
@@ -12,7 +13,6 @@ use Livewire\Component;
 
 class Dashboard extends Component
 {
-
     public $production;
     public $viabilities;
     public $selectedMonth;
@@ -63,23 +63,28 @@ class Dashboard extends Component
 
     public function exportToExcel()
     {
-        $data = Production::query()
-            ->where('user_id', auth()->id())
-            ->when($this->selectedService, function ($query) {
-                return $query->where('service_id', $this->selectedService);
-            })
-            ->whereBetween('completed_at', [
-                Carbon::createFromFormat('Y-m', $this->selectedMonth)->startOfMonth(),
-                Carbon::createFromFormat('Y-m', $this->selectedMonth)->endOfMonth()
-            ])
-            ->where('completed', true)
-            ->where('rejected', false)
-            ->where('d5', false);
+        $params = [
+            'complete'    => false, // dashboard exporta apenas concluídos (igual baseQuery)
+            'd5'          => false, // dashboard exclui D5 (igual baseQuery)
+            'service'     => $this->selectedService ? [$this->selectedService] : [], // UUID(s)
+            'dt_init'     => $this->dt_in,   // 'Y-m-d'
+            'dt_end'      => $this->dt_out,  // 'Y-m-d'
+            // opcional: se quiser também mandar monthYear
+            // 'monthYear' => $this->selectedMonth, // 'YYYY-MM'
+            // opcional: search/multisearch (mantive simples)
+            // 'search'      => null,
+            // 'multisearch' => [],
+        ];
 
-        $nome  = explode(' ', auth()->user()->name);
-        $nome = $nome[0] . '-' . end($nome);
+        PersonalProductionsJob::dispatch($params, auth()->id());
 
-        return (new \App\Exports\Reports\ProductionsExportList($data))->download($nome.'_'.date('Y-m-d_His').'_my_productions.xlsx');
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO EM ANDAMENTO.',
+            'html'     => "<div class='card'><div class='card-body'><p>Seu relatório pessoal está sendo gerado. Você será notificado quando o arquivo estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificação.</p></div></div>",
+            'timer'    => 5000,
+        ]);
     }
 
     public function updatedRecentFilter($value)
@@ -207,7 +212,7 @@ class Dashboard extends Component
         $this->dt_in = Carbon::parse($this->selectedMonth)->startOfMonth()->format('Y-m-d');
         $this->dt_out = Carbon::parse($this->selectedMonth)->endOfMonth()->format('Y-m-d');
 
-         if ($this->dt_out > now()->format('Y-m-d')) {
+        if ($this->dt_out > now()->format('Y-m-d')) {
             $this->dt_out = now()->format('Y-m-d');
         }
 

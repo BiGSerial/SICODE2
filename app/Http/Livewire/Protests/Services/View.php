@@ -4,6 +4,8 @@ namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\EvidenceFile;
 use App\Models\MedProtest;
+use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -166,6 +168,11 @@ class View extends Component
 
 
         try {
+
+            $responsible = $this->medProtest->Assignments()
+                ->where('user', false)
+                ->where('responsible', true)
+                ->first()?->User;
             // Finaliza assignment do usuário
             $userAssigned->update([
                 'completed' => true,
@@ -202,6 +209,20 @@ class View extends Component
             );
 
 
+            if ($responsible && $responsible instanceof User) {
+                $responsible->notify(new SystemNotification(
+                    titulo: 'Medida de Reclamação finalizada',
+                    mensagem: 'O usuário '.auth()->user()->name.' concluiu a medida da reclamação '.$this->medProtest->protest?->nota.'.',
+                    link: route('protests.dispatch.view', $this->medProtest->protest?->nota), // ou outra rota que você tiver
+                    status: 7,
+                    extras: [
+                        'med_protest_id' => $this->medProtest->id,
+                        'finished_by'    => auth()->id(),
+                    ]
+                ));
+            }
+
+
 
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -232,7 +253,9 @@ class View extends Component
     {
         $this->medProtest = MedProtest::with([
             'Protest.Notes',
-            'Comments.User',
+            'Comments' => function ($query) {
+                $query->with('User')->orderBy('created_at', 'desc');
+            },
             'Notes',
             'Assignments.User',
 
@@ -253,6 +276,22 @@ class View extends Component
             'user_id' => auth()->id(),
             'message' => $this->comment,
         ]);
+
+        if ($responsible = $this->medProtest->Assignments()
+            ->where('user', false)
+            ->where('responsible', true)
+            ->first()?->User) {
+            $responsible->notify(new SystemNotification(
+                titulo: 'Novo comentário na Medida de Reclamação',
+                mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->medProtest->protest?->nota.'.',
+                link: route('protests.dispatch.view', $this->medProtest->protest?->nota), // ou outra rota que você tiver
+                status: 6,
+                extras: [
+                'med_protest_id' => $this->medProtest->id,
+                'commented_by'   => auth()->id(),
+                ]
+            ));
+        }
 
         $this->comment = '';
         $this->emit('refreshComponent'); // Refresh the component to show the new comment

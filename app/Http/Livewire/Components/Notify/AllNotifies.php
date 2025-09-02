@@ -1,0 +1,200 @@
+<?php
+
+namespace App\Http\Livewire\Components\Notify;
+
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+class AllNotifies extends Component
+{
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
+    protected $pageName = 'notifyPage';
+
+    public int $perPage = 12;
+    public bool $onlyUnread = false;
+
+    protected $queryString = [
+        'onlyUnread' => ['except' => false],
+        'perPage'    => ['except' => 12],
+    ];
+
+    protected $listeners = [
+        'refresh_list' => '$refresh',
+        'openNotifies' => 'openModal'
+    ];
+
+    public function openModal()
+    {
+
+        $this->dispatchBrowserEvent('showModal', [
+               'id' => 'notificationsModal',
+           ]);
+    }
+
+    protected function baseQuery()
+    {
+
+        $user = Auth::user();
+
+        $query = DatabaseNotification::query();
+
+
+        if (!$user) {
+            // Evita exceptions se não autenticado
+            return DatabaseNotification::query()->whereRaw('1=0');
+        }
+
+        return $user->notifications()
+            ->when($this->onlyUnread, fn ($q) => $q->whereNull('read_at'))
+            ->latest();
+    }
+
+    public function getNotifiesProperty()
+    {
+        return $this->baseQuery()->paginate($this->perPage, ['*'], $this->pageName);
+    }
+
+    public function getUnreadTotalProperty(): int
+    {
+        $user = Auth::user();
+        return $user ? $user->unreadNotifications()->count() : 0;
+    }
+
+    public function updating($name, $value)
+    {
+        if (!in_array($name, [$this->pageName], true)) {
+            $this->resetPage($this->pageName);
+        }
+    }
+
+    public function recognize_all(): void
+    {
+        if ($user = Auth::user()) {
+            $user->unreadNotifications->markAsRead();
+        }
+        $this->resetPage($this->pageName);
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Todas as notificações foram marcadas como lidas.',
+            'timer'    => 2000,
+        ]);
+
+        $this->emitSelf('refresh_list');
+    }
+
+    public function delete($id): void
+    {
+        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $user = Auth::user();
+        if (!$user || $id === '') {
+            return;
+        }
+
+        $notification = $user->notifications()->whereKey($id)->first()
+            ?: DatabaseNotification::query()
+                ->whereKey($id)
+                ->where('notifiable_id', $user->getKey())
+                ->where('notifiable_type', $user->getMorphClass())
+                ->first();
+
+        if (!$notification) {
+            return;
+        }
+
+        $notification->delete();
+
+        $this->resetPage($this->pageName);
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Notificação apagada!',
+            'timer'    => 1500,
+        ]);
+
+        $this->emitSelf('refresh_list');
+    }
+
+    public function delete_all(): void
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return;
+        }
+
+        $user->notifications()->delete();
+
+        $this->resetPage($this->pageName);
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Todas as notificações foram apagadas!',
+            'timer'    => 1800,
+        ]);
+
+        $this->emitSelf('refresh_list');
+    }
+
+
+    public function open($id)
+    {
+        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $user = Auth::user();
+        if (!$user || $id === '') {
+            return;
+        }
+
+        $notification = $user->notifications()->whereKey($id)->first()
+            ?: DatabaseNotification::query()
+                ->whereKey($id)
+                ->where('notifiable_id', $user->getKey())
+                ->where('notifiable_type', $user->getMorphClass())
+                ->first();
+
+        if (!$notification) {
+            return;
+        }
+
+        $notification->markAsRead();
+
+        $data = $notification->data;
+        // Download de arquivo (status=4)
+        if (($data['status'] ?? null) === 4 && !empty($data['link'])) {
+            $urlPath  = parse_url($data['link'], PHP_URL_PATH);
+            $filePath = str_replace('/storage/', '', $urlPath);
+
+            if (Storage::exists($filePath)) {
+                $fileName = basename($filePath);
+                return response()->streamDownload(function () use ($filePath) {
+                    echo Storage::get($filePath);
+                }, $fileName);
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Arquivo inexistente.',
+                'timer'    => 2000,
+            ]);
+            return;
+        }
+
+        // Link externo/rota
+        if (!empty($data['link'])) {
+            return redirect($data['link']);
+        }
+    }
+
+    public function render()
+    {
+        return view('livewire.components.notify.all-notifies', [
+            'notifies'    => $this->notifies,
+            'unreadTotal' => $this->unreadTotal,
+        ]);
+    }
+}

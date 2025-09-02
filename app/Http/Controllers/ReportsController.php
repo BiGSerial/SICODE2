@@ -38,4 +38,9 @@ class ReportsController extends Controller
     {
         return view('reports.lookatnote');
     }
+
+    public function equipments()
+    {
+        return view('reports.equipments_search');
+    }
 }

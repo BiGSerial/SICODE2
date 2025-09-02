@@ -1,4 +1,5 @@
 <div wire:poll.8s>
+    <x-show-loading target="readed" />
     <li class="nav-item dropdown mx-3" id="notification-dropdown">
         @php
             use Carbon\Carbon;
@@ -30,9 +31,7 @@
 
             @if ($notifies->isNotEmpty())
                 @foreach ($notifies->take($total_notifies) as $notify)
-                    @php
-                        $status = NotifyStatus::getStatus($notify->data['status'] ?? null);
-                    @endphp
+                    @php $status = NotifyStatus::getStatus($notify->data['status'] ?? null); @endphp
                     <li class="notification-item" style="{{ $notify->read_at ? 'background-color: #d3d3d3' : '' }}">
                         <a wire:key="{{ $notify->id }}" href="#"
                             wire:click.prevent="readed('{{ $notify->id }}')"
@@ -53,26 +52,17 @@
             @endif
 
             <li class="dropdown-footer">
-                <a href="#">Mostrar todas as Notificações</a>
+                <a href="#" wire:click.prevent="$emitTo('components.notify.all-notifies', 'openNotifies')">Mostrar
+                    todas as Notificações</a>
             </li>
         </ul><!-- End Notification Dropdown Items -->
     </li><!-- End Notification Nav -->
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.addEventListener('click', function(event) {
-                const dropdown = document.getElementById('notification-dropdown');
-                const dropdownMenu = document.getElementById('notification-menu');
+    {{-- ========= MODAL: TODAS AS NOTIFICAÇÕES (render no <body>) ========= --}}
+    {{-- @push('modals') --}}
 
-                if (dropdown && !dropdown.contains(event.target)) {
-                    const bsDropdown = bootstrap.Dropdown.getInstance(
-                        dropdown.querySelector('[data-bs-toggle="dropdown"]')
-                    );
-                    if (bsDropdown && dropdownMenu.classList.contains('show')) {
-                        bsDropdown.hide();
-                    }
-                }
-            });
-        });
-    </script>
+    {{-- @endpush --}}
+
+    {{-- Fechar dropdown ao clicar fora (mantido do seu código) + eventos para o modal --}}
+
 </div>

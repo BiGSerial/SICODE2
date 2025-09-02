@@ -133,6 +133,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
+    Route::get('/equipments', 'equipments')->name('equipments');
 });
 
 

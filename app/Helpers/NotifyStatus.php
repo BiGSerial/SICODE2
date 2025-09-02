@@ -59,6 +59,22 @@ class NotifyStatus
                     'bgcolor' => 'text-bg-danger'
                 ];
 
+            case 6:
+                return (object) [
+                    'status' => 'Mensagem',
+                    'icon' => 'bi bi-chat-dots',
+                    'color' => 'text-primary',
+                    'bgcolor' => 'text-bg-primary'
+                ];
+
+            case 7:
+                return (object) [
+                    'status' => 'Atribuição de Atividade',
+                    'icon' => 'bi bi-person-check',
+                    'color' => 'text-info',
+                    'bgcolor' => 'text-bg-info'
+                ];
+
             default:
                 return (object) [
                     'status' => 'Sem Status',

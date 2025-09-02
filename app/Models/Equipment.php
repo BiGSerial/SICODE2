@@ -18,6 +18,12 @@ class Equipment extends Model
         'installed'
     ];
 
+    protected $casts = [
+        'installed' => 'boolean',
+        'type' => 'string',
+        'patrimony' => 'string',
+    ];
+
     public function WorkReport()
     {
         return $this->belongsTo(WorkReport::class);

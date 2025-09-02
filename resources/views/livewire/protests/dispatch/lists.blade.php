@@ -91,18 +91,19 @@
     <div class="table-responsive bg-white shadow-sm rounded">
         <table class="table table-sm table-hover modern-table align-middle mb-0">
             <thead class="table-dark">
-                <tr class="align-middle">
+                <tr class="align-middle text-center">
                     <th style="width:15px;">M</th>
                     <th>Nota</th>
                     <th>Tipo</th>
-                    {{-- <th>Cod</th> --}}
+                    <th>Cod</th>
                     <th>TipoReclamação</th>
                     <th>CausaRaiz</th>
                     <th>Origem</th>
                     <th>Município</th>
                     <th>Abertura</th>
+                    <th>Tempo</th>
                     <th>Desejada</th>
-                    <th>Status</th>
+                    <th>Status Resposta</th>
                     <th style="width:48px;"></th>
                 </tr>
             </thead>
@@ -110,38 +111,42 @@
                 @php
                     use Carbon\Carbon;
 
-                    function getVencimentoStatus($vencimento): array
-                    {
-                        $vencimento = Carbon::parse($vencimento);
+                    if (!function_exists('getVencimentoStatus')) {
+                        function getVencimentoStatus($vencimento): array
+                        {
+                            $vencimento = Carbon::parse($vencimento);
 
-                        if ($vencimento->endOfDay()->isPast()) {
-                            return [
-                                'vencimento' => $vencimento->format('d/m/Y'),
-                                'color' => 'text-bg-danger',
-                                'text' => 'VENCIDO',
-                            ];
-                        } elseif ($vencimento->diffInDays() > 2) {
-                            return [
-                                'vencimento' => $vencimento->format('d/m/Y'),
-                                'color' => 'text-bg-success',
-                                'text' => 'NO PRAZO',
-                            ];
-                        } else {
-                            return [
-                                'vencimento' => $vencimento->format('d/m/Y'),
-                                'color' => 'text-bg-warning',
-                                'text' => 'VENCENDO',
-                            ];
+                            if ($vencimento->endOfDay()->isPast()) {
+                                return [
+                                    'vencimento' => $vencimento->format('d/m/Y'),
+                                    'color' => 'text-bg-danger',
+                                    'text' => 'VENCIDO',
+                                ];
+                            } elseif ($vencimento->diffInDays() > 2) {
+                                return [
+                                    'vencimento' => $vencimento->format('d/m/Y'),
+                                    'color' => 'text-bg-success',
+                                    'text' => 'NO PRAZO',
+                                ];
+                            } else {
+                                return [
+                                    'vencimento' => $vencimento->format('d/m/Y'),
+                                    'color' => 'text-bg-warning',
+                                    'text' => 'VENCENDO',
+                                ];
+                            }
                         }
                     }
 
-                    function extractOrigem($descricao)
-                    {
-                        $origem = explode('Tipo de Solicitante: ', $descricao);
-                        if (count($origem) <= 1) {
-                            $origem = explode('Nota de Atendimento ', $descricao);
+                    if (!function_exists('extractOrigem')) {
+                        function extractOrigem($descricao)
+                        {
+                            $origem = explode('Tipo de Solicitante: ', $descricao);
+                            if (count($origem) <= 1) {
+                                $origem = explode('Nota de Atendimento ', $descricao);
+                            }
+                            return count($origem) > 1 ? $origem[1] : $descricao;
                         }
-                        return count($origem) > 1 ? $origem[1] : $descricao;
                     }
 
                 @endphp
@@ -167,11 +172,12 @@
                         }
 
                         $due = getVencimentoStatus($list->vencimento);
+                        $abertura = getVencimentoStatus($list->abertura);
 
                     @endphp
 
                     <tr wire:key='list-{{ $list->id }}' wire:dblclick="goTo({{ $list->nota }})"
-                        class="align-middle">
+                        class="align-middle text-center">
                         <td class="{{ $color }}" style="width:15px;">
                             @if (!$medProtest?->completed && $medProtest?->needsConfirmation)
                                 <i class="ri-eye-line text-primary"></i>
@@ -182,8 +188,9 @@
                         <td class="{{ $color }}"><span
                                 class="badge text-bg-secondary opacity-50">{{ $list?->tipoNota }}</span>
                         </td>
-                        {{-- <td><span class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
-                        </td> --}}
+                        <td class="{{ $color }}"><span
+                                class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
+                        </td>
 
                         <td class="small {{ $color }}">{{ $medProtest?->txtCodCodificacao }}</td>
                         <td class="small {{ $color }}">{{ $medProtest?->txtCodMedida }}</td>
@@ -199,15 +206,19 @@
                             {{ $origem }}
                         </td>
 
-                        <td class="small {{ $color }}">{{ $list->cidade }}</td>
+                        <td class="small {{ $color }} ">{{ $list->cidade }}</td>
+                        <td class="{{ $color }} fs-6 fw-bold">{{ $abertura['vencimento'] }}</td>
+
+                        <td class="{{ $abertura['color'] }} text-center">
+                            {{ Carbon::parse($list->abertura)->startOfDay()->diffInDays(now()->startOfDay()) }}
+                        </td>
                         <td class="{{ $color }}"><span
-                                class="text-muted small">{{ $list->dtAberturaNota?->format('d/m/Y') }}</span></td>
-                        <td class="{{ $color }}"><span class="badge {{ $due['color'] }}">{{ $due['vencimento'] }}</span>
+                                class="badge {{ $due['color'] }}">{{ $due['vencimento'] }}</span>
                         </td>
 
                         @php
                             if (!$andamento) {
-                                $statusAndamento = 'Pendente';
+                                $statusAndamento = 'NA';
                                 $statusColor = 'secondary';
                             } elseif ($andamento->completed) {
                                 $statusAndamento = 'Concluído';
@@ -320,7 +331,7 @@
                 </div>
 
                 {{-- Timeline opcional (só exibe se tiver datas) --}}
-                @php
+                {{-- @php
                     $timeline = [
                         [
                             'icon' => 'ri-file-add-line',
@@ -347,7 +358,39 @@
                             </div>
                         @endif
                     @endforeach
-                </div>
+                </div> --}}
+
+                @if ($selected->medProtests->isNotEmpty())
+                    <div class="divider"></div>
+                    <h6 class="mb-3"><i class="ri-shield-check-line me-2"></i>Medidas</h6>
+                    <table class="table table-sm table-condensed table-striped">
+                        <tr class='text-center'>
+                            <th>Status</th>
+                            <th>Dt Abertura</th>
+                            <th>Desejada</th>
+                            <th>Responsável</th>
+                            <th>Enviado Em</th>
+                        </tr>
+                        @foreach ($selected->medProtests as $medida)
+                            <tr class="text-center align-middle">
+                                <td
+                                    class='@if ($medida->statusSist == 'MEDE') text-bg-secondary
+                                    @elseif($medida->statusSist == 'MEDA') text-bg-success @endif'>
+                                    {{ $medida->statusSist }}</td>
+                                <td>{{ $medida->dtCriacaoMedida?->format('d/m/Y') }}</td>
+                                <td>{{ $medida->dtFimMedidaDesej?->format('d/m/Y') }}</td>
+                                <td>{{ $medida->assignments?->where('user', true)->first()?->User?->name ?? '---' }}
+                                </td>
+                                <td>{{ $medida->assignments?->where('user', true)->first()?->created_at?->format('d/m/Y H:i') ?? '---' }}
+                                </td>
+                            </tr>
+                        @endforeach
+                    </table>
+                @else
+                    <div class="alert alert-info mt-3">
+                        <i class="ri-information-line me-1"></i> Nenhuma medida direcionada.
+                    </div>
+                @endif
             </div>
 
             <!-- Footer -->

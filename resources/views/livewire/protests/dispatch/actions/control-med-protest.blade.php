@@ -344,8 +344,8 @@
                                                                 <i class="ri-user-line text-primary"></i>
                                                                 <span class="fw-medium">{{ $user['name'] }}</span>
                                                                 <span
-                                                                    class="badge {{ $user['isEngineer'] ? 'bg-info' : 'bg-warning' }}">
-                                                                    {{ $user['isEngineer'] ? 'Engenheiro' : 'Responsável' }}
+                                                                    class="badge {{ $user['isEngineer'] ? 'bg-info' : 'bg-success' }}">
+                                                                    {{ $user['isEngineer'] ? 'Engenheiro' : 'Usuario' }}
                                                                 </span>
                                                                 <small class="text-muted">(Pendente)</small>
                                                             </div>

@@ -7,6 +7,7 @@ use App\Models\MedProtest;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\UserAssignment;
+use App\Notifications\SystemNotification;
 use Livewire\Component;
 
 class ControlMedProtest extends Component
@@ -113,6 +114,43 @@ class ControlMedProtest extends Component
                 'user_id' => auth()->id(),
             ]);
 
+
+
+            // Notificar usuários atribuídos, exceto o autor do comentário
+            if ($recipients = $this->modProtest->Assignments()
+            ->where('user_id', '!=', auth()->id())->get()) {
+
+
+
+                foreach ($recipients as $recipient) {
+
+                    if ($recipient->user) {
+                        if ($recipient->User?->onlyparner) {
+                            $link = route('protests.partner.view', $this->modProtest->id);
+                        } else {
+                            $link = route('protests.services.view', $this->modProtest->id);
+                        }
+                    } elseif ($recipient->monitoring) {
+                        $link = route('protests.services.view_only', $this->modProtest->id);
+                    } else {
+                        $link = route('protests.dispatch.view', $this->modProtest->protest?->nota);
+                    }
+
+                    $recipient->User?->notify(new SystemNotification(
+                        titulo: 'Novo comentário na Medida de Reclamação',
+                        mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->modProtest->protest?->nota.'.',
+                        link: $link, // ou outra rota que você tiver
+                        status: 6,
+                        extras: [
+                            'med_protest_id' => $this->modProtest->id,
+                            'commented_by'   => auth()->id(),
+                        ]
+                    ));
+                }
+            }
+
+
+
             $this->comment = '';
             $this->emit('refreshComponent');
 
@@ -187,8 +225,18 @@ class ControlMedProtest extends Component
     {
 
         // dd($this->selectedUser, $this->isEngineer);
+        $isUser = false;
 
-        if (empty($this->usersTemporarilyAssigned)) {
+        $existsUser = $this->modProtest->Assignments()
+            ->where('user', true)
+            ->exists();
+
+        if (!$this->isEngineer && $existsUser) {
+            $isUser = true;
+        }
+
+
+        if (empty($this->usersTemporarilyAssigned) && !$isUser) {
             $this->usersTemporarilyAssigned[] = [
                 'id'   => $this->selectedUser,
                 'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
@@ -199,12 +247,28 @@ class ControlMedProtest extends Component
                 return $user['id'] === $this->selectedUser;
             });
 
-            if (!$userExists) {
+            $hasNonEngineerUser = collect($this->usersTemporarilyAssigned)->contains(function ($user) {
+
+                return $user['isEngineer'] === false;
+            });
+
+            if (!$userExists && !$isUser && !($this->isEngineer === false && $hasNonEngineerUser)) {
                 $this->usersTemporarilyAssigned[] = [
                     'id'   => $this->selectedUser,
                     'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
                     'isEngineer' => $this->isEngineer,
                 ];
+            } else {
+                if ($isUser) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Apenas um usuário pode ser atribuído!',
+                        'timer'    => 2500,
+                    ]);
+
+                    return;
+                }
             }
         }
     }
@@ -225,12 +289,14 @@ class ControlMedProtest extends Component
 
         if ($userAssignment) {
 
-            $this->userAssignment = $userAssignment;
+            // dd($userAssignment);
+
+            $this->userAssignment = $userAssignment->load('user');
 
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'Remover Usuario?',
                 'msg'   => "
-                    Você deseja remover o usuário <strong>{$userAssignment->user->name}</strong> da atribuição?</br></br>
+                    Você deseja remover o usuário <strong>{$this->userAssignment->User->name}</strong> da atribuição?</br></br>
                 ",
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Remover!',
@@ -254,14 +320,16 @@ class ControlMedProtest extends Component
     {
         if ($this->userAssignment) {
             $this->userAssignment->delete();
-            $this->userAssignment = null;
+
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',
                 'menssage' => 'Usuário removido com sucesso!',
             ]);
 
-            $this->emit('refreshComponent');
+            $this->emitSelf('refreshComponent');
+
+            $this->userAssignment = null;
         } else {
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'danger',
@@ -285,20 +353,31 @@ class ControlMedProtest extends Component
         // $this->modProtest->needsConf irmation = $this->needsConfirmation;
         $this->modProtest->save();
 
-        $this->modProtest->Assignments()->updateOrCreate(
-            [
-                'user_id' => auth()->id(),
-                'assignable_id' => $this->modProtest->id,
-                'assignable_type' => MedProtest::class,
-            ],
-            [
-                'responsible' => true,
-                'started_at' => now(),
-            ]
-        );
+        if (!$this->modProtest->Assignments()->where('responsible', true)->exists()) {
+            $this->modProtest->Assignments()->updateOrCreate(
+                [
+                    'user_id' => auth()->id(),
+                    'assignable_id' => $this->modProtest->id,
+                    'assignable_type' => MedProtest::class,
+                ],
+                [
+                    'responsible' => true,
+                    'started_at' => now(),
+                ]
+            );
+        }
 
         foreach ($this->usersTemporarilyAssigned as $user) {
-            $this->modProtest->Assignments()->updateOrCreate(
+
+            $exists = $this->modProtest->Assignments()
+                ->where('user', true)
+                ->exists();
+
+            if ($exists && !$user['isEngineer']) {
+                continue;
+            }
+
+            $check = $this->modProtest->Assignments()->updateOrCreate(
                 [
                     'user_id' => $user['id'],
                     'assignable_id' => $this->modProtest->id,
@@ -310,6 +389,40 @@ class ControlMedProtest extends Component
                     'started_at' => now(),
                 ]
             );
+
+
+            if ($check->wasRecentlyCreated) {
+                $mensagek = [
+                    'link' => '',
+                    'message' => ''
+                ];
+                if ($check->user) {
+                    if ($check->User?->onlyparner) {
+                        $mensagek['link'] = route('protests.partner.view', $this->modProtest->id);
+                        $mensagek['message'] = 'Você foi atribuído a uma nova medida da reclamação com responsável '.$this->modProtest->protest?->nota.'.';
+                    } else {
+                        $mensagek['link'] = route('protests.services.view', $this->modProtest->id);
+                        $mensagek['message'] = 'Você foi atribuído a uma nova medida da reclamação com responsável '.$this->modProtest->protest?->nota.'.';
+                    }
+                } elseif ($check->monitoring) {
+                    $mensagek['link'] = route('protests.services.view_only', $this->modProtest->id);
+                    $mensagek['message'] = 'Você foi atribuído a uma nova medida da reclamação acompanhamento '.$this->modProtest->protest?->nota.'.';
+                } else {
+                    $mensagek['link'] = route('protests.dispatch.view', $this->modProtest->protest?->nota);
+                }
+
+                $check->User?->notify(new SystemNotification(
+                    titulo: 'Nova Medida Atribuída',
+                    mensagem: $mensagek['message'],
+                    link: $mensagek['link'], // ou outra rota que você tiver
+                    status: 7,
+                    extras: [
+                        'med_protest_id' => $this->modProtest->id,
+                        'commented_by'   => auth()->id(),
+                    ]
+                ));
+            }
+
         }
 
         $this->dispatchBrowserEvent('torrada', [
