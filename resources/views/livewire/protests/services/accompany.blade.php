@@ -29,6 +29,35 @@
                             @php
                                 $responsible = $item->Assignments->where('responsible', true)->last();
                                 $usuario = $item->Assignments->where('user', true)->last();
+
+                                $user = $item->Assignments->where('user', true)->last();
+                                $status = $status = [
+                                    'class' => '',
+                                    'message' => '',
+                                    'days' => '',
+                                ];
+                                if ($days = $user?->started_at->startOfDay()->diffInDays()) {
+                                    if ($days > 5) {
+                                        $status = [
+                                            'class' => 'text-bg-danger',
+                                            'message' => 'VENCIDO',
+                                            'days' => $days,
+                                        ];
+                                    } elseif ($days < 2 || $days == 0) {
+                                        $status = [
+                                            'class' => 'text-bg-success',
+                                            'message' => 'PRAZO',
+                                            'days' => $days,
+                                        ];
+                                    } else {
+                                        $status = [
+                                            'class' => 'text-bg-warning',
+                                            'message' => 'VENCENDO',
+                                            'days' => $days,
+                                        ];
+                                    }
+                                }
+
                             @endphp
                             <tr class="text-center align-middle">
 
@@ -42,9 +71,10 @@
                                 </td>
                                 <td>{{ $responsible?->User->name }}</td>
                                 <td>{{ $usuario?->User->name }}</td>
-                                <td class="fw-bold">
+                                <td class="fw-bold {{ $status['class'] }}">
                                     <p class="my-0 py-0">{{ $usuario?->started_at->format('d/m/Y H:i') }}</p>
-                                    <p class="my-0 py-0">{{ $usuario?->started_at->diffInDays() }} dias</p>
+                                    <p class="my-0 py-0">{{ $usuario?->started_at->startOfDay()->diffInDays() }} dias
+                                    </p>
                                 </td>
                                 <td>{{ $item->comments->isNotEmpty() ? $item->comments->first()->message : 'SEM OBSERVAÇÃO' }}
                                 </td>

@@ -17,6 +17,8 @@
                             <th class="col-1">Conclusão Desejada</th>
                             <th class="col-1">Data da Medida</th>
                             <th class="col-1">Note Ref</th>
+                            <th class="col-1">Enviado Em</th>
+                            <th class="col-1">Dias Atv</th>
                             <th class="col-1">Enviado Por:</th>
                             <th class="col">Obs:</th>
                             <th class="col-1"></th>
@@ -24,6 +26,35 @@
                     </thead>
                     <tbody>
                         @foreach ($list as $item)
+                            @php
+                                $user = $item->Assignments->where('user_id', Auth::id())->first();
+                                $status = $status = [
+                                    'class' => '',
+                                    'message' => '',
+                                    'days' => '',
+                                ];
+                                if ($days = $user?->started_at->startOfDay()->diffInDays()) {
+                                    if ($days > 5) {
+                                        $status = [
+                                            'class' => 'text-bg-danger',
+                                            'message' => 'VENCIDO',
+                                            'days' => $days,
+                                        ];
+                                    } elseif ($days < 2 || $days == 0) {
+                                        $status = [
+                                            'class' => 'text-bg-success',
+                                            'message' => 'PRAZO',
+                                            'days' => $days,
+                                        ];
+                                    } else {
+                                        $status = [
+                                            'class' => 'text-bg-warning',
+                                            'message' => 'VENCENDO',
+                                            'days' => $days,
+                                        ];
+                                    }
+                                }
+                            @endphp
                             <tr class="text-center align-middle">
 
                                 <td>{{ $item->protest->nota }}</td>
@@ -34,6 +65,10 @@
                                 <td class="fw-bold">{{ $item->dtCriacaoMedida?->format('d/m/Y') }}</td>
                                 <td>{{ $item->Notes->isNotEmpty() ? $item->Notes?->last()?->note : 'SEM NOTA REFERÊNCIA' }}
                                 </td>
+                                <td class="fw-bold text-primary">{{ $user?->started_at->format('d/m/Y H:i') }}</td>
+                                <td class="{{ $status['class'] }}">
+                                    {{ $user?->started_at->startOfDay()->diffInDays() }}</td>
+
                                 <td>{{ $item->Assignments->where('responsible', true)->first()?->User->name }}</td>
                                 <td>{{ $item->comments->isNotEmpty() ? $item->comments->first()->message : 'SEM OBSERVAÇÃO' }}
                                 </td>

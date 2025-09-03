@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Concerns\{
     WithEvents, WithChunkReading, ShouldAutoSize
 };
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithProperties, WithEvents, WithChunkReading, ShouldAutoSize
 {
@@ -88,8 +89,19 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
         // --- Colunas de D5 ---
         $fn        = $list->FiveNote;
         $hasD5     = $fn ? 'SIM' : 'NÃO';
-        $numberD5  = $fn && !empty($fn->note_d5) ? (string)$fn->note_d5 : 'Gerar D5';
-        if (!$hasD5) {
+        $numberD5  = (string) $fn?->note_d5;
+
+        if ($fn && $hasD5) {
+            if (!$fn->is_supervisioned) {
+                $statusD5 = 'Gerar D5';
+            } else {
+                $statusD5 = 'Finalizar D5';
+            }
+        } else {
+            $statusD5 = '---';
+        }
+
+        if (!$fn) {
             $numberD5 = '-';
         }
 
@@ -114,6 +126,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $lastProd ? Notestatus::status($lastProd?->status)->status : '---',
             $hasD5,
             $numberD5,
+            $statusD5,
         ];
     }
 
@@ -140,6 +153,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             'Status Production',
             'Possui D5',
             'Número D5',
+            'Status D5',
         ];
     }
 
@@ -173,6 +187,10 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
                         'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                         'startColor' => ['rgb' => '0000FF'],
                     ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical'   => Alignment::VERTICAL_CENTER,
+                    ],
                 ]);
 
                 // Larguras dinâmicas
@@ -181,10 +199,13 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
                 }
                 $sheet->getColumnDimension($highestColumn)->setWidth(15);
 
-                // Quebra de linha nas células (linhas de dados)
+                // Quebra de linha nas células (linhas de dados) e centralização
                 if ($highestRow > 1) {
                     $sheet->getStyle("A2:{$highestColumn}{$highestRow}")
-                        ->getAlignment()->setWrapText(true);
+                        ->getAlignment()
+                        ->setWrapText(true)
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                        ->setVertical(Alignment::VERTICAL_CENTER);
                 }
 
                 // Formatação de números inteiros para Nota (A) e Ordem (C)

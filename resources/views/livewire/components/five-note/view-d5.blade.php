@@ -6,7 +6,8 @@
                 <div class="modal-header fivefx-header">
                     <h6 class="modal-title">
                         <i class="ri-check-double-line me-1"></i>
-                        Finalizar atividade
+                        IFORMAÇÕES
+                        {{-- Mostra o número da D5 se existir --}}
                         @if (!empty($five))
                             <span class="fivefx-pill ms-2">D5: {{ $five?->note_d5 ?? '—' }}</span>
                         @endif

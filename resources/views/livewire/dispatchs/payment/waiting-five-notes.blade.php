@@ -74,10 +74,10 @@
             NOTAS D5 AGUARDANDO
         </h5>
 
-        <button wire:click="exportToExcel" class="btn btn-success btn-sm">
+        {{-- <button wire:click="exportToExcel" class="btn btn-success btn-sm">
             <i class="ri-file-excel-2-line me-1"></i>
             Exportar Excel
-        </button>
+        </button> --}}
     </div>
 
     @if (!empty($lists) && $lists->count() > 0)
@@ -91,7 +91,7 @@
         </div>
         {{-- Tabela compacta --}}
         <div class="table-responsive bg-white shadow-sm rounded">
-            <table class="table table-sm table-hover modern-table align-middle mb-0">
+            <table class="table table-sm table-hover table-striped modern-table align-middle mb-0">
                 <thead class="table-dark">
                     <tr class="align-middle text-center">
                         <th style="width:15px;"> <input class="form-check-input" type="checkbox" wire:model="selectall"
@@ -115,7 +115,9 @@
                 <tbody>
 
                     @forelse ($lists as $list)
-                        <tr class="text-center">
+                        <tr class="text-center {{ $list->is_supervisioned ? 'table-success' : '' }}"
+                            wire:dblclick="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})"
+                            style="cursor: pointer;">
                             <td><input class="form-check-input border border-1 border-primary " type="checkbox"
                                     value="{{ $list->id }}" wire:model.defer="selected">
                             </td>
@@ -126,9 +128,9 @@
                             <td>{{ $list->codify }}</td>
                             <td>{{ $list->dispatch_at?->format('d/m/Y H:i') }}</td>
                             <td>{{ $list->dispatch_at?->diffInDays() }}</td>
-                            <td>{{ $list->completed_at?->format('d/m/Y H:i') ?? 'EM ANDAMENTO' }}</td>
+                            <td>{!! $list->completed_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">EM ANDAMENTO</span>' !!}</td>
                             <td>{{ $list->payed_at?->format('d/m/Y H:i') ?? 'NÃO PAGO' }}</td>
-                            <td>{{ $list->fiscalizado_em?->format('d/m/Y H:i') ?? 'NÃO FISCALIZADO' }}</td>
+                            <td class="fw-bold">{!! $list->fiscalizado_em?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">NÃO FISCALIZADO</span>' !!}</td>
                             <td></td>
                         </tr>
                     @empty
@@ -309,258 +311,260 @@
         </div>
     </div>
 
-</div>
+    {{-- Modals --}}
+    @livewire('components.five-note.view-d5', key('five-note'))
 
-<style>
-    .modern-table th,
-    .modern-table td {
-        font-size: 0.98em;
-        vertical-align: middle;
-        padding: .40em .75em !important;
-    }
+    <style>
+        .modern-table th,
+        .modern-table td {
+            font-size: 0.98em;
+            vertical-align: middle;
+            padding: .40em .75em !important;
+        }
 
-    .modern-table .badge {
-        font-size: 1em;
-        padding: .36em 1.2em;
-        letter-spacing: .03em;
-    }
+        .modern-table .badge {
+            font-size: 1em;
+            padding: .36em 1.2em;
+            letter-spacing: .03em;
+        }
 
-    .details-drawer {
-        position: fixed;
-        top: 0;
-        right: 0;
-        height: 100vh;
-        width: 400px;
-        background: #fff;
-        border-left: 1px solid #eee;
-        z-index: 1201;
-        padding: 2rem 1.5rem 1rem 2rem;
-        box-shadow: -2px 0 18px rgba(0, 0, 0, 0.10);
-        animation: slideInDrawer .21s cubic-bezier(.6, -0.28, .74, .05);
-    }
+        .details-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 400px;
+            background: #fff;
+            border-left: 1px solid #eee;
+            z-index: 1201;
+            padding: 2rem 1.5rem 1rem 2rem;
+            box-shadow: -2px 0 18px rgba(0, 0, 0, 0.10);
+            animation: slideInDrawer .21s cubic-bezier(.6, -0.28, .74, .05);
+        }
 
-    /* --- Drawer Moderno --- */
-    .details-drawer--modern {
-        background: #ffffff;
-        border-left: 0;
-        width: 460px;
-        padding: 0;
-        overflow: hidden;
-        border-radius: 16px 0 0 16px;
-        box-shadow: -8px 0 28px rgba(0, 0, 0, .12);
-        backdrop-filter: saturate(1.2) blur(6px);
-    }
-
-    @media (max-width: 900px) {
+        /* --- Drawer Moderno --- */
         .details-drawer--modern {
-            width: 100vw;
-            border-radius: 0;
+            background: #ffffff;
+            border-left: 0;
+            width: 460px;
+            padding: 0;
+            overflow: hidden;
+            border-radius: 16px 0 0 16px;
+            box-shadow: -8px 0 28px rgba(0, 0, 0, .12);
+            backdrop-filter: saturate(1.2) blur(6px);
         }
-    }
 
-    /* Header com gradiente e blur */
-    .details-drawer--modern .drawer-header {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: linear-gradient(135deg, #0d6efd 0%, #4f8cff 100%);
-        color: #fff;
-        padding: 1rem 1.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 4px 16px rgba(13, 110, 253, .2);
-    }
+        @media (max-width: 900px) {
+            .details-drawer--modern {
+                width: 100vw;
+                border-radius: 0;
+            }
+        }
 
-    .details-drawer--modern .drawer-title {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-    }
+        /* Header com gradiente e blur */
+        .details-drawer--modern .drawer-header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(135deg, #0d6efd 0%, #4f8cff 100%);
+            color: #fff;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 16px rgba(13, 110, 253, .2);
+        }
 
-    .details-drawer--modern .drawer-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, .15);
-        display: grid;
-        place-items: center;
-        font-size: 1.2rem;
-    }
+        .details-drawer--modern .drawer-title {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
 
-    /* Botão fechar */
-    .details-drawer--modern .drawer-close {
-        background: rgba(255, 255, 255, .15);
-        border: 0;
-        color: #fff;
-        transition: transform .15s ease, background .15s ease;
-    }
+        .details-drawer--modern .drawer-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .15);
+            display: grid;
+            place-items: center;
+            font-size: 1.2rem;
+        }
 
-    .details-drawer--modern .drawer-close:hover {
-        transform: rotate(90deg) scale(1.05);
-        background: rgba(255, 255, 255, .25);
-    }
+        /* Botão fechar */
+        .details-drawer--modern .drawer-close {
+            background: rgba(255, 255, 255, .15);
+            border: 0;
+            color: #fff;
+            transition: transform .15s ease, background .15s ease;
+        }
 
-    /* Faixa de status + chips */
-    .details-drawer--modern .drawer-strip {
-        padding: .75rem 1.25rem;
-        background: linear-gradient(180deg, rgba(13, 110, 253, .06), rgba(13, 110, 253, 0));
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-        flex-wrap: wrap;
-    }
+        .details-drawer--modern .drawer-close:hover {
+            transform: rotate(90deg) scale(1.05);
+            background: rgba(255, 255, 255, .25);
+        }
 
-    .details-drawer--modern .chip {
-        font-size: .82rem;
-        background: #f1f5ff;
-        color: #2752d3;
-        border: 1px solid #e3ebff;
-        padding: .25rem .6rem;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-    }
+        /* Faixa de status + chips */
+        .details-drawer--modern .drawer-strip {
+            padding: .75rem 1.25rem;
+            background: linear-gradient(180deg, rgba(13, 110, 253, .06), rgba(13, 110, 253, 0));
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex-wrap: wrap;
+        }
 
-    /* Conteúdo rolável */
-    .details-drawer--modern .drawer-content {
-        height: calc(100vh - 176px);
-        /* header + strip + footer */
-        overflow-y: auto;
-        padding: 1.25rem 1.25rem 1rem;
-        scrollbar-width: thin;
-        scrollbar-color: #b8c9ff transparent;
-    }
+        .details-drawer--modern .chip {
+            font-size: .82rem;
+            background: #f1f5ff;
+            color: #2752d3;
+            border: 1px solid #e3ebff;
+            padding: .25rem .6rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+        }
 
-    .details-drawer--modern .drawer-content::-webkit-scrollbar {
-        width: 6px;
-    }
+        /* Conteúdo rolável */
+        .details-drawer--modern .drawer-content {
+            height: calc(100vh - 176px);
+            /* header + strip + footer */
+            overflow-y: auto;
+            padding: 1.25rem 1.25rem 1rem;
+            scrollbar-width: thin;
+            scrollbar-color: #b8c9ff transparent;
+        }
 
-    .details-drawer--modern .drawer-content::-webkit-scrollbar-thumb {
-        background: #b8c9ff;
-        border-radius: 3px;
-    }
+        .details-drawer--modern .drawer-content::-webkit-scrollbar {
+            width: 6px;
+        }
 
-    /* Grid de infos */
-    .details-drawer--modern .info-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .75rem;
-    }
+        .details-drawer--modern .drawer-content::-webkit-scrollbar-thumb {
+            background: #b8c9ff;
+            border-radius: 3px;
+        }
 
-    @media (max-width: 480px) {
+        /* Grid de infos */
         .details-drawer--modern .info-grid {
-            grid-template-columns: 1fr;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
         }
-    }
 
-    .details-drawer--modern .info-card {
-        border: 1px solid #eef1f6;
-        border-radius: 12px;
-        padding: .75rem .9rem;
-        background: #fff;
-        transition: box-shadow .15s ease, transform .15s ease;
-    }
+        @media (max-width: 480px) {
+            .details-drawer--modern .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
-    .details-drawer--modern .info-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
-    }
+        .details-drawer--modern .info-card {
+            border: 1px solid #eef1f6;
+            border-radius: 12px;
+            padding: .75rem .9rem;
+            background: #fff;
+            transition: box-shadow .15s ease, transform .15s ease;
+        }
 
-    .details-drawer--modern .info-label {
-        font-size: .78rem;
-        color: #6b7a90;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
+        .details-drawer--modern .info-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
+        }
 
-    .details-drawer--modern .info-value {
-        font-weight: 600;
-        color: #2a2f3a;
-        margin-top: .15rem;
-    }
+        .details-drawer--modern .info-label {
+            font-size: .78rem;
+            color: #6b7a90;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
 
-    /* Descrição */
-    .details-drawer--modern .desc-block .desc-title {
-        font-weight: 700;
-        color: #334155;
-        margin-bottom: .4rem;
-        display: flex;
-        align-items: center;
-    }
+        .details-drawer--modern .info-value {
+            font-weight: 600;
+            color: #2a2f3a;
+            margin-top: .15rem;
+        }
 
-    .details-drawer--modern .desc-block p {
-        background: #f8fafc;
-        border: 1px dashed #e5e7eb;
-        border-radius: 12px;
-        padding: .75rem .9rem;
-    }
+        /* Descrição */
+        .details-drawer--modern .desc-block .desc-title {
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: .4rem;
+            display: flex;
+            align-items: center;
+        }
 
-    /* Timeline */
-    .details-drawer--modern .timeline {
-        position: relative;
-        margin-top: .5rem;
-        padding-left: .75rem;
-    }
+        .details-drawer--modern .desc-block p {
+            background: #f8fafc;
+            border: 1px dashed #e5e7eb;
+            border-radius: 12px;
+            padding: .75rem .9rem;
+        }
 
-    .details-drawer--modern .timeline:before {
-        content: '';
-        position: absolute;
-        left: 10px;
-        top: 6px;
-        bottom: 6px;
-        width: 2px;
-        background: #e6ebff;
-    }
+        /* Timeline */
+        .details-drawer--modern .timeline {
+            position: relative;
+            margin-top: .5rem;
+            padding-left: .75rem;
+        }
 
-    .details-drawer--modern .timeline-item {
-        display: flex;
-        gap: .75rem;
-        position: relative;
-        margin-bottom: .75rem;
-    }
+        .details-drawer--modern .timeline:before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 6px;
+            bottom: 6px;
+            width: 2px;
+            background: #e6ebff;
+        }
 
-    .details-drawer--modern .timeline-dot {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: #eaf0ff;
-        color: #345bff;
-        display: grid;
-        place-items: center;
-        z-index: 1;
-        border: 2px solid #fff;
-        box-shadow: 0 0 0 2px #e6ebff;
-    }
+        .details-drawer--modern .timeline-item {
+            display: flex;
+            gap: .75rem;
+            position: relative;
+            margin-bottom: .75rem;
+        }
 
-    .details-drawer--modern .timeline-content .timeline-label {
-        font-size: .82rem;
-        color: #64748b;
-        margin-bottom: .1rem;
-    }
+        .details-drawer--modern .timeline-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #eaf0ff;
+            color: #345bff;
+            display: grid;
+            place-items: center;
+            z-index: 1;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 2px #e6ebff;
+        }
 
-    .details-drawer--modern .timeline-date {
-        font-weight: 600;
-        color: #1f2937;
-    }
+        .details-drawer--modern .timeline-content .timeline-label {
+            font-size: .82rem;
+            color: #64748b;
+            margin-bottom: .1rem;
+        }
 
-    /* Footer fixo */
-    .details-drawer--modern .drawer-footer {
-        position: sticky;
-        bottom: 0;
-        background: linear-gradient(0deg, #ffffff 80%, rgba(255, 255, 255, 0));
-        padding: .9rem 1.25rem 1.1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: .75rem;
-        border-top: 1px solid #eef1f6;
-    }
+        .details-drawer--modern .timeline-date {
+            font-weight: 600;
+            color: #1f2937;
+        }
 
-    /* Divider suave */
-    .details-drawer--modern .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #eef1f6, transparent);
-        margin: .9rem 0 1rem;
-    }
-</style>
+        /* Footer fixo */
+        .details-drawer--modern .drawer-footer {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(0deg, #ffffff 80%, rgba(255, 255, 255, 0));
+            padding: .9rem 1.25rem 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: .75rem;
+            border-top: 1px solid #eef1f6;
+        }
+
+        /* Divider suave */
+        .details-drawer--modern .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #eef1f6, transparent);
+            margin: .9rem 0 1rem;
+        }
+    </style>
+</div>

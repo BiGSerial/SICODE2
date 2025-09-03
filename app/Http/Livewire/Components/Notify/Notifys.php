@@ -72,7 +72,7 @@ class Notifys extends Component
     {
 
         $notification = Auth::user()->notifications()->find($id);
-        dd($notification);
+      
         if ($notification) {
             $notification->delete();
             $this->resetPage($this->paginationName);
