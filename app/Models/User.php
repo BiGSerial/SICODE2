@@ -46,6 +46,7 @@ class User extends Authenticatable
         'company_id',
         'responsible',
         'btzero',
+        'can_dispatch',
     ];
 
     /**
