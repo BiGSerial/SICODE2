@@ -156,6 +156,12 @@
                                         <label class="form-check-label" for="empreiteira">Empreiteira (Visão
                                             Exclusiva)</label>
                                     </div>
+
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="dispatch"
+                                            wire:model="user.can_dispatch" value="1">
+                                        <label class="form-check-label" for="dispatch">Pode Despachar</label>
+                                    </div>
                                 </div>
                             </div>
                         </div>

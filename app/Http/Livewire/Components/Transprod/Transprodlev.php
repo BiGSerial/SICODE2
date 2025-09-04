@@ -3,6 +3,8 @@
 namespace App\Http\Livewire\Components\Transprod;
 
 use App\Models\{Notify, Prodtransfer, Production, User};
+use App\Notifications\SystemNotification;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Transprodlev extends Component
@@ -77,6 +79,9 @@ class Transprodlev extends Component
             return;
         }
 
+
+        DB::beginTransaction();
+
         try {
             $transfer = Prodtransfer::create([
                 'production_id' => $this->production->id,
@@ -95,13 +100,44 @@ class Transprodlev extends Component
                 'status'    => 19,
             ]);
 
-            Notify::create([
-                'user_id' => $transfer->to,
-                'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
-                'info'    => 'O usuário ' . Auth()->User()->name . ' deseja transferir para você a nota/ov ' . $this->production->Note->note . ' em ' . $this->production->Service->service,
-                'status'  => 3,
-                'link'    => $url,
-            ]);
+            $user = User::find($this->user_transfer_id);
+            $note = $this->production->Note->note;
+            $dispatcher = $this->production->Dispatcher;
+            $link = route('services.accompany', ['service' => $this->production->service_id]);
+
+
+
+            if ($user) {
+                $user->notify(new SystemNotification(
+                    titulo: 'NOVA INTENÇÃO DE TRANSFERÊNCIA DE PRODUÇÃO',
+                    mensagem: "Você recebeu uma nova transferência de produção de <strong>" . Auth()->User()->name . " em " . $this->production->Service->service . "</strong> para a obra <strong>" . $note . "</strong>.",
+                    link: $link,
+                    status: 3,
+                    extras: []
+                ));
+            } else {
+                throw new \Exception('Usuário não encontrado para transferência');
+            }
+
+            $link = route('dispatch.transprod', ['service' => $this->production->service_id]);
+
+            if ($dispatcher) {
+                $dispatcher->notify(new SystemNotification(
+                    titulo: 'NOVA INTENÇÃO DE TRANSFERÊNCIA DE PRODUÇÃO',
+                    mensagem: "Ha uma nova transferência de produção entre <strong>" . Auth()->User()->name . "</strong> e <strong>" . $user?->name . "</strong> para a obra <strong>" . $note . "</strong>.",
+                    link: $link,
+                    status: 3,
+                    extras: []
+                ));
+            }
+
+            // Notify::create([
+            //     'user_id' => $transfer->to,
+            //     'title'   => 'TRANSFERÊNCIA PRODUÇÃO',
+            //     'info'    => 'O usuário ' . Auth()->User()->name . ' deseja transferir para você a nota/ov ' . $this->production->Note->note . ' em ' . $this->production->Service->service,
+            //     'status'  => 3,
+            //     'link'    => $url,
+            // ]);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -110,9 +146,14 @@ class Transprodlev extends Component
                 'timer'    => 2500,
             ]);
 
+            DB::commit();
+
             $this->close();
 
         } catch (\Throwable $th) {
+
+            DB::rollBack();
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',

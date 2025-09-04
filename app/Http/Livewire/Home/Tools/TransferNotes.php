@@ -61,24 +61,31 @@ class TransferNotes extends Component
                     'company_id' => auth()->user()->company_id,
                     'nstats' => 2,
                     'block' => false,
+                    'wpa_block' => false,
                     'att_by' => $transfer->from,
                     'att_at' => now(),
                     'transferred' => true,
                 ]);
 
-                DB::commit();
+
 
                 $user = User::find($transfer->from);
                 $userName = auth()->User()->name;
+                $link = route('services.accompany', ['service' => $transfer->service_id]);
+
                 if ($user) {
+
                     $user->notify(new SystemNotification(
-                        'Transferência Aceita',
-                        "A transferência de produção <strong>{$transfer->Production->Note->note}</strong> em <strong>{$transfer->Service->service}</strong> foi aceita por <strong>{$userName}</strong>.",
-                        '',
-                        1,
-                        []
+                        titulo: 'Transferência Aceita',
+                        mensagem: "A transferência de produção <strong>{$transfer->Production->Note->note}</strong> em <strong>{$transfer->Service->service}</strong> foi aceita por <strong>{$userName}</strong>.",
+                        link: $link, // ou outra rota que você tiver
+                        status: 1,
+                        extras: []
                     ));
+
                 }
+
+                DB::commit();
 
                 $this->toUpdateIdCount();
 
@@ -109,15 +116,20 @@ class TransferNotes extends Component
 
                 $user = User::find($transfer->from);
                 $userName = auth()->User()->name;
+                $link = route('services.accompany', ['service' => $transfer->service_id]);
+
                 if ($user) {
+
                     $user->notify(new SystemNotification(
-                        'Transferência Rejeitada',
-                        "A transferência de produção <strong>{$transfer->Production->Note->note}</strong> em <strong>{$transfer->Service->service}</strong> foi rejeitada por <strong>{$userName}</strong>.",
-                        '',
-                        0,
-                        []
+                        titulo: 'Transferência Rejeitada',
+                        mensagem: "A transferência de produção <strong>{$transfer->Production->Note->note}</strong> em <strong>{$transfer->Service->service}</strong> foi rejeitada por <strong>{$userName}</strong>.",
+                        link: $link, // ou outra rota que você tiver
+                        status: 0,
+                        extras: []
                     ));
+
                 }
+
 
                 $this->toUpdateIdCount();
 

@@ -269,20 +269,34 @@ class View extends Component
             'message' => $this->comment,
         ]);
 
-        if ($responsible = $this->medProtest->Assignments()
-            ->where('user', false)
-            ->where('responsible', true)
-            ->first()?->User) {
-            $responsible->notify(new SystemNotification(
-                titulo: 'Novo comentário na Medida de Reclamação',
-                mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->medProtest->protest?->nota.'.',
-                link: route('protests.dispatch.view', $this->medProtest->protest?->nota), // ou outra rota que você tiver
-                status: 6,
-                extras: [
-                'med_protest_id' => $this->medProtest->id,
-                'commented_by'   => auth()->id(),
-                ]
-            ));
+        if ($recipients = $this->medProtest->Assignments()
+            ->where('user_id', '!=', auth()->id())->get()) {
+
+            foreach ($recipients as $recipient) {
+
+                if ($recipient->user) {
+                    if ($recipient->User?->onlyparner) {
+                        $link = route('protests.partner.view', $this->medProtest->id);
+                    } else {
+                        $link = route('protests.services.view', $this->medProtest->id);
+                    }
+                } elseif ($recipient->monitoring) {
+                    $link = route('protests.services.view_only', $this->medProtest->id);
+                } else {
+                    $link = route('protests.dispatch.view', $this->medProtest->protest?->nota);
+                }
+
+                $recipient->User?->notify(new SystemNotification(
+                    titulo: 'Novo comentário na Medida de Reclamação',
+                    mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->medProtest->protest?->nota.'.',
+                    link: $link, // ou outra rota que você tiver
+                    status: 6,
+                    extras: [
+                        'med_protest_id' => $this->medProtest->id,
+                        'commented_by'   => auth()->id(),
+                    ]
+                ));
+            }
         }
 
         $this->comment = '';

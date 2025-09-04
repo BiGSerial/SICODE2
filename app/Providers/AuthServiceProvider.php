@@ -32,6 +32,7 @@ class AuthServiceProvider extends ServiceProvider
             'user' => 'Você precisa ser Usuário para acessar',
             'responsible' => 'Você precisa ser Usuário Responsável para acessar',
             'btzero' => 'Você precisa ser Usuario Btzero para acessar',
+            'can_dispatch' => 'Você precisa ser Usuário com permissão de despacho para acessar'
         ];
 
         foreach ($roles as $role => $message) {

@@ -258,6 +258,7 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
         Route::get('/view/{protest}', 'dispatch_view')->name('view');
         Route::get('/view_only/{protest}', 'dispatch_view_only')->name('view_only');
         Route::get('/closeds', 'dispatch_closeds')->name('closeds');
+        Route::get('/config_users', 'dispatch_config_users')->name('config_users');
     });
 
     Route::prefix('/partner')->name('partner.')->group(function () {

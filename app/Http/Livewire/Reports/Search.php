@@ -47,10 +47,11 @@ class Search extends Component
     {
         return Note::where(function ($q) {
             $q->where('note', trim($this->search))
-                ->orWhereRelation('Orders', 'ordem', trim($this->search));
+                ->orWhereRelation('Orders', 'ordem', trim($this->search))
+                ->orWhereRelation('FiveNote', 'note_d5', trim($this->search));
         })->with(['Productions' => function ($query) {
             $query->where('rejected', false);
-        }])->first();
+        }, 'FiveNote', 'Files'])->first();
     }
 
     public function downloadFile(File $file)

@@ -129,7 +129,10 @@ class User extends Authenticatable
     }
 
 
-
+    public function UserProtest()
+    {
+        return $this->hasOne(ProtestUser::class);
+    }
 
     // Readeable Messages
 

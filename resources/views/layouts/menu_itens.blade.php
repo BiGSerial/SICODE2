@@ -68,7 +68,7 @@
     @livewire('components.count.protest.has-protests', key('menu_protests'))
     <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom"
         style="background-color: #dbd8d8">
-        @can('operator')
+        @can('can_dispatch')
             @once
                 <li style="background-color: #ffffff; color: white;">
                     <h6 class="dropdown-header">DESPACHOS</h6>
@@ -360,5 +360,3 @@
     </ul>
 
 </li>
-
-

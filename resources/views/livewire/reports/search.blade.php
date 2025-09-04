@@ -96,6 +96,20 @@
                             <dd class="col-sm-8 text-white text-uppercase">
                                 {{ $lists->txpriority ? $lists->txpriority : '---' }}
                             </dd>
+
+                            @if ($lists->FiveNote)
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
+                                <dd class="col-sm-8 text-white text-uppercase"
+                                    wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $lists->FiveNote->id }})"
+                                    style="cursor: pointer;">
+                                    {{ $lists->FiveNote->note_d5 }} <i class="ri-eye-line me-1"></i>
+                                </dd>
+                            @else
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">
+                                    ---
+                                </dd>
+                            @endif
                         </dl>
 
                         {{-- Ordens e Operações --}}
@@ -742,4 +756,5 @@
     @livewire('partner.show.show-partial-info', key('partial_info'))
     @livewire('components.workform.view-reason-return', key('WorkReturnsReason'))
     @livewire('components.ramalform.view-reason-return', key('RamalReturnsReason'))
+    @livewire('components.five-note.view-d5', key('view_d5'))
 </div>

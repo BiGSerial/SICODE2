@@ -64,6 +64,7 @@ class Usuario extends Component
         'user.contract' => 'boolean',
         'user.responsible' => 'boolean',
         'user.btzero' => 'boolean',
+        'user.can_dispatch' => 'boolean',
         'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 

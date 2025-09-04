@@ -99,6 +99,7 @@
                 <input wire:model.defer="user" class="form-check-input" type="checkbox" id="user">
                 <label class="form-check-label" for="user">Usuário</label>
             </div>
+
         @endif
 
         @can('superadm')
@@ -114,6 +115,10 @@
             <div class="form-check form-check-inline">
                 <input wire:model.defer="onlyparner" class="form-check-input" type="checkbox" id="user">
                 <label class="form-check-label" for="user">Empreitera</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input wire:model.defer="can_dispatch" class="form-check-input" type="checkbox" id="canDispatch">
+                <label class="form-check-label" for="canDispatch">Pode Despachar</label>
             </div>
         @endcan
 

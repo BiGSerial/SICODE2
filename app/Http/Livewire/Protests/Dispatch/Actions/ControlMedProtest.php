@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
 use App\Models\Comment;
 use App\Models\MedProtest;
+use App\Models\ProtestUser;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\UserAssignment;
@@ -242,6 +243,19 @@ class ControlMedProtest extends Component
                 'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
                 'isEngineer' => $this->isEngineer,
             ];
+
+            $triggers = $this->userList->find($this->selectedUser)?->UserProtest?->triggers;
+
+            if ($triggers) {
+                foreach ($triggers as $trigger) {
+                    $this->usersTemporarilyAssigned[] = [
+                        'id'   => $trigger->User->id,
+                        'name' => $trigger->User->name,
+                        'isEngineer' => true,
+                    ];
+                }
+            }
+
         } else {
             $userExists = collect($this->usersTemporarilyAssigned)->contains(function ($user) {
                 return $user['id'] === $this->selectedUser;
@@ -258,6 +272,24 @@ class ControlMedProtest extends Component
                     'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
                     'isEngineer' => $this->isEngineer,
                 ];
+
+                $triggers = $this->userList->find($this->selectedUser)?->UserProtest?->triggers;
+
+                if ($triggers) {
+                    foreach ($triggers as $trigger) {
+                        $triggerExists = collect($this->usersTemporarilyAssigned)->contains(function ($tempUser) use ($trigger) {
+                            return $tempUser['id'] === $trigger->User->id;
+                        });
+
+                        if (!$triggerExists) {
+                            $this->usersTemporarilyAssigned[] = [
+                                'id'   => $trigger->User->id,
+                                'name' => $trigger->User->name,
+                                'isEngineer' => true,
+                            ];
+                        }
+                    }
+                }
             } else {
                 if ($isUser) {
                     $this->dispatchBrowserEvent('swal', [
@@ -319,12 +351,25 @@ class ControlMedProtest extends Component
     public function confirmRemoveUserAssignment()
     {
         if ($this->userAssignment) {
+            // Verificar se o usuário tem triggers e removê-los
+            $triggers = $this->userAssignment->User?->UserProtest?->triggers;
+            if ($triggers) {
+                foreach ($triggers as $triggerUser) {
+                    $triggerAssignment = $this->modProtest->Assignments()
+                    ->where('user_id', $triggerUser->User->id)
+                    ->first();
+
+                    if ($triggerAssignment) {
+                        $triggerAssignment->delete();
+                    }
+                }
+            }
+
             $this->userAssignment->delete();
 
-
             $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Usuário removido com sucesso!',
+            'status'   => 'success',
+            'menssage' => 'Usuário removido com sucesso!',
             ]);
 
             $this->emitSelf('refreshComponent');
@@ -332,8 +377,8 @@ class ControlMedProtest extends Component
             $this->userAssignment = null;
         } else {
             $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'danger',
-                'menssage' => 'Nenhum usuário selecionado para remoção.',
+            'status'   => 'danger',
+            'menssage' => 'Nenhum usuário selecionado para remoção.',
             ]);
         }
     }
@@ -365,6 +410,10 @@ class ControlMedProtest extends Component
                     'started_at' => now(),
                 ]
             );
+
+
+
+
         }
 
         foreach ($this->usersTemporarilyAssigned as $user) {
@@ -423,6 +472,24 @@ class ControlMedProtest extends Component
                 ));
             }
 
+        }
+
+        $defaults = ProtestUser::where('default', true)->get();
+
+        if ($defaults) {
+            foreach ($defaults as $user) {
+                $this->modProtest->Assignments()->updateOrCreate(
+                    [
+                        'user_id' => $user->user_id,
+                        'assignable_id' => $this->modProtest->id,
+                        'assignable_type' => MedProtest::class,
+                    ],
+                    [
+                        'monitoring' => true,
+                        'started_at' => now(),
+                    ]
+                );
+            }
         }
 
         $this->dispatchBrowserEvent('torrada', [

@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Components\Transprod;
 
 use App\Models\{Notetimeline, Notify, Prodtransfer, Production, Service, User};
 use App\Notifications\SystemNotification;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Translist extends Component
@@ -115,17 +116,34 @@ class Translist extends Component
                 //     'link'    => $url,
                 // ]);
 
+
                 $user = User::find($this->transfer_prod->from);
                 $userName = auth()->User()->name;
+                $link = route('services.accompany', ['service' => $this->transfer_prod->service_id]);
+
                 if ($user) {
+
                     $user->notify(new SystemNotification(
-                        'Transferência Aceita',
-                        "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi aceita por <strong>{$userName}</strong>.",
-                        '',
-                        1,
-                        []
+                        titulo: 'Transferência Aceita',
+                        mensagem: "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi aceita por <strong>{$userName}</strong>.",
+                        link: $link, // ou outra rota que você tiver
+                        status: 1,
+                        extras: []
                     ));
+
                 }
+
+                // $user = User::find($this->transfer_prod->from);
+                // $userName = auth()->User()->name;
+                // if ($user) {
+                //     $user->notify(new SystemNotification(
+                //         'Transferência Aceita',
+                //         "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi aceita por <strong>{$userName}</strong>.",
+                //         '',
+                //         1,
+                //         []
+                //     ));
+                // }
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -170,6 +188,9 @@ class Translist extends Component
         $url        = route('services.accompany', ['service' => $production->service_id]);
 
         if ($production) {
+
+            DB::beginTransaction();
+
             try {
                 $production->update([
 
@@ -204,15 +225,23 @@ class Translist extends Component
 
                 $user = User::find($this->transfer_prod->from);
                 $userName = auth()->User()->name;
+
+
+                $link = route('services.accompany', ['service' => $this->transfer_prod->service_id]);
+
                 if ($user) {
+
                     $user->notify(new SystemNotification(
-                        'Transferência Rejeitada',
-                        "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi rejeitada por <strong>{$userName}</strong>.",
-                        '',
-                        0,
-                        []
+                        titulo: 'Transferência rejeitada',
+                        mensagem: "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi rejeitada por <strong>{$userName}</strong>.",
+                        link: $link, // ou outra rota que você tiver
+                        status: 0,
+                        extras: []
                     ));
+
                 }
+
+                DB::commit();
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -222,6 +251,7 @@ class Translist extends Component
                 ]);
 
             } catch (\Throwable $th) {
+                DB::rollBack();
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'error',

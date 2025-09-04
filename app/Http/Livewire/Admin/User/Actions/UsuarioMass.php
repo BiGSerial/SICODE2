@@ -59,6 +59,7 @@ class UsuarioMass extends Component
         'permissions.contract' => 'boolean',
         'permissions.responsible' => 'boolean',
         'permissions.btzero' => 'boolean',
+        'user.can_dispatch' => 'boolean',
         'temporaryServices.*.service'  => 'boolean',
         'temporaryServices.*.dispatch'  => 'boolean',
 

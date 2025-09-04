@@ -95,6 +95,9 @@
 
 <div wire:ignore.self class="modal fade" id="controlModProtestModal" tabindex="-1"
     aria-labelledby="modalEntityProtocolLabel" aria-hidden="true">
+
+    <x-show-loading />
+
     <div class="modal-dialog modal-xl">
         <div class="modal-content rounded-4">
 
@@ -314,7 +317,7 @@
                                                     wire:model="isEngineer">
                                                 <label class="form-check-label fw-medium text-info"
                                                     for="engineerToggle">
-                                                    <i class="ri-user-star-line me-1"></i>Engenheiro
+                                                    <i class="ri-user-star-line me-1"></i>Acompanhante
                                                 </label>
                                             </div>
                                         </div>
@@ -345,7 +348,7 @@
                                                                 <span class="fw-medium">{{ $user['name'] }}</span>
                                                                 <span
                                                                     class="badge {{ $user['isEngineer'] ? 'bg-info' : 'bg-success' }}">
-                                                                    {{ $user['isEngineer'] ? 'Engenheiro' : 'Usuario' }}
+                                                                    {{ $user['isEngineer'] ? 'Acompanhante' : 'Usuario' }}
                                                                 </span>
                                                                 <small class="text-muted">(Pendente)</small>
                                                             </div>
@@ -362,7 +365,7 @@
                                                     @foreach ($modProtest?->assignments as $assignment)
                                                         @php
                                                             $typeUser = $assignment->monitoring
-                                                                ? 'Engenheiro'
+                                                                ? 'Acompanhante'
                                                                 : ($assignment->responsible
                                                                     ? 'Responsável'
                                                                     : 'Usuário');
