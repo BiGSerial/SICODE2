@@ -1,4 +1,5 @@
 <div>
+    <x-show-loading />
     <div class="modal fade finish finish-five" id="finishFiveModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content fivefx-card">

@@ -16,10 +16,10 @@
                 --ld-shadow: 0 10px 35px rgba(0, 0, 0, .35);
                 --ld-text: #f8fafc;
                 --ld-sub: #cbd5e1;
-                --ld-a1: #8b5cf6;
-                --ld-a2: #06b6d4;
-                --ld-a3: #22c55e;
-                --ld-a4: #f59e0b;
+                --ld-a1: #6D32FF;
+                --ld-a2: #0CD3F8;
+                --ld-a3: #28FF52;
+                --ld-a4: #225E66;
             }
 
             .loading-aurora {

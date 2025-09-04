@@ -99,10 +99,10 @@
 
                             @if ($lists->FiveNote)
                                 <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
-                                <dd class="col-sm-8 text-white text-uppercase"
+                                <dd class="col-sm-8 text-white fw-bold text-uppercase"
                                     wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $lists->FiveNote->id }})"
                                     style="cursor: pointer;">
-                                    {{ $lists->FiveNote->note_d5 }} <i class="ri-eye-line me-1"></i>
+                                    {{ $lists->FiveNote->note_d5 }} <i class="ri-eye-line me-1 text-primary"></i>
                                 </dd>
                             @else
                                 <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
