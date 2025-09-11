@@ -173,14 +173,14 @@
                                                         class="text-danger">*</span></label>
                                                 <input type="text" class="form-control border border-secondary"
                                                     wire:model.defer="return.loc_install"
-                                                    placeholder="Local Instalação">
+                                                    placeholder="Ex.: 708-EP-00459941">
 
                                             </div>
 
                                             <div class="col-md-12">
                                                 <label class="form-label">Observações da D5</label>
                                                 <textarea class="form-control border border-secondary" rows="4" wire:model.defer="return.description"
-                                                    placeholder="Descreva os apontamentos da D5 (opcional)"></textarea>
+                                                    placeholder="Descreva os apontamentos da D5"></textarea>
                                             </div>
 
                                             <div class="row my-3">

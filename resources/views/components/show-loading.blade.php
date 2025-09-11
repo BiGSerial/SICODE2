@@ -58,7 +58,6 @@
                 align-items: center;
             }
 
-            /* NOVO: gauge com ring mascarado e centro separado (não é filho do ring) */
             .ld-gauge {
                 position: relative;
                 width: 48px;
@@ -70,7 +69,6 @@
                 inset: 0;
                 border-radius: 50%;
                 background: conic-gradient(from 0deg, var(--ld-a1) 0 25%, transparent 25% 100%);
-                /* a máscara agora só afeta o anel, não o conteúdo central, pois o número virou irmão, não filho */
                 -webkit-mask: radial-gradient(farthest-side, transparent 62%, #000 63%);
                 mask: radial-gradient(farthest-side, transparent 62%, #000 63%);
                 animation: ld-spin 1s linear infinite;
@@ -240,14 +238,13 @@
     @endpush
 @endonce
 
-<div class="loading-aurora" x-data="loader()" x-init="init($el)" role="status" aria-live="polite" aria-busy="true"
+<div class="loading-aurora" x-data="loader()" x-init="init()" role="status" aria-live="polite" aria-busy="true"
     wire:loading.delay @if ($targetAttr) wire:target="{{ $targetAttr }}" @endif>
     <div class="ld-inner">
         <div class="ld-gauge">
             <div class="ld-ring"><span class="ld-dot"></span></div>
             <div class="ld-center">
                 <div class="ld-pill"></div>
-                {{-- Em Alpine v2 prefira método/expressão em vez de getter --}}
                 <div class="ld-counter" x-text="percent.toFixed(0) + '%'">0%</div>
             </div>
         </div>
@@ -278,9 +275,12 @@
                 rafId: null,
                 trickleId: null,
 
-                // Inicia quando ficar visível; pausa e reseta quando some
-                init(el) {
-                    this.el = el;
+                // CORREÇÃO 2: A função não recebe mais 'el' como parâmetro.
+                init() {
+                    // CORREÇÃO 3: Usamos this.$el, que é injetado pelo Alpine no contexto do componente.
+                    // Isso garante que sempre teremos um Node válido.
+                    this.el = this.$el;
+
                     const compute = () => {
                         const visible = this.isVisible();
                         if (visible && !this.running) this.start();
@@ -289,7 +289,8 @@
                     compute();
 
                     const mo = new MutationObserver(compute);
-                    mo.observe(el, {
+                    // CORREÇÃO 4: Observamos o this.$el que agora é uma referência garantida.
+                    mo.observe(this.el, {
                         attributes: true,
                         attributeFilter: ['style', 'class']
                     });
@@ -303,8 +304,8 @@
                 },
 
                 isVisible() {
+                    // Nenhuma mudança necessária aqui, pois 'this.el' já foi definido corretamente no init().
                     const style = window.getComputedStyle(this.el);
-                    // wire:loading muda display; isso cobre os casos
                     return style.display !== 'none' && style.visibility !== 'hidden';
                 },
 

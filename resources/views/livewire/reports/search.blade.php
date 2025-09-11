@@ -102,7 +102,8 @@
                                 <dd class="col-sm-8 text-white fw-bold text-uppercase"
                                     wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $lists->FiveNote->id }})"
                                     style="cursor: pointer;">
-                                    {{ $lists->FiveNote->note_d5 }} <i class="ri-eye-line me-1 text-primary"></i>
+                                    {{ $lists->FiveNote->note_d5 ?? 'A GERAR D5' }} <i
+                                        class="ri-eye-line me-1 text-primary"></i>
                                 </dd>
                             @else
                                 <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
@@ -399,7 +400,25 @@
                                 <tr wire:key="prod-{{ $p->id }}">
                                     <td>
                                         @if ($p->d5)
-                                            <span class="badge bg-primary">D5</span>
+                                            <span class="badge text-bg-info" data-bs-toggle="tooltip"
+                                                data-bs-placement="right" title="Retorno Interno"
+                                                style="cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                onmouseover="this.style.transform='scale(1.1)'; this.style.filter='brightness(1.2)'"
+                                                onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(1)'">RI</span>
+                                        @endif
+                                        @if ($p->dfive)
+                                            <span class="badge text-bg-primary" data-bs-toggle="tooltip"
+                                                data-bs-placement="right" title="Com Nota D5"
+                                                style="cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                onmouseover="this.style.transform='scale(1.1)'; this.style.filter='brightness(1.2)'"
+                                                onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(1)'">D5</span>
+                                        @endif
+                                        @if ($p->partial)
+                                            <span class="badge text-bg-warning" data-bs-toggle="tooltip"
+                                                data-bs-placement="right" title="Parcial"
+                                                style="cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                onmouseover="this.style.transform='scale(1.1)'; this.style.filter='brightness(1.2)'"
+                                                onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(1)'">P</span>
                                         @endif
                                     </td>
                                     <td>

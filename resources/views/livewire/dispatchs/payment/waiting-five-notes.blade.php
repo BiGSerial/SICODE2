@@ -1,50 +1,47 @@
-@php
-    $filters = [
-        [
-            'key' => 'type',
-            'label' => 'Tipo',
-            'type' => 'single',
-            'provider' => [
-                'type' => 'static',
-                'options' => [
-                    ['value' => 'OU', 'label' => 'Ouvidoria'],
-                    ['value' => 'NA', 'label' => 'Atendimento'],
-                    ['value' => 'PR', 'label' => 'Procon'],
+<div>
+    @php
+        $filters = [
+            [
+                'key' => 'type',
+                'label' => 'Tipo',
+                'type' => 'single',
+                'provider' => [
+                    'type' => 'static',
+                    'options' => [['value' => 2, 'label' => 'OV'], ['value' => 1, 'label' => 'NOTA']],
                 ],
             ],
-        ],
-        [
-            'key' => 'city',
-            'label' => 'Município',
-            'type' => 'multi',
-            'provider' => [
-                'type' => 'eloquent',
-                'model' => \App\Models\Protest::class,
-                'value' => 'cidade',
-                'label' => 'cidade',
-                'distinct' => true,
-                'orderBy' => ['cidade' => 'asc'],
-                'limit' => 300,
+            [
+                'key' => 'city',
+                'label' => 'Município',
+                'type' => 'multi',
+                'provider' => [
+                    'type' => 'eloquent',
+                    'model' => \App\Models\Protest::class,
+                    'value' => 'cidade',
+                    'label' => 'cidade',
+                    'distinct' => true,
+                    'orderBy' => ['cidade' => 'asc'],
+                    'limit' => 300,
+                ],
             ],
-        ],
 
-        // [
-        //     'key' => 'search',
-        //     'label' => 'Pesquisar Nota',
-        //     'type' => 'text',
-        //     'placeholder' => 'Nº da Nota...',
-        // ],
-        [
-            'key' => 'desired_between',
-            'label' => 'Desejada (de/até)',
-            'type' => 'daterange',
-            'include_nulls' => false,
-            'treat_zero_date_as_null' => false,
-        ],
-    ];
-@endphp
+            // [
+            //     'key' => 'search',
+            //     'label' => 'Pesquisar Nota',
+            //     'type' => 'text',
+            //     'placeholder' => 'Nº da Nota...',
+            // ],
+            [
+                'key' => 'desired_between',
+                'label' => 'Desejada (de/até)',
+                'type' => 'daterange',
+                'include_nulls' => false,
+                'treat_zero_date_as_null' => false,
+            ],
+        ];
+    @endphp
 
-<div>
+
     {{-- Loading --}}
     <x-show-loading />
 
@@ -74,10 +71,11 @@
             NOTAS D5 AGUARDANDO
         </h5>
 
-        {{-- <button wire:click="exportToExcel" class="btn btn-success btn-sm">
-            <i class="ri-file-excel-2-line me-1"></i>
-            Exportar Excel
-        </button> --}}
+        <button wire:click.prevent="$emitTo('components.five-note.manual-create', 'openModal')"
+            class="btn btn-primary btn-sm">
+            <i class="ri-add-line me-1"></i>
+            CRIAR D5 MANUALMENTE
+        </button>
     </div>
 
     @if (!empty($lists) && $lists->count() > 0)
@@ -313,6 +311,9 @@
 
     {{-- Modals --}}
     @livewire('components.five-note.view-d5', key('five-note'))
+    @livewire('components.five-note.manual-create', key('manual-create-five'))
+
+    {{-- Estilos customizados --}}
 
     <style>
         .modern-table th,

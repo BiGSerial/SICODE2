@@ -1,6 +1,6 @@
 <div wire:poll.8s>
     <x-show-loading target="readed" />
-    <li class="nav-item dropdown mx-3" id="notification-dropdown">
+    <li class="nav-item dropdown ms-2" id="notification-dropdown">
         @php
             use Carbon\Carbon;
             use App\Helpers\NotifyStatus;

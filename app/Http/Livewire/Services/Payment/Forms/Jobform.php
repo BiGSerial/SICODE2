@@ -18,6 +18,7 @@ class Jobform extends Component
     public $five;
 
     protected $listeners = [
+        'refresh' => '$refresh',
         'showProduction',
         'confirmFinish' => 'save',
     ];
@@ -26,7 +27,7 @@ class Jobform extends Component
         'analise.postes' => 'required|numeric',
         'analise.info' => 'nullable|string',
         'analise.conclusion' => 'required|min:1',
-        'five.note_d5' => 'required|string',
+        'five.note_d5' => 'required|numeric',
         'five.reason' => 'nullable|string',
         'five.description' => 'nullable|string',
         'five.loc_install' => 'nullable|string',
@@ -49,6 +50,10 @@ class Jobform extends Component
             'analise.postes.required' => 'O campo [Qtd de Ativos] é obrigatório.',
             'analise.postes.numeric' => 'O campo [Qtd de Ativos] só aceita números.',
             'analise.conclusion.required' => 'O campo [Resultado] é Obrigatório.',
+            'five.note_d5.required' => 'O campo [Número da D5] é obrigatório.',
+            'five.note_d5.numeric' => 'O campo [Número da D5] dev ser apenas números.',
+            'five.note_d5.unique' => 'O D5 informado já está em uso.',
+            'five.company_id.required' => 'O campo [Empresa] é obrigatório.',
         ];
     }
 
@@ -101,6 +106,7 @@ class Jobform extends Component
 
             $this->production->update(['status' => 3]);
             $this->production->save();
+
         } else {
             $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
@@ -276,7 +282,7 @@ class Jobform extends Component
             if ($this->five) {
                 if (!$this->five->is_supervisioned) {
                     $this->validate([
-                        'five.note_d5' => 'required|string',
+                        'five.note_d5' => 'required|numeric',
                         'five.company_id' => 'required|exists:companies,id'
                     ]);
                     $this->five->dispatch_at = now();
@@ -315,9 +321,12 @@ class Jobform extends Component
 
                 $this->closeAll();
             }
+
         } catch (\Throwable $th) {
 
             DB::rollback();
+
+            $this->addError('general', 'Não conseguimos encerrar a atividade. '.$th->getMessage());
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -325,6 +334,8 @@ class Jobform extends Component
                 'title'    => 'NÃO FINALIZADO',
                 'html'     => 'Não Conseguimos encerrar a atividade, tente novamente.<br>' . $th->getMessage(),
             ]);
+
+            $this->emitSelf('refresh');
 
             return;
         }

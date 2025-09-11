@@ -176,6 +176,7 @@
                                 $block = $e['block'];
                                 $command = $e['command'];
                                 $production = $e['production'];
+                                $reason = $e['reason'];
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
                                 $partial = false;
@@ -337,7 +338,8 @@
                                 </td>
 
 
-                                <td class="fw-bold text-center {{ $rowClass }}">
+                                <td class="fw-bold text-center {{ $rowClass }}" data-bs-toggle="tooltip"
+                                    data-bs-placement="top" title="{{ $reason }}">
 
 
                                     @if (!$block)

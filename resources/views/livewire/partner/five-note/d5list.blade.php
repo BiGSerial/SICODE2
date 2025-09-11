@@ -215,7 +215,7 @@
                         <button class="btn btn-primary flex-grow-1" @click="apply()" wire:click="toSearch()">
                             <i class="ri-search-line me-1"></i> Buscar
                         </button>
-                        <button class="btn btn-outline-secondary"  wire:click='toClean()'>
+                        <button class="btn btn-outline-secondary" wire:click='toClean()'>
                             <i class="ri-eraser-line"></i>
                         </button>
                     </div>
@@ -229,6 +229,7 @@
         <div class="split">
             {{-- LISTA --}}
             @if ($fives->isNotEmpty())
+
                 <div class="card card-soft">
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -245,6 +246,7 @@
                                         {{-- <th>Detalhes</th> --}}
                                         <th class="text-center">Despachado em</th>
                                         <th class="text-center">Dias</th>
+                                        <th class="text-center">Empresa</th>
                                         <th class="text-center" style="width:56px;">Ação</th>
                                     </tr>
                                 </thead>
@@ -280,6 +282,9 @@
                                                         {{ \Carbon\Carbon::parse($five->dispatch_at)?->diffInDays() }}</span>
                                                 </td>
                                                 <td class="text-center">
+                                                    {{ $five->company?->name }}
+                                                </td>
+                                                <td class="text-center">
                                                     <button class="btn btn-sm btn-success"
                                                         wire:click="$emitTo('partner.five-note.actions.finish-d5', 'getInfoResponse', {{ $five->id }})">
                                                         <i class="ri-play-line"></i>
@@ -296,55 +301,17 @@
                         </div>
 
                         {{-- Paginação (placeholder) --}}
-                        <div class="d-flex justify-content-between align-items-center px-3 py-1">
+                        <div class="d-flex justify-content-between align-items-center px-3 py-3">
 
-                            @if ($fives->hasPages())
-                                <small class="text-muted">
-                                    Exibindo {{ $fives->firstItem() }}–{{ $fives->lastItem() }} de
+                            {{ $fives->links() }}
+                            <small class="text-muted">
+                                @if ($fives->total() > 0)
+                                    Exibindo {{ $fives->firstItem() }} - {{ $fives->lastItem() }} de
                                     {{ $fives->total() }} registros
-                                </small>
-                                <nav aria-label="Paginação D5">
-                                    <ul class="pagination pagination-sm m-0">
-                                        {{-- Botão Anterior --}}
-                                        @if ($fives->onFirstPage())
-                                            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                                        @else
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $fives->previousPageUrl() }}"
-                                                    wire:click="previousPage" wire:loading.attr="disabled">&laquo;</a>
-                                            </li>
-                                        @endif
-
-                                        {{-- Páginas --}}
-                                        @foreach ($fives->getUrlRange(1, $fives->lastPage()) as $page => $url)
-                                            @if ($page == $fives->currentPage())
-                                                <li class="page-item active"><span
-                                                        class="page-link">{{ $page }}</span></li>
-                                            @else
-                                                <li class="page-item">
-                                                    <a class="page-link" href="{{ $url }}"
-                                                        wire:click="gotoPage({{ $page }})"
-                                                        wire:loading.attr="disabled">{{ $page }}</a>
-                                                </li>
-                                            @endif
-                                        @endforeach
-
-                                        {{-- Botão Próximo --}}
-                                        @if ($fives->hasMorePages())
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $fives->nextPageUrl() }}"
-                                                    wire:click="nextPage" wire:loading.attr="disabled">&raquo;</a>
-                                            </li>
-                                        @else
-                                            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-                                        @endif
-                                    </ul>
-                                </nav>
-                            @else
-                                <small class="text-muted">
-                                    Exibindo {{ $fives->count() }} de {{ $fives->count() }} registros
-                                </small>
-                            @endif
+                                @else
+                                    Nenhum registro encontrado
+                                @endif
+                            </small>
                         </div>
                     </div>
                 </div>

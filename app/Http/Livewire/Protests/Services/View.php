@@ -149,10 +149,10 @@ class View extends Component
             return;
         }
 
-        $userAssigned = $this->medProtest->Assignments()
+        $userAssigned = $this->medProtest->Assignments()->where('user_id', auth()->id())
             ->where('completed', false)
             ->where('user', true)
-            ->where('monitoring', false)
+
             ->first();
 
         if (!$userAssigned) {

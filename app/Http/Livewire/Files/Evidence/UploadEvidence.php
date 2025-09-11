@@ -145,9 +145,9 @@ class UploadEvidence extends Component
     }
 
     /** Próximo sequencial dentro da relação de UM FiveNote. */
-    protected function nextSequence(FiveNote $five): int
+    protected function nextSequence(FiveNote $five, $note): int
     {
-        $prefix = "{$this->origin}_{$this->type}_";
+        $prefix = "{$note}_{$this->origin}_{$this->type}_";
 
         $count = $five->EvidenceFiles()
             ->where('stored_name', 'like', $prefix.'%')
@@ -162,7 +162,7 @@ class UploadEvidence extends Component
      */
     public function saveEvidences(?int $fiveId = null): void
     {
-       
+
 
         if ($fiveId !== null) {
             $this->resolveFive($fiveId);
@@ -188,14 +188,24 @@ class UploadEvidence extends Component
         DB::beginTransaction();
 
         try {
+            $note = $this->five->Note?->note;
             $disk = $this->config['disk'];
             $base = trim($this->config['base_path'], '/');
             $dir  = "{$base}/{$this->origin}/{$this->type}";
 
-            $seq = $this->nextSequence($this->five);
+            $seq = $this->nextSequence($this->five, $note);
 
             foreach ($this->tempFiles as $t) {
-                $storedName = sprintf('%s_%s_%03d.%s', $this->origin, $this->type, $seq, $t['extension']);
+                $uniqueId = uniqid();
+                $storedName = sprintf(
+                    '%s_%s_%s_%03d_%s.%s',
+                    $note ?? 'NOTE',
+                    $this->origin ?? 'ORIGIN',
+                    $this->type ?? 'TYPE',
+                    $seq,
+                    $uniqueId,
+                    $t['extension']
+                );
                 $path       = "{$dir}/{$storedName}";
 
                 $storedPath = $t['file']->storeAs($dir, $storedName, $disk);

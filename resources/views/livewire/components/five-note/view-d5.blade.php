@@ -85,12 +85,32 @@
                                                     <div>
                                                         <div class="fivefx-completion-name">
                                                             {{ $production?->user?->name }}
-                                                            <a href="msteams://l/chat/0/0?users={{ $production?->user?->email }}"
-                                                                class="fivefx-teams-link ms-2"
-                                                                title="Iniciar conversa no Teams">
-                                                                <i
-                                                                    class="bx bxl-microsoft-teams fs-4 text-light align-middle"></i>
-                                                            </a>
+                                                            @if ($production->User?->email)
+                                                                <span class="teams-contact-icon" 
+                                                                    title="Entrar em contato"
+                                                                    onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $production->User?->email }}', '_blank')">
+                                                                    <i class="bx bxl-microsoft-teams fs-4 align-middle"></i>
+                                                                </span>
+
+                                                                <style>
+                                                                .teams-contact-icon {
+                                                                    cursor: pointer;
+                                                                    display: inline-block;
+                                                                    transition: all 0.3s ease;
+                                                                    padding: 4px;
+                                                                    border-radius: 4px;
+                                                                }
+
+                                                                .teams-contact-icon:hover {
+                                                                    background-color: rgba(0, 120, 212, 0.1);
+                                                                    transform: scale(1.1);
+                                                                }
+
+                                                                .teams-contact-icon:hover i {
+                                                                    color: #0078d4 !important;
+                                                                }
+                                                                </style>
+                                                            @endif
                                                         </div>
                                                         <div class="fivefx-completion-role">
                                                             {{ $production?->service?->service }}</div>

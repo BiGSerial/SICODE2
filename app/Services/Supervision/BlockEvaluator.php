@@ -73,11 +73,24 @@ class BlockEvaluator
             // Se a produção for posterior ao informed_at (ou created_at se não houver informed_at) => bloqueia
             $wfMark = $wf->informed_at ?? $wf->created_at;
             if ($wfMark && !$prod->partial) {
+
+                if ($prod->dt_note < $note->dt_status && $note->type_note == 2 && $prod->completed) {
+                    // Se a data do estatus da nota for inferior a nova data de Status e for OV => libera
+                    return $this->res(self::FREE, true, 'workform_note_after_prod_not_partial', $prod);
+                }
+
                 if ($prod->created_at > $wfMark) {
                     // se produção ainda aberta => azul; se fechada => vermelho (não refletiu no SAP)
-                    return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_after_prod', $prod);
+                    return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_before_prod_not_partial', $prod);
                 }
             } else {
+
+
+                if ($prod->dt_note < $note->dt_status) {
+                    // Se a produção for anterior ao status da nota => bloqueia
+                    return $this->res(self::FREE, true, 'workform_note_after_prod', $prod);
+                }
+
                 // não tem informed_at; compara com created_at
                 if ($prod->created_at > $wf->created_at) {
                     return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_after_prod', $prod);

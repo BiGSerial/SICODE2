@@ -18,7 +18,7 @@ class D5list extends Component
     protected $paginationTheme = 'bootstrap';
 
 
-    public $paginate = 15;
+    public $paginate = 20;
     public $multiSearch = '';
     public $multipleSearch = [];
     public $search = '';
