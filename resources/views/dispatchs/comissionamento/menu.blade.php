@@ -12,8 +12,8 @@
                     {{-- @if (!Auth()->User()->contract) --}}
                     <li>
                         <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>LISTA PARA
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-list-ul edp-text-verde-dark fs-5"></i><span>LISTA PARA
                                 {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
@@ -21,15 +21,16 @@
 
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>CONTROLE DE {{ mb_strtoupper($service->service) }}</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-clipboard-data edp-text-verde-dark fs-5"></i><span>CONTROLE DE
+                                {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
 
                     <li>
                         <a href="{{ route('dispatch.transprod', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>TRANSFERÊNCIA DE
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-arrow-left-right edp-text-verde-dark fs-5"></i><span>TRANSFERÊNCIA DE
                                 {{ mb_strtoupper($service->service) }}@livewire('components.count.counttransferdispatch', ['service' => $service->uuid], key('countTransfer' . $service->uuid))</span>
                         </a>
                     </li>

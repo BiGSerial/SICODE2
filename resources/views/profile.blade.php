@@ -1,24 +1,30 @@
-@extends('layouts.padrao')
+@extends('layouts.padrao_ext')
 
 @section('breadcrumb')
     <nav aria-label="breadcrumb" class="py-0 my-0">
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                <li class="breadcrumb-item">Dispatch</li>
-                <li class="breadcrumb-item active">{{ $service->service }}</li>
-                <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+                <li class="breadcrumb-item active">Profile</li>
+                <li class="breadcrumb-item active">{{ $user->name }}</li>
             </ol>
         </ol>
     </nav>
 @endsection
 
+
 @section('menu')
-    @include('dispatchs.levantamento.menu');
+    <aside id="sidebar" class="sidebar edp-bg-sprucegreen-100">
+
+        <ul class="sidebar-nav" id="sidebar-nav">
+
+        </ul>
+
+    </aside>
 @endsection
 
 @section('content')
-    @livewire('dispatchs.dashboard', ['service' => $service->uuid])
+    @livewire('home.profile', ['user' => $user])
 @endsection
 
 @push('script')
@@ -44,7 +50,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
 
-                    Livewire.emit(e.detail.action, e.detail.chave)
+                    Livewire.emit(e.detail.action)
 
                 } else if (
                     /* Read more about handling dismissals below */
@@ -58,5 +64,25 @@
                 }
             })
         });
+    </script>
+
+    <script>
+        window.addEventListener('copyToBoard', function(e) {
+            copyToClipboard();
+        });
+
+
+
+        function copyToClipboard() {
+            const textToCopy = document.getElementById('clipboard-data').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.textContent = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+
+        }
     </script>
 @endpush

@@ -112,9 +112,8 @@
                 <table class="table table-sm table-striped table-condensed">
                     <thead class="table-dark        ">
                         <tr class="text-center">
-                            @can('management')
-                                <th scope="col" class="fw-bold">Note</th>
-                            @endcan
+                            <th scope="col" class="fw-bold">Note</th>
+                            <th scope="col" class="fw-bold">MMGD</th>
                             <th scope="col" class="fw-bold">Criado Em</th>
                             <th scope="col" class="fw-bold">Retorno</th>
 
@@ -199,10 +198,9 @@
                                     table-danger
                                     @else
                                     table-primary @endif @endif">
-                                @can('management')
-                                    <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
-                                    </td>
-                                @endcan
+                                <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
+                                </td>
+                                <td class="fw-light">{{ $list->mmgd ? 'SIM' : '' }}</td>
                                 <td class="fw-light">{{ date('d/m/Y', strToTime($list->dt_created)) }}</td>
                                 <td
                                     class="fw-light text-center

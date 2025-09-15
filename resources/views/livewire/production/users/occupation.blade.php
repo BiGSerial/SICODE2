@@ -6,10 +6,10 @@
 
     @if ($lists->count())
         <div class="card border-0 shadow-sm sicode-sidebar-card">
-            <div class="card-header py-1 edp-bg-sprucegreen-70 d-flex justify-content-between align-items-center">
+            <div class="card-header py-1 edp-bg-marineblue-100 d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-2">
-                    <i class="ri-pulse-line edp-text-verde-dark"></i>
-                    <h6 class="card-title mb-0 edp-text-verde-dark">Ocupação</h6>
+                    <i class="ri-pulse-line edp-text-verde-dark fs-4"></i>
+                    <h6 class="card-title mb-0 text-white">Ocupação</h6>
                 </div>
                 <span class="badge text-bg-dark">{{ $total }}</span>
             </div>

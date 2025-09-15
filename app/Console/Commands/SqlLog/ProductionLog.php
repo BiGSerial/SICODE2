@@ -120,6 +120,7 @@ class ProductionLog extends Command
                     'updated_at' => Carbon::now(), // Atualiza updated_at para o upsert
                     'partial' => $production->partial,
                     'partial_at' => $production->partial_at,
+                    'dfive' => $production->dfive,
                 ];
             }
 
@@ -136,7 +137,7 @@ class ProductionLog extends Command
                             'note', 'status', 'dispatch_at', 'att_at', 'completed_at', 'confirmed_at', 'completed',
                             'confirmed', 'stopped', 'note_status', 'conclusion', 'mmgd', 'transfer', 'input_manual',
                             'conf_manual', 'reje_manual', 'dhstats', 'type_note', 'eo', 'iproject', 'cadastro',
-                            'postes_u', 'postes_c', 'centroTrab', 'noinconsistency', 'ma', 'updated_at', 'partial', 'partial_at'
+                            'postes_u', 'postes_c', 'centroTrab', 'noinconsistency', 'ma', 'updated_at', 'partial', 'partial_at', 'dfive'
                         ]
                     );
                 }

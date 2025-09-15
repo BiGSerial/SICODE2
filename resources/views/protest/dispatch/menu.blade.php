@@ -9,8 +9,8 @@
             <ul id="config_protest-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('protests.dispatch.config_users') }}" class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-white"></i> <span>USER TRIGGERS</span>
+                        <a href="{{ route('protests.dispatch.config_users') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>USER TRIGGERS</span>
 
                         </a>
                     </li>
@@ -28,14 +28,14 @@
             <ul id="protests-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('protests.dispatch.lists') }}" class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-white"></i> <span>EM ABERTO</span>
+                        <a href="{{ route('protests.dispatch.lists') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>EM ABERTO</span>
 
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('protests.dispatch.closeds') }}" class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-warning"></i> <span>FECHADOS</span>
+                        <a href="{{ route('protests.dispatch.closeds') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text fs-5 text-warning"></i> <span>FECHADOS</span>
                         </a>
                     </li>
 

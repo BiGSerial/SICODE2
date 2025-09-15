@@ -10,14 +10,13 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('construction.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>ATIVIDADE {{ mb_strToUpper($service->service) }}</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
                     <li>
-                        <a href=""
-                            class="nav-item edp-text-verde-dark">
+                        <a href="" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>ATIVIDADE {{ mb_strToUpper($service->service) }}</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
@@ -25,13 +24,13 @@
 
                     {{-- <li>
                         <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
                         </a>
                     </li> --}}
                     <li>
                         <a href="{{ route('construction.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>

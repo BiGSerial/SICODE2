@@ -8,17 +8,17 @@
             <ul id="despachos-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('admin.company.list') }}" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('admin.company.list') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>EMPRESAS</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('admin.company.contracts_list') }}" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('admin.company.contracts_list') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>CONTRATOS</span>
                         </a>
                     </li>
                     <li>
-                        <a href="" class="nav-item edp-text-verde-dark">
+                        <a href="" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>DEPÓSITOS</span>
                         </a>
                     </li>

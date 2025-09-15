@@ -8,17 +8,17 @@
             <ul id="despachos-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('admin.user.list') }}" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('admin.user.list') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>USUÁRIOS</span>
                         </a>
                     </li>
                     <li>
-                        <a href="" class="nav-item edp-text-verde-dark">
+                        <a href="" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>FUNÇÕES</span>
                         </a>
                     </li>
                     <li>
-                        <a href="" class="nav-item edp-text-verde-dark">
+                        <a href="" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>REMOVIDOS</span>
                         </a>
                     </li>

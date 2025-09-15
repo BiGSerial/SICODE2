@@ -9,24 +9,17 @@
             <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>ATIVIDADE
-                                {{ mb_strToUpper($service->service) }}</span>
+                        <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i> <span>ACOMPANHAMENTO</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
-
-                    {{-- <li>
-                        <a href="{{ route('services.waiting', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                             <i class="ri-history-line fw-light text-white fs-5"></i> <span>LISTA DE ESPERA</span> @livewire('components.count.countwaiting', ['service' => $service->uuid], key('waiting' . $service->uuid))
-                        </a>
-                    </li> --}}
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="ri-history-line fw-light text-white fs-5"></i> <span>MEU HISTÓRICO</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i> <span>MEU
+                                HISTÓRICO</span>
                         </a>
                     </li>
 

@@ -128,7 +128,7 @@
                             <td>{{ $list->dispatch_at?->diffInDays() }}</td>
                             <td>{!! $list->completed_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">EM ANDAMENTO</span>' !!}</td>
                             <td>{{ $list->payed_at?->format('d/m/Y H:i') ?? 'NÃO PAGO' }}</td>
-                            <td class="fw-bold">{!! $list->fiscalizado_em?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">NÃO FISCALIZADO</span>' !!}</td>
+                            <td class="fw-bold">{!! $list->supervisioned_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">NÃO FISCALIZADO</span>' !!}</td>
                             <td></td>
                         </tr>
                     @empty

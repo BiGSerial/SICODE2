@@ -10,44 +10,49 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('dispatch.dashboard', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>DASHBOARD PARA
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-speedometer2 fs-5 edp-text-verde-dark fw-normal"></i><span>DASHBOARD PARA
                                 {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
 
-                    {{-- @if (!Auth()->User()->contract) --}}
                     <li>
                         <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>LISTA PARA
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-list-ul fs-5 edp-text-Verde-dark fw-normal"></i><span>LISTA PARA
                                 {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
-                    {{-- @endif --}}
 
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>CONTROLE DE {{ mb_strtoupper($service->service) }}</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i><span>CONTROLE DE
+                                {{ mb_strtoupper($service->service) }}</span>
                         </a>
                     </li>
 
                     <li>
                         <a href="{{ route('dispatch.transprod', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>TRANSFERÊNCIA DE
-                                {{ mb_strtoupper($service->service) }}@livewire('components.count.counttransferdispatch', ['service' => $service->uuid], key('countTransfer' . $service->uuid))</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-arrow-left-right fs-5 edp-text-verde-dark fw-normal"></i><span>TRANSFERÊNCIA
+                                DE
+                                {{ mb_strtoupper($service->service) }}</span>
+                                @livewire('components.count.counttransferdispatch', ['service' => $service->uuid], key('countTransfer' . $service->uuid))
                         </a>
                     </li>
 
                     <li>
                         <a href="{{ route('dispatch.d5', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i><span>RETORNO INTERNO (RI) DE
-                                {{ mb_strtoupper($service->service) }}</span> @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-arrow-return-left fs-5 edp-text-verde-dark fw-normal"></i><span>RETORNO
+                                INTERNO (RI)
+                                DE
+                                {{ mb_strtoupper($service->service) }}</span>
+                                @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
                         </a>
                     </li>
+
                 </div>
             </ul>
         </li>

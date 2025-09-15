@@ -76,7 +76,7 @@ class BlockEvaluator
 
                 if ($prod->dt_note < $note->dt_status && $note->type_note == 2 && $prod->completed) {
                     // Se a data do estatus da nota for inferior a nova data de Status e for OV => libera
-                    return $this->res(self::FREE, true, 'workform_note_after_prod_not_partial', $prod);
+                    return $this->res(self::HOLD_RED, false, 'workform_note_after_prod_not_partial', $prod);
                 }
 
                 if ($prod->created_at > $wfMark) {
@@ -88,7 +88,7 @@ class BlockEvaluator
 
                 if ($prod->dt_note < $note->dt_status) {
                     // Se a produção for anterior ao status da nota => bloqueia
-                    return $this->res(self::FREE, true, 'workform_note_after_prod', $prod);
+                    return $this->res(self::HOLD_BLUE, false, 'workform_note_after_prod', $prod);
                 }
 
                 // não tem informed_at; compara com created_at

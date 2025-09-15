@@ -33,7 +33,7 @@
 
 @can('admin')
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button" data-bs-toggle="dropdown"
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
             aria-expanded="false">
             ADMINISTRAÇÃO
         </a>
@@ -60,8 +60,8 @@
 @endcan
 
 <li class="nav-item dropdown mx-2 position-relative">
-    <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-        data-bs-toggle="dropdown" aria-expanded="false">
+    <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
+        aria-expanded="false">
         RECLAMAÇÕES
 
     </a>
@@ -95,8 +95,8 @@
 
 @can('management')
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-            data-bs-toggle="dropdown" aria-expanded="false">
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
             MONITORIA
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2" style="background-color: #dbd8d8">
@@ -133,8 +133,8 @@
 
 @can('responsible')
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-            data-bs-toggle="dropdown" aria-expanded="false">
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
             RESPONSÁVEL
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
@@ -149,8 +149,8 @@
 
 @can('engineer')
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-            data-bs-toggle="dropdown" aria-expanded="false">
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
             ENGENHARIA
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
@@ -165,8 +165,8 @@
 
 @can('btzero')
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
-            data-bs-toggle="dropdown" aria-expanded="false">
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
             SMC
         </a>
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2"
@@ -206,7 +206,7 @@
 
 @if ($menu_projeto)
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
             PROJETO
         </a>
@@ -262,7 +262,7 @@
 
 @if ($menu_construcao)
     <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button"
             data-bs-toggle="dropdown" aria-expanded="false">
             CONSTRUÇÃO
         </a>
@@ -321,7 +321,7 @@
 
 
 <li class="nav-item dropdown mx-2">
-    <a class="nav-link dropdown-toggle text-edp-verde nav-profile" href="#" role="button"
+    <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button"
         data-bs-toggle="dropdown" aria-expanded="false">
         BUSCAR
     </a>

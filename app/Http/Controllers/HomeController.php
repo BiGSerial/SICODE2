@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Manualnote, Production};
+use App\Models\{Manualnote, Production, User};
 use Carbon\{Carbon, CarbonImmutable};
 use Illuminate\Support\Facades\DB;
 
@@ -213,6 +213,21 @@ class HomeController extends Controller
             'waiting_list'    => $waitingList,
             'inconsistencies' => $inconsistencies,
             'status_count'    => $statusCounts,
+        ]);
+    }
+
+    public function profile($id)
+    {
+        if (Auth()->user()->id != $id) {
+            abort(403);
+        }
+
+        if (!$user = User::with('company.address')->findOrFail($id)) {
+            abort(404);
+        }
+
+        return view('profile', [
+            'user' => $user,
         ]);
     }
 }

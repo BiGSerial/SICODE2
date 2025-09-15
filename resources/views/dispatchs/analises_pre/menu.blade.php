@@ -10,13 +10,13 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i><span>PILHA LEVANTAMENTO</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i><span>ACOMPANHAMENTO</span>
                         </a>
                     </li>

@@ -115,15 +115,15 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
     <header id="header"
-        class="header fixed-top d-flex align-items-center @if (session('impersonate')) text-bg-danger @else edp-bg-sprucegreen-70 @endif">
-        <i class="bi bi-list toggle-sidebar-btn text-edp-verde me-3"></i>
+        class="header fixed-top d-flex align-items-center @if (session('impersonate')) text-bg-danger @else edp-bg-marineblue-100 text-white @endif">
+        <i class="bi bi-list toggle-sidebar-btn text-white me-3"></i>
 
         @if (env('APP_QA') && env('APP_DEBUG'))
-            <i class="edp-text-verde-light fs-6">Desenvolvimento</i>
+            <i class="text-white fs-6">Desenvolvimento</i>
         @elseif (env('APP_QA'))
-            <i class="edp-text-verde-light fs-6">Qualidade</i>
+            <i class="text-white fs-6">Qualidade</i>
         @else
-            <i class="edp-text-verde-light fs-6">Produção</i>
+            <i class="text-white fs-6">Produção</i>
         @endif
 
         @if (session('impersonate'))
@@ -197,7 +197,8 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                             </li>
 
                             <li>
-                                <a class="dropdown-item d-flex align-items-center" href="">
+                                <a class="dropdown-item d-flex align-items-center"
+                                    href="{{ route('profile', ['id' => auth()->user()->id]) }}">
                                     <i class="bi bi-person"></i>
                                     <span>Meu Perfil</span>
                                 </a>

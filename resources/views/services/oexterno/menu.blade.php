@@ -10,28 +10,28 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-white"></i> <span>À PROTOCOLAR</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text edp-text-verde-dark fs-5"></i> <span>À PROTOCOLAR</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-file-earmark-text fs-4 text-warning"></i> <span>ACOMPANHAMENTO
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text fs-5 text-warning"></i> <span>ACOMPANHAMENTO
                                 PROTOCOLADOS</span> @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.waiting_return', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-hourglass-split fs-4 text-white"></i> <span>AGUARDANDO RETORNO
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-hourglass-split edp-text-verde-dark fs-5"></i> <span>AGUARDANDO RETORNO
                                 INTERNO</span> @livewire('components.count.oexterno.count-return', key('return-'))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-clock-history fs-4 text-white"></i> <span>MEU HISTÓRICO</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-clock-history edp-text-verde-dark fs-5"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>
 

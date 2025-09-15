@@ -82,6 +82,19 @@
                         </div>
                     </button>
                 </div>
+
+                <div class="my-2 col-md-auto ms-2">
+                    <button class="btn btn-sm btn-primary" wire:click.prevent='exportExcel' wire:target="exportExcel"
+                        wire:loading.attr="disabled" data-bs-toggle="tooltip" data-bs-placement="top"
+                        data-bs-title="Exportar Selecionados para Excel">
+                        <i class="bx bxs-file-export fs-4 m-0 align-middle" wire:target="exportExcel"
+                            wire:loading.remove></i>
+                        <div class="spinner-border spinner-border-sm" role="status" wire:target="exportExcel"
+                            wire:loading>
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </button>
+                </div>
             </div>
 
 
@@ -100,8 +113,8 @@
         <table class="table table-sm table-condensed table-striped-columns table-hover">
             <thead>
                 <th class="text-center">
-                    <input class="form-check-input border border-secondary" type="checkbox" wire:model.defer="selectAll"
-                        wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
+                    <input class="form-check-input border border-secondary" type="checkbox"
+                        wire:model.defer="selectAll" wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                 </th>
                 <th scope="col" class="text-center">Nota</th>
                 <th scope="col" class="text-center">Files</th>

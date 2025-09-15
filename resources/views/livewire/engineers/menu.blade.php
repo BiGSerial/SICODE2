@@ -10,27 +10,27 @@
                 <ul id="analises_nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="{{ route('engineers.analises.dashboard') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.analises.dashboard') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-dashboard-line text-white fw-light fs-5"></i> <span> DASHBOARD</span>
 
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.analises.toAnalise') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.analises.toAnalise') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-eye-line text-white fw-light fs-5"></i> <span> PILHA À VALIDAR</span>
                                 @livewire('engineers.counts.analises.to-approval-count', key('to-approval-count'))
                             </a>
 
                         </li>
                         <li>
-                            <a href="{{ route('engineers.analises.inAnalise') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.analises.inAnalise') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-run-fill text-white fw-light fs-5"></i> <span> EM
                                     VALIDAÇÃO</span>@livewire('engineers.counts.analises.in-approval-count', ['engineer' => true], key('in-approval-count'))
                                 @livewire('engineers.counts.analises.in-approval-return', ['engineer' => true], key('in-approval-count'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.analises.analised') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.analises.analised') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-information-fill text-white fw-light fs-5"></i> <span> VALIDADOS</span>
 
                             </a>
@@ -49,50 +49,50 @@
                 <ul id="viabilidade-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="{{ route('engineers.main') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.main') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-dashboard-line text-white fw-light fs-5"></i> <span> DASHBOARD</span>
 
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.viability_waiting') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.viability_waiting') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-eye-line text-white fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
                                 @livewire('engineers.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.viab_list') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.viab_list') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-run-fill text-white fw-light fs-5"></i> <span> EM VIABILIDADE</span>
                                 @livewire('engineers.counts.in-viability', key('in-viability'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.rejecte_viab') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.rejecte_viab') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-information-fill text-white fw-light fs-5"></i> <span> EM TRATATIVA</span>
                                 @livewire('engineers.counts.in-work-count', key('in-work-count'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.intern_return') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.intern_return') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-arrow-go-back-line text-white fw-light fs-5"></i> <span> RETORNO
                                     INTERNO</span>
                                 @livewire('engineers.counts.return-intern-count', key('return-intern-count'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.justified_viab') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.justified_viab') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-contacts-line text-white fw-light fs-5"></i> <span> AVALIAÇÃO DE
                                     JUSTIFICATIVA</span>
                                 @livewire('engineers.counts.viab-justify-count', key('viab-justify-count'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.viab_hist') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.viab_hist') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-history-line text-white fw-light fs-5"></i> <span> HISTÓRICO</span>
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.viabilityreports') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.viabilityreports') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-funds-line text-white fw-light fs-5"></i> <span>RESUMO VIABILIDADE</span>
                                 {{-- @livewire('construction.hiring.counts.count-return') --}}
                             </a>
@@ -110,19 +110,19 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.dashboard.conclusion_inform') }}"
-                                class="nav-item edp-text-verde-dark">
+                                class="nav-item text-white fw-normal">
                                 <i class="ri-dashboard-fill text-white fw-light fs-5"></i> <span> DASHBOARD</span>
                             </a>
                         </li>
 
                         <li>
-                            <a href="{{ route('engineers.inform_obra') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.inform_obra') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-user-voice-line text-white fw-light fs-5"></i> <span> INFORME DE
                                     OBRA</span>
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.inform_list') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.inform_list') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-history-line text-white fw-light fs-5"></i> <span> HISTÓRICO INFORME</span>
                             </a>
                         </li>
@@ -141,13 +141,13 @@
 
 
                         <li>
-                            <a href="{{ route('engineers.info.parcial') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.info.parcial') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-timer-flash-fill text-white fw-light fs-5"></i> <span> AGUARDANDO
                                     APROVAÇÂO</span> @livewire('engineers.counts.count-parcial', key('count-parcial'))
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('engineers.hist.parcial') }}" class="nav-item edp-text-verde-dark">
+                            <a href="{{ route('engineers.hist.parcial') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-history-line text-white fw-light fs-5"></i> <span> HISTÓRICO INFORME
                                     PARCIAL</span>
                             </a>

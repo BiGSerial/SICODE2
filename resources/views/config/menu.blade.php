@@ -9,7 +9,7 @@
             <ul id="despachos-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('config.services') }}" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('config.services') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>SERVIÇOS</span>
                         </a>
                     </li>
@@ -25,7 +25,7 @@
             <ul id="jobs-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('config.system.jobs_view') }}" class="nav-item edp-text-verde-dark">
+                        <a href="{{ route('config.system.jobs_view') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>JOBS VIEW</span>
                         </a>
                     </li>

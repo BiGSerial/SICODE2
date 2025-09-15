@@ -90,7 +90,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         $partner = '';
         $userInform = '';
 
-        if ($row->orders) {
+        if ($row->Orders && $row->Orders->isNotEmpty()) {
 
 
             $ordensArray = $row->Orders->filter(function ($order) {
@@ -104,7 +104,10 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $sumOrders = $ordensMoa->sum('moaberto');
             $ordens = implode(" \n", $ordensArray);
 
-            $centrojob = $row->orders()->where('ordem', $ordensArray[0])->first()?->operations?->where('operacao', '0010')->first()?->cenTrab;
+            if (count($ordensArray) > 0) {
+                // Pega o centro de trabalho da primeira ordem válida
+                $centrojob = $row->Orders()->where('ordem', $ordensArray[0])->first()?->operations?->where('operacao', '0010')->first()?->cenTrab;
+            }
         }
 
 

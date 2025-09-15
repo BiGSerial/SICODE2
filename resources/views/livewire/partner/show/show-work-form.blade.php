@@ -58,6 +58,13 @@
                                             <td class="align-middle">{{ date('d/m/Y', strToTime($form->date)) }}</td>
                                         </tr>
                                         <tr>
+                                            <td class="fw-bold col-2 align-middle">DATA PRIMEIRO INFORME:</td>
+                                            <td class="align-middle">
+                                                {{ $form->created_at->format('d/m/Y H:i:s') }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
                                             <td class="fw-bold col-2 align-middle">DATA DO INFORME:</td>
                                             <td class="align-middle">
                                                 {{ isset($form->informed_at) ? date('d/m/Y H:i:s', strToTime($form->informed_at)) : '' }}

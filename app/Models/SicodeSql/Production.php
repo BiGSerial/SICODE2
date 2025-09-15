@@ -53,6 +53,7 @@ class Production extends Model
         'ma',
         'partial',
         'partial_at',
+        'dfive'
     ];
 
     public function Productions()

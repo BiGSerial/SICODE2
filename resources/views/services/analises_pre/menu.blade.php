@@ -10,19 +10,19 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>LISTA {{ mb_strToUpper($service->service) }}</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>ACOMPANHAMENTO</span> @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
+                            class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>

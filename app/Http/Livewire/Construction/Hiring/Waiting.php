@@ -163,6 +163,22 @@ class Waiting extends Component
         }
     }
 
+
+    public function exportExcel()
+    {
+        if (count($this->selected)) {
+
+            return (new \App\Exports\Hiring\WaitingListExport($this->getQueryBase()->whereIn('id', $this->selected)))->download('lista_espera_contratacao_selecionador_'.now()->format('Y_m_d_H_i_s').'.xlsx');
+        }
+
+        return (new \App\Exports\Hiring\WaitingListExport($this->getQueryBase()))->download('lista_espera_contratacao_'.now()->format('Y_m_d_H_i_s').'.xlsx');
+    }
+
+
+
+
+
+
     // Lógica para selecionar todos os registros
     public function setSelectAll()
     {
@@ -350,7 +366,7 @@ class Waiting extends Component
 
 
 
-    public function getListsProperty()
+    public function getQueryBase()
     {
         return HiringWaiting::where('complete', false)
             ->when($this->cjobes, function ($query) {
@@ -383,11 +399,27 @@ class Waiting extends Component
 
                 });
             })
-            ->orderBy('created_at')
-            ->with(['Note.Orders.Operations' => function ($query) {
+            ->orderBy('created_at');
+    }
+
+
+
+    public function getListsProperty()
+    {
+        $query = $this->getQueryBase();
+
+        $paginated = $query->paginate($this->perPage);
+
+        // Carrega as relações apenas para os itens da página atual
+        $paginated->getCollection()->load([
+            'Note.Orders.Operations' => function ($query) {
                 $query->where('operacao', '0010');
-            }, 'Note.Files', 'Reclaim.Production'])
-            ->paginate($this->perPage);
+            },
+            'Note.Files',
+            'Reclaim.Production'
+        ]);
+
+        return $paginated;
     }
 
     public function getCentroTrabProperty()

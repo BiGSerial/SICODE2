@@ -12,8 +12,8 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('construction.main', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="ri-money-dollar-box-line fs-4 align-middle text-white fw-normal"></i>
+                                class="nav-item text-white fw-normal">
+                                <i class="ri-money-dollar-box-line fs-5 align-middle edp-text-verde-dark fw-normal"></i>
                                 <span>LISTA
                                     {{ mb_strToUpper($service->service) }}</span>
                                 @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
@@ -21,8 +21,8 @@
                         </li>
                         <li>
                             <a href="{{ route('construction.accompany', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="ri-timer-fill fs-4 align-middle text-white fw-normal"></i> <span>À
+                                class="nav-item text-white fw-normal">
+                                <i class="ri-timer-fill fs-5 align-middle edp-text-verde-dark fw-normal"></i> <span>À
                                     CONTRATAR</span>
                                 @livewire('construction.hiring.counts.countmycontrol', key('count-control'))
                             </a>
@@ -30,8 +30,8 @@
 
                         <li>
                             <a href="{{ route('construction.historic', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="ri-money-dollar-box-fill fs-4 align-middle text-white fw-normal"></i>
+                                class="nav-item text-white fw-normal">
+                                <i class="ri-money-dollar-box-fill fs-5 align-middle edp-text-verde-dark fw-normal"></i>
                                 <span>OBRAS CONTRATADAS</span>
                                 @livewire('construction.hiring.counts.check-hiring', key('count-hiring'))
                             </a>
@@ -39,16 +39,16 @@
 
                         <li>
                             <a href="{{ route('construction.lookatnotes', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="ri-search-eye-line fs-4 align-middle text-white fw-normal"></i>
+                                class="nav-item text-white fw-normal">
+                                <i class="ri-search-eye-line fs-5 align-middle edp-text-verde-dark fw-normal"></i>
                                 <span>CONSULTA NOTAS/OV</span>
 
                             </a>
                         </li>
                         {{-- <li>
                             <a href="{{ route('construction.returned', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="ri-money-dollar-box-line fs-4 align-middle text-white fw-thin"></i> <span>RETORNO VIABILIDADE
+                                class="nav-item text-white fw-normal">
+                                <i class="ri-money-dollar-box-line fs-5 align-middle text-white fw-thin"></i> <span>RETORNO VIABILIDADE
                                     {{ mb_strToUpper($service->service) }}</span>
                                 @livewire('construction.hiring.counts.returnviab', key('count-return'))
                             </a>
@@ -56,8 +56,8 @@
 
                         <li>
                             <a href="{{ route('construction.waiting', ['service' => $service->uuid]) }}"
-                                class="nav-item edp-text-verde-dark">
-                                <i class="ri-timer-line fs-4 align-middle text-white fw-thin"></i>
+                                class="nav-item text-white fw-normal">
+                                <i class="ri-timer-line fs-5 align-middle text-white fw-thin"></i>
                                 <span>AGUARDANDO RETORNO INTERNO</span>
                                 @livewire('construction.hiring.counts.count-return')
                             </a>

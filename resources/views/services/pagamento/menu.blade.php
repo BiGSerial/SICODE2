@@ -10,20 +10,23 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>LISTA {{ mb_strToUpper($service->service) }}</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-list-ul fs-5 edp-text-verde-dark fw-normal"></i> <span>LISTA
+                                {{ mb_strToUpper($service->service) }}</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>ACOMPANHAMENTO</span> @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i> <span>ACOMPANHAMENTO</span>
+                            @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="bi bi-circle"></i> <span>MEU HISTÓRICO</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i> <span>MEU
+                                HISTÓRICO</span>
                         </a>
                     </li>
 
@@ -32,6 +35,6 @@
         </li>
     </ul>
 
-    
+
 
 </aside>

@@ -10,22 +10,22 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="ri-play-circle-line fw-light text-white fs-5"></i> <span>ATIVIDADE
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-play-circle-line fw-light edp-text-verde-dark fs-5"></i> <span>ATIVIDADE
                                 {{ mb_strToUpper($service->service) }}</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
                         </a>
                     </li>
 
                     {{-- <li>
-                        <a href="{{ route('reports.workreport') }}" class="nav-item edp-text-verde-dark">
-                            <i class="ri-history-line fw-light text-white fs-5"></i> <span>LISTA DE INFORMES</span>
+                        <a href="{{ route('reports.workreport') }}" class="nav-item text-white fw-normal">
+                            <i class="ri-history-line fw-light edp-text-verde-dark fs-5"></i> <span>LISTA DE INFORMES</span>
                         </a>
                     </li> --}}
                     <li>
                         <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
-                            class="nav-item edp-text-verde-dark">
-                            <i class="ri-history-line fw-light text-white fs-5"></i> <span>MEU HISTÓRICO</span>
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-history-line fw-light edp-text-verde-dark fs-5"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>
 

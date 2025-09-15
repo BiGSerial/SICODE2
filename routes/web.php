@@ -42,7 +42,7 @@ Auth::routes();
 // });
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->middleware('auth')->name('home');
-
+Route::get('/profile/{id}', [App\Http\Controllers\HomeController::class, 'profile'])->middleware('auth')->name('profile');
 
 
 Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])->middleware('auth')->name('company');
