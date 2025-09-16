@@ -382,25 +382,53 @@ class Main extends Component
 
     public function confirm_att()
     {
+
+        $errors       = new Collection();
         // 1) Carrega as notas selecionadas
         $this->notes = Note::find($this->selected);
 
         // 2) Verifica bloqueios
         $blocked = [];
+
+
+
+
+
         foreach ($this->notes as $note) {
-            if ($existing = $this->hasProduction($note)) {
-                $when = Carbon::parse($existing->dt_note)->format('d/m/Y H:i');
-                $blocked[] = "{$note->note} (em {$when})";
+
+            $note->loadMissing([
+               'WorkForm',
+               'FiveNote',
+               'Partials',
+               'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
+                                           ->orderByDesc('created_at'),
+           ]);
+
+
+
+            $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
+            if ($eval['block']) {
+                $errors->push([
+                    'note' => $note->note,
+                    'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),
+                ]);
+                continue;
             }
         }
 
-        if (count($blocked)) {
-            $lista = implode('<br>– ', $blocked);
+       
+
+        if ($errors->isNotEmpty()) {
+            $lines = $errors
+                ->map(fn ($e) => "{$e['note']} (já em {$e['when']})")
+                ->implode("<br>– ");
             return $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Algumas notas não podem ser despachadas',
-                'html'     => "As seguintes notas já possuem produção:<br>– {$lista}",
+                'icon'     => 'warning',
+                'title'    => 'Algumas notas não foram despachadas',
+                'html'     => "As seguintes notas já tinham produção:<br>– {$lines}",
+                'timer'    => 3000,
             ]);
         }
 
@@ -497,6 +525,7 @@ class Main extends Component
             $fiveNote = $note->FiveNote ? true : false;
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
 
             if ($eval['block']) {
                 $errors->push([
