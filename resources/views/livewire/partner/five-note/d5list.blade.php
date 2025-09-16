@@ -256,7 +256,7 @@
                                         @php
                                             function getOrder($note): string
                                             {
-                                                return $note->Orders?->sortBy('ordem')->first()?->ordem;
+                                                return $note->WorkForm?->Orders?->sortBy('ordem')->first()?->ordem;
                                             }
                                         @endphp
                                     @endif

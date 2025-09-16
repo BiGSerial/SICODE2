@@ -393,8 +393,8 @@ class Jobform extends Component
                     $order = null;
 
                     if ($note) {
-                        $order = $note->workForm?->Orders()->orderBy('ordem', 'asc')->first();
-                        $workForm = $note->workForm;
+                        $order = $note->WorkForm?->Orders()->orderBy('ordem', 'asc')->first();
+                        $workForm = $note->WorkForm;
                     }
 
                     $fiveNote = FiveNote::updateOrCreate(
@@ -409,7 +409,7 @@ class Jobform extends Component
                             'conjunto' => $this->production->Note->num_material,
                             'pep' => $order?->pep,
                             'e_pep' =>  $order?->pep,
-                            'company_id' => $this->production->note->workForm?->company_id,
+                            'company_id' => $workForm?->company_id,
                             'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
                             'sintoms' => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
                             'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
