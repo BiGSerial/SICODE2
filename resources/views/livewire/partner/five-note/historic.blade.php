@@ -224,172 +224,131 @@
         </div>
     </div>
 
-    {{-- === Split: Tabela + Galeria === --}}
-    <div class="flex-grow-1 px-1">
-        <div class="split">
-            {{-- LISTA --}}
-            @if ($fives->isNotEmpty())
-                <div class="card card-soft">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th class="text-center" style="width:52px;"></th>
-                                        <th>Nota D5</th>
-                                        <th>Note</th>
-                                        <th>Orders</th>
-                                        <th>PEP</th>
-                                        <th>Motivo</th>
-                                        <th>Codificação</th>
-                                        {{-- <th>Detalhes</th> --}}
-                                        <th class="text-center">Despachado em</th>
-                                        <th class="text-center">Finalizado em</th>
-                                        <th class="text-center" style="width:56px;">Ação</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+    @if ($fives->isNotEmpty())
+        <div class="card card-soft mt-2">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width:52px;"></th>
+                                <th>Nota D5</th>
+                                <th>Note</th>
+                                <th>Orders</th>
+                                <th>PEP</th>
+                                <th>Motivo</th>
+                                <th>Codificação</th>
+                                {{-- <th>Detalhes</th> --}}
+                                <th class="text-center">Despachado em</th>
+                                <th class="text-center">Concluído em</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center" style="width:56px;">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
 
-                                    @if (!function_exists('getOrder'))
-                                        @php
-                                            function getOrder($note): string
-                                            {
-                                                return $note->Orders?->sortBy('ordem')->first()?->ordem;
-                                            }
-                                        @endphp
-                                    @endif
-
-                                    @if ($fives->isNotEmpty())
-                                        @foreach ($fives as $index => $five)
-                                            <tr @click="selectRow({{ $five->id }})"
-                                                :class="rowClass({{ $five->id }})">
-                                                <td class="text-center">
-                                                    <span class="c-badge">#{{ $index + 1 }}</span>
-                                                </td>
-                                                <td class="cell-tight">{{ $five->note_d5 }}</td>
-                                                <td class="cell-tight">{{ $five->note->note }}</td>
-                                                <td class="cell-tight">{{ getOrder($five->note) }}</td>
-                                                <td class="cell-tight">{{ $five->pep }}</td>
-                                                <td class="cell-tight">{{ $five->reason }}</td>
-                                                <td class="cell-tight">{{ $five->codify }}</td>
-                                                {{-- <td class="cell-wrap">{!! $five->description !!}</td> --}}
-                                                <td class="text-center cell-tight">
-                                                    {{ $five->dispatch_at?->format('d/m/Y H:i') }}</td>
-                                                <td class="text-center">
-                                                    {{ $five->completed_at?->format('d/m/Y H:i') }}
-                                                </td>
-                                                <td class="text-center">
-                                                    <button class="btn btn-sm btn-primary"
-                                                        wire:click="$emitTo('partner.five-note.actions.view-d5', 'getInfoResponse', {{ $five->id }})">
-                                                        <i class="ri-eye-line"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    @endif
-
-
-
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {{-- Paginação (placeholder) --}}
-                        <div class="d-flex justify-content-between align-items-center px-3 py-1">
-
-                            @if ($fives->hasPages())
-                                <small class="text-muted">
-                                    Exibindo {{ $fives->firstItem() }}–{{ $fives->lastItem() }} de
-                                    {{ $fives->total() }} registros
-                                </small>
-                                <nav aria-label="Paginação D5">
-                                    <ul class="pagination pagination-sm m-0">
-                                        {{-- Botão Anterior --}}
-                                        @if ($fives->onFirstPage())
-                                            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                                        @else
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $fives->previousPageUrl() }}"
-                                                    wire:click="previousPage" wire:loading.attr="disabled">&laquo;</a>
-                                            </li>
-                                        @endif
-
-                                        {{-- Páginas --}}
-                                        @foreach ($fives->getUrlRange(1, $fives->lastPage()) as $page => $url)
-                                            @if ($page == $fives->currentPage())
-                                                <li class="page-item active"><span
-                                                        class="page-link">{{ $page }}</span></li>
-                                            @else
-                                                <li class="page-item">
-                                                    <a class="page-link" href="{{ $url }}"
-                                                        wire:click="gotoPage({{ $page }})"
-                                                        wire:loading.attr="disabled">{{ $page }}</a>
-                                                </li>
-                                            @endif
-                                        @endforeach
-
-                                        {{-- Botão Próximo --}}
-                                        @if ($fives->hasMorePages())
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $fives->nextPageUrl() }}"
-                                                    wire:click="nextPage" wire:loading.attr="disabled">&raquo;</a>
-                                            </li>
-                                        @else
-                                            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-                                        @endif
-                                    </ul>
-                                </nav>
-                            @else
-                                <small class="text-muted">
-                                    Exibindo {{ $fives->count() }} de {{ $fives->count() }} registros
-                                </small>
+                            @if (!function_exists('getOrder'))
+                                @php
+                                    function getOrder($note): string
+                                    {
+                                        return $note->Orders?->sortBy('ordem')->first()?->ordem;
+                                    }
+                                @endphp
                             @endif
-                        </div>
-                    </div>
+
+                            @if ($fives->isNotEmpty())
+                                @foreach ($fives as $index => $five)
+                                    <tr @click="selectRow({{ $five->id }})" :class="rowClass({{ $five->id }})">
+                                        <td class="text-center">
+                                            <span class="c-badge">#{{ $index + 1 }}</span>
+                                        </td>
+                                        <td class="cell-tight">{{ $five->note_d5 }}</td>
+                                        <td class="cell-tight">{{ $five->note->note }}</td>
+                                        <td class="cell-tight">{{ getOrder($five->note) }}</td>
+                                        <td class="cell-tight">{{ $five->pep }}</td>
+                                        <td class="cell-tight">{{ $five->reason }}</td>
+                                        <td class="cell-tight">{{ $five->codify }}</td>
+                                        {{-- <td class="cell-wrap">{!! $five->description !!}</td> --}}
+                                        <td class="text-center cell-tight">
+                                            {{ $five->dispatch_at?->format('d/m/Y H:i') }}</td>
+                                        <td class="text-center">
+                                            {{ $five->completed_at?->format('d/m/Y H:i') }}
+                                        </td>
+
+                                        @php
+                                            $status = '';
+                                            $color = '';
+
+                                            if ($five->is_payed) {
+                                                if ($five->is_archived) {
+                                                    $status = 'Finalizada';
+                                                    $color = 'text-bg-success';
+                                                } elseif ($five->is_supervisioned) {
+                                                    $status = 'Aguardando Liberação Pagamento';
+                                                    $color = 'text-bg-danger';
+                                                } elseif ($five->is_completed) {
+                                                    $status = 'Aguardando Fiscalização';
+                                                    $color = 'text-bg-danger';
+                                                } elseif ($five->visible_partner) {
+                                                    $status = 'Aguardando Conclusão Parceira';
+                                                    $color = 'text-bg-primary';
+                                                }
+                                            } else {
+                                                $status = 'Aguardando Despacho Pagamento';
+                                                $color = 'text-bg-primary';
+                                            }
+
+                                        @endphp
+                                        <td class="text-center">
+                                            <span class="badge {{ $color }}">{{ $status }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-primary"
+                                                wire:click="$emitTo('partner.five-note.actions.view-d5', 'getInfoResponse', {{ $five->id }})">
+                                                <i class="ri-eye-line"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            @endif
+
+
+
+                        </tbody>
+                    </table>
                 </div>
-            @else
-                <div class="card card-soft">
-                    <div class="card-body p-0">
-                        <div class="text-center py-5 text-secondary">
-                            <i class="ri-folder-2-line d-block fs-2 mb-2"></i>
-                            <div>SEM D5 PARA EXECUÇÃO.</div>
-                        </div>
-                    </div>
-                </div>
-            @endif
 
-            {{-- ASIDE GALERIA --}}
-            <aside class="aside" x-show="selected">
-                <h6>
-                    <i class="ri-image-2-line me-1"></i>
-                    Arquivos referenciais {{ $charged?->note_d5 }}
+                {{-- Paginação (placeholder) --}}
+                <div class="d-flex justify-content-between align-items-center px-3 py-3">
 
-                </h6>
+                    @if ($fives->links())
+                        <small class="text-muted">
+                            Exibindo {{ $fives->firstItem() }}–{{ $fives->lastItem() }} de
+                            {{ $fives->total() }} registros
+                        </small>
+                        <nav aria-label="Paginação D5">
 
-                @isset($charged)
-                    @php
-                        // Usa optional() para não quebrar se o relacionamento ainda não foi carregado
-                        $files = optional($charged)->EvidenceFiles ?? collect();
-                    @endphp
+                            {{ $fives->links() }}
 
-                    @if ($files->count())
-                        <x-files.attachments :files="$files" :downloadAction="'downloadFile'" :showHeader="false" :card="false"
-                            wire:key="files-{{ $charged->id }}" />
+                        </nav>
                     @else
-                        <div class="text-center py-4 text-muted">
-                            <i class="ri-folder-open-line fs-4 mb-2 d-block"></i>
-                            <small>Sem arquivos referenciais.</small>
-                        </div>
+                        <small class="text-muted">
+                            Exibindo {{ $fives->count() }} de {{ $fives->count() }} registros
+                        </small>
                     @endif
-                @else
-                    <div class="text-center py-4 text-muted">
-                        <i class="ri-folder-open-line fs-4 mb-2 d-block"></i>
-                        <small>Selecione um item para ver os arquivos</small>
-                    </div>
-                @endisset
-            </aside>
+                </div>
+            </div>
         </div>
-    </div>
+    @else
+        <div class="card card-soft">
+            <div class="card-body p-0">
+                <div class="text-center py-5 text-secondary">
+                    <i class="ri-folder-2-line d-block fs-2 mb-2"></i>
+                    <div>SEM D5 PARA EXECUÇÃO.</div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- === Modal Encerrar (play) === --}}
     {{-- <div class="modal fade finish" id="finishFiveModal" tabindex="-1" aria-hidden="true">

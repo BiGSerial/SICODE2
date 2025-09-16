@@ -53,6 +53,23 @@ class WaitingFiveNotes extends Component
          // MD5 of SICODE
     ];
 
+    public function updatedSearch()
+    {
+        $this->resetPage();
+        if (!$this->search) {
+            $this->multisearch = [];
+            $this->advanceSearch = "";
+        }
+    }
+
+
+    public function buscarMulti()
+    {
+        $this->search = "";
+        $this->resetPage();
+        $this->multisearch = $this->formatTextToArray($this->advanceSearch);
+    }
+
 
     public function setSelectAll()
     {
@@ -150,6 +167,7 @@ class WaitingFiveNotes extends Component
 
         if ($this->search) {
 
+
             $search = $this->formatWithWildcard($this->search);
 
             $base->where(function ($query) use ($search) {
@@ -161,6 +179,22 @@ class WaitingFiveNotes extends Component
                     ->orWhere('codify', $search->type, $search->search)
                     ->orWhereHas('company', function ($q) use ($search) {
                         $q->where('name', $search->type, $search->search);
+                    });
+            });
+        }
+
+
+        if (count($this->multisearch) > 0) {
+
+            $base->where(function ($query) {
+                $query->whereHas('note', function ($q) {
+                    $q->whereIn('note', $this->multisearch);
+                })
+                    ->orWhereIn('note_d5', $this->multisearch)
+                    ->orWhereIn('reason', $this->multisearch)
+                    ->orWhereIn('codify', $this->multisearch)
+                    ->orWhereHas('company', function ($q) {
+                        $q->where('name', $this->multisearch);
                     });
             });
         }

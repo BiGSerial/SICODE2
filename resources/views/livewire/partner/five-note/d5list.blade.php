@@ -303,15 +303,21 @@
                         {{-- Paginação (placeholder) --}}
                         <div class="d-flex justify-content-between align-items-center px-3 py-3">
 
-                            {{ $fives->links() }}
-                            <small class="text-muted">
-                                @if ($fives->total() > 0)
-                                    Exibindo {{ $fives->firstItem() }} - {{ $fives->lastItem() }} de
+                            @if ($fives->links())
+                                <small class="text-muted">
+                                    Exibindo {{ $fives->firstItem() }}–{{ $fives->lastItem() }} de
                                     {{ $fives->total() }} registros
-                                @else
-                                    Nenhum registro encontrado
-                                @endif
-                            </small>
+                                </small>
+                                <nav aria-label="Paginação D5">
+
+                                    {{ $fives->links() }}
+
+                                </nav>
+                            @else
+                                <small class="text-muted">
+                                    Exibindo {{ $fives->count() }} de {{ $fives->count() }} registros
+                                </small>
+                            @endif
                         </div>
                     </div>
                 </div>

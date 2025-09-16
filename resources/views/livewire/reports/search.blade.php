@@ -102,8 +102,41 @@
                                 <dd class="col-sm-8 text-white fw-bold text-uppercase"
                                     wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $lists->FiveNote->id }})"
                                     style="cursor: pointer;">
-                                    {{ $lists->FiveNote->note_d5 ?? 'A GERAR D5' }} <i
-                                        class="ri-eye-line me-1 text-primary"></i>
+                                    {{ $lists->FiveNote?->note_d5 ?? 'A GERAR D5' }} -
+                                    @if ($lists->FiveNote?->visible_partner && $lists->FiveNote?->is_completed)
+                                        <span class="fs-6 fw-normal">(
+                                            {{ $lists->FiveNote?->completed_at?->format('d/m/Y H:i') }} )</span>
+                                        -
+                                    @endif
+                                    <i class="ri-eye-line me-1 text-primary"></i>
+                                </dd>
+                                @php
+                                    $status = '';
+                                    $color = '';
+
+                                    if ($lists->FiveNote?->is_payed) {
+                                        if ($lists->FiveNote?->is_archived) {
+                                            $status = 'Finalizada';
+                                            $color = 'text-bg-success';
+                                        } elseif ($lists->FiveNote?->is_supervisioned) {
+                                            $status = 'Aguardando Liberação Pagamento';
+                                            $color = 'text-bg-danger';
+                                        } elseif ($lists->FiveNote?->is_completed) {
+                                            $status = 'Aguardando Fiscalização';
+                                            $color = 'text-bg-danger';
+                                        } elseif ($lists->FiveNote?->visible_partner) {
+                                            $status = 'Aguardando Conclusão Parceira';
+                                            $color = 'text-bg-primary';
+                                        }
+                                    } else {
+                                        $status = 'Aguardando Despacho Pagamento';
+                                        $color = 'text-bg-primary';
+                                    }
+
+                                @endphp
+                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">STATUS NOTA D5</dt>
+                                <dd class="col-sm-8 text-white text-uppercase">
+                                    <span class="badge {{ $color }}">{{ $status }}</span>
                                 </dd>
                             @else
                                 <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
