@@ -48,9 +48,7 @@ class Jobform extends Component
         'analise.postes' => 'required|numeric|min:0',
         'analise.info' => 'nullable|string',
         'analise.conclusion' => 'required',
-
-
-
+        'return.loc_install' => 'nullable|string',
     ];
 
     public function messages()
@@ -104,15 +102,49 @@ class Jobform extends Component
         }
     }
 
+    public function updatedD5($value)
+    {
+
+        $this->d5 = $value;
+        if (!$value) {
+            $this->return = [
+                // 'note' => '',
+                'reason' => '',
+                'description' => '',
+                'loc_install' => '',
+                'codify' => '',
+                'sintoms' => '',
+            ];
+        } else {
+            if ($this->production->dfive) {
+                $this->return['reason'] = $this->production->FiveNote->first()->reason;
+                $this->return['description'] = $this->production->FiveNote->first()->description;
+                $this->return['loc_install'] = $this->production->FiveNote->first()->loc_install;
+                $this->return['codify'] = $this->production->FiveNote->first()->codify;
+                $this->return['sintoms'] = $this->production->FiveNote->first()->sintoms;
+            } else {
+                $this->return['reason'] = '';
+                $this->return['description'] = '';
+                $this->return['loc_install'] = $this->production->Note->WorkForm?->Orders?->sortBy('ordem')->first()?->locInstalacao;
+                $this->return['codify'] = '';
+                $this->return['sintoms'] = '';
+            }
+        }
+    }
+
 
 
     public function showProduction(Production $production)
     {
 
         $this->five = null;
-        $this->production = $production->load('note.WorkForm.Company', 'note.WorkForm.Orders', 'note.fiveNote');
+        $this->production = $production->load('Note.WorkForm.Company', 'Note.WorkForm.Orders', 'Note.fiveNote');
+
+
 
         if ($this->production) {
+
+            $this->return['loc_install'] = $this->production->Note->WorkForm?->Orders?->sortBy('ordem')->first()?->loc_install ?? '';
 
             if ($this->production->dfive) {
                 $this->d5 = 1;
@@ -388,8 +420,8 @@ class Jobform extends Component
 
                 // ]);
 
-                if (!$this->production->note->FiveNote) {
-                    $note = $this->production->note;
+                if (!$this->production->Note->FiveNote) {
+                    $note = $this->production->Note;
                     $order = null;
 
                     if ($note) {
@@ -409,7 +441,7 @@ class Jobform extends Component
                             'conjunto' => $this->production->Note->num_material,
                             'pep' => $order?->pep,
                             'e_pep' =>  $order?->pep,
-                            'company_id' => $workForm?->company_id,
+                            'company_id' => $this->production->Note?->WorkForm?->company_id,
                             'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
                             'sintoms' => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
                             'codify' => $this->return['codify'] ? trim($this->return['codify']) : null,
@@ -471,7 +503,7 @@ class Jobform extends Component
 
                 $this->emitTo('files.manager.create-prod-files', 'saveFiles');
             } else {
-                dd('nenhum arquivo');
+
                 $this->closeAll();
 
             }

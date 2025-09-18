@@ -22,7 +22,6 @@ class FiveNote extends Model
         'sintoms',
         'reason',
         'description',
-        '$arrayName = array();',
         'name',
         'dispatch_at',
         'visible_partner',

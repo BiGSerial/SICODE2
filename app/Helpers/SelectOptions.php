@@ -201,6 +201,25 @@ class SelectOptions
     }
 
 
+    public static function getReverseFluxConclusion()
+    {
+        return [
+            (object)['reason' => 'Estudo Detalhado', 'value' => 'ESTUDO DETALHADO', 'block' => false],
+            (object)['reason' => 'Estudo Simples', 'value' => 'ESTUDO SIMPLES', 'block' => false],
+            (object)['reason' => 'Sem Estudo', 'value' => 'SEM ESTUDO', 'block' => false]
+        ];
+    }
+
+    public static function getReverseFluxEnd()
+    {
+        return [
+            (object)['reason' => 'ISR - Independe de Serviço de rede', 'value' => 'ISR - INDEPENDE DE SERVICO DE REDE', 'block' => false],
+            (object)['reason' => 'NE - Não Elaborado', 'value' => 'NE - NAO ELABORADO', 'block' => false],
+            (object)['reason' => 'DSR - Dependente de Serviço de rede', 'value' => 'DSR - DEPENDENTE DE SERVICO DE REDE', 'block' => false]
+        ];
+    }
+
+
 
     // OPÇÕES DE ORGÃO EXTERNO
 

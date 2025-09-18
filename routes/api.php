@@ -29,3 +29,21 @@ Route::post('login', function (Request $r) {
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::prefix('v1')->group(function () {
+    Route::post('/auth/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [\App\Http\Controllers\Api\AuthController::class, 'me']);
+        Route::post('/auth/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
+
+        // Usuarios
+        Route::get('/users', [\App\Http\Controllers\Api\UserController::class, 'index']);
+
+
+
+    });
+
+
+
+});

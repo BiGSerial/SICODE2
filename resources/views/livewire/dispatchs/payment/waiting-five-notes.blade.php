@@ -129,7 +129,12 @@
                             <td>{!! $list->completed_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">EM ANDAMENTO</span>' !!}</td>
                             <td>{{ $list->payed_at?->format('d/m/Y H:i') ?? 'NÃO PAGO' }}</td>
                             <td class="fw-bold">{!! $list->supervisioned_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">NÃO FISCALIZADO</span>' !!}</td>
-                            <td></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary p-1"
+                                    wire:click="$emitTo('components.five-note.edit-d5', 'getInfoResponse', {{ $list->id }})">
+                                    Editar
+                                </button>
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -312,6 +317,7 @@
     {{-- Modals --}}
     @livewire('components.five-note.view-d5', key('five-note'))
     @livewire('components.five-note.manual-create', key('manual-create-five'))
+    @livewire('components.five-note.edit-d5', key('edit-five-note'))
 
     {{-- Estilos customizados --}}
 

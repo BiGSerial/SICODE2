@@ -173,7 +173,7 @@
                                                         class="text-danger">*</span></label>
                                                 <input type="text" class="form-control border border-secondary"
                                                     wire:model.defer="return.loc_install"
-                                                    placeholder="Ex.: 708-EP-00459941">
+                                                    placeholder="Ex.: 708-EP-00459941" @disabled($return['loc_install'] ?? false)>
 
                                             </div>
 
