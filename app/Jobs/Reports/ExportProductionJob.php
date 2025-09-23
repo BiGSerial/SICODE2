@@ -45,29 +45,52 @@ class ExportProductionJob implements ShouldQueue
 
         try {
             $query = Production::query()
+                // TODO: revisar se novas colunas continuam qualificadas ao adicionar relacoes futuras
                 ->select([
-                    'id','user_id','company_id','service_id','dispatch_by',
-                    'note_id','att_by',
-                    'dt_note','dispatch_at','att_at','completed_at',
-                    'odi','odd','ods','eo','iproject','cad','cadastro',
-                    'postes_c','postes_u','stopped','d5','confirmed','status','completed',
-                    'partial','partial_at',
+                    'productions.id',
+                    'productions.user_id',
+                    'productions.company_id',
+                    'productions.service_id',
+                    'productions.dispatch_by',
+                    'productions.note_id',
+                    'productions.att_by',
+                    'productions.dt_note',
+                    'productions.dispatch_at',
+                    'productions.att_at',
+                    'productions.completed_at',
+                    'productions.odi',
+                    'productions.odd',
+                    'productions.ods',
+                    'productions.eo',
+                    'productions.iproject',
+                    'productions.cad',
+                    'productions.cadastro',
+                    'productions.postes_c',
+                    'productions.postes_u',
+                    'productions.stopped',
+                    'productions.d5',
+                    'productions.confirmed',
+                    'productions.status',
+                    'productions.completed',
+                    'productions.partial',
+                    'productions.partial_at',
+                    'productions.dfive',
                 ])
-                ->where('rejected', false)
+                ->where('productions.rejected', false)
                 // completed?
-                ->when(!$includeOpen, fn ($q) => $q->where('completed', true))
+                ->when(!$includeOpen, fn ($q) => $q->where('productions.completed', true))
                 // empresa
-                ->when(($this->params['company'] ?? null), fn ($q, $company) => $q->where('company_id', $company))
+                ->when(($this->params['company'] ?? null), fn ($q, $company) => $q->where('productions.company_id', $company))
                 // serviços
-                ->when(!empty($this->params['service'] ?? []), fn ($q) => $q->whereIn('service_id', $this->params['service']))
+                ->when(!empty($this->params['service'] ?? []), fn ($q) => $q->whereIn('productions.service_id', $this->params['service']))
                 // mês/ano
                 ->when(($this->params['monthYear'] ?? null), function ($q, $ym) use ($includeOpen) {
                     $start = date('Y-m-01 00:00:00', strtotime($ym));
                     $end   = date('Y-m-t 23:59:59', strtotime($ym));
                     $q->where(function ($w) use ($includeOpen, $start, $end) {
-                        $w->whereBetween('completed_at', [$start, $end]);
+                        $w->whereBetween('productions.completed_at', [$start, $end]);
                         if ($includeOpen) {
-                            $w->orWhere('completed', false);
+                            $w->orWhere('productions.completed', false);
                         }
                     });
                 })
@@ -75,9 +98,9 @@ class ExportProductionJob implements ShouldQueue
                 ->when(($this->params['dt_init'] ?? null), function ($q, $dt) use ($includeOpen) {
                     $start = date('Y-m-d 00:00:00', strtotime($dt));
                     $q->where(function ($w) use ($includeOpen, $start) {
-                        $w->where('completed_at', '>=', $start);
+                        $w->where('productions.completed_at', '>=', $start);
                         if ($includeOpen) {
-                            $w->orWhere('completed', false);
+                            $w->orWhere('productions.completed', false);
                         }
                     });
                 })
@@ -85,14 +108,14 @@ class ExportProductionJob implements ShouldQueue
                 ->when(($this->params['dt_end'] ?? null), function ($q, $dt) use ($includeOpen) {
                     $end = date('Y-m-d 23:59:59', strtotime($dt));
                     $q->where(function ($w) use ($includeOpen, $end) {
-                        $w->where('completed_at', '<=', $end);
+                        $w->where('productions.completed_at', '<=', $end);
                         if ($includeOpen) {
-                            $w->orWhere('completed', false);
+                            $w->orWhere('productions.completed', false);
                         }
                     });
                 })
                 // D5: se não marcado, exclui D5; se marcado, inclui todos (D5 e não-D5), como no componente
-                ->when(!$wantD5, fn ($q) => $q->where('d5', false))
+                ->when(!$wantD5, fn ($q) => $q->where('productions.d5', false))
                 // search simples
                 ->when(strlen(trim($this->params['search'] ?? '')) > 0, function ($q) {
                     $search = trim($this->params['search']);
@@ -129,11 +152,13 @@ class ExportProductionJob implements ShouldQueue
                     'Service:uuid,service',
                     'Note:id,note,material,group2,group5,lexp,postes,nexp,doe,rubrica,type_note',
                     'Note.RamalForm:id,note_id,created_at',
-                    'Note.WorkForm:id,note_id,informed_at,rejected,created_at',
+                    'Note.WorkForm' => fn ($q) => $q->with(['Orders:id']),
+                    'Note.WorkForm' => fn ($q) => $q->with(['Adsform:id,created_at']),
                     'Analise',
                     'Reclaim:id,category',
+
                 ])
-                ->orderBy('completed_at');
+                ->orderBy('productions.completed_at');
 
             $rowEstimate = (clone $query)->toBase()->count();
 

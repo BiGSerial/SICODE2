@@ -185,7 +185,18 @@
             </div>
             <div class="card-body toolbar">
                 <div class="row g-2">
+
                     {{-- Busca livre --}}
+
+                    {{-- Per Page --}}
+                    <div class="col-6 col-md-2">
+                        <select class="form-select" wire:model="perPage">
+                            <option value="10">10 por página</option>
+                            <option value="25">25 por página</option>
+                            <option value="50">50 por página</option>
+                            <option value="100">100 por página</option>
+                        </select>
+                    </div>
                     <div class="col-12 col-md-4 position-relative">
                         <input class="form-control" placeholder="Buscar por nota, PEP, motivo..."
                             wire:model.defer="search" x-model="filters.q" @keydown.enter="$wire.call('toSearch')">
@@ -389,7 +400,7 @@
     </div> --}}
 
     {{-- === Modal Busca múltipla (textarea 15 linhas) === --}}
-    <div class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
+    <div wire:ignore.self class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content" style="border-radius:16px;">
                 <div class="modal-header">
@@ -401,7 +412,8 @@
                         placeholder="Cole aqui as notas/OV (uma por linha)"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" wire:click="multiSearch"><i class="ri-search-line me-1"></i>
+                    <button class="btn btn-primary" wire:click.prevent="multiSearch"><i
+                            class="ri-search-line me-1"></i>
                         Buscar</button>
                 </div>
             </div>
@@ -456,7 +468,7 @@
                     return this.selected === id ? 'table-primary' : '';
                 },
                 apply() {
-                    /* TODO: emitir evento Livewire para filtrar */
+
                 },
                 resetFilters() {
                     this.filters = {
@@ -464,7 +476,7 @@
                         month: '',
                         start: '',
                         end: ''
-                    }; /* TODO: emitir reset */
+                    }; 
                 },
             }
         }

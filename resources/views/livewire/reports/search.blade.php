@@ -554,7 +554,7 @@
                                                 $op = $o->Operations->where('operacao', '0010')->first();
                                             @endphp
                                             <p
-                                                class="my-0 {{ $op && !Str::startsWith($op->status, 'CONF') && $v->hired_at->lt(now()->subHours(24)) ? 'text-danger' : '' }}">
+                                                class="my-0 {{ $op && !Str::startsWith($op->status, 'CONF') && $v?->hired_at?->lt(now()->subHours(24)) ? 'text-danger' : '' }}">
                                                 {{ $o->ordem }}
                                                 @if ($op && !Str::startsWith($op->status, 'CONF'))
                                                     <i class="ri-alert-line"></i>

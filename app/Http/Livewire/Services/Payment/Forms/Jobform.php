@@ -201,6 +201,8 @@ class Jobform extends Component
 
     public function to_finish()
     {
+        $this->validate(['analise.conclusion' => 'required|min:1']);
+
         if ($this->production->partial) {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENCERRAMENTO DE SERVIÇO PARCIAL',

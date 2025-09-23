@@ -9,7 +9,7 @@
     <x-showselected :count="$selected" />
 
     <div class="row mb-3 justify-content-end">
-        <div class="col-1">
+        <div class="col-2">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
                 <option value="25">25</option>
@@ -20,17 +20,18 @@
             </select>
         </div>
 
-        <div class="col-2">
+        <div class="col-4">
             <label for="search" class="form-label">Buscar</label>
             <div class="input-group">
                 <input wire:model.bounce.2s="search" type="text"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
+                    class="form-control border border-2 border-secondary" id="search"
+                    placeholder="Use Wildcards *, % ou ? para busca parcial">
                 <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
                         class="ri-checkbox-multiple-blank-line"></i></button>
             </div>
         </div>
 
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
+        <div class="col-md-6 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
 
             @livewire('components.filter.filter', ['myKey' => 'material', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'material', 'filter' => 'Material', 'group_filter' => 'analises', 'values' => 'material', 'direction' => 'ASC', 'query' => ''], key('material'))

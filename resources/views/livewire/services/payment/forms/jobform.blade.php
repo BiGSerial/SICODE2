@@ -666,13 +666,17 @@
                                         <div class="col-md-4">
                                             <label for="resultado" class="form-label">Resultado <span
                                                     class="text-danger">*</span></label>
-                                            <select id="resultado" class="form-select border border-secondary"
+                                            <select id="resultado"
+                                                class="form-select border border-secondary @error('analise.conclusion') is-invalid @enderror"
                                                 wire:model.defer="analise.conclusion">
                                                 <option value="">Selecione...</option>
                                                 @foreach (SelectOptions::getPaymentsOptions() as $item)
                                                     <option value="{{ $item->value }}">{{ $item->info }}</option>
                                                 @endforeach
                                             </select>
+                                            @error('analise.conclusion')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
                                         </div>
 
                                         <div class="col-md-8">

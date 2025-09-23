@@ -417,7 +417,7 @@ class Main extends Component
             }
         }
 
-       
+
 
         if ($errors->isNotEmpty()) {
             $lines = $errors
@@ -578,7 +578,15 @@ class Main extends Component
             }
 
             // 6) cria produção + timeline
-            $production = Production::create($data);
+            $production = Production::firstOrCreate([
+                'note_id'    => $note->id,
+                'service_id' => $this->service->uuid,
+                'user_id'    => $this->type === '2' ? $this->user_s : null,
+                'completed'  => false,
+            ], $data);
+
+
+
             if ($production) {
                 Notetimeline::create([
                     'note_id'      => $production->id, // (verifique se aqui não deveria ser $note->id)

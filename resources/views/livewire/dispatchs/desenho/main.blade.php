@@ -237,9 +237,7 @@
                                     </div>
                                 @endif
                             @endforeach
-
                         @endif
-
                     </form>
                 </div>
             </div>
@@ -614,7 +612,7 @@
                                     {{ $list->group5 ? $list->group5 : '_____' }}
                                 </td>
                                 <td class="fw-light text-center {{ $tableRowClass }}">
-                                    {{ $list->postes ? $list->postes : '_____' }}
+                                    {{ $list->postes }}
                                 </td>
                                 <td class="fw-light text-center {{ $tableRowClass }}" tabindex="0"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"

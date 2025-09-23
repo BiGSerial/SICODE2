@@ -3,7 +3,9 @@
 namespace App\Exports\Reports;
 
 use App\Custom\Notestatus;
+use App\Helpers\DaysLeft;
 use App\Models\Edp_depc\City;
+use App\Models\Operation;
 use App\Models\Production;
 use Carbon\CarbonInterval;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -62,9 +64,57 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
         // Evita Carbon::parse quando já são instâncias de Carbon (tipicamente são)
         $city = $this->cities->firstWhere('rdMunicipio', $row->Note->nexp);
 
+
+
+        if ($row->partial == true) {
+            $tipoProducao = 'PARCIAL';
+        } elseif ($row->d5 == true) {
+            $tipoProducao = 'RETORNO INTERNO';
+        } elseif ($row->dfive == true) {
+            $tipoProducao = 'D5';
+        } else {
+            $tipoProducao = 'NORMAL';
+        }
+
+        $dateFinal = (new DaysLeft($row->note))->getLastDate();
+
+
+
+        $wf = $row->note->workForm;
+
+        $supervisioned = '';
+        $ads = '';
+        $orderWhere = '';
+
+        if ($wf) {
+            $ads = $wf->Adsform;
+
+            // 1) Opção preferida: pega os IDs relacionados sem ambiguidade
+            $ops = collect($wf->Orders ?? [])->pluck('id'); // Collection<int>
+
+            // (Alternativa equivalente, caso prefira manter pluck: ->pluck('orders.id'))
+            // $ops = $wf->Orders()->pluck('orders.id');
+
+            if ($ops->isNotEmpty()) {
+                // 2) Evita first()?->value() (2 queries). Use value() direto após ordenar.
+                $supervisioned = Operation::whereIn('order_id', $ops)
+                    ->where('operacao', '0040')
+                    ->whereNotNull('fimReal')
+                    ->orderByDesc('fimReal')
+                    ->value('fimReal'); // retorna string|null
+            }
+        }
+
+
+
+
+
+
+        $d5 = $row->Note->FiveNote;
+
         return [
             $row->Dispatcher?->name ?? '',
-            $row->Dispatcher->Employee->Contract->company->name ?? '',
+            $row->Dispatcher?->Employee?->Contract?->company?->name ?? '',
             $row->User?->name ?? '',
             $row->Company?->name ?? '',
             $row->Service?->service ?? '',
@@ -99,13 +149,27 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             Notestatus::status($row->status)->status,
             $row->Analise->preresult ?? '',
             $row->Analise->conclusion ?? '',
-            $row->partial ? 'PARCIAL' : 'NORMAL',
+            $tipoProducao,
             $row->Note->RamalForm ? 'SIM' : 'NÃO',
             $row->Note->RamalForm?->created_at?->format('d/m/Y H:i:s'),
             $row->partial_at?->format('d/m/Y H:i:s'),
             $row->Note->WorkForm ? 'SIM' : 'NÃO',
             $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
-            ($row->Note->WorkForm && $row->Note->WorkForm->rejected) ? 'REJEITADO' : 'NORMAL',
+            ($row->note->workForm && $row->note->workForm->rejected) ? 'REJEITADO' : 'NORMAL',
+            $ads ? 'SIM' : 'NÃO',
+            $ads ? $ads?->created_at?->format('d/m/Y H:i:s') : '',
+            $supervisioned ?? '',
+            $dateFinal == '---' ? '---' : $dateFinal,
+            $d5 ? 'SIM' : 'NÃO',
+            $d5?->note_d5 ?? '',
+            $d5?->created_at?->format('d/m/Y H:i:s'),
+            $d5?->payed_at?->format('d/m/Y H:i:s'),
+            $d5?->completed_at?->format('d/m/Y H:i:s'),
+            $d5?->supervisioned_at?->format('d/m/Y H:i:s'),
+            $d5?->updated_at?->format('d/m/Y H:i:s'),
+            $d5 ? ($d5->is_archived ? 'ENCERRADO' : 'ATIVO') : '',
+
+
         ];
     }
 
@@ -155,6 +219,19 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Informe Final',
             'Data Informe Final',
             'Status Informe Final',
+            'Entrega ADS',
+            'Data Entrega ADS',
+            'Ultima Fiscalização',
+            'Dt Final Obra',
+            'Existe D5',
+            'Numero D5',
+            'Data Solicitação D5',
+            'Data Pagamento D5',
+            'Data Conclusao D5',
+            'Data Fiscalização D5',
+            'Ultima Atualização D5',
+            'Status D5',
+
         ];
     }
 

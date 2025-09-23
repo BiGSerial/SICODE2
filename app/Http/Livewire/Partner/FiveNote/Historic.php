@@ -18,7 +18,7 @@ class Historic extends Component
     protected $paginationTheme = 'bootstrap';
 
 
-    public $paginate = 15;
+    public $perPage = 25;
     public $multiSearch = '';
     public $multipleSearch = [];
     public $search = '';
@@ -103,7 +103,7 @@ class Historic extends Component
             ->when($this->month, function ($query) {
                 $query->whereMonth('dispatch_at', $this->month);
             })
-            ->orderBy('dispatch_at', 'desc');
+            ->orderBy('completed_at', 'desc');
 
         return $query;
     }
@@ -147,6 +147,7 @@ class Historic extends Component
         $this->resetPage();
         $this->search = '';
         $this->multipleSearch = $this->formatTextToArray($this->multiSearch);
+        $this->dispatchBrowserEvent('hideModal');
     }
 
     public function downloadFile(EvidenceFile $file)
@@ -182,7 +183,7 @@ class Historic extends Component
     public function render()
     {
         return view('livewire.partner.five-note.historic', [
-            'fives' => $this->fives->paginate($this->paginate),
+            'fives' => $this->fives->paginate($this->perPage),
         ]);
     }
 }

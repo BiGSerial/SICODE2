@@ -185,6 +185,15 @@
             </div>
             <div class="card-body toolbar">
                 <div class="row g-2">
+
+                    <div class="col-6 col-md-2">
+                        <select class="form-select" wire:model="perPage">
+                            <option value="10">10 por página</option>
+                            <option value="25">25 por página</option>
+                            <option value="50">50 por página</option>
+                            <option value="100">100 por página</option>
+                        </select>
+                    </div>
                     {{-- Busca livre --}}
                     <div class="col-12 col-md-4 position-relative">
                         <input class="form-control" placeholder="Buscar por nota, PEP, motivo..."
@@ -374,7 +383,7 @@
     </div> --}}
 
     {{-- === Modal Busca múltipla (textarea 15 linhas) === --}}
-    <div class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
+    <div wire:ignore.self class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content" style="border-radius:16px;">
                 <div class="modal-header">
@@ -396,62 +405,5 @@
     {{-- LIVEWIRE COMPONENTS --}}
     @livewire('partner.five-note.actions.view-d5', key('view-d5'))
 
-    {{-- === Alpine: estado local apenas para protótipo === --}}
-    <script>
-        function fiveListPage() {
-            return {
-                filters: {
-                    q: '',
-                    month: '',
-                    start: '',
-                    end: ''
-                },
-                selected: null,
-                gallery: {
-                    1: [{
-                            src: 'https://picsum.photos/seed/a/600/400',
-                            name: 'foto_1.jpg'
-                        },
-                        {
-                            src: 'https://picsum.photos/seed/b/600/400',
-                            name: 'croqui.png'
-                        },
-                        {
-                            src: 'https://picsum.photos/seed/c/600/400',
-                            name: 'frente_posto.jpg'
-                        },
-                    ],
-                    2: [],
-                    3: [{
-                            src: 'https://picsum.photos/seed/d/600/400',
-                            name: 'detalhe_1.jpg'
-                        },
-                        {
-                            src: 'https://picsum.photos/seed/e/600/400',
-                            name: 'detalhe_2.jpg'
-                        },
-                    ],
-                },
-                selectRow(id) {
-                    this.selected = id;
-                    this.$wire.chargeFiles(id);
-                    this.$wire.emit('refresh_component');
-                },
-                rowClass(id) {
-                    return this.selected === id ? 'table-primary' : '';
-                },
-                apply() {
-                    /* TODO: emitir evento Livewire para filtrar */
-                },
-                resetFilters() {
-                    this.filters = {
-                        q: '',
-                        month: '',
-                        start: '',
-                        end: ''
-                    }; /* TODO: emitir reset */
-                },
-            }
-        }
-    </script>
+
 </div>

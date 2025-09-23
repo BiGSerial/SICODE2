@@ -7,11 +7,14 @@ use App\Exports\DispatchDesenhoMain;
 use App\Exports\Services\analisesExport;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Traits\WildcardFormmater;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
+
+    use WildcardFormmater;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -499,7 +502,14 @@ class Main extends Component
 
         $query = Note::query();
 
-        RuleBuilder::applyRules($query, $this->service->Status);
+        if (!$this->search) {
+            RuleBuilder::applyRules($query, $this->service->Status);
+        } else {
+            $query->where(function ($q) {
+                $q->where('nstats', 2)
+                ->orWhere('nstats', 21);
+            });
+        }
 
         if (count($this->multiSearch)) {
             $query->whereIn('note', $this->multiSearch);
@@ -515,16 +525,18 @@ class Main extends Component
             });
         }
 
-        $query->when($this->search, function ($q, $s) {
+        $query->when(trim($this->search), function ($q, $s) {
             $this->gotoPage(1);
 
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%')
-                    ->orWhere('group4', 'like', '%' . $s . '%')
-                    ->orWhere('group5', 'like', '%' . $s . '%');
+            $search = $this->formatWithWildcard($s);
+
+            return $q->where(function ($query) use ($search) {
+                $query->where('note', $search->type, $search->search)
+                    ->orWhere('material', $search->type, $search->search)
+                    ->orWhere('numPedido', $search->type, $search->search)
+                    ->orWhere('group2', $search->type, $search->search)
+                    ->orWhere('group4', $search->type, $search->search)
+                    ->orWhere('group5', $search->type, $search->search);
             });
         });
 

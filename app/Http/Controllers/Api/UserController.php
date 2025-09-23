@@ -26,6 +26,8 @@ class UserController extends Controller
             'page'     => ['nullable','integer','min:1'],
             'sort'     => ['nullable','in:name,email,created_at'],
             'dir'      => ['nullable','in:asc,desc'],
+            // 'from'   => ['nullable','date'],
+            // 'to'     => ['nullable','date','after_or_equal:from'],
         ]);
 
         $q       = $validated['q'] ?? null;
@@ -33,21 +35,24 @@ class UserController extends Controller
         $dir     = $validated['dir']  ?? 'desc';
         $perPage = $validated['per_page'] ?? 20;
 
-        // (opcional) escapar curingas para evitar “%” vindo do usuário
         $safeQ = $q ? str_replace(['%','_'], ['\%','\_'], $q) : null;
 
-        $query = \App\Models\User::query()
-            ->when($safeQ, function ($qbuilder) use ($safeQ) {
-                $qbuilder->where(function ($w) use ($safeQ) {
+        $query = User::query()
+            ->select(['id','name','email','created_at'])
+            ->when($safeQ, function ($qb) use ($safeQ) {
+                $qb->where(function ($w) use ($safeQ) {
                     $w->where('name', 'like', "%{$safeQ}%")
                       ->orWhere('email', 'like', "%{$safeQ}%");
                 });
             })
+            // ->when($validated['from'] ?? null, fn($qb,$d) => $qb->whereDate('created_at','>=',$d))
+            // ->when($validated['to']   ?? null, fn($qb,$d) => $qb->whereDate('created_at','<=',$d))
             ->orderBy($sort, $dir);
 
         $paginator = $query->paginate($perPage)->withQueryString();
 
-        return \App\Http\Resources\UserResource::collection($paginator);
+        return UserResource::collection($paginator);
     }
+
 
 }

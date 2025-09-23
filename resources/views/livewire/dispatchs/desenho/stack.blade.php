@@ -465,6 +465,7 @@
                                 <th scope="col" class="fw-bold text-center">Zona</th>
                                 <th scope="col" class="fw-bold text-center">Descrição</th>
                                 <th scope="col" class="fw-bold text-center">Empresa</th>
+                                <th scope="col" class="fw-bold text-center">Postes L</th>
                                 <th scope="col" class="fw-bold text-center">Usuário</th>
                                 <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                                 <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
@@ -580,6 +581,10 @@
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
 
                                         {{ $list->Company ? explode(' ', $list->Company->name)[0] : '-' }}</td>
+                                    <td
+                                        class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+
+                                        {{ $list->Note?->postes }}</td>
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                         @php

@@ -18,7 +18,7 @@ class D5list extends Component
     protected $paginationTheme = 'bootstrap';
 
 
-    public $paginate = 20;
+    public $perPage = 25;
     public $multiSearch = '';
     public $multipleSearch = [];
     public $search = '';
@@ -103,7 +103,7 @@ class D5list extends Component
             ->when($this->month, function ($query) {
                 $query->whereMonth('dispatch_at', $this->month);
             })
-            ->orderBy('created_at', 'desc');
+            ->orderBy('dispatch_at');
 
         return $query;
     }
@@ -170,12 +170,13 @@ class D5list extends Component
         $this->resetPage();
         $this->search = '';
         $this->multipleSearch = $this->formatTextToArray($this->multiSearch);
+        $this->dispatchBrowserEvent('hideModal');
     }
 
     public function render()
     {
         return view('livewire.partner.five-note.d5list', [
-            'fives' => $this->fives->paginate($this->paginate),
+            'fives' => $this->fives->paginate($this->perPage),
         ]);
     }
 }

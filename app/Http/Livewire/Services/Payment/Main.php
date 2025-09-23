@@ -209,11 +209,12 @@ class Main extends Component
         $user = User::with('Employee.Contract')
                     ->find(Auth::id());
 
-        $production = Production::create([
+
+        $data = [
             'note_id'     => $this->note->id,
             'service_id'  => $this->service->uuid,
             'user_id'     => $user->id,
-            'company_id'  => $user->Employee->Contract->company_id,
+            'company_id'  => $user->company_id,
             'dispatch_by' => $user->id,
             'att_by'      => $user->id,
             'dt_note'     => $dt,
@@ -224,7 +225,14 @@ class Main extends Component
             'dhstats'     => $dt,
             'partial'     => (bool) $this->partial,
             'dfive'       => $fiveNote,
-        ]);
+        ];
+
+        $production = Production::firstOrCreate([
+                'note_id'    => $this->note->id,
+                'service_id' => $this->service->uuid,
+                'user_id'    => $user->id,
+                'completed'  => false,
+            ], $data);
 
         if ($production) {
             Notetimeline::create([

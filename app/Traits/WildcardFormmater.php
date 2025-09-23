@@ -13,10 +13,10 @@ trait WildcardFormmater
      */
     public function formatWithWildcard(string $string): object
     {
-        $hasWildcard = str_contains($string, '*') || str_contains($string, '%');
+        $hasWildcard = str_contains($string, '*') || str_contains($string, '%') || str_contains($string, '?');
 
-        // Replace asterisk with percentage
-        $formattedString = str_replace('*', '%', $string);
+        // Replace asterisk and question mark with percentage
+        $formattedString = str_replace(['*', '?'], '%', $string);
 
         return (object)[
             'search' => trim($formattedString),
