@@ -327,6 +327,15 @@
                                                             wire:click.prevent="goTransferProd({{ $list->id }})"></i>
                                                     </span>
                                                 @endif
+                                                @if ($list->Note->WorkForm)
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Devolver Informe">
+                                                        <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
+                                                    </span>
+                                                @endif
                                             @endif
                                         </td>
 
@@ -408,6 +417,7 @@
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
     @livewire('components.five-note.view-d5', key('ViewD5'))
+    @livewire('production.return.return-work', key('returnWorkfomr'))
 
     {{-- <div wire:init="checkOpen"></div> --}}
 

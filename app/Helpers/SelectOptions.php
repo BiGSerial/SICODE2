@@ -197,7 +197,8 @@ class SelectOptions
     {
         return [
             (object)['reason' => 'Fiscalizado Sem Pendências', 'value' => 'FISCALIZADO SEM PENDENCIAS', 'block' => false],
-            (object)['reason' => 'Fiscalizado Com Pendências', 'value' => 'FISCALIZADO COM PENDENCIAS', 'block' => true]
+            (object)['reason' => 'Fiscalizado Com Pendências', 'value' => 'FISCALIZADO COM PENDENCIAS', 'block' => true],
+            (object)['reason' => 'Obra Não Executada', 'value' => 'OBRA NAO EXECUTADA', 'block' => true]
         ];
     }
 

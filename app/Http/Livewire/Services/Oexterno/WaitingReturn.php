@@ -60,7 +60,7 @@ class WaitingReturn extends Component
         $query = Reclaim::query();
 
         $query->whereHas('Externals', function ($q) {
-            $q->where('status', 1);
+            $q->where('external_reclaim.completed', 0);
         });
 
         if (trim($this->search)) {

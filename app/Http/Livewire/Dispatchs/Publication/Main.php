@@ -10,6 +10,7 @@ use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Repositories\PublishRepository;
 use App\Services\Publication\NoteFilter;
+use App\Traits\WildcardFormmater;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -17,6 +18,7 @@ class Main extends Component
 {
     use WithPagination;
     use TextFormatter;
+    use WildcardFormmater;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -92,6 +94,8 @@ class Main extends Component
     public $items = [];
 
     public $not_assigned = false;
+
+    public $all_services = false;
 
     private $filter_group = 'publishing';
     private $filters;
@@ -472,6 +476,8 @@ class Main extends Component
 
         $this->multiSearch = $this->formatTextToArray((string)$this->advanceSearch);
 
+        $this->advanceSearch = '';
+
         $this->dispatchBrowserEvent('hideModal');
     }
 
@@ -496,22 +502,28 @@ class Main extends Component
             $this->filters = $_SESSION['filter'][$this->filter_group];
         }
 
+        if (!count($this->multiSearch)) {
+            $this->all_services = false;
+        }
 
-        $query = $this->publishRepository->getBaseQuery();
+
+        $query = $this->publishRepository->getBaseQuery($this->all_services);
 
         // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
-        $query->where(function ($q) {
-            $q->where(function ($wq) {
-                $wq->whereHas('WorkForm', function ($sq) {
-                    $sq->where('rejected', false);
-                })->orWhere(function ($sq) {
-                    if ($this->btzeroform) {
-                        $sq->doesntHave('WorkForm')
-                           ->whereHas('RamalForm');
-                    }
+        if (!$this->all_services) {
+            $query->where(function ($q) {
+                $q->where(function ($wq) {
+                    $wq->whereHas('WorkForm', function ($sq) {
+                        $sq->where('rejected', false);
+                    })->orWhere(function ($sq) {
+                        if ($this->btzeroform) {
+                            $sq->doesntHave('WorkForm')
+                               ->whereHas('RamalForm');
+                        }
+                    });
                 });
             });
-        });
+        }
 
 
         // Filtro de Rubrica
@@ -546,68 +558,71 @@ class Main extends Component
             $multiSearchTerms = $this->multiSearch;
             $query->where(function ($q1) use ($multiSearchTerms) {
                 $q1->whereIn('note', $multiSearchTerms)
-                   ->orWhereHas('Orders', function ($q2) use ($multiSearchTerms) {
-                       $q2->whereIn('ordem', $multiSearchTerms);
-                   });
+                    ->orWhereHas('Orders', function ($q2) use ($multiSearchTerms) {
+                        $q2->whereIn('ordem', $multiSearchTerms);
+                    });
             });
         }
 
         // Pesquisa Geral (search)
         if ($this->search) {
-            $searchTerm = '%' . $this->search . '%';
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('note', 'like', $searchTerm)
-                  ->orWhere('material', 'like', $searchTerm)
-                  ->orWhere('numPedido', 'like', $searchTerm)
-                  ->orWhere('group2', 'like', $searchTerm);
+            $this->multiSearch = [];
+
+            $search = $this->formatWithWildcard($this->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('note', $search->type, $search->search)
+                    ->orWhere('material', $search->type, $search->search)
+                    ->orWhere('numPedido', $search->type, $search->search)
+                    ->orWhere('group2', $search->type, $search->search);
             });
         }
 
 
         // Eager Loading e Seleção de Colunas
         $query->with('Productions', 'WorkForm', 'RamalForm')
-              ->select([
-                  'notes.*',
-                  DB::raw("
-                      CASE
-                          WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
-                          WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
-                          ELSE NULL
-                      END as prazo_final
-                  ")
-              ]);
+            ->select([
+                'notes.*',
+                    DB::raw("
+                        CASE
+                            WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                            WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                            ELSE NULL
+                        END as prazo_final
+                    ")
+            ]);
 
         // Condição para Notas Não Atribuídas
         $serviceUuid = $this->service->uuid; // Cache do valor
         $query->when($this->not_assigned, function ($q) use ($serviceUuid) {
             $q->whereDoesntHave('Productions', function ($q) use ($serviceUuid) {
                 $q->where('service_id', $serviceUuid)
-                  ->whereNotNull('user_id');
+                    ->whereNotNull('user_id');
             })->orWhereHas('Productions', function ($q) use ($serviceUuid) {
                 $q->where('service_id', $serviceUuid)
-                  ->where(function ($q) {
-                      $q->whereNull('user_id')
-                        ->orWhere('user_id', '');
-                  });
+                    ->where(function ($q) {
+                        $q->whereNull('user_id')
+                            ->orWhere('user_id', '');
+                    });
             });
         });
 
 
         // Ordenação
         $query->orderByRaw('
-         exists (
-             select 1
-             from ramal_reports
-             where ramal_reports.note_id = notes.id
-         )
-         and not exists (
-             select 1
-             from work_reports
-             where work_reports.note_id = notes.id
-         ) desc
-     ')
-     ->orderBy('is45', 'DESC')
-     ->orderBy('prazo_final', 'ASC');
+            exists (
+                select 1
+                from ramal_reports
+                where ramal_reports.note_id = notes.id
+            )
+            and not exists (
+                select 1
+                from work_reports
+                where work_reports.note_id = notes.id
+            ) desc
+        ')
+        ->orderBy('is45', 'DESC')
+        ->orderBy('prazo_final', 'ASC');
 
 
         return $query;

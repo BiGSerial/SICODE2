@@ -45,7 +45,7 @@ class ExportProductionJob implements ShouldQueue
 
         try {
             $query = Production::query()
-                // TODO: revisar se novas colunas continuam qualificadas ao adicionar relacoes futuras
+
                 ->select([
                     'productions.id',
                     'productions.user_id',

@@ -6,6 +6,7 @@ use App\Models\Note;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\WorkReport;
+use App\Services\Partner\BlockEvaluator;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -130,6 +131,8 @@ class Workreports extends Component
     {
         if (trim($this->search)) {
 
+
+            // NOTE: Implementar restriçao para evitar enviar Informe de Obra Final sem STATUS contrataçao.
             $this->notes = Note::where('note', trim($this->search))->orWhereRelation('Orders', 'ordem', trim($this->search))->orderBy('note')->get();
 
             if (!$this->notes->count()) {
@@ -151,6 +154,8 @@ class Workreports extends Component
     public function submit()
     {
         try {
+
+
 
             $this->validate();
 
@@ -495,100 +500,59 @@ class Workreports extends Component
     {
         $this->preNote = $note;
 
-        if ($partialOpen = $note->Partials()->where('complete', false)->where('allow', true)->where('deny', false)->first()) {
 
-            $date = $partialOpen?->created_at;
-            $position = $this->getPositionPartial($note);
+        $eval = (new BlockEvaluator())->evaluate($this->preNote);
 
-
-            if ($position) {
-                $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'error',
-                        'title'    => 'Parcial Aberta',
-                        'html'     =>  "<p>
-                            A Nota/OV <strong>{$note->note}</strong> já possui uma parcial aberta autorizada para pagamento, com a seguinte situação: <strong>{$position}</strong>.
-
-                            <div class='card'>
-                                <div class='card-body text-center py-1'>
-                                    <p class='py-0 my-0'>Data de Abertura: <strong> {$date?->format('d/m/Y H:i') }</strong>.</p>
-                                </div>
-                            </div>
-
-                            Para informar a conclusão de obra, é necessário que a parcial seja concluída ou cancelada.
-                        </p>",
-                    ]);
-
-                return;
+        if (!$eval->command) {
+            $productionInfo = '';
+            if (isset($eval->production) && $eval->production) {
+            $userName = $eval->production->user->name ?? 'Não informado';
+            $serviceName = $eval->production->service->service ?? 'Não informado';
+            $productionInfo = "<div class='alert alert-info'>
+                <strong>Resposável:</strong><br>
+                Usuário: {$userName}<br>
+                Serviço: {$serviceName}
+            </div>";
             }
+
+            $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'OBRA BLOQUEADA',
+            'html'     => "<div class='card'>
+                <div class='card-body'>
+                    <h5 class='card-title'>Obra: <strong>{$this->preNote->note}</strong></h5>
+                    <div class='alert alert-danger'>
+                    <strong>Motivo do bloqueio:</strong><br>
+                    {$eval->reason}
+                    </div>
+                    {$productionInfo}
+                </div>
+                </div>",
+            ]);
+
+            return;
         }
 
-
-
-
-        // if ($partialTime = $note->Partials()->orderByDesc('created_at')->first()) {
-
-        //     if ($partialTime->complete && $partialTime->allow) {
-
-        //         if ($partialTime->payment_at->startOfDay()->diffInDays(now()->startOfDay()) <= 30) {
-        //             $this->dispatchBrowserEvent('swal', [
-        //                 'position' => 'center',
-        //                 'icon'     => 'error',
-        //                 'title'    => 'Prazo para Novo Informe',
-        //                 'html'     =>  "<p>
-        //                     A Nota/OV <strong>{$note->note}</strong> teve uma medição parcial recente. Não é possível enviar o informe final neste intervalo.
-
-        //                     <div class='card'>
-        //                         <div class='card-body text-center py-1'>
-        //                             <p class='py-0 my-0'> Conclusão do Informe Parcial: <strong>{$partialTime->payment_at?->format('d/m/Y H:i')}</strong>.</p>
-        //                         </div>
-        //                     </div>
-        //                     Data prevista para o Informe Final: <strong>{$partialTime->payment_at?->startOfDay()->addDays(30)?->format('d/m/Y')}</strong>.
-        //                 </p>",
-        //             ]);
-
-        //             return;
-        //         }
-
-        //     }
-
-
-        // }
-
-
-        $this->hasPartial = $note->Partials()->where('complete', false)->where('allow', false)->where('deny', false)->first();
-
-
-
-        if ($this->hasPartial) {
-            $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'INFORMAR OBRA ' . $note->note . ' - PARCIAL ABERTA',
-            "msg"           => "
-                <div class='card'>
-                    <div class='card-body text-start'>
-                       <p> Você selecionou a Nota/OV <strong> " . $note->note . "</strong> para informar a conclusão de obra. Porém indentificamos que foi aberta uma Parcial ainda pendente de aprovação enviada pela: <strong> {$this->hasPartial->Company?->name}</strong></p>
-                       <p>Neste caso, ao prosseguir, essa <strong>parcial será cancelada e substituída</strong> por este informe FINAL.</p>
-
-                    </div>
-
-                </div>
-                <p>Deseja realmente proseguir com este informe?</p>
-            ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Continuar com Informe',
-            'btnCanceltxt'  => 'Cancelar Informe',
-            'action'        => 'confirm_informe',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'O Formulário foi cancelado com sucesso.',
-        ]);
-        } else {
-            $this->dispatchBrowserEvent('alertar', [
+        $this->dispatchBrowserEvent('alertar', [
             'title'         => 'INFORMAR OBRA ' . $note->note,
             'msg'           => '
                 <div class="card">
                     <div class="card-body text-start">
-                       <p> Você selecionou a Nota/OV ' . $note->note . ' para informar a conclusão de obra. </p>
-                        <p>É importante frisar que este canal é para informações de obras 100% concluídas. Confirmações parciais, faltantes ou conflitantes, poderá acarretar a rejeição do informe, necessitando retorno para acertos.</p>
+                        <h5 class="mb-3">Nota/OV: <strong>' . $note->note . '</strong></h5>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> Esta obra foi selecionada para informar conclusão.
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <strong>Atenção!</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Este canal é para obras <strong>100% concluídas</strong>.</li>
+                                <li>Confirmações parciais, faltantes ou conflitantes poderão ser rejeitadas.</li>
+                                <li>Em caso de rejeição, será necessário retorno para acertos.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             ',
@@ -599,7 +563,6 @@ class Workreports extends Component
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'O Formulário foi cancelado com sucesso.',
         ]);
-        }
     }
 
     public function cleanAll()

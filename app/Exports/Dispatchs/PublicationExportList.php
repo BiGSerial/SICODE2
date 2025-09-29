@@ -41,7 +41,7 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Nota', 'Rubrica', 'Municipio', 'Empreiteira', 'Informe SMC', 'Informe Final Exec', 'Informe Final Data', 'Status', 'CenterJob', 'DataVencimento', 'Empresa', 'Usuario'
+            'Nota', 'Rubrica', 'Municipio', 'Empreiteira', 'Informe SMC', 'Informe Final Exec', 'Informe Final Data', 'Status', 'CenterJob', 'DataVencimento', 'Empresa', 'Usuario', 'Atribuido Em', 'Completado Em',
         ];
     }
 
@@ -56,6 +56,8 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
             $company = $row->RamalForm->Company?->name;
         }
 
+        $production = $row->Productions->where('service_id', $this->service->uuid)->last();
+
         return [
             $row->note,
             $row->rubrica,
@@ -67,8 +69,10 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->nstats,
             $row->centerjob,
             isset($row->prazo_final) ? Carbon::parse($row->prazo_final)->format('d/m/Y') : '',
-            isset($row->Productions->where('service_id', $this->service->uuid)->last()->Company->name) ? $row->Productions->where('service_id', $this->service->uuid)->last()->Company->name : '',
-            isset($row->Productions->where('service_id', $this->service->uuid)->last()->User->name) ? $row->Productions->where('service_id', $this->service->uuid)->last()->User->name : '',
+            isset($production->Company->name) ? $production->Company->name : '',
+            isset($production->User->name) ? $production->User->name : '',
+            isset($production->att_at) ? $production->att_at->format('d/m/Y H:i:s') : '',
+            isset($production->completed_at) ? $production->completed_at->format('d/m/Y H:i:s') : '',
         ];
     }
 

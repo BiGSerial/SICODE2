@@ -380,7 +380,7 @@
                                                             <div class="d-flex align-items-center gap-2">
                                                                 <i class="ri-user-follow-line text-success"></i>
                                                                 <span
-                                                                    class="fw-medium">{{ $assignment->getRelation('user')->name }}</span>
+                                                                    class="fw-medium">{{ $assignment->User?->name }}</span>
                                                                 <span
                                                                     class="badge {{ $rowClass }}">{{ $typeUser }}</span>
                                                             </div>

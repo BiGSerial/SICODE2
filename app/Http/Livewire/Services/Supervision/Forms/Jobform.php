@@ -333,6 +333,28 @@ class Jobform extends Component
                 'cancel_msg'    => 'Ação Cancelada.',
 
             ]);
+        } elseif ($this->analise->conclusion == 'OBRA NAO EXECUTADA') {
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENCERRAMENTO DE SERVIÇO',
+                'msg'   => "Você está prestes rejeitar a obra <strong>{$this->production->Note->note}</strong>.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Ao infomar que a obra não foi executada, o informe da parceira será rejeitado por não conformidade, entendemos que você seguiu todos os procedimentos, ANEXOU AS EVIDÊNCIAS e tomou as devidas providências em relação as transações no SAP.\n
+                            Uma vez encerrado, essa operação nao poderá ser desfeita.
+                            <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
+                        </div>
+                    </div>
+                ".$alert,
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirmFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
+
+            ]);
+
         } else {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENCERRAMENTO DE SERVIÇO',
@@ -472,7 +494,27 @@ class Jobform extends Component
                     $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
 
                 }
+            }
 
+            if ($this->analise->conclusion == 'OBRA NAO EXECUTADA') {
+
+                $wf = $this->production->Note->WorkForm;
+
+                if ($wf) {
+                    $wf->update([
+                        'rejected' => true,
+                        'approved' => false,
+                        'informed_at' => null,
+                    ]);
+
+
+                    $wf->ReturnWork()->create([
+                        'service_id' => $this->production->service_id,
+                        'user_id'    => Auth()->User()->id,
+                        'category'   => 'OBRA NÃO EXECUTADA',
+                        'text_obs'   => 'Retorno via Fiscalização: ' . ($this->analise->info ?? 'Não informado.'),
+                    ]);
+                }
 
 
 

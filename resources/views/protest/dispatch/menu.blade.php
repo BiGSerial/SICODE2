@@ -39,7 +39,11 @@
                         </a>
                     </li>
 
-
+                    <li>
+                        <a href="{{ route('protests.dispatch.per_user') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-person fs-5 text-white"></i> <span>POR USUÁRIO</span>
+                        </a>
+                    </li>
 
                 </div>
             </ul>

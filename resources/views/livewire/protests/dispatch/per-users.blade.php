@@ -1,4 +1,5 @@
 <div>
+
     <x-show-loading />
     <div class="row g-3 mb-4">
         <!-- Registros por página -->
@@ -13,6 +14,8 @@
                 <label for="perPage">Registros por página</label>
             </div>
         </div>
+
+
 
         {{-- <!-- Buscar -->
         <div class="col-md-3">
@@ -56,7 +59,6 @@
             </button>
         </div> --}}
     </div>
-
     @if ($list->count() > 0)
         <div class=" d-flex justify-content-between align-items-center">
             <div>
@@ -70,12 +72,11 @@
     @endif
     <div class="card">
         <h4 class="card-header">
-            RECLAMAÇÃO AGUARDANDO RESOLUÇÃO
+            RECLAMAÇÃO AGUARDANDO USUARIO
         </h4>
         <div class="table-responsive">
 
             @if ($list->count() > 0)
-
 
                 <table class="table table-striped table-bordered">
                     <thead>
@@ -83,33 +84,29 @@
 
                             <th scope="col-1" class="col-1">Numero Reclamação</th>
                             <th scope="col-1" class="col-1">Tipo:</th>
-                            <th scope="col-1" class="col-1">Numero Medida:</th>
+                            <th scope="col-1" class="col-1">Usuario:</th>
                             <th class="col-1">Abertura Reclamação</th>
                             <th class="col-1">Conclusão Desejada</th>
                             <th class="col-1">Data da Medida</th>
                             <th class="col-1">Note Ref</th>
+                            <th class="col-1">Enviado Em</th>
+                            <th class="col-1">Dias Atv</th>
                             <th class="col-1">Enviado Por:</th>
-                            <th class="col-1">Responsável:</th>
-                            <th class="col-1">Enviado Em:</th>
-                            <th class="col">Obs:</th>
+
                             <th class="col-1"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($list as $item)
                             @php
-                                $responsible = $item->Assignments->where('responsible', true)->last();
-                                $usuario = $item->Assignments->where('user', true)->last();
-
-                                $user = $item->Assignments->where('user', true)->last();
                                 $status = $status = [
                                     'class' => '',
                                     'message' => '',
                                     'days' => '',
                                 ];
-                                if ($user?->started_at) {
+                                if ($item?->started_at) {
                                     // conta dias decorridos desde started_at até agora
-                                    $days = $user->started_at->startOfDay()->diffInDays(now()->startOfDay());
+                                    $days = $item->started_at->startOfDay()->diffInDays(now()->startOfDay());
 
                                     if ($days > 5) {
                                         $status = [
@@ -131,29 +128,29 @@
                                         ];
                                     }
                                 }
-
                             @endphp
-                            <tr class="text-center align-middle" wire:key="item-{{ $item->id }}">
+                            <tr class="text-center align-middle">
 
-                                <td>{{ $item->protest->nota }}</td>
-                                <td class='fw-bold'>{{ $item->protest->tipoNota }}</td>
-                                <td>{{ $item->med_id }}</td>
-                                <td class="fw-bold">{{ $item->protest->dtAberturaNota->format('d/m/Y') }}</td>
-                                <td class="fw-bold">{{ $item->protest?->dtConclusaoDesej?->format('d/m/Y') }}</td>
-                                <td class="fw-bold">{{ $item->dtCriacaoMedida?->format('d/m/Y') }}</td>
-                                <td>{{ $item->Notes->isNotEmpty() ? $item->Notes?->last()?->note : 'SEM NOTA REFERÊNCIA' }}
+                                <td>{{ $item->assignable?->protest?->nota }}</td>
+                                <td class='fw-bold'>{{ $item->assignable?->protest?->tipoNota }}</td>
+                                <td>{{ $item->User?->name }}</td>
+                                <td class="fw-bold">{{ $item->assignable?->protest?->dtAberturaNota->format('d/m/Y') }}
                                 </td>
-                                <td>{{ $responsible?->User->name }}</td>
-                                <td>{{ $usuario?->User->name }}</td>
-                                <td class="fw-bold {{ $status['class'] }}">
-                                    <p class="my-0 py-0">{{ $usuario?->started_at->format('d/m/Y H:i') }}</p>
-                                    <p class="my-0 py-0">{{ $usuario?->started_at->startOfDay()->diffInDays() }} dias
-                                    </p>
+                                <td class="fw-bold">
+                                    {{ $item->assignable?->protest?->dtConclusaoDesej?->format('d/m/Y') }}</td>
+                                <td class="fw-bold">{{ $item->assignable?->dtCriacaoMedida?->format('d/m/Y') }}</td>
+                                <td>{{ $item->assignable?->Notes->isNotEmpty() ? $item->assignable?->Notes?->last()?->note : 'SEM NOTA REFERÊNCIA' }}
                                 </td>
-                                <td>{{ $item->comments->isNotEmpty() ? $item->comments->first()->message : 'SEM OBSERVAÇÃO' }}
+                                <td class="fw-bold text-primary">{{ $item->started_at?->format('d/m/Y H:i') }}</td>
+                                <td class="{{ $status['class'] }}">
+                                    {{ $item?->started_at?->startOfDay()->diffInDays() }}</td>
+
+                                <td>{{ $item->assignable?->Assignments->where('responsible', true)->first()?->User->name }}
                                 </td>
-                                <td><a href="{{ route('protests.services.view_only', $item->id) }}"><i
-                                            class="ri-play-circle-fill fs-4 align-middle text-primary"
+
+                                </td>
+                                <td><a href="{{ route('protests.services.view', $item->assignable->id) }}"><i
+                                            class="ri-play-circle-fill fs-4 align-middle text-success"
                                             style="cursor: pointer;"></i></a></td>
                             </tr>
                         @endforeach
@@ -164,7 +161,6 @@
                     Nenhum registro encontrado.
                 </div>
             @endif
-
         </div>
     </div>
     @if ($list->count() > 0)

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Reverse;
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Exports\Services\analisesExport;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Traits\WildcardFormmater;
@@ -15,6 +16,8 @@ class Main extends Component
     use WithPagination;
 
     use WildcardFormmater;
+
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -101,6 +104,7 @@ class Main extends Component
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch'  => 'confirmed_att',
+        'refresh_All_Filter' => 'cleanAll',
     ];
 
 
@@ -111,6 +115,7 @@ class Main extends Component
         'perPage' => ['except' => 100],
         'not_assigned' => ['except' => false],
         'mmgd' => ['except' => false],
+        'multiSearch' => ['except' => []],
     ];
 
     public function mount($service)
@@ -453,31 +458,30 @@ class Main extends Component
 
         if ($this->advanceSearch) {
 
-            $this->gotoPage(1);
+
+
+            $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
 
             $this->search = '';
 
-            $this->multiSearch = explode("\n", $this->advanceSearch);
+            $this->gotoPage(1);
 
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
         }
 
         if (count($this->multiSearch)) {
+            $this->advanceSearch = '';
             $this->closeall();
         }
     }
+
+    public function updatedSearch()
+    {
+        if (!trim($this->search)) {
+            $this->multiSearch = [];
+            $this->gotoPage(1);
+        }
+    }
+
 
     public function filterStatus()
     {
@@ -487,6 +491,17 @@ class Main extends Component
             $this->not_assigned = true;
         }
 
+    }
+
+    public function cleanAll()
+    {
+
+        $this->advanceSearch = '';
+        $this->multiSearch   = [];
+        $this->search        = '';
+        $this->gotoPage(1);
+
+        $this->emit('refresh_dispatch');
     }
 
     public function getListsProperty()
@@ -502,7 +517,7 @@ class Main extends Component
 
         $query = Note::query();
 
-        if (!$this->search) {
+        if (!$this->search && !count($this->multiSearch)) {
             RuleBuilder::applyRules($query, $this->service->Status);
         } else {
             $query->where(function ($q) {
@@ -511,9 +526,7 @@ class Main extends Component
             });
         }
 
-        if (count($this->multiSearch)) {
-            $query->whereIn('note', $this->multiSearch);
-        }
+
 
         if ($this->not_assigned) {
             $query->where(function ($q) {
@@ -527,6 +540,7 @@ class Main extends Component
 
         $query->when(trim($this->search), function ($q, $s) {
             $this->gotoPage(1);
+            $this->multiSearch = [];
 
             $search = $this->formatWithWildcard($s);
 
@@ -537,6 +551,21 @@ class Main extends Component
                     ->orWhere('group2', $search->type, $search->search)
                     ->orWhere('group4', $search->type, $search->search)
                     ->orWhere('group5', $search->type, $search->search);
+            });
+        });
+
+
+        $query->when($this->multiSearch, function ($q, $s) {
+
+            $this->search = '';
+            $this->gotoPage(1);
+            return $q->where(function ($query) use ($s) {
+                $query->whereIn('note', $s)
+                    ->orWhereIn('material', $s)
+                    ->orWhereIn('numPedido', $s)
+                    ->orWhereIn('group2', $s)
+                    ->orWhereIn('group4', $s)
+                    ->orWhereIn('group5', $s);
             });
         });
 

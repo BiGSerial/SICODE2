@@ -1,518 +1,631 @@
 @php
     use App\Helpers\SelectOptions;
 @endphp
-<div>
+<div class="workreports-container">
     <x-show-loading />
+
+    <!-- Search Note Section -->
     @if (!$this->note)
-        <div class="card mx-auto" style="max-width: 30rem;">
-            <div class="card-body">
-                <div class="align-itens-center text-center mb-3">
-                    <h5 class="fw-bold text-center">BUSCAR OBRA</h5>
-                    <input class="form-control border border-1 border-secondary mb-3" type="text"
-                        placeholder="Digite numero Nota, OV, Ordem ou Diagrama" aria-label="Search Note"
-                        wire:model.defer="search">
-                    <button type="button" class="btn btn-sm btn-primary text-center"
-                        wire:click.prevent="search()">BUSCAR</button>
+        <div class="card shadow-sm rounded-3 mx-auto" style="max-width: 30rem;">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <h5 class="fw-bold">BUSCAR OBRA</h5>
+                    <div class="input-group mb-3">
+                        <input class="form-control form-control-lg border-primary" type="text"
+                            placeholder="Digite Nota, OV, Ordem ou Diagrama" aria-label="Search Note"
+                            wire:model.defer="search">
+                        <button type="button" class="btn btn-primary" wire:click.prevent="search()">
+                            <i class="ri-search-line me-1"></i>BUSCAR
+                        </button>
+                    </div>
                 </div>
+
                 @if ($notes && $notes->count())
-                    <div>
-                        <h6 class="fw-bold">SELECIONE UMA OBRA PARA INFORMAR</h6>
-                        <table class="table table-sm table-condensed table-striped">
-                            <tbody>
-                                @foreach ($notes as $note)
-                                    @if (!$note->WorkForm)
+                    <div class="search-results">
+                        <h6 class="fw-bold mb-3">SELECIONE UMA OBRA PARA INFORMAR</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr class="table-light">
+                                        <th>Nota</th>
+                                        <th>Ordens</th>
+                                        <th>Viabilidade</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($notes as $note)
                                         <tr wire:key="{{ $note->id }}"
-                                            wire:click="toConfirmWork({{ $note }})" style="cursor: pointer;">
+                                            wire:click="toConfirmWork({{ $note }})"
+                                            class="{{ !$note->WorkForm ? 'cursor-pointer hover-highlight' : 'text-muted' }}"
+                                            title="{{ !$note->WorkForm ? 'Clique para informar esta obra' : 'Esta obra já foi informada' }}">
                                             <td class="fw-bold align-middle">{{ $note->note }}</td>
                                             <td class="align-middle">
                                                 @if ($note->Orders->count())
                                                     @foreach ($note->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                        <span
+                                                            class="badge bg-light text-dark mb-1">{{ $order->ordem }}</span>
                                                     @endforeach
                                                 @endif
                                             </td>
                                             <td class="align-middle">
                                                 @if ($note->Viabilities->count())
-                                                    {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
+                                                    <span
+                                                        class="badge {{ $note->Viabilities->last()->completed ? 'bg-success' : 'bg-warning text-dark' }}">
+                                                        {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
+                                                    </span>
                                                 @else
-                                                    SEM INFORMAÇÔES DE VIABILIDADE
-                                                @endif
-                                            </td>
-                                            <td class="align-middle fw-bold">
-                                                {{ $note->WorkForm ? 'OBRA INFORMADA' : 'NÃO INFORMADA' }}
-                                            </td>
-                                        </tr>
-                                    @else
-                                        <tr wire:key="{{ $note->id }}">
-                                            <td class="fw-bold align-middle">{{ $note->note }}</td>
-                                            <td class="align-middle">
-                                                @if ($note->Orders->count())
-                                                    @foreach ($note->Orders as $order)
-                                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                    @endforeach
+                                                    <span class="badge bg-secondary">SEM VIABILIDADE</span>
                                                 @endif
                                             </td>
                                             <td class="align-middle">
-                                                @if ($note->Viabilities->count())
-                                                    {{ $note->Viabilities->last()->completed ? 'VIABILIZADO' : 'NÃO VIABILIZADO' }}
-                                                @else
-                                                    SEM INFORMAÇÔES DE VIABILIDADE
-                                                @endif
-                                            </td>
-                                            <td class="align-middle fw-bold">
-                                                {{ $note->WorkForm ? 'OBRA INFORMADA' : 'NÃO INFORMADA' }}
+                                                <span
+                                                    class="badge {{ $note->WorkForm ? 'bg-success' : 'bg-info text-dark' }}">
+                                                    {{ $note->WorkForm ? 'INFORMADA' : 'NÃO INFORMADA' }}
+                                                </span>
                                             </td>
                                         </tr>
-                                    @endif
-                                @endforeach
-                            </tbody>
-                        </table>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 @endif
             </div>
         </div>
     @endif
 
+    <!-- Work Report Form -->
     @if ($this->note)
         <form wire:submit.prevent="submit">
             <div class="container">
-                <div class="card edp-bg-gray">
-                    <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                        <h4>INFORME DE ENTREGA DE OBRA</h4>
-                    </div>
-                    <div class="card-body">
-
-
-                        <div class="card mb-3">
-                            <h5 class="card-header py-0 my-0 edp-bg-sprucegreen-70 text-edp-verde">Dados Nota</h5>
-                            <table class="table table-condensed table-sm table-striped-columns">
-                                <tbody>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Nota/Ov</td>
-                                        <td class="align-middle">{{ $note->note }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Rubrica</td>
-                                        <td class="align-middle">{{ $note->rubrica }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Município</td>
-                                        <td class="align-middle">{{ $note->lexp }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Group1</td>
-                                        <td class="align-middle">{{ $note->group1 }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Group2</td>
-                                        <td class="align-middle">{{ $note->group2 }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Group3</td>
-                                        <td class="align-middle">{{ $note->group3 }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Group1</td>
-                                        <td class="align-middle">{{ $note->group5 }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Centro Trabalho</td>
-                                        <td class="align-middle">{{ $note->centerjob }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle text-end" style="width: 150px;">Status Atual</td>
-                                        <td class="align-middle">{{ $note->nstats }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                <div class="card shadow-sm">
+                    <div class="card-header edp-bg-sprucegreen-70 text-edp-verde py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0"><i class="ri-file-list-3-line me-2"></i>INFORME DE ENTREGA DE OBRA</h4>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="calcelForm()">
+                                <i class="ri-arrow-left-line"></i> Voltar
+                            </button>
                         </div>
-                        <div class="mb-3" style="max-width: 300px">
-                            <label for="exampleFormControlInput1" class="form-label">Adicione as Ordens deste
-                                Informe. <span class="text-danger fw-bold">*</span> (Obs: Adicione todas as Ordens que
-                                constem no projeto.)
-                                <i class="ri-question-line text-primary fw-bold" data-bs-toggle="popover"
-                                    data-bs-title="Popover title"
-                                    data-bs-content="And here's some amazing content. It's very engaging. Right?"></i></label>
-                            <select class="form-select mb-3" aria-label="Default select example"
-                                wire:model.defer="s_order">
-                                <option selected>Selecionar</option>
-                                @if ($note->Orders->count())
-                                    @foreach ($note->Orders->filter(function ($order) {
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Note Data Card -->
+                        <div class="card mb-4 shadow-sm">
+                            <div
+                                class="card-header py-2 edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between align-items-center">
+                                <h5 class="my-1">Dados da Nota</h5>
+                                <span class="badge bg-primary">{{ $note->note }}</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-striped-columns mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="align-middle text-end fw-bold" style="width: 150px;">Nota/Ov</td>
+                                            <td class="align-middle">{{ $note->note }}</td>
+                                            <td class="align-middle text-end fw-bold" style="width: 150px;">Rubrica</td>
+                                            <td class="align-middle">{{ $note->rubrica }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="align-middle text-end fw-bold">Município</td>
+                                            <td class="align-middle">{{ $note->lexp }}</td>
+                                            <td class="align-middle text-end fw-bold">Centro Trabalho</td>
+                                            <td class="align-middle">{{ $note->centerjob }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="align-middle text-end fw-bold">Group1</td>
+                                            <td class="align-middle">{{ $note->group1 }}</td>
+                                            <td class="align-middle text-end fw-bold">Group2</td>
+                                            <td class="align-middle">{{ $note->group2 }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="align-middle text-end fw-bold">Group3</td>
+                                            <td class="align-middle">{{ $note->group3 }}</td>
+                                            <td class="align-middle text-end fw-bold">Group5</td>
+                                            <td class="align-middle">{{ $note->group5 }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="align-middle text-end fw-bold">Status Atual</td>
+                                            <td class="align-middle" colspan="3">
+                                                <span class="badge bg-primary">{{ $note->nstats }}</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Orders Section -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card shadow-sm h-100">
+                                    <div class="card-header bg-light">
+                                        <h5 class="card-title mb-0">
+                                            <i class="ri-list-check me-2"></i>Ordens Relacionadas
+                                            <span class="text-danger">*</span>
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="text-muted small">
+                                            Adicione todas as Ordens que constem no projeto.
+                                            <i class="ri-question-line text-primary" data-bs-toggle="tooltip"
+                                                title="Selecione todas as ordens de serviço associadas a esta obra"></i>
+                                        </p>
+
+                                        <div class="input-group mb-3">
+                                            <select class="form-select" aria-label="Selecionar ordem"
+                                                wire:model.defer="s_order">
+                                                <option value="">Selecionar ordem</option>
+                                                @if ($note->Orders->count())
+                                                    @foreach ($note->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                        <option value="{{ $order->id }}">{{ $order->ordem }}</option>
-                                    @endforeach
-                                @endif
-                            </select>
+                                                        <option value="{{ $order->id }}">{{ $order->ordem }}
+                                                        </option>
+                                                    @endforeach
+                                                @endif
+                                            </select>
+                                            <button type="button" class="btn btn-primary" wire:click="addOrders()">
+                                                <i class="ri-add-line"></i> Adicionar
+                                            </button>
+                                        </div>
 
-                            <button type="button" class="btn btn-sm btn-primary mb-3"
-                                wire:click="addOrders()">Adicionar</button>
-
-                            <div class="card">
-                                <h5 class="my-0 py-1 card-header">ORDENS/DRs RELACIONADAS</h5>
-                                @if (!empty($temp_orders))
-                                    <table class="table table-sm table-condensed table-striped-columns">
-                                        <tbody>
-                                            @foreach ($temp_orders as $index => $t_order)
-                                                <tr class="px-2">
-                                                    <td class="text-center">{{ $t_order['ordem'] }}</td>
-                                                    <td class="text-center"><i class="ri-delete-bin-2-line text-danger"
-                                                            wire:click="remOrders({{ $index }})"
-                                                            style="cursor: pointer;"></i></td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                @else
-                                    <div class="card-body">
-                                        <h5 class="text-center">NENHUMA ORDEM ASSOCIADA</h5>
+                                        @if (!empty($temp_orders))
+                                            <div class="table-responsive mt-3">
+                                                <table class="table table-sm table-hover">
+                                                    <thead>
+                                                        <tr class="table-light">
+                                                            <th class="text-center">Ordem</th>
+                                                            <th class="text-center">Ação</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach ($temp_orders as $index => $t_order)
+                                                            <tr>
+                                                                <td class="text-center">{{ $t_order['ordem'] }}</td>
+                                                                <td class="text-center">
+                                                                    <button type="button"
+                                                                        class="btn btn-sm btn-danger"
+                                                                        wire:click="remOrders({{ $index }})">
+                                                                        <i class="ri-delete-bin-2-line"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <div class="alert alert-warning text-center">
+                                                <i class="ri-information-line me-2"></i>Nenhuma ordem associada
+                                            </div>
+                                        @endif
                                     </div>
-                                @endif
+                                </div>
                             </div>
                         </div>
 
                         @if (session()->has('message'))
-                            <div class="alert alert-success">
-                                {{ session('message') }}
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="ri-check-double-line me-2"></i>{{ session('message') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                    aria-label="Close"></button>
                             </div>
                         @endif
 
                         @if (!empty($temp_orders))
-                            <div class="mb-3" style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Data Conclusão da Obra: <span
-                                        class="text-danger fw-bold">*</span></label>
-                                <input type="date" class="form-control" id="dateWork" max="{{ date('Y-m-d') }}"
-                                    wire:model.defer="form.date">
-                                @error($form['date'])
-                                    <span class="error">{{ $message }}</span>
-                                @enderror
+                            <!-- Main Form Fields -->
+                            <div class="row g-4">
+                                <!-- Date Field -->
+                                <div class="col-md-4">
+                                    <div class="form-floating mb-3">
+                                        <input type="date"
+                                            class="form-control @error('form.date') is-invalid @enderror"
+                                            id="dateWork" max="{{ date('Y-m-d') }}" wire:model.defer="form.date">
+                                        <label for="dateWork">Data Conclusão da Obra <span
+                                                class="text-danger">*</span></label>
+                                        @error('form.date')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <!-- Equipment Selection -->
+                                <div class="col-md-4">
+                                    <div class="form-floating mb-3">
+                                        <select class="form-select @error('form.equipment') is-invalid @enderror"
+                                            wire:model="form.equipment">
+                                            <option value="">Selecione</option>
+                                            <option value="1">Sim</option>
+                                            <option value="0">Não</option>
+                                        </select>
+                                        <label>Houve Instalação/Desinstalação de Equipamento? <span
+                                                class="text-danger">*</span></label>
+                                        @error('form.equipment')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <!-- Project Changes -->
+                                <div class="col-md-4">
+                                    <div class="form-floating mb-3">
+                                        <select class="form-select @error('form.changes') is-invalid @enderror"
+                                            wire:model="form.changes">
+                                            <option value="">Selecione</option>
+                                            <option value="1">Sim</option>
+                                            <option value="0">Não</option>
+                                        </select>
+                                        <label>Houve Alterações no projeto? <span class="text-danger">*</span></label>
+                                        @error('form.changes')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="mb-3 " style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Houve Instalação ou
-                                    Desinstalação
-                                    de Equipamento? <span class="text-danger fw-bold">*</span></label>
-                                <select class="form-select" aria-label="Default select example"
-                                    wire:model="form.equipment">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Sim</option>
-                                    <option value="0">Não</option>
-                                </select>
-                            </div>
-
+                            <!-- Equipment Section (Conditional) -->
                             @if ($form['equipment'])
-                                <div class="col-md-6">
-                                    <div class="clear-fix">
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <h5 class="my-0 py-0">CADASTRAR EQUIPAMENTOS</h5>
-                                            </div>
-                                            <div class="card-body">
-
-                                                <div class="row">
-                                                    <div class="mb-3 col-md-4">
-                                                        <label for="exampleFormControlInput1" class="form-label">Tipo
-                                                            de
-                                                            Equipamento:</label>
-                                                        <select class="form-select"
-                                                            aria-label="Default select example" id="type"
-                                                            wire:model.defer="model_equipment.type">
-                                                            <option value="" selected>Selecione</option>
-                                                            @foreach (SelectOptions::getEquipmentOptions() as $item)
-                                                                <option value="{{ $item->nick }}">
-                                                                    {{ $item->info }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-3 col-md-3">
-                                                        <label for="exampleFormControlInput1"
-                                                            class="form-label">Patrimônio:</label>
-                                                        <input type="text" class="form-control" id="patrimony"
-                                                            wire:model.defer="model_equipment.patrimony">
-                                                    </div>
-                                                    <div class="mb-3 col-md-3">
-                                                        <label for="exampleFormControlInput1"
-                                                            class="form-label">Movimento:</label>
-                                                        <select class="form-select"
-                                                            aria-label="Default select example"
-                                                            wire:model.defer="model_equipment.installed">
-                                                            <option selected>Selecione</option>
-                                                            <option value="1">Instalação</option>
-                                                            <option value="0">Desinstalação</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-3 col-md-4">
-                                                        <label for="exampleFormControlInput1" class="form-label">Fases
-                                                            Ligadas:</label>
-                                                        <select class="form-select"
-                                                            aria-label="Default select example" id="fases"
-                                                            wire:model.defer="model_equipment.fases">
-                                                            <option selected>Selecione</option>
-                                                            @foreach (SelectOptions::getFasesOptions() as $item)
-                                                                <option value="{{ $item->nick }}">
-                                                                    {{ $item->info }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-3 col-md-3">
-                                                        <label for="exampleFormControlInput1" class="form-label">Poste
-                                                            Referencial:</label>
-                                                        <input type="text" class="form-control" id="pole"
-                                                            wire:model.defer="model_equipment.pole">
-                                                    </div>
-                                                    <div class="mb-3 col-md-3">
-
-                                                        <button type="button" class="btn btn-sm btn-primary mt-4"
-                                                            wire:click="addEquipment()">Adicionar</button>
-                                                    </div>
+                                <div class="card shadow-sm mb-4 border-primary border-top border-2">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0"><i class="ri-tools-line me-2"></i>Equipamentos</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <div class="form-floating">
+                                                    <select class="form-select" id="type"
+                                                        wire:model.defer="model_equipment.type">
+                                                        <option value="" selected>Selecione</option>
+                                                        @foreach (SelectOptions::getEquipmentOptions() as $item)
+                                                            <option value="{{ $item->nick }}">{{ $item->info }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <label for="type">Tipo de Equipamento</label>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <h5 class="my-0 py-0">EQUIPAMENTOS</h5>
+                                            <div class="col-md-3">
+                                                <div class="form-floating">
+                                                    <input type="text" class="form-control" id="patrimony"
+                                                        wire:model.defer="model_equipment.patrimony">
+                                                    <label for="patrimony">Patrimônio</label>
+                                                </div>
                                             </div>
-                                            @if (!empty($temp_equipment))
-                                                <table class="table table-sm table-condensed table-striped-columns">
+                                            <div class="col-md-2">
+                                                <div class="form-floating">
+                                                    <select class="form-select"
+                                                        wire:model.defer="model_equipment.installed">
+                                                        <option value="">Selecione</option>
+                                                        <option value="1">Instalação</option>
+                                                        <option value="0">Desinstalação</option>
+                                                    </select>
+                                                    <label>Movimento</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-floating">
+                                                    <select class="form-select" id="fases"
+                                                        wire:model.defer="model_equipment.fases">
+                                                        <option value="">Selecione</option>
+                                                        @foreach (SelectOptions::getFasesOptions() as $item)
+                                                            <option value="{{ $item->nick }}">{{ $item->info }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <label for="fases">Fases Ligadas</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-floating">
+                                                    <input type="text" class="form-control" id="pole"
+                                                        wire:model.defer="model_equipment.pole">
+                                                    <label for="pole">Poste Referencial</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-12">
+                                                <button type="button" class="btn btn-primary"
+                                                    wire:click="addEquipment()">
+                                                    <i class="ri-add-line me-1"></i> Adicionar Equipamento
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        @if (!empty($temp_equipment))
+                                            <div class="table-responsive mt-4">
+                                                <table class="table table-striped table-hover">
                                                     <thead>
-                                                        <tr class="table-secondary">
-                                                            <th scope='col' class="text-center">Tipo</th>
-                                                            <th scope='col' class="text-center">Patrimônio</th>
-                                                            <th scope='col' class="text-center">Movimento</th>
-                                                            <th scope='col' class="text-center">Fases</th>
-                                                            <th scope='col' class="text-center">Poste</th>
-                                                            <th scope='col' class="text-center"></th>
+                                                        <tr class="table-primary">
+                                                            <th scope='col'>Tipo</th>
+                                                            <th scope='col'>Patrimônio</th>
+                                                            <th scope='col'>Movimento</th>
+                                                            <th scope='col'>Fases</th>
+                                                            <th scope='col'>Poste</th>
+                                                            <th scope='col' width="80">Ação</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         @foreach ($temp_equipment as $index => $equip)
-                                                            <tr class="px-2">
-                                                                <td class="text-center align-middle">
-                                                                    {{ $equip['type'] }}
+                                                            <tr>
+                                                                <td>{{ $equip['type'] }}</td>
+                                                                <td>{{ $equip['patrimony'] }}</td>
+                                                                <td>
+                                                                    <span
+                                                                        class="badge {{ $equip['installed'] ? 'bg-success' : 'bg-warning text-dark' }}">
+                                                                        {{ $equip['installed'] ? 'INSTALAÇÃO' : 'DESINSTALAÇÃO' }}
+                                                                    </span>
                                                                 </td>
-                                                                <td class="text-center align-middle">
-                                                                    {{ $equip['patrimony'] }}</td>
-                                                                <td class="text-center align-middle">
-                                                                    {{ $equip['installed'] ? 'INSTALAÇÃO' : 'DESINSTALAÇÃO' }}
+                                                                <td>{{ $equip['fases'] }}</td>
+                                                                <td>{{ $equip['pole'] }}</td>
+                                                                <td>
+                                                                    <button type="button"
+                                                                        class="btn btn-sm btn-danger"
+                                                                        wire:click="remEquipment({{ $index }})">
+                                                                        <i class="ri-delete-bin-2-line"></i>
+                                                                    </button>
                                                                 </td>
-                                                                <td class="text-center align-middle">
-                                                                    {{ $equip['fases'] }}
-                                                                </td>
-                                                                <td class="text-center align-middle">
-                                                                    {{ $equip['pole'] }}
-                                                                </td>
-                                                                <td class="text-center align-middle"><i
-                                                                        class="ri-delete-bin-2-line text-danger"
-                                                                        wire:click="remEquipment({{ $index }})"
-                                                                        style="cursor: pointer;"></i></td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
                                                 </table>
-                                            @else
-                                                <div class="card-body">
-                                                    <h5 class="text-center">NENHUM EQUIPAMENTO ASSOCIADO</h5>
-                                                </div>
-                                            @endif
-                                        </div>
+                                            </div>
+                                        @else
+                                            <div class="alert alert-info mt-3">
+                                                <i class="ri-information-line me-2"></i>Nenhum equipamento adicionado
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @endif
 
-                            <div class="mb-3 " style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Houve Alterações no
-                                    projeto? <span class="text-danger fw-bold">*</span></label>
-                                <select class="form-select" aria-label="Default select example"
-                                    wire:model="form.changes">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Sim</option>
-                                    <option value="0">Não</option>
-                                </select>
-                            </div>
-
+                            <!-- File Upload Section (Conditional) -->
                             @if ($form['changes'])
-                                <div class="mb-3 col-md-6">
-
-                                    @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
+                                <div class="card shadow-sm mb-4 border-primary border-top border-2">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0"><i class="ri-file-upload-line me-2"></i>Arquivos de
+                                            Alterações</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
+                                    </div>
                                 </div>
                             @endif
 
-                            <div class="mb-3 col-md-6">
-                                <label for="exampleFormControlInput1" class="form-label">Observações (Desligamento
-                                    programado/ Alterações/ Informações Gerais): </label>
-                                <textarea type="text" class="form-control" id="observacao" rows="4" wire:model.defer="form.observation"> </textarea>
-                            </div>
-
-                            <div class="mb-3 " style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Houveram danos a propriedade
-                                    de
-                                    particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.) <span
-                                        class="text-danger fw-bold">*</span></label>
-                                <select class="form-select" aria-label="Default select example"
-                                    wire:model="form.damage" id="damage">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Sim</option>
-                                    <option value="0">Não</option>
-                                </select>
-                            </div>
-
-                            @if ($form['damage'])
-                                <div class="mb-3 col-md-6">
-                                    <label for="exampleFormControlInput1" class="form-label">Detalhar os Danos
-                                        Causados e
-                                        Previsão de reparo: <span class="text-danger fw-bold">*</span></label>
-                                    <textarea type="text" class="form-control" id="description" rows="4" wire:model.defer="form.description"> </textarea>
+                            <!-- Observations -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="ri-information-line me-2"></i>Informações Adicionais
+                                    </h5>
                                 </div>
-                            @endif
-
-                            <div class="mb-3 " style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Ligação foi executada do
-                                    momento
-                                    da obra? <span class="text-danger fw-bold">*</span></label>
-                                <select class="form-select" aria-label="Default select example"
-                                    wire:model="form.connection" id="connection">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Sim</option>
-                                    <option value="0">Não</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3 " style="max-width: 300px">
-                                <label for="exampleFormControlInput1" class="form-label">Foram Instalados
-                                    Medidores? <span class="text-danger fw-bold">*</span></label>
-                                <select class="form-select" aria-label="Default select example" wire:model="meeters">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Sim</option>
-                                    <option value="0">Não</option>
-                                </select>
-                            </div>
-
-                            @if ($meeters)
-                                <div class="col-md-6">
-                                    <div class="clear-fix">
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <h5 class="my-0 py-0">CADASTRAR MEDIDORES</h5>
-                                            </div>
-                                            <div class="card-body">
-
-                                                <div class="row">
-
-                                                    <div class="mb-3 col-md-3">
-                                                        <label for="exampleFormControlInput1"
-                                                            class="form-label">Número:</label>
-                                                        <input type="text" class="form-control" id="number"
-                                                            wire:model.defer="model_meeter.number">
-                                                    </div>
-
-                                                    <div class="mb-3 col-md-3">
-                                                        <label for="exampleFormControlInput1"
-                                                            class="form-label">Bornes:</label>
-                                                        <input type="text" class="form-control" id="borne"
-                                                            wire:model.defer="model_meeter.borne">
-                                                    </div>
-                                                    <div class="mb-3 col-md-4">
-                                                        <label for="exampleFormControlInput1" class="form-label">Fases
-                                                            Ligadas:</label>
-                                                        <select class="form-select"
-                                                            aria-label="Default select example" id="m_fases"
-                                                            wire:model.defer="model_meeter.fases">
-                                                            <option selected>Selecione</option>
-                                                            @foreach (SelectOptions::getFasesOptions() as $item)
-                                                                <option value="{{ $item->nick }}">
-                                                                    {{ $item->info }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-3 col-md-3">
-
-                                                        <button type="button" class="btn btn-sm btn-primary mt-4"
-                                                            wire:click="addMeeters()">Adicionar</button>
-                                                    </div>
-                                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-12">
+                                            <div class="form-floating">
+                                                <textarea class="form-control" id="observacao" style="height: 100px" wire:model.defer="form.observation"></textarea>
+                                                <label for="observacao">Observações (Desligamento
+                                                    programado/Alterações/Informações Gerais)</label>
                                             </div>
                                         </div>
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <h5 class="my-0 py-0">MEDIDORES</h5>
+
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <select class="form-select @error('form.damage') is-invalid @enderror"
+                                                    wire:model="form.damage" id="damage">
+                                                    <option value="">Selecione</option>
+                                                    <option value="1">Sim</option>
+                                                    <option value="0">Não</option>
+                                                </select>
+                                                <label for="damage">Houveram danos a propriedade de particulares?
+                                                    <span class="text-danger">*</span></label>
+                                                @error('form.damage')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
                                             </div>
-                                            @if (!empty($temp_meeters))
-                                                <table class="table table-sm table-condensed table-striped-columns">
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <select
+                                                    class="form-select @error('form.connection') is-invalid @enderror"
+                                                    wire:model="form.connection" id="connection">
+                                                    <option value="">Selecione</option>
+                                                    <option value="1">Sim</option>
+                                                    <option value="0">Não</option>
+                                                </select>
+                                                <label for="connection">Ligação foi executada no momento da obra? <span
+                                                        class="text-danger">*</span></label>
+                                                @error('form.connection')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+
+                                        @if ($form['damage'])
+                                            <div class="col-md-12">
+                                                <div class="form-floating">
+                                                    <textarea class="form-control @error('form.description') is-invalid @enderror" id="description" style="height: 100px"
+                                                        wire:model.defer="form.description"></textarea>
+                                                    <label for="description">Detalhar os Danos Causados e Previsão de
+                                                        reparo <span class="text-danger">*</span></label>
+                                                    @error('form.description')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Meeters Section -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="ri-dashboard-line me-2"></i>Medidores</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <select class="form-select @error('meeters') is-invalid @enderror"
+                                                    wire:model="meeters">
+                                                    <option value="">Selecione</option>
+                                                    <option value="1">Sim</option>
+                                                    <option value="0">Não</option>
+                                                </select>
+                                                <label>Foram Instalados Medidores? <span
+                                                        class="text-danger">*</span></label>
+                                                @error('meeters')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @if ($meeters)
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-md-3">
+                                                <div class="form-floating">
+                                                    <input type="text" class="form-control" id="number"
+                                                        wire:model.defer="model_meeter.number">
+                                                    <label for="number">Número</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-floating">
+                                                    <input type="text" class="form-control" id="borne"
+                                                        wire:model.defer="model_meeter.borne">
+                                                    <label for="borne">Bornes</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-floating">
+                                                    <select class="form-select" id="m_fases"
+                                                        wire:model.defer="model_meeter.fases">
+                                                        <option value="">Selecione</option>
+                                                        @foreach (SelectOptions::getFasesOptions() as $item)
+                                                            <option value="{{ $item->nick }}">{{ $item->info }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <label for="m_fases">Fases Ligadas</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button type="button" class="btn btn-primary w-100 h-100"
+                                                    wire:click="addMeeters()">
+                                                    <i class="ri-add-line me-1"></i> Adicionar Medidor
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        @if (!empty($temp_meeters))
+                                            <div class="table-responsive mt-3">
+                                                <table class="table table-striped table-hover">
                                                     <thead>
-                                                        <tr class="table-secondary">
-                                                            <th scope='col' class="text-center">Numero</th>
-                                                            <th scope='col' class="text-center">Borne</th>
-                                                            <th scope='col' class="text-center">Fases</th>
-                                                            <th scope='col' class="text-center"></th>
+                                                        <tr class="table-primary">
+                                                            <th scope='col'>Número</th>
+                                                            <th scope='col'>Borne</th>
+                                                            <th scope='col'>Fases</th>
+                                                            <th scope='col' width="80">Ação</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         @foreach ($temp_meeters as $index => $sMeeter)
-                                                            <tr class="px-2">
-                                                                <td class="text-center align-middle">
-                                                                    {{ $sMeeter['number'] }}
+                                                            <tr>
+                                                                <td>{{ $sMeeter['number'] }}</td>
+                                                                <td>{{ $sMeeter['borne'] }}</td>
+                                                                <td>{{ $sMeeter['fases'] }}</td>
+                                                                <td>
+                                                                    <button type="button"
+                                                                        class="btn btn-sm btn-danger"
+                                                                        wire:click="remMeeters({{ $index }})">
+                                                                        <i class="ri-delete-bin-2-line"></i>
+                                                                    </button>
                                                                 </td>
-                                                                <td class="text-center align-middle">
-                                                                    {{ $sMeeter['borne'] }}</td>
-                                                                <td class="text-center align-middle">
-                                                                    {{ $sMeeter['fases'] }}
-                                                                </td>
-
-                                                                <td class="text-center align-middle"><i
-                                                                        class="ri-delete-bin-2-line text-danger"
-                                                                        wire:click="remMeeters({{ $index }})"
-                                                                        style="cursor: pointer;"></i></td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
                                                 </table>
-                                            @else
-                                                <div class="card-body">
-                                                    <h5 class="text-center">NENHUM MEDIDOR ASSOCIADO</h5>
-                                                </div>
-                                            @endif
+                                            </div>
+                                        @else
+                                            <div class="alert alert-info mt-3">
+                                                <i class="ri-information-line me-2"></i>Nenhum medidor adicionado
+                                            </div>
+                                        @endif
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Final Information Section -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="ri-user-settings-line me-2"></i>Informações de
+                                        Conclusão</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <input type="text"
+                                                    class="form-control @error('form.dd') is-invalid @enderror"
+                                                    id="dd" wire:model.defer="form.dd">
+                                                <label for="dd">Número da DD (Último relacionado a esta obra)
+                                                    <span class="text-danger">*</span></label>
+                                                @error('form.dd')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <input type="text"
+                                                    class="form-control @error('form.team') is-invalid @enderror"
+                                                    id="team" wire:model.defer="form.team">
+                                                <label for="team">Nome da Equipe (WPA) <span
+                                                        class="text-danger">*</span></label>
+                                                @error('form.team')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <input type="text"
+                                                    class="form-control @error('form.responsible') is-invalid @enderror"
+                                                    id="responsible" wire:model.defer="form.responsible">
+                                                <label for="responsible">Encarregado responsável pela execução <span
+                                                        class="text-danger">*</span></label>
+                                                @error('form.responsible')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-floating">
+                                                <input type="text"
+                                                    class="form-control @error('form.informer') is-invalid @enderror"
+                                                    id="informer" wire:model.defer="form.informer">
+                                                <label for="informer">Responsável por este informe <span
+                                                        class="text-danger">*</span></label>
+                                                @error('form.informer')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            @endif
-
-                            <div class="mb-3 col-md-3">
-                                <label for="exampleFormControlInput1" class="form-label">Numero da DD (Ultimo
-                                    Relacionado a esta obra) <span class="text-danger fw-bold">*</span></label>
-                                <input type="text" class="form-control" id="dd"
-                                    wire:model.defer="form.dd">
                             </div>
 
-                            <div class="mb-3 col-md-3">
-                                <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA) <span
-                                        class="text-danger fw-bold">*</span>:</label>
-                                <input type="text" class="form-control" id="team"
-                                    wire:model.defer="form.team">
+                            <!-- Form Buttons -->
+                            <div class="d-flex gap-2 mb-4">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="ri-save-line me-1"></i> ENVIAR INFORME
+                                </button>
+                                <button class="btn btn-danger" type="reset" wire:click='calcelForm()'>
+                                    <i class="ri-close-line me-1"></i> CANCELAR
+                                </button>
                             </div>
-
-                            <div class="mb-3 col-md-3">
-                                <label for="exampleFormControlInput1" class="form-label">Qual o encarregado
-                                    responsável
-                                    pela execução da atividade? <span class="text-danger fw-bold">*</span></label>
-                                <input type="text" class="form-control" id="responsible"
-                                    wire:model.defer="form.responsible">
-                            </div>
-
-                            <div class="mb-3 col-md-3">
-                                <label for="exampleFormControlInput1" class="form-label">Responsável por este
-                                    informe? <span class="text-danger fw-bold">*</span></label>
-                                <input type="text" class="form-control" id="informer"
-                                    wire:model.defer="form.informer">
-                            </div>
-
-                            <button class="btn btn-sm btn-primary" type="submit">ENVIAR</button>
-                            <button class="btn btn-sm btn-danger" type="reset"
-                                wire:click='calcelForm()'>CANCELAR</button>
                         @endif
                     </div>
                 </div>
@@ -523,13 +636,109 @@
 
 @push('script')
     <script>
-        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
-        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+        // Initialize tooltips instead of popovers for better mobile experience
+        document.addEventListener('livewire:load', function() {
+            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 
-        document.querySelectorAll('form button[type="button"]').forEach(button => {
-            button.addEventListener('click', function(event) {
-                event.preventDefault();
+            // Prevent form submission on button clicks
+            document.querySelectorAll('form button[type="button"]').forEach(button => {
+                button.addEventListener('click', function(event) {
+                    event.preventDefault();
+                });
             });
         });
     </script>
+@endpush
+@push('css')
+    <style>
+        .cursor-pointer {
+            cursor: pointer;
+        }
+
+        .hover-highlight:hover {
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+
+        /* Enhanced input styling for better visibility */
+        .form-control,
+        .form-select {
+            border-width: 1px !important;
+            border-color: #010898 !important;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        /* Make invalid inputs more noticeable */
+        .is-invalid {
+            border-color: #dc3545 !important;
+            border-width: 2px !important;
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+        }
+
+        /* Better styling for floating labels */
+        .form-floating>.form-control:focus,
+        .form-floating>.form-control:not(:placeholder-shown) {
+            padding-top: 1.625rem;
+            padding-bottom: 0.625rem;
+            border-width: 2px;
+        }
+
+
+
+        .form-floating>.form-control:-webkit-autofill {
+            padding-top: 1.625rem;
+            padding-bottom: 0.625rem;
+        }
+
+        /* Highlight required fields */
+        .form-floating>label span.text-danger {
+            font-weight: bold;
+        }
+
+        .form-floating>label {
+            color: #111112;
+        }
+
+        /* Improve search input visibility */
+        input[wire\:model\.defer="search"] {
+            border-width: 2px;
+            height: 50px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Better button styling */
+        .btn {
+            font-weight: 500;
+            border-width: 2px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Add subtle highlight to all form fields */
+        .form-floating {
+            margin-bottom: 1rem;
+        }
+
+        textarea.form-control {
+            border-width: 2px;
+        }
+
+        /* Add highlight effect on hover */
+        .form-control:hover,
+        .form-select:hover {
+            border-color: #0d6efd;
+        }
+
+        .required-field::after {
+            content: "*";
+            color: red;
+            margin-left: 4px;
+        }
+    </style>
 @endpush

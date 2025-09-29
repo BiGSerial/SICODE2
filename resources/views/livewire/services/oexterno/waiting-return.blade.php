@@ -212,7 +212,15 @@
                             </td>
                             <td
                                 class="text-center {{ $this->getColor($list->production?->att_at?->startOfDay()->diffInDays()) }}">
-                                {{ $list->created_at?->startOfDay()->diffInDays() }} dias</td>
+                                {{ $list->created_at?->startOfDay()->diffInDays() }} dias
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-success"
+                                    wire:click.prevent="$emitTo('services.oexterno.actions.confirm-work-return', 'openConfirmWorkReturn', {{ $list->id }})"
+                                    wire:target="confirmReturn" data-bs-toggle="tooltip" data-bs-placement="left"
+                                    title="Aprovar Retorno do Trabalho">
+                                    <i class="ri-check-line"></i>
+                                </button>
                         </tr>
                     @endforeach
                 </tbody>
@@ -227,5 +235,5 @@
     </div>
 </div>
 
-
-</div>
+{{-- Modal de Aprovação de Reclamação --}}
+<@livewire('services.oexterno.actions.confirm-work-return', key('confirmWorkReturn')) </div>

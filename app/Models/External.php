@@ -59,7 +59,7 @@ class External extends Model
 
     public function Reclaims()
     {
-        return $this->belongsToMany(Reclaim::class, 'external_reclaim');
+        return $this->belongsToMany(Reclaim::class, 'external_reclaim')->withPivot('completed', 'completed_at');
     }
 
     public function Entity()

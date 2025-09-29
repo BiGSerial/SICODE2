@@ -67,6 +67,11 @@ class ProtestController extends Controller
         return view('protest.dispatch.config_users');
     }
 
+    public function dispatch_per_user()
+    {
+        return view('protest.dispatch.per-user');
+    }
+
     //Parner Section
     public function partner_main()
     {

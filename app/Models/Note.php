@@ -173,6 +173,12 @@ class Note extends Model
 
 
 
+    // Parcial
+    public function currentPartial()
+    {
+        return $this->hasMany(Partial::class)->latestOfMany();
+    }
+
 
 
     // Relação temporária
@@ -180,8 +186,6 @@ class Note extends Model
     {
         return $this->hasMany(TempAdsInfo::class);
     }
-
-
 
 
     // Note Resources

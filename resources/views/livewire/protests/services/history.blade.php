@@ -7,7 +7,7 @@
             <!-- Registros por página -->
             <div class="col-md-2">
                 <div class="form-floating">
-                    <select wire:model.live="perPage" id="perPage" class="form-select">
+                    <select wire:model="perPage" id="perPage" class="form-select">
                         <option value="10">10</option>
                         <option value="25">25</option>
                         <option value="50">50</option>
@@ -17,10 +17,10 @@
                 </div>
             </div>
 
-            <!-- Buscar -->
+            {{-- <!-- Buscar -->
             <div class="col-md-3">
                 <div class="form-floating">
-                    <input wire:model.live.debounce.300ms="search" type="text" id="search" class="form-control"
+                    <input wire:model.debounce.300ms="search" type="text" id="search" class="form-control"
                         placeholder="Digite para buscar...">
                     <label for="search">Buscar</label>
                 </div>
@@ -29,7 +29,7 @@
             <!-- Mês -->
             <div class="col-md-2">
                 <div class="form-floating">
-                    <input wire:model.live="month" type="month" id="month" class="form-control"
+                    <input wire:model="month" type="month" id="month" class="form-control"
                         max="{{ date('Y-m') }}">
                     <label for="month">Mês</label>
                 </div>
@@ -38,7 +38,7 @@
             <!-- Data início -->
             <div class="col-md-2">
                 <div class="form-floating">
-                    <input wire:model.live="dt_start" type="date" id="dt_start" class="form-control"
+                    <input wire:model="dt_start" type="date" id="dt_start" class="form-control"
                         max="{{ $dt_end ?? date('Y-m-d') }}">
                     <label for="dt_start">Data início</label>
                 </div>
@@ -47,7 +47,7 @@
             <!-- Data fim -->
             <div class="col-md-2">
                 <div class="form-floating">
-                    <input wire:model.live="dt_end" type="date" id="dt_end" class="form-control"
+                    <input wire:model="dt_end" type="date" id="dt_end" class="form-control"
                         min="{{ $dt_start }}" max="{{ date('Y-m-d') }}">
                     <label for="dt_end">Data fim</label>
                 </div>
@@ -58,9 +58,20 @@
                 <button wire:click="clearFilters" type="button" class="btn btn-outline-secondary w-100">
                     <i class="ri-refresh-line"></i>
                 </button>
-            </div>
+            </div> --}}
         </div>
     </div>
+    @if ($list->count() > 0)
+        <div class=" d-flex justify-content-between align-items-center">
+            <div>
+                <i class="ri-information-line"></i>
+                Exibindo {{ $list->firstItem() }} a {{ $list->lastItem() }} de {{ $list->total() }} registros.
+            </div>
+            <div>
+                {{ $list->links() }}
+            </div>
+        </div>
+    @endif
     <div class="card">
         <h4 class="card-header">
             RECLAMAÇÕES ENCERRADAS POR MIM
@@ -68,6 +79,7 @@
         <div class="table-responsive">
 
             @if ($list->count() > 0)
+
                 <table class="table table-striped table-bordered">
                     <thead>
                         <tr class="text-center align-middle">
@@ -91,7 +103,7 @@
                             @php
                                 $assigment = $item->Assignments->where('user', true)->where('completed', true)->first();
                             @endphp
-                            <tr class="text-center align-middle">
+                            <tr class="text-center align-middle" wire:key="item-{{ $item->id }}">
                                 <td>{{ $item->protest->nota }}</td>
                                 <td class='fw-bold'>{{ $item->protest->tipoNota }}</td>
                                 <td>{{ $item->med_id }}</td>
@@ -119,4 +131,15 @@
             @endif
         </div>
     </div>
+    @if ($list->count() > 0)
+        <div class=" d-flex justify-content-between align-items-center">
+            <div>
+                <i class="ri-information-line"></i>
+                Exibindo {{ $list->firstItem() }} a {{ $list->lastItem() }} de {{ $list->total() }} registros.
+            </div>
+            <div>
+                {{ $list->links() }}
+            </div>
+        </div>
+    @endif
 </div>

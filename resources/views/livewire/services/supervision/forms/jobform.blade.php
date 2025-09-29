@@ -580,7 +580,7 @@
                                                 <option value="{{ $supEnd->value }}">{{ $supEnd->reason }}</option>
                                             @endforeach
                                             @if ($production->partial)
-                                                <option value="reject">Rejeitar Obra</option>
+                                                <option value="reject">REJEITAR OBRA</option>
                                             @endif
                                         </select>
                                         @if (!$hasConclusion)
