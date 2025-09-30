@@ -19,6 +19,7 @@ class FiveNote extends Model
         'pep',
         'e_pep',
         'codify',
+        'company_id',
         'sintoms',
         'reason',
         'description',

@@ -155,6 +155,28 @@
                     </div>
                 </ul>
             </li>
+
+            <li class="nav-item">
+                <a class="nav-link collapsed" data-bs-target="#dfive-nav" data-bs-toggle="collapse" href="#">
+                    <i class="bi bi-menu-button-wide text-primary"></i><span>NOTAS D5</span>
+                    @livewire('engineers.counts.count-parcial', ['menu' => true], key('count-parcial'))<i class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <ul id="dfive-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                    <div class="border-start border-3 mb-1 py-0">
+                        <li>
+                            <a href="{{ route('engineers.dfive.waiting') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-timer-flash-fill text-white fw-light fs-5"></i> <span> NOTAS D5 -
+                                    AGUARDANDO RESOLUÇÃO </span> @livewire('engineers.count.waiting-five-notes-count', key('waiting-five-notes-count'))</a>
+                        </li>
+                        {{-- <li>
+                            <a href="{{ route('engineers.hist.parcial') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-history-line text-white fw-light fs-5"></i> <span> HISTÓRICO INFORME
+                                    PARCIAL</span>
+                            </a>
+                        </li> --}}
+                    </div>
+                </ul>
+            </li>
         </ul>
 
 

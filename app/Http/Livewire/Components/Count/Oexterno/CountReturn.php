@@ -11,7 +11,7 @@ class CountReturn extends Component
     {
         return  Reclaim::where('completed', true)
                 ->whereHas('externals', function ($q) {
-                    $q->where('status', 1);
+                    $q->where('external_reclaim.completed', 0);
                 });
 
     }

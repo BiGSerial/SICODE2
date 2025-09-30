@@ -34,15 +34,24 @@ class WaitingReturn extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
-
+        'navigateTo',
     ];
 
     public function navigateTo($note)
     {
+        if (!$this->service || !$note) {
+            $this->dispatchBrowserEvent('toast', [
+                'title' => 'Erro de navegação',
+                'message' => 'Não foi possível navegar para a nota especificada.',
+                'type' => 'error'
+            ]);
+            return;
+        }
+
 
         return redirect()->to(
             route('services.protocolNote', [
-                'service' => $this->service,
+                'service' => is_array($this->service) ? $this->service['uuid'] : $this->service,
                 'note'    => $note,
             ])
         );

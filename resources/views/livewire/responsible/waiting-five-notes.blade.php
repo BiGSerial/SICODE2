@@ -85,11 +85,7 @@
             NOTAS D5 AGUARDANDO
         </h5>
 
-        <button wire:click.prevent="$emitTo('components.five-note.manual-create', 'openModal')"
-            class="btn btn-primary btn-sm">
-            <i class="ri-add-line me-1"></i>
-            CRIAR D5 MANUALMENTE
-        </button>
+
     </div>
 
     @if (!empty($lists) && $lists->count() > 0)
@@ -117,9 +113,7 @@
                         <th>Cod</th>
                         <th>Data Despacho</th>
                         <th>Em Atividade</th>
-                        <th>Concluído Em</th>
-                        <th>Pago Em</th>
-                        <th>Fiscalizado Em</th>
+
                         <th></th>
 
                     </tr>
@@ -127,26 +121,41 @@
                 <tbody>
 
                     @forelse ($lists as $list)
-                        <tr class="text-center {{ $list->is_supervisioned ? 'table-success' : '' }}"
-                            wire:dblclick="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})"
-                            style="cursor: pointer;">
+                        @php
+                            $daysOverdue = $list->dispatch_at?->diffInDays();
+                            $badgeClass = 'bg-success';
+                            $badgeText = 'Dentro do prazo';
+
+                            if ($daysOverdue > 3 && $daysOverdue <= 5) {
+                                $badgeClass = 'bg-warning';
+                                $badgeText = 'Atenção';
+                            } elseif ($daysOverdue > 5) {
+                                $badgeClass = 'bg-danger';
+                                $badgeText = 'Atrasado';
+                            }
+
+                        @endphp
+                        <tr class="text-center {{ $list->is_supervisioned ? 'table-success' : '' }}">
                             <td><input class="form-check-input border border-1 border-primary " type="checkbox"
                                     value="{{ $list->id }}" wire:model.defer="selected">
                             </td>
                             <td>{{ $list->note_d5 }}</td>
                             <td>{{ $list->note->note }}</td>
-                            <td>{{ $list->company?->name }}</td>
+                            <td class="fw-bold">{{ $list->company?->name }}</td>
                             <td>{{ $list->reason }}</td>
                             <td>{{ $list->codify }}</td>
                             <td>{{ $list->dispatch_at?->format('d/m/Y H:i') }}</td>
-                            <td>{{ $list->dispatch_at?->diffInDays() }}</td>
-                            <td>{!! $list->completed_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">EM ANDAMENTO</span>' !!}</td>
-                            <td>{{ $list->payed_at?->format('d/m/Y H:i') ?? 'NÃO PAGO' }}</td>
-                            <td class="fw-bold">{!! $list->supervisioned_at?->format('d/m/Y H:i') ?? '<span class="badge text-bg-danger">NÃO FISCALIZADO</span>' !!}</td>
+                            <td>
+                                <span class="badge {{ $badgeClass }}">
+                                    <i class="ri-time-line me-1"></i> {{ $list->dispatch_at?->diffInDays() }} dias
+
+                                </span>
+                            </td>
+
                             <td>
                                 <button class="btn btn-sm btn-primary p-1"
-                                    wire:click="$emitTo('components.five-note.edit-d5', 'getInfoResponse', {{ $list->id }})">
-                                    Editar
+                                    wire:click="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})">
+                                    Visualizar
                                 </button>
                             </td>
                         </tr>

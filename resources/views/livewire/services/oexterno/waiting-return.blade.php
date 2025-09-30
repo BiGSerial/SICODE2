@@ -145,7 +145,19 @@
             @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
         </div>
     </div>
-
+    @if (!$lists->isEmpty())
+        <div class="d-flex justify-content-between align-items-center me-3 mt-3">
+            <div>
+                <span class="text-muted">
+                    Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }}
+                    itens
+                </span>
+            </div>
+            <div>
+                {{ $lists->links() }}
+            </div>
+        </div>
+    @endif
     <div class="card">
         <div
             class="card-header edp-bg-sprucegreen-70 edp-text-verde-dark d-flex justify-content-between align-items-center">
@@ -215,25 +227,34 @@
                                 {{ $list->created_at?->startOfDay()->diffInDays() }} dias
                             </td>
                             <td class="text-center">
-                                <button class="btn btn-sm btn-success"
-                                    wire:click.prevent="$emitTo('services.oexterno.actions.confirm-work-return', 'openConfirmWorkReturn', {{ $list->id }})"
-                                    wire:target="confirmReturn" data-bs-toggle="tooltip" data-bs-placement="left"
-                                    title="Aprovar Retorno do Trabalho">
-                                    <i class="ri-check-line"></i>
-                                </button>
+                                @if ($list->completed)
+                                    <button class="btn btn-sm btn-success"
+                                        wire:click.prevent="$emitTo('services.oexterno.actions.confirm-work-return', 'openConfirmWorkReturn', {{ $list->id }})"
+                                        wire:target="confirmReturn" data-bs-toggle="tooltip" data-bs-placement="left"
+                                        title="Aprovar Retorno do Trabalho">
+                                        <i class="ri-check-line"></i>
+                                    </button>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         @endif
     </div>
-    <div class="d-flex justify-content-end me-3">
-        {{ $lists->links() }}
-        <span class="text-muted">
-            Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} itens
-        </span>
+    <div class="d-flex justify-content-between align-items-center me-3 mt-3">
+        <div>
+            <span class="text-muted">
+                Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }}
+                itens
+            </span>
+        </div>
+        <div>
+            {{ $lists->links() }}
+        </div>
     </div>
 </div>
 
 {{-- Modal de Aprovação de Reclamação --}}
-<@livewire('services.oexterno.actions.confirm-work-return', key('confirmWorkReturn')) </div>
+@livewire('services.oexterno.actions.confirm-work-return', key('confirmWorkReturn'))
+</div>

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Livewire\Dispatchs\Payment;
+namespace App\Http\Livewire\Engineers;
 
 use App\Helpers\TextFormatter;
 use App\Models\FiveNote;
@@ -185,11 +185,10 @@ class WaitingFiveNotes extends Component
     private function baseQuery(): Builder
     {
         $base = FiveNote::query()
-            ->where('is_payed', true)
-            ->where('is_archived', false);
+            ->where('visible_partner', true)
+            ->where('is_completed', false);
 
         if ($this->search) {
-
 
             $search = $this->formatWithWildcard($this->search);
 
@@ -203,6 +202,13 @@ class WaitingFiveNotes extends Component
                     ->orWhereHas('company', function ($q) use ($search) {
                         $q->where('name', $search->type, $search->search);
                     });
+            });
+        }
+
+        if (!auth()->user()->superadm) {
+            $base->where(function ($q) {
+                $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
+                ->orWhere('company_id', Auth()->user()->Company->id);
             });
         }
 
@@ -244,7 +250,7 @@ class WaitingFiveNotes extends Component
             });
         }
 
-        return $base;
+        return $base->orderBy('dispatch_at', 'asc');
     }
 
     public function getListsProperty()
@@ -259,7 +265,7 @@ class WaitingFiveNotes extends Component
 
     public function render()
     {
-        return view('livewire.dispatchs.payment.waiting-five-notes', [
+        return view('livewire.engineers.waiting-five-notes', [
             'lists' => $this->lists,
         ]);
     }

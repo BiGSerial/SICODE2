@@ -12,6 +12,7 @@ class EditD5 extends Component
     public ?FiveNote $five = null;
     public $note;
     public $companies;
+    public $resend = false;
 
     protected $listeners = [
         'getInfoResponse',
@@ -58,8 +59,6 @@ class EditD5 extends Component
 
             if (!$this->five->loc_install) {
 
-                dd('teste');
-
                 $this->five->loc_install = $this->five->Note->WorkForm?->Orders->sortBy('ordem')->first()?->loc_install ?? null;
             }
 
@@ -74,6 +73,26 @@ class EditD5 extends Component
 
     public function toSave()
     {
+
+
+
+        if ($this->resend) {
+            $send = "<div style='padding: 15px; background: linear-gradient(135deg, #dc3545, #ff4d4d); color: white; border-radius: 6px; margin-bottom: 15px; border: 2px solid #721c24;'>
+                        <h5 style='margin-top: 0; text-align: center; font-weight: 700;'>⚠️ ATENÇÃO: REENVIO DE D5 ⚠️</h5>
+                        <p style='text-align: center; margin-bottom: 5px;'>Você selecionou <strong>REENVIAR</strong> esta D5!</p>
+                        <p style='text-align: justify; font-weight: 500;'>Esta ação <span style='text-decoration: underline; font-weight: 700;'>removerá todas as Produções Pendentes</span> e retornará o item para a pilha da empreiteira selecionada.</p>
+                    </div>
+                  
+                       ";
+        } else {
+            $send = "<div style='padding: 15px; background: linear-gradient(135deg, #0d6efd, #0a58ca); color: white; border-radius: 6px; margin-bottom: 15px; border: 2px solid #084298;'>
+                        <h5 style='margin-top: 0; text-align: center; font-weight: 700;'>ℹ️ ALTERAÇÃO DE D5 ℹ️</h5>
+                        <p style='text-align: center; margin-bottom: 5px;'>Você está apenas atualizando esta D5.</p>
+                        <p style='text-align: justify; font-weight: 500;'>As informações originais serão substituídas pelas novas informações inseridas.</p>
+                    </div>
+                   ";
+        }
+
         $this->dispatchBrowserEvent('alertar', [
               'title'         => 'Deseja alterar a D5',
               'msg'           => "
@@ -110,6 +129,7 @@ class EditD5 extends Component
                               <span style='font-weight: 500; opacity: 0.9;'>📄 Nota: </span>
                               <strong style='color: #fff;'>{$this->note->note}</strong>
                           </div>
+                          {$send}
                       </div>
                   </div>
               ",
@@ -189,6 +209,7 @@ class EditD5 extends Component
         $this->dispatchBrowserEvent('hideModal');
         $this->resetErrorBag();
         $this->five = null;
+        $this->resend = false;
         $this->emitUp('refresh_list');
 
     }

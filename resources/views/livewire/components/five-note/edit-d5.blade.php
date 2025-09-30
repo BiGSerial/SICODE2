@@ -1,5 +1,6 @@
 @php
     use App\Helpers\SelectOptions;
+    use App\Custom\NoteStatus;
 @endphp
 
 <div class="finish-five">
@@ -133,10 +134,59 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
+
+
+
+                        {{-- Produções Associadas D5 (incompletas) --}}
+                        <div class="mt-4">
+                            <h6 class="fivefx-k mb-3">Produções Associadas (D5 pendentes)</h6>
+
+                            @if (
+                                $five->note &&
+                                    $five->note->productions &&
+                                    $five->note->productions->where('dfive', true)->where('completed', false)->count() > 0)
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-dark table-hover border-secondary">
+                                        <thead>
+                                            <tr class="text-secondary">
+                                                <th scope="col">Nota</th>
+                                                <th scope="col">Serviço</th>
+                                                <th scope="col">Usuário</th>
+                                                <th scope="col">Atribuído Em</th>
+                                                <th scope="col">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($five->note->productions->where('dfive', true)->where('completed', false) as $production)
+                                                <tr>
+                                                    <td>{{ $production->note->note }}</td>
+                                                    <td>{{ $production->service?->service ?? 'N/A' }}</td>
+                                                    <td>{{ $production->user->name ?? 'N/A' }}</td>
+                                                    <td>{{ $production->att_at?->format('d/m/Y H:i') }}</td>
+                                                    <td>
+                                                        <span
+                                                            class="badge {{ Notestatus::status($production->status)->colorbg }}">{{ Notestatus::status($production->status)->status }}</span>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="alert alert-secondary bg-opacity-25 mb-0">
+                                    <i class="ri-information-line me-1"></i>
+                                    Nenhuma produção D5 pendente associada a esta nota.
+                                </div>
+                            @endif
+                        </div>
                     </div>
 
                     {{-- FOOTER --}}
-                    <div class="modal-footer fivefx-footer py-2">
+                    <div class="modal-footer fivefx-footer py-2 d-flex align-items-center">
+                        <div class="form-check me-auto">
+                            <input class="form-check-input" type="checkbox" id="resendCheck" wire:model.defer="resend">
+                            <label class="form-check-label" for="resendCheck">Reenviar</label>
+                        </div>
                         <button type="button" class="btn btn-light fivefx-btn"
                             data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary fivefx-btn" wire:loading.attr="disabled">

@@ -70,4 +70,10 @@ class ResponsibleController extends Controller
     {
         return view('responsible.parcial_hist');
     }
+
+    // D5 Aguardando Resolução
+    public function waiting_dfive()
+    {
+        return view('responsible.waitingFiveNotes');
+    }
 }

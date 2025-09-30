@@ -173,6 +173,7 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
     Route::get('/approval_control', 'approve_control')->name('approve_control');
     Route::get('/approval_history', 'approve_hist')->name('approve_hist');
     Route::get('/partial_historic', 'partial_hist')->name('partial_hist');
+    Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
 });
 
 
@@ -189,6 +190,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/viability_reports', 'viability_reports')->name('viabilityreports');
     Route::get('/waiting_inform_parc', 'waiting_parc')->name('info.parcial');
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
+    Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
 
     Route::prefix('/analises')->name('analises.')->group(function () {
         Route::get('/dashboard', 'analises_dashboard')->name('dashboard');

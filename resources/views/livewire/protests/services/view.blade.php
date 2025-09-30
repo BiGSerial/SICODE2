@@ -387,289 +387,298 @@
 
     {{-- ==== ANEXOS (ARQUIVOS ANEXADOS) ==== --}}
     <div class="row">
-        <div class="col-md-6">
-            <div class="modern-card mb-4">
-                <div class="modern-card-body">
-                    <div class="modern-card-title"><i class="ri-upload-cloud-2-line me-2"></i>Anexar Arquivos</div>
-                    <div x-data="{
-                        isUploading: false,
-                        progress: 0,
-                        totalSize: 0,
-                        uploaded: 0,
-                        human(bytes) {
-                            const u = ['B', 'KB', 'MB', 'GB', 'TB'];
-                            let i = 0;
-                            while (bytes >= 1024 && i < u.length - 1) {
-                                bytes /= 1024;
-                                i++
+        @if (!$medProtest->Assignments?->where('user_id', auth()->id())?->first()->completed)
+            <div class="col-md-6">
+                <div class="modern-card mb-4">
+                    <div class="modern-card-body">
+                        <div class="modern-card-title"><i class="ri-upload-cloud-2-line me-2"></i>Anexar Arquivos
+                        </div>
+                        <div x-data="{
+                            isUploading: false,
+                            progress: 0,
+                            totalSize: 0,
+                            uploaded: 0,
+                            human(bytes) {
+                                const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+                                let i = 0;
+                                while (bytes >= 1024 && i < u.length - 1) {
+                                    bytes /= 1024;
+                                    i++
+                                }
+                                return (i ? bytes.toFixed(2) : bytes.toFixed(0)) + ' ' + u[i];
                             }
-                            return (i ? bytes.toFixed(2) : bytes.toFixed(0)) + ' ' + u[i];
-                        }
-                    }"
-                        x-on:livewire-upload-start="
+                        }"
+                            x-on:livewire-upload-start="
                 isUploading = true;
                 totalSize = [...$refs.fileInput.files].reduce((s,f)=> s + f.size, 0);
                 progress = 0; uploaded = 0;
             "
-                        x-on:livewire-upload-progress="
+                            x-on:livewire-upload-progress="
                 progress = $event.detail.progress;
                 uploaded = Math.round(totalSize * (progress/100));
             "
-                        x-on:livewire-upload-error="isUploading=false; progress=0; uploaded=0"
-                        x-on:livewire-upload-finish="
+                            x-on:livewire-upload-error="isUploading=false; progress=0; uploaded=0"
+                            x-on:livewire-upload-finish="
                 progress = 100; uploaded = totalSize;
                 setTimeout(()=> isUploading=false, 600);
             ">
-                        <div class="upload-zone p-4 border-2 border-dashed border-primary rounded-3 text-center bg-light position-relative overflow-hidden @error('files.*') border-danger @enderror"
-                            id="uploadZone" ondragover="handleDragOver(event)" ondrop="handleDrop(event)"
-                            ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)"
-                            onclick="document.getElementById('fileInput').click()">
-                            <div class="upload-zone-bg"></div>
-                            <div class="position-relative">
-                                <div class="upload-icon mb-3">
-                                    <i class="ri-cloud-line fs-1 text-primary"></i>
+                            <div class="upload-zone p-4 border-2 border-dashed border-primary rounded-3 text-center bg-light position-relative overflow-hidden @error('files.*') border-danger @enderror"
+                                id="uploadZone" ondragover="handleDragOver(event)" ondrop="handleDrop(event)"
+                                ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)"
+                                onclick="document.getElementById('fileInput').click()">
+                                <div class="upload-zone-bg"></div>
+                                <div class="position-relative">
+                                    <div class="upload-icon mb-3">
+                                        <i class="ri-cloud-line fs-1 text-primary"></i>
+                                    </div>
+                                    <h5 class="text-primary fw-bold mb-2">Arraste arquivos aqui ou clique para
+                                        selecionar
+                                    </h5>
+                                    <p class="text-muted mb-3">
+                                        Formatos aceitos:
+                                        {{ mb_strtoupper(implode(', ', $filesConfig['allowedTypes'])) }}
+                                    </p>
+                                    <input type="file"
+                                        class="form-control d-none @error('files.*') is-invalid @enderror"
+                                        id="fileInput" x-ref="fileInput" multiple
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" wire:model="files">
+                                    <button type="button" class="btn btn-primary btn-lg px-4"
+                                        onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
+                                        <i class="ri-folder-open-line me-2"></i>
+                                        Selecionar Arquivos
+                                    </button>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Máximo: {{ $filesConfig['maxSize'] / 1024 }}MB por arquivo
+                                        </small>
+                                    </div>
+                                    @error('files.*')
+                                        <div class="alert alert-danger mt-3 mb-0 py-2">
+                                            <i class="ri-error-warning-line me-2"></i>
+                                            <small>{{ $message }}</small>
+                                        </div>
+                                    @enderror
                                 </div>
-                                <h5 class="text-primary fw-bold mb-2">Arraste arquivos aqui ou clique para selecionar
-                                </h5>
-                                <p class="text-muted mb-3">
-                                    Formatos aceitos: {{ mb_strtoupper(implode(', ', $filesConfig['allowedTypes'])) }}
-                                </p>
-                                <input type="file"
-                                    class="form-control d-none @error('files.*') is-invalid @enderror" id="fileInput"
-                                    x-ref="fileInput" multiple
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" wire:model="files">
-                                <button type="button" class="btn btn-primary btn-lg px-4"
-                                    onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
-                                    <i class="ri-folder-open-line me-2"></i>
-                                    Selecionar Arquivos
-                                </button>
-                                <div class="mt-2">
+                            </div>
+
+                            <!-- Barra de Progresso -->
+                            <div class="my-2 py-1" x-show="isUploading" style="display:none;">
+                                <div class="progress position-relative"
+                                    style="height:4px; border-radius:2px; overflow:hidden;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                        role="progressbar" :style="`width:${progress}%`" :aria-valuenow="progress"
+                                        aria-valuemin="0" aria-valuemax="100"
+                                        style="background:linear-gradient(45deg,#007bff,#0056b3); transition:width .3s ease;">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
                                     <small class="text-muted">
-                                        Máximo: {{ $filesConfig['maxSize'] / 1024 }}MB por arquivo
+                                        <i class="ri-upload-line me-1"></i>
+                                        Enviando arquivos...
+                                    </small>
+                                    <small class="text-primary fw-semibold"
+                                        x-text="`${progress}% - ${human(uploaded)} de ${human(totalSize)}`">
                                     </small>
                                 </div>
-                                @error('files.*')
-                                    <div class="alert alert-danger mt-3 mb-0 py-2">
-                                        <i class="ri-error-warning-line me-2"></i>
-                                        <small>{{ $message }}</small>
+                            </div>
+
+                            @if ($tempFiles && count($tempFiles) > 0)
+                                <div class="mb-4 mt-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="text-primary fw-bold mb-0">
+                                            <i class="ri-file-list-3-line me-2"></i>
+                                            Arquivos Selecionados
+                                        </h6>
+                                        <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill">
+                                            {{ count($tempFiles) }}
+                                            {{ count($tempFiles) == 1 ? 'arquivo' : 'arquivos' }}
+                                        </span>
                                     </div>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <!-- Barra de Progresso -->
-                        <div class="my-2 py-1" x-show="isUploading" style="display:none;">
-                            <div class="progress position-relative"
-                                style="height:4px; border-radius:2px; overflow:hidden;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    role="progressbar" :style="`width:${progress}%`" :aria-valuenow="progress"
-                                    aria-valuemin="0" aria-valuemax="100"
-                                    style="background:linear-gradient(45deg,#007bff,#0056b3); transition:width .3s ease;">
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mt-2">
-                                <small class="text-muted">
-                                    <i class="ri-upload-line me-1"></i>
-                                    Enviando arquivos...
-                                </small>
-                                <small class="text-primary fw-semibold"
-                                    x-text="`${progress}% - ${human(uploaded)} de ${human(totalSize)}`">
-                                </small>
-                            </div>
-                        </div>
-
-                        @if ($tempFiles && count($tempFiles) > 0)
-                            <div class="mb-4 mt-3">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="text-primary fw-bold mb-0">
-                                        <i class="ri-file-list-3-line me-2"></i>
-                                        Arquivos Selecionados
-                                    </h6>
-                                    <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill">
-                                        {{ count($tempFiles) }} {{ count($tempFiles) == 1 ? 'arquivo' : 'arquivos' }}
-                                    </span>
-                                </div>
-                                <div class="files-container mt-3">
-                                    @foreach ($tempFiles as $index => $file)
-                                        <div class="file-item card border-0 shadow-sm mb-2">
-                                            <div class="card-body p-3">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div class="d-flex align-items-center">
-                                                        <div class="file-icon-wrapper me-3">
-                                                            <div class="file-icon {{ $this->getFileIconClass($file->getClientOriginalExtension()) }} rounded-2 d-flex align-items-center justify-content-center"
-                                                                style="width:45px; height:45px;">
-                                                                <i
-                                                                    class="{{ $this->getFileIcon($file->getClientOriginalExtension()) }} fs-4"></i>
+                                    <div class="files-container mt-3">
+                                        @foreach ($tempFiles as $index => $file)
+                                            <div class="file-item card border-0 shadow-sm mb-2">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="file-icon-wrapper me-3">
+                                                                <div class="file-icon {{ $this->getFileIconClass($file->getClientOriginalExtension()) }} rounded-2 d-flex align-items-center justify-content-center"
+                                                                    style="width:45px; height:45px;">
+                                                                    <i
+                                                                        class="{{ $this->getFileIcon($file->getClientOriginalExtension()) }} fs-4"></i>
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <h6 class="mb-1 fw-semibold">
+                                                                    {{ $file->getClientOriginalName() }}</h6>
+                                                                <div
+                                                                    class="d-flex align-items-center text-muted small">
+                                                                    <i class="ri-file-line me-1"></i>
+                                                                    <span
+                                                                        class="me-3">{{ $this->formatFileSize($file->getSize()) }}</span>
+                                                                    <i class="ri-check-line text-success me-1"></i>
+                                                                    <span class="text-success">Pronto para
+                                                                        upload</span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div>
-                                                            <h6 class="mb-1 fw-semibold">
-                                                                {{ $file->getClientOriginalName() }}</h6>
-                                                            <div class="d-flex align-items-center text-muted small">
-                                                                <i class="ri-file-line me-1"></i>
-                                                                <span
-                                                                    class="me-3">{{ $this->formatFileSize($file->getSize()) }}</span>
-                                                                <i class="ri-check-line text-success me-1"></i>
-                                                                <span class="text-success">Pronto para upload</span>
-                                                            </div>
-                                                        </div>
+                                                        <button type="button"
+                                                            class="btn btn-outline-danger btn-sm rounded-pill"
+                                                            title="Remover arquivo"
+                                                            wire:click="removeFile({{ $index }})">
+                                                            <i class="ri-close-line"></i>
+                                                        </button>
                                                     </div>
-                                                    <button type="button"
-                                                        class="btn btn-outline-danger btn-sm rounded-pill"
-                                                        title="Remover arquivo"
-                                                        wire:click="removeFile({{ $index }})">
-                                                        <i class="ri-close-line"></i>
-                                                    </button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    @endforeach
+                                        @endforeach
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="d-flex justify-content-end gap-3">
-                                <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
-                                    wire:click="clearAllFiles">
-                                    <i class="ri-delete-bin-line me-2"></i>
-                                    Limpar Tudo
-                                </button>
-                                <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm"
-                                    wire:click="saveFiles">
-                                    <i class="ri-upload-2-line me-2"></i>
-                                    Salvar Arquivos
-                                </button>
-                            </div>
-                        @endif
+                                <div class="d-flex justify-content-end gap-3">
+                                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
+                                        wire:click="clearAllFiles">
+                                        <i class="ri-delete-bin-line me-2"></i>
+                                        Limpar Tudo
+                                    </button>
+                                    <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm"
+                                        wire:click="saveFiles">
+                                        <i class="ri-upload-2-line me-2"></i>
+                                        Salvar Arquivos
+                                    </button>
+                                </div>
+                            @endif
+                        </div>
                     </div>
-                </div>
-                <style>
-                    .upload-zone {
-                        transition: all 0.3s ease;
-                        cursor: pointer;
-                        background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.1) 100%);
-                    }
-
-                    .upload-zone:hover {
-                        border-color: var(--bs-primary) !important;
-                        background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.15) 100%);
-                        transform: translateY(-2px);
-                        box-shadow: 0 8px 25px rgba(13, 110, 253, 0.15);
-                    }
-
-                    .upload-zone-bg {
-                        position: absolute;
-                        top: -50%;
-                        left: -50%;
-                        width: 200%;
-                        height: 200%;
-                        background: radial-gradient(circle, rgba(13, 110, 253, 0.1) 0%, transparent 70%);
-                        animation: float 6s ease-in-out infinite;
-                        pointer-events: none;
-                    }
-
-                    @keyframes float {
-
-                        0%,
-                        100% {
-                            transform: translateY(0px) rotate(0deg);
+                    <style>
+                        .upload-zone {
+                            transition: all 0.3s ease;
+                            cursor: pointer;
+                            background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.1) 100%);
                         }
 
-                        50% {
-                            transform: translateY(-10px) rotate(180deg);
-                        }
-                    }
-
-                    .upload-icon {
-                        animation: bounce 2s infinite;
-                    }
-
-                    @keyframes bounce {
-
-                        0%,
-                        20%,
-                        50%,
-                        80%,
-                        100% {
-                            transform: translateY(0);
+                        .upload-zone:hover {
+                            border-color: var(--bs-primary) !important;
+                            background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.15) 100%);
+                            transform: translateY(-2px);
+                            box-shadow: 0 8px 25px rgba(13, 110, 253, 0.15);
                         }
 
-                        40% {
-                            transform: translateY(-10px);
+                        .upload-zone-bg {
+                            position: absolute;
+                            top: -50%;
+                            left: -50%;
+                            width: 200%;
+                            height: 200%;
+                            background: radial-gradient(circle, rgba(13, 110, 253, 0.1) 0%, transparent 70%);
+                            animation: float 6s ease-in-out infinite;
+                            pointer-events: none;
                         }
 
-                        60% {
-                            transform: translateY(-5px);
+                        @keyframes float {
+
+                            0%,
+                            100% {
+                                transform: translateY(0px) rotate(0deg);
+                            }
+
+                            50% {
+                                transform: translateY(-10px) rotate(180deg);
+                            }
                         }
-                    }
 
-                    .file-item {
-                        transition: all 0.3s ease;
-                        border-left: 4px solid transparent !important;
-                    }
+                        .upload-icon {
+                            animation: bounce 2s infinite;
+                        }
 
-                    .file-item:hover {
-                        transform: translateX(5px);
-                        border-left-color: var(--bs-primary) !important;
-                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
-                    }
+                        @keyframes bounce {
 
-                    .progress-bar {
-                        background: linear-gradient(45deg, #007bff, #0056b3);
-                    }
+                            0%,
+                            20%,
+                            50%,
+                            80%,
+                            100% {
+                                transform: translateY(0);
+                            }
 
-                    .btn {
-                        transition: all 0.3s ease;
-                    }
+                            40% {
+                                transform: translateY(-10px);
+                            }
 
-                    .btn:hover {
-                        transform: translateY(-2px);
-                    }
+                            60% {
+                                transform: translateY(-5px);
+                            }
+                        }
 
-                    .file-item:hover .file-icon {
-                        transform: scale(1.1);
-                    }
+                        .file-item {
+                            transition: all 0.3s ease;
+                            border-left: 4px solid transparent !important;
+                        }
 
-                    .upload-zone.drag-over {
-                        border-color: var(--bs-success) !important;
-                        background: linear-gradient(135deg, rgba(25, 135, 84, 0.1) 0%, rgba(25, 135, 84, 0.15) 100%);
-                        transform: scale(1.02);
-                    }
-                </style>
-                <script>
-                    function handleDragOver(e) {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'copy';
-                    }
+                        .file-item:hover {
+                            transform: translateX(5px);
+                            border-left-color: var(--bs-primary) !important;
+                            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+                        }
 
-                    function handleDragEnter(e) {
-                        e.preventDefault();
-                        document.getElementById('uploadZone').classList.add('drag-over');
-                    }
+                        .progress-bar {
+                            background: linear-gradient(45deg, #007bff, #0056b3);
+                        }
 
-                    function handleDragLeave(e) {
-                        e.preventDefault();
-                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                        .btn {
+                            transition: all 0.3s ease;
+                        }
+
+                        .btn:hover {
+                            transform: translateY(-2px);
+                        }
+
+                        .file-item:hover .file-icon {
+                            transform: scale(1.1);
+                        }
+
+                        .upload-zone.drag-over {
+                            border-color: var(--bs-success) !important;
+                            background: linear-gradient(135deg, rgba(25, 135, 84, 0.1) 0%, rgba(25, 135, 84, 0.15) 100%);
+                            transform: scale(1.02);
+                        }
+                    </style>
+                    <script>
+                        function handleDragOver(e) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'copy';
+                        }
+
+                        function handleDragEnter(e) {
+                            e.preventDefault();
+                            document.getElementById('uploadZone').classList.add('drag-over');
+                        }
+
+                        function handleDragLeave(e) {
+                            e.preventDefault();
+                            if (!e.currentTarget.contains(e.relatedTarget)) {
+                                document.getElementById('uploadZone').classList.remove('drag-over');
+                            }
+                        }
+
+                        function handleDrop(e) {
+                            e.preventDefault();
                             document.getElementById('uploadZone').classList.remove('drag-over');
+                            const files = e.dataTransfer.files;
+                            if (files.length) {
+                                const fileInput = document.getElementById('fileInput');
+                                fileInput.files = files;
+                                const changeEvent = new Event('change', {
+                                    bubbles: true
+                                });
+                                fileInput.dispatchEvent(changeEvent);
+                                // Não use @this.set com File objects; o wire:model já resolve.
+                            }
                         }
-                    }
-
-                    function handleDrop(e) {
-                        e.preventDefault();
-                        document.getElementById('uploadZone').classList.remove('drag-over');
-                        const files = e.dataTransfer.files;
-                        if (files.length) {
-                            const fileInput = document.getElementById('fileInput');
-                            fileInput.files = files;
-                            const changeEvent = new Event('change', {
-                                bubbles: true
-                            });
-                            fileInput.dispatchEvent(changeEvent);
-                            // Não use @this.set com File objects; o wire:model já resolve.
-                        }
-                    }
-                </script>
+                    </script>
+                </div>
             </div>
-        </div>
-        <div class="col-md-6">
+
+        @endif
+        <div class=" @if (!$medProtest->Assignments?->where('user_id', auth()->id())?->first()->completed) col-md-6   @else col-md-12 @endif">
             <div class="modern-card">
                 <div class="modern-card-body">
                     <div class="modern-card-title"><i class="ri-attachment-line me-2"></i>Arquivos Anexados</div>

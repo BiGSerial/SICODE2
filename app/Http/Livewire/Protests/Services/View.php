@@ -151,8 +151,6 @@ class View extends Component
 
         $userAssigned = $this->medProtest->Assignments()->where('user_id', auth()->id())
             ->where('completed', false)
-            ->where('user', true)
-
             ->first();
 
         if (!$userAssigned) {
@@ -173,6 +171,7 @@ class View extends Component
                 ->where('user', false)
                 ->where('responsible', true)
                 ->first()?->User;
+
             // Finaliza assignment do usuário
             $userAssigned->update([
                 'completed' => true,
@@ -208,6 +207,11 @@ class View extends Component
                 ]
             );
 
+            // Adiciona em Comentário o usuário efetivo que finalizou.
+            $this->medProtest->comments()->create([
+                'user_id' => auth()->id(),
+                'message' => '[SISTEMA] Medida de reclamação concluída por ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
+            ]);
 
             if ($responsible && $responsible instanceof User) {
                 $responsible->notify(new SystemNotification(

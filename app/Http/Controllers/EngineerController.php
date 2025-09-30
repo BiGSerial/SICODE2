@@ -92,4 +92,10 @@ class EngineerController extends Controller
     {
         return view('engineers.final_inform.dashboardFInform');
     }
+
+    // D5 Aguardando Resolução
+    public function waiting_dfive()
+    {
+        return view('engineers.waitingFiveNotes');
+    }
 }
