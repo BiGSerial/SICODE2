@@ -1,6 +1,11 @@
 {
-    "appver": "1.25.1",
+    "appver": "1.25.2",
     "historic": [
+        {
+            "version": "1.25.2",
+            "description": "Optmization, D5 Area, and bugFix",
+            "date": "2025-09-30"
+        },
         {
             "version": "1.25.1",
             "description": "Major Fixes, And Visuals themes",
