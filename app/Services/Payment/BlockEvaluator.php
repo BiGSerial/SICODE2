@@ -69,7 +69,7 @@ class BlockEvaluator
                 }
             }
 
-            return $this->res(self::FREE, true, 'fivenote_priority_prod_closed', $prod);
+            return $this->res(self::FREE, false, 'fivenote_priority_prod_closed', $prod);
         }
 
         // ===== 2) WORKFORM prevalece sobre Partial (exceto rejeição)

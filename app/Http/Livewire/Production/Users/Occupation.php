@@ -63,6 +63,7 @@ class Occupation extends Component
         ->orderBy('ov', 'desc')
         ->orderBy('notes', 'desc')
         ->orderBy('users.name', 'asc')
+        ->orderBy('users.id', 'asc')
         ->get();
 
         // $query = Production::with(['User', 'Note'])

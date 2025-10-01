@@ -75,6 +75,7 @@ class OccupationConstruction extends Component
         ->OrderBy('registros', 'desc')
         ->OrderBy('ov', 'desc')
         ->OrderBy('notes', 'desc')
+        ->OrderBy('users.id', 'asc')
         ->get();
 
         // $query = Production::with(['User', 'Note'])
