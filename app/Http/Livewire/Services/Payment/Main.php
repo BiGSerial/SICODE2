@@ -200,10 +200,12 @@ class Main extends Component
                 'icon'     => 'error',
                 'title'    => 'OOOOPS! NOTA/OV JÁ ATRIBUÍDA',
                 'html'     => "<strong>{$this->note->note}</strong> já foi atribuída em "
-                               . \Carbon\Carbon::parse($dt)->format('d/m/Y H:i')
+                               . \Carbon\Carbon::parse($dt)->format('d/m/Y H:i') . " <br> <p>Motivo: {$eval['reason']}</p>",
             ]);
             return;
         }
+
+
 
         // 3. Buscar usuário e criar produção normalmente
         $user = User::with('Employee.Contract')
@@ -462,7 +464,8 @@ class Main extends Component
         // dentro de cada bucket, manter tua lógica: nulos por último e data crescente
         $base->orderBy('sort_bucket', 'ASC')
              ->orderByRaw('(fimLancado IS NULL) DESC')
-             ->orderBy('fimLancado', 'ASC');
+             ->orderBy('fimLancado', 'ASC')
+             ->orderBy('notes.id', 'ASC');
 
         // Paginar e carregar relações só dos itens da página
         $page = $base->paginate($this->perPage);

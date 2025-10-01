@@ -466,7 +466,9 @@
                                 </td>
 
                                 {{-- Ação (play/ocupado) --}}
-                                <td class="fw-bold text-center {{ $rowClass }}">
+                                <td class="fw-bold text-center {{ $rowClass }}" tabindex="0"
+                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                    data-bs-custom-class="custom-tooltip" data-bs-title="{{ $eval['reason'] }}">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
                                             style="cursor: pointer;"
