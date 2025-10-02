@@ -267,6 +267,14 @@ class Main extends Component
             });
         }
 
+        $query->whereDoesntHave('Viabilities', function ($q) {
+            $q->where('hired', true);
+        });
+
+        $query->whereDoesntHave('Waitings', function ($q) {
+            $q->where('complete', false);
+        });
+
         // Condition for 'Orders' relationship (always required)
         $query->whereHas('Orders', function ($q) {
             // These specific restrictions on statusSist and Operations are only applied if allCenters is false
