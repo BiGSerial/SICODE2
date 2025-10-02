@@ -225,79 +225,107 @@ class SelectOptions
 
     // OPÇÕES DE ORGÃO EXTERNO
 
+    // public static function getProtocolReasons()
+    // {
+    //     return [
+    //         (object)[
+    //             'reason' => 'À Protocolar',
+    //             'value'  => 'A PROTOCOLAR',
+    //             'prefix' => 'APROTO',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Aguardando Ajustes',
+    //             'value'  => 'AGUARDANDO AJUSTES',
+    //             'prefix' => 'AGAJU',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Aguardando Alvará',
+    //             'value'  => 'AGUARDANDO ALVARA',
+    //             'prefix' => 'AGALVA',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Aguardando Comprovante',
+    //             'value'  => 'AGUARDANDO COMPROVANTE',
+    //             'prefix' => 'AGCOMP',
+    //         ],
+    //         (object)[
+    //             'reason' => 'AguardandoRetorno do Órgão',
+    //             'value'  => 'AGUARDANDO RETORNO DO ORGAO',
+    //             'prefix' => 'AGURETORG',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Alvará em Anexo',
+    //             'value'  => 'ALVARA EM ANEXO',
+    //             'prefix' => 'ALVAAN',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Carta ao cliente',
+    //             'value'  => 'CARTA AO CLIENTE',
+    //             'prefix' => 'CARTCLI',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Deferido',
+    //             'value'  => 'DEFERIDO',
+    //             'prefix' => 'DEFE',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Envio de Taxa para Pagamento',
+    //             'value'  => 'ENVIO DE TAXA PARA PAGAMENTO',
+    //             'prefix' => 'ENVITXPG',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Indeferido',
+    //             'value'  => 'INDEFERIDO',
+    //             'prefix' => 'INDEF ',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Protocolado',
+    //             'value'  => 'PROTOCOLADO',
+    //             'prefix' => 'PROTO',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Protocolar Presencial',
+    //             'value'  => 'PROTOCOLAR PRESENCIAL',
+    //             'prefix' => 'PROTOPRE',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Solicitação de Ajustes',
+    //             'value'  => 'SOLICITACAO DE AJUSTES',
+    //             'prefix' => 'SOLAJUS',
+    //         ],
+    //         (object)[
+    //             'reason' => 'Taxa Paga',
+    //             'value'  => 'TAXA PAGA',
+    //             'prefix' => 'TAXAPG',
+    //         ],
+    //     ];
+
+
+    // }
+
     public static function getProtocolReasons()
     {
         return [
             (object)[
-                'reason' => 'À Protocolar',
-                'value'  => 'A PROTOCOLAR',
-                'prefix' => 'APROTO',
+                'reason' => 'Aguardando Pagamento',
+                'value'  => 'AGUARDANDO PAGAMENTO',
+                'prefix' => 'APAGTO',
             ],
             (object)[
-                'reason' => 'Aguardando Ajustes',
-                'value'  => 'AGUARDANDO AJUSTES',
-                'prefix' => 'AGAJU',
-            ],
-            (object)[
-                'reason' => 'Aguardando Alvará',
-                'value'  => 'AGUARDANDO ALVARA',
-                'prefix' => 'AGALVA',
-            ],
-            (object)[
-                'reason' => 'Aguardando Comprovante',
-                'value'  => 'AGUARDANDO COMPROVANTE',
-                'prefix' => 'AGCOMP',
-            ],
-            (object)[
-                'reason' => 'AguardandoRetorno do Órgão',
+                'reason' => 'Aguardando Retorno do Orgão',
                 'value'  => 'AGUARDANDO RETORNO DO ORGAO',
                 'prefix' => 'AGURETORG',
             ],
             (object)[
-                'reason' => 'Alvará em Anexo',
-                'value'  => 'ALVARA EM ANEXO',
-                'prefix' => 'ALVAAN',
+                'reason' => 'Aguardando Taxa',
+                'value'  => 'AGUARDANDO TAXA',
+                'prefix' => 'AGTAXA',
             ],
             (object)[
-                'reason' => 'Carta ao cliente',
-                'value'  => 'CARTA AO CLIENTE',
-                'prefix' => 'CARTCLI',
-            ],
-            (object)[
-                'reason' => 'Deferido',
-                'value'  => 'DEFERIDO',
-                'prefix' => 'DEFE',
-            ],
-            (object)[
-                'reason' => 'Envio de Taxa para Pagamento',
-                'value'  => 'ENVIO DE TAXA PARA PAGAMENTO',
-                'prefix' => 'ENVITXPG',
-            ],
-            (object)[
-                'reason' => 'Indeferido',
-                'value'  => 'INDEFERIDO',
-                'prefix' => 'INDEF ',
-            ],
-            (object)[
-                'reason' => 'Protocolado',
-                'value'  => 'PROTOCOLADO',
-                'prefix' => 'PROTO',
-            ],
-            (object)[
-                'reason' => 'Protocolar Presencial',
-                'value'  => 'PROTOCOLAR PRESENCIAL',
-                'prefix' => 'PROTOPRE',
-            ],
-            (object)[
-                'reason' => 'Solicitação de Ajustes',
-                'value'  => 'SOLICITACAO DE AJUSTES',
-                'prefix' => 'SOLAJUS',
-            ],
-            (object)[
-                'reason' => 'Taxa Paga',
-                'value'  => 'TAXA PAGA',
-                'prefix' => 'TAXAPG',
-            ],
+                'reason' => 'Indefinido',
+                'value'  => 'INDEFINIDO',
+                'prefix' => 'INDEF',
+            ]
         ];
 
 

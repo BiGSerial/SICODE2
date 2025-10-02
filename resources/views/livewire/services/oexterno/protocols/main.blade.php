@@ -2,431 +2,529 @@
     use App\Helpers\FileIcon;
     use App\Custom\Notestatus;
 @endphp
+
+{{-- Helpers de UI: clamp, sticky, sombras em listas roláveis --}}
+<style>
+    .clamp-1 {
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden
+    }
+
+    .clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden
+    }
+
+    .clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden
+    }
+
+    .break-anywhere {
+        overflow-wrap: anywhere;
+        word-break: break-word
+    }
+
+    .sticky-col {
+        position: sticky;
+        top: 1rem
+    }
+
+    .scroll-area {
+        max-height: 260px;
+        overflow: auto
+    }
+
+    .table-sticky thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1
+    }
+</style>
+
 <div>
-    <div class="row">
-        <div class="col-12 col-md-10">
+    <div class="row g-3">
+        {{-- COLUNA PRINCIPAL --}}
+        <div class="col-12 col-lg-9">
+
+            {{-- DADOS DA NOTA/OV --}}
             <div class="card">
-                <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                    Dados da Nota/OV
-                </h5>
-                <table class="table table-sm table-condensed table-striped-columns">
-                    <tbody>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Note/Ov</td>
-                            <td class="text-start">{{ $note->note }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Cliente</td>
-                            <td class="text-start">{{ $note->client }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Rubrica</td>
-                            <td class="text-start">{{ $note->rubrica }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Municipio</td>
-                            <td class="text-start">{{ $note->lexp }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Descrição</td>
-                            <td class="text-start">{{ $note->material }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Status</td>
-                            <td class="text-start">{{ $note->nstats }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end fw-bold col-3">Centro de Trabalho</td>
-                            <td class="text-start">{{ $note->centerjob }}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div
+                    class="card-header d-flex align-items-center justify-content-between py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
+                    <h5 class="my-0">Dados da Nota/OV</h5>
+                    <span class="badge text-bg-light text-uppercase">{{ $note->note }}</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped-columns align-middle mb-0">
+                        <tbody>
+                            <tr>
+                                <td class="text-end fw-semibold col-3">Cliente</td>
+                                <td class="break-anywhere">{{ $note->client }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-end fw-semibold">Rubrica</td>
+                                <td class="break-anywhere">{{ $note->rubrica }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-end fw-semibold">Município</td>
+                                <td class="break-anywhere">{{ $note->lexp }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-end fw-semibold">Descrição</td>
+                                <td class="break-anywhere clamp-3" title="{{ $note->material }}">{{ $note->material }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-end fw-semibold">Status</td>
+                                <td class="break-anywhere">{{ $note->nstats }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-end fw-semibold">Centro de Trabalho</td>
+                                <td class="break-anywhere">{{ $note->centerjob }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
+            {{-- ARQUIVOS ANEXADOS --}}
             <div class="card mt-2">
-                <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">ARQUIVOS ANEXADOS
-                </h5>
+                <div class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
+                    <h5 class="my-0">Arquivos Anexados</h5>
+                </div>
                 <div class="card-body py-2 px-3">
                     @livewire('components.files.show-files-pool', ['files' => $note->Files], key('filesView-' . $note->id))
                 </div>
             </div>
-            <div class="card">
+
+            {{-- PROTOCOLOS --}}
+            <div class="card mt-2">
                 <div
-                    class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between align-items-center">
+                    class="card-header d-flex justify-content-between align-items-center py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
                     <h5 class="my-0">Protocolos</h5>
                     <button type="button" class="btn btn-sm btn-success"
                         wire:click="$emitTo('services.oexterno.actions.add-entity-protocol', 'openEntityProtocol')">
-                        <i class="ri-add-box-line align-middle fs-5"></i> Nova Entidade Protocolar
+                        <i class="ri-add-box-line align-middle fs-5"></i>
+                        Nova Entidade Protocolar
                     </button>
                 </div>
+
                 @if ($note->externals->isEmpty())
                     <div class="card-body">
-                        <p class="text-center">Nenhum protocolo encontrado.</p>
+                        <div class="alert alert-secondary mb-0 text-center">Nenhum protocolo encontrado.</div>
                     </div>
                 @else
                     <div class="card-body">
                         <div class="accordion" id="protocolAccordion">
                             @foreach ($note->externals as $external)
-                                <div class="accordion-item mb-2 shadow" wire:key="external-{{ $external->id }}">
-                                    <h2 class="accordion-header " id="heading{{ $external->id }}">
-                                        <button
-                                            class="accordion-button
-                                            @if ($openExternalId !== $external->id) collapsed @endif
-                                            @if ($external->completed) text-bg-success @endif"
-                                            type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#collapse{{ $external->id }}" aria-expanded="false"
-                                            aria-controls="collapse{{ $external->id }}">
-                                            <div class="row w-100">
-                                                <div class="col-3">
-                                                    <p class="fs-6 fw-bold py-0 my-0">Entidade:</p>
-                                                    <p
-                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
-                                                        {{ $external->entity ? $external->entity->name : $external->entidade }}
-                                                    </p>
-                                                </div>
-                                                <div class="col-3">
-                                                    <p class="fs-6 fw-bold py-0 my-0">Ultimo Protocolo:</p>
-                                                    <p
-                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
-                                                        {{ $external->protocols?->last()?->protocol }}</p>
-                                                </div>
+                                @php
+                                    $isOpen = $openExternalId === $external->id;
+                                    $headerClasses = $external->completed ? 'text-bg-success' : '';
+                                    $lastProtocol = $external->protocols?->last();
+                                    $statusTitle = $external->Comments?->last()?->title;
+                                @endphp
 
-                                                <div class="col-3">
-                                                    <p class="fs-6 fw-bold py-0 my-0">Data Abertura:</p>
-                                                    <p
-                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
-                                                        {{ $external->created_at->format('d/m/Y') }}</p>
-                                                </div>
-                                                <div class="col-3">
-                                                    <p class="fs-6 fw-bold py-0 my-0">Status:</p>
-                                                    <p
-                                                        class="fs-6 py-0 my-0 @if ($external->completed) text-white @else text-primary @endif">
-                                                        {{ $external->Comments?->last()?->title }}</p>
+                                <div class="accordion-item mb-2 shadow-sm" wire:key="external-{{ $external->id }}">
+                                    <h2 class="accordion-header" id="heading{{ $external->id }}">
+                                        <button
+                                            class="accordion-button {{ $isOpen ? '' : 'collapsed' }} {{ $headerClasses }}"
+                                            type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapse{{ $external->id }}"
+                                            aria-expanded="{{ $isOpen ? 'true' : 'false' }}"
+                                            aria-controls="collapse{{ $external->id }}">
+                                            <div class="container-fluid px-0">
+                                                <div class="row w-100 g-2">
+                                                    <div class="col-12 col-md-4">
+                                                        <p class="fw-bold mb-0 small">Entidade</p>
+                                                        <p
+                                                            class="mb-0 clamp-1 break-anywhere {{ $external->completed ? 'text-white' : 'text-primary' }}">
+                                                            {{ $external->entity ? $external->entity->name : $external->entidade }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <p class="fw-bold mb-0 small">Último Protocolo</p>
+                                                        <p
+                                                            class="mb-0 clamp-1 break-anywhere {{ $external->completed ? 'text-white' : 'text-primary' }}">
+                                                            {{ $lastProtocol?->protocol ?? '—' }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <p class="fw-bold mb-0 small">Abertura</p>
+                                                        <p
+                                                            class="mb-0 {{ $external->completed ? 'text-white' : 'text-primary' }}">
+                                                            {{ $external->created_at->format('d/m/Y') }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="col-12 col-md-2">
+                                                        <p class="fw-bold mb-0 small">Status</p>
+                                                        <p
+                                                            class="mb-0 clamp-1 break-anywhere {{ $external->completed ? 'text-white' : 'text-primary' }}">
+                                                            {{ $statusTitle ?? '—' }}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </button>
                                     </h2>
-                                    <div id="collapse{{ $external->id }}"
-                                        class="accordion-collapse collapse shadow @if ($openExternalId === $external->id) show @endif"
-                                        aria-labelledby="heading{{ $external->id }}"
-                                        data-bs-parent="#protocolAccordion" x-data x-init="$el.addEventListener('shown.bs.collapse', function() {
-                                            Livewire.emit('setOpenExternal', {{ $external->id }});
-                                        });">
-                                        <div class="accordion-body">
-                                            <div class="d-flex justify-content-between">
-                                                <div class="flex-grow-1 col-9">
-                                                    <div class="col-12 mb-3">
-                                                        <h6 class="mb-2 fw-bold">Histórico de Protocolos</h6>
-                                                        @if ($external->protocols->isEmpty())
-                                                            <p class="text-center">Nenhum protocolo encontrado.</p>
-                                                        @else
-                                                            <div style="max-height: 250px; overflow-y: auto;"
-                                                                class="border rounded shadow mb-2">
-                                                                <table
-                                                                    class="table table-sm table-condensed table-striped">
-                                                                    <thead>
-                                                                        <tr class="sticky-top">
-                                                                            <th>Protocolo</th>
-                                                                            <th>Motivo:</th>
-                                                                            <th>Data:</th>
-                                                                            <th></th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        @foreach ($external->protocols->sortByDesc('created_at') as $protocol)
-                                                                            <tr>
-                                                                                <td class="fw-bold">
-                                                                                    {{ $protocol->protocol }}</td>
-                                                                                <td>{{ $protocol->description }}</td>
-                                                                                <td>{{ $protocol->created_at->format('d/m/Y H:i:s') }}
-                                                                                </td>
-                                                                                <td>
-                                                                                    <div class="btn-group">
 
+                                    <div id="collapse{{ $external->id }}"
+                                        class="accordion-collapse collapse {{ $isOpen ? 'show' : '' }}"
+                                        aria-labelledby="heading{{ $external->id }}"
+                                        data-bs-parent="#protocolAccordion" x-data x-init="$el.addEventListener('shown.bs.collapse', () => Livewire.emit('setOpenExternal', {{ $external->id }}));">
+                                        <div class="accordion-body">
+                                            <div class="row g-3">
+                                                {{-- COLUNA ESQUERDA (CONTEÚDO) --}}
+                                                <div class="col-12 col-xl-9">
+
+                                                    {{-- HISTÓRICO DE PROTOCOLOS --}}
+                                                    <section class="mb-3">
+                                                        <h6 class="fw-bold mb-2">Histórico de Protocolos</h6>
+
+                                                        @if ($external->protocols->isEmpty())
+                                                            <div class="alert alert-secondary mb-0 text-center">Nenhum
+                                                                protocolo encontrado.</div>
+                                                        @else
+                                                            <div class="border rounded shadow-sm scroll-area">
+                                                                <div class="table-responsive">
+                                                                    <table
+                                                                        class="table table-sm table-condensed table-striped table-sticky mb-0">
+                                                                        <thead class="table-light">
+                                                                            <tr>
+                                                                                <th class="text-nowrap">Protocolo</th>
+                                                                                <th>Motivo</th>
+                                                                                <th class="text-nowrap">Data</th>
+                                                                                <th class="text-end"></th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach ($external->protocols->sortByDesc('created_at') as $protocol)
+                                                                                <tr>
+                                                                                    <td
+                                                                                        class="fw-semibold break-anywhere">
+                                                                                        {{ $protocol->protocol }}</td>
+                                                                                    <td class="break-anywhere clamp-2"
+                                                                                        title="{{ $protocol->description }}">
+                                                                                        {{ $protocol->description }}
+                                                                                    </td>
+                                                                                    <td class="text-nowrap">
+                                                                                        {{ $protocol->created_at->format('d/m/Y H:i:s') }}
+                                                                                    </td>
+                                                                                    <td class="text-end">
                                                                                         <button type="button"
-                                                                                            @disabled($external->completed)
                                                                                             class="btn btn-sm btn-outline-danger"
+                                                                                            @disabled($external->completed)
                                                                                             wire:click="deleteProtocol({{ $protocol->id }})">
                                                                                             Deletar
                                                                                         </button>
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        @endforeach
-                                                                    </tbody>
-                                                                </table>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
                                                             </div>
                                                         @endif
-                                                    </div>
+                                                    </section>
 
-                                                    <div class="col-12">
-                                                        <h6 class="mb-2 fw-bold">Informações da Entidade</h6>
+                                                    {{-- INFORMAÇÕES DA ENTIDADE --}}
+                                                    <section class="mb-3">
+                                                        <h6 class="fw-bold mb-2">Informações da Entidade</h6>
+
                                                         @if ($external->entity)
-                                                            <div class="border rounded shadow mb-2 p-2">
-                                                                <table class="table table-sm table-condensed">
-                                                                    <tbody>
-                                                                        <tr>
-                                                                            <td class="fw-bold">Nome:</td>
-                                                                            <td class="align-middle">
-                                                                                {{ $external->entity->name }}</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="fw-bold">Apelido:</td>
-                                                                            <td class="align-middle">
-                                                                                {{ $external->entidade }}</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="fw-bold">Precisa de Aprovação:
-                                                                            </td>
-                                                                            <td class="align-middle">
-                                                                                {{ $external->entity->approve ? 'SIM' : 'NÃO' }}
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="fw-bold">EO:</td>
-                                                                            <td class="align-middle">
-                                                                                {{ $external->entity->eon ? 'SIM' : 'NÃO' }}
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="fw-bold">AUTOCAD:</td>
-                                                                            <td class="align-middle">
-                                                                                {{ $external->entity->cad ? 'SIM' : 'NÃO' }}
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="fw-bold">Mapa de Localização:
-                                                                            </td>
-                                                                            <td class="align-middle">
-                                                                                {{ $external->entity->map ? 'SIM' : 'NÃO' }}
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="fw-bold">Observações:</td>
-                                                                            <td class="align-middle">
+                                                            <div class="border rounded shadow-sm p-2 mb-2">
+                                                                <div class="row g-2">
+                                                                    <div class="col-12 col-md-6">
+                                                                        <div class="d-flex">
+                                                                            <span class="fw-semibold me-2">Nome:</span>
+                                                                            <span class="break-anywhere clamp-2"
+                                                                                title="{{ $external->entity->name }}">{{ $external->entity->name }}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6">
+                                                                        <div class="d-flex">
+                                                                            <span
+                                                                                class="fw-semibold me-2">Apelido:</span>
+                                                                            <span class="break-anywhere clamp-1"
+                                                                                title="{{ $external->entidade }}">{{ $external->entidade }}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="col-6 col-md-3"><span
+                                                                            class="fw-semibold">Aprovação:</span>
+                                                                        {{ $external->entity->approve ? 'SIM' : 'NÃO' }}
+                                                                    </div>
+                                                                    <div class="col-6 col-md-3"><span
+                                                                            class="fw-semibold">EO:</span>
+                                                                        {{ $external->entity->eon ? 'SIM' : 'NÃO' }}
+                                                                    </div>
+                                                                    <div class="col-6 col-md-3"><span
+                                                                            class="fw-semibold">AutoCAD:</span>
+                                                                        {{ $external->entity->cad ? 'SIM' : 'NÃO' }}
+                                                                    </div>
+                                                                    <div class="col-6 col-md-3"><span
+                                                                            class="fw-semibold">Mapa:</span>
+                                                                        {{ $external->entity->map ? 'SIM' : 'NÃO' }}
+                                                                    </div>
+
+                                                                    @if ($external->entity->observations)
+                                                                        <div class="col-12">
+                                                                            <span
+                                                                                class="fw-semibold">Observações:</span>
+                                                                            <div class="break-anywhere clamp-3"
+                                                                                title="{{ $external->entity->observations }}">
                                                                                 {{ $external->entity->observations }}
-                                                                            </td>
-                                                                        </tr>
-                                                                    </tbody>
-                                                                </table>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endif
+                                                                </div>
                                                             </div>
 
-                                                            <div class="row mb-3">
-
-                                                                <div class="col-4">
-                                                                    <h6 class="mb-2 fw-bold">Documentos Necessários
+                                                            <div class="row g-3">
+                                                                {{-- DOCUMENTOS NECESSÁRIOS --}}
+                                                                <div class="col-12 col-xl-4">
+                                                                    <h6 class="fw-bold mb-2">Documentos Necessários
                                                                     </h6>
-                                                                    <div class="border rounded shadow mb-2">
+                                                                    <div class="border rounded shadow-sm">
                                                                         @if ($external->entity->docs)
                                                                             <ul class="list-group list-group-flush">
-                                                                                @foreach ($external->entity->docs as $index => $document)
-                                                                                    <li class="list-group-item py-1">
-                                                                                        #{{ $index + 1 }} -
-                                                                                        {{ $document }}
-                                                                                    </li>
+                                                                                @foreach ($external->entity->docs as $i => $document)
+                                                                                    <li
+                                                                                        class="list-group-item py-1 break-anywhere">
+                                                                                        #{{ $i + 1 }} —
+                                                                                        {{ $document }}</li>
                                                                                 @endforeach
                                                                             </ul>
+                                                                        @else
+                                                                            <div class="p-2 text-muted">Nenhum
+                                                                                documento listado.</div>
                                                                         @endif
                                                                     </div>
                                                                 </div>
-                                                                <div class="col-8">
-                                                                    <h6 class="mb-2 fw-bold">Contatos da Entidade
-                                                                    </h6>
-                                                                    <div class="border rounded shadow p-2 mb-2">
+
+                                                                {{-- CONTATOS --}}
+                                                                <div class="col-12 col-xl-8">
+                                                                    <h6 class="fw-bold mb-2">Contatos da Entidade</h6>
+                                                                    <div class="border rounded shadow-sm p-2">
                                                                         @if ($external->entity->contacts->isNotEmpty())
                                                                             <div class="accordion accordion-flush"
-                                                                                id="contactsAccordion">
+                                                                                id="contactsAccordion-{{ $external->id }}">
                                                                                 @foreach ($external->entity->contacts as $contact)
+                                                                                    @php
+                                                                                        $cid =
+                                                                                            $external->id .
+                                                                                            '-' .
+                                                                                            $contact->id;
+                                                                                    @endphp
                                                                                     <div class="accordion-item"
                                                                                         wire:key="external-contacts-{{ $contact->id }}">
                                                                                         <h2 class="accordion-header"
-                                                                                            id="heading{{ $loop->index }}">
+                                                                                            id="heading-{{ $cid }}">
                                                                                             <button
-                                                                                                class="accordion-button @if ($openExternalContactId !== $contact->id) collapsed @endif small py-1"
+                                                                                                class="accordion-button small py-1 collapsed"
                                                                                                 type="button"
                                                                                                 data-bs-toggle="collapse"
-                                                                                                data-bs-target="#collapse{{ $loop->index }}"
+                                                                                                data-bs-target="#collapse-{{ $cid }}"
                                                                                                 aria-expanded="false"
-                                                                                                aria-controls="collapse{{ $loop->index }}">
-                                                                                                {{-- ícone compacto --}}
+                                                                                                aria-controls="collapse-{{ $cid }}">
                                                                                                 <i
                                                                                                     class="bi {{ isset($contact->name) ? 'bi-person-fill' : 'bi-globe' }} me-1"></i>
-                                                                                                {{ $contact->name ?? $contact->url }}
+                                                                                                <span
+                                                                                                    class="clamp-1 break-anywhere">
+                                                                                                    {{ $contact->name ?? $contact->url }}
+                                                                                                </span>
                                                                                             </button>
                                                                                         </h2>
-                                                                                        <div class="accordion-body small py-1">
-                                                                                            @isset($contact->email)
-                                                                                                <div>
-                                                                                                    <strong>Email:</strong>
-                                                                                                    <a href="mailto:{{ $contact->email }}"
-                                                                                                        class="link-secondary">
-                                                                                                        {{ $contact->email }}
-                                                                                                    </a>
-                                                                                                </div>
-                                                                                            @endisset
-
-                                                                                            @isset($contact->url)
-                                                                                                <div>
-                                                                                                    <strong>URL:</strong>
-                                                                                                    <a href="{{ $contact->url }}"
-                                                                                                        target="_blank"
-                                                                                                        class="link-secondary">
-                                                                                                        {{ $contact->url }}
-                                                                                                    </a>
-                                                                                                </div>
-                                                                                            @endisset
-
-                                                                                            @isset($contact->user)
-                                                                                                <div>
-                                                                                                    <strong>Usuário:</strong>
-                                                                                                    {{ $contact->user }}
-                                                                                                </div>
-                                                                                            @endisset
-                                                                                            @isset($contact->password)
-                                                                                                <div>
-                                                                                                    <strong>Senha:</strong>
-                                                                                                    {{ $contact->password }}
-                                                                                                </div>
-                                                                                            @endisset
+                                                                                        <div id="collapse-{{ $cid }}"
+                                                                                            class="accordion-collapse collapse"
+                                                                                            aria-labelledby="heading-{{ $cid }}"
+                                                                                            data-bs-parent="#contactsAccordion-{{ $external->id }}">
+                                                                                            <div
+                                                                                                class="accordion-body small py-2">
+                                                                                                @isset($contact->email)
+                                                                                                    <div class="mb-1">
+                                                                                                        <strong>Email:</strong>
+                                                                                                        <a class="link-secondary break-anywhere"
+                                                                                                            href="mailto:{{ $contact->email }}">{{ $contact->email }}</a>
+                                                                                                    </div>
+                                                                                                @endisset
+                                                                                                @isset($contact->url)
+                                                                                                    <div class="mb-1">
+                                                                                                        <strong>URL:</strong>
+                                                                                                        <a class="link-secondary break-anywhere"
+                                                                                                            href="{{ $contact->url }}"
+                                                                                                            target="_blank"
+                                                                                                            rel="noopener">{{ $contact->url }}</a>
+                                                                                                    </div>
+                                                                                                @endisset
+                                                                                                @isset($contact->user)
+                                                                                                    <div
+                                                                                                        class="mb-1 break-anywhere">
+                                                                                                        <strong>Usuário:</strong>
+                                                                                                        {{ $contact->user }}
+                                                                                                    </div>
+                                                                                                @endisset
+                                                                                                @isset($contact->password)
+                                                                                                    <div
+                                                                                                        class="mb-1 break-anywhere">
+                                                                                                        <strong>Senha:</strong>
+                                                                                                        {{ $contact->password }}
+                                                                                                    </div>
+                                                                                                @endisset
+                                                                                            </div>
                                                                                         </div>
                                                                                     </div>
                                                                                 @endforeach
                                                                             </div>
+                                                                        @else
+                                                                            <div class="text-muted">Nenhum contato
+                                                                                cadastrado.</div>
                                                                         @endif
                                                                     </div>
-
                                                                 </div>
-
-                                                            </div>
-                                                            <div class="col-12">
-                                                                <h6 class="mb-2 fw-bold">Comentários</h6>
-                                                                @if (!$external->comments->isNotEmpty())
-                                                                    <div class="card text-bg-info">
-                                                                        <div class="card-body">
-                                                                            <p class="card-text text-break">Nenhum comentário encontrado.</p>
-                                                                        </div>
-                                                                    </div>
-                                                                @else
-                                                                    <div style="max-height: 250px; overflow-y: auto;"
-                                                                        class="border rounded shadow">
-                                                                        <table
-                                                                            class="table table-sm table-condensed table-striped">
-                                                                            <thead>
-                                                                                <tr class='sticky-top'>
-                                                                                    <td class="fw-bold">Data:</td>
-                                                                                    <td class="fw-bold">Usuário:</td>
-                                                                                    <td class="fw-bold">Titulo:</td>
-                                                                                    <td class="fw-bold">Comentário:
-                                                                                    </td>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody>
-                                                                                @foreach ($external->Comments->sortByDesc('created_at') as $comment)
-                                                                                    <tr>
-                                                                                        <td>{{ $comment->created_at->format('d/m/Y H:i:s') }}
-                                                                                        </td>
-                                                                                        <td>{{ $comment->user?->name }}
-                                                                                        </td>
-                                                                                        <td>{{ $comment->title }}
-                                                                                        </td>
-                                                                                        <td>{{ $comment->comment }}
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                @endforeach
-                                                                            </tbody>
-                                                                        </table>
-                                                                    </div>
-                                                                @endif
                                                             </div>
                                                         @else
-                                                            <p class="text-muted">Nenhuma entidade vinculada.</p>
+                                                            <div class="alert alert-secondary mb-0">Nenhuma entidade
+                                                                vinculada.</div>
                                                         @endif
-                                                    </div>
+                                                    </section>
+
+                                                    {{-- COMENTÁRIOS --}}
+                                                    <section>
+                                                        <h6 class="fw-bold mb-2">Comentários</h6>
+                                                        @if (!$external->comments->isNotEmpty())
+                                                            <div class="alert alert-info mb-0">Nenhum comentário
+                                                                encontrado.</div>
+                                                        @else
+                                                            <div class="border rounded shadow-sm scroll-area">
+                                                                <div class="table-responsive">
+                                                                    <table
+                                                                        class="table table-sm table-striped table-sticky mb-0">
+                                                                        <thead class="table-light">
+                                                                            <tr>
+                                                                                <th class="text-nowrap">Data</th>
+                                                                                <th class="text-nowrap">Usuário</th>
+                                                                                <th class="text-nowrap">Título</th>
+                                                                                <th>Comentário</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach ($external->Comments->sortByDesc('created_at') as $comment)
+                                                                                <tr>
+                                                                                    <td class="text-nowrap">
+                                                                                        {{ $comment->created_at->format('d/m/Y H:i:s') }}
+                                                                                    </td>
+                                                                                    <td class="clamp-1 break-anywhere">
+                                                                                        {{ $comment->user?->name }}
+                                                                                    </td>
+                                                                                    <td class="clamp-1 break-anywhere"
+                                                                                        title="{{ $comment->title }}">
+                                                                                        {{ $comment->title }}</td>
+                                                                                    <td class="break-anywhere clamp-2"
+                                                                                        title="{{ $comment->comment }}">
+                                                                                        {{ $comment->comment }}</td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        @endif
+                                                    </section>
                                                 </div>
 
-                                                <div class="ms-3 col-3 d-flex flex-column">
-                                                    @if (!$external->completed)
-                                                        <button type="button" class="btn btn-outline-primary mb-2"
-                                                            wire:click="$emitTo('services.oexterno.actions.edit-entity-protocol', 'openEdityEntityProtocol', {{ $external->id }})">
-                                                            Editar
-                                                        </button>
-                                                        <button type="button" class="btn btn-outline-primary mb-2"
-                                                            wire:click="$emitTo('services.oexterno.actions.add-protocol', 'openAddProtocol', {{ $external->id }})">
-                                                            Adicionar Protocolo
-                                                        </button>
-                                                        <button type="button" class="btn btn-outline-primary mb-2"
-                                                            wire:click="$emitTo('services.oexterno.actions.add-comments', 'openAddComment', {{ $external->id }})">
-                                                            Adicionar Comentário
-                                                        </button>
-                                                        <button type="button" class="btn btn-primary  mb-2"
-                                                            wire:click="$emitTo('services.oexterno.actions.inter-return', 'openInternReturn', {{ $external->id }})">
-                                                            Retorno Interno
-                                                        </button>
-                                                        <button type="button" class="btn btn-success  mb-2"
-                                                            wire:click="toFinishEntity({{ $external->id }})">
-                                                            Encerrar Protocolo
-                                                        </button>
-                                                        <button type="button" class="btn btn-danger"
-                                                            wire:click="deleteProtocol({{ $external->id }})">
-                                                            Remover Entidade Protocolar
-                                                        </button>
-                                                    @endif
-                                                    @if ($external->files->isNotEmpty())
-                                                        <div class="card my-3">
-                                                            <h5 class="card-header my-0 py-1 text-bg-secondary">
-                                                                Arquivos
-                                                            </h5>
-                                                            <div class="overflow-auto" style="max-height: 200px;">
-                                                                <table
-                                                                    class="table table-sm table-condensed table-striped table-hover">
-                                                                    <tbody>
-                                                                        @foreach ($external->files as $file)
-                                                                            <tr wire:key="file-{{ $file->id }}"
-                                                                                style="cursor: pointer;"
-                                                                                wire:click="downloadFile({{ $file->id }})">
-                                                                                <td class="fs-4 align-middle"><i
-                                                                                        class="{{ FileIcon::getIcon($file->ext)->icon }}"></i>
-                                                                                </td>
-                                                                                <td class="fs-6 text-break">
-                                                                                    {{ $file->file_name }}
-                                                                                </td>
-
-                                                                            </tr>
-                                                                        @endforeach
-                                                                    </tbody>
-                                                                </table>
+                                                {{-- COLUNA DIREITA (AÇÕES E RESUMOS) --}}
+                                                <div class="col-12 col-xl-3">
+                                                    <div class="sticky-col">
+                                                        @if (!$external->completed)
+                                                            <div class="d-grid gap-2 mb-3">
+                                                                <button type="button" class="btn btn-outline-primary"
+                                                                    wire:click="$emitTo('services.oexterno.actions.edit-entity-protocol', 'openEdityEntityProtocol', {{ $external->id }})">
+                                                                    Editar
+                                                                </button>
+                                                                <button type="button" class="btn btn-outline-primary"
+                                                                    wire:click="$emitTo('services.oexterno.actions.add-protocol', 'openAddProtocol', {{ $external->id }})">
+                                                                    Adicionar Protocolo
+                                                                </button>
+                                                                <button type="button" class="btn btn-outline-primary"
+                                                                    wire:click="$emitTo('services.oexterno.actions.add-comments', 'openAddComment', {{ $external->id }})">
+                                                                    Adicionar Comentário
+                                                                </button>
+                                                                <button type="button" class="btn btn-primary"
+                                                                    wire:click="$emitTo('services.oexterno.actions.inter-return', 'openInternReturn', {{ $external->id }})">
+                                                                    Retorno Interno
+                                                                </button>
+                                                                <button type="button" class="btn btn-success"
+                                                                    wire:click="toFinishEntity({{ $external->id }})">
+                                                                    Encerrar Protocolo
+                                                                </button>
+                                                                <button type="button" class="btn btn-danger"
+                                                                    wire:click="deleteProtocol({{ $external->id }})">
+                                                                    Remover Entidade Protocolar
+                                                                </button>
                                                             </div>
-                                                        </div>
-                                                    @endif
+                                                        @endif
 
-                                                    @if ($external->reclaims->isNotEmpty())
-                                                        <div class="card my-3">
-                                                            <h5 class="card-header my-0 py-1 text-bg-secondary">
-                                                                Retorno Interno
-                                                            </h5>
-                                                            <div class="overflow-auto" style="max-height: 200px;">
-                                                                @if ($lastReclaim = $external->reclaims->last())
+                                                        {{-- ARQUIVOS DA ENTIDADE --}}
+                                                        @if ($external->files->isNotEmpty())
+                                                            <div class="card mb-3">
+                                                                <h6 class="card-header my-0 py-1 text-bg-secondary">
+                                                                    Arquivos</h6>
+                                                                <div class="scroll-area">
+                                                                    <table
+                                                                        class="table table-sm table-hover align-middle mb-0">
+                                                                        <tbody>
+                                                                            @foreach ($external->files as $file)
+                                                                                <tr wire:key="file-{{ $file->id }}"
+                                                                                    role="button"
+                                                                                    title="Baixar {{ $file->file_name }}"
+                                                                                    wire:click="downloadFile({{ $file->id }})">
+                                                                                    <td class="fs-4 align-middle">
+                                                                                        <i
+                                                                                            class="{{ FileIcon::getIcon($file->ext)->icon }}"></i>
+                                                                                    </td>
+                                                                                    <td class="clamp-2 break-anywhere">
+                                                                                        {{ $file->file_name }}</td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        @endif
+
+                                                        {{-- RETORNO INTERNO (RESUMO) --}}
+                                                        @if ($external->reclaims->isNotEmpty())
+                                                            @php $lastReclaim = $external->reclaims->last(); @endphp
+                                                            @if ($lastReclaim)
+                                                                <div class="card">
+                                                                    <h6
+                                                                        class="card-header my-0 py-1 text-bg-secondary">
+                                                                        Retorno Interno</h6>
                                                                     <div class="card-body p-2">
                                                                         <div
                                                                             class="d-flex justify-content-between align-items-center mb-1">
                                                                             <span
-                                                                                class="text-primary fw-bold">{{ $lastReclaim->service->service }}</span>
+                                                                                class="text-primary fw-bold clamp-1 break-anywhere">{{ $lastReclaim->service->service }}</span>
                                                                             <span
                                                                                 class="badge {{ Notestatus::status($lastReclaim->production?->status)->colorbg }}">
                                                                                 {{ Notestatus::status($lastReclaim->production?->status)->status }}
                                                                             </span>
                                                                         </div>
-
                                                                         <div
                                                                             class="d-flex justify-content-between align-items-center">
                                                                             <small>
                                                                                 <i class="ri-user-line"></i>
-                                                                                @if ($lastReclaim->production)
-                                                                                    @if ($lastReclaim->production->user)
-                                                                                        {{ $lastReclaim->production->user->name }}
-                                                                                    @else
-                                                                                        Usuário Desconhecido
-                                                                                    @endif
+                                                                                @if ($lastReclaim->production && $lastReclaim->production->user)
+                                                                                    {{ $lastReclaim->production->user->name }}
+                                                                                @elseif($lastReclaim->production && !$lastReclaim->production->user)
+                                                                                    Usuário Desconhecido
                                                                                 @else
                                                                                     Aguardando Atribuição
                                                                                 @endif
@@ -441,32 +539,33 @@
                                                                                 @endif
                                                                             </small>
                                                                         </div>
-
                                                                         <div class="text-muted small">
                                                                             <i class="ri-calendar-line"></i>
                                                                             {{ $lastReclaim->created_at->format('d/m/Y H:i') }}
                                                                         </div>
                                                                     </div>
-                                                                @endif
-                                                            </div>
-                                                        </div>
-                                                    @endif
+                                                                </div>
+                                                            @endif
+                                                        @endif
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </div> {{-- row --}}
                                         </div>
                                     </div>
                                 </div>
                             @endforeach
-                        </div>
+                        </div> {{-- accordion --}}
                     </div>
                 @endif
             </div>
         </div>
-        <div class="col-12 col-md-2 ">
-            <div class="card">
-                <h5 class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                    Ações
-                </h5>
+
+        {{-- AÇÕES (SIDEBAR) --}}
+        <div class="col-12 col-lg-3">
+            <div class="card sticky-col">
+                <div class="card-header my-0 py-1 edp-bg-sprucegreen-70 text-edp-verde">
+                    <h5 class="my-0">Ações</h5>
+                </div>
                 <div class="card-body d-grid gap-2">
                     <button type="button" class="btn btn-outline-primary"
                         wire:click="$emitTo('components.entity.add-entity', 'openEntity')">
@@ -479,14 +578,12 @@
                     <button type="button" class="btn btn-primary" onclick="history.back()">
                         <i class="ri-arrow-left-line align-middle"></i> Voltar
                     </button>
-
-
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Livewire Components --}}
+    {{-- Livewire Components (mantidos) --}}
     @livewire('components.entity.add-entity-type', key('add-entity-type'))
     @livewire('components.entity.add-entity', key('add-entity'))
     @livewire('services.oexterno.actions.add-entity-protocol', ['note' => $note], key('add-entity-protocol'))
@@ -494,3 +591,4 @@
     @livewire('services.oexterno.actions.add-protocol', key('add-protocol'))
     @livewire('services.oexterno.actions.add-comments', key('add-comment'))
     @livewire('services.oexterno.actions.inter-return', key('internal_return'))
+</div>
