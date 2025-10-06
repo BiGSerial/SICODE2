@@ -167,4 +167,12 @@ class Production extends Model
             'productionable_id' // FK do outro model na pivot
         )->withTimestamps();
     }
+
+
+    // Redução para ultimo registro
+    public function latestWpa()
+    {
+        return $this->hasOne(Wpa::class)->latest('id');
+    }
+
 }
