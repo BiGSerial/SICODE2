@@ -1,8 +1,6 @@
 @php
     use App\Custom\Viabilitiesstatus;
-    use App\Custom\Notestatus;
     use Carbon\Carbon;
-    use App\Helpers\DaysLeft;
 @endphp
 
 @push('css')
@@ -116,7 +114,6 @@
             color: #065f46
         }
 
-        /* animações existentes */
         .item {
             animation: slideIn .5s forwards;
             opacity: 0
@@ -172,7 +169,6 @@
             animation: blink 2s infinite
         }
 
-        /* ===================== MODAL Busca Multi-notas ===================== */
         .hx-ms .modal-content {
             background: linear-gradient(145deg, #1f2937, #0f172a);
             color: #e5e7eb;
@@ -267,7 +263,6 @@
     <div class="hx-card mb-3">
         <div class="hx-card-body">
             <div class="hx-toolbar">
-
                 {{-- Registros por página --}}
                 <div class="hx-floating">
                     <div class="form-floating">
@@ -290,7 +285,6 @@
                                 wire:model.debounce.2s="search" placeholder="Buscar">
                             <label for="searchInput">Buscar</label>
                         </div>
-                        {{-- Botão para abrir modal multi-notas --}}
                         <button type="button"
                             class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
                             data-bs-toggle="modal" data-bs-target="#multiSearchModal" title="Busca múltipla">
@@ -388,13 +382,11 @@
 
                 {{-- Botão Não Contratadas --}}
                 <div>
-                    <button type="button" 
-                            class="btn {{ $hasNoHired ? 'btn-warning' : 'btn-outline-secondary' }}"
-                            wire:click="$toggle('hasNoHired')"
-                            title="Mostrar apenas não contratadas">
+                    <button type="button" class="btn {{ $hasNoHired ? 'btn-warning' : 'btn-outline-secondary' }}"
+                        wire:click="$toggle('hasNoHired')" title="Mostrar apenas não contratadas">
                         <i class="ri-checkbox-blank-circle-line me-1"></i>
                         Não Contratadas
-                        @if($hasNoHired)
+                        @if ($hasNoHired)
                             <i class="ri-toggle-fill text-warning ms-1"></i>
                         @else
                             <i class="ri-toggle-line ms-1"></i>
@@ -428,17 +420,28 @@
         </div>
 
         <div class="hx-card mb-2">
-            <div class="hx-card-header">
+            <div class="hx-card-header d-flex justify-content-between align-items-center">
                 <h5 class="m-0 d-flex align-items-center gap-2">
                     <i class="ri-history-line text-primary"></i> Histórico de Viabilidade
                 </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="hx-muted small">
+                        Selecionados: {{ count($selected) }}
+                    </span>
+                    <button class="btn btn-sm btn-primary" wire:click="editSelected" @disabled(!count($selected))>
+                        <i class="ri-edit-2-fill me-1"></i> Editar Selecionados
+                    </button>
+                </div>
             </div>
+
             <div class="hx-card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-sm table-striped table-hover mb-0 hx-compact hx-sticky-head">
                         <thead class="hx-soft">
                             <tr>
-                                <th class="text-center" style="width:34px;"></th>
+                                <th class="text-center" style="width:34px;">
+                                    <input type="checkbox" class="form-check-input" wire:model="selectPage">
+                                </th>
                                 <th class="text-center">Nota/OV</th>
                                 <th class="text-center">Arquivos</th>
                                 <th class="text-center">Ordem</th>
@@ -456,50 +459,30 @@
                         <tbody class="table-group-divider">
                             @foreach ($lists as $index => $list)
                                 @php
-                                    $status = null;
-                                    $dueDate = Carbon::parse($list->sended_at)->addDays($list->getDays() + 7);
-                                    $today = Carbon::now();
-                                    $daysDifference = 0;
-
-                                    if ($dueDate) {
-                                        $daysDifference = $today->diffInDays($dueDate);
-                                        if ($dueDate->isBefore($today)) {
-                                            $daysDifference *= -1;
-                                        }
-
-                                        if ($daysDifference < 1) {
-                                            $status = ['class' => 'hx-status-deadline-danger', 'info' => 'VENCIDO'];
-                                        } elseif ($daysDifference < 3) {
-                                            $status = ['class' => 'hx-status-deadline-warn', 'info' => 'VENCENDO'];
-                                        } else {
-                                            $status = ['class' => 'hx-status-deadline-ok', 'info' => 'NO PRAZO'];
-                                        }
-                                    }
-
                                     $color = match (true) {
                                         $list->approved && !$list->rejected && !$list->tacit => 'green',
                                         !$list->approved && $list->rejected && !$list->tacit => 'red',
                                         $list->tacit => 'yellow',
                                         default => '',
                                     };
-
-                                    if (($list->rejected || $list->approved) && !$list->completed) {
-                                        $status = ['class' => 'bg-primary text-white', 'info' => 'EM AVALIAÇÃO'];
-                                    }
-
                                     $regiao =
                                         optional($cities->Where('rdMunicipio', $list->Note->nexp)->first())->regiao ??
                                         '';
                                 @endphp
 
-                                <tr wire:key="viability-{{ $list->id }}"
-                                    wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $list }})"
-                                    class="hx-rowbar" style="cursor:pointer; border-left-color: {{ $color }};">
-                                    <td></td>
+                                <tr wire:key="viability-{{ $list->id }}" class="hx-rowbar"
+                                    style="cursor:pointer; border-left-color: {{ $color }};">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input" value="{{ $list->id }}"
+                                            wire:model="selected">
+                                    </td>
+
                                     <td class="text-center hx-strong">{{ $list->Note->note }}</td>
+
                                     <td class="text-center">
                                         <x-files.select-download-list :files='$list->Note->Files' />
                                     </td>
+
                                     <td class="text-center">
                                         @if ($list->Orders->isNotEmpty())
                                             @foreach ($list->Orders as $order)
@@ -513,29 +496,25 @@
                                             @endif
                                         @endif
                                     </td>
+
                                     <td class="text-center hx-strong">
-                                        {{ Carbon::parse($list->sended_at)->format('d/m/Y') }}
-                                    </td>
+                                        {{ Carbon::parse($list->sended_at)->format('d/m/Y') }}</td>
+
                                     <td class="text-center text-success hx-strong">
                                         {{ isset($list->hired_at) ? Carbon::parse($list->hired_at)->format('d/m/Y') : '---' }}
                                     </td>
-                                    <td class="text-center">
-                                        {{ $list->Company->name ?? '---' }}
-                                    </td>
-                                    <td class="text-center">
-                                        {{ $list->Engineer->name ?? '---' }}
-                                    </td>
+
+                                    <td class="text-center">{{ $list->Company->name ?? '---' }}</td>
+                                    <td class="text-center">{{ $list->Engineer->name ?? '---' }}</td>
                                     <td class="text-center">{{ $list->Note->rubrica }}</td>
                                     <td class="text-center">{{ $regiao }}</td>
                                     <td class="text-center">{{ $list->Note->lexp }}</td>
+
                                     <td class="text-center">
                                         @php $v = Viabilitiesstatus::status($list->status); @endphp
                                         <span class="hx-pill {{ $v->colorbg }}">{{ $v->status }}</span>
-                                        {{-- @if ($status)
-                                            <div class="mt-1 hx-pill {{ $status['class'] }}">{{ $status['info'] }}
-                                            </div>
-                                        @endif --}}
                                     </td>
+
                                     <td class="text-center">
                                         <i class="ri-pencil-fill text-primary fs-5" style="cursor:pointer"
                                             wire:click.prevent="$emitTo('construction.hiring.actions.edit','edit_hiring', {{ $list->id }})"></i>
@@ -608,7 +587,6 @@
             }
         });
 
-        // (Opcional) handler para fechar modal via evento
         window.addEventListener('hide-bs-modal', (e) => {
             const id = e.detail?.id;
             if (!id) return;

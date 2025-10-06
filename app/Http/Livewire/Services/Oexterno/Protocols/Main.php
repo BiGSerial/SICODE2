@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Oexterno\Protocols;
 
 use App\Models\External;
+use App\Models\ExternalPoolpayment;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Protocol;
@@ -12,10 +13,14 @@ use Livewire\Component;
 class Main extends Component
 {
     public ?Note $note = null;
-    public $openExternalId;
+
     public $openExternalContactId;
     public $protocol;
     public $external;
+    public $paymentPoolId;
+    public $poolPayment;
+    public $openExternalId = null;
+    public $modalStatusValue = null;
 
     protected $listeners = [
         'refreshComponent' => '$refresh',
@@ -105,6 +110,109 @@ class Main extends Component
         $this->emitSelf('refreshComponent');
 
     }
+
+
+    public function requestPayment(External $external)
+    {
+        if (!$external || $external->completed) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao solicitar pagamento!',
+                'msg'      => 'Entidade protocolar inválida ou finalizada.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
+        if (!trim($this->paymentPoolId)) {
+            return;
+        }
+
+
+        $this->validate([
+            'paymentPoolId' => 'required|integer|unique:external_poolpayments,pool_id',
+        ], [
+            'paymentPoolId.required' => 'O campo PoolId é obrigatório.',
+            'paymentPoolId.integer'  => 'O campo PoolId deve ser um número inteiro.',
+            'paymentPoolId.unique'   => 'Já existe um pedido de pagamento com este PoolId.',
+        ]);
+
+        $external->PoolPayments()->create([
+            'pool_id' => $this->paymentPoolId,
+            'status_pedido' => 'Novo Pedido',
+        ]);
+
+        $this->paymentPoolId = null;
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Pedido de pagamento registrado com sucesso!',
+            'timer'    => 5000,
+        ]);
+        $this->emitSelf('refreshComponent');
+    }
+
+    public function deletePoolPayment(ExternalPoolpayment $pool)
+    {
+        $this->poolPayment = $pool;
+
+        if ($this->poolPayment) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Remover Entidade Protocolar',
+                'msg'   => "
+                <p>Você deseja realmente remover a solicitaçao de pagamento {$this->poolPayment->pool_id}?<br> Ao remover, todas as associações com exceção dos arquivos serão perdidos.</p>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Remova!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirmDeletePoolPayment',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma solicitaçao foi excluída.',
+            ]);
+        }
+    }
+
+    public function openEntityModal(int $externalId): void
+    {
+        // Limpa estado do modal (importante para “zerar” ao trocar de entidade)
+        $this->resetValidation();
+        $this->reset(['modalStatusValue', 'paymentPoolId']);
+
+        // Define a entidade a ser carregada
+        $this->openExternalId = $externalId;
+
+        // (Opcional) se quiser já fechar qualquer flash state anterior, pode emitir eventos aqui
+        // $this->dispatchBrowserEvent('modal-ready'); // se precisar
+    }
+
+
+    public function confirmDeletePoolPayment()
+    {
+        if ($this->poolPayment) {
+            $this->poolPayment->delete();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Solicitação de pagamento removida com sucesso!',
+                'timer'    => 5000,
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao remover solicitação de pagamento!',
+                'timer'    => 5000,
+            ]);
+        }
+        $this->poolPayment = null;
+        $this->emitSelf('refreshComponent');
+
+    }
+
+
+
+
 
     public function toFinishEntity(External $external)
     {

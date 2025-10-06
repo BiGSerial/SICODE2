@@ -267,13 +267,15 @@ class Main extends Component
             });
         }
 
-        $query->whereDoesntHave('Viabilities', function ($q) {
-            $q->where('hired', true);
-        });
+        if (!$this->allCenters) {
+            $query->whereDoesntHave('Viabilities', function ($q) {
+                $q->where('hired', true);
+            });
 
-        $query->whereDoesntHave('Waitings', function ($q) {
-            $q->where('complete', false);
-        });
+            $query->whereDoesntHave('Waitings', function ($q) {
+                $q->where('complete', false);
+            });
+        }
 
         // Condition for 'Orders' relationship (always required)
         $query->whereHas('Orders', function ($q) {

@@ -116,7 +116,10 @@ class Viability extends Model
         return $this->belongsToMany(Order::class, 'order_viability');
     }
 
-
+    public function rehiringAudits()
+    {
+        return $this->hasMany(ViabilityRehiringAudit::class);
+    }
 
 
 

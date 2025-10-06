@@ -308,17 +308,17 @@ class SelectOptions
         return [
             (object)[
                 'reason' => 'Aguardando Pagamento',
-                'value'  => 'AGUARDANDO PAGAMENTO',
+                'value'  => 'AGUARDANDO_PAGAMENTO',
                 'prefix' => 'APAGTO',
             ],
             (object)[
                 'reason' => 'Aguardando Retorno do Orgão',
-                'value'  => 'AGUARDANDO RETORNO DO ORGAO',
+                'value'  => 'AGUARDANDO_ORGAO',
                 'prefix' => 'AGURETORG',
             ],
             (object)[
                 'reason' => 'Aguardando Taxa',
-                'value'  => 'AGUARDANDO TAXA',
+                'value'  => 'AGUARDANDO_TAXA',
                 'prefix' => 'AGTAXA',
             ],
             (object)[
@@ -327,8 +327,6 @@ class SelectOptions
                 'prefix' => 'INDEF',
             ]
         ];
-
-
     }
 
 

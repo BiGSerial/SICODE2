@@ -72,4 +72,9 @@ class External extends Model
         return $this->morphToMany(File::class, 'fileable');
     }
 
+    public function PoolPayments()
+    {
+        return $this->hasMany(ExternalPoolpayment::class);
+    }
+
 }

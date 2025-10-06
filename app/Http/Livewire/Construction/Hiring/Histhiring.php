@@ -5,7 +5,6 @@ namespace App\Http\Livewire\Construction\Hiring;
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\File;
-use App\Models\Note;
 use App\Models\Viability;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -15,15 +14,12 @@ use Livewire\WithPagination;
 class Histhiring extends Component
 {
     use WithFileUploads;
-
     use TextFormatter;
-
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
-
     public $cities;
 
     public $files_selected = [];
@@ -33,16 +29,19 @@ class Histhiring extends Component
     public $advancedSearch;
     public $multipleSearch = [];
 
-
     // search by date
     public $date_in;
     public $date_out;
     public $dateBy = 'sended_at';
 
-    // Filters
+    // Filtros dinâmicos (armazenados pelo componente de filtro)
     private $filter_group = 'hiring_hist';
-
     private $filter;
+
+    /** Seleção em massa */
+    public array $selected = [];     // IDs selecionados na página atual
+    public bool  $selectPage = false;
+    public bool  $selectAll  = false; // (se quiser extender para "selecionar tudo no filtro")
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -50,8 +49,9 @@ class Histhiring extends Component
     ];
 
     protected $listeners = [
-        'update_list' => '$refresh',
-        'refresh_list' => '$refresh',
+        'update_list'     => '$refresh',
+        'refresh_list'    => '$refresh',
+        'clear_selection' => 'clearSelection',
     ];
 
     public function mount()
@@ -59,10 +59,41 @@ class Histhiring extends Component
         $this->cities = City::orderBy('cidade')->get();
     }
 
+    /** Limpar seleção (chamado pelo filho após salvar) */
+    public function clearSelection()
+    {
+        $this->reset(['selected', 'selectPage', 'selectAll']);
+    }
+
+    /** IDs visíveis na página atual */
+    public function getVisibleIdsProperty(): array
+    {
+        return $this->lists->pluck('id')->all();
+    }
+
+    /** Marcar/desmarcar todos da página atual */
+    public function updatedSelectPage($value)
+    {
+        $this->selected = $value ? $this->visible_ids : [];
+    }
+
+    /** Botão do topo: abrir edição em massa */
+    public function editSelected()
+    {
+        if (empty($this->selected)) {
+            return;
+        }
+
+        $this->emitTo(
+            'construction.hiring.actions.edit',
+            'edit_hiring_bulk',
+            $this->selected
+        );
+    }
+
     public function buscarMulti()
     {
         if ($this->advancedSearch) {
-
             $this->multipleSearch = $this->formatTextToArray($this->advancedSearch);
 
             if (count($this->multipleSearch) > 0) {
@@ -86,15 +117,8 @@ class Histhiring extends Component
 
     public function downloadFile($id)
     {
-
-
         if ($file = File::find($id)) {
-
-            // dd($file->file_name);
-
             if (Storage::disk('local')->exists($file->path)) {
-
-
                 return Storage::download($file->path, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
@@ -103,7 +127,6 @@ class Histhiring extends Component
                     'title'    => 'ARQUIVO INEXISTENTE!',
                     'timer'    => 5000,
                 ]);
-
                 return;
             }
         }
@@ -111,10 +134,10 @@ class Histhiring extends Component
 
     public function cleanAll()
     {
-        $this->date_in = "";
+        $this->date_in  = "";
         $this->date_out = "";
-        $this->dateBy = 'sended_at';
-        $this->search = '';
+        $this->dateBy   = 'sended_at';
+        $this->search   = '';
     }
 
     public function getListsProperty()
@@ -124,7 +147,6 @@ class Histhiring extends Component
         $query->where('hired', true);
 
         if ($this->dateBy && ($this->date_in || $this->date_out)) {
-
             if ($this->date_in && !$this->date_out) {
                 $query->whereDate($this->dateBy, '>=', $this->date_in);
             }
@@ -145,8 +167,8 @@ class Histhiring extends Component
         }
 
         if ($this->multipleSearch) {
-            $multipleSearch = $this->multipleSearch; //Define a variável fora das closures
-            $query->whereRElation('Note', function ($q) use ($multipleSearch) {
+            $multipleSearch = $this->multipleSearch;
+            $query->whereRelation('Note', function ($q) use ($multipleSearch) {
                 $q->whereIn('note', $multipleSearch)
                   ->orWhereHas('orders', function ($q) use ($multipleSearch) {
                       $q->whereIn('ordem', $multipleSearch);
@@ -159,7 +181,7 @@ class Histhiring extends Component
         if ($this->search) {
             $query->where(function ($q) {
                 $q->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('Note.Orders', 'ordem', 'like', '%' . $this->search . '%');
+                  ->orWhereRelation('Note.Orders', 'ordem', 'like', '%' . $this->search . '%');
             });
         }
 
@@ -171,10 +193,6 @@ class Histhiring extends Component
 
         return $query->paginate($this->perPage);
     }
-
-
-
-
 
     public function render()
     {
