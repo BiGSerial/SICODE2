@@ -1,809 +1,259 @@
 @php
-
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Custom\WpaStatus;
+
+    $filtersConfig = [
+        'company' => [
+            'type' => 'single', // 'single' | 'multi'
+            'button_label' => 'Empresas',
+            'model' => \App\Models\Company::class,
+            'value_field' => 'id',
+            'label_field' => 'name',
+            'query' => fn($q, $state) => $q->where('active', 1),
+            'placeholder' => 'Todas',
+            'debounce' => 250, // ms
+        ],
+
+        'city' => [
+            'type' => 'multi',
+            'button_label' => 'Cidades',
+            'model' => \App\Models\City::class,
+            'value_field' => 'id',
+            'label_field' => 'name',
+            'depends_on' => ['company'], // restringe cidades pela(s) empresa(s) selecionada(s)
+            'query' => function ($q, $state) {
+                // $state = valores atuais de TODOS filtros
+                if (!empty($state['company'])) {
+                    $q->whereIn('company_id', (array) $state['company']);
+                }
+                return $q->where('enabled', 1);
+            },
+            'placeholder' => 'Todas',
+            'debounce' => 250,
+        ],
+
+        'status' => [
+            'type' => 'multi',
+            'button_label' => 'Status',
+            'values' => [
+                // pode ser estático também
+                ['value' => 'open', 'label' => 'Aberta'],
+                ['value' => 'paused', 'label' => 'Pausada'],
+                ['value' => 'done', 'label' => 'Concluída'],
+            ],
+            'placeholder' => 'Todos',
+        ],
+    ];
 
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
-    <x-showselected :count="$selected" />
-
-
-    <div class="row">
-        <div class="col-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
-        </div>
-        <div class="mb-3 col-md-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
-
-
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-
-            @if (!Auth()->User()->contract)
-                <div class="dropdown mx-1">
-                    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                        aria-expanded="false">
-                        Empresa
-                        @if (count($company_fs))
-                            <span class="badge text-bg-light">{{ count($company_fs) }}</span>
-                        @endif
-
+    <div class="mb-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="input-group mb-3">
+                    <span class="input-group-text bg-primary text-white">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control form-control-lg" placeholder="Pesquisar..."
+                        wire:model.debounce.300ms="search" aria-label="Pesquisar">
+                    <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters">
+                        <i class="fas fa-times"></i> Limpar
                     </button>
-
-                    <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                        <form wire:submit.prevent="filter_save">
-                            @if (isset($company_l) && $company_l->count() > 0)
-
-                                @foreach ($company_l as $company)
-                                    @if ($company->name)
-                                        <div class="dropdown-item">
-                                            <input type="checkbox" wire:model.defer="company_fs"
-                                                wire:key="{{ $company->id }}" value="{{ $company->id }}">
-                                            <label for="opcao1">{{ $company->name }}</label>
-                                        </div>
-                                    @endif
-                                @endforeach
-
-                            @endif
-
-
-                        </form>
-                    </div>
                 </div>
-            @endif
-
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Usuário
-                    @if (count($user_fs))
-                        <span class="badge text-bg-light">{{ count($user_fs) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-
-                        @if (isset($user_fl) && $user_fl->count() > 0)
-                            @foreach ($user_fl->sortBy('User.name', SORT_LOCALE_STRING) as $user_f)
-                                @if ($user_f->User)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="user_fs"
-                                            value="{{ $user_f->user_id }}">
-                                        <label for="opcao1">{{ $user_f->User->name }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
+                {{-- <livewire:components.filter.smart-filters :config="$filtersConfig" wire:key="filters-main" /> --}}
+            </div>
+            <div class="col-md-4">
+                <div class="alert alert-warning border-start border-warning border-5 shadow-sm" role="alert">
+                    <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Aviso</h5>
+                    <p class="mb-0">Esta página está operando em <strong>modo provisório</strong> e está sendo
+                        reconstruída para melhor desempenho. Algumas funcionalidades podem estar limitadas.</p>
                 </div>
-            </div>
-
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Status
-                    @if (count($status_s))
-                        <span class="badge text-bg-light">{{ count($status_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-
-                        @if (isset($status_l) && count($status_l) > 0)
-                            @foreach ($status_l as $value)
-                                @if ($value)
-                                    <div class="dropdown-item {{ Notestatus::status($value)->colorbg }}">
-                                        <input type="checkbox" class="form-check-input" wire:model.defer="status_s"
-                                            wire:key="status-{{ $value }}" value="{{ $value }}">
-                                        <label for="opcao1">{{ Notestatus::status($value)->status }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Região
-                    @if (count($region_s))
-                        <span class="badge text-bg-light">{{ count($region_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($region_l) && $region_l->count() > 0)
-                            @foreach ($region_l as $region)
-                                @if ($region->regiao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="region_s"
-                                            wire:key="{{ $region->regiao }}" value="{{ $region->regiao }}">
-                                        <label for="opcao1">{{ $region->regiao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Regional
-                    @if (count($district_s))
-                        <span class="badge text-bg-light">{{ count($district_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($district_l) && $district_l->count() > 0)
-                            @foreach ($district_l as $district)
-                                @if ($district->baseConstrucao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="district_s"
-                                            wire:key="{{ $district->baseConstrucao }}"
-                                            value="{{ $district->baseConstrucao }}">
-                                        <label for="opcao1">{{ $district->baseConstrucao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Município
-                    @if (count($city_s))
-                        <span class="badge text-bg-light">{{ count($city_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($city_l) && $city_l->count() > 0)
-                            @foreach ($city_l as $city)
-                                @if ($city->cidade)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="city_s"
-                                            wire:key="{{ $city->cidade }}" value="{{ $city->cidade }}">
-                                        <label for="opcao1">{{ $city->municipio }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-
-            <div class="mx-1 ">
-                <button class="btn btn-primary" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                </button>
-            </div>
-            <div class="mx-1 "><button class="btn btn-primary" wire:click.prevent="filter_clean"><i
-                        class="ri-filter-off-fill"></i>
-                </button>
-            </div>
-
-
-        </div>
-
-        <div class="mb-3">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
-                    value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
-                    value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
-                    value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
         </div>
-
-        <div class="mb-3">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0"
-                data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Filtragem Direta por Status"
-                data-bs-content="
-        <p>Ao apertar o botão, o sistema filtrará a lista pelo status escolhido. Para remover o filtro, basta limpar os filtros.</p>
-
-       ">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus(1)">
-                    {{ Notestatus::status(1)->status }} <span
-                        class="badge text-bg-light">{{ $allList->where('status', 1)->count() }}</span></button>
-                <button type="button" class="btn btn-{{ Notestatus::status(2)->color }}"
-                    wire:click.prevent="filterStatus(2)">
-                    {{ Notestatus::status(2)->status }} <span
-                        class="badge text-bg-light">{{ $allList->where('status', 2)->count() }}</span></button>
-                <button type="button" class="btn btn-{{ Notestatus::status(4)->color }}"
-                    wire:click.prevent="filterStatus(4)">
-                    {{ Notestatus::status(4)->status }} <span
-                        class="badge text-bg-light">{{ $allList->where('status', 4)->count() }}</span></button>
-
-                <button type="button" class="btn btn-{{ Notestatus::status(5)->color }}"
-                    wire:click.prevent="filterStatus(5)">
-                    {{ Notestatus::status(5)->status }} <span
-                        class="badge text-bg-light">{{ $allList->where('status', 5)->count() }}</span></button>
-            </div>
-        </div>
-
     </div>
 
-    @if ($lists->count())
-        <div class="row">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
-            </div>
+    {{-- <x-showselected :count="$selected" /> --}}
+
+    <div class="mb-3">
+        <div class="btn-group" role="group" aria-label="Filter by status">
+            @foreach ($statusList as $key => $value)
+                <button type="button"
+                    class="btn btn-{{ Notestatus::status($key)->color }} position-relative @if ($statusFilter === $key) border-bottom border-dark border-3 @endif"
+                    style="@if ($statusFilter === $key) border-left: none; border-right: none; border-top: none; @endif"
+                    wire:click="$set('statusFilter', {{ $statusFilter === $key ? 'null' : $key }})">
+                    {{ Notestatus::status($key)->status }}
+                    <span class="badge bg-light text-dark">
+                        {{ $value }}
+                    </span>
+                </button>
+            @endforeach
         </div>
-    @endif
-    <dic class="card">
+    </div>
 
-        @if (!$lists->count())
-            <div class="card-body">
-                <h4 class="text-center">SEM NOTAS SELECIONADAS PARA CONTROLE EM
-                    <strong>{{ mb_strtoupper($service->service) }}</strong>
-                    @if ($service->Status->count())
-                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                            ({{ $sts->value }})
-                        @endforeach
-                    @endif
-                </h4>
+    @if ($lists->isNotEmpty())
+        <div class="card">
+            <div class="card-header py-0 text-bg-danger">
+                <h5 class="card-title my-0">CONTROLE DE FISCALIZAÇÃO</h5>
             </div>
-        @else
-            {{-- <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
-                {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
-                    @foreach ($service->Status as $sts)
-                        ({{ $sts->status }})
-                    @endforeach
-                @endif
-            </h4> --}}
-            <div class="card-header text-bg-danger">
-                <div class="row">
-                    <div class="col">
-                        <h4 class="my-0">CONTROLE DE {{ mb_strtoupper($service->service) }}
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
-                        </h4>
-                    </div>
-                    <div class="col-4 d-flex justify-content-end">
-                        <button class="btn btn-sm btn-success me-2" data-bs-toggle="modal"
-                            data-bs-target="#add_mass_dds"><i class="ri-checkbox-multiple-fill"></i> Att DD</button>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-primary me-2 dropdown-toggle" type="button"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                                Ações em Massa
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="left" data-bs-title="Atribuir em Massa"
-                                    data-bs-content="
-                                        <p>A Atribuição em Massa possibilita a modificação dos responsáveis por uma tarefa,
-                                            mesmo que ela já tenha sido atribuída a outra pessoa.
-                                            No entanto, essa ação só é possível se a atividade não estiver FINALIZADA ou em PAUSA.</p>
-                                       ">
-                                    <a class="dropdown-item" href="#" wire:click.prevent='go_att_mass'><i
-                                            class="ri-user-add-line text-primary"></i> Atribuir
-                                        em Massa</a>
-                                </li>
-                                <li tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                    data-bs-placement="left" data-bs-title="Desatribuir em Massa"
-                                    data-bs-content="
-                                <p>A Desatribuição em Massa possibilita a remoção total responsável pela atividade liberando-a na LISTA PARA DESPACHO.
-                                    No entanto, essa ação só é possível se a atividade <span class='fw-bold'>NÃO</span> estiver FINALIZADA ou em PAUSA.</p>
-                                    <span class='fs-4 text-white fw-bold'>&#9632;</span> <span class='text-white fw-bold text-uppercase'>Marque a caixa no final do botão para forçar e ignorar o PAUSE.</span>
-                               ">
+            <table class="table table-sm table-striped table-condensed">
+                <thead>
+                    <tr clas="">
+                        <th>#</th>
+                        <th>#</th>
+                        <th>Note</th>
+                        <th>DD</th>
+                        <th>Rubrica</th>
+                        <th>Municipio</th>
+                        <th>Postes</th>
+                        <th>Usuário</th>
+                        <th>AttAt</th>
+                        <th>DtAds</th>
+                        <th>MoAberto</th>
+                        <th>Status</th>
+                        <th>#</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php
+                        if (!function_exists('shortUser')) {
+                            function shortUser($name)
+                            {
+                                if (empty($name)) {
+                                    return 'Desconhecido';
+                                }
 
-                                    <a class="dropdown-item" href="#">
-                                        <i class="ri-user-shared-line text-danger"></i>
-                                        <span wire:click.prevent='go_des_att_mass'>Desatribuir em Massa</span>
-                                        <input class="form-check-input border border-1 border-secondary"
-                                            type="checkbox" wire:model.defer="forcar">
-                                    </a>
+                                $parts = explode(' ', $name);
+                                $shortName = $parts[0] . ' ' . end($parts); // Começa com o primeiro nome
 
+                                return $shortName;
+                            }
+                        }
+                    @endphp
+                    @foreach ($lists as $item)
+                        @php
 
+                            if ($item->priority) {
+                                $rowClass = [
+                                    'color' => 'table-danger',
+                                    'color-text' => 'text-danger',
+                                    'info' => 'Prioridade',
+                                ];
+                            } elseif ($item->priority && $item->workform?->reject) {
+                                $rowClass = [
+                                    'color' => 'table-dark',
+                                    'color-text' => 'text-warning',
+                                    'info' => 'Rejeitado',
+                                ];
+                            } elseif (!$item->priority && $item->note?->workform?->reject) {
+                                $rowClass = [
+                                    'color' => 'table-dark',
+                                    'color-text' => 'text-white',
+                                    'info' => 'Rejeitado',
+                                ];
+                            } else {
+                                $rowClass = [
+                                    'color' => '',
+                                    'color-text' => '',
+                                    'info' => '',
+                                ];
+                            }
 
-                                </li>
-                            </ul>
-                        </div>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line"></i> Exportar</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click="$refresh"><i
-                                class="ri-refresh-line"></i></button>
-                    </div>
-                </div>
-            </div>
+                            if ($item->partial) {
+                                $type['init'] = 'P';
+                                $type['info'] = 'Parcial';
+                                $type['color'] = 'text-bg-warning';
+                            } else {
+                                $type['init'] = 'F';
+                                $type['info'] = 'Final';
+                                $type['color'] = 'text-bg-success';
+                            }
 
-            <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>
-                                <input class="form-check-input" type="checkbox" wire:model="selectAll"
-                                    wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
-                            </th>
-                            <th scope="col" class="fw-bold text-center">Tipo</th>
-                            <th scope="col" class="fw-bold text-center">Note</th>
-                            <th scope="col" class="fw-bold text-center">DD</th>
-                            <th scope="col" class="fw-bold text-center">stsDD</th>
-                            <th scope="col" class="fw-bold text-center">MMGD</th>
-                            <th scope="col" class="fw-bold text-center">Despachante</th>
-                            <th scope="col" class="fw-bold text-center">Rubrica</th>
-                            <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">Descrição</th>
-                            <th scope="col" class="fw-bold text-center">Empresa</th>
-                            <th scope="col" class="fw-bold text-center">Usuário</th>
-                            <th scope="col" class="fw-bold text-center">Dias Despachado</th>
-                            <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                            <th scope="col" class="fw-bold text-center">Tempo Informado</th>
-                            <th scope="col" class="fw-bold text-center">Status</th>
-                            <th scope="col" class="fw-bold text-center"></th>
+                            if ($item->d5) {
+                                $status['init'] = 'RI';
+                                $status['info'] = 'Retorno Interno';
+                                $status['color'] = 'text-bg-primary';
+                            } elseif ($item->dfive) {
+                                $status['init'] = 'D5';
+                                $status['info'] = 'D5';
+                                $status['color'] = 'text-bg-danger';
+                            } else {
+                                $status['init'] = '';
+                                $status['info'] = '';
+                                $status['color'] = '';
+                            }
+
+                            $wpaStatus = WpaStatus::status(
+                                $item->wpas?->last()->dd,
+                                $item->wpas?->last()?->execstats,
+                                $item->wpas?->last()?->completed_at,
+                            );
+
+                        @endphp
+                        <tr wire:key="row-{{ $item->id }}" class="align-middle">
+
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" wire:model.defer="selected"
+                                        id="checkbox-{{ $item->id }}" value="{{ $item->id }}">
+                                    <label class="form-check-label" for="checkbox-{{ $item->id }}"></label>
+                                </div>
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                <span class="badge {{ $type['color'] }}" data-bs-toggle="tooltip"
+                                    title="{{ $type['info'] }}">{{ $type['init'] }}</span>
+                                <span class="badge {{ $status['color'] }}" data-bs-toggle="tooltip"
+                                    title="{{ $status['info'] }}">{{ $status['init'] }}</span>
+
+                            </td>
+
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                {{ $item->note?->note }}</td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                <i class="{{ $wpaStatus->icon }} fs-4 {{ $wpaStatus->color }} align-middle"></i>
+                                <span
+                                    class="badge {{ $wpaStatus->bg_color }} align-middle">{{ $wpaStatus->info }}</span>
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                {{ $item->note?->rubrica }}</td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                {{ $item->note?->lexp }}</td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
+                                {{ $item->note?->postes ?? '---' }}</td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
+                                {{ shortUser($item->user?->name) }}</td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                {{ $item->att_at?->diffInDays(Carbon::now()) }} dias
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                {{ $item->note?->workform?->adsform?->created_at ? $item->note?->workform?->adsform?->created_at?->diffInDays(Carbon::now()) . ' dias' : '' }}
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
+                                R$ {{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                <span class="badge {{ Notestatus::status($item->status)->colorbg }}"
+                                    wire:click.prevent="$emitTo('components.status.show-status', 'showStatus', {{ $item->id }}, {{ $item->status }})"
+                                    style="cursor: pointer;">{{ Notestatus::status($item->status)->status }}</span>
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                <x-production.action-production :production="$item" />
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($lists as $list)
-                            @php
-                                $partial = false;
-                                $dateForm = isset($list->Note->WorkForm) ? $list->Note->WorkForm?->informed_at : null;
-                                $formBlock =
-                                    $list->Note->WorkForm && $list->Note->WorkForm?->rejected
-                                        ? $list->Note->WorkForm->rejected
-                                        : false;
-
-                                if ($list->Note->Partials?->isNotEmpty()) {
-                                    if (
-                                        $list->Note->Partials?->last()->allow &&
-                                        !$list->Note->Partials?->last()->supervision
-                                    ) {
-                                        $partial = true;
-                                    }
-                                }
-
-                                if ($list->partial && $list->Note->Partials->isNotEmpty()) {
-                                    $dateForm = $list->Note->Partials
-                                        ?->where('allow', true)
-                                        ?->last()
-                                        ?->decision_at?->diffInDays(now());
-                                } elseif ($list->note->WorkForm) {
-                                    if ($list->note->WorkForm?->informed_at) {
-                                        $dateForm = $list->Note->WorkForm?->informed_at->diffInDays(now());
-                                    } else {
-                                        $dateForm = $list->Note->WorkForm?->created_at->diffInDays(now());
-                                    }
-                                } else {
-                                    $dateForm = 'ERRO';
-                                }
-
-                                $color = '';
-
-                                if ($dateForm != 'ERRO') {
-                                    if ($dateForm < 5) {
-                                        $color = 'text-bg-success';
-                                    } elseif ($dateForm > 8) {
-                                        $color = 'text-bg-danger';
-                                    } else {
-                                        $color = 'text-bg-warning';
-                                    }
-                                }
-
-                            @endphp
-                            <tr
-                                class="align-middle
-                                    @if ($list->block) table-primary @elseif ($formBlock) table-dark text-danger @endif
-
-                                    ">
-                                <td>
-                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected">
-                                </td>
-                                <td
-                                    class="fw-bold copy-text text-center @if ($list->partial) table-warning @else table-success @endif">
-                                    {{ $list->partial ? 'PARCIAL' : 'FINAL' }}
-                                </td>
-
-                                <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $list->Note->note }}
-                                    <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                        style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
-
-                                    @if ($list->priority)
-                                        <i class="ri-alert-fill text-danger align-middle"
-                                            wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                            style="cursor: pointer;"></i>
-                                    @endif
-                                </td>
-
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    @if ($list->Wpas->count())
-                                        <a class="link-primary fw-bold"
-                                            href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $list->Wpas()->get()->last()->dd }}"><span
-                                                class="text-primary">{{ $list->Wpas()->get()->last()->dd }}</span></a>
-                                    @else
-                                        -----
-                                    @endif
-
-                                </td>
-                                <td class="fw-light text-center align-middle @if ($list->priority) text-danger fw-bold @endif"
-                                    wire:click="">
-                                    @if ($list->Wpas->count())
-                                        @php
-                                            $wpa = WpaStatus::status(
-                                                $list->Wpas()->get()->last()->stats,
-                                                $list->Wpas()->get()->last()->execstats,
-                                                $list->Wpas()->get()->last()->completed_at,
-                                            );
-                                        @endphp
-                                        <i
-                                            class="{{ $wpa->icon }} {{ $wpa->color }} fs-3 align-middle my-0"></i><br>
-                                        <span class="badge {{ $wpa->bg_color }} my-0">{{ $wpa->info }}</span>
-                                        <br>
-                                    @else
-                                        -----
-                                    @endif
-
-                                </td>
-                                <td class="fw-bold text-danger text-center">
-                                    {{ $list->Note->mmgd ? 'MMGD' : '' }}
-                                </td>
-                                @php
-                                    $name = isset($list->Dispatcher->name)
-                                        ? explode(' ', $list->Dispatcher->name)
-                                        : null;
-
-                                    if ($name) {
-                                        $name = $name[0] . ' ' . end($name);
-                                    } else {
-                                        $name = 'DESCONHECIDO';
-                                    }
-
-                                @endphp
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $name }}</td>
-
-
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $list->Note->rubrica }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $list->Note->lexp }}</td>
-
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $list->Note->material }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-
-                                    {{ $list->Company ? explode(' ', $list->Company->name)[0] : '-' }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    @php
-                                        $nome = $list->User ? explode(' ', $list->User->name) : '----';
-                                        if (is_array($nome)) {
-                                            $nome = $nome[0] . ' ' . end($nome);
-                                        }
-                                    @endphp
-                                    {{ $nome }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $list->dispatch_at->diffInDays(now()) }}
-                                </td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ $list->att_at->diffInDays(now()) }}
-                                </td>
-
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif {{ $color }}">
-                                    {{ $dateForm }}
-                                </td>
-                                <td class="fw-light text-center">
-                                    @if ($list->transferred && $list->block_wpa)
-                                        <span class="badge text-bg-warning">Aguardando Despacho</span>
-                                    @elseif ($formBlock)
-                                        <span class="badge text-bg-info text-wrap p-1">INFORME EM REVISAO</span>
-                                    @else
-                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                    @endif
-                                </td>
-
-
-                                <td>
-                                    <x-production.action-production :production="$list" />
-                                </td>
-
-
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-        @endif
-
-
-    </dic>
-    @if ($lists->count())
-        <div class="row">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
-            </div>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
+        {{ $lists->links() }}
     @endif
 
-
-    {{-- MODALS --}}
-
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
-                </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-    <div wire:ignore.self class="modal fade" id="add_mass_notes" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Despachar {{ $service->service }}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                        wire:click.prevent="closeall"></button>
-                </div>
-                <div class="modal-body">
-                    @if ($notes && $notes->count())
-                        <div class="row">
-                            {{-- <div class="mb-3">
-                                <label for="exampleFormControlInput1" class="form-label">Tipo de Despacho</label>
-                                <select class="form-select form-select-sm" aria-label="Small select example"
-                                    wire:model="type">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Pilha</option>
-                                    <option value="2">Individual</option>
-                                </select>
-                            </div> --}}
-                            <div class="mb-3 ">
-                                <label for="exampleFormControlInput1" class="form-label">Empresa:</label>
-                                <select class="form-select form-select-sm" aria-label="" wire:model="company_s">
-                                    <option selected>Selecione</option>
-                                    @if ($company_l && $company_l->count())
-                                        @foreach ($company_l as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-                                </select>
-                            </div>
-
-
-
-                            <div class="mb-3 ">
-                                <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                <select class="form-select form-select-sm" aria-label="" wire:model="user_s">
-
-                                    @if ($user_l && $user_l->count())
-                                        <option value="" selected>Selecione um Usuário</option>
-                                        @foreach ($user_l as $user)
-                                            <option wire:key='{{ $user->id }}' value="{{ $user->id }}">
-                                                {{ $user->name }}</option>
-                                        @endforeach
-                                    @else
-                                        <option selected>Escolha uma Empresa Primeiro</option>
-                                    @endif
-                                </select>
-                            </div>
-
-
-                            <div class="mb-2 ">
-                                <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                                    MASSA:</label>
-                                <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"
-                                    placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <button class="btn-sm btn btn-primary" wire:click.prevent="add_dd">DD em
-                                    MASSA</button>
-                            </div>
-
-
-                            <div class="col-12 fw-bold">
-                                DESPACHANDO {{ $notes->count() }} OV/NOTA(S)
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-condensed table-striped">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">#</th>
-                                        <th scope="col">Note</th>
-                                        <th scope="col">Desc</th>
-                                        <th scope="col">DD</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($notes as $index => $note)
-                                        <tr>
-                                            <td scope="col" class="fw-bold">{{ $index + 1 }}</td>
-                                            <td>{{ $note->note }}</td>
-                                            <td>{{ $note->material }}</td>
-                                            <td>
-                                                @php
-                                                    $this->additionalData[$index] = $note->load('Wpas')
-                                                        ? $note->load('Wpas')->Wpas->last()->dd
-                                                        : '';
-                                                @endphp
-
-                                                <input wire:model.defer="additionalData.{{ $index }}"
-                                                    class="form-control form-control-sm" type="text"
-                                                    placeholder="Informe a DD" aria-label="">
-
-
-                                            </td>
-
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                    @endif
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
-                        wire:loading.attr="disabled" wire:target="confirm_att">
-                        Despachar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <div wire:ignore.self class="modal fade" id="add_mass_dds" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Atribuir DD em {{ $service->service }}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                        wire:click.prevent="closeall"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                            MASSA:</label>
-                        <textarea class="form-control" id="exampleFormControlTextarea1" rows="10" style="resize: none;"
-                            placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="mass_modal">Atribuir</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {{-- END MODALS --}}
-    @livewire('audits.info')
+    {{-- @livewire('audits.info') --}}
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
 

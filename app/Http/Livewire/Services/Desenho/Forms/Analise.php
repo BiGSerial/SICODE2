@@ -354,13 +354,13 @@ class Analise extends Component
             $this->ods      = '';
         }
 
-        if ($this->conclusion === 'ARQUIVADO' || $this->conclusion === 'RETORNADO LEVANTAMENTO') {
-            $this->iproject = $this->eo = $this->cadastro = false;
-            $this->postes   = '';
-            $this->odi      = '';
-            $this->odd      = '';
-            $this->ods      = '';
-        }
+        // if ($this->conclusion === 'ARQUIVADO' || $this->conclusion === 'RETORNADO LEVANTAMENTO') {
+        //     $this->iproject = $this->eo = $this->cadastro = false;
+        //     $this->postes   = 1;
+        //     $this->odi      = '';
+        //     $this->odd      = '';
+        //     $this->ods      = '';
+        // }
 
 
         $this->info = '';

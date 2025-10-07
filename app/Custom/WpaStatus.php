@@ -125,7 +125,7 @@ class WpaStatus
                 'info'      => $sexec ?? $snota,
                 'icon'      => 'ri-question-line',
                 'color'     => 'text-dark',
-                'bg_color'  => '',
+                'bg_color'  => 'text-bg-secondary',
                 'wpa_color' => 'purple',
                 'wpa_icon'  => '',
             ];
