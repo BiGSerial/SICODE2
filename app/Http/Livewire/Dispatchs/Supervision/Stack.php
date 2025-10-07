@@ -7,6 +7,7 @@ use App\Models\Service;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+// TODO: Finalizar a os filtros e demais serviços no Stack de Fiscalização. Processo optimizado.
 class Stack extends Component
 {
     use WithPagination;
@@ -22,6 +23,11 @@ class Stack extends Component
         'statusFilter' => ['except' => null],
         'search' => ['except' => ''],
         'page' => ['except' => 1],
+    ];
+
+    protected $listeners = [
+        'resetFilters',
+        'refresh_list' => '$refresh',
     ];
 
     public function mount($service)

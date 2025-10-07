@@ -2,6 +2,50 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Custom\WpaStatus;
+
+    $filtersConfig = [
+        'company' => [
+            'type' => 'single', // 'single' | 'multi'
+            'button_label' => 'Empresas',
+            'model' => \App\Models\Company::class,
+            'value_field' => 'id',
+            'label_field' => 'name',
+            'query' => fn($q, $state) => $q->where('active', 1),
+            'placeholder' => 'Todas',
+            'debounce' => 250, // ms
+        ],
+
+        'city' => [
+            'type' => 'multi',
+            'button_label' => 'Cidades',
+            'model' => \App\Models\City::class,
+            'value_field' => 'id',
+            'label_field' => 'name',
+            'depends_on' => ['company'], // restringe cidades pela(s) empresa(s) selecionada(s)
+            'query' => function ($q, $state) {
+                // $state = valores atuais de TODOS filtros
+                if (!empty($state['company'])) {
+                    $q->whereIn('company_id', (array) $state['company']);
+                }
+                return $q->where('enabled', 1);
+            },
+            'placeholder' => 'Todas',
+            'debounce' => 250,
+        ],
+
+        'status' => [
+            'type' => 'multi',
+            'button_label' => 'Status',
+            'values' => [
+                // pode ser estático também
+                ['value' => 'open', 'label' => 'Aberta'],
+                ['value' => 'paused', 'label' => 'Pausada'],
+                ['value' => 'done', 'label' => 'Concluída'],
+            ],
+            'placeholder' => 'Todos',
+        ],
+    ];
+
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -20,16 +64,18 @@
                         <i class="fas fa-times"></i> Limpar
                     </button>
                 </div>
+                {{-- <livewire:components.filter.smart-filters :config="$filtersConfig" wire:key="filters-main" /> --}}
             </div>
             <div class="col-md-4">
                 <div class="alert alert-warning border-start border-warning border-5 shadow-sm" role="alert">
                     <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Aviso</h5>
-                    <p class="mb-0">Esta página está operando em <strong>modo provisório</strong> e está sendo reconstruída para melhor desempenho. Algumas funcionalidades podem estar limitadas.</p>
+                    <p class="mb-0">Esta página está operando em <strong>modo provisório</strong> e está sendo
+                        reconstruída para melhor desempenho. Algumas funcionalidades podem estar limitadas.</p>
                 </div>
             </div>
         </div>
     </div>
-    
+
     {{-- <x-showselected :count="$selected" /> --}}
 
     <div class="mb-3">
