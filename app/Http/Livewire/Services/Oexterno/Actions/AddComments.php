@@ -114,7 +114,7 @@ class AddComments extends Component
     public function confirm_add_new_message()
     {
         $this->external->update([
-            'status' => 0,
+            'status' => $this->title,
         ]);
 
         $this->external->Comments()->create([

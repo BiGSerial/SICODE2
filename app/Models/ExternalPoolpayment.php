@@ -11,6 +11,7 @@ class ExternalPoolpayment extends Model
 
     protected $fillable = [
         'external_id',
+        'user_id',
 
         // Identificadores
         'pool_id',
@@ -116,5 +117,10 @@ class ExternalPoolpayment extends Model
     public function external()
     {
         return $this->belongsTo(External::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class)->withTrashed();
     }
 }

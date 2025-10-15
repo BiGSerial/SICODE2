@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Oexterno\Protocols;
 
+use App\Helpers\SelectOptions;
 use App\Models\External;
 use App\Models\ExternalPoolpayment;
 use App\Models\File;
@@ -21,6 +22,9 @@ class Main extends Component
     public $poolPayment;
     public $openExternalId = null;
     public $modalStatusValue = null;
+    public $currentExternal = null;
+    public $activeMainTab = 'note-data-pane';
+    public $activeModalTab = 'modal-protocols';
 
     protected $listeners = [
         'refreshComponent' => '$refresh',
@@ -30,6 +34,11 @@ class Main extends Component
         'confirmFinishEntity',
     ];
 
+    protected $rules = [
+        'currentExternal.status' => 'required|string|max:191',
+    ];
+
+    // TODO: Verificar o motivo de Reclaims estar duplicado.
     public function mount()
     {
         $this->note = Note::where('note', request()->route('note'))
@@ -45,7 +54,8 @@ class Main extends Component
                         'protocols' => function ($q2) {
                             $q2->orderBy('created_at', 'desc');
                         },
-                        'reclaims'
+                        'Reclaims',
+                        'files',
                     ]);
                 },
             ])
@@ -54,6 +64,16 @@ class Main extends Component
         if (!$this->note) {
             abort(404, 'Página não encontrada');
         }
+    }
+
+    public function setActiveMainTab($tab)
+    {
+        $this->activeMainTab = $tab;
+    }
+
+    public function setActiveModalTab($tab)
+    {
+        $this->activeModalTab = $tab;
     }
 
     public function setOpenExternal($id)
@@ -141,6 +161,13 @@ class Main extends Component
         $external->PoolPayments()->create([
             'pool_id' => $this->paymentPoolId,
             'status_pedido' => 'Novo Pedido',
+            'user_id' => auth()->user()->id,
+        ]);
+
+        $external->Comments()->create([
+            'user_id' => auth()->user()->id,
+            'title' => 'PEDIDO DE PAGAMENTO',
+            'comment' => "Pedido de pagamento solicitado com PoolId: {$this->paymentPoolId}",
         ]);
 
         $this->paymentPoolId = null;
@@ -173,6 +200,20 @@ class Main extends Component
         }
     }
 
+
+    public function saveModalChanges()
+    {
+        if (!$this->external) {
+            return;
+        }
+
+        $this->external->save();
+
+        $this->dispatchBrowserEvent('hideModal');
+        $this->external = null;
+        $this->emitSelf('refreshComponent');
+    }
+
     public function openEntityModal(int $externalId): void
     {
         // Limpa estado do modal (importante para “zerar” ao trocar de entidade)
@@ -180,11 +221,15 @@ class Main extends Component
         $this->reset(['modalStatusValue', 'paymentPoolId']);
 
         // Define a entidade a ser carregada
-        $this->openExternalId = $externalId;
+        // $this->openExternalId = $externalId;
+
+        $this->currentExternal = $this->note->externals->firstWhere('id', $externalId);
 
         // (Opcional) se quiser já fechar qualquer flash state anterior, pode emitir eventos aqui
         // $this->dispatchBrowserEvent('modal-ready'); // se precisar
     }
+
+
 
 
     public function confirmDeletePoolPayment()
@@ -243,8 +288,9 @@ class Main extends Component
 
 
         if ($this->external) {
-            $this->external->status = 9;
+            $this->external->status = 'FINALIZADO';
             $this->external->completed = true;
+            $this->external->user_id = auth()->user()->id;
             $this->external->save();
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -284,6 +330,54 @@ class Main extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ARQUIVO NÃO ENCONTRADO!',
+                'timer'    => 5000,
+            ]);
+        }
+    }
+
+    public function updateEntityStatus()
+    {
+
+        if ($this->currentExternal) {
+
+            $this->validate([
+                'currentExternal.status' => 'required|string|max:191',
+            ], [
+                'currentExternal.status.required' => 'O campo Status da Entidade é obrigatório.',
+                'currentExternal.status.string'   => 'O campo Status da Entidade deve ser uma string.',
+                'currentExternal.status.max'      => 'O campo Status da Entidade não deve exceder 191 caracteres.',
+            ]);
+
+            $this->currentExternal->save();
+
+            $selectStatus = collect(SelectOptions::getProtocolReasons());
+
+            $select = $selectStatus->firstWhere('value', $this->currentExternal->status)->reason ?? 'INDEFINIDO';
+
+
+            if ($select) {
+                $this->currentExternal->Comments()->create([
+                    'user_id' => auth()->user()->id,
+                    'title' => 'ATUALIZAÇÃO DE STATUS',
+                    'comment' => "Status da entidade atualizado para: {$select}",
+                ]);
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Status da entidade atualizado com sucesso!',
+                'timer'    => 5000,
+            ]);
+
+            $this->reset(['modalStatusValue']);
+            $this->emitSelf('refreshComponent');
+
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao atualizar status da entidade!',
                 'timer'    => 5000,
             ]);
         }

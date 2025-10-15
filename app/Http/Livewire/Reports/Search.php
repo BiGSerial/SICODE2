@@ -32,7 +32,7 @@ class Search extends Component
 
     public function Search()
     {
-
+        $this->loadHistorico();
     }
 
     public function loadHistorico()
@@ -57,6 +57,9 @@ class Search extends Component
     public function downloadFile(File $file)
     {
         if ($file) {
+
+            // TODO: Alterar a forma que o sistema faz download, converter para requisição HTTP via rota pópria.
+            // Sintoma do erro: Após algumas buscas de notas sem refresh, o Storage ignora o download nao tendo ação posterior.
 
             if (Storage::fileExists($file->path)) {
                 return Storage::download($file->path, explode('.', $file->file_name)[0].".".$file->ext);

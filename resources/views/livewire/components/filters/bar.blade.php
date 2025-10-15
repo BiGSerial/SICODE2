@@ -1,13 +1,11 @@
-<div class="modern-card mb-2" x-data="{ open: @entangle('open'), searchLocal: @entangle('search') }">
+<div class="modern-card mb-2" x-data="{ open: @entangle('open').defer, searchLocal: @entangle('search').defer }">
     <div class="modern-card-body">
+        {{-- chips ativos --}}
         <div class="d-flex flex-wrap align-items-center gap-2">
-            {{-- chips ativos --}}
             <div class="flex-grow-1">
                 @php
                     $activeCount = collect($state ?? [])
-                        ->filter(function ($v) {
-                            return is_array($v) ? count($v) : $v !== null && $v !== '';
-                        })
+                        ->filter(fn($v) => is_array($v) ? count($v) : $v !== null && $v !== '')
                         ->count();
                 @endphp
                 @if ($activeCount)
@@ -37,89 +35,81 @@
             </div>
         </div>
 
-        {{-- Linha dos filtros e botão aplicar --}}
+        {{-- Linha dos filtros --}}
         <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
             @foreach ($config as $def)
                 @php
                     $key = $def['key'];
                     $label = $def['label'];
                     $type = $def['type'] ?? 'multi';
+                    $isOpen = $open === $key;
                 @endphp
 
-                <div class="position-relative" x-data>
+                <div class="position-relative">
                     <button type="button" class="btn btn-light border d-flex align-items-center gap-2"
-                        @click="$wire.set('open', $wire.open === '{{ $key }}' ? null : '{{ $key }}')">
+                        wire:click="openDropdown('{{ $key }}')">
                         <i class="ri-equalizer-line"></i> {{ $label }}
                         @if (!empty($state[$key]))
-                            <span
-                                class="badge bg-primary text-white">{{ is_array($state[$key]) ? count($state[$key]) : 1 }}</span>
+                            <span class="badge bg-primary text-white">
+                                {{ is_array($state[$key]) ? count($state[$key]) : 1 }}
+                            </span>
                         @endif
                     </button>
 
-                    @if ($open === $key)
-                        @php $opts = $this->getOptions($key); @endphp
+                    @if ($isOpen)
                         <div class="card shadow position-absolute mt-2" style="min-width: 280px; z-index: 100;"
-                            @click.away="$wire.set('open', null)">
+                            @click.away="$wire.closeDropdown()">
                             <div class="card-body">
                                 @if (in_array($type, ['multi', 'single']))
                                     <input type="text" class="form-control mb-2"
                                         placeholder="{{ $def['placeholder'] ?? 'Buscar...' }}"
-                                        wire:model.debounce.300ms="search.{{ $key }}">
+                                        wire:model.debounce.400ms="search.{{ $key }}"
+                                        wire:keydown.debounce.400ms="$wire.refreshDropdown('{{ $key }}')">
                                 @endif
 
                                 <div style="max-height: 260px; overflow:auto;">
+                                    @php $opts = $options[$key] ?? []; @endphp
+
                                     @if ($type === 'multi')
-                                        @foreach ($opts as $opt)
-                                            @php
-                                                $needle = strtolower($search[$key] ?? '');
-                                                $show =
-                                                    $needle === '' || str_contains(strtolower($opt['label']), $needle);
-                                            @endphp
-                                            @if ($show)
-                                                <label class="d-flex align-items-center gap-2 py-1">
-                                                    <input type="checkbox" class="form-check-input"
-                                                        :key="'opt-{{ $key }}-{{ md5($opt['value']) }}'"
-                                                        value="{{ $opt['value'] }}"
-                                                        wire:click="toggleState('{{ $key }}', '{{ $opt['value'] }}')"
-                                                        @if (in_array($opt['value'], $state[$key] ?? [])) checked @endif>
-                                                    <span>{{ $opt['label'] }}</span>
-                                                </label>
-                                            @endif
-                                        @endforeach
-                                    @elseif($type === 'single')
-                                        @foreach ($opts as $opt)
-                                            @php
-                                                $needle = strtolower($search[$key] ?? '');
-                                                $show =
-                                                    $needle === '' || str_contains(strtolower($opt['label']), $needle);
-                                            @endphp
-                                            @if ($show)
-                                                <label class="d-flex align-items-center gap-2 py-1">
-                                                    <input type="radio" class="form-check-input"
-                                                        :key="'opt-{{ $key }}-{{ md5($opt['value']) }}'"
-                                                        name="f-{{ $key }}" value="{{ $opt['value'] }}"
-                                                        wire:click="toggleState('{{ $key }}', '{{ $opt['value'] }}')"
-                                                        @if (($state[$key] ?? null) == $opt['value']) checked @endif>
-                                                    <span>{{ $opt['label'] }}</span>
-                                                </label>
-                                            @endif
-                                        @endforeach
-                                    @elseif($type === 'text')
+                                        @forelse ($opts as $opt)
+                                            <label class="d-flex align-items-center gap-2 py-1">
+                                                <input type="checkbox" class="form-check-input"
+                                                    value="{{ $opt['value'] }}"
+                                                    wire:click="toggleState('{{ $key }}', '{{ $opt['value'] }}')"
+                                                    @if (in_array($opt['value'], $state[$key] ?? [], true)) checked @endif>
+                                                <span>{{ $opt['label'] }}</span>
+                                            </label>
+                                        @empty
+                                            <small class="text-muted">Nenhum resultado</small>
+                                        @endforelse
+                                    @elseif ($type === 'single')
+                                        @forelse ($opts as $opt)
+                                            <label class="d-flex align-items-center gap-2 py-1">
+                                                <input type="radio" class="form-check-input"
+                                                    name="f-{{ $key }}" value="{{ $opt['value'] }}"
+                                                    wire:click="toggleState('{{ $key }}', '{{ $opt['value'] }}')"
+                                                    @if (($state[$key] ?? null) == $opt['value']) checked @endif>
+                                                <span>{{ $opt['label'] }}</span>
+                                            </label>
+                                        @empty
+                                            <small class="text-muted">Nenhum resultado</small>
+                                        @endforelse
+                                    @elseif ($type === 'text')
                                         <input type="text" class="form-control"
-                                            wire:model.debounce.400ms="state.{{ $key }}"
+                                            wire:model.defer="state.{{ $key }}"
                                             placeholder="{{ $def['placeholder'] ?? 'Digite...' }}">
-                                    @elseif($type === 'date')
+                                    @elseif ($type === 'date')
                                         <input type="date" class="form-control"
-                                            wire:model="state.{{ $key }}">
-                                    @elseif($type === 'month')
+                                            wire:model.defer="state.{{ $key }}">
+                                    @elseif ($type === 'month')
                                         <input type="month" class="form-control"
-                                            wire:model="state.{{ $key }}">
-                                    @elseif($type === 'daterange')
+                                            wire:model.defer="state.{{ $key }}">
+                                    @elseif ($type === 'daterange')
                                         <div class="d-flex gap-2">
                                             <input type="date" class="form-control"
-                                                wire:model="state.{{ $key }}.start">
+                                                wire:model.defer="state.{{ $key }}.start">
                                             <input type="date" class="form-control"
-                                                wire:model="state.{{ $key }}.end">
+                                                wire:model.defer="state.{{ $key }}.end">
                                         </div>
                                     @endif
                                 </div>
@@ -130,13 +120,12 @@
                                         Limpar
                                     </button>
                                     @if ($manualApply)
-                                        <button class="btn btn-primary btn-sm" wire:click="apply"
-                                            @click="$wire.set('open', null)">
+                                        <button class="btn btn-primary btn-sm" wire:click="apply">
                                             Aplicar
                                         </button>
                                     @else
                                         <button class="btn btn-light btn-sm"
-                                            @click="$wire.set('open', null)">Fechar</button>
+                                            wire:click="closeDropdown()">Fechar</button>
                                     @endif
                                 </div>
                             </div>
@@ -145,15 +134,11 @@
                 </div>
             @endforeach
 
-            {{-- Botão aplicar na mesma linha --}}
             @if ($manualApply)
-                <button class="btn btn-primary d-flex align-items-center gap-2" wire:click="apply"
-                    @click="$wire.set('open', null)">
+                <button class="btn btn-primary d-flex align-items-center gap-2" wire:click="apply">
                     <i class="ri-filter-3-line"></i> Aplicar
                 </button>
             @endif
-
-
         </div>
     </div>
 </div>

@@ -62,15 +62,18 @@ class BlockEvaluator
             return $this->res(self::HOLD_BLUE, false, $reason, $ps, null, $production);
         }
 
-        // 3) Obra fora de status de construção
-        if ($note->type_note == 2 && !$this->isConstructionNstats($note->nstats)) {
-            return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
-        }
+        // NOTE: As regras 3 e 4 foram comentadas conforme solicitação em 2024-06-10
+        // TODO: REtornar com as Restriçoes de inform quando normalizar as atualizaçoes de OV:
+            
+        // // 3) Obra fora de status de construção
+        // if ($note->type_note == 2 && !$this->isConstructionNstats($note->nstats)) {
+        //     return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
+        // }
 
-        // 4) Obra fora de status de construção
-        if ($note->type_note == 1 && $this->centerjobIsSetAndNotCONS($note->centerjob)) {
-            return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
-        }
+        // // 4) Obra fora de status de construção
+        // if ($note->type_note == 1 && $this->centerjobIsSetAndNotCONS($note->centerjob)) {
+        //     return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
+        // }
 
         // 5) Liberado
         return $this->res(self::FREE, true, 'Liberado para informar');

@@ -321,6 +321,8 @@ class Main extends Component
             });
         });
 
+        $query->doesntHave('Externals');
+
         $query->when($this->search, function ($q) {
             $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
                 ? str_replace('*', '%', $this->search)

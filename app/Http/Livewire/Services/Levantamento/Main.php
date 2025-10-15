@@ -15,7 +15,7 @@ class Main extends Component
 
     public $service;
 
-    public $perPage = 100;
+    public $perPage = 30;
 
     public $search;
 

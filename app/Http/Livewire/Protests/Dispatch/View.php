@@ -23,11 +23,13 @@ class View extends Component
     public $deleteCommentId;
     public $files;
     public $protestTemp;
+    public $medProtest;
 
     protected $listeners = [
         'refreshComponent' => '$refresh',
         'removeComment172030' => 'removeComment',
         'FinishMedProtest172030' => 'finishMedProtes',
+        'Reject172030' => 'rejectMed',
     ];
 
     public function mount(Request $request)
@@ -216,9 +218,23 @@ class View extends Component
                 'completed_at' => now(),
             ]);
 
+            $completedMed =  $this->protestTemp->Assignments()->where('completed', true)->count();
+
             $this->protestTemp->Assignments()->where('completed', false)->update([
                 'completed' => true,
                 'ended_at' => now(),
+            ]);
+
+            if (!$completedMed) {
+                $this->medProtest->comments()->create([
+                    'user_id' => auth()->id(),
+                    'message' => '[SISTEMA] Medida Encerrada pelo Responsável ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
+                ]);
+            }
+
+            $this->medProtest->comments()->create([
+               'user_id' => auth()->id(),
+               'message' => '[SISTEMA] Medida Aprovada pelo Responsável ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
             ]);
 
             $this->dispatchBrowserEvent('torrada', [
@@ -236,15 +252,44 @@ class View extends Component
         }
     }
 
-    public function rejectMed($medProtestId)
+    public function toReject(MedProtest $medProtestId)
     {
-        $medProtest = $this->protest->MedProtests()->find($medProtestId);
 
-        if ($medProtest) {
-            $medProtest->update(['completed' => false, 'completed_at' => null]);
-            $medProtest->Assignments()->where('completed', true)->update([
+        $this->medProtest = $medProtestId;
+
+        if ($this->medProtest) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Deseja Rejeitar a Medida?',
+                'msg'   => "
+                Você está preste de rejeitar a medida?
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Rejeitar!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'Reject172030',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma medida Rejeitada.',
+
+            ]);
+        }
+
+    }
+
+    public function rejectMed()
+    {
+
+
+        if ($this->medProtest) {
+            $this->medProtest->update(['completed' => false, 'completed_at' => null]);
+            $this->medProtest->Assignments()->where('completed', true)->update([
                 'completed' => false,
                 'ended_at' => null,
+            ]);
+
+
+            $this->medProtest->comments()->create([
+                'user_id' => auth()->id(),
+                'message' => '[SISTEMA] Conclusão de medida rejeitada por ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
             ]);
 
             $this->dispatchBrowserEvent('torrada', [

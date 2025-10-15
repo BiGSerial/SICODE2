@@ -98,21 +98,20 @@ class AddProtocol extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-              'title'         => "Entrada de Protocolo",
-              'msg'           => "Você deseja adicionar a novo protocolo {$this->protocol}, para o nova entidade entidade?",
-              'icon'          => 'warning',
-              'btnOktxt'      => 'Sim, Adicionar!',
-              'btnCanceltxt'  => 'Não, Cancelar',
-              'action'        => 'confirm_add_new_protocol',
-              'cancel_titulo' => 'Cancelado!',
-              'cancel_msg'    => 'Nenhuma NOTA/OV foi encerrada!',
-
-          ]);
+                'title'         => "Entrada de Protocolo",
+                'msg'           => "Você deseja adicionar a novo protocolo {$this->protocol}, para o nova entidade entidade?",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Adicionar!',
+                'btnCanceltxt'  => 'Não, Cancelar',
+                'action'        => 'confirm_add_new_protocol',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma NOTA/OV foi encerrada!',
+        ]);
     }
 
     public function confirm_add_new_protocol()
     {
-        $this->external->status = 0;
+        // $this->external->status = $this->title;
         $this->external->save();
 
 

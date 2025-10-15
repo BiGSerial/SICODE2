@@ -3,7 +3,8 @@
 namespace App\Http\Livewire\Components\Filters;
 
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\{Arr, Str};
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 /**
@@ -60,12 +61,14 @@ class Bar extends Component
     public $search = [];
     public $open = null;
 
-    public $listeners = [
+    /** @var array<string, array<int, array{value:mixed,label:string}>> */
+    public $options = [];
+
+    protected $listeners = [
         'filters.set' => 'setState',
         'filters.clear' => 'clearAll',
         'filters.reload' => '$refresh',
     ];
-
 
     public function mount(array $config, $group = 'default', $manualApply = true, $initial = [])
     {
@@ -75,13 +78,36 @@ class Bar extends Component
 
         $persisted = session("filters.{$this->group}", []);
         $this->state = array_merge($persisted, $initial ?? []);
-
     }
+
+    /* ---------- UX ---------- */
+
+    public function openDropdown(string $key): void
+    {
+        $this->open = $this->open === $key ? null : $key;
+
+        if ($this->open && !array_key_exists($key, $this->options)) {
+            $this->options[$key] = $this->buildOptions($key);
+        }
+    }
+
+    public function closeDropdown(): void
+    {
+        $this->open = null;
+    }
+
+    public function refreshDropdown(string $key): void
+    {
+        if ($this->open === $key) {
+            $this->options[$key] = $this->buildOptions($key);
+        }
+    }
+
+    /* ---------- Ciclo de atualização ---------- */
 
     public function updatedState()
     {
-
-        if (!$this->manualApply) {
+        if (! $this->manualApply) {
             $this->persist();
             $this->emitUp('filters.updated', $this->payload());
         }
@@ -89,10 +115,10 @@ class Bar extends Component
 
     public function apply()
     {
-
         $this->persist();
-        $this->emitUp('filters.applied', $this->payload());
-        $this->emitUp('filters.updated', $this->payload());
+        $payload = $this->payload();
+        $this->emitUp('filters.applied', $payload);
+        $this->emitUp('filters.updated', $payload);
         $this->open = null;
     }
 
@@ -111,12 +137,11 @@ class Bar extends Component
 
     public function setState($state)
     {
-
         $this->state = $state ?: [];
         $this->applyOrUpdate();
     }
 
-    protected function applyOrUpdate()
+    protected function applyOrUpdate(): void
     {
         $this->persist();
         $this->emitUp('filters.updated', $this->payload());
@@ -125,96 +150,6 @@ class Bar extends Component
     protected function persist(): void
     {
         session(["filters.{$this->group}" => $this->state]);
-    }
-
-    public function getOptions($key): array
-    {
-        $def = collect($this->config)->firstWhere('key', $key);
-        if (!$def) {
-            return [];
-        }
-
-        $cacheKey = $this->cacheKey($key);
-        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($def) {
-            $provider = $def['provider'] ?? ['type' => 'static', 'options' => []];
-
-            if (($provider['type'] ?? 'static') === 'static') {
-                return $provider['options'] ?? [];
-            }
-
-            // eloquent provider
-            $model = app($provider['model']);
-            $value = $provider['value'] ?? 'id';
-            $label = $provider['label'] ?? $value;
-
-            $q = $model::query();
-
-            foreach (($provider['where'] ?? []) as $w) {
-                [$col, $op, $val] = $w;
-                if (is_string($val) && Str::startsWith($val, ':state.')) {
-                    $depKey = Str::after($val, ':state.');
-                    $val = Arr::get($this->state, $depKey);
-                    if ($val === null || $val === '' || $val === []) {
-                        return [];
-                    }
-                }
-                is_array($val) ? $q->whereIn($col, $val) : $q->where($col, $op, $val);
-            }
-
-            $select = [$value, $label];
-            $q->select($select);
-
-            if (!empty($provider['distinct'])) {
-                $q->distinct();
-            }
-
-            foreach (($provider['orderBy'] ?? []) as $c => $dir) {
-                $q->orderBy($c, $dir);
-            }
-            if (!empty($provider['limit'])) {
-                $q->limit((int) $provider['limit']);
-            }
-
-            return $q->get()->map(function ($r) use ($value, $label) {
-                return ['value' => $r->{$value}, 'label' => (string) $r->{$label}];
-            })->values()->all();
-        });
-    }
-
-    public function toggleState($key, $value)
-    {
-        // Obtém o valor atual para a chave, ou um array vazio se não existir
-        $current = $this->state[$key] ?? [];
-
-        if (is_array($current)) {
-            // Se o valor já está no array, remove-o
-            if (in_array($value, $current)) {
-                $current = array_diff($current, [$value]);
-            }
-            // Caso contrário, adiciona-o
-            else {
-                $current[] = $value;
-            }
-        } else {
-            // Se for um tipo 'single', simplesmente define o valor
-            $current = $value;
-        }
-
-        // Atualiza a propriedade
-        $this->state[$key] = $current;
-
-        // Se não for manual, aplica ou atualiza imediatamente
-        if (!$this->manualApply) {
-            $this->applyOrUpdate();
-        }
-    }
-
-    protected function cacheKey($key): string
-    {
-        $def = collect($this->config)->firstWhere('key', $key) ?? [];
-        $depends = $def['dependsOn'] ?? [];
-        $slice = Arr::only($this->state, $depends);
-        return "filters:{$this->group}:{$key}:".md5(json_encode($slice));
     }
 
     protected function payload(): array
@@ -230,6 +165,108 @@ class Bar extends Component
             $out[$k] = $v;
         }
         return $out;
+    }
+
+    /* ---------- Montagem de opções (rápida e cacheada) ---------- */
+
+    protected function buildOptions(string $key): array
+    {
+        $def = collect($this->config)->firstWhere('key', $key);
+        if (! $def) {
+            return [];
+        }
+
+        $provider = $def['provider'] ?? ['type' => 'static', 'options' => []];
+        $needle   = trim(strtolower($this->search[$key] ?? '')); // busca atual
+        $depends  = $def['dependsOn'] ?? [];
+        $slice    = Arr::only($this->state, $depends);
+
+        $cacheKey = $this->cacheKey($key, $needle, $slice);
+
+        return Cache::remember($cacheKey, now()->addMinutes(2), function () use ($provider, $needle, $slice) {
+            if (($provider['type'] ?? 'static') === 'static') {
+                $opts = $provider['options'] ?? [];
+                if ($needle !== '') {
+                    $opts = array_values(array_filter(
+                        $opts,
+                        fn ($o) =>
+                        Str::contains(strtolower((string)($o['label'] ?? '')), $needle)
+                    ));
+                }
+                return array_slice($opts, 0, (int)($provider['limit'] ?? 300));
+            }
+
+            // ----- Eloquent -----
+            /** @var \Illuminate\Database\Eloquent\Model $model */
+            $model = app($provider['model']);
+            $value = $provider['value'] ?? 'id';
+            $label = $provider['label'] ?? $value;
+
+            $q = $model::query();
+
+            // dependsOn / where dinâmico
+            foreach (($provider['where'] ?? []) as $w) {
+                [$col, $op, $val] = $w;
+                if (is_string($val) && Str::startsWith($val, ':state.')) {
+                    $depKey = Str::after($val, ':state.');
+                    $val = Arr::get($this->state, $depKey);
+                    if ($val === null || $val === '' || $val === []) {
+                        return []; // dependência vazia => sem opções
+                    }
+                }
+                is_array($val) ? $q->whereIn($col, $val) : $q->where($col, $op, $val);
+            }
+
+            // busca server-side (use 'like' em MySQL/MariaDB; 'ilike' no Postgres)
+            if ($needle !== '') {
+                $driver = $q->getModel()->getConnection()->getDriverName();
+                $op = $driver === 'pgsql' ? 'ilike' : 'like';
+                $q->where($label, $op, "%{$needle}%");
+            }
+
+            // select e “distinct”
+            // Prefira GROUP BY para permitir uso de índices junto com ORDER/LIMIT
+            $q->select([$value, $label])
+              ->groupBy($value, $label);
+
+            // order
+            foreach (($provider['orderBy'] ?? []) as $c => $dir) {
+                $q->orderBy($c, $dir);
+            }
+
+            // limit
+            $q->limit((int)($provider['limit'] ?? 300));
+
+            // retorno simples
+            return $q->get()->map(fn ($r) => [
+                'value' => $r->{$value},
+                'label' => (string) $r->{$label},
+            ])->values()->all();
+        });
+    }
+
+    protected function cacheKey(string $key, string $needle, array $slice): string
+    {
+        return "filters:{$this->group}:{$key}:".md5($needle.'|'.json_encode($slice));
+    }
+
+    public function toggleState($key, $value)
+    {
+        $current = $this->state[$key] ?? [];
+
+        if (is_array($current)) {
+            // toggling stricto
+            $exists = in_array($value, $current, true);
+            $current = $exists ? array_values(array_diff($current, [$value])) : [...$current, $value];
+        } else {
+            $current = $value; // single
+        }
+
+        $this->state[$key] = $current;
+
+        if (! $this->manualApply) {
+            $this->applyOrUpdate();
+        }
     }
 
     public function render()

@@ -808,7 +808,7 @@
                             <textarea class="form-control @error('conclusion') is-invalid @enderror" id="parecerFinal"
                                 placeholder="Descreva o parecer técnico final para constar no laudo" style="height: 140px"
                                 wire:model.defer="conclusion"></textarea>
-                            <label for="parecerFinal">Parecer técnico final (mín. 10 caracteres)</label>
+                            <label for="parecerFinal">Parecer técnico final</label>
                             @error('conclusion')
                                 <div class="invalid-feedback d-block">{{ $message }}</div>
                             @enderror

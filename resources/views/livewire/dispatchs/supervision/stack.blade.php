@@ -60,8 +60,13 @@
                     </span>
                     <input type="text" class="form-control form-control-lg" placeholder="Pesquisar..."
                         wire:model.debounce.300ms="search" aria-label="Pesquisar">
-                    <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters">
-                        <i class="fas fa-times"></i> Limpar
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                        data-bs-target="#multiSearchModal" title="Busca múltipla">
+                        <i class="ri-checkbox-multiple-blank-line"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters"
+                        title="Limpar filtros">
+                        <i class="ri-filter-off-line"></i>
                     </button>
                 </div>
                 {{-- <livewire:components.filter.smart-filters :config="$filtersConfig" wire:key="filters-main" /> --}}
@@ -187,7 +192,7 @@
                             }
 
                             $wpaStatus = WpaStatus::status(
-                                $item->wpas?->last()->dd,
+                                $item->wpas?->last()?->dd,
                                 $item->wpas?->last()?->execstats,
                                 $item->wpas?->last()?->completed_at,
                             );
@@ -255,8 +260,36 @@
     {{-- END MODALS --}}
     {{-- @livewire('audits.info') --}}
     @livewire('components.status.show-status', key('show_status_note'))
-    @livewire('production.return.return-work', key('returnWorkfomr'))
+    {{-- @livewire('production.return.return-work', key('returnWorkfomr')) --}}
 
+    {{-- ===================== Modal: Busca Multi-notas ===================== --}}
+    <div wire:ignore.self class="modal fade" id="multiSearchModal" tabindex="-1"
+        aria-labelledby="multiSearchModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="multiSearchModalLabel">Busca Multi-notas</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <textarea class="form-control bg-dark text-white opacity-50 border-0 rounded-0" rows="15"
+                        wire:model.defer="advancedSearch" wire:keydown.ctrl.enter="buscarMulti"
+                        placeholder="Cole aqui várias notas, uma por linha.&#10;Exemplo:&#10;123456&#10;987654&#10;ABC-2024-001"></textarea>
+                </div>
+                <div class="modal-footer text-bg-secondary">
+                    <div class="text-muted small me-auto text-white">
+                        Dica: <kbd class="bg-light text-dark">Ctrl</kbd> + <kbd class="bg-light text-dark">Enter</kbd>
+                        para buscar.
+                    </div>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">
+                        <i class="ri-search-line me-1"></i> Buscar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- ===================== FIM Modal: Busca Multi-notas ===================== --}}
 
 </div>
 

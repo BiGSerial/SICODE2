@@ -101,8 +101,28 @@
                                                     <div class="fw-semibold">{{ $production->service?->service }}</div>
                                                 </div>
                                                 <div class="col-md-6">
-                                                    <small class="text-muted mb-1">Usuário</small>
-                                                    <div class="fw-semibold">{{ $production->user?->name }}</div>
+                                                    <div class="form-floating">
+                                                        <select id="userSelected"
+                                                            class="form-select @error('userSelected') is-invalid @enderror"
+                                                            wire:model.defer="userSelected"
+                                                            wire:loading.class="opacity-50" wire:loading.attr="disabled"
+                                                            wire:target="serviceSelected">
+                                                            <option value="">Selecione...</option>
+                                                            @foreach ($userList ?? [] as $user)
+                                                                <option value="{{ $user->id }}">
+                                                                    {{ $user->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <div wire:loading wire:target="serviceSelected"
+                                                            class="spinner-border spinner-border-sm text-primary position-absolute end-0 me-3 mt-2"
+                                                            role="status">
+                                                            <span class="visually-hidden">Carregando...</span>
+                                                        </div>
+                                                        <label for="userSelected">Usuário</label>
+                                                        @error('userSelected')
+                                                            <div class="invalid-feedback">{{ $message }}</div>
+                                                        @enderror
+                                                    </div>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <small class="text-muted mb-1">Última Interação</small>
@@ -114,9 +134,23 @@
                                         </div>
                                     </div>
                                 @else
-                                    <div class="alert alert-warning mt-3" role="alert">
-                                        <strong>Aviso!</strong> Não há informações do serviço. Este caso será enviado
-                                        para a pilha de retorno da atividade escolhida.
+                                    <div class="col-md-6 my-3">
+                                        <div class="form-floating">
+                                            <select id="userSelected"
+                                                class="form-select @error('userSelected') is-invalid @enderror"
+                                                wire:model.defer="userSelected" wire:loading.class="opacity-50"
+                                                wire:loading.attr="disabled" wire:target="serviceSelected">
+                                                <option value="">Selecione...</option>
+                                                @foreach ($userList ?? [] as $user)
+                                                    <option value="{{ $user->id }}">
+                                                        {{ $user->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <label for="userSelected">Usuário</label>
+                                            @error('userSelected')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
                                     </div>
                                 @endif
                             @endif

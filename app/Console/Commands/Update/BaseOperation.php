@@ -3,196 +3,228 @@
 namespace App\Console\Commands\Update;
 
 use App\Custom\RegistroJson;
-use App\Models\Edp_depc\{BaseOperation as Edp_depcBaseOperation, City};
-use App\Models\Operation;
+use App\Models\Edp_depc\BaseOperation as Edp_depcBaseOperation;
 use App\Models\Order;
+use App\Models\Operation;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class BaseOperation extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'sicode:upd_baseOperation';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
     protected $description = 'Update Base Operation from SQLSERVER.';
 
-    /**
-     * Execute the console command.
-     */
+    // tunables
+    protected int $chunkSize       = 500;   // tamanho dos blocos de ORDERS
+    protected int $upsertBatchSize = 1000;  // lote de upsert em OPERATIONS
+
+    /** colunas a atualizar no upsert (NÃO inclua order_id/operacao/created_at) */
+    protected array $updateColumns = [
+        'descOperacao','inicioPlanejado','fimPlanejado','inicioReal','fimReal',
+        'status','notaOv','cenPlan','cenTrab','txtCenTrab','updated_at',
+    ];
+
     public function handle()
     {
-
-        // $this->removeDuplicate();
-
-
-
-
+        // ===== TOTAL (para o log inicial)
         $totalRecords = Order::where('statusSist', 'Not Like', 'ENT%')
-                             ->where('statusSist', 'Not Like', 'ENC%')
-                             ->count();
+            ->where('statusSist', 'Not Like', 'ENC%')
+            ->count();
 
-        $log = new RegistroJson('upd_baseOperation', $this->option());
-        $log->setTotal($totalRecords);
+        // ===== LOG: começo (apenas 1 registro; SLA será date_fim - date_inicio)
+        $log = new RegistroJson('upd_baseOperation', $this->option(), $totalRecords);
 
+        // ===== Barra de progresso
         $progressBar = new ProgressBar($this->output, $totalRecords);
         $progressBar->setFormat("<bg=blue;fg=white>UPDATE OPERATION: %current%/%max% </><fg=white;options=bold> [Loop: %cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </>\n<bg=blue;fg=white>READING: </> %message%");
         $progressBar->setMessage('Processing');
         $progressBar->start();
 
-        $chunkSize = 500;
-
         $count = [
-            'nf'    => 0,
-            'tloop' => (int) ceil($totalRecords / $chunkSize),
+            'nf'    => 0, // not found (ordem sem operações na origem)
+            'tloop' => (int) ceil(max(1, $totalRecords) / $this->chunkSize),
             'cloop' => 0,
-            'ctd'   => 0,
-            'upd'   => 0,
+            'ctd'   => 0, // created
+            'upd'   => 0, // updated
         ];
 
+        // ===== Processa ORDERS em chunks
         Order::where('statusSist', 'Not Like', 'ENT%')
             ->where('statusSist', 'Not Like', 'ENC%')
-            ->chunk($chunkSize, function ($orders) use (&$progressBar, &$count, &$log) {
+            ->select(['id','ordem']) // só o necessário
+            ->chunk($this->chunkSize, function (Collection $orders) use (&$progressBar, &$count) {
 
                 $count['cloop']++;
 
-                // Map orders by 'ordem' for efficient lookup
-                $ordersByOrdem = $orders->keyBy(function ($item) {
-                    return trim($item->ordem);
+                // Mapa {ordem(trim) => order_id}
+                $ordersByOrdem = $orders->mapWithKeys(function ($o) {
+                    return [trim((string)$o->ordem) => (int)$o->id];
                 });
 
-                // Get unique 'ordem' values
-                $originOrders = $ordersByOrdem->keys();
+                // Domínio de 'ordem' do chunk
+                $originOrders = $ordersByOrdem->keys()->filter()->values();
 
-                // Fetch operations for these 'ordem' values
-                $operations = Edp_depcBaseOperation::whereIn('ordem', $originOrders)->get();
+                // Busca operações da ORIGEM para esse domínio
+                $operationsSrc = Edp_depcBaseOperation::whereIn('ordem', $originOrders)->get();
 
-                // Group operations by 'ordem'
-                $operationsByOrdem = $operations->groupBy(function ($item) {
-                    return trim($item->ordem);
+                if ($operationsSrc->isEmpty()) {
+                    // nenhum resultado para todo o domínio do chunk
+                    $count['nf'] += $orders->count();
+                    foreach ($orders as $o) {
+                        // atualiza HUD
+                        $progressBar->setMessage('Order ID: ' . $o->id, 'message');
+                        $progressBar->setMessage($count['nf'], 'nf');
+                        $progressBar->setMessage($count['ctd'], 'ctd');
+                        $progressBar->setMessage($count['upd'], 'upd');
+                        $progressBar->setMessage($count['cloop'], 'cloop');
+                        $progressBar->setMessage($count['tloop'], 'tloop');
+                        $progressBar->advance();
+                    }
+                    return;
+                }
+
+                // Agrupa por ordem (normalizada) -> lista de operações
+                $operationsByOrdem = $operationsSrc->groupBy(function ($item) {
+                    return trim((string)$item->ordem);
                 });
+
+                // ===== Preparar pares (order_id|operacao) para contar created x updated
+                $pairs = [];
+                foreach ($operationsByOrdem as $ordem => $ops) {
+                    $orderId = $ordersByOrdem[$ordem] ?? null;
+                    if (!$orderId) {
+                        continue;
+                    }
+                    foreach ($ops as $op) {
+                        $oper = trim((string)$op->operacao);
+                        if ($oper === '') {
+                            continue;
+                        }
+                        $pairs[] = $orderId.'|'.$oper;
+                    }
+                }
+                $pairs = array_values(array_unique($pairs));
+
+                // Busca EXISTENTES do lote
+                $existingMap = collect();
+                if (!empty($pairs)) {
+                    $orderIds = [];
+                    $operacoes = [];
+                    foreach ($pairs as $pk) {
+                        [$oid, $oper] = explode('|', $pk, 2);
+                        $orderIds[]  = (int)$oid;
+                        $operacoes[] = $oper;
+                    }
+                    $orderIds  = array_values(array_unique($orderIds));
+                    $operacoes = array_values(array_unique($operacoes));
+
+                    $existing = Operation::query()
+                        ->whereIn('order_id', $orderIds)
+                        ->whereIn('operacao', $operacoes)
+                        ->get(['order_id','operacao']);
+
+                    $existingMap = $existing->keyBy(fn ($r) => $r->order_id.'|'.$r->operacao);
+                }
+
+                // ===== Monta lote de upsert + contagem created/updated
+                $bucket = [];
+                $now    = now();
 
                 foreach ($orders as $order) {
+                    $ordemKey = trim((string)$order->ordem);
 
-                    $trimmedOrdem = trim($order->ordem);
-
-                    if ($operationsByOrdem->has($trimmedOrdem)) {
-
-                        $orderOperations = $operationsByOrdem->get($trimmedOrdem);
-
-                        foreach ($orderOperations as $operation) {
-
-                            $data = [
-                                'order_id'         => $order->id,
-                                'operacao'         => $operation->operacao,
-                                'descOperacao'     => $operation->descOperacao,
-                                'inicioPlanejado'  => $operation->inicioPlanejado,
-                                'fimPlanejado'     => $operation->fimPlanejado,
-                                'inicioReal'       => $operation->inicioReal,
-                                'fimReal'          => $operation->fimReal,
-                                'status'           => $operation->status,
-                                'notaOv'           => $operation->notaOv,
-                                'cenPlan'          => $operation->cenPlan,
-                                'cenTrab'          => $operation->cenTrab,
-                                'txtCenTrab'       => $operation->txtCenTrab,
-                            ];
-
-                            $uniqueAttributes = [
-                                'order_id' => $data['order_id'],
-                                'operacao' => $data['operacao'],
-                            ];
-
-                            $updateAttributes = $data;
-                            unset($updateAttributes['order_id'], $updateAttributes['operacao']);
-
-                            try {
-                                $operationModel = Operation::updateOrCreate($uniqueAttributes, $updateAttributes);
-                                if ($operationModel->wasRecentlyCreated) {
-                                    $count['ctd']++;
-                                } else {
-                                    $count['upd']++;
-                                }
-                            } catch (\Throwable $th) {
-                                $log->setErrorMessage($th->getMessage());
-                            }
-                        }
-
-                    } else {
+                    if (!$operationsByOrdem->has($ordemKey)) {
                         $count['nf']++;
+                        // HUD
+                        $progressBar->setMessage('Order ID: ' . $order->id, 'message');
+                        $progressBar->setMessage($count['nf'], 'nf');
+                        $progressBar->setMessage($count['ctd'], 'ctd');
+                        $progressBar->setMessage($count['upd'], 'upd');
+                        $progressBar->setMessage($count['cloop'], 'cloop');
+                        $progressBar->setMessage($count['tloop'], 'tloop');
+                        $progressBar->advance();
+                        continue;
                     }
 
-                    // Update progress bar
+                    foreach ($operationsByOrdem->get($ordemKey) as $src) {
+                        $oper = trim((string)$src->operacao);
+                        if ($oper === '') {
+                            continue;
+                        }
+
+                        $row = [
+                            'order_id'        => (int)$order->id,
+                            'operacao'        => $oper,
+
+                            'descOperacao'    => $src->descOperacao ?? null,
+                            'inicioPlanejado' => $this->parseDateTime($src->inicioPlanejado),
+                            'fimPlanejado'    => $this->parseDateTime($src->fimPlanejado),
+                            'inicioReal'      => $this->parseDateTime($src->inicioReal),
+                            'fimReal'         => $this->parseDateTime($src->fimReal),
+                            'status'          => $src->status ?? null,
+                            'notaOv'          => $src->notaOv ?? null,
+                            'cenPlan'         => $src->cenPlan ?? null,
+                            'cenTrab'         => $src->cenTrab ?? null,
+                            'txtCenTrab'      => $src->txtCenTrab ?? null,
+
+                            'created_at'      => $now, // só em INSERT
+                            'updated_at'      => $now,
+                        ];
+
+                        // contabilização correta
+                        $pairKey = $row['order_id'].'|'.$row['operacao'];
+                        if (isset($existingMap[$pairKey])) {
+                            $count['upd']++;
+                        } else {
+                            $count['ctd']++;
+                        }
+
+                        // dedup dentro do lote
+                        $bucket[$pairKey] = $row;
+
+                        if (count($bucket) >= $this->upsertBatchSize) {
+                            Operation::upsert(array_values($bucket), ['order_id','operacao'], $this->updateColumns);
+                            $bucket = [];
+                        }
+                    }
+
+                    // HUD (por ordem)
                     $progressBar->setMessage('Order ID: ' . $order->id, 'message');
                     $progressBar->setMessage($count['nf'], 'nf');
                     $progressBar->setMessage($count['ctd'], 'ctd');
                     $progressBar->setMessage($count['upd'], 'upd');
                     $progressBar->setMessage($count['cloop'], 'cloop');
                     $progressBar->setMessage($count['tloop'], 'tloop');
-
                     $progressBar->advance();
                 }
 
+                if (!empty($bucket)) {
+                    Operation::upsert(array_values($bucket), ['order_id','operacao'], $this->updateColumns);
+                }
             });
 
+        $progressBar->finish();
+
+        // ===== LOG: fim (1 única gravação) — pronto para calcular SLA
         $log->setCreated($count['ctd']);
         $log->setUpdated($count['upd']);
-        $log->setNoteUpdated($count['nf']);
+        $log->setNoteUpdated($count['nf']); // usei este campo para "not found"
         $log->save();
 
-        $progressBar->finish();
+        $this->info("\nBaseOperation finalizada. C={$count['ctd']} U={$count['upd']} NF={$count['nf']}");
     }
 
-
-    public function removeDuplicate()
+    private function parseDateTime($v): ?string
     {
-
-        // Step 1: Find duplicates based on order_id and operacao
-        $duplicates = DB::table('operations')
-            ->select('order_id', 'operacao', DB::raw('COUNT(*) as count'))
-            ->groupBy('order_id', 'operacao')
-            ->having('count', '>', 1)
-            ->get();
-
-        $totalDuplicates = $duplicates->count();
-        echo "Found {$totalDuplicates} sets of duplicates.\n";
-
-        if ($totalDuplicates === 0) {
-            echo "No duplicates found. Exiting.\n";
-            exit;
+        if (empty($v)) {
+            return null;
         }
-
-        $counter = 0;
-
-        foreach ($duplicates as $duplicate) {
-            // Fetch all duplicate records
-            $records = Operation::where('order_id', $duplicate->order_id)
-                ->where('operacao', $duplicate->operacao)
-                ->orderBy('id', 'desc') // Assuming the highest ID is the most recent
-                ->get();
-
-            // Keep the first record and delete the rest
-            $recordsToDelete = $records->slice(1); // All except the first record
-            $idsToDelete = $recordsToDelete->pluck('id')->toArray();
-
-            // Delete the duplicate records
-            Operation::whereIn('id', $idsToDelete)->delete();
-
-            $counter++;
-            echo "Processed duplicate group {$counter} of {$totalDuplicates}.\n";
+        try {
+            return Carbon::parse($v)->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
+            return null;
         }
-
-        echo "Duplicate removal complete.\n";
-
     }
-
-
 }

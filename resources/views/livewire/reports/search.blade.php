@@ -304,7 +304,8 @@
                                                             <tbody>
                                                                 @foreach ($files as $file)
                                                                     @php $exists = Storage::exists($file->path); @endphp
-                                                                    <tr wire:key="file-{{ $file->id }}">
+                                                                    <tr
+                                                                        wire:key="file-{{ $file->id }}-{{ $lists->note }}">
                                                                         <td class="text-center align-middle">
                                                                             <input
                                                                                 class="form-check-input border border-1 border-secondary"

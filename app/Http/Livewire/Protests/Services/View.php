@@ -47,7 +47,7 @@ class View extends Component
         'comment.string' => 'O comentário deve ser uma string.',
         'comment.min' => 'O comentário deve ter pelo menos 10 caracteres.',
         'conclusion.required' => 'O parecer final é obrigatório.',
-        'conclusion.min'     => 'O parecer final deve ter pelo menos 10 caracteres.',
+        'conclusion.min'     => 'O parecer final deve ter pelo menos caracteres.',
         'files.*.mimes' => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
         'files.*.max' => 'Cada arquivo não pode ter mais de 10MB.',
         'files.max' => 'Você pode anexar no máximo 5 arquivos de cada vez.',
@@ -96,6 +96,11 @@ class View extends Component
         $hasEvidence   = $this->medProtest->evidenceFiles()->count() > 0;
         $hasConclusion = mb_strlen(trim((string) $this->conclusion)) >= 10;
 
+        $this->validate([
+            'conclusion' => 'required|min:10',
+        ]);
+
+
         if ($needsEvidence && !$hasEvidence) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -134,10 +139,7 @@ class View extends Component
     public function finish()
     {
         // validações de segurança no servidor
-        $this->validate([
-            'conclusion' => 'required|min:10',
-        ]);
-
+        
         $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
         if ($needsEvidence && !$this->medProtest->evidenceFiles()->exists()) {
             $this->dispatchBrowserEvent('swal', [
@@ -186,14 +188,14 @@ class View extends Component
                     'statusSist'    => 'ENCERRADO',
                 ]);
 
-                // amarra outros assignments
-                $this->medProtest->Assignments()
-                    ->where('completed', false)
-                    ->update([
-                        'completed' => true,
-                        'ended_at'  => now(),
-                    ]);
             }
+
+            $this->medProtest->Assignments()
+                   ->where('completed', false)
+                   ->update([
+                       'completed' => true,
+                       'ended_at'  => now(),
+                   ]);
 
             // cria/atualiza o relatório técnico (hasOne)
             $this->medProtest->technicalReport()->updateOrCreate(

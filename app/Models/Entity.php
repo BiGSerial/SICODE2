@@ -39,5 +39,5 @@ class Entity extends Model
         return $this->hasMany(EntityContact::class);
     }
 
-    
+
 }

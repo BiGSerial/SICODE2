@@ -7,7 +7,7 @@
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Serviços</li>
                 <li class="breadcrumb-item" aria-current="page">{{ $service->service }}</li>
-                <li class="breadcrumb-item active" aria-current="page">STAUTUS 20</li>
+                <li class="breadcrumb-item active" aria-current="page">Aguardando Orgao Externo</li>
             </ol>
         </ol>
     </nav>
@@ -18,7 +18,7 @@
 @endsection
 
 @section('content')
-    @livewire('services.oexterno.main', ['service' => $service->uuid])
+    @livewire('services.oexterno.list-return-o-e', ['service' => $service->uuid])
 @endsection
 
 @push('script')

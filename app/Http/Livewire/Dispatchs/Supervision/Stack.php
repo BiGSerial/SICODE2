@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Dispatchs\Supervision;
 
+use App\Helpers\TextFormatter;
 use App\Models\Production;
 use App\Models\Service;
 use Livewire\Component;
@@ -11,6 +12,9 @@ use Livewire\WithPagination;
 class Stack extends Component
 {
     use WithPagination;
+
+    use TextFormatter;
+
     protected $paginationTheme = 'bootstrap';
 
     public $service;
@@ -18,6 +22,8 @@ class Stack extends Component
     public $selected = [];
     public $statusFilter = null;
     public $search = '';
+    public $advancedSearch;
+    public $multiSearch = [];
 
     protected $queryString = [
         'statusFilter' => ['except' => null],
@@ -36,9 +42,42 @@ class Stack extends Component
         $this->service = $service;
     }
 
+
+
+    public function updatedSearch()
+    {
+        if (!trim($this->search)) {
+            return;
+        }
+
+        $this->reset('statusFilter', 'page', 'multiSearch');
+        $this->advancedSearch = null;
+
+    }
+
+    public function buscarMulti()
+    {
+        if (!trim($this->advancedSearch)) {
+            return;
+        }
+
+        $this->reset('statusFilter', 'page');
+        $this->multiSearch = $this->formatTextToArray($this->advancedSearch);
+
+        if (count($this->multiSearch) > 0) {
+            $this->search = null;
+            $this->advancedSearch = null;
+
+            $this->dispatchBrowserEvent('hideModal');
+        }
+    }
+
     public function resetFilters()
     {
         $this->reset('statusFilter', 'search', 'page');
+        $this->multiSearch = [];
+        $this->advancedSearch = null;
+        $this->search = null;
     }
 
     public function baseQuery()
@@ -77,6 +116,21 @@ class Stack extends Component
                         ->orWhereHas('note.orders', function ($q) {
                             $q->where('ordem', 'like', '%' . $this->search . '%');
                         });
+                });
+            })
+            ->when(count($this->multiSearch) > 0, function ($q) {
+                $q->where(function ($q) {
+                    $q->whereHas('note', function ($query) {
+                        $query->whereIn('note', $this->multiSearch)
+                              ->orWhere('rubrica', $this->multiSearch)
+                              ->orWhere('lexp', $this->multiSearch);
+                    })
+                    ->orWhereHas('user', function ($q) {
+                        $q->whereIn('name', $this->multiSearch);
+                    })
+                    ->orWhereHas('note.orders', function ($q) {
+                        $q->whereIn('ordem', $this->multiSearch);
+                    });
                 });
             })
             ->when($this->statusFilter, function ($q) {

@@ -310,21 +310,29 @@ class SelectOptions
                 'reason' => 'Aguardando Pagamento',
                 'value'  => 'AGUARDANDO_PAGAMENTO',
                 'prefix' => 'APAGTO',
+                'color'  => 'warning',
+                'colorbg' => 'bg-warning text-dark',
             ],
             (object)[
                 'reason' => 'Aguardando Retorno do Orgão',
                 'value'  => 'AGUARDANDO_ORGAO',
                 'prefix' => 'AGURETORG',
+                'color'  => 'warning',
+                'colorbg' => 'bg-warning text-dark',
             ],
             (object)[
                 'reason' => 'Aguardando Taxa',
                 'value'  => 'AGUARDANDO_TAXA',
                 'prefix' => 'AGTAXA',
+                'color'  => 'warning',
+                'colorbg' => 'bg-warning text-dark',
             ],
             (object)[
                 'reason' => 'Indefinido',
                 'value'  => 'INDEFINIDO',
                 'prefix' => 'INDEF',
+                'color'  => 'secondary',
+                'colorbg' => 'bg-secondary text-white',
             ]
         ];
     }

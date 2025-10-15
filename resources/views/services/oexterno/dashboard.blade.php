@@ -7,7 +7,7 @@
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Serviços</li>
                 <li class="breadcrumb-item" aria-current="page">{{ $service->service }}</li>
-                <li class="breadcrumb-item active" aria-current="page">STAUTUS 20</li>
+                <li class="breadcrumb-item active" aria-current="page">Acompanhamento</li>
             </ol>
         </ol>
     </nav>
@@ -18,10 +18,37 @@
 @endsection
 
 @section('content')
-    @livewire('services.oexterno.main', ['service' => $service->uuid])
+    {{-- @livewire(, ['service' => $service->uuid]) --}}
+    @livewire('services.oexterno.dashboard', ['service' => $service->uuid])
 @endsection
 
 @push('script')
+    <script>
+        // Função para copiar texto para a área de transferência
+        function copyToClipboard(elementId) {
+            // Seleciona o conteúdo do elemento
+            var element = document.getElementById(elementId);
+            element.select();
+
+            // Copia o conteúdo para a área de transferência
+            document.execCommand('copy');
+        }
+
+        // Adiciona um ouvinte de eventos ao documento usando a delegação de eventos
+        document.addEventListener('click', function(event) {
+            // Verifica se o elemento clicado possui a classe .copyButton dentro do modal
+            if (event.target.classList.contains('copyButton')) {
+                // Obtém o ID do elemento
+                var textAreaId = event.target.getAttribute('data-id');
+
+                // Chama a função para copiar o texto
+                copyToClipboard(textAreaId);
+
+                // Exibe uma mensagem ou executa outra ação se necessário
+                Livewire.emit('getCopy', 'Texto Copiado para Memória.');
+            }
+        });
+    </script>
     <script>
         window.addEventListener('alertar', function(e) {
 
@@ -58,25 +85,5 @@
                 }
             })
         });
-    </script>
-
-    <script>
-        window.addEventListener('copyToBoard', function(e) {
-            copyToClipboard();
-        });
-
-
-
-        function copyToClipboard() {
-            const textToCopy = document.getElementById('clipboard-data').innerText;
-            const textarea = document.createElement('textarea');
-            textarea.textContent = textToCopy;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-
-
-        }
     </script>
 @endpush

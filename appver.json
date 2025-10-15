@@ -1,6 +1,11 @@
 {
-    "appver": "1.25.2",
+    "appver": "1.26.0",
     "historic": [
+        {
+            "version": "1.26.0",
+            "description": "Changed FLUX OE, pool payment and other major fixies in other areas",
+            "date": "2025-10-15"
+        },
         {
             "version": "1.25.2",
             "description": "Optmization, D5 Area, and bugFix",

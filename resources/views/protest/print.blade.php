@@ -245,7 +245,7 @@
                         <th>Data Início</th>
                         <th>Data Fim</th>
                         <th>Responsável</th>
-                        <th>Observações</th>
+                        {{-- <th>Observações</th> --}}
                     </tr>
                 </thead>
                 <tbody>
@@ -261,7 +261,7 @@
                                 <td>{{ $medida->dtCriacaoMedida->format('d/m/Y') }}</td>
                                 <td>{{ $medida->dtFimMedida?->format('d/m/Y') }}</td>
                                 <td>{{ $userResponsible ?? '---' }}</td>
-                                <td>Poste realmente danificado.</td>
+                                {{-- <td>Poste realmente danificado.</td> --}}
                             </tr>
                         @endforeach
 
@@ -300,17 +300,16 @@
             <!-- Resumo técnico -->
             <div class="section-title">Resumo Técnico</div>
             <div class="details-block" style="min-height: 64px;">
-                Após vistoria, foi confirmada a necessidade de substituição imediata do poste devido a risco à segurança
-                pública e interrupção do fornecimento. Todos os procedimentos seguiram as normas técnicas vigentes.
-                Serviço
-                executado sem intercorrências, com restabelecimento total do sistema.
+                {{ $medProtest->TechnicalReport->content ?? 'Sem Resumo Técnico' }}
+                <p> {{ $medProtest->TechnicalReport->created_at->format('d/m/Y H:i') ?? '' }}</p>
             </div>
 
             <!-- Assinaturas -->
             <div class="signature-block">
                 <div class="signature-field">
                     <div class="signature-line"></div>
-                    <div class="signature-label">Responsável Técnico</div>
+                    <div class="signature-label">{{ $medProtest->TechnicalReport->user->name ?? 'Sem Resumo Técnico' }}
+                    </div>
                 </div>
                 <div class="signature-field">
                     <div class="signature-line"></div>

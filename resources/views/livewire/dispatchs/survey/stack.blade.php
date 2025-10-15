@@ -11,7 +11,7 @@
     <div class="mb-4">
         <div class="row">
             <div class="col-md-8">
-                 {{-- Busca + Multi-busca --}}
+                {{-- Busca + Multi-busca --}}
                 <div class="hx-split flex-grow-1">
                     <div class="hx-floating flex-grow-1 position-relative">
                         <div class="input-group">
@@ -21,11 +21,12 @@
                                 <label for="searchInput">Buscar</label>
                             </div>
                             {{-- Botão para abrir modal multi-notas --}}
-                            <button type="button" class="btn btn-outline-secondary"
-                                data-bs-toggle="modal" data-bs-target="#multiSearchModal" title="Busca múltipla">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                                data-bs-target="#multiSearchModal" title="Busca múltipla">
                                 <i class="ri-checkbox-multiple-blank-line"></i>
                             </button>
-                            <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters" title="Limpar filtros">
+                            <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters"
+                                title="Limpar filtros">
                                 <i class="ri-filter-off-line"></i>
                             </button>
                         </div>
@@ -207,35 +208,42 @@
             </table>
         </div>
         {{ $lists->links() }}
+    @endif
 
-        {{-- END MODALS --}}
-        @livewire('audits.info')
-        @livewire('components.status.show-status', key('show_status_note'))
+    {{-- END MODALS --}}
+    {{-- @livewire('audits.info') --}}
+    @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('production.return.return-work', key('returnWorkfomr'))
 
-        {{-- ===================== Modal: Busca Multi-notas ===================== --}}
-        <div wire:ignore.self class="modal fade hx-ms" id="multiSearchModal" tabindex="-1"
-            aria-labelledby="multiSearchModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="multiSearchModalLabel">Busca Multi-notas</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                    </div>
-                    <textarea class="ms-textarea" rows="15" wire:model.defer="advancedSearch" wire:keydown.ctrl.enter="buscarMulti"
+    {{-- ===================== Modal: Busca Multi-notas ===================== --}}
+    <div wire:ignore.self class="modal fade" id="multiSearchModal" tabindex="-1"
+        aria-labelledby="multiSearchModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="multiSearchModalLabel">Busca Multi-notas</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <textarea class="form-control bg-dark text-white opacity-50 border-0 rounded-0" rows="15"
+                        wire:model.defer="advancedSearch" wire:keydown.ctrl.enter="buscarMulti"
                         placeholder="Cole aqui várias notas, uma por linha.&#10;Exemplo:&#10;123456&#10;987654&#10;ABC-2024-001"></textarea>
-                    <div class="modal-footer">
-                        <div class="hx-muted small me-auto">
-                            Dica: <span class="hx-kbd">Ctrl</span> + <span class="hx-kbd">Enter</span> para buscar.
-                        </div>
-                        <button type="button" class="ms-btn" wire:click="buscarMulti">
-                            <i class="ri-search-line me-1"></i> Buscar
-                        </button>
+                </div>
+                <div class="modal-footer text-bg-secondary">
+                    <div class="text-muted small me-auto text-white">
+                        Dica: <kbd class="bg-light text-dark">Ctrl</kbd> + <kbd class="bg-light text-dark">Enter</kbd>
+                        para buscar.
                     </div>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">
+                        <i class="ri-search-line me-1"></i> Buscar
+                    </button>
                 </div>
             </div>
         </div>
-    @endif
+    </div>
+    {{-- ===================== FIM Modal: Busca Multi-notas ===================== --}}
+
 
 
 </div>

@@ -56,6 +56,13 @@ class fixBaseDestiny extends Command
             $this->info("Updating OV: {$ov}");
 
             $origin = BaseOV::where('OV', $ov)->where('ultimoStatus', 1)->first();
+
+            if (!$origin) {
+                $this->info('OV não encontrada na base de origem. Impossível atualizar informação.');
+                return;
+            }
+
+
             $destiny = Note::where('note', $ov)->where('type_note', 2)->first();
 
             try {

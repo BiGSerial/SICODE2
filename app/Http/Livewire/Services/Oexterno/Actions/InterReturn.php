@@ -7,6 +7,7 @@ use App\Models\External;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\Subcategory;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -23,6 +24,8 @@ class InterReturn extends Component
     public $serviceSelected;
     public $production;
     public $theService;
+    public $userList;
+    public $userSelected;
 
     public $external;
 
@@ -44,12 +47,12 @@ class InterReturn extends Component
     public function continue()
     {
         $this->dispatchBrowserEvent('swal', [
-                   'position' => 'center',
-                   'icon'     => 'success',
-                   'title'    => 'RETORNO INTERNO',
-                   'html'      => 'OBRA ENVIADA AO RETORNO INTERNO COM SUCESSO.',
-                   'timer'    => 5000,
-               ]);
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'RETORNO INTERNO',
+                'html'      => 'OBRA ENVIADA AO RETORNO INTERNO COM SUCESSO.',
+                'timer'    => 5000,
+            ]);
 
         $this->closeAll();
     }
@@ -94,7 +97,17 @@ class InterReturn extends Component
 
     public function updatedServiceSelected($value)
     {
+        $this->userList = [];
+        $this->userSelected = null;
+
+        $this->userList = User::whereHas('ToServices', function ($query) use ($value) {
+            $query->where('service_id', $value)
+                     ->where('service', true);
+        })->orderBy(DB::raw('CONVERT(name USING ASCII)'))->get();
+
         $this->production = Production::where('service_id', $value)->where('note_id', $this->external->note_id)->where('completed', true)->with('service', 'user')->orderBy('id', 'DESC')->first();
+
+        $this->userSelected = $this->production ? $this->production->user_id : null;
     }
 
     public function openInternReturn(External $external)
@@ -135,16 +148,15 @@ class InterReturn extends Component
         ]);
 
         $this->dispatchBrowserEvent('alertar', [
-               'title'         => "Retorno Interno",
-               'msg'           => "Você deseja realmente enviar uma atividade interna?",
-               'icon'          => 'warning',
-               'btnOktxt'      => 'Sim, Enviar!',
-               'btnCanceltxt'  => 'Não, Cancelar',
-               'action'        => 'confirm_inter_return',
-               'cancel_titulo' => 'Cancelado!',
-               'cancel_msg'    => 'Nenhuma NOTA/OV foi encerrada!',
-
-           ]);
+            'title'         => "Retorno Interno",
+            'msg'           => "Você deseja realmente enviar uma atividade interna?",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Enviar!',
+            'btnCanceltxt'  => 'Não, Cancelar',
+            'action'        => 'confirm_inter_return',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma NOTA/OV foi encerrada!',
+        ]);
     }
 
     public function confirm_inter_return()
@@ -153,9 +165,9 @@ class InterReturn extends Component
 
         DB::beginTransaction();
 
-        $this->external->update([
-            'status' => 1,
-        ]);
+        // $this->external->update([
+        //     'status' => 1,
+        // ]);
 
         try {
 
@@ -173,38 +185,40 @@ class InterReturn extends Component
                     'comment'     => $this->observations,
                 ]);
 
-                $this->external->Reclaims()->attach($reclaim->id);
+                // $this->external->Reclaims()->attach($reclaim->id);
 
                 $reclaim->Comments()->create([
                     'user_id'     => auth()->user()->id,
-
                     'message'     => $this->observations,
                 ]);
 
 
-                if ($this->production && !$this->production->User->trashed()) {
-                    $production = Production::create([
-                        'service_id' => $this->serviceSelected,
-                        'note_id' => $this->external->note_id,
-                        'user_id' => $this->production->user_id,
-                        'company_id' => $this->production->User->company_id,
-                        'dispatch_by' => auth()->user()->id,
-                        'att_by' => auth()->user()->id,
-                        'dispatch_at' => now(),
-                        'att_at' => now(),
-                        'dt_note' => $this->external->note->dt_note,
-                        'dhstats' => $this->external->note->dt_note,
-                        'd5' => true,
-                        'status' => 2,
-                    ]);
+                if ($this->userSelected) {
+                    $user = User::find($this->userSelected);
 
-                    if ($production) {
-                        $reclaim->update([
-                            'production_id' => $production->id,
+                    if ($user) {
+                        $production = Production::create([
+                            'service_id' => $this->serviceSelected,
+                            'note_id' => $this->external->note_id,
+                            'user_id' =>  $user->id,
+                            'company_id' => $user->company_id,
+                            'dispatch_by' => auth()->user()->id,
+                            'att_by' => auth()->user()->id,
+                            'dispatch_at' => now(),
+                            'att_at' => now(),
+                            'dt_note' => $this->external->note->dt_note,
+                            'dhstats' => $this->external->note->dt_note,
+                            'd5' => true,
+                            'status' => 2,
                         ]);
+
+                        if ($production) {
+                            $reclaim->update([
+                                'production_id' => $production->id,
+                            ]);
+                        }
                     }
                 }
-
             }
 
 

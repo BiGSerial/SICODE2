@@ -1,4 +1,4 @@
-@extends('layouts.padrao_ext')
+@extends('layouts.padrao')
 
 @section('breadcrumb')
     <nav aria-label="breadcrumb" class="py-0 my-0">
@@ -10,6 +10,10 @@
             </ol>
         </ol>
     </nav>
+@endsection
+
+@section('menu')
+    @include('reports.menu')
 @endsection
 
 @section('content')

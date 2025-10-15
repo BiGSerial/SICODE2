@@ -43,4 +43,9 @@ class ReportsController extends Controller
     {
         return view('reports.equipments_search');
     }
+
+    public function historicRejectReports()
+    {
+        return view('reports.HistoricRejectReports');
+    }
 }

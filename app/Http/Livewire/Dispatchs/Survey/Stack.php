@@ -12,6 +12,7 @@ class Stack extends Component
     use WithPagination;
 
     use TextFormatter;
+
     protected $paginationTheme = 'bootstrap';
 
     public $service;

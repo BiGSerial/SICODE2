@@ -90,10 +90,15 @@ class View extends Component
 
     public function finishMedProtest()
     {
+
         // Validações rápidas de UX: antes de abrir o confirm
         $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
         $hasEvidence   = $this->medProtest->evidenceFiles()->count() > 0;
         $hasConclusion = mb_strlen(trim((string) $this->conclusion)) >= 10;
+
+        $this->validate([
+           'conclusion' => 'required|min:10',
+        ]);
 
         if ($needsEvidence && !$hasEvidence) {
             $this->dispatchBrowserEvent('swal', [

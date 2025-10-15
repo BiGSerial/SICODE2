@@ -38,6 +38,20 @@
                     'limit' => 300,
                 ],
             ],
+            [
+                'key' => 'rubrica',
+                'label' => 'Rubrica',
+                'type' => 'multi',
+                'provider' => [
+                    'type' => 'eloquent',
+                    'model' => \App\Models\Note::class,
+                    'value' => 'rubrica',
+                    'label' => 'rubrica',
+                    'distinct' => true,
+                    'orderBy' => ['rubrica' => 'asc'],
+                    'limit' => 300,
+                ],
+            ],
 
             // [
             //     'key' => 'search',
@@ -106,14 +120,14 @@
                                 wire:click="setSelectAll" @checked($this->checkAllSelect($lists))></th>
                         <th>Nota D5</th>
                         <th>Nota</th>
-
+                        <th>Rubrica</th>
                         {{-- <th>Cod</th> --}}
                         <th>Empreiteira</th>
                         <th>Motivo</th>
                         <th>Cod</th>
                         <th>Data Despacho</th>
                         <th>Em Atividade</th>
-
+                        <th>Status</th>
                         <th></th>
 
                     </tr>
@@ -125,6 +139,44 @@
                             $daysOverdue = $list->dispatch_at?->diffInDays();
                             $badgeClass = 'bg-success';
                             $badgeText = 'Dentro do prazo';
+
+                            $position = [
+                                'position' => '',
+                                'color' => '',
+                            ];
+
+                            if ($list->is_archived) {
+                                $position = [
+                                    'position' => 'Encerrado',
+                                    'color' => 'text-bg-success',
+                                ];
+                            } else {
+                                if ($list->is_payed) {
+                                    if ($list->is_completed) {
+                                        if ($list->is_supervisioned) {
+                                            $position = [
+                                                'position' => 'Aguardando Liberaçao Carta',
+                                                'color' => 'text-bg-primary',
+                                            ];
+                                        } else {
+                                            $position = [
+                                                'position' => 'Aguardando Supervisão',
+                                                'color' => 'text-bg-warning',
+                                            ];
+                                        }
+                                    } else {
+                                        $position = [
+                                            'position' => 'Aguardando Fornecedora',
+                                            'color' => 'text-bg-danger',
+                                        ];
+                                    }
+                                } else {
+                                    $position = [
+                                        'position' => 'Aguardando Despacho',
+                                        'color' => 'text-bg-secondary',
+                                    ];
+                                }
+                            }
 
                             if ($daysOverdue > 3 && $daysOverdue <= 5) {
                                 $badgeClass = 'bg-warning';
@@ -141,6 +193,7 @@
                             </td>
                             <td>{{ $list->note_d5 }}</td>
                             <td>{{ $list->note->note }}</td>
+                            <td>{{ $list->note->rubrica }}</td>
                             <td class="fw-bold">{{ $list->company?->name }}</td>
                             <td>{{ $list->reason }}</td>
                             <td>{{ $list->codify }}</td>
@@ -149,6 +202,11 @@
                                 <span class="badge {{ $badgeClass }}">
                                     <i class="ri-time-line me-1"></i> {{ $list->dispatch_at?->diffInDays() }} dias
 
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {{ $position['color'] }}">
+                                    {{ $position['position'] }}
                                 </span>
                             </td>
 

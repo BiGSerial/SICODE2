@@ -55,6 +55,7 @@
                         <th scope="col">Nota/OV</th>
                         <th scope="col">Ordem</th>
                         <th scope="col">Rubrica</th>
+                        <th scope="col">Valor</th>
                         <th scope="col">Empreiteira</th>
                         <th scope="col">Dta Envio</th>
                         <th scope="col">Dt Aprovação</th>
@@ -81,6 +82,7 @@
                                 @endif
                             </td>
                             <td class="fw-bold">{{ $list->Note->rubrica }}</td>
+                            <td class="fw-bold">R$ {{ number_format($list->value, 2, ',', '.') }}</td>
                             @php
                                 $company = $list->Company ? $list->Company->name : 'Desconhecido';
                             @endphp

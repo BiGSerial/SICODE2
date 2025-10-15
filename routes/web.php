@@ -74,7 +74,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     });
 });
 
-Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')   ->group(function () {
+Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
@@ -88,6 +88,14 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
         Route::get('/list', 'protests_list')->name('list');
         Route::get('/closed', 'protests_closed')->name('closed');
         Route::get('/view/{protest}', 'protests_view')->name('view');
+    });
+
+    Route::prefix('/externo')->name('oexterno.')->group(function () {
+        Route::get('/undefined', 'oexterno_undefined')->name('undefined');
+        Route::get('/waiting_payment', 'oexterno_waiting_payment')->name('waiting_payment');
+        Route::get('/waiting_orgao', 'oexterno_waiting_orgao')->name('waiting_orgao');
+        Route::get('/waiting_taxa', 'oexterno_waiting_taxa')->name('waiting_taxa');
+        Route::get('/dashboard', 'oexterno_dashboard')->name('dashboard')->middleware('can:management');
     });
 
 });
@@ -134,6 +142,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
     Route::get('/equipments', 'equipments')->name('equipments');
+    Route::get('/historic_reject_reports', 'historicRejectReports')->name('historicRejectReports');
 });
 
 

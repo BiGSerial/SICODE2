@@ -162,7 +162,7 @@ class AddEntityProtocol extends Component
             $this->external->note_id = $this->note->id;
             $this->external->user_id = auth()->user()->id;
             $this->external->entidade = $entidade;
-            $this->external->status = 0;
+            $this->external->status = $this->title;
 
             if ($this->external->save()) {
 

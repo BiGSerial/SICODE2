@@ -9,7 +9,7 @@ return new class () extends Migration {
      * Run the migrations.
      */
     public function up(): void
-    {       
+    {
 
         Schema::create('external_poolpayments', function (Blueprint $table) {
             $table->id();
@@ -18,6 +18,17 @@ return new class () extends Migration {
             $table->foreignId('external_id')
                 ->constrained('externals')
                 ->onDelete('cascade');
+
+            $table->foreignId('note_id')
+                ->nullable()
+                ->constrained('notes') 
+                ->nullOnDelete();
+
+            $table->foreignUuid('user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete()
+                ->comment('Usuário que criou o registro');
 
             // Identificadores primários do Pool / Pedido
             $table->unsignedBigInteger('pool_id')->nullable()->comment('ID da Solicitação / PoolId');

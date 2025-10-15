@@ -98,4 +98,52 @@ class ServicesController extends Controller
             'service' => $service,
         ]);
     }
+
+
+
+    // Orgao Externo
+    public function oexterno_undefined(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.undefined', [
+            'service' => $service,
+        ]);
+    }
+
+    public function oexterno_waiting_payment(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.waitingPayment', [
+            'service' => $service,
+        ]);
+    }
+
+    public function oexterno_waiting_orgao(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.waitingOE', [
+            'service' => $service,
+        ]);
+    }
+
+    public function oexterno_waiting_taxa(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.waitingTax', [
+            'service' => $service,
+        ]);
+    }
+
+    public function oexterno_dashboard(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.dashboard', [
+            'service' => $service,
+        ]);
+    }
 }
