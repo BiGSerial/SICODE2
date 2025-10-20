@@ -14,7 +14,6 @@
         "laravel/framework": "^10.10",
         "laravel/prompts": "^0.1.16",
         "laravel/sanctum": "^3.2",
-        "laravel/telescope": "^5.11",
         "laravel/tinker": "^2.8",
         "laravel/ui": "^4.2",
         "livewire/livewire": "^2.12",

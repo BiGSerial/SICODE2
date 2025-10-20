@@ -179,12 +179,7 @@
                                 $reason = $e['reason'];
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
-                                $partial = false;
-                                if ($list->Partials->count()) {
-                                    if ($list->Partials->last()->allow && !$list->Partials->last()->supervision) {
-                                        $partial = true;
-                                    }
-                                }
+                                $partial = $e['isPartial'];
                             @endphp
 
 
