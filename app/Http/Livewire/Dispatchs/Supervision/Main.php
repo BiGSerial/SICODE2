@@ -1102,6 +1102,10 @@ class Main extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
+        // if ($this->filter) {
+        //     dd($this->filter);
+        // }
+
 
         $query = $this->supervisionRepository->getBaseQuery();
 
@@ -1163,10 +1167,8 @@ class Main extends Component
 
         if (isset($this->filter['city'])) {
 
-            $query->where(function ($q) {
-                return $q->orWhereIn('lexp', $this->filter['city'])
-                    ->orWhereNull('lexp')
-                    ->orWhere('lexp', '');
+            $query->whereRelation('City', function ($q) {
+                $q->whereIn('rdMunicipio', $this->filter['city']);
             });
         }
 

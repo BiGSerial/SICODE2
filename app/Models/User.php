@@ -6,9 +6,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -29,6 +32,7 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
+        'manager_id',
         'name',
         'Registration',
         'email',
@@ -134,6 +138,67 @@ class User extends Authenticatable
         return $this->hasOne(ProtestUser::class);
     }
 
-    // Readeable Messages
+    /* -------------------
+       Relações de chefia
+    --------------------*/
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(User::class, 'manager_id');
+    }
+
+    /* -------------------
+       Delegações
+    --------------------*/
+
+    public function delegationsGiven(): HasMany
+    {
+        // Sou o titular (principal)
+        return $this->hasMany(UserDelegation::class, 'principal_id');
+    }
+
+    public function delegationsReceived(): HasMany
+    {
+        // Sou o delegado
+        return $this->hasMany(UserDelegation::class, 'delegate_id');
+    }
+
+    /* -----------------------------------------
+      Helpers de hierarquia (consultas prontas)
+    ------------------------------------------*/
+
+    /**
+     * Descendentes (Users) "abaixo" deste usuário (inclui ele mesmo se $includeSelf = true).
+     */
+    public function descendantsQuery(bool $includeSelf = true)
+    {
+        $q = static::query()
+            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
+            ->where('uc.ancestor_id', $this->id);
+
+        if (!$includeSelf) {
+            $q->where('uc.depth', '>', 0);
+        }
+
+        return $q->select('users.*')->distinct();
+    }
+
+    /**
+     * Verifica rapidamente se ESTE usuário pode ver $targetUserId agora
+     * (considerando closure + delegações).
+     */
+    public function canSeeUser(string $targetUserId): bool
+    {
+        return DB::table('user_visibility_current')
+            ->where('viewer_id', $this->id)
+            ->where('descendant_id', $targetUserId)
+            ->exists();
+    }
+
 
 }

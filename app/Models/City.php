@@ -25,4 +25,14 @@ class City extends Model
         'codIbge',
         'centroHana',
     ];
+
+    public function Notes()
+    {
+        return $this->hasMany(Note::class, 'nexp', 'rdMunicipio');
+    }
+
+    public function Protests()
+    {
+        return $this->hasMany(Protest::class, 'cidade', 'cidade');
+    }
 }

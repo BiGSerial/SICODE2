@@ -59,6 +59,16 @@ class Protest extends Model
         return $this->morphMany(UserAssignment::class, 'assignable');
     }
 
+    public function City()
+    {
+        return $this->belongsTo(City::class, 'cidade', 'cidade');
+    }
+
+
+
+
+
+
     public function evidenceFiles(): HasManyThrough
     {
         return $this->hasManyThrough(

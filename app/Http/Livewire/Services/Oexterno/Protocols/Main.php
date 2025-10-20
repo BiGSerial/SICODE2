@@ -38,7 +38,7 @@ class Main extends Component
         'currentExternal.status' => 'required|string|max:191',
     ];
 
-    // TODO: Verificar o motivo de Reclaims estar duplicado.
+    
     public function mount()
     {
         $this->note = Note::where('note', request()->route('note'))

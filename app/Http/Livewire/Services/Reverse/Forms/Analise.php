@@ -55,7 +55,7 @@ class Analise extends Component
 
     public $reserva;
 
-    public $limit_pause = 50;
+    public $limit_pause = 1000;
 
     public $production;
 
