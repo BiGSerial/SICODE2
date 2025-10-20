@@ -23,4 +23,11 @@ class AdminController extends Controller
     {
         return view('admin.category.main');
     }
+
+
+    // User Hierarchy View
+    public function user_hierarchy()
+    {
+        return view('admin.users.hierarchy');
+    }
 }
