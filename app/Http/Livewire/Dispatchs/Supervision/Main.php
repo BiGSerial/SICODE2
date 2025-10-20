@@ -588,12 +588,9 @@ class Main extends Component
 
             foreach ($this->notes as $key => $note) {
 
-                if ($note->Partials->isNotEmpty() && $note->Partials->last()->allow && !$note->Partials->last()->supervision) {
-                    $partial = 1;
+                $block = $this->needBlock($note);
 
-                } else {
-                    $partial = 0;
-                }
+                $partial = $block['isPartial'] ? true : false;
 
 
                 if ($note->FiveNote && $note->FiveNote->is_completed && !$note->FiveNote->is_supervisioned) {
@@ -606,7 +603,7 @@ class Main extends Component
 
 
 
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('completed', false)->first()) {
+                if ($erro = $block['command']) {
                     $production = Production::create([
                         'note_id' => $note->id,
                         'service_id' => $this->service->uuid,
@@ -675,12 +672,9 @@ class Main extends Component
         } else {
             foreach ($this->notes as $key => $note) {
 
-                if ($note->Partials && $note->Partials->last()->allow && !$note->Partials->last()->supervision) {
-                    $partial = 1;
+                $block = $this->needBlock($note);
 
-                } else {
-                    $partial = 0;
-                }
+                $partial = $block['isPartial'] ? true : false;
 
                 if ($note->FiveNote && $note->FiveNote->is_completed && !$note->FiveNote->is_supervisioned) {
                     $dfive = true;
@@ -689,7 +683,7 @@ class Main extends Component
                 }
 
 
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
+                if ($erro = $block['command']) {
                     $production = Production::create([
                         'note_id' => $note->id,
                         'service_id' => $this->service->uuid,
@@ -723,7 +717,7 @@ class Main extends Component
                     }
                 } else {
                     $erros[] = $erro;
-                    $erros[] = $erro;
+
                     $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon' => 'warning',
@@ -1176,7 +1170,8 @@ class Main extends Component
             $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
         },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
-            ->orderBy('work_dt_created', 'ASC');
+            ->orderBy('work_dt_created', 'ASC')
+            ->orderBy('id', 'ASC');
 
         return $query;
     }

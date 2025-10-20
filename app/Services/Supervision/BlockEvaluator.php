@@ -28,6 +28,8 @@ class BlockEvaluator
         $five    = $note->FiveNote;                 // prioridade quando completed=true e is_supervisioned=false
         $wf      = $note->WorkForm;                 // WorkReport
         $partial = $note->Partials?->last();        // você usa sempre o último nas telas
+
+
         $validPartial = $note->Partials
             ?->where('allow', true)->where('supervision', false)->where('deny', false)->sortBy('created_at')->last();
 
@@ -39,7 +41,7 @@ class BlockEvaluator
             }
             // Partial válido mais recente? Livre.
             if ($validPartial) {
-                return $this->res(self::FREE, true, 'partial_valido_sem_producao');
+                return $this->res(self::FREE, true, 'partial_valido_sem_producao', null, true);
             }
             // FiveNote completed & !is_supervisioned? Livre (não há produção aberta)
             if ($five && ($five->completed ?? false) && !($five->is_supervisioned ?? false)) {
@@ -119,17 +121,17 @@ class BlockEvaluator
         elseif ($validPartial) {
             // Produção aberta sempre bloqueia azul
             if (!$prod->completed) {
-                return $this->res(self::HOLD_BLUE, false, 'partial_producao_aberta', $prod);
+                return $this->res(self::HOLD_BLUE, false, 'partial_producao_aberta', $prod, true);
             }
 
             // Se o partial válido for mais recente do que completed_at OU (se não houver) created_at da produção => LIBERA
             $prodMark = $prod->completed_at ?? $prod->created_at;
             if ($validPartial->created_at > $prodMark) {
-                return $this->res(self::FREE, true, 'partial_posterior_a_producao_fechada', $prod);
+                return $this->res(self::FREE, true, 'partial_posterior_a_producao_fechada', $prod, true);
             }
 
             // Partial mais antigo que a produção fechada => vermelho (não refletiu no SAP)
-            return $this->res(self::HOLD_RED, false, 'partial_anterior_a_producao_fechada', $prod);
+            return $this->res(self::HOLD_RED, false, 'partial_anterior_a_producao_fechada', $prod, true);
         }
 
         // ===== 4) FALLBACK: comparação SAP (dt_note==dt_status && status_note==nstats => ainda não executou no SAP)
@@ -174,7 +176,7 @@ class BlockEvaluator
             ->first();
     }
 
-    private function res(int $block, bool $command, string $reason, ?Production $prod = null): array
+    private function res(int $block, bool $command, string $reason, ?Production $prod = null, bool $isPartial = false): array
     {
         return [
             'block'      => $block,
@@ -182,6 +184,7 @@ class BlockEvaluator
             'color'      => $this->colorFor($block),
             'reason'     => $reason,
             'production' => $prod,
+            'isPartial'  => $isPartial,
         ];
     }
 
