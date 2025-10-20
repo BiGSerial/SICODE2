@@ -4,8 +4,10 @@ namespace App\Http\Livewire\Services\Supervision;
 
 use App\Exports\ProductionServiceExport;
 use App\Models\{File, Production, Service, User};
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
-use Livewire\{Component, WithPagination};
+use Livewire\Component;
+use Livewire\WithPagination;
 
 class Main extends Component
 {
@@ -13,33 +15,22 @@ class Main extends Component
 
     protected $paginationTheme = 'bootstrap';
 
-    public $service;
-
-    public $perPage = 100;
-
+    public $service;           // Service (objeto)
+    public $perPage = 30;
     public $search;
 
     public $rubrica_s = [];
-
-    public $rubrica_l;
-
     public $limit_pause = 50;
 
-    public $user_l;
-
-    public $user_s;
-
-    public $user_search;
+    public $user_l;            // lista de usuários p/ filtro
+    public $user_s;            // usuário selecionado
+    public $user_search;       // busca do usuário
 
     public $analise;
 
-    public $production;
-
-    public $note;
-
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
-        'refresh_list'   => '$refresh',
+        'refresh_list'       => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
         'checkOpen',
@@ -47,16 +38,20 @@ class Main extends Component
 
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->first();
-    }
-
-    public function visualizar()
-    {
+        // Carrega o serviço e traz apenas os status úteis (sem exclusão)
+        $this->service = Service::where('uuid', $service)
+            ->with(['Status' => function ($q) {
+                $q->where('exclusion', false)->select('service_id', 'value');
+            }])
+            ->firstOrFail();
     }
 
     public function export_excel()
     {
-        return (new ProductionServiceExport($this->lists->get()))->download(date('YmdHis-') . 'production_services.xlsx');
+        // Reaproveita a mesma query (sem paginação)
+        $rows = $this->baseQuery()->get();
+        return (new ProductionServiceExport($rows))
+            ->download(now()->format('YmdHis-') . 'production_services.xlsx');
     }
 
     public function goTransferProd($prod_id)
@@ -74,148 +69,176 @@ class Main extends Component
 
     public function checkOpen()
     {
-
-        $check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first();
+        $check = Production::where('service_id', $this->service->uuid)
+            ->where('user_id', auth()->id())
+            ->where('status', 3) // em atividade
+            ->select('id', 'note_id', 'status')
+            ->first();
 
         if ($check) {
-
-            // $this->emit('open_analise_lev', ['productionId' => $check->id, 'noteId' => $check->note_id]);
-
-            // $this->dispatchBrowserEvent('showModal', [
-            //     'id' => 'analise_form',
-            // ]);
-
             $this->emitTo('services.supervision.forms.jobform', 'showProduction', $check);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'info',
                 'title'    => 'NOTA AINDA EM ATIVIDADE',
-                'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA. \n
+                'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA.
                     <p class='text-bg-light mt-2 p-2'>
-                        É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada.
-                    </p>
-                ",
+                        É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação adequada.
+                    </p>",
             ]);
         }
     }
 
     public function go_to_analise()
-    {
-        // $this->emit('open_analise_lev', $this->analise);
-        // $this->dispatchBrowserEvent('showModal', [
-        //     'id' => 'analise_form',
-        // ]);
+    { /* opcional */
     }
 
     public function getAnalise($production, $note)
     {
         $this->analise = ['productionId' => $production, 'noteId' => $note];
 
-        if ($this->limit_pause === Production::Where('status', 4)->Where('service_id', $this->service->uuid)->Where('user_id', Auth()->User()->id)->count() && (Production::find($production))->status != 4) {
+        $pausedCount = Production::where('status', 4)
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', auth()->id())
+            ->count();
+
+        $isThisPaused = optional(Production::select('status')->find($production))->status === 4;
+
+        if ($pausedCount >= $this->limit_pause && !$isThisPaused) {
             $this->dispatchBrowserEvent('alertar', [
                 'title'         => 'AVISO DE LIMITE DE PAUSA',
-                'msg'           => "Você ja atingiu o limite de pausa neste serviço, ao iniciar esta nota, você não poderá colocar esta NOTA/OV em espera. \n Tem certeza que deseja continuar?",
+                'msg'           => "Você já atingiu o limite de pausa neste serviço. Ao iniciar esta nota, você não poderá colocá-la em espera. Continuar?",
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Continue!',
                 'btnCanceltxt'  => 'Não, Cancele',
                 'action'        => 'confirm_getAnalise',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Ação Cancelada.',
-
+                'cancel_msg'    => 'Ação cancelada.',
             ]);
         } else {
             $this->emit('open_analise_lev', $this->analise);
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
+            $this->dispatchBrowserEvent('showModal', ['id' => 'analise_form']);
         }
     }
 
     public function blockWaiting($status)
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['waitingForm']) && $status != 27) {
-            return true;
-        } else {
-            return false;
-        }
+        // Sem session_start(); use helper nativo
+        $waitingForm = session('waitingForm');
+        return $waitingForm && (int)$status !== 27;
     }
 
     public function filter_save()
     {
-        // session()->put('filtro', $this->rubrica_s);
-        // session_start();
-        // $_SESSION['filtro'] = $this->rubrica_s;
         $this->emit('refresh_service');
     }
 
     public function filter_clean()
     {
         $this->rubrica_s = [];
-
-        // session_start();
-        // if (isset($_SESSION['filtro'])) {
-        //     unset($_SESSION['filtro']);
-        // }
-
         $this->emit('refresh_service');
     }
 
     public function downloadFile($id)
     {
-        if ($file = File::find($id)) {
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'ARQUIVO INEXISTENTE!',
-                    'timer'    => 5000,
-                ]);
-
-                return;
-            }
+        if (!$file = File::select('path', 'file_name')->find($id)) {
+            return;
         }
+
+        if (Storage::disk('local')->exists($file->path)) {
+            return Storage::download($file->path, $file->file_name);
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'ARQUIVO INEXISTENTE!',
+            'timer'    => 5000,
+        ]);
     }
 
-    public function getListsProperty()
+    /**
+     * Query base (MariaDB).
+     * - Calcula dias no SQL com DATEDIFF(CURDATE(), ...).
+     * - Faz LEFT JOIN em work_forms para acessar informed_at.
+     */
+    protected function baseQuery(): Builder
     {
+        // Cálculos (MariaDB)
+        $daysAssignedExpr = "DATEDIFF(CURDATE(), productions.att_at)";
+        $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), work_reports.informed_at), 0)";
 
-        // Obtém a lista de usuários baseada no critério de busca, se fornecido
-        $this->user_l = User::when($this->user_search, function ($query) {
-            return $query->where('name', 'like', '%' . $this->user_search . '%');
-        })->orderBy('name')->get();
+        return Production::query()
+                    ->with([
+                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status',
+                // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
+                'Note.WorkForm:id,note_id,informed_at,rejected',
+                // belongsToMany via order_work_report: NÃO existe work_form_id em orders
+                'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
+                'Note.OldAds:id,note_id',
+                'Note.Adsform:id,note_id',
+                'Wpas:id,production_id,dd,created_at',
+                'Note.Files:id,note_id,file_name,path,ext',
+            ])
 
-        // Obtém a lista de produções com os filtros e relações especificados
-        return Production::with('Note.WorkForm', 'Note.Partials')
-            ->leftjoin('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
+            // JOIN necessário para created_at e days_left
+            ->leftJoin('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
+
             ->where('productions.service_id', $this->service->uuid)
-            ->when($this->user_s, function ($query) {
-                return $query->where('productions.user_id', $this->user_s);
-            }, function ($query) {
-                return $query->where('productions.user_id', Auth()->user()->id);
-            })
+            ->when(
+                $this->user_s,
+                fn ($q) => $q->where('productions.user_id', $this->user_s),
+                fn ($q) => $q->where('productions.user_id', auth()->id())
+            )
             ->where('productions.completed', false)
-            ->when($this->search, function ($query, $search) {
-                return $query->whereRelation('Note', 'note', 'like', '%' . $search . '%')
-                    ->orWhereRelation('Note', 'material', 'like', '%' . $search . '%');
+
+            ->when($this->search, function (Builder $q, $search) {
+                $q->where(function (Builder $sub) use ($search) {
+                    $sub->whereRelation('Note', 'note', 'like', "%{$search}%")
+                        ->orWhereRelation('Note', 'material', 'like', "%{$search}%");
+                });
             })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
-            ->orderBy('priority', 'DESC')
-            ->orderBy('partial', 'DESC')
+
+            ->orderByDesc('priority')
+            ->orderByDesc('partial')
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('att_at', 'DESC')
             ->orderBy('status', 'ASC')
-            ->select('productions.*', 'work_reports.created_at as work_dt_created');
+
+            ->select([
+                'productions.id',
+                'productions.service_id',
+                'productions.user_id',
+                'productions.note_id',
+                'productions.status',
+                'productions.priority',
+                'productions.partial',
+                'productions.dfive',
+                'productions.block',
+                'productions.block_wpa',
+                'productions.completed',
+                'productions.att_at',
+                'productions.transferred',
+                'work_reports.created_at as work_dt_created',
+            ])
+            ->selectRaw("$daysAssignedExpr as days_assigned")
+            ->selectRaw("$daysLeftExpr as days_left");
+    }
+
+
+
+    public function getListsProperty()
+    {
+        // Lista de usuários p/ filtro (somente o que é necessário)
+        $this->user_l = User::select('id', 'name')
+            ->when($this->user_search, fn ($q) =>
+                $q->where('name', 'like', '%' . $this->user_search . '%'))
+            ->orderBy('name')
+            ->get();
+
+        // Retorna a query base (sem paginate)
+        return $this->baseQuery();
     }
 
     public function render()

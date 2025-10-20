@@ -1,113 +1,83 @@
 @php
-    use Carbon\Carbon;
     use App\Custom\Notestatus;
-
 @endphp
+
 <div>
-    {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
     <div class="row justify-content-between">
         <div class="mb-3 col-3">
             <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
-                id="search" placeholder="Buscar">
+            <input wire:model.debounce.500ms="search" type="text" class="form-control border border-2 border-secondary"
+                id="search" placeholder="Buscar por Nota ou Material">
         </div>
+
         <div class="mb-3">
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
+                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1"
+                    id="nt1">
+                <label class="form-check-label" for="nt1">Nota</label>
             </div>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
+                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2"
+                    id="nt2">
+                <label class="form-check-label" for="nt2">OV</label>
             </div>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
+                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value=""
+                    id="nt3">
+                <label class="form-check-label" for="nt3">Ambos</label>
             </div>
         </div>
-        {{-- <div class="btn-group mb-3">
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                        Aplicar Filtro</button>
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_clean"><i
-                            class="ri-filter-off-fill"></i> Limpar Filtro</button>
-
-                </div>
-            </div>
-        </div> --}}
     </div>
-
-
 
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
             <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
                 type="button" role="tab" aria-controls="nav-home" aria-selected="true"
-                wire:click.prevent="$emit('refresh_accomany')">Produção</button>
+                wire:click.prevent="$emit('refresh_accomany')">
+                Produção
+            </button>
+
             <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
                 type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
-                wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
-
+                wire:click.prevent="$emit('refresh_translist')">
+                Transferências
+                @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))
+            </button>
         </div>
     </nav>
+
+    @php
+        $serviceTitle = mb_strtoupper($service->service);
+        $statusBadges = $service->Status->unique('value')->pluck('value')->implode(') (');
+    @endphp
 
     <div class="tab-content" id="nav-tabContent">
         <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
             tabindex="0">
+
             @if ($lists->count())
                 <div class="row">
                     <div class="col-6">
                         {{ $lists->links() }}
                     </div>
                     <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
+                        <span class="align-middle">
+                            Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }}
+                            registros.
+                        </span>
                     </div>
                 </div>
             @endif
-            <dic class="card">
 
+            <div class="card">
                 @if (!$lists->count())
                     <div class="card-body">
-                        <h4 class="text-center">VOCÊ NAO TEM TAREFA ATRIBUÍDA
-                            <strong>{{ mb_strtoupper($service->service) }}</strong>
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
+                        <h4 class="text-center">
+                            VOCÊ NÃO TEM TAREFA ATRIBUÍDA <strong>{{ $serviceTitle }}</strong>
+                            @if ($statusBadges)
+                                ({{ $statusBadges }})
                             @endif
                         </h4>
                     </div>
@@ -115,302 +85,218 @@
                     <div class="card-header text-bg-danger">
                         <div class="row">
                             <div class="col">
-                                <h4 class="my-0">ACOMPANHAMENTO -
-                                    {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
-                                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                            ({{ $sts->value }})
-                                        @endforeach
+                                <h4 class="my-0">
+                                    ACOMPANHAMENTO - {{ $serviceTitle }}
+                                    @if ($statusBadges)
+                                        ({{ $statusBadges }})
                                     @endif
                                 </h4>
                             </div>
                             <div class="col-4 d-flex justify-content-end">
-                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                        class="ri-file-excel-2-line"></i> Exportar</button>
+                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'>
+                                    <i class="ri-file-excel-2-line"></i> Exportar
+                                </button>
                             </div>
                         </div>
                     </div>
-
 
                     <div class="table-responsive">
                         <table class="table table-sm table-striped table-condensed">
                             <thead class="table-dark">
                                 <tr class="text-center align-middle">
-                                    <th scope="col" class="fw-bold">Tipo</th>
-                                    <th scope="col" class="fw-bold">Note</th>
-                                    <th scope="col" class="fw-bold">Ordens</th>
-                                    <th scope="col" class="fw-bold">DD</th>
-                                    <th scope="col" class="fw-bold">Files</th>
-                                    <th scope="col" class="fw-bold">MMGD</th>
-                                    <th scope="col" class="fw-bold">ADS</th>
-                                    <th scope="col" class="fw-bold">Postes</th>
-                                    {{-- <th scope="col" class="fw-bold">Grupo2</th> --}}
-                                    {{-- <th scope="col" class="fw-bold">Grupo5</th> --}}
-                                    <th scope="col" class="fw-bold">Rubrica</th>
-                                    <th scope="col" class="fw-bold">Municipio</th>
-                                    {{-- <th scope="col" class="fw-bold">Zona</th> --}}
-                                    <th scope="col" class="fw-bold">Descrição</th>
-                                    <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                    <th scope="col" class="fw-bold">Dias Informe</th>
-                                    <th scope="col" class="fw-bold">Status</th>
-                                    <th scope="col" class="fw-bold"></th>
+                                    <th>Tipo</th>
+                                    <th>Note</th>
+                                    <th>Ordens</th>
+                                    <th>DD</th>
+                                    <th>Files</th>
+                                    <th>MMGD</th>
+                                    <th>ADS</th>
+                                    <th>Postes</th>
+                                    <th>Rubrica</th>
+                                    <th>Municipio</th>
+                                    <th>Descrição</th>
+                                    <th>Dias Atribuido</th>
+                                    <th>Dias Informe</th>
+                                    <th>Status</th>
+                                    <th></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="table-body" class="align-middle text-center">
                                 @foreach ($lists as $list)
                                     @php
+                                        $note = $list->Note;
+                                        $workForm = $note->WorkForm;
+                                        $formBlock = $workForm ? (bool) $workForm->rejected : false;
 
-                                        $dateForm = $list->Note->WorkForm ? $list->Note->WorkForm->informed_at : null;
+                                        $dfive = $list->dfive ? optional($note->FiveNote) : null;
+                                        $colorCell = $list->partial ? 'table-warning' : 'table-success';
+                                        $rowWarn = $list->priority
+                                            ? 'table-danger'
+                                            : ($formBlock
+                                                ? 'table-warning text-danger'
+                                                : '');
+                                        $daysLeft = (int) $list->days_left; // vindo do SQL
+                                        $daysAss = (int) $list->days_assigned; // vindo do SQL
 
-                                        $formBlock = $list->Note->WorkForm ? $list->Note->WorkForm->rejected : false;
-
-                                        if ($list->dfive) {
-                                            $dfive = $list->note->FiveNote;
-                                        } else {
-                                            $dfive = null;
-                                        }
-
-                                        if ($dateForm) {
-                                            $daysLeft = Carbon::parse($dateForm)->diffInDays(Carbon::now(), false);
-                                        } else {
-                                            $daysLeft = 0;
-                                        }
-
+                                        $lastWpa = $list->Wpas->last(); // 1 item (latest()->limit(1))
+                                        $hasOld = $note->OldAds && $note->OldAds->isNotEmpty();
+                                        $hasNew = (bool) $note->Adsform;
                                     @endphp
-                                    <tr wire:key='{{ $list->id }}'
-                                        @if ($list->Note->WorkForm) wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm->id }})"
-                                        @elseif ($list->partial)
-                                        wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->Note->Partials->last() }})" @endif
-                                        class="align-middle text-center @if ($list->priority) table-danger @elseif ($formBlock) table-warning text-danger @endif"
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover"
-                                        data-bs-placement="left"
-                                        data-bs-content="Duplo Clique para mais informações.">
-                                        @php
-                                            if ($list->partial) {
-                                                $colorCell = 'table-warning';
-                                            } else {
-                                                $colorCell = 'table-success';
-                                            }
-                                        @endphp
+
+                                    <tr wire:key='prod-{{ $list->id }}'
+                                        @if ($workForm) wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm->id }})"
+                                        @elseif ($list->partial && $note->Partials && $note->Partials->isNotEmpty())
+                                            wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $note->Partials->last() }})" @endif
+                                        class="{{ $rowWarn }}">
+
                                         <td class="{{ $colorCell }} fw-bold">
                                             {{ $list->partial ? 'Parcial' : 'Final' }}
                                         </td>
-                                        <td
-                                            class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
+                                        <td class="@if ($list->priority) text-danger fw-bold @endif">
                                             @if ($dfive?->is_completed && !$dfive?->is_supervisioned)
-                                                <span class="badge text-bg-success fs-6"
-                                                    wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->Note->FiveNote->id }})"
-                                                    style="cursor: pointer;">D5
-                                                    {{ $list->Note->note }}</span>
+                                                <span class="badge text-bg-success fs-6 copy-text"
+                                                    data-value="{{ $note->note }}" style="cursor:pointer;"
+                                                    wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $note->FiveNote->id }})">
+                                                    D5 {{ $note->note }}
+                                                </span>
                                             @else
-                                                {{ $list->Note->note }}
+                                                <span class="copy-text" data-value="{{ $note->note }}"
+                                                    style="cursor:pointer;">
+                                                    {{ $note->note }}
+                                                </span>
                                             @endif
-                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-content="Copiar Número da Nota"> <i
-                                                    class="ri-file-copy-line"></i></span>
+                                            <i class="ri-file-copy-line ms-1 copy-text"
+                                                data-value="{{ $note->note }}" style="cursor:pointer;"></i>
 
                                             @if ($list->priority)
-                                                <i class="ri-alert-fill align-middle"
+                                                <i class="ri-alert-fill align-middle ms-2"
                                                     wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                    style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-title="Exibir Prioridade"
-                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                                    style="cursor:pointer;">
+                                                </i>
                                             @endif
                                         </td>
-                                        <td
-                                            class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                            @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->isNotEmpty())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
+
+                                        <td class="@if ($list->priority) text-danger fw-bold @endif">
+                                            @if ($workForm && $workForm->Orders && $workForm->Orders->isNotEmpty())
+                                                @foreach ($workForm->Orders as $order)
                                                     <p class="py-0 my-0">{{ $order->ordem }}</p>
                                                 @endforeach
                                             @endif
                                         </td>
-                                        <td
-                                            class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                            @if ($list->Wpas->count())
+
+                                        <td class="@if ($list->priority) text-danger fw-bold @endif">
+                                            @if ($lastWpa)
                                                 <a class="link-primary fw-bold"
-                                                    href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}"">{{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}</a>
+                                                    href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $lastWpa->dd }}"
+                                                    target="_blank" rel="noopener">
+                                                    {{ $lastWpa->dd }}
+                                                </a>
                                             @else
                                                 -----
                                             @endif
-
                                         </td>
 
                                         <td class="align-middle">
-                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                            <x-files.select-download-list :files='$list->Note->Files' />
-
+                                            <x-files.select-download-list :files="$note->Files" />
                                         </td>
 
                                         <td class="fw-light">
-                                            <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
+                                            <span class="text-danger">{{ $note->mmgd ? 'MMGD' : '' }}</span>
                                         </td>
+
                                         <td class="fw-light">
-                                            @if ($list->Note->OldAds->isNotEmpty())
+                                            @if ($hasOld)
                                                 <span class="text-warning fw-bold">OLD</span>
-                                            @elseif ($list->Note->Adsform)
+                                            @elseif ($hasNew)
                                                 <span class="text-success fw-bold">ATUAL</span>
                                             @else
-                                                <span class="text-danger fw-bold">NÂO</span>
+                                                <span class="text-danger fw-bold">NÃO</span>
                                             @endif
-
                                         </td>
 
                                         <td class="fw-light">
-                                            <span
-                                                class="text-primary fw-bold">{{ isset($list->Note->postes) ? $list->Note->postes : '---' }}</span>
+                                            <span class="text-primary fw-bold">{{ $note->postes ?? '---' }}</span>
                                         </td>
 
-                                        {{-- <td class="fw-light">
-                                            {{ $list->Note->group2 }}</td> --}}
-                                        {{-- <td class="fw-light">{{ $list->Note->group5 }}</td> --}}
-                                        <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                        <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                        {{-- <td class="fw-light">{{ $list->Note->group1 }}</td> --}}
-                                        <td class="fw-light">{{ $list->Note->material }}</td>
-                                        <td class="fw-light">
-                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)) }}
-                                        </td>
-                                        <td scope="col"
+                                        <td class="fw-light">{{ $note->rubrica }}</td>
+                                        <td class="fw-light">{{ $note->lexp }}</td>
+                                        <td class="fw-light">{{ $note->material }}</td>
+
+                                        <td class="fw-light">{{ $daysAss }}</td>
+
+                                        <td
                                             class="text-center
-                                        @if ($daysLeft <= 20) text-bg-success
-                                        @elseif ($daysLeft >= 28)
-                                        text-bg-danger
-                                        @else
-                                        text-bg-warning @endif
-                                    ">
+                                            @if ($daysLeft <= 20) text-bg-success
+                                            @elseif ($daysLeft >= 28) text-bg-danger
+                                            @else text-bg-warning @endif">
                                             {{ $daysLeft }}
                                         </td>
-                                        {{-- <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
-                                            </td> --}}
 
                                         <td class="fw-light">
                                             @if ($list->transferred && $list->block_wpa)
                                                 <span class="badge bg-warning">Aguardando Despacho</span>
-                                            @elseif ($formBlock)
+                                            @elseif ($workForm && $workForm->rejected)
                                                 <span class="badge text-bg-warning text-wrap p-1">INFORME EM
                                                     REVISÃO</span>
                                             @else
-                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                                @php $ns = Notestatus::status($list->status); @endphp
+                                                <span class="badge {{ $ns->colorbg }}"
+                                                    wire:click="$emitTo('components.status.show-status','showStatus', {{ $list }}, {{ $list->status }})"
+                                                    style="cursor:pointer;">
+                                                    {{ $ns->status }}
+                                                </span>
                                             @endif
                                         </td>
+
                                         <td class="fw-bold fs-5">
-
-                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status) && !$formBlock)
+                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status) && !($workForm && $workForm->rejected))
                                                 @if (!$list->completed)
-                                                    {{-- <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Iniciar.">
-                                                            <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                                style="cursor: pointer;"
-                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                        </span> --}}
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Iniciar.">
-                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click="$emitTo('services.supervision.forms.jobform', 'showProduction', {{ $list }})"></i>
-                                                    </span>
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Transferir.">
-                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                    </span>
+                                                    <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                        style="cursor:pointer;"
+                                                        wire:click="$emitTo('services.supervision.forms.jobform', 'showProduction', {{ $list }})"></i>
+
+                                                    <i class="ri-exchange-fill m-0 align-middle text-primary ms-2"
+                                                        style="cursor:pointer;"
+                                                        wire:click.prevent="goTransferProd({{ $list->id }})"></i>
                                                 @endif
-                                                @if ($list->Note->WorkForm)
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Devolver Informe">
-                                                        <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
-                                                    </span>
+
+                                                @if ($workForm)
+                                                    <i class="ri-delete-back-2-fill m-0 align-middle text-danger ms-2"
+                                                        style="cursor:pointer;"
+                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
                                                 @endif
                                             @endif
                                         </td>
-
-
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
-
                 @endif
+            </div>
 
-
-            </dic>
             @if ($lists->count())
                 <div class="row">
                     <div class="col-6">
                         {{ $lists->links() }}
                     </div>
                     <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
+                        <span class="align-middle">
+                            Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }}
+                            registros.
+                        </span>
                     </div>
                 </div>
             @endif
         </div>
-
 
         <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
             @livewire('components.transprod.translist', ['service' => $service->id])
         </div>
     </div>
 
-
-    <!-- Modal -->
-    {{-- <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
-            <div class="modal-content h-100">
-                <div class="modal-header text-bg-success">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        {{ mb_strtoupper($service->service) }}
-                    </h1>
-
-                </div>
-                <div class="modal-body">
-                    @livewire('services.supervision.forms.analise', key('supervision-form'))
-                </div>
-
-            </div>
-        </div>
-    </div> --}}
-
-    <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content h-100">
-                <div class="modal-header text-bg-warning">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        PARAR {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    @livewire('components.pausenote.pausenote')
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
+    {{-- Modais/Componentes auxiliares --}}
     @livewire('components.transprod.transprodlev', key('Transfer_production'))
     @livewire('services.supervision.forms.jobform', key('JobForm'))
     @livewire('components.status.show-status', key('show_status_note'))
@@ -418,47 +304,41 @@
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
     @livewire('components.five-note.view-d5', key('ViewD5'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
-
-    {{-- <div wire:init="checkOpen"></div> --}}
-
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-
-        Livewire.emitTo('services.supervision.main', 'checkOpen');
-
-    });
-</script>
-
 
 @push('script')
     <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
+        document.addEventListener('DOMContentLoaded', function() {
+            Livewire.emitTo('services.supervision.main', 'checkOpen');
 
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
+            // Delegation: copiar texto
+            const tableBody = document.getElementById('table-body');
+            tableBody?.addEventListener('click', async (ev) => {
+                const el = ev.target.closest('.copy-text');
+                if (!el) return;
+                const value = el.getAttribute('data-value');
+                try {
+                    if (navigator.clipboard?.writeText) {
+                        await navigator.clipboard.writeText(value);
+                    } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = value;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    livewire.emit('getCopy', `Valor "${value}" copiado para a área de transferência.`);
+                } catch (_) {
+                    livewire.emit('getCopy', `Falha ao copiar "${value}".`);
+                }
+            });
+
+            // Abrir modal por evento (mantém)
+            window.addEventListener("showModal2", function(e) {
+                const myModal = new bootstrap.Modal(document.getElementById(e.detail.id));
+                myModal.show();
             });
         });
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-
-        window.addEventListener("showModal2", function(e) {
-            alert('Funciona')
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
     </script>
 @endpush
