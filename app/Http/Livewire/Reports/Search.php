@@ -5,23 +5,24 @@ namespace App\Http\Livewire\Reports;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\File;
 use App\Models\Note;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
-use ZipArchive;
 
 class Search extends Component
 {
-    public $search;
+    public $search = '';
     public $selectedFiles = [];
-    public $historico;
-    public $openServiceId;
+    public $historico = null;
+    public $openServiceId = null;
+
+    /** @var \App\Models\Note|null */
+    public $lists = null;
 
     protected $queryString = [
         'search' => ['except' => '', 'as' => 's'],
     ];
 
     protected $listeners = [
-        'update_list' => '$refresh',
+        'update_list'   => '$refresh',
         'setOpenService',
     ];
 
@@ -30,94 +31,184 @@ class Search extends Component
         $this->openServiceId = $serviceId;
     }
 
-    public function Search()
+    /**
+     * Busca a Nota/OV com tudo que a view usa (exceto HISTÓRICO, que é sob demanda)
+     */
+    public function findNote()
     {
-        $this->loadHistorico();
+        $term = trim($this->search);
+
+        $this->lists = Note::query()
+            ->where(function ($q) use ($term) {
+                $q->where('note', $term)
+                  ->orWhereHas('Orders', fn ($qq) => $qq->where('ordem', $term))
+                  ->orWhereHas('FiveNote', fn ($qq) => $qq->where('note_d5', $term));
+            })
+            ->with([
+                // D5
+                'FiveNote:id,note_id,note_d5,visible_partner,is_completed,is_payed,is_archived,is_supervisioned,completed_at',
+
+                // Arquivos
+                'Files:id,note_id,service_id,file_name,ext,path,created_at',
+                'Files.Service:id,service',
+
+                // Ordens + Operações
+                'Orders:id,note_id,ordem,statusSist',
+                'Orders.Operations:id,order_id,operacao,descOperacao,status,cenTrab,inicioPlanejado,fimPlanejado,inicioReal,fimReal',
+
+                // Projeto (Productions)
+                'Productions' => function ($q) {
+                    $q->where('rejected', false)
+                      ->with([
+                          'Service:id,service',
+                          'User:id,name,email',
+                          'Company:id,name',
+                      ])
+                      ->select([
+                          'id','note_id','service_id','user_id','company_id',
+                          'status','status_note','dispatch_at','att_at','completed_at',
+                          'stopped','manual','confirmed','d5','dfive','partial'
+                      ]);
+                },
+
+                // Contratação (Viabilities)
+                'Viabilities' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Orders.Operations:id,order_id,operacao,status',
+                        'User:id,name,email',
+                        'Engineer:id,name',
+                        'Company:id,name',
+                        'Form:id,viability_id,responsible',
+                    ])->select([
+                        'id','note_id','user_id','engineer_id','company_id',
+                        'hired','tacit','hired_at','sended_at','returned_at'
+                    ]);
+                },
+
+                // Informes (Work / Ramal / Parciais)
+                'WorkForm' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+
+                        // CORRETO: equipamentos referenciam work_report_id
+                        'Equipment:id,work_report_id',
+
+                        // CORRETO: devoluções também usam work_report_id
+                        'Returnwork:id,work_report_id,created_at',
+                    ])
+                    ->select([
+                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
+                        'changes','rejected','informed_at'
+                    ]);
+                },
+
+                'RamalForm' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                        'User:id,name',
+
+                        // usual em RamalReport:
+                        'BtzeroEquipment:id,ramal_report_id',
+
+                        'ReturnRamal:id,ramal_form_id,created_at',
+                    ])->select([
+                        'id','note_id','company_id','user_id','created_at','rejected'
+                    ]);
+                },
+
+                'Partials' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                    ])->select([
+                        'id','note_id','company_id','responsible','deny','allow','supervision','payment','complete','created_at'
+                    ]);
+                },
+            ])
+            ->first();
+
+        // reset de estados voláteis
+        $this->historico     = null;   // só carrega se clicarem
+        $this->openServiceId = null;
+        $this->selectedFiles = [];
     }
 
+    /**
+     * HISTÓRICO (outro banco) — sob demanda
+     */
     public function loadHistorico()
     {
-        $this->historico = BaseOV::where('OV', trim($this->search))->orderBy('dhStat', 'DESC')->get();
+        if (!$this->lists) {
+            return;
+        }
+
+        $this->historico = BaseOV::where('OV', trim($this->lists->note))
+            ->orderBy('dhStat', 'DESC')
+            ->get();
     }
 
-
-
-
-    public function getBuscarProperty()
+    /**
+     * Checkbox do cabeçalho (selecionar/deselecionar grupo inteiro)
+     */
+    public function toggleGroup(string $slug)
     {
-        return Note::where(function ($q) {
-            $q->where('note', trim($this->search))
-                ->orWhereRelation('Orders', 'ordem', trim($this->search))
-                ->orWhereRelation('FiveNote', 'note_d5', trim($this->search));
-        })->with(['Productions' => function ($query) {
-            $query->where('rejected', false);
-        }, 'FiveNote', 'Files'])->first();
-    }
+        if (!$this->lists) {
+            return;
+        }
 
-    public function downloadFile(File $file)
-    {
-        if ($file) {
+        $files = $this->lists->Files->filter(function ($f) use ($slug) {
+            $service = $f->Service->service ?? 'Outros';
+            return \Illuminate\Support\Str::slug($service) === $slug;
+        });
 
-            // TODO: Alterar a forma que o sistema faz download, converter para requisição HTTP via rota pópria.
-            // Sintoma do erro: Após algumas buscas de notas sem refresh, o Storage ignora o download nao tendo ação posterior.
+        $allSelected = collect($this->selectedFiles)->intersect($files->pluck('id'))->count() === $files->count();
 
-            if (Storage::fileExists($file->path)) {
-                return Storage::download($file->path, explode('.', $file->file_name)[0].".".$file->ext);
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'ARQUIVO INEXISTENTE!',
-                    'timer'    => 5000,
-                ]);
-
-                return;
-            }
+        if ($allSelected) {
+            $this->selectedFiles = array_values(array_diff($this->selectedFiles, $files->pluck('id')->all()));
+        } else {
+            $this->selectedFiles = array_values(array_unique(array_merge($this->selectedFiles, $files->pluck('id')->all())));
         }
     }
 
+    /**
+     * Download único via HTTP (evita gargalos Livewire)
+     */
+    public function downloadFile(File $file)
+    {
+        if (!$file) {
+            return;
+        }
+        return redirect()->route('files.download', ['file' => $file->id]);
+    }
+
+    /**
+     * Download ZIP via HTTP
+     */
     public function zipFiles()
     {
-        if (!count($this->selectedFiles)) {
+        if (!$this->lists || !count($this->selectedFiles)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'NENHUM ARQUIVO SELECIONADO',
                 'timer'    => 5000,
             ]);
-
             return;
         }
 
-        if (count($this->selectedFiles)) {
-
-
-            $files = File::WhereIn('id', $this->selectedFiles)->get();
-
-
-            if ($files) {
-                $zipFile = 'Arquivos-'.$this->buscar->note."-" . hash('crc32', time()) . '.zip';
-                $zip     = new ZipArchive();
-                $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-
-                foreach ($files as $file) {
-                    $content = Storage::get($file->path);
-                    $zip->addFromString(explode('.', $file->file_name)[0] . '.' . $file->ext, $content);
-                }
-
-                $zip->close();
-
-                $this->selectedFiles = [];
-
-                return response()->download($zipFile)->deleteFileAfterSend(true);
-            }
-        }
+        return redirect()->route('files.zip', [
+            'ids'  => implode(',', $this->selectedFiles),
+            'note' => $this->lists->note,
+        ]);
     }
 
     public function render()
     {
         return view('livewire.reports.search', [
-            'lists' => $this->buscar,
+            'lists' => $this->lists,
         ]);
     }
 }

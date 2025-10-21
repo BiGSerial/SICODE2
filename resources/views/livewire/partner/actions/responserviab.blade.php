@@ -1,12 +1,6 @@
-@php
-    use App\Custom\Viabilitiesstatus;
-    use App\Custom\Notestatus;
-    use App\Helpers\SelectOptions;
-    use Carbon\Carbon;
-    use App\Helpers\DaysLeft;
-@endphp
 <div>
     <x-show-loading />
+
     <div wire:ignore.self class="modal fade" id="modal_resp_viability" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-xl">
@@ -14,13 +8,14 @@
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
                     <h4 class="modal-title fw-bold">VIABILIDADE</h4>
                 </div>
-                <div class="modal-body">
 
+                <div class="modal-body">
                     @if ($viability)
                         @php
                             $status = null;
-                            $dueDate = Carbon::parse($viability->sended_at)->addDays($viability->getDays() + 7);
-                            $today = Carbon::now();
+
+                            $dueDate = \Carbon\Carbon::parse($viability->sended_at)->addDays($viability->getDays() + 7);
+                            $today = \Carbon\Carbon::now();
                             $daysDifference = 0;
 
                             if ($dueDate) {
@@ -39,7 +34,8 @@
                             }
 
                             $color = 'grey';
-                            $days_left = (new DaysLeft($viability->Note))->getDaysLeft();
+                            $days = new \App\Helpers\DaysLeft($viability->Note);
+                            $days_left = $days->getDaysLeft();
                             $count = 0;
 
                             if ($viability->approved) {
@@ -57,7 +53,7 @@
 
                         <div class="row g-3">
 
-                            {{-- Bloco: Informações Gerais --}}
+                            {{-- INFORMAÇÕES GERAIS --}}
                             <div class="col-md-6">
                                 <div class="card h-100">
                                     <div class="card-header edp-bg-sprucegreen-70 text-edp-verde fw-bold py-2">
@@ -71,42 +67,50 @@
 
                                             <dt
                                                 class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                Ordens:
-                                            </dt>
+                                                Ordens:</dt>
                                             <dd class="col-sm-7 fw-bold">
-                                                @foreach ($viability->Orders as $order)
-                                                    <p class="py-0 my-0">{{ $order->ordem }}</p>
-                                                @endforeach
+                                                @php
+                                                    $orders = $viability->Note->orders->reject(function ($order) {
+                                                        return str_starts_with($order->statusSist, 'ENT') ||
+                                                            str_starts_with($order->statusSist, 'ENC');
+                                                    });
+                                                @endphp
+                                                @forelse($orders as $order)
+                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                @empty
+                                                    ---
+                                                @endforelse
                                             </dd>
 
                                             <dt
                                                 class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                Cliente:
-                                            </dt>
+                                                Cliente:</dt>
                                             <dd class="col-sm-7 text-uppercase">{{ $viability->Note->client }}</dd>
 
                                             <dt
                                                 class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                Descrição:
-                                            </dt>
+                                                Descrição:</dt>
                                             <dd class="col-sm-7 text-uppercase">{{ $viability->Note->material }}</dd>
 
                                             <dt
                                                 class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                Rubrica:
-                                            </dt>
+                                                Rubrica:</dt>
                                             <dd class="col-sm-7 text-uppercase">{{ $viability->Note->rubrica }}</dd>
 
                                             <dt
                                                 class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                Município:
-                                            </dt>
-                                            <dd class="col-sm-7">{{ $viability->Note->lexp }}</dd>
+                                                Criticidade:</dt>
+                                            <dd class="col-sm-7 text-uppercase">{{ $viability->Note->txpriority }}</dd>
 
                                             <dt
                                                 class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                Status
-                                                Viabilidade:</dt>
+                                                Município:</dt>
+                                            <dd class="col-sm-7">{{ $viability->Note->lexp }}</dd>
+
+                                            {{-- status textual aprovado/rejeitado --}}
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Status Viabilidade:</dt>
                                             <dd class="col-sm-7">
                                                 @if ($viability->approved && !$viability->rejected)
                                                     <span class="text-success">APROVADO</span>
@@ -121,95 +125,77 @@
                                 </div>
                             </div>
 
-                            {{-- Bloco: Status e Datas --}}
+                            {{-- STATUS E DATAS --}}
                             <div class="col-md-6">
                                 <div class="card h-100">
                                     <div class="card-header edp-bg-sprucegreen-70 text-edp-verde fw-bold py-2">STATUS E
                                         DATAS</div>
                                     <div class="card-body p-3">
                                         <dl class="row">
-                                            <dl class="row">
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Viabilizado Em:</dt>
-                                                <dd class="col-sm-7 fw-bold">
-                                                    {{ $viability->returned_at?->format('d/m/Y H:i:s') }}</dd>
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Viabilizado Em:</dt>
+                                            <dd class="col-sm-7 fw-bold">
+                                                {{ $viability->returned_at?->format('d/m/Y H:i:s') }}</dd>
 
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Prazo Viabilidade:</dt>
-                                                </dt>
-                                                <dd class="col-sm-7 fw-bold text-danger">
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Prazo Viabilidade:</dt>
+                                            <dd class="col-sm-7 fw-bold text-danger">
+                                                {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}</dd>
 
-                                                    {{ $dueDate ? $dueDate->format('d/m/Y') : '---' }}
-                                                </dd>
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Prazo da Obra:</dt>
+                                            <dd class="col-sm-7 text-uppercase fw-bold text-primary">
+                                                @php
+                                                    $daysLeft = new \App\Helpers\DaysLeft($viability->Note);
+                                                @endphp
+                                                {{ $daysLeft->getLastDate() }}
+                                            </dd>
 
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Prazo da Obra:
-                                                </dt>
-                                                <dd class="col-sm-7 text-uppercase fw-bold text-primary">
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Status:</dt>
+                                            <dd class="col-sm-7 text-uppercase">
+                                                @php $st = \App\Custom\Viabilitiesstatus::status($viability->status); @endphp
+                                                <span class="badge {{ $st->colorbg }}">{{ $st->status }}</span>
+                                            </dd>
 
-                                                    {{ (new DaysLeft($viability->Note))->getLastDate() }}</dd>
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Contratação:</dt>
+                                            <dd class="col-sm-7 text-uppercase">
+                                                @if ($viability->hired)
+                                                    <span class="text-success">CONTRATADO</span>
+                                                @else
+                                                    <span class="text-danger">NÃO CONTRATADO</span>
+                                                @endif
+                                            </dd>
 
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Satus:
-                                                </dt>
-                                                <dd class="col-sm-7 text-uppercase"> <span
-                                                        class="badge {{ Viabilitiesstatus::status($viability->status)->colorbg }}">
-                                                        {{ Viabilitiesstatus::status($viability->status)->status }}
-                                                    </span>
-                                                </dd>
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Contratado Em:</dt>
+                                            <dd class="col-sm-7 text-uppercase fw-bold">
+                                                {{ $viability->hired_at ? $viability->hired_at->format('d/m/Y H:i:s') : '---' }}
+                                            </dd>
 
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Contratação:
-                                                </dt>
-                                                <dd class="col-sm-7 text-uppercase">
-
-                                                    @if ($viability->hired)
-                                                        <span class="text-success">CONTRATADO</span>
-                                                    @else
-                                                        <span class="text-danger">NÃO CONTRATADO</span>
-                                                    @endif
-
-                                                </dd>
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Contratado Em:
-                                                </dt>
-                                                <dd class="col-sm-7 text-uppercase fw-bold">
-
-                                                    {{ $viability->hired_at ? $viability->hired_at->format('d/m/Y H:i:s') : '---' }}
-
-                                                </dd>
-
-                                                <dt
-                                                    class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
-                                                    Programador Responsável:
-                                                </dt>
-                                                <dd class="col-sm-7">
-                                                    @if ($viability->Engineer)
-                                                        <span
-                                                            class="fw-bold text-primary">{{ $viability->Engineer->name }}</span>
-                                                        ({{ $viability->Engineer->email }})
-                                                    @endif
-                                                </dd>
-
-
-                                            </dl>
-
+                                            <dt
+                                                class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
+                                                Programador Responsável:</dt>
+                                            <dd class="col-sm-7">
+                                                @if ($viability->Engineer)
+                                                    <span
+                                                        class="fw-bold text-primary">{{ $viability->Engineer->name }}</span>
+                                                    ({{ $viability->Engineer->email }})
+                                                @endif
+                                            </dd>
                                         </dl>
                                     </div>
                                 </div>
                             </div>
 
-
-
-
-
-                            {{-- Bloco: Retorno da Viabilidade --}}
+                            {{-- RETORNO DA VIABILIDADE --}}
                             @if ($viability->Form)
                                 <div class="col-md-6">
                                     <div class="card h-100">
@@ -221,36 +207,32 @@
                                                     class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
                                                     Motivo:</dt>
                                                 <dd class="col-sm-7 edp-bg-gray py-1 fw-bold">
-                                                    {{ $viability->Form->reason }}
-                                                </dd>
+                                                    {{ $viability->Form->reason }}</dd>
 
                                                 <dt
                                                     class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
                                                     Impacto:</dt>
                                                 <dd class="col-sm-7 edp-bg-gray py-1">
-                                                    {{ $viability->Form->changes * 10 }}%
-                                                </dd>
+                                                    {{ $viability->Form->changes * 10 }}%</dd>
 
                                                 <dt
                                                     class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
                                                     Responsável:</dt>
                                                 <dd class="col-sm-7 edp-bg-gray py-1 text-uppercase">
-                                                    {{ $viability->Form->responsible }}
-                                                </dd>
+                                                    {{ $viability->Form->responsible }}</dd>
 
                                                 <dt
                                                     class="col-sm-5 edp-bg-sprucegreen-100 text-edp-verde py-1 border-bottom">
                                                     Descrição:</dt>
                                                 <dd class="col-sm-7 edp-bg-gray py-1">
-                                                    {{ $viability->Form->description }}
-                                                </dd>
+                                                    {{ $viability->Form->description }}</dd>
                                             </dl>
                                         </div>
                                     </div>
                                 </div>
                             @endif
 
-                            {{-- Bloco: Comentários --}}
+                            {{-- COMENTÁRIOS --}}
                             @if ($viability->comments->isNotEmpty())
                                 <div class="col-6">
                                     <div class="card">
@@ -263,27 +245,26 @@
                                                         class="list-group-item d-flex justify-content-between align-items-start shadow mb-2">
                                                         <div class="ms-2 me-auto">
                                                             <div class="fw-bold mb-2 border-bottom border-success">
-                                                                #{{ $viability->Comments->count() - $index }}
-                                                                {{ $comment->User->name }}</div>
+                                                                #{{ $viability->comments->count() - $index }}
+                                                                {{ $comment->User->name }}
+                                                            </div>
                                                             {!! $comment->message !!}
                                                         </div>
                                                         <span
-                                                            class="badge bg-light text-dark">{{ date('d/m/Y H:i', strToTime($comment->created_at)) }}</span>
+                                                            class="badge bg-light text-dark">{{ date('d/m/Y H:i', strtotime($comment->created_at)) }}</span>
                                                     </li>
                                                 @endforeach
                                             </ul>
-
                                         </div>
                                     </div>
                                 </div>
                             @endif
 
-
-
+                            {{-- ARQUIVOS ANEXADOS --}}
                             <div class="col-12">
                                 <div class="card">
-                                    <div class="card-header edp-bg-sprucegreen-70 text-edp-verde fw-bold py-2">
-                                        ARQUIVOS ANEXADOS</div>
+                                    <div class="card-header edp-bg-sprucegreen-70 text-edp-verde fw-bold py-2">ARQUIVOS
+                                        ANEXADOS</div>
                                     <div class="card-body py-2 px-3">
                                         @livewire('components.files.show-files-pool', ['files' => $viability->Note->Files], key('filesView-' . $viability->id))
                                     </div>
@@ -296,7 +277,7 @@
                                 </div>
                             @endif
 
-                            {{-- Bloco: Responder Atividade --}}
+                            {{-- RESPONDER ATIVIDADE --}}
                             @if ($viability->treplica && $viability->status == 5)
                                 <div class="col-12">
                                     <div class="card">
@@ -308,7 +289,7 @@
                                                     <label class="form-label">Decisão</label>
                                                     <select class="form-select form-select-sm border border-secondary"
                                                         wire:model.defer="decision">
-                                                        @foreach (SelectOptions::getResponserOptions() as $options)
+                                                        @foreach (\App\Helpers\SelectOptions::getResponserOptions() as $options)
                                                             <option @once selected @endonce
                                                                 value="{{ $options->value }}">{{ $options->info }}
                                                             </option>
@@ -329,11 +310,10 @@
                                 </div>
                             @endif
 
-                        </div> {{-- row --}}
-
+                        </div> {{-- /row --}}
                     @endif
-
                 </div>
+
                 @if ($viability?->tacit && $viability?->files->isEmpty())
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -344,5 +324,4 @@
             </div>
         </div>
     </div>
-
 </div>
