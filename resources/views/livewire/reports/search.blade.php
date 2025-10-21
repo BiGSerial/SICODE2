@@ -296,7 +296,7 @@
                                                                         <td class="text-start align-middle">
                                                                             <i
                                                                                 class="{{ \App\Helpers\FileIcon::getIcon($file->ext)->icon }} me-1"></i>
-                                                                            <a
+                                                                            <a class="text-dark"
                                                                                 href="{{ route('files.download', $file->id) }}">
                                                                                 {{ $file->file_name }}
                                                                             </a>
