@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Admin\Hierarchy;
 
-use App\Models\Company; // Importar o modelo Company
+use App\Models\Company;
 use App\Models\User;
 use App\Models\UserDelegation;
 use App\Services\HierarchyService;
@@ -19,10 +19,10 @@ class Board extends Component
     // Buscas e filtros
     public string $leftSearch = '';
     public string $treeSearch = '';
-    public ?string $companyFilter = ''; // Novo filtro por empresa
+    public ?string $companyFilter = '';
 
     // Seleção
-    public ?string $selectedManagerId = null; // Agora representa o usuário selecionado para foco
+    public ?string $selectedManagerId = null;
     public array $selectedCandidateIds = [];
 
     // Modal "Mover para..."
@@ -41,10 +41,9 @@ class Board extends Component
         'leftSearch'       => ['except' => ''],
         'treeSearch'       => ['except' => ''],
         'selectedManagerId' => ['except' => ''],
-        'companyFilter' => ['except' => ''], // Adiciona ao queryString
+        'companyFilter' => ['except' => ''],
     ];
 
-    // Resetar paginação ao buscar/filtrar
     public function updated($propertyName)
     {
         if (in_array($propertyName, ['leftSearch', 'companyFilter'])) {
@@ -56,7 +55,8 @@ class Board extends Component
     public function getDirectoryProperty()
     {
         $q = User::query()->select('id', 'name', 'email', 'manager_id', 'company_id')
-            ->whereNull('deleted_at'); // Ignorar usuários soft-deleted
+            ->whereNull('deleted_at')
+            ->with('company:id,name');
 
         if ($s = trim($this->leftSearch)) {
             $terms = preg_split('/[\s,;\n\r]+/', $s, -1, PREG_SPLIT_NO_EMPTY);
@@ -92,6 +92,7 @@ class Board extends Component
     public function assignCandidatesToManager(): void
     {
         if (!$this->selectedManagerId || empty($this->selectedCandidateIds)) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Selecione um gerente no organograma e pelo menos um candidato na lista.']);
             return;
         }
         $svc = app(HierarchyService::class);
@@ -110,24 +111,20 @@ class Board extends Component
         }
         $this->clearCandidates();
         $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Atribuições concluídas.']);
-        // Refresh properties that depend on hierarchy changes
         $this->emit('$refresh');
         $this->resetPage('dir');
     }
 
-    /* -------- Centro: Organograma Focado -------- */
-    // Este método é a principal forma de selecionar um usuário para ver sua hierarquia
+    /* -------- Centro: Organograma Focado / Geral -------- */
     public function selectManager(?string $userId): void
     {
         $this->selectedManagerId = $userId;
-        // Opcional: Limpar a busca da árvore ao focar em um novo usuário
-        // $this->treeSearch = '';
     }
 
-    // Selecionar usuário da lista da esquerda (o mesmo que selectManager)
     public function selectUserFromList(string $userId): void
     {
         $this->selectManager($userId);
+        $this->dispatchBrowserEvent('hide-left-offcanvas');
     }
 
     public function setAsRoot(string $userId): void
@@ -135,7 +132,7 @@ class Board extends Component
         try {
             app(HierarchyService::class)->moveSubtree($userId, null);
             $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Definido como raiz.']);
-            $this->emit('$refresh'); // Recarrega a hierarquia
+            $this->emit('$refresh');
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('toast', ['type' => 'error','msg' => 'Erro: ' . $e->getMessage()]);
         } catch (\Throwable $e) {
@@ -148,7 +145,8 @@ class Board extends Component
         $this->moveUserId = $userId;
         $this->moveTargetSearch = '';
         $this->moveTargetId = null;
-        $this->dispatchBrowserEvent('show-move-modal');
+        $user = User::find($userId);
+        $this->dispatchBrowserEvent('show-move-modal', ['userName' => $user->name ?? 'Usuário']);
     }
 
     public function confirmMove(): void
@@ -160,10 +158,9 @@ class Board extends Component
             app(HierarchyService::class)->moveSubtree($this->moveUserId, $this->moveTargetId);
             $this->dispatchBrowserEvent('hide-move-modal');
             $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Movido com sucesso.']);
-            $this->emit('$refresh'); // Recarrega a hierarquia
-            // Se o usuário movido era o selecionado, pode ser útil re-selecionar o novo gerente dele
+            $this->emit('$refresh');
             if ($this->moveUserId === $this->selectedManagerId) {
-                $this->selectedManagerId = $this->moveTargetId; // Foca no novo gerente
+                $this->selectedManagerId = $this->moveTargetId;
             }
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('toast', ['type' => 'error','msg' => 'Erro: ' . $e->getMessage()]);
@@ -176,9 +173,8 @@ class Board extends Component
     {
         $q = User::query()->select('id', 'name', 'email')
             ->whereNull('deleted_at')
-            ->where('id', '!=', $this->moveUserId); // Não pode mover para si mesmo
+            ->where('id', '!=', $this->moveUserId);
 
-        // Excluir descendentes do usuário que está sendo movido para evitar ciclos
         if ($this->moveUserId) {
             $descendantsOfMovingUser = DB::table('user_closure')
                                     ->where('ancestor_id', $this->moveUserId)
@@ -188,34 +184,30 @@ class Board extends Component
 
         if ($s = trim($this->moveTargetSearch)) {
             $q->where(function ($w) use ($s) {
-                $w->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%");
+                $w->orWhere('name', 'like', "%{$t}%")->orWhere('email', 'like', "%{$t}%");
             });
         }
         return $q->orderBy('name')->limit(20)->get();
     }
 
-    // NOVA PROPRIEDADE: Constrói a hierarquia focada no selectedManagerId
     public function getFocusedHierarchyProperty(): array
     {
         if (!$this->selectedManagerId) {
             return [];
         }
 
-        $focusedUser = User::query()->whereNull('deleted_at')->find($this->selectedManagerId);
+        $focusedUser = User::query()->with('company:id,name')->whereNull('deleted_at')->find($this->selectedManagerId);
         if (!$focusedUser) {
             return [];
         }
 
-        // Carrega todos os usuários ativos para construir a árvore eficientemente
-        $allActiveUsers = User::query()->select('id', 'name', 'email', 'manager_id')->whereNull('deleted_at')->get();
+        $allActiveUsers = User::query()->with('company:id,name')->select('id', 'name', 'email', 'manager_id', 'company_id')->whereNull('deleted_at')->get();
 
-        // Indexa usuários por seu gerente para acesso rápido
         $byManager = [];
         foreach ($allActiveUsers as $u) {
             $byManager[$u->manager_id ?? 'ROOT'][] = $u;
         }
 
-        // Função recursiva para construir a sub-árvore a partir de um ID de pai
         $buildSubtree = function ($parentId) use (&$buildSubtree, &$byManager) {
             $nodes = [];
             foreach ($byManager[$parentId] ?? [] as $u) {
@@ -223,6 +215,7 @@ class Board extends Component
                     'id' => $u->id,
                     'name' => $u->name,
                     'email' => $u->email,
+                    'company_name' => $u->company->name ?? null,
                     'children' => $buildSubtree($u->id),
                 ];
             }
@@ -230,37 +223,67 @@ class Board extends Component
         };
 
         $hierarchy = [
-            'manager' => null, // Gerente imediato do usuário focado
-            'focusedUser' => null, // O usuário focado em si
-            'reportsTree' => [], // A sub-árvore de seus relatórios
+            'manager' => null,
+            'focusedUser' => null,
+            'reportsTree' => [],
         ];
 
-        // 1. Obter o gerente imediato
         if ($focusedUser->manager_id) {
-            $manager = User::query()->whereNull('deleted_at')->find($focusedUser->manager_id);
+            $manager = User::query()->with('company:id,name')->whereNull('deleted_at')->find($focusedUser->manager_id);
             if ($manager) {
                 $hierarchy['manager'] = [
                     'id' => $manager->id,
                     'name' => $manager->name,
                     'email' => $manager->email,
+                    'company_name' => $manager->company->name ?? null,
                 ];
             }
         }
 
-        // 2. O usuário focado
         $hierarchy['focusedUser'] = [
             'id' => $focusedUser->id,
             'name' => $focusedUser->name,
             'email' => $focusedUser->email,
+            'company_name' => $focusedUser->company->name ?? null,
         ];
 
-        // 3. A sub-árvore de seus relatórios
         $hierarchy['reportsTree'] = $buildSubtree($focusedUser->id);
 
         return $hierarchy;
     }
 
-    // A breadcrumb ainda é útil para mostrar o caminho até o usuário focado a partir da raiz global
+    public function getFullHierarchyProperty(): array
+    {
+        $q = User::query()->with('company:id,name')->select('id', 'name', 'email', 'manager_id', 'company_id')->whereNull('deleted_at');
+
+        if ($this->companyFilter) {
+            $q->where('company_id', $this->companyFilter);
+        }
+
+        $allActiveUsers = $q->get();
+
+        $byManager = [];
+        foreach ($allActiveUsers as $u) {
+            $byManager[$u->manager_id ?? 'ROOT'][] = $u;
+        }
+
+        $buildTree = function ($parentId) use (&$buildTree, &$byManager) {
+            $nodes = [];
+            foreach ($byManager[$parentId] ?? [] as $u) {
+                $nodes[] = [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'email' => $u->email,
+                    'company_name' => $u->company->name ?? null,
+                    'children' => $buildTree($u->id),
+                ];
+            }
+            return $nodes;
+        };
+
+        return $buildTree('ROOT');
+    }
+
     public function getBreadcrumbProperty(): array
     {
         if (!$this->selectedManagerId) {
@@ -269,7 +292,7 @@ class Board extends Component
         return DB::table('user_closure as uc')
             ->join('users as u', 'u.id', '=', 'uc.ancestor_id')
             ->where('uc.descendant_id', $this->selectedManagerId)
-            ->whereNull('u.deleted_at') // Garantir que apenas usuários ativos apareçam no breadcrumb
+            ->whereNull('u.deleted_at')
             ->orderBy('uc.depth')
             ->get(['u.id','u.name','u.email'])
             ->toArray();
@@ -282,7 +305,7 @@ class Board extends Component
             $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Selecione um usuário para criar uma delegação.']);
             return;
         }
-        $this->dlg_principal_id = $this->selectedManagerId; // Titular é o usuário selecionado
+        $this->dlg_principal_id = $this->selectedManagerId;
         $this->dlg_delegate_id = null;
         $this->dlg_from = now()->toDateString();
         $this->dlg_to = null;
@@ -322,14 +345,13 @@ class Board extends Component
 
         $this->dispatchBrowserEvent('hide-delegation-modal');
         $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Delegação registrada.']);
-        $this->emit('$refresh'); // Recarrega as delegações
+        $this->emit('$refresh');
     }
 
-    // Delegações ativas para o *usuário selecionado*
     public function getActiveDelegationsProperty()
     {
         if (!$this->selectedManagerId) {
-            return collect(); // Retorna coleção vazia se nenhum usuário estiver selecionado
+            return collect();
         }
 
         return UserDelegation::query()
@@ -341,7 +363,7 @@ class Board extends Component
             ->where(fn ($q) => $q->whereNull('valid_to')->orWhere('valid_to', '>=', now()))
             ->with(['principal:id,name','delegate:id,name'])
             ->orderByDesc('valid_from')
-            ->limit(50) // Limite para evitar carregamento excessivo
+            ->limit(50)
             ->get();
     }
 
@@ -349,11 +371,12 @@ class Board extends Component
     {
         return view('livewire.admin.hierarchy.board', [
             'directory'   => $this->directory,
-            'focusedHierarchy' => $this->focusedHierarchy, // Passa a nova hierarquia focada
+            'focusedHierarchy' => $this->focusedHierarchy,
+            'fullHierarchy' => $this->fullHierarchy,
             'breadcrumb'  => $this->breadcrumb,
             'moveTargets' => $this->moveTargets,
             'delegations' => $this->activeDelegations,
-            'companies'   => Company::orderBy('name')->get(['id', 'name']), // Passa empresas para o filtro
+            'companies'   => Company::orderBy('name')->get(['id', 'name']),
         ]);
     }
 }

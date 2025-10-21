@@ -1,7 +1,6 @@
 <div class="container-fluid py-3" wire:ignore.self>
-    {{-- Top Bar com Título e Botões para Abrir/Fechar Offcanvas --}}
+    {{-- Top Bar --}}
     <div class="d-flex align-items-center justify-content-between mb-3 px-2">
-        {{-- Botão para Offcanvas Esquerda (agora sempre visível) --}}
         <button class="btn btn-dark d-flex align-items-center" type="button" data-bs-toggle="offcanvas"
             data-bs-target="#leftOffcanvas" aria-controls="leftOffcanvas" title="Abrir Lista de Usuários">
             <i class="bi bi-person-lines-fill me-2"></i> <span class="d-none d-sm-inline">Usuários</span>
@@ -9,7 +8,6 @@
 
         <h3 class="flex-grow-1 text-center text-primary mb-0">Gestão de Hierarquia de Usuários</h3>
 
-        {{-- Botão para Offcanvas Direita (agora sempre visível) --}}
         <button class="btn btn-dark d-flex align-items-center" type="button" data-bs-toggle="offcanvas"
             data-bs-target="#rightOffcanvas" aria-controls="rightOffcanvas" title="Abrir Detalhes e Ações">
             <span class="d-none d-sm-inline">Detalhes</span> <i class="bi bi-info-circle-fill ms-2"></i>
@@ -18,7 +16,7 @@
 
     {{-- CONTEÚDO PRINCIPAL: Organograma --}}
     <div class="row g-3">
-        <div class="col-12"> {{-- Ocupa toda a largura disponível no layout --}}
+        <div class="col-12">
             <div class="card h-100 shadow-sm border-0 bg-light">
                 <div class="card-header bg-primary text-white d-flex flex-column gap-2">
                     <div class="d-flex align-items-center">
@@ -39,8 +37,10 @@
                                 @endif
                             @endforeach
                         @else
-                            <span class="text-white-50">Selecione um usuário na "Lista de Usuários" para visualizar sua
-                                hierarquia.</span>
+                            <span class="text-white-50">
+                                Selecione um usuário na "Lista de Usuários" para visualizar sua hierarquia,
+                                ou veja a visão geral completa abaixo.
+                            </span>
                         @endif
                     </div>
                 </div>
@@ -48,48 +48,108 @@
                 <div class="card-body p-3"
                     style="min-height: calc(100vh - 200px); max-height: calc(100vh - 100px); overflow:auto;">
                     @if (!$selectedManagerId)
-                        <div class="alert alert-info text-center mt-5" role="alert">
-                            <i class="bi bi-info-circle me-2"></i> Por favor, selecione um usuário da lista (usando o
-                            botão "Usuários" acima) para visualizar sua hierarquia.
-                        </div>
+                        {{-- ====== VISÃO GERAL (FLORESTA COMPLETA) ====== --}}
+                        @if (empty($fullHierarchy))
+                            <div class="alert alert-info text-center mt-5" role="alert">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Nenhum usuário ativo encontrado{{ $companyFilter ? ' para a empresa filtrada' : '' }}.
+                            </div>
+                        @else
+                            <ul class="list-unstyled hierarchy-main-container">
+                                <li class="hierarchy-focused-user">
+                                    <div class="node node-primary-focus mx-auto" title="Visão geral da organização">
+                                        <div class="node-header d-flex justify-content-center mb-1">
+                                            <span class="badge bg-primary small-badge">Visão Geral</span>
+                                        </div>
+                                        <div class="node-body">
+                                            <div class="node-title">Organograma Completo</div>
+                                            <div class="node-subtitle">Clique em um usuário para focar.</div>
+                                        </div>
+                                    </div>
+                                    {{-- Não há connection-line-vertical aqui, pois é o "root" da visão geral --}}
+                                </li>
+
+                                {{-- Raízes e suas subárvores --}}
+                                <ul class="list-unstyled hierarchy-reports-subtree mt-3"> {{-- Adiciona margem top aqui --}}
+                                    @foreach ($fullHierarchy as $root)
+                                        @include('livewire.admin.hierarchy.partials.simple-node', [
+                                            'node' => $root,
+                                            'needle' => $treeSearch,
+                                            'selectedManagerId' => $selectedManagerId, // Ainda nulo aqui, mas passado
+                                        ])
+                                    @endforeach
+                                </ul>
+                            </ul>
+                        @endif
                     @elseif (empty($focusedHierarchy['focusedUser']))
                         <div class="alert alert-warning text-center mt-5" role="alert">
-                            <i class="bi bi-exclamation-triangle me-2"></i> Não foi possível carregar a hierarquia para
-                            o usuário selecionado (usuário não encontrado ou excluído).
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Não foi possível carregar a hierarquia para o usuário selecionado (usuário não encontrado ou
+                            excluído).
                         </div>
                     @else
                         <ul class="list-unstyled hierarchy-main-container">
-
-                            {{-- Gerente Imediato (acima do usuário focado) --}}
+                            {{-- Gerente Imediato --}}
                             @if ($focusedHierarchy['manager'])
+                                @php
+                                    $mgrCompanyBadge = !empty($focusedHierarchy['manager']['company_name'])
+                                        ? explode(' ', $focusedHierarchy['manager']['company_name'])[0]
+                                        : '';
+                                @endphp
                                 <li class="hierarchy-manager-above">
                                     <div class="node node-manager-above mx-auto"
                                         wire:click.prevent="selectManager('{{ $focusedHierarchy['manager']['id'] }}')"
                                         title="Clique para focar neste gerente">
-                                        <div class="node-title">{{ $focusedHierarchy['manager']['name'] }}</div>
-                                        <div class="node-subtitle">{{ $focusedHierarchy['manager']['email'] }}</div>
+                                        <div class="node-header d-flex justify-content-between align-items-center mb-1">
+                                            @if ($mgrCompanyBadge)
+                                                <span
+                                                    class="badge bg-secondary small-badge">{{ $mgrCompanyBadge }}</span>
+                                            @else
+                                                <div></div>
+                                            @endif
+                                            <div></div> {{-- Para balancear justify-content-between --}}
+                                        </div>
+                                        <div class="node-body">
+                                            <div class="node-title">{{ $focusedHierarchy['manager']['name'] }}</div>
+                                            <div class="node-subtitle">{{ $focusedHierarchy['manager']['email'] }}</div>
+                                        </div>
                                     </div>
                                     <div class="connection-line-vertical"></div>
                                 </li>
                             @endif
 
-                            {{-- Usuário Focado (o centro da visualização) --}}
+                            {{-- Usuário Focado --}}
+                            @php
+                                $focusedUserCompanyBadge = !empty($focusedHierarchy['focusedUser']['company_name'])
+                                    ? explode(' ', $focusedHierarchy['focusedUser']['company_name'])[0]
+                                    : '';
+                            @endphp
                             <li class="hierarchy-focused-user">
                                 <div class="node node-primary-focus mx-auto"
                                     data-match="{{ $treeSearch ? (stripos($focusedHierarchy['focusedUser']['name'], $treeSearch) !== false || stripos($focusedHierarchy['focusedUser']['email'], $treeSearch) !== false ? '1' : '0') : '0' }}"
                                     wire:click.prevent="selectManager('{{ $focusedHierarchy['focusedUser']['id'] }}')"
                                     title="Você está focado neste usuário">
-                                    <div class="node-title">{{ $focusedHierarchy['focusedUser']['name'] }}</div>
-                                    <div class="node-subtitle">{{ $focusedHierarchy['focusedUser']['email'] }}</div>
-                                    <span
-                                        class="badge bg-primary position-absolute top-0 end-0 mt-1 me-1 px-2 py-1 shadow-sm">FOCO</span>
+                                    <div class="node-header d-flex justify-content-between align-items-center mb-1">
+                                        @if ($focusedUserCompanyBadge)
+                                            <span
+                                                class="badge bg-secondary small-badge">{{ $focusedUserCompanyBadge }}</span>
+                                        @else
+                                            <div></div>
+                                        @endif
+                                        <span class="badge bg-primary px-2 py-1 shadow-sm small-badge">FOCO</span>
+                                    </div>
+                                    <div class="node-body">
+                                        <div class="node-title">{{ $focusedHierarchy['focusedUser']['name'] }}</div>
+                                        <div class="node-subtitle">{{ $focusedHierarchy['focusedUser']['email'] }}
+                                        </div>
+                                    </div>
                                 </div>
                                 @if (!empty($focusedHierarchy['reportsTree']))
                                     <div class="connection-line-vertical"></div>
                                 @endif
                             </li>
 
-                            {{-- Relatórios e Sub-árvore (abaixo do usuário focado) --}}
+                            {{-- Subárvore de Relatórios --}}
                             @if (!empty($focusedHierarchy['reportsTree']))
                                 <ul class="list-unstyled hierarchy-reports-subtree">
                                     @foreach ($focusedHierarchy['reportsTree'] as $node)
@@ -108,12 +168,13 @@
         </div>
     </div>
 
-    {{-- LEFT Offcanvas: Lista de Usuários com Filtro de Empresa --}}
+    {{-- LEFT Offcanvas: Lista de Usuários + Filtro Empresa --}}
     <div wire:ignore.self class="offcanvas offcanvas-start bg-dark text-white shadow" tabindex="-1" id="leftOffcanvas"
         aria-labelledby="leftOffcanvasLabel">
         <div class="offcanvas-header bg-secondary border-bottom border-light-subtle">
-            <h5 class="offcanvas-title" id="leftOffcanvasLabel"><i class="bi bi-person-lines-fill me-2"></i> Lista de
-                Usuários</h5>
+            <h5 class="offcanvas-title" id="leftOffcanvasLabel">
+                <i class="bi bi-person-lines-fill me-2"></i> Lista de Usuários
+            </h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
                 aria-label="Close"></button>
         </div>
@@ -146,7 +207,7 @@
                 @endforelse
             </div>
             <div class="mt-auto pt-3 border-top border-secondary">
-                {{ $directory->links('pagination::bootstrap-5') }} {{-- Garante que a paginação use Bootstrap 5 --}}
+                {{ $directory->links('pagination::bootstrap-5') }}
             </div>
             <div class="d-flex gap-2 mt-3">
                 <button class="btn btn-sm btn-light" wire:click="clearCandidates">Limpar Seleção</button>
@@ -159,12 +220,13 @@
         </div>
     </div>
 
-    {{-- RIGHT Offcanvas: Detalhes e Ações do Usuário Focado + Delegações --}}
-    <div wire:ignore.self class="offcanvas offcanvas-end bg-dark text-white shadow" tabindex="-1" id="rightOffcanvas"
-        aria-labelledby="rightOffcanvasLabel">
+    {{-- RIGHT Offcanvas: Detalhes + Delegações --}}
+    <div wire:ignore.self class="offcanvas offcanvas-end bg-dark text-white shadow" tabindex="-1"
+        id="rightOffcanvas" aria-labelledby="rightOffcanvasLabel">
         <div class="offcanvas-header bg-secondary border-bottom border-light-subtle">
-            <h5 class="offcanvas-title" id="rightOffcanvasLabel"><i class="bi bi-info-circle-fill me-2"></i> Detalhes
-                e Ações</h5>
+            <h5 class="offcanvas-title" id="rightOffcanvasLabel">
+                <i class="bi bi-info-circle-fill me-2"></i> Detalhes e Ações
+            </h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
                 aria-label="Close"></button>
         </div>
@@ -176,11 +238,14 @@
                 </div>
                 <div class="card-body">
                     @if ($selectedManagerId)
-                        @php $sel = \App\Models\User::select('id','name','email','manager_id')->find($selectedManagerId); @endphp
+                        @php $sel = \App\Models\User::select('id','name','email','manager_id','company_id')->with('company:id,name')->find($selectedManagerId); @endphp
                         @if ($sel)
                             <div class="mb-3">
                                 <h5 class="mb-1 text-warning">{{ $sel->name }}</h5>
                                 <p class="small text-white-50 mb-0">{{ $sel->email }}</p>
+                                @if ($sel->company_id && $sel->company)
+                                    <p class="small text-white-50 mb-0">Empresa: {{ $sel->company->name }}</p>
+                                @endif
                                 @if ($sel->manager_id)
                                     @php $parent = \App\Models\User::find($sel->manager_id); @endphp
                                     <p class="small text-white-50 mt-1 mb-0">Gerente direto:
@@ -194,19 +259,23 @@
 
                             <div class="d-grid gap-2">
                                 <button class="btn btn-outline-warning btn-sm"
-                                    wire:click="openMoveModal('{{ $selectedManagerId }}')"><i
-                                        class="bi bi-arrows-move me-2"></i> Mover Posição...</button>
+                                    wire:click="openMoveModal('{{ $selectedManagerId }}')">
+                                    <i class="bi bi-arrows-move me-2"></i> Mover Posição...
+                                </button>
                                 @if ($sel->manager_id)
                                     <button class="btn btn-outline-info btn-sm"
-                                        wire:click="setAsRoot('{{ $selectedManagerId }}')"><i
-                                            class="bi bi-file-earmark-person me-2"></i> Tornar Raiz</button>
+                                        wire:click="setAsRoot('{{ $selectedManagerId }}')">
+                                        <i class="bi bi-file-earmark-person me-2"></i> Tornar Raiz
+                                    </button>
                                 @else
                                     <button class="btn btn-outline-info btn-sm" disabled
-                                        title="Este usuário já é uma raiz."><i
-                                            class="bi bi-file-earmark-person me-2"></i> Já é Raiz</button>
+                                        title="Este usuário já é uma raiz.">
+                                        <i class="bi bi-file-earmark-person me-2"></i> Já é Raiz
+                                    </button>
                                 @endif
-                                <button class="btn btn-success btn-sm" wire:click="openDelegation"><i
-                                        class="bi bi-person-check-fill me-2"></i> Criar Nova Delegação...</button>
+                                <button class="btn btn-success btn-sm" wire:click="openDelegation">
+                                    <i class="bi bi-person-check-fill me-2"></i> Criar Nova Delegação...
+                                </button>
                             </div>
                         @else
                             <div class="text-white-50 text-center p-3">Detalhes do usuário selecionado não encontrados.
@@ -253,14 +322,16 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-primary text-white">
-                    <h6 class="modal-title"><i class="bi bi-arrows-move me-2"></i> Mover <strong
-                            class="text-warning">Usuário</strong> para…</h6>
+                    <h6 class="modal-title">
+                        <i class="bi bi-arrows-move me-2"></i> Mover <strong class="text-warning">Usuário</strong>
+                        para…
+                    </h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body bg-light text-dark">
-                    <p class="small text-muted">Selecione o novo gerente para o usuário. Você não pode mover para si
-                        mesmo ou para alguém em sua própria sub-árvore.</p>
+                    <p class="small text-muted">Selecione o novo gerente. Não é permitido mover para si mesmo ou para
+                        um descendente.</p>
                     <input class="form-control form-control-sm mb-2 bg-white text-dark"
                         placeholder="Buscar gerente alvo…" wire:model.debounce.300ms="moveTargetSearch">
                     <div class="list-group small" style="max-height: 200px; overflow-y: auto;">
@@ -280,8 +351,9 @@
                 </div>
                 <div class="modal-footer bg-light border-top-0">
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-sm btn-primary" wire:click="confirmMove"
-                        @disabled(!$moveTargetId || $moveUserId === $moveTargetId)">Mover</button>
+                    <button class="btn btn-sm btn-primary" wire:click="confirmMove" @disabled(!$moveTargetId || $moveUserId === $moveTargetId)">
+                        Mover
+                    </button>
                 </div>
             </div>
         </div>
@@ -325,7 +397,8 @@
                         @enderror
                     </div>
                     <div class="row g-2">
-                        <div class="col"><label class="form-label small">Início da Delegação</label>
+                        <div class="col">
+                            <label class="form-label small">Início da Delegação</label>
                             <input type="date"
                                 class="form-control form-control-sm bg-white text-dark @error('dlg_from') is-invalid @enderror"
                                 wire:model="dlg_from">
@@ -333,7 +406,8 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col"><label class="form-label small">Fim da Delegação (Opcional)</label>
+                        <div class="col">
+                            <label class="form-label small">Fim da Delegação (Opcional)</label>
                             <input type="date"
                                 class="form-control form-control-sm bg-white text-dark @error('dlg_to') is-invalid @enderror"
                                 wire:model="dlg_to">
@@ -358,40 +432,38 @@
         </div>
     </div>
 
-    {{-- Estilos CSS Customizados --}}
+    {{-- Estilos --}}
     <style>
         body {
             background-color: #f1f5f9;
-            /* Um cinza bem claro para o fundo geral */
         }
 
-        /* Estilos para a lista de usuários na offcanvas esquerda */
         .user-list-item {
             cursor: pointer;
-            transition: background-color 0.2s, border-color 0.2s;
+            transition: background-color .2s, border-color .2s;
+            position: relative;
+            /* Para o badge da empresa */
         }
 
         .user-list-item:hover {
             background-color: var(--bs-primary) !important;
-            /* Mais destaque ao passar o mouse */
             border-color: var(--bs-primary) !important;
-            color: white !important;
+            color: #fff !important;
         }
 
         .user-list-item:hover .small {
-            color: rgba(255, 255, 255, 0.8) !important;
+            color: rgba(255, 255, 255, .8) !important;
         }
 
         .user-list-item.bg-primary {
-            /* Estilo para o item selecionado na lista */
-            color: white !important;
+            color: #fff !important;
         }
 
         .user-list-item.bg-primary .small {
-            color: rgba(255, 255, 255, 0.8) !important;
+            color: rgba(255, 255, 255, .8) !important;
         }
 
-        /* Estilos gerais da árvore (para a árvore focada) */
+        /* Organograma Estrutura Básica */
         .hierarchy-main-container {
             padding-left: 0;
             text-align: center;
@@ -402,138 +474,74 @@
             position: relative;
         }
 
-        /* Linha vertical de conexão */
+        /* Conexões Verticais */
         .connection-line-vertical {
             width: 1px;
-            height: 20px;
+            height: 30px;
+            /* Altura padrão para as linhas verticais */
             background-color: #adb5bd;
-            /* Um cinza um pouco mais escuro para as linhas */
             margin: 0 auto;
             display: block;
-        }
-
-        /* Nó do Gerente Acima */
-        .hierarchy-manager-above .node {
-            background-color: var(--bs-secondary-bg-subtle);
-            /* Fundo claro para o gerente acima */
-            border-color: var(--bs-secondary);
-            cursor: pointer;
-        }
-
-        .hierarchy-manager-above .node:hover {
-            background-color: var(--bs-secondary);
-            border-color: var(--bs-dark);
-            color: white;
-        }
-
-        .hierarchy-manager-above .node:hover .node-title,
-        .hierarchy-manager-above .node:hover .node-subtitle {
-            color: white;
-        }
-
-
-        /* Nó do Usuário Focado */
-        .hierarchy-focused-user .node-primary-focus {
-            background-color: var(--bs-primary-bg-subtle);
-            /* Azul claro para o nó principal */
-            border-color: var(--bs-primary);
             position: relative;
-            box-shadow: 0 0.25rem 0.5rem rgba(13, 110, 253, 0.2);
-            /* Sombra azul para destacar */
+            z-index: 1;
+            /* Para ficar acima da linha horizontal */
         }
 
-        .hierarchy-focused-user .node-primary-focus:hover {
-            background-color: var(--bs-primary-bg-subtle);
-            /* Mantém o hover */
-        }
-
-        /* Sub-árvore de Relatórios */
-        .hierarchy-reports-subtree {
-            padding-left: 0;
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 20px;
-            position: relative;
-            margin-top: 0;
-            padding-top: 20px;
-        }
-
-        .hierarchy-reports-subtree::before {
-            /* Linha vertical do foco para a linha horizontal dos filhos */
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 1px;
-            height: 20px;
-            background-color: #adb5bd;
-        }
-
-        .hierarchy-reports-subtree>li {
-            list-style: none;
-            position: relative;
-            text-align: center;
-            padding-top: 20px;
-        }
-
-        .hierarchy-reports-subtree>li::before {
-            /* Linha vertical para o nó filho */
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 1px;
-            height: 20px;
-            background-color: #adb5bd;
-        }
-
-        /* Linhas horizontais conectando irmãos */
-        .hierarchy-reports-subtree:has(> li)::after {
-            /* Linha horizontal que conecta todos os irmãos */
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background-color: #adb5bd;
-            z-index: -1;
-        }
-
-
-        /* Estilo base para cada nó (cartão de usuário) */
+        /* Estilo do Node (Card do Usuário) */
         .node {
             padding: .6rem 1rem;
             border: 1px solid #ced4da;
             border-radius: .5rem;
             background-color: #fff;
-            transition: all 0.2s ease-in-out;
+            transition: all .2s ease-in-out;
             cursor: pointer;
             word-break: break-word;
             max-width: 190px;
             min-height: 80px;
+            /* Altura mínima para comportar conteúdo */
             display: flex;
             flex-direction: column;
+            /* Coluna para header, body e actions */
             justify-content: center;
             align-items: center;
-            box-shadow: 0 0.1rem 0.2rem rgba(0, 0, 0, 0.05);
+            box-shadow: 0 .1rem .2rem rgba(0, 0, 0, .05);
+            margin-top: 30px;
+            /* Empurra o nó para baixo para a linha vertical conectar no topo */
+            position: relative;
+            /* Para os badges dentro do nó */
+        }
+
+        /* Reset margin-top para o nó raiz (se for o primeiro item do UL principal e não tiver uma linha vertical acima) */
+        .hierarchy-main-container>li>.node,
+        .hierarchy-focused-user>.node {
+            margin-top: 0;
         }
 
         .node:hover {
             border-color: var(--bs-primary);
-            box-shadow: 0 0.2rem 0.4rem rgba(13, 110, 253, 0.1);
+            box-shadow: 0 .2rem .4rem rgba(13, 110, 253, .1);
         }
 
-        /* Destaque para nós que correspondem à busca */
         .node[data-match="1"] {
             background-color: var(--bs-yellow-100);
-            /* Amarelo claro */
             border-color: var(--bs-yellow-500);
-            /* Amarelo */
-            box-shadow: 0 0.2rem 0.4rem rgba(255, 193, 7, 0.15);
+            box-shadow: 0 .2rem .4rem rgba(255, 193, 7, .15);
+        }
+
+        /* Estrutura interna do Node */
+        .node-header {
+            width: 100%;
+            margin-bottom: .25rem;
+            /* Pequena margem abaixo do header */
+            min-height: 1.5em;
+            /* Garante espaço para o badge mesmo que vazio */
+            display: flex;
+            justify-content: center;
+            /* Centraliza o badge se for o único item */
+        }
+
+        .node-body {
+            text-align: center;
         }
 
         .node-title {
@@ -544,15 +552,14 @@
         }
 
         .node-subtitle {
-            font-size: 0.8em;
+            font-size: .8em;
             color: #6c757d;
         }
 
-        /* Ações dentro dos nós filhos */
         .node-child-actions {
             margin-top: .5rem;
             display: flex;
-            gap: 0.25rem;
+            gap: .25rem;
             justify-content: center;
         }
 
@@ -562,75 +569,178 @@
             --bs-btn-font-size: .75rem;
         }
 
-        /* Offcanvas customização */
-        .offcanvas.bg-dark {
-            background-color: #212529 !important;
-            /* Cor de fundo mais escura para offcanvas */
+        .small-badge {
+            font-size: 0.65em;
+            padding: 0.2em 0.4em;
+            line-height: 1;
+            /* position: static; ou relative dentro do flow do node-header */
+        }
+
+        /* Estilos específicos para tipos de nós */
+        .hierarchy-manager-above .node {
+            background-color: var(--bs-secondary-bg-subtle);
+            border-color: var(--bs-secondary);
+            cursor: pointer;
+        }
+
+        .hierarchy-manager-above .node:hover {
+            background-color: var(--bs-secondary);
+            border-color: var(--bs-dark);
             color: #fff;
         }
 
-        .offcanvas .offcanvas-header.bg-secondary {
-            background-color: #343a40 !important;
-            /* Header ainda mais escuro */
-            border-color: rgba(255, 255, 255, 0.1) !important;
+        .hierarchy-manager-above .node:hover .node-title,
+        .hierarchy-manager-above .node:hover .node-subtitle {
+            color: #fff;
         }
 
+        .hierarchy-focused-user .node-primary-focus {
+            background-color: var(--bs-primary-bg-subtle);
+            border-color: var(--bs-primary);
+            box-shadow: 0 0.25rem 0.5rem rgba(13, 110, 253, .2);
+        }
+
+        .hierarchy-focused-user .node-primary-focus:hover {
+            background-color: var(--bs-primary-bg-subtle);
+        }
+
+        /* Estilos para a Sub-árvore de Relatórios */
+        .hierarchy-reports-subtree {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            position: relative;
+            padding-left: 0;
+            margin-top: 0;
+            padding-top: 30px;
+            /* Espaço para as linhas que vêm de cima (do pai) */
+        }
+
+        /* Linha horizontal que conecta os irmãos */
+        .hierarchy-reports-subtree::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            /* Começa no topo do padding-top do UL */
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: #adb5bd;
+            z-index: 0;
+            /* Fica abaixo das linhas verticais */
+        }
+
+        .hierarchy-reports-subtree>li {
+            list-style: none;
+            position: relative;
+            text-align: center;
+            margin: 0 10px;
+            /* Espaçamento horizontal entre os nós irmãos */
+            /* O padding-top para o li foi removido, a linha vertical será desenhada do topo do li até o node */
+        }
+
+        /* Linha vertical que desce da linha horizontal para cada nó filho */
+        .hierarchy-reports-subtree>li::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            /* Começa no topo do LI, alinhado com a linha horizontal */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1px;
+            height: 30px;
+            /* Comprimento da linha vertical até o nó (que tem margin-top: 30px) */
+            background-color: #adb5bd;
+            z-index: 1;
+            /* Acima da linha horizontal */
+        }
+
+        /* Offcanvas customização (manter como está) */
+        .offcanvas.bg-dark {
+            background-color: #212529 !important;
+            color: #fff;
+        }
+
+        .offcanvas .offcanvas-header.bg-secondary,
+        .offcanvas .card-header.bg-secondary,
         .offcanvas .card.bg-secondary {
             background-color: #343a40 !important;
-            border-color: rgba(255, 255, 255, 0.1) !important;
-        }
-
-        .offcanvas .card-header.bg-secondary {
-            background-color: #343a40 !important;
-            border-color: rgba(255, 255, 255, 0.1) !important;
+            border-color: rgba(255, 255, 255, .1) !important;
         }
 
         .offcanvas .form-control,
         .offcanvas .form-select {
-            background-color: rgba(255, 255, 255, 0.1) !important;
+            background-color: rgba(255, 255, 255, .1) !important;
             color: #fff !important;
-            border-color: rgba(255, 255, 255, 0.2) !important;
+            border-color: rgba(255, 255, 255, .2) !important;
         }
 
         .offcanvas .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.6) !important;
+            color: rgba(255, 255, 255, .6) !important;
         }
 
         .offcanvas .form-select option {
             background-color: #343a40;
-            /* Cor para opções do select */
             color: #fff;
         }
 
         .offcanvas .text-muted {
-            color: rgba(255, 255, 255, 0.7) !important;
+            color: rgba(255, 255, 255, .7) !important;
         }
 
         .offcanvas .user-list-item.bg-dark-subtle {
             background-color: #495057 !important;
-            /* Um cinza mais escuro para itens não selecionados */
             border-color: #6c757d !important;
         }
 
         .offcanvas .btn-close-white {
             filter: invert(1) grayscale(100%) brightness(200%);
-            /* Torna o X branco */
         }
 
         .offcanvas .pagination .page-link {
             background-color: #495057;
-            color: white;
+            color: #fff;
             border-color: #6c757d;
         }
 
-        .offcanvas .pagination .page-item.active .page-link {
+        .offcanvas .pagination .page-item.active .page-link,
+        .offcanvas .pagination .page-link:hover {
             background-color: var(--bs-primary);
             border-color: var(--bs-primary);
         }
 
-        .offcanvas .pagination .page-link:hover {
-            background-color: var(--bs-primary);
-            border-color: var(--bs-primary);
+        /* Ajustes para telas menores (responsividade) */
+        @media (max-width: 991.98px) {
+            .connection-line-vertical {
+                height: 15px;
+                /* Altura menor para mobile */
+            }
+
+            .node {
+                margin-top: 15px;
+                /* Ajusta a margem para mobile */
+            }
+
+            .hierarchy-reports-subtree {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                padding-top: 15px;
+            }
+
+            .hierarchy-reports-subtree::before {
+                display: none;
+                /* Esconde a linha horizontal em modo coluna */
+            }
+
+            .hierarchy-reports-subtree>li {
+                margin: 0;
+            }
+
+            .hierarchy-reports-subtree>li::before {
+                height: 15px;
+                /* Altura menor para mobile */
+            }
         }
     </style>
 
@@ -638,55 +748,26 @@
         document.addEventListener('livewire:load', () => {
             const mvModal = new bootstrap.Modal(document.getElementById('mvModal'));
             const dlgDelegationModal = new bootstrap.Modal(document.getElementById('dlgDelegation'));
-            // Instâncias de offcanvas (getOrCreateInstance é bom para evitar múltiplos objetos)
             const leftOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('leftOffcanvas'));
             const rightOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(document.getElementById(
                 'rightOffcanvas'));
 
             window.addEventListener('show-move-modal', (e) => {
                 const mvModalEl = document.getElementById('mvModal');
-                const mvModalTitleStrong = mvModalEl.querySelector('.modal-title strong');
-                if (mvModalTitleStrong && e.detail.userName) {
-                    mvModalTitleStrong.textContent = e.detail.userName;
-                }
+                const strongEl = mvModalEl.querySelector('.modal-title strong');
+                if (strongEl && e.detail?.userName) strongEl.textContent = e.detail.userName;
                 mvModal.show();
             });
             window.addEventListener('hide-move-modal', () => mvModal.hide());
             window.addEventListener('show-delegation-modal', () => dlgDelegationModal.show());
             window.addEventListener('hide-delegation-modal', () => dlgDelegationModal.hide());
 
-            // Eventos para fechar as offcanvas programaticamente (ex: ao selecionar item da lista em mobile)
             window.addEventListener('hide-left-offcanvas', () => leftOffcanvas.hide());
             window.addEventListener('hide-right-offcanvas', () => rightOffcanvas.hide());
 
-
             window.addEventListener('toast', e => {
                 console.log(`[toast] Tipo: ${e.detail.type}, Mensagem: ${e.detail.msg}`);
-                // Implementação de Toast (exemplo básico, você pode usar uma biblioteca ou Bootstrap Toast)
-                // Para usar o Toast do Bootstrap, você precisaria de um container e um toast div no seu HTML:
-                /*
-                <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
-                    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="toast-header bg-primary text-white">
-                            <strong class="me-auto">Notificação</strong>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                        </div>
-                        <div class="toast-body"></div>
-                    </div>
-                </div>
-                */
-                // E no JS:
-                // const liveToast = document.getElementById('liveToast');
-                // if (liveToast) {
-                //     const toastBody = liveToast.querySelector('.toast-body');
-                //     toastBody.textContent = e.detail.msg;
-                //     liveToast.classList.remove('bg-success', 'bg-warning', 'bg-danger');
-                //     if (e.detail.type === 'success') liveToast.classList.add('bg-success');
-                //     else if (e.detail.type === 'warning') liveToast.classList.add('bg-warning');
-                //     else if (e.detail.type === 'error') liveToast.classList.add('bg-danger');
-                //     const toast = bootstrap.Toast.getOrCreateInstance(liveToast);
-                //     toast.show();
-                // }
+                // implemente o Toast do Bootstrap aqui se quiser
             });
         });
     </script>

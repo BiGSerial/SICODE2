@@ -26,7 +26,7 @@
         .user-list tbody td>img {
             position: relative;
             max-width: 50px;
-            float: left;
+            float: left;1
             margin-right: 15px;
         }
 

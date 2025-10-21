@@ -1,22 +1,28 @@
+{{-- livewire.admin.hierarchy.partials.simple-node --}}
+@php
+    $match = $needle ? stripos($node['name'], $needle) !== false || stripos($node['email'], $needle) !== false : false;
+    $isSelected = $node['id'] === $selectedManagerId;
+@endphp
 <li class="mb-1">
-    <div class="node drop-target d-flex justify-content-between align-items-center" data-node-id="{{ $node['id'] }}"
-        draggable="false">
-        <div class="d-flex flex-column">
-            <strong class="select-node" style="cursor:pointer" wire:click="$emit('lwSelectUser','{{ $node['id'] }}')">
-                {{ $node['name'] }}
-            </strong>
-            <span class="small text-muted">{{ $node['email'] }}</span>
-        </div>
-        <div class="actions d-flex gap-1">
-            <button class="btn btn-outline-secondary btn-sm"
-                onclick="window.__hier.onSetRoot('{{ $node['id'] }}')">Raiz</button>
+    <div class="node mx-auto {{ $isSelected ? 'node-selected' : '' }}" data-match="{{ $match ? '1' : '0' }}"
+        wire:click.prevent="selectManager('{{ $node['id'] }}')" title="Clique para focar neste usuário">
+        <div class="node-title">{{ $node['name'] }}</div>
+        <div class="node-subtitle">— {{ $node['email'] }}</div>
+        <div class="node-child-actions">
+            <button class="btn btn-outline-primary btn-sm" wire:click.stop="openMoveModal('{{ $node['id'] }}')"
+                title="Mover este usuário para outro gerente"><i class="bi bi-arrows-move"></i></button>
         </div>
     </div>
 
     @if (!empty($node['children']))
-        <ul class="list-unstyled ms-3">
+        <div class="connection-line-vertical"></div>
+        <ul class="list-unstyled hierarchy-reports-subtree">
             @foreach ($node['children'] as $child)
-                @include('livewire.admin.hierarchy.partials.node', ['node' => $child])
+                @include('livewire.admin.hierarchy.partials.simple-node', [
+                    'node' => $child,
+                    'needle' => $needle,
+                    'selectedManagerId' => $selectedManagerId,
+                ])
             @endforeach
         </ul>
     @endif
