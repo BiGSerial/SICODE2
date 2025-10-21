@@ -166,6 +166,9 @@
                 <thead>
                     <tr class="table-dark">
                         <th class="text-center align-middle" scope="col">NOTA/OV</th>
+                        <th class="text-center align-middle" scope="col">STATUS</th>
+                        <th class="text-center align-middle" scope="col">CENTRO TRAB</th>
+                        <th class="text-center align-middle" scope="col">NOTA/OV</th>
                         <th class="text-center align-middle" scope="col">ORDEM</th>
                         <th class="text-center align-middle" scope="col">EMPREITEIRA</th>
                         <th class="text-center align-middle" scope="col">RUBRICA</th>
@@ -181,7 +184,9 @@
                 <tbody>
                     @foreach ($lists as $list)
                         <tr wire:key='ret-{{ $list->id }}'>
-                            <td class="text-center align-middle">{{ $list->Note->note }}</td>
+                            <td class="text-center align-middle fw-bold">{{ $list->Note->note }}</td>
+                            <td class="text-center align-middle fw-bold text-primary">{{ $list->Note->nstats }}</td>
+                            <td class="text-center align-middle fw-bold text-primary">{{ $list->Note->centerjob }}</td>
                             <td class="text-center align-middle">
                                 @if ($list->Orders->count())
                                     @foreach ($list->Orders as $order)

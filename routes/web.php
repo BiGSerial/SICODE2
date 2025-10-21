@@ -296,8 +296,10 @@ Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middlewar
 
 
 // Files Controller Manager
-Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function () {
+Route::prefix('/files')->controller(FilesController::class)->name('files.')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::get('/files/{file}/download', 'download')->name('download');
+    Route::get('/files/zip', 'zipSelected')->name('zip');
 });
 
 Route::get('/info', function () {

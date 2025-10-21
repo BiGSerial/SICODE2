@@ -96,7 +96,14 @@ class Rejectedworkreports extends Component
 
         // Iniciar a consulta de WorkReport
         $query = WorkReport::query()
-            ->where('rejected', true);
+            ->where('rejected', true)
+        ->whereDoesntHave('Note', function ($q) {
+            $q->whereIn('nstats', [55])
+            ->orWhere(function ($q) {
+                $q->where('nstats', 99)
+                  ->where('type_note', 1);
+            });
+        });
 
         // Filtros de data
         if ($this->date_in || $this->date_out) {

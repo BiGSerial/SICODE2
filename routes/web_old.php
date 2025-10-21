@@ -54,22 +54,22 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/services', 'services')->name('services');
     });
 
-Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->name('main');
-    Route::get('/production/{prod}')->name('production');
-    Route::get('/to_accompany', 'accompany')->name('accompany');
-    Route::get('/my_historic', 'historic')->name('historic');
-    Route::get('/waiting_list', 'waiting_list')->name('waiting');
-    Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
-});
+    Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->group(function () {
+        Route::get('/', 'main')->name('main');
+        Route::get('/production/{prod}')->name('production');
+        Route::get('/to_accompany', 'accompany')->name('accompany');
+        Route::get('/my_historic', 'historic')->name('historic');
+        Route::get('/waiting_list', 'waiting_list')->name('waiting');
+        Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
+    });
 
-Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->name('main');
-    Route::get('/production/{prod}')->name('production');
-    Route::get('/to_accompany', 'accompany')->name('accompany');
-    Route::get('/my_historic', 'historic')->name('historic');
-    Route::get('/viab_returned', 'returned')->name('returned');
-    Route::get('/waiting_list', 'waiting')->name('waiting');
+    Route::prefix('/construction/{service}')->controller(ConstructionController::class)->name('construction.')->middleware('auth')->group(function () {
+        Route::get('/', 'main')->name('main');
+        Route::get('/production/{prod}')->name('production');
+        Route::get('/to_accompany', 'accompany')->name('accompany');
+        Route::get('/my_historic', 'historic')->name('historic');
+        Route::get('/viab_returned', 'returned')->name('returned');
+        Route::get('/waiting_list', 'waiting')->name('waiting');
 
 
         Route::prefix('/responser')->name('responser.')->group(function () {
@@ -77,13 +77,13 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
         });
     });
 
-Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->group(function () {
-    Route::get('/main', 'survey_main')->name('main');
-    Route::get('/stack', 'survey_stack')->name('stack');
-    Route::get('/transfer', 'survey_transfer')->name('transprod');
-    Route::get('/intern_returns', 'returnD5')->name('d5');
-    Route::get('/map_info', 'survey_map')->name('mapinfo');
-});
+    Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->group(function () {
+        Route::get('/main', 'survey_main')->name('main');
+        Route::get('/stack', 'survey_stack')->name('stack');
+        Route::get('/transfer', 'survey_transfer')->name('transprod');
+        Route::get('/intern_returns', 'returnD5')->name('d5');
+        Route::get('/map_info', 'survey_map')->name('mapinfo');
+    });
 
     Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('can:management')->group(function () {
         Route::get('/service', 'services')->name('services');
@@ -151,7 +151,11 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     // Files Controller Manager
     Route::prefix('/files')->controller(FilesController::class)->name('files.')->group(function () {
         Route::get('/', 'main')->name('main');
+        Route::get('/files/{file}/download', 'download')->name('download');
+        Route::get('/files/zip', 'zipSelected')->name('zip');
     });
+
+
 
 });
 

@@ -169,6 +169,11 @@ class Note extends Model
         return $this->hasOne(FiveNote::class);
     }
 
+    public function City()
+    {
+        return $this->belongsTo(City::class, 'nexp', 'rdMunicipio');
+    }
+
 
 
 
