@@ -38,15 +38,15 @@ class Board extends Component
     public string $dlg_reason = '';
 
     protected $queryString = [
-        'leftSearch'       => ['except' => ''],
-        'treeSearch'       => ['except' => ''],
+        'leftSearch'        => ['except' => ''],
+        'treeSearch'        => ['except' => ''],
         'selectedManagerId' => ['except' => ''],
-        'companyFilter' => ['except' => ''],
+        'companyFilter'     => ['except' => ''],
     ];
 
     public function updated($propertyName)
     {
-        if (in_array($propertyName, ['leftSearch', 'companyFilter'])) {
+        if (in_array($propertyName, ['leftSearch', 'companyFilter'], true)) {
             $this->resetPage('dir');
         }
     }
@@ -54,7 +54,8 @@ class Board extends Component
     /* -------- Esquerda: Lista de Usuários -------- */
     public function getDirectoryProperty()
     {
-        $q = User::query()->select('id', 'name', 'email', 'manager_id', 'company_id')
+        $q = User::query()
+            ->select('id', 'name', 'email', 'manager_id', 'company_id')
             ->whereNull('deleted_at')
             ->with('company:id,name');
 
@@ -95,7 +96,9 @@ class Board extends Component
             $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Selecione um gerente no organograma e pelo menos um candidato na lista.']);
             return;
         }
+
         $svc = app(HierarchyService::class);
+
         foreach ($this->selectedCandidateIds as $uid) {
             if ($uid === $this->selectedManagerId) {
                 $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Não é possível atribuir um usuário a ele mesmo.']);
@@ -109,6 +112,7 @@ class Board extends Component
                 $this->dispatchBrowserEvent('toast', ['type' => 'error','msg' => 'Ocorreu um erro ao atribuir: ' . $e->getMessage()]);
             }
         }
+
         $this->clearCandidates();
         $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Atribuições concluídas.']);
         $this->emit('$refresh');
@@ -140,28 +144,78 @@ class Board extends Component
         }
     }
 
+    public function setAsRootSelected(): void
+    {
+        if (!$this->selectedManagerId) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'warning', 'msg' => 'Nenhum usuário focado para tornar raiz.']);
+            return;
+        }
+
+        try {
+            app(\App\Services\HierarchyService::class)->moveSubtree($this->selectedManagerId, null);
+
+            // feedback + refresh
+            $this->dispatchBrowserEvent('toast', ['type' => 'success', 'msg' => 'Usuário definido como raiz.']);
+            $this->emit('$refresh');
+
+            // mantém o foco no mesmo usuário (agora raiz); nada a mudar em $selectedManagerId
+
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'error', 'msg' => 'Erro: ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'error', 'msg' => 'Erro ao tornar raiz: ' . $e->getMessage()]);
+        }
+    }
+
+
     public function openMoveModal(string $userId): void
     {
         $this->moveUserId = $userId;
         $this->moveTargetSearch = '';
         $this->moveTargetId = null;
+
         $user = User::find($userId);
-        $this->dispatchBrowserEvent('show-move-modal', ['userName' => $user->name ?? 'Usuário']);
+        $this->dispatchBrowserEvent('show-move-modal', [
+            'userName' => $user?->name ?? 'Usuário'
+        ]);
     }
 
     public function confirmMove(): void
     {
+        // Garantias básicas de entrada
         if (!$this->moveUserId) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Usuário a mover não definido. Abra o modal novamente.']);
             return;
         }
+
+        if (!$this->moveTargetId) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Selecione o novo gerente antes de mover.']);
+            return;
+        }
+
+        if ($this->moveUserId === $this->moveTargetId) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Não é possível mover para si mesmo.']);
+            return;
+        }
+
         try {
-            app(HierarchyService::class)->moveSubtree($this->moveUserId, $this->moveTargetId);
+            app(\App\Services\HierarchyService::class)->moveSubtree($this->moveUserId, $this->moveTargetId);
+
+            // Fecha modal + feedback
             $this->dispatchBrowserEvent('hide-move-modal');
             $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Movido com sucesso.']);
             $this->emit('$refresh');
+
+            // Se o usuário movido era o focado, atualiza o foco para o novo gerente
             if ($this->moveUserId === $this->selectedManagerId) {
                 $this->selectedManagerId = $this->moveTargetId;
             }
+
+            // Limpa estado do modal
+            $this->moveUserId = null;
+            $this->moveTargetId = null;
+            $this->moveTargetSearch = '';
+
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('toast', ['type' => 'error','msg' => 'Erro: ' . $e->getMessage()]);
         } catch (\Throwable $e) {
@@ -169,24 +223,36 @@ class Board extends Component
         }
     }
 
+
     public function getMoveTargetsProperty()
     {
-        $q = User::query()->select('id', 'name', 'email')
-            ->whereNull('deleted_at')
-            ->where('id', '!=', $this->moveUserId);
+        $q = User::query()
+            ->select('id', 'name', 'email')
+            ->whereNull('deleted_at');
 
         if ($this->moveUserId) {
-            $descendantsOfMovingUser = DB::table('user_closure')
-                                    ->where('ancestor_id', $this->moveUserId)
-                                    ->pluck('descendant_id');
-            $q->whereNotIn('id', $descendantsOfMovingUser);
+            $q->where('id', '!=', $this->moveUserId);
+
+            // Evita mover para descendente do usuário que está sendo movido
+            $descendants = DB::table('user_closure')
+                ->where('ancestor_id', $this->moveUserId)
+                ->pluck('descendant_id');
+
+            if ($descendants->isNotEmpty()) {
+                $q->whereNotIn('id', $descendants);
+            }
         }
 
         if ($s = trim($this->moveTargetSearch)) {
-            $q->where(function ($w) use ($s) {
-                $w->orWhere('name', 'like', "%{$t}%")->orWhere('email', 'like', "%{$t}%");
+            $terms = preg_split('/[\s,;\n\r]+/', $s, -1, PREG_SPLIT_NO_EMPTY);
+            $q->where(function ($w) use ($terms) {
+                foreach ($terms as $t) {
+                    $w->orWhere('name', 'like', "%{$t}%")
+                      ->orWhere('email', 'like', "%{$t}%");
+                }
             });
         }
+
         return $q->orderBy('name')->limit(20)->get();
     }
 
@@ -201,50 +267,90 @@ class Board extends Component
             return [];
         }
 
-        $allActiveUsers = User::query()->with('company:id,name')->select('id', 'name', 'email', 'manager_id', 'company_id')->whereNull('deleted_at')->get();
+        $allActiveUsers = User::query()
+            ->with('company:id,name')
+            ->select('id', 'name', 'email', 'manager_id', 'company_id')
+            ->whereNull('deleted_at')
+            ->get();
+
+        // índice de delegações ativas por titular
+        $delegIdx = $this->activeDelegationsIndex;
 
         $byManager = [];
         foreach ($allActiveUsers as $u) {
             $byManager[$u->manager_id ?? 'ROOT'][] = $u;
         }
 
-        $buildSubtree = function ($parentId) use (&$buildSubtree, &$byManager) {
+        $buildSubtree = function ($parentId) use (&$buildSubtree, &$byManager, $delegIdx, $allActiveUsers) {
             $nodes = [];
             foreach ($byManager[$parentId] ?? [] as $u) {
+                // overlay de delegação (se o "u" estiver delegando sua função)
+                $deleg = $delegIdx[(string)$u->id] ?? null;
+                $delegateUser = $deleg ? $allActiveUsers->firstWhere('id', $deleg['delegate_id']) : null;
+
+                $displayName  = $delegateUser->name  ?? $u->name;
+                $displayEmail = $delegateUser->email ?? $u->email;
+
                 $nodes[] = [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'email' => $u->email,
+                    'id'           => $u->id,             // mantém a identidade do nó como o TITULAR
+                    'name'         => $displayName,       // mostra o delegado ocupando a função
+                    'email'        => $displayEmail,
                     'company_name' => $u->company->name ?? null,
-                    'children' => $buildSubtree($u->id),
+                    'delegation'   => ($deleg && $delegateUser) ? [
+                        'principal' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
+                        'delegate'  => ['id' => $delegateUser->id, 'name' => $delegateUser->name, 'email' => $delegateUser->email],
+                        'reason'    => $deleg['reason'],
+                        'valid_to'  => $deleg['valid_to'],
+                    ] : null,
+                    'children'     => $buildSubtree($u->id),
                 ];
             }
             return $nodes;
         };
 
         $hierarchy = [
-            'manager' => null,
-            'focusedUser' => null,
-            'reportsTree' => [],
+            'manager'      => null,
+            'focusedUser'  => null,
+            'reportsTree'  => [],
         ];
 
         if ($focusedUser->manager_id) {
             $manager = User::query()->with('company:id,name')->whereNull('deleted_at')->find($focusedUser->manager_id);
             if ($manager) {
+                // overlay no gerente também (se ele estiver delegando)
+                $delegM = $delegIdx[(string)$manager->id] ?? null;
+                $delegateM = $delegM ? $allActiveUsers->firstWhere('id', $delegM['delegate_id']) : null;
+
                 $hierarchy['manager'] = [
-                    'id' => $manager->id,
-                    'name' => $manager->name,
-                    'email' => $manager->email,
+                    'id'           => $manager->id,
+                    'name'         => $delegateM->name  ?? $manager->name,
+                    'email'        => $delegateM->email ?? $manager->email,
                     'company_name' => $manager->company->name ?? null,
+                    'delegation'   => ($delegM && $delegateM) ? [
+                        'principal' => ['id' => $manager->id, 'name' => $manager->name, 'email' => $manager->email],
+                        'delegate'  => ['id' => $delegateM->id, 'name' => $delegateM->name, 'email' => $delegateM->email],
+                        'reason'    => $delegM['reason'],
+                        'valid_to'  => $delegM['valid_to'],
+                    ] : null,
                 ];
             }
         }
 
+        // overlay no focado (se ele estiver delegando sua função)
+        $delegF = $delegIdx[(string)$focusedUser->id] ?? null;
+        $delegateF = $delegF ? $allActiveUsers->firstWhere('id', $delegF['delegate_id']) : null;
+
         $hierarchy['focusedUser'] = [
-            'id' => $focusedUser->id,
-            'name' => $focusedUser->name,
-            'email' => $focusedUser->email,
+            'id'           => $focusedUser->id,
+            'name'         => $delegateF->name  ?? $focusedUser->name,
+            'email'        => $delegateF->email ?? $focusedUser->email,
             'company_name' => $focusedUser->company->name ?? null,
+            'delegation'   => ($delegF && $delegateF) ? [
+                'principal' => ['id' => $focusedUser->id, 'name' => $focusedUser->name, 'email' => $focusedUser->email],
+                'delegate'  => ['id' => $delegateF->id, 'name' => $delegateF->name, 'email' => $delegateF->email],
+                'reason'    => $delegF['reason'],
+                'valid_to'  => $delegF['valid_to'],
+            ] : null,
         ];
 
         $hierarchy['reportsTree'] = $buildSubtree($focusedUser->id);
@@ -252,30 +358,47 @@ class Board extends Component
         return $hierarchy;
     }
 
+
     public function getFullHierarchyProperty(): array
     {
-        $q = User::query()->with('company:id,name')->select('id', 'name', 'email', 'manager_id', 'company_id')->whereNull('deleted_at');
+        $q = User::query()
+            ->with('company:id,name')
+            ->select('id', 'name', 'email', 'manager_id', 'company_id')
+            ->whereNull('deleted_at');
 
         if ($this->companyFilter) {
             $q->where('company_id', $this->companyFilter);
         }
 
         $allActiveUsers = $q->get();
+        $delegIdx = $this->activeDelegationsIndex;
 
         $byManager = [];
         foreach ($allActiveUsers as $u) {
             $byManager[$u->manager_id ?? 'ROOT'][] = $u;
         }
 
-        $buildTree = function ($parentId) use (&$buildTree, &$byManager) {
+        $buildTree = function ($parentId) use (&$buildTree, &$byManager, $delegIdx, $allActiveUsers) {
             $nodes = [];
             foreach ($byManager[$parentId] ?? [] as $u) {
+                $deleg = $delegIdx[(string)$u->id] ?? null;
+                $delegateUser = $deleg ? $allActiveUsers->firstWhere('id', $deleg['delegate_id']) : null;
+
+                $displayName  = $delegateUser->name  ?? $u->name;
+                $displayEmail = $delegateUser->email ?? $u->email;
+
                 $nodes[] = [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'email' => $u->email,
+                    'id'           => $u->id,
+                    'name'         => $displayName,
+                    'email'        => $displayEmail,
                     'company_name' => $u->company->name ?? null,
-                    'children' => $buildTree($u->id),
+                    'delegation'   => ($deleg && $delegateUser) ? [
+                        'principal' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
+                        'delegate'  => ['id' => $delegateUser->id, 'name' => $delegateUser->name, 'email' => $delegateUser->email],
+                        'reason'    => $deleg['reason'],
+                        'valid_to'  => $deleg['valid_to'],
+                    ] : null,
+                    'children'     => $buildTree($u->id),
                 ];
             }
             return $nodes;
@@ -284,11 +407,13 @@ class Board extends Component
         return $buildTree('ROOT');
     }
 
+
     public function getBreadcrumbProperty(): array
     {
         if (!$this->selectedManagerId) {
             return [];
         }
+
         return DB::table('user_closure as uc')
             ->join('users as u', 'u.id', '=', 'uc.ancestor_id')
             ->where('uc.descendant_id', $this->selectedManagerId)
@@ -302,51 +427,65 @@ class Board extends Component
     public function openDelegation(): void
     {
         if (!$this->selectedManagerId) {
-            $this->dispatchBrowserEvent('toast', ['type' => 'warning','msg' => 'Selecione um usuário para criar uma delegação.']);
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'warning',
+                'msg'  => 'Selecione um usuário para criar uma delegação.'
+            ]);
             return;
         }
+
         $this->dlg_principal_id = $this->selectedManagerId;
-        $this->dlg_delegate_id = null;
-        $this->dlg_from = now()->toDateString();
-        $this->dlg_to = null;
-        $this->dlg_reason = 'Férias';
+        $this->dlg_delegate_id  = null;
+        $this->dlg_from         = now()->toDateString();
+        $this->dlg_to           = null;
+        $this->dlg_reason       = 'Férias';
+
+        // compatível com qualquer setup
         $this->dispatchBrowserEvent('show-delegation-modal');
+        // $this->dispatch('show-delegation-modal'); // Livewire v3
     }
 
     public function saveDelegation(): void
     {
+        // limpa mensagens antigas, se houver
+        $this->resetValidation();
+
         $this->validate([
-            'dlg_principal_id' => 'required|uuid|different:dlg_delegate_id',
-            'dlg_delegate_id'  => 'required|uuid|different:dlg_principal_id',
-            'dlg_from'         => 'required|date',
-            'dlg_to'           => 'nullable|date|after_or_equal:dlg_from',
+            'dlg_principal_id' => ['required', 'exists:users,id', 'different:dlg_delegate_id'],
+            'dlg_delegate_id'  => ['required', 'exists:users,id', 'different:dlg_principal_id'],
+            'dlg_from'         => ['required', 'date'],
+            'dlg_to'           => ['nullable', 'date', 'after_or_equal:dlg_from'],
         ], [
             'dlg_principal_id.required' => 'O titular da delegação é obrigatório.',
             'dlg_principal_id.different' => 'O titular não pode ser o mesmo que o delegado.',
+            'dlg_principal_id.exists'   => 'Titular inválido.',
             'dlg_delegate_id.required'  => 'O delegado é obrigatório.',
             'dlg_delegate_id.different' => 'O delegado não pode ser o mesmo que o titular.',
+            'dlg_delegate_id.exists'    => 'Delegado inválido.',
             'dlg_from.required'         => 'A data de início é obrigatória.',
             'dlg_from.date'             => 'A data de início não é válida.',
             'dlg_to.date'               => 'A data de fim não é válida.',
             'dlg_to.after_or_equal'     => 'A data de fim deve ser igual ou posterior à data de início.',
         ]);
 
-        UserDelegation::updateOrCreate(
+        // grava/atualiza
+        \App\Models\UserDelegation::updateOrCreate(
             [
-                'principal_id' => $this->dlg_principal_id,
-                'delegate_id'  => $this->dlg_delegate_id,
-                'valid_from'   => $this->dlg_from.' 00:00:00',
+                'principal_id' => (string) $this->dlg_principal_id,
+                'delegate_id'  => (string) $this->dlg_delegate_id,
+                'valid_from'   => $this->dlg_from . ' 00:00:00',
             ],
             [
-                'valid_to' => $this->dlg_to ? $this->dlg_to.' 23:59:59' : null,
+                'valid_to' => $this->dlg_to ? ($this->dlg_to . ' 23:59:59') : null,
                 'reason'   => $this->dlg_reason ?: 'Cobertura',
             ]
         );
 
         $this->dispatchBrowserEvent('hide-delegation-modal');
-        $this->dispatchBrowserEvent('toast', ['type' => 'success','msg' => 'Delegação registrada.']);
+        $this->dispatchBrowserEvent('toast', ['type' => 'success', 'msg' => 'Delegação registrada.']);
         $this->emit('$refresh');
     }
+
 
     public function getActiveDelegationsProperty()
     {
@@ -367,16 +506,36 @@ class Board extends Component
             ->get();
     }
 
+    public function getActiveDelegationsIndexProperty(): array
+    {
+        // Indexa delegações ativas por principal_id
+        $rows = UserDelegation::query()
+            ->where('valid_from', '<=', now())
+            ->where(fn ($q) => $q->whereNull('valid_to')->orWhere('valid_to', '>=', now()))
+            ->get(['principal_id', 'delegate_id', 'reason', 'valid_from', 'valid_to']);
+
+        $map = [];
+        foreach ($rows as $r) {
+            $map[(string)$r->principal_id] = [
+                'delegate_id' => (string)$r->delegate_id,
+                'reason'      => $r->reason,
+                'valid_from'  => $r->valid_from,
+                'valid_to'    => $r->valid_to,
+            ];
+        }
+        return $map;
+    }
+
     public function render()
     {
         return view('livewire.admin.hierarchy.board', [
-            'directory'   => $this->directory,
-            'focusedHierarchy' => $this->focusedHierarchy,
-            'fullHierarchy' => $this->fullHierarchy,
-            'breadcrumb'  => $this->breadcrumb,
-            'moveTargets' => $this->moveTargets,
-            'delegations' => $this->activeDelegations,
-            'companies'   => Company::orderBy('name')->get(['id', 'name']),
+            'directory'         => $this->directory,
+            'focusedHierarchy'  => $this->focusedHierarchy,
+            'fullHierarchy'     => $this->fullHierarchy,
+            'breadcrumb'        => $this->breadcrumb,
+            'moveTargets'       => $this->moveTargets,
+            'delegations'       => $this->activeDelegations,
+            'companies'         => Company::orderBy('name')->get(['id', 'name']),
         ]);
     }
 }
