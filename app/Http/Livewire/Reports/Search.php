@@ -60,7 +60,7 @@ class Search extends Component
                 'Productions' => function ($q) {
                     $q->where('rejected', false)
                       ->with([
-                          'Service:id,service',
+                          'Service:id,uuid,service',
                           'User:id,name,email',
                           'Company:id,name',
                       ])
@@ -113,7 +113,7 @@ class Search extends Component
                         // usual em RamalReport:
                         'BtzeroEquipment:id,ramal_report_id',
 
-                        'ReturnRamal:id,ramal_form_id,created_at',
+                        'ReturnRamal:id,ramal_report_id,created_at',
                     ])->select([
                         'id','note_id','company_id','user_id','created_at','rejected'
                     ]);
