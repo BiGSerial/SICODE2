@@ -60,7 +60,7 @@ class Search extends Component
                 'Productions' => function ($q) {
                     $q->where('rejected', false)
                       ->with([
-                          'Service:id,service',
+                          'Service:id,uuid,service',
                           'User:id,name,email',
                           'Company:id,name',
                       ])
