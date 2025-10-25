@@ -9,7 +9,7 @@
 
     <x-showselected :count="$selected" />
 
-    <div class="row mb-3 justify-content-end">
+    <div class="row mb-3 justify-content-end align-middle">
         <div class="col-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">

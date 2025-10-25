@@ -24,6 +24,11 @@ class Stack extends Component
     public $search = '';
     public $advancedSearch;
     public $multiSearch = [];
+    public $note_type;
+
+    // Filters
+    private $filter_group = 'supervision';
+    private $filter;
 
     protected $queryString = [
         'statusFilter' => ['except' => null],
@@ -80,7 +85,7 @@ class Stack extends Component
         $this->search = null;
     }
 
-    public function baseQuery()
+    private function baseQuery()
     {
         return Production::Query()
             ->where('service_id', $this->service)
@@ -88,36 +93,64 @@ class Stack extends Component
             ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
             ->leftJoin('work_reports as wr', 'n.id', '=', 'wr.note_id')
             ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
+            ->selectRaw('
+            productions.*,
+            CASE 
+                WHEN n.type_note = 1 THEN 
+                CASE 
+                    WHEN n.mesalization REGEXP "^M[0-9]{2}/[0-9]{4}$" THEN
+                    DATE(CONCAT(
+                        SUBSTRING(n.mesalization, 4, 4), "-",
+                        LPAD(SUBSTRING(n.mesalization, 2, 2), 2, "0"), "-28"
+                    ))
+                    ELSE NULL
+                END
+                WHEN n.type_note = 2 THEN 
+                DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
+                ELSE NULL
+            END AS PZO
+            ')
             ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-                'service:id,uuid,service',
-                'user:id,name',
-                'note:id,note,nstats,dt_status,rubrica,postes,lexp',
-                'note.workform:id,company_id,note_id,informed_at,rejected',
-                'note.workform.adsform:id,work_report_id,amount,created_at',
-                'note.orders:id,note_id,moaberto'
-                ])
+            'service:id,uuid,service',
+            'user:id,name',
+            'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left',
+            'note.workform:id,company_id,note_id,informed_at,rejected',
+            'note.workform.adsform:id,work_report_id,amount,created_at',
+            'note.orders:id,note_id,moaberto'
+            ])
         ;
     }
 
-    public function getListsProperty()
+    private function filtersQuery()
     {
-        $query = $this->baseQuery()
-            ->when($this->search, function ($q) {
-                $q->where(function ($q) {
-                    $q->where('n.note', 'like', '%' . $this->search . '%')
-                        ->orWhere('n.rubrica', 'like', '%' . $this->search . '%')
-                        ->orWhere('n.lexp', 'like', '%' . $this->search . '%')
-                        ->orWhere('productions.odi', 'like', '%' . $this->search . '%')
-                        ->orWhere('productions.odd', 'like', '%' . $this->search . '%')
-                        ->orWhere('productions.ods', 'like', '%' . $this->search . '%')
-                        ->orWhereHas('user', function ($q) {
-                            $q->where('name', 'like', '%' . $this->search . '%');
-                        })
-                        ->orWhereHas('note.orders', function ($q) {
-                            $q->where('ordem', 'like', '%' . $this->search . '%');
-                        });
-                });
-            })
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
+
+
+
+        return $this->baseQuery()
+         ->when($this->search, function ($q) {
+             $q->where(function ($q) {
+                 $q->where('n.note', 'like', '%' . $this->search . '%')
+                     ->orWhere('n.rubrica', 'like', '%' . $this->search . '%')
+                     ->orWhere('n.lexp', 'like', '%' . $this->search . '%')
+                     ->orWhere('productions.odi', 'like', '%' . $this->search . '%')
+                     ->orWhere('productions.odd', 'like', '%' . $this->search . '%')
+                     ->orWhere('productions.ods', 'like', '%' . $this->search . '%')
+                     ->orWhereHas('user', function ($q) {
+                         $q->where('name', 'like', '%' . $this->search . '%');
+                     })
+                     ->orWhereHas('note.orders', function ($q) {
+                         $q->where('ordem', 'like', '%' . $this->search . '%');
+                     });
+             });
+         })
             ->when(count($this->multiSearch) > 0, function ($q) {
                 $q->where(function ($q) {
                     $q->whereHas('note', function ($query) {
@@ -133,9 +166,18 @@ class Stack extends Component
                     });
                 });
             })
+            ->when(isset($this->filter['city']), function ($q) {
+                $q->whereIn('nexp', $this->filter['city']);
+            })
             ->when($this->statusFilter, function ($q) {
                 $q->where('productions.status', $this->statusFilter);
-            })
+            });
+    }
+
+    public function getListsProperty()
+    {
+        $query = $this->filtersQuery()
+
             ->select('productions.*', 'af.created_at as dt_ads')
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
