@@ -273,7 +273,7 @@
                             @php
                                 $status = null;
 
-                                $dueDate = Carbon::parse($viability->sended_at)->addDays($viability->getDays() + 7);
+                                $dueDate = Carbon::parse($viability?->sended_at)->addDays($viability?->getDays() + 7);
 
                                 $today = Carbon::now();
                                 $daysDifference = 0;
@@ -305,10 +305,10 @@
 
                                 $block = null;
                                 $color = 'grey';
-                                // $days_left = (new DaysLeft($viability->Note))->getDaysLeft();
+                                // $days_left = (new DaysLeft($viability?->Note?))->getDaysLeft();
                                 $count = 0;
 
-                                if ($viability->approved) {
+                                if ($viability?->approved) {
                                     $count++;
                                     $block = [
                                         'color' => 'success',
@@ -316,7 +316,7 @@
                                     ];
 
                                     $color = 'green';
-                                } elseif ($viability->rejected) {
+                                } elseif ($viability?->rejected) {
                                     $count++;
                                     $block = [
                                         'color' => 'danger',
@@ -326,7 +326,7 @@
                                     $color = 'red';
                                 }
 
-                                if (($viability->rejected || $viability->approved) && !$viability->completed) {
+                                if (($viability?->rejected || $viability?->approved) && !$viability?->completed) {
                                     $status = [
                                         'color' => 'text-bg-primary',
                                         'info' => 'EM AVALIAÇÂO',
@@ -335,41 +335,41 @@
 
                                 $color = '';
 
-                                if ($viability->approved && !$viability->rejected && !$viability->tacit) {
+                                if ($viability?->approved && !$viability?->rejected && !$viability?->tacit) {
                                     $color = 'green';
-                                } elseif (!$viability->approved && $viability->rejected && !$viability->tacit) {
+                                } elseif (!$viability?->approved && $viability?->rejected && !$viability?->tacit) {
                                     $color = 'red';
-                                } elseif ($viability->tacit) {
+                                } elseif ($viability?->tacit) {
                                     $color = 'yellow';
                                 }
 
                                 $tcolor = '';
 
-                                if ($viability->hired) {
+                                if ($viability?->hired) {
                                     $tcolor = 'table-success';
                                 }
                             @endphp
-                            <tr wire:key="viability-{{ $viability->id }}"
+                            <tr wire:key="viability-{{ $viability?->id }}"
                                 wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $viability }})"
                                 style="cursor: pointer; border-left: 8px solid {{ $color }};"
                                 data-bs-toggle="tooltip" data-bs-placement="left"
                                 data-bs-title="Duplo Clique para mais Opções">
                                 <td>
                                 </td>
-                                <td class="text-center align-middle">{{ $viability->Note->note }}</td>
+                                <td class="text-center align-middle">{{ $viability?->Note?->note }}</td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    <x-files.select-download-list :files='$viability->Note->Files' />
+                                    <x-files.select-download-list :files='$viability?->Note?->Files' />
                                 </td>
                                 <td class="text-center align-middle">
-                                    @if ($viability->Orders->isNotEmpty())
-                                        @foreach ($viability->Orders as $order)
+                                    @if ($viability?->Orders->isNotEmpty())
+                                        @foreach ($viability?->Orders as $order)
                                             <p class="p-0 m-1">
                                                 {{ $order->ordem }}
                                             </p>
                                         @endforeach
-                                    @elseif ($viability->Note->Orders->isNotEmpty())
-                                        @foreach ($viability->Note->Orders->filter(function ($order) {
+                                    @elseif ($viability?->Note?->Orders?->isNotEmpty())
+                                        @foreach ($viability?->Note?->Orders?->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
                                             <p class="p-0 m-1">
@@ -380,43 +380,43 @@
                                 </td>
 
                                 <td class="text-center align-middle">
-                                    {{ $viability->hired ? 'SIM' : 'NÃO' }}</td>
+                                    {{ $viability?->hired ? 'SIM' : 'NÃO' }}</td>
                                 <td class="text-center align-middle fw-bold">
-                                    {{ Carbon::parse($viability->sended_at)->format('d/m/Y') }}
+                                    {{ Carbon::parse($viability?->sended_at)->format('d/m/Y') }}
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-                                    {{ isset($viability->returned_at) ? Carbon::parse($viability->returned_at)->format('d/m/Y') : '---' }}
+                                    {{ isset($viability?->returned_at) ? Carbon::parse($viability?->returned_at)->format('d/m/Y') : '---' }}
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-                                    {{ isset($viability->completed_at) ? Carbon::parse($viability->completed_at)->format('d/m/Y') : '---' }}
+                                    {{ isset($viability?->completed_at) ? Carbon::parse($viability?->completed_at)->format('d/m/Y') : '---' }}
                                 </td>
-                                <td class="text-center align-middle">{{ $viability->Note->rubrica }}</td>
+                                <td class="text-center align-middle">{{ $viability?->Note?->rubrica }}</td>
                                 {{-- <td class="text-center align-middle">
-                                    {{ $cities->Where('rdMunicipio', $viability->nexp) ? $cities->Where('rdMunicipio', $viability->nexp)->regiao : '' }}
+                                    {{ $cities->Where('rdMunicipio', $viability?->nexp) ? $cities->Where('rdMunicipio', $viability?->nexp)->regiao : '' }}
                                 </td> --}}
-                                <td class="text-center align-middle">{{ $viability->Note->lexp }}</td>
+                                <td class="text-center align-middle">{{ $viability?->Note?->lexp }}</td>
 
                                 <td class="text-center align-middle">
-                                    @if ($viability->Justification)
-                                        @if ($viability->Justification->granted && !$viability->Justification->dismissed)
+                                    @if ($viability?->Justification)
+                                        @if ($viability?->Justification->granted && !$viability?->Justification->dismissed)
                                             <span class="badge bg-success"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability->id }}')"
+                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
                                                 style="cursos: pointer;">DEFERIDO</span>
-                                        @elseif ($viability->Justification->dismissed && !$viability->Justification->granted)
+                                        @elseif ($viability?->Justification->dismissed && !$viability?->Justification->granted)
                                             <span class="badge bg-danger"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability->id }}')"
+                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
                                                 style="cursos: pointer;">INDEFERIDO</span>
-                                        @elseif (!$viability->Justification->dismissed && !$viability->Justification->granted)
+                                        @elseif (!$viability?->Justification->dismissed && !$viability?->Justification->granted)
                                             <span class="badge bg-primary"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability->id }}')"
+                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
                                                 style="cursos: pointer;">EM AVALIAÇÃO</span>
                                         @else
                                             <span class="badge bg-warning"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability->id }}')"
+                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
                                                 style="cursos: pointer;">INCONSISTÊNCIA</span>
                                         @endif
                                     @else
-                                        @if ($viability->tacit)
+                                        @if ($viability?->tacit)
                                             <span class="badge bg-secondary">SEM JUSTIFICATIVA</span>
                                         @else
                                             ---
@@ -425,12 +425,12 @@
                                 </td>
 
                                 <td class="text-center align-middle"><span
-                                        class="badge {{ Viabilitiesstatus::status($viability->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability->status)->status }}</span>
+                                        class="badge {{ Viabilitiesstatus::status($viability?->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability?->status)->status }}</span>
                                 </td>
-                                <td class="text-center align-middle">{{ $viability->Company->name }}</span>
+                                <td class="text-center align-middle">{{ $viability?->Company->name }}</span>
                                 </td>
                                 <td class="text-center align-middle">
-                                    <a href="{{ route('pdf.checklist', ['id' => $viability->id]) }}" target="_BLANK"
+                                    <a href="{{ route('pdf.checklist', ['id' => $viability?->id]) }}" target="_BLANK"
                                         class="text-primary"><i class="bx bx-printer text-primary fs-4 me-2"
                                             role="group" aria-label="Basic example" tabindex="0"
                                             data-bs-toggle="popover" data-bs-trigger="hover focus"
