@@ -95,7 +95,7 @@ class Pausenote extends Component
         $this->clean();
         $this->dispatchBrowserEvent('hideModal');
         $this->dispatchBrowserEvent('hideModal');
-        $this->emit('refresh_accomany');
+        $this->emitUp('refresh_accomany');
     }
 
     public function render()

@@ -590,7 +590,7 @@ class Main extends Component
 
                 $block = $this->needBlock($note);
 
-                $partial = $block['isPartial'] ? true : false;
+                $partial = (bool) $block['isPartial'];
 
 
                 if ($note->FiveNote && $note->FiveNote->is_completed && !$note->FiveNote->is_supervisioned) {
@@ -674,7 +674,7 @@ class Main extends Component
 
                 $block = $this->needBlock($note);
 
-                $partial = $block['isPartial'] ? true : false;
+                $partial = (bool) $block['isPartial'];
 
                 if ($note->FiveNote && $note->FiveNote->is_completed && !$note->FiveNote->is_supervisioned) {
                     $dfive = true;
@@ -695,6 +695,7 @@ class Main extends Component
                         'status' => 1,
                         'centroTrab' => $note->centerjob,
                         'partial' => $partial,
+                        'dfive' => $dfive,
                     ]);
 
                     $user = Auth()->User()->name;

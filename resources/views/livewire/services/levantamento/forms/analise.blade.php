@@ -193,4 +193,6 @@
             </div>
         </div>
     @endif
+
+    @livewire('components.pausenote.pausenote2', key('pausenote-levantamento'))
 </div>

@@ -5,10 +5,10 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 use App\Helpers\TextFormatter;
 use App\Models\Production;
 use App\Models\Service;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-// TODO: Finalizar a os filtros e demais serviços no Stack de Fiscalização. Processo optimizado.
 class Stack extends Component
 {
     use WithPagination;
@@ -24,7 +24,7 @@ class Stack extends Component
     public $search = '';
     public $advancedSearch;
     public $multiSearch = [];
-    public $note_type;
+    public $note_type = '';
 
     // Filters
     private $filter_group = 'supervision';
@@ -34,6 +34,8 @@ class Stack extends Component
         'statusFilter' => ['except' => null],
         'search' => ['except' => ''],
         'page' => ['except' => 1],
+        'note_type' => ['except' => null || ''],
+        'multiSearch' => ['except' => []],
     ];
 
     protected $listeners = [
@@ -47,7 +49,21 @@ class Stack extends Component
         $this->service = $service;
     }
 
+    public function exportToExcel()
+    {
+        \App\Jobs\Dispatchs\ExportDispatchSupervisionJob::dispatch([
+            'service_id'   => $this->service,
+            'search'       => $this->search,
+            'multiSearch'  => $this->multiSearch,
+            'note_type'    => $this->note_type,
+        ], auth()->id());
 
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'info',
+            'title' => 'Exportação iniciada!',
+            'text' => 'Você será notificado quando o arquivo estiver pronto.',
+        ]);
+    }
 
     public function updatedSearch()
     {
@@ -87,29 +103,38 @@ class Stack extends Component
 
     private function baseQuery()
     {
+
+        $pzoExpr = "
+            CASE
+            WHEN n.type_note = 1
+            AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$' THEN
+                CASE
+                -- extrai mês e ano
+                WHEN CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) BETWEEN 1 AND 12 THEN
+                    DATE_ADD(
+                    DATE_ADD(
+                        MAKEDATE( CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED), 1 ),
+                        INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
+                    ),
+                    INTERVAL 27 DAY
+                    )
+                ELSE NULL
+                END
+            WHEN n.type_note = 2 THEN
+                DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
+            ELSE NULL
+            END
+            ";
+
         return Production::Query()
             ->where('service_id', $this->service)
             ->where('completed', false)
             ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
             ->leftJoin('work_reports as wr', 'n.id', '=', 'wr.note_id')
             ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
-            ->selectRaw('
-            productions.*,
-            CASE 
-                WHEN n.type_note = 1 THEN 
-                CASE 
-                    WHEN n.mesalization REGEXP "^M[0-9]{2}/[0-9]{4}$" THEN
-                    DATE(CONCAT(
-                        SUBSTRING(n.mesalization, 4, 4), "-",
-                        LPAD(SUBSTRING(n.mesalization, 2, 2), 2, "0"), "-28"
-                    ))
-                    ELSE NULL
-                END
-                WHEN n.type_note = 2 THEN 
-                DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
-                ELSE NULL
-            END AS PZO
-            ')
+            ->addSelect('productions.*')
+            ->addSelect(DB::raw("$pzoExpr AS pzo"))
+            ->addSelect(DB::raw('af.created_at AS dt_ads'))
             ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
             'service:id,uuid,service',
             'user:id,name',
@@ -171,6 +196,8 @@ class Stack extends Component
             })
             ->when($this->statusFilter, function ($q) {
                 $q->where('productions.status', $this->statusFilter);
+            })->when($this->note_type, function ($q) {
+                $q->where('n.type_note', $this->note_type);
             });
     }
 
@@ -178,10 +205,11 @@ class Stack extends Component
     {
         $query = $this->filtersQuery()
 
-            ->select('productions.*', 'af.created_at as dt_ads')
+
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
             ->orderBy('partial', 'desc')
+            ->orderBy('pzo', 'asc')
             ->orderByRaw('CASE WHEN dt_ads IS NULL THEN 0 ELSE 1 END DESC')
             ->orderBy('dt_ads', 'asc')
             ->orderBy('att_at', 'asc')

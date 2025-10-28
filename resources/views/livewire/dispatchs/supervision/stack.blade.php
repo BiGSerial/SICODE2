@@ -125,12 +125,40 @@
             </div>
         </div>
         <div class="card">
-            <div class="card-header py-0 text-bg-danger">
+            <div class="card-header py-0 text-bg-danger d-flex justify-content-between align-items-center">
                 <h5 class="card-title my-0">CONTROLE DE FISCALIZAÇÃO</h5>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-light" title="Exportar para Excel"
+                        wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
+                        <span wire:loading.remove wire:target="exportToExcel">
+                            <i class="ri-file-excel-line me-1"></i>
+                            Exportar Excel
+                        </span>
+                        <span wire:loading wire:target="exportToExcel">
+                            <i class="spinner-border spinner-border-sm me-1" role="status"></i>
+                            Exportando...
+                        </span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-light" title="DD em Massa"
+                        wire:click="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')"
+                        wire:loading.attr="disabled"
+                        wire:target="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')">
+                        <span wire:loading.remove
+                            wire:target="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')">
+                            <i class="ri-group-line me-1"></i>
+                            DD em Massa
+                        </span>
+                        <span wire:loading
+                            wire:target="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')">
+                            <i class="spinner-border spinner-border-sm me-1" role="status"></i>
+                            Carregando...
+                        </span>
+                    </button>
+                </div>
             </div>
             <table class="table table-sm table-striped table-condensed">
                 <thead>
-                    <tr clas="">
+                    <tr clas="text-center align-middle">
                         <th>#</th>
                         <th>#</th>
                         <th>Note</th>
@@ -197,9 +225,15 @@
                                 $type['info'] = 'Parcial';
                                 $type['color'] = 'text-bg-warning';
                             } else {
-                                $type['init'] = 'F';
-                                $type['info'] = 'Final';
-                                $type['color'] = 'text-bg-success';
+                                if ($item->note?->workform?->reject) {
+                                    $type['init'] = 'RF';
+                                    $type['info'] = 'Final Rejeitado';
+                                    $type['color'] = 'text-bg-dark';
+                                } else {
+                                    $type['init'] = 'F';
+                                    $type['info'] = 'Final';
+                                    $type['color'] = 'text-bg-success';
+                                }
                             }
 
                             if ($item->d5) {
@@ -223,7 +257,7 @@
                             );
 
                         @endphp
-                        <tr wire:key="row-{{ $item->id }}" class="align-middle">
+                        <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
 
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
@@ -244,10 +278,13 @@
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->note?->note }}</td>
-                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                <i class="{{ $wpaStatus->icon }} fs-4 {{ $wpaStatus->color }} align-middle"></i>
+                            <td
+                                class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center ">
+                                <p class="my-0 py-0"> <i
+                                        class="{{ $wpaStatus->icon }} fs-4 {{ $wpaStatus->color }} align-middle"></i>
+                                </p>
                                 <span
-                                    class="badge {{ $wpaStatus->bg_color }} align-middle">{{ $wpaStatus->info }}</span>
+                                    class="badge {{ $wpaStatus->bg_color }} align-middle my-0">{!! $wpaStatus->info !!}</span>
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->note?->rubrica }}</td>
@@ -267,12 +304,9 @@
                                 R$ {{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                {{-- <p class="my-0 py-0">{{ $item->PZO }} 1</p>
-                                @php
-                                    $lastDate = new Daysleft($item->note);
-                                @endphp
-                                <p class="my-0 py-0">{{ $lastDate->getLastDate() }} 2</p> --}}
-                                @dump($item)
+                                <p class="my-0 py-0">{{ Carbon::parse($item->pzo)->format('d/m/Y') }}</p>
+
+
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 <span class="badge {{ Notestatus::status($item->status)->colorbg }}"
@@ -334,6 +368,10 @@
         </div>
     </div>
     {{-- ===================== FIM Modal: Busca Multi-notas ===================== --}}
+
+    {{-- ===================== Inicio Modais ===================== --}}
+    @livewire('dispatchs.common.dd-changes-create', ['service' => $service, 'control' => true], key('dd-changes-create'))
+    {{-- ===================== FIM Modal ===================== --}}
 
 </div>
 
