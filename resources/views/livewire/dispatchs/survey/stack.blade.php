@@ -86,9 +86,9 @@
             </div>
 
 
-            @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\city', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\city', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'supervision', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\city', 'column' => 'rdMunicipio', 'filter' => 'Municipios', 'group_filter' => 'supervision', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'supervision', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipios', 'group_filter' => 'supervision', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
 
         </div>

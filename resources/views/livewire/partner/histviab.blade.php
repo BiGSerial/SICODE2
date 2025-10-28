@@ -359,7 +359,9 @@
                                 <td class="text-center align-middle">{{ $viability?->Note?->note }}</td>
                                 <td class="text-center align-middle">
                                     {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    <x-files.select-download-list :files='$viability?->Note?->Files' />
+                                    @if ($viability?->Note?->Files?->isNotEmpty())
+                                        <x-files.select-download-list :files="$viability?->Note?->Files" />
+                                    @endif
                                 </td>
                                 <td class="text-center align-middle">
                                     @if ($viability?->Orders->isNotEmpty())
