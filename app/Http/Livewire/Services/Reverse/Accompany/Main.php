@@ -21,7 +21,7 @@ class Main extends Component
 
     public $rubrica_l;
 
-    public $limit_pause = 50;
+    public $limit_pause = 1000;
 
     public $analise;
 

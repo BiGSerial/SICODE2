@@ -3,8 +3,8 @@
 namespace App\Http\Livewire\Services\Levantamento;
 
 use App\Exports\ProductionServiceExport;
-use App\Models\{File, Production, Service, User};
-use Illuminate\Support\Facades\Storage;
+use App\Models\{File, Production, Service};
+use Illuminate\Support\Facades\{Storage, Auth, DB};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -14,28 +14,10 @@ class Main extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
-
     public $perPage = 30;
-
     public $search;
-
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
-    public $limit_pause = 50;
-
-    public $user_l;
-
-    public $user_s;
-
-    public $user_search;
-
     public $analise;
-
-    public $production;
-
-    public $note;
+    protected $limit_pause = 50;
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
@@ -43,21 +25,28 @@ class Main extends Component
         'confirm_getAnalise' => 'go_to_analise',
     ];
 
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'page'   => ['except' => 1],
+    ];
+
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->first();
+        $this->service = Service::where('uuid', $service)->firstOrFail();
     }
 
-    public function visualizar()
-    {
-
-    }
-
+    /** =====================
+     * 🔹 EXPORTAÇÃO
+     * ===================== */
     public function export_excel()
     {
-        return (new ProductionServiceExport($this->lists->get()))->download(date('YmdHis-') . 'production_services.xlsx');
+        return (new ProductionServiceExport($this->lists->get()))
+            ->download(now()->format('YmdHis') . '-production_services.xlsx');
     }
 
+    /** =====================
+     * 🔹 EVENTOS DE INTERFACE
+     * ===================== */
     public function goTransferProd($prod_id)
     {
         $this->emit('transfer_production_lev', $prod_id);
@@ -71,139 +60,176 @@ class Main extends Component
         ]);
     }
 
+    /** =====================
+     * 🔹 VERIFICA SE HÁ NOTA EM ATIVIDADE
+     * ===================== */
     public function checkOpen()
     {
-
-        $check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first();
+        $check = Production::where('service_id', $this->service->uuid)
+            ->where('user_id', Auth::id())
+            ->where('status', 3)
+            ->first();
 
         if ($check) {
-
-            $this->emit('open_analise_lev', ['productionId' => $check->id, 'noteId' => $check->note_id]);
-
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
+            $this->emit('open_analise_lev', [
+                'productionId' => $check->id,
+                'noteId'       => $check->note_id,
             ]);
+
+            $this->dispatchBrowserEvent('showModal', ['id' => 'analise_form']);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'info',
                 'title'    => 'NOTA AINDA EM ATIVIDADE',
-                'html'     => "Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA. \n
+                'html'     => "
+                    Para iniciar uma nova OV/NOTA, esta precisa ser ENCERRADA ou PAUSADA.
                     <p class='text-bg-light mt-2 p-2'>
-                        É importante salientar que existe um limite para interromper notas. Uma vez atingido esse limite, essas notas deverão ter uma destinação
-                        adequada.
+                        Existe um limite para interromper notas. Ao atingi-lo, será necessário tratá-las adequadamente.
                     </p>
                 ",
             ]);
-
         }
-
     }
 
-    public function go_to_analise()
-    {
-        $this->emit('open_analise_lev', $this->analise);
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'analise_form',
-        ]);
-    }
-
+    /** =====================
+     * 🔹 ABERTURA DE ANÁLISE
+     * ===================== */
     public function getAnalise($production, $note)
     {
         $this->analise = ['productionId' => $production, 'noteId' => $note];
 
-        if ($this->limit_pause === Production::Where('status', 4)->Where('service_id', $this->service->uuid)->Where('user_id', Auth()->User()->id)->count() && (Production::find($production))->status != 4) {
+        $pausedCount = Production::where('status', 4)
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', Auth::id())
+            ->count();
+
+        $isPaused = Production::find($production)?->status === 4;
+
+        if ($pausedCount >= $this->limit_pause && !$isPaused) {
             $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'AVISO DE LIMITE DE PAUSA',
-                'msg'           => "Você ja atingiu o limite de pausa neste serviço, ao iniciar esta nota, você não poderá colocar esta NOTA/OV em espera. \n Tem certeza que deseja continuar?",
+                'title'         => 'LIMITE DE PAUSA ATINGIDO',
+                'msg'           => "Você já atingiu o limite de pausas neste serviço. Ao iniciar esta nota, não será possível colocá-la em espera. Deseja continuar?",
                 'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Continue!',
-                'btnCanceltxt'  => 'Não, Cancele',
+                'btnOktxt'      => 'Sim, continuar',
+                'btnCanceltxt'  => 'Não, cancelar',
                 'action'        => 'confirm_getAnalise',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Ação Cancelada.',
-
+                'cancel_msg'    => 'Ação cancelada.',
             ]);
         } else {
-            $this->emit('open_analise_lev', $this->analise);
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
+            $this->go_to_analise();
         }
     }
 
-    public function filter_save()
+    public function go_to_analise()
     {
-        // session()->put('filtro', $this->rubrica_s);
-        // session_start();
-        // $_SESSION['filtro'] = $this->rubrica_s;
-        $this->emit('refresh_service');
-
+        if ($this->analise) {
+            $this->emit('open_analise_lev', $this->analise);
+            $this->dispatchBrowserEvent('showModal', ['id' => 'analise_form']);
+        }
     }
 
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-
-        // session_start();
-        // if (isset($_SESSION['filtro'])) {
-        //     unset($_SESSION['filtro']);
-        // }
-
-        $this->emit('refresh_service');
-    }
-
+    /** =====================
+     * 🔹 DOWNLOAD DE ARQUIVOS
+     * ===================== */
     public function downloadFile($id)
     {
-        if ($file = File::find($id)) {
+        $file = File::find($id);
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'ARQUIVO INEXISTENTE!',
-                    'timer'    => 5000,
-                ]);
-
-                return;
-            }
+        if (!$file || !Storage::disk('local')->exists($file->path)) {
+            $this->dispatchBrowserEvent('swal', [
+                'icon'  => 'error',
+                'title' => 'Arquivo inexistente!',
+                'timer' => 4000,
+            ]);
+            return;
         }
+
+        return Storage::download($file->path, $file->file_name);
     }
 
+    /** =====================
+     * 🔹 CONSULTA PRINCIPAL
+     * ===================== */
     public function getListsProperty()
     {
+        $pzoExpr = "
+        CASE
+            WHEN n.type_note = 1
+            AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$' THEN
+                CASE
+                    WHEN CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) BETWEEN 1 AND 12 THEN
+                        DATE_ADD(
+                            DATE_ADD(
+                                MAKEDATE(
+                                    CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED),
+                                    1
+                                ),
+                                INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
+                            ),
+                            INTERVAL 27 DAY
+                        )
+                    ELSE NULL
+                END
+            WHEN n.type_note = 2 THEN
+                DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
+            ELSE NULL
+        END
+    ";
 
-        $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%' . $this->user_search . '%');
-        })->orderBy('name')->get();
-
-        return Production::with(['Note'])
-            ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->Where('service_id', $this->service->uuid)
-            ->when($this->user_s, function ($q) {
-                return $q->where('user_id', $this->user_s);
-            }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
-            })
-            ->where('completed', false)
+        return Production::query()
+            ->select([
+                'productions.id',
+                'productions.note_id',
+                'productions.status',
+                'productions.priority',
+                'productions.att_at',
+                'productions.completed',
+                'productions.block',
+                'productions.block_wpa',
+                'productions.transferred',
+                'n.note',
+                'n.material',
+                'n.group1',
+                'n.group2',
+                'n.rubrica',
+                'n.lexp',
+                'n.days_left',
+                'n.mmgd',
+                'n.dt_created',
+                DB::raw("$pzoExpr AS pzo"),
+            ])
+            ->join('notes as n', 'n.id', '=', 'productions.note_id')
+            ->where('productions.service_id', $this->service->uuid)
+            ->where('productions.user_id', Auth::id())
+            ->where('productions.completed', false)
             ->when($this->search, function ($q, $s) {
-                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                    ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+                $q->where(function ($sub) use ($s) {
+                    $sub->where('n.note', 'like', "%{$s}%")
+                        ->orWhere('n.material', 'like', "%{$s}%");
+                });
             })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
-            ->orderBy('priority', 'DESC')
-            ->orderBy('notes.dt_created', 'asc')
-            ->select('productions.*', 'notes.dt_created as note_dt_created');
+            ->addSelect('n.dt_created as dt_created')
+            ->orderByDesc('productions.priority')
+            ->orderBy('n.dt_created')
+            ->with([
+                'Wpas:id,production_id,dd,execstats,ststusexec,completed_at',
+                'Service:id,uuid,service',
+                'User:id,name',
+                'Note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,dt_created',
+            ])
+            ->paginate($this->perPage);
     }
 
+
+    /** =====================
+     * 🔹 RENDERIZAÇÃO
+     * ===================== */
     public function render()
     {
         return view('livewire.services.levantamento.main', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists' => $this->lists,
         ]);
     }
 }

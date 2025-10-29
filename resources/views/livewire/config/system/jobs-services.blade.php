@@ -110,7 +110,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse ($pendingJobs as $job)
-                                        <tr>
+                                        <tr wire:key="pending-job-{{ $job->id }}">
                                             <td>{{ $job->id }}</td>
                                             <td>{{ $job->queue }}</td>
                                             <td>
@@ -119,7 +119,8 @@
                                                 <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
                                                     data-bs-target="#payload-p-{{ $job->id }}">ver
                                                     payload</button>
-                                                <div class="collapse" id="payload-p-{{ $job->id }}">
+                                                <div class="collapse" id="payload-p-{{ $job->id }}"
+                                                    wire:ignore.self>
                                                     <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                                                 </div>
                                             </td>
@@ -158,7 +159,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse ($runningJobs as $job)
-                                        <tr>
+                                        <tr wire:key="running-job-{{ $job->id }}">
                                             <td>{{ $job->id }}</td>
                                             <td>{{ $job->queue }}</td>
                                             <td>
@@ -167,7 +168,8 @@
                                                 <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
                                                     data-bs-target="#payload-r-{{ $job->id }}">ver
                                                     payload</button>
-                                                <div class="collapse" id="payload-r-{{ $job->id }}">
+                                                <div class="collapse" id="payload-r-{{ $job->id }}"
+                                                    wire:ignore.self>
                                                     <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                                                 </div>
                                             </td>
@@ -209,7 +211,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse ($delayedJobs as $job)
-                                        <tr>
+                                        <tr wire:key="delayed-job-{{ $job->id }}">
                                             <td>{{ $job->id }}</td>
                                             <td>{{ $job->queue }}</td>
                                             <td>
@@ -218,7 +220,8 @@
                                                 <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
                                                     data-bs-target="#payload-d-{{ $job->id }}">ver
                                                     payload</button>
-                                                <div class="collapse" id="payload-d-{{ $job->id }}">
+                                                <div class="collapse" id="payload-d-{{ $job->id }}"
+                                                    wire:ignore.self>
                                                     <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                                                 </div>
                                             </td>
@@ -242,7 +245,8 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Falhados</strong>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-outline-primary" wire:click="retryAllFailed">Reenfileirar
+                                <button class="btn btn-sm btn-outline-primary"
+                                    wire:click="retryAllFailed">Reenfileirar
                                     todos</button>
                             </div>
                         </div>
@@ -260,7 +264,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse ($failedJobs as $job)
-                                        <tr>
+                                        <tr wire:key="failed-job-{{ $job->id }}">
                                             <td>{{ $job->id }}</td>
                                             <td>{{ $job->queue }}</td>
                                             <td>
@@ -269,7 +273,8 @@
                                                 <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
                                                     data-bs-target="#payload-f-{{ $job->id }}">ver
                                                     payload</button>
-                                                <div class="collapse" id="payload-f-{{ $job->id }}">
+                                                <div class="collapse" id="payload-f-{{ $job->id }}"
+                                                    wire:ignore.self>
                                                     <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                                                 </div>
                                             </td>
@@ -321,7 +326,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse ($succeeded as $row)
-                                        <tr>
+                                        <tr wire:key="succeeded-job-{{ $row->id }}">
                                             <td>{{ $row->id }}</td>
                                             <td class="text-truncate" style="max-width: 180px;"
                                                 title="{{ $row->uuid }}">{{ $row->uuid }}</td>

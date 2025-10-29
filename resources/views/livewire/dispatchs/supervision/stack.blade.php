@@ -2,6 +2,7 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Custom\WpaStatus;
+    use App\Helpers\DaysLeft;
 
     $filtersConfig = [
         'company' => [
@@ -52,32 +53,44 @@
     <x-show-loading />
 
     <div class="mb-4">
-        <div class="row">
-            <div class="col-md-8">
-                <div class="input-group mb-3">
-                    <span class="input-group-text bg-primary text-white">
-                        <i class="fas fa-search"></i>
-                    </span>
-                    <input type="text" class="form-control form-control-lg" placeholder="Pesquisar..."
-                        wire:model.debounce.300ms="search" aria-label="Pesquisar">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
-                        data-bs-target="#multiSearchModal" title="Busca múltipla">
-                        <i class="ri-checkbox-multiple-blank-line"></i>
-                    </button>
-                    <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters"
-                        title="Limpar filtros">
-                        <i class="ri-filter-off-line"></i>
-                    </button>
-                </div>
-                {{-- <livewire:components.filter.smart-filters :config="$filtersConfig" wire:key="filters-main" /> --}}
+        <div class=" d-flex mb-3 justify-content-end align-middle py-4">
+
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-primary text-white">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" class="form-control form-control-lg" placeholder="Pesquisar..."
+                    wire:model.debounce.300ms="search" aria-label="Pesquisar">
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                    data-bs-target="#multiSearchModal" title="Busca múltipla">
+                    <i class="ri-checkbox-multiple-blank-line"></i>
+                </button>
+                <button class="btn btn-outline-secondary" type="button" wire:click="resetFilters"
+                    title="Limpar filtros">
+                    <i class="ri-filter-off-line"></i>
+                </button>
             </div>
-            <div class="col-md-4">
-                <div class="alert alert-warning border-start border-warning border-5 shadow-sm" role="alert">
-                    <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Aviso</h5>
-                    <p class="mb-0">Esta página está operando em <strong>modo provisório</strong> e está sendo
-                        reconstruída para melhor desempenho. Algumas funcionalidades podem estar limitadas.</p>
-                </div>
+            {{-- <livewire:components.filter.smart-filters :config="$filtersConfig" wire:key="filters-main" /> --}}
+            <div class="btn-group btn-group-sm mx-2 align-self-center" role="group" aria-label="Tipo de nota">
+                <input type="radio" class="btn-check" name="note_type" id="note_type_nota" wire:model="note_type"
+                    value="1">
+                <label class="btn btn-outline-primary btn-sm" for="note_type_nota">Nota</label>
+
+                <input type="radio" class="btn-check" name="note_type" id="note_type_ov" wire:model="note_type"
+                    value="2">
+                <label class="btn btn-outline-primary btn-sm" for="note_type_ov">OV</label>
+
+                <input type="radio" class="btn-check" name="note_type" id="note_type_ambos" wire:model="note_type"
+                    value="">
+                <label class="btn btn-outline-primary btn-sm" for="note_type_ambos">Ambos</label>
             </div>
+
+
+            @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'survey', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'survey', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipios', 'group_filter' => 'survey', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'survey'], key('removeAll'))
+
         </div>
     </div>
 
@@ -100,13 +113,52 @@
     </div>
 
     @if ($lists->isNotEmpty())
+        <div class="row">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
         <div class="card">
-            <div class="card-header py-0 text-bg-danger">
+            <div class="card-header py-0 text-bg-danger d-flex justify-content-between align-items-center">
                 <h5 class="card-title my-0">CONTROLE DE FISCALIZAÇÃO</h5>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-light" title="Exportar para Excel"
+                        wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
+                        <span wire:loading.remove wire:target="exportToExcel">
+                            <i class="ri-file-excel-line me-1"></i>
+                            Exportar Excel
+                        </span>
+                        <span wire:loading wire:target="exportToExcel">
+                            <i class="spinner-border spinner-border-sm me-1" role="status"></i>
+                            Exportando...
+                        </span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-light" title="DD em Massa"
+                        wire:click="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')"
+                        wire:loading.attr="disabled"
+                        wire:target="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')">
+                        <span wire:loading.remove
+                            wire:target="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')">
+                            <i class="ri-group-line me-1"></i>
+                            DD em Massa
+                        </span>
+                        <span wire:loading
+                            wire:target="$emitTo('dispatchs.common.dd-changes-create', 'openDdChangesCreateModal')">
+                            <i class="spinner-border spinner-border-sm me-1" role="status"></i>
+                            Carregando...
+                        </span>
+                    </button>
+                </div>
             </div>
             <table class="table table-sm table-striped table-condensed">
                 <thead>
-                    <tr clas="">
+                    <tr class="text-center align-middle">
                         <th>#</th>
                         <th>#</th>
                         <th>Note</th>
@@ -118,6 +170,7 @@
                         <th>AttAt</th>
                         <th>DtAds</th>
                         <th>MoAberto</th>
+                        <th>DT_Informe</th>
                         <th>Status</th>
                         <th>#</th>
                     </tr>
@@ -172,9 +225,15 @@
                                 $type['info'] = 'Parcial';
                                 $type['color'] = 'text-bg-warning';
                             } else {
-                                $type['init'] = 'F';
-                                $type['info'] = 'Final';
-                                $type['color'] = 'text-bg-success';
+                                if ($item->note?->workform?->reject) {
+                                    $type['init'] = 'RF';
+                                    $type['info'] = 'Final Rejeitado';
+                                    $type['color'] = 'text-bg-dark';
+                                } else {
+                                    $type['init'] = 'F';
+                                    $type['info'] = 'Final';
+                                    $type['color'] = 'text-bg-success';
+                                }
                             }
 
                             if ($item->d5) {
@@ -197,8 +256,21 @@
                                 $item->wpas?->last()?->completed_at,
                             );
 
+                            $colorColumn = Carbon::parse($item->dt_inform)
+                                ->startOfDay()
+                                ->diffInDays(Carbon::now()->startOfDay());
+
+                            if ($colorColumn > 8) {
+                                $colorColumn = 'text-bg-danger';
+                            } elseif ($colorColumn <= 5) {
+                                $colorColumn = 'text-bg-success';
+                            } else {
+                                $colorColumn = 'text-bg-warning';
+                            }
+
                         @endphp
-                        <tr wire:key="row-{{ $item->id }}" class="align-middle">
+                        <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
+
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
 
@@ -218,10 +290,13 @@
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->note?->note }}</td>
-                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                <i class="{{ $wpaStatus->icon }} fs-4 {{ $wpaStatus->color }} align-middle"></i>
+                            <td
+                                class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center ">
+                                <p class="my-0 py-0"> <i
+                                        class="{{ $wpaStatus->icon }} fs-4 {{ $wpaStatus->color }} align-middle"></i>
+                                </p>
                                 <span
-                                    class="badge {{ $wpaStatus->bg_color }} align-middle">{{ $wpaStatus->info }}</span>
+                                    class="badge {{ $wpaStatus->bg_color }} align-middle my-0">{!! $wpaStatus->info !!}</span>
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->note?->rubrica }}</td>
@@ -240,6 +315,18 @@
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 R$ {{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}
                             </td>
+                            <td class="{{ $colorColumn }} fw-bold">
+                                @if ($item->dt_inform)
+                                    <p class="my-0 py-0"><span
+                                            class="badge text-bg-light">{{ Carbon::parse($item->dt_inform)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}</span>
+                                    </p>
+                                    <p class="my-0 py-0">{{ Carbon::parse($item->dt_inform)->format('d/m/Y') }}</p>
+                                @else
+                                    ---
+                                @endif
+
+
+                            </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 <span class="badge {{ Notestatus::status($item->status)->colorbg }}"
                                     wire:click.prevent="$emitTo('components.status.show-status', 'showStatus', {{ $item->id }}, {{ $item->status }})"
@@ -253,7 +340,17 @@
                 </tbody>
             </table>
         </div>
-        {{ $lists->links() }}
+        <div class="row">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
+        </div>
     @endif
 
 
@@ -290,6 +387,10 @@
         </div>
     </div>
     {{-- ===================== FIM Modal: Busca Multi-notas ===================== --}}
+
+    {{-- ===================== Inicio Modais ===================== --}}
+    @livewire('dispatchs.common.dd-changes-create', ['service' => $service, 'control' => true], key('dd-changes-create'))
+    {{-- ===================== FIM Modal ===================== --}}
 
 </div>
 

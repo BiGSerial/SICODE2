@@ -100,7 +100,7 @@ class Transfer extends Component
     {
         if ($this->transfer) {
             if ($this->transfer->update(['dd' => $this->dd[$this->production->id]])) {
-                $this->production->update(['block_wpa' => false]);
+                $this->production->update(['block_wpa' => false, 'block' => false, 'status' => 2]);
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -162,6 +162,13 @@ class Transfer extends Component
                     'block' => false,
                     'status' => 2,
                 ]);
+
+                $this->production->load('Transfer')->Transfer?->update([
+                    'status' => 20,
+                    'read_to' => true,
+                    'read_from' => true,
+                ]);
+
             } catch (\Throwable $th) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -195,7 +202,7 @@ class Transfer extends Component
     public function getListsProperty()
     {
 
-        return Production::where('service_id', $this->service->uuid)->where('block_wpa', true)->where('block', false)->with('Wpas', 'Transfer.From', 'Transfer.To', 'Service', 'Note')->paginate($this->perPage);
+        return Production::where('service_id', $this->service->uuid)->where('block_wpa', true)->with('Wpas', 'Transfer.From', 'Transfer.To', 'Service', 'Note')->paginate($this->perPage);
     }
 
     public function render()

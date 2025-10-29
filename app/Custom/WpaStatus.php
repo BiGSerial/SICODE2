@@ -32,7 +32,7 @@ class WpaStatus
             }
         } elseif ($sexec == 'Baixada') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-download-2-fill',
                 'color'     => 'text-secondary',
                 'bg_color'  => 'text-bg-light',
@@ -41,7 +41,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Em Deslocamento') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-car-line',
                 'color'     => 'text-warning',
                 'bg_color'  => 'text-bg-warning',
@@ -50,7 +50,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Em Execução') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-car-washing-fill',
                 'color'     => 'text-danger',
                 'bg_color'  => 'text-bg-danger',
@@ -59,7 +59,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Executada') {
             return (object) [
-                'info'      => Carbon::parse($time)->format('d/m/Y H:i:s'),
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . Carbon::parse($time)->format('d/m/Y H:i:s') . '</p>',
                 'icon'      => 'ri-checkbox-circle-fill',
                 'color'     => 'text-success',
                 'bg_color'  => 'text-bg-success',
@@ -68,7 +68,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Interrompida') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-pause-circle-line',
                 'color'     => 'text-info',
                 'bg_color'  => 'text-bg-info',
@@ -77,7 +77,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Rejeitada') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-pause-circle-line',
                 'color'     => 'text-info',
                 'bg_color'  => 'text-bg-info',
@@ -86,7 +86,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Processando Execução') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-chat-settings-line',
                 'color'     => 'text-danger',
                 'bg_color'  => 'text-bg-danger',
@@ -95,7 +95,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Processando Rejeição') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-chat-delete-line',
                 'color'     => 'text-danger',
                 'bg_color'  => 'text-bg-danger',
@@ -104,7 +104,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Processando Vistoria') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-search-eye-line',
                 'color'     => 'text-danger',
                 'bg_color'  => 'text-bg-danger',
@@ -113,7 +113,7 @@ class WpaStatus
             ];
         } elseif ($sexec == 'Nota Vistoriada') {
             return (object) [
-                'info'      => $sexec,
+                'info'      => '<p class="my-0 py-0">' . $snota . '</p><p class="my-0 py-0">' . $sexec . '</p>',
                 'icon'      => 'ri-search-eye-line',
                 'color'     => 'text-success',
                 'bg_color'  => 'text-bg-success',

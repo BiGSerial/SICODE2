@@ -293,9 +293,9 @@ class Analise extends Component
 
         $this->emit('stop_note', ['productionId' => $this->production->id, 'noteId' => $this->production->note_id, 'limit' => $this->limit_pause]);
 
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'pause_note',
-        ]);
+        // $this->dispatchBrowserEvent('showModal', [
+        //     'id' => 'pause_note',
+        // ]);
     }
 
     public function to_finish(Production $production)

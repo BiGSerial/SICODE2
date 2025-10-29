@@ -5,10 +5,10 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 use App\Helpers\TextFormatter;
 use App\Models\Production;
 use App\Models\Service;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-// TODO: Finalizar a os filtros e demais serviços no Stack de Fiscalização. Processo optimizado.
 class Stack extends Component
 {
     use WithPagination;
@@ -24,11 +24,18 @@ class Stack extends Component
     public $search = '';
     public $advancedSearch;
     public $multiSearch = [];
+    public $note_type = '';
+
+    // Filters
+    private $filter_group = 'supervision';
+    private $filter;
 
     protected $queryString = [
         'statusFilter' => ['except' => null],
         'search' => ['except' => ''],
         'page' => ['except' => 1],
+        'note_type' => ['except' => null || ''],
+        'multiSearch' => ['except' => []],
     ];
 
     protected $listeners = [
@@ -42,7 +49,21 @@ class Stack extends Component
         $this->service = $service;
     }
 
+    public function exportToExcel()
+    {
+        \App\Jobs\Dispatchs\ExportDispatchSupervisionJob::dispatch([
+            'service_id'   => $this->service,
+            'search'       => $this->search,
+            'multiSearch'  => $this->multiSearch,
+            'note_type'    => $this->note_type,
+        ], auth()->id());
 
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'info',
+            'title' => 'Exportação iniciada!',
+            'text' => 'Você será notificado quando o arquivo estiver pronto.',
+        ]);
+    }
 
     public function updatedSearch()
     {
@@ -80,44 +101,103 @@ class Stack extends Component
         $this->search = null;
     }
 
-    public function baseQuery()
+    private function baseQuery()
     {
+
+        $pzoExpr = "
+            CASE
+            WHEN n.type_note = 1
+            AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$' THEN
+                CASE
+                -- extrai mês e ano
+                WHEN CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) BETWEEN 1 AND 12 THEN
+                    DATE_ADD(
+                    DATE_ADD(
+                        MAKEDATE( CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED), 1 ),
+                        INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
+                    ),
+                    INTERVAL 27 DAY
+                    )
+                ELSE NULL
+                END
+            WHEN n.type_note = 2 THEN
+                DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
+            ELSE NULL
+            END
+            ";
+
+
+        $dtInformExpr = "
+            CASE
+                WHEN wr.informed_at IS NOT NULL THEN wr.informed_at
+                WHEN EXISTS (
+                    SELECT 1 FROM partials p
+                    WHERE p.note_id = n.id
+                ) THEN (
+                    SELECT p.created_at
+                    FROM partials p
+                    WHERE p.note_id = n.id
+                    ORDER BY p.created_at DESC
+                    LIMIT 1
+                )
+                ELSE NULL
+            END
+        ";
+
+
+
         return Production::Query()
             ->where('service_id', $this->service)
             ->where('completed', false)
             ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
             ->leftJoin('work_reports as wr', 'n.id', '=', 'wr.note_id')
             ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
+            ->addSelect('productions.*')
+            ->addSelect(DB::raw("$pzoExpr AS pzo"))
+            ->addSelect(DB::raw("$dtInformExpr AS dt_inform"))
+            ->addSelect(DB::raw('af.created_at AS dt_ads'))
+            ->addSelect(DB::raw('wr.informed_at AS dt_informed'))
             ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-                'service:id,uuid,service',
-                'user:id,name',
-                'note:id,note,nstats,dt_status,rubrica,postes,lexp',
-                'note.workform:id,company_id,note_id,informed_at,rejected',
-                'note.workform.adsform:id,work_report_id,amount,created_at',
-                'note.orders:id,note_id,moaberto'
-                ])
+            'service:id,uuid,service',
+            'user:id,name',
+            'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left',
+            'note.workform:id,company_id,note_id,informed_at,rejected',
+            'note.workform.adsform:id,work_report_id,amount,created_at',
+            'note.orders:id,note_id,moaberto'
+            ])
         ;
     }
 
-    public function getListsProperty()
+    private function filtersQuery()
     {
-        $query = $this->baseQuery()
-            ->when($this->search, function ($q) {
-                $q->where(function ($q) {
-                    $q->where('n.note', 'like', '%' . $this->search . '%')
-                        ->orWhere('n.rubrica', 'like', '%' . $this->search . '%')
-                        ->orWhere('n.lexp', 'like', '%' . $this->search . '%')
-                        ->orWhere('productions.odi', 'like', '%' . $this->search . '%')
-                        ->orWhere('productions.odd', 'like', '%' . $this->search . '%')
-                        ->orWhere('productions.ods', 'like', '%' . $this->search . '%')
-                        ->orWhereHas('user', function ($q) {
-                            $q->where('name', 'like', '%' . $this->search . '%');
-                        })
-                        ->orWhereHas('note.orders', function ($q) {
-                            $q->where('ordem', 'like', '%' . $this->search . '%');
-                        });
-                });
-            })
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
+
+
+
+        return $this->baseQuery()
+         ->when($this->search, function ($q) {
+             $q->where(function ($q) {
+                 $q->where('n.note', 'like', '%' . $this->search . '%')
+                     ->orWhere('n.rubrica', 'like', '%' . $this->search . '%')
+                     ->orWhere('n.lexp', 'like', '%' . $this->search . '%')
+                     ->orWhere('productions.odi', 'like', '%' . $this->search . '%')
+                     ->orWhere('productions.odd', 'like', '%' . $this->search . '%')
+                     ->orWhere('productions.ods', 'like', '%' . $this->search . '%')
+                     ->orWhereHas('user', function ($q) {
+                         $q->where('name', 'like', '%' . $this->search . '%');
+                     })
+                     ->orWhereHas('note.orders', function ($q) {
+                         $q->where('ordem', 'like', '%' . $this->search . '%');
+                     });
+             });
+         })
             ->when(count($this->multiSearch) > 0, function ($q) {
                 $q->where(function ($q) {
                     $q->whereHas('note', function ($query) {
@@ -133,14 +213,26 @@ class Stack extends Component
                     });
                 });
             })
+            ->when(isset($this->filter['city']), function ($q) {
+                $q->whereIn('nexp', $this->filter['city']);
+            })
             ->when($this->statusFilter, function ($q) {
                 $q->where('productions.status', $this->statusFilter);
-            })
-            ->select('productions.*', 'af.created_at as dt_ads')
+            })->when($this->note_type, function ($q) {
+                $q->where('n.type_note', $this->note_type);
+            });
+    }
+
+    public function getListsProperty()
+    {
+        $query = $this->filtersQuery()
+
+
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
             ->orderBy('partial', 'desc')
             ->orderByRaw('CASE WHEN dt_ads IS NULL THEN 0 ELSE 1 END DESC')
+            ->orderBy('dt_inform', 'asc')
             ->orderBy('dt_ads', 'asc')
             ->orderBy('att_at', 'asc')
             ->orderBy('id', 'asc')

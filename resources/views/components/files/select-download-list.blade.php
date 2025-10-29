@@ -59,7 +59,7 @@
     </style>
 @endonce
 
-@if ($files->isNotEmpty())
+@if ($files?->isNotEmpty())
     <!-- Alteramos o container para não ter restrição de posicionamento -->
     <div class="dropdown d-inline file-dropdown" style="position: inherit;">
         <i class="ri-file-3-line fs-4 file-dropdown-toggle-icon text-danger" type="button" data-bs-toggle="dropdown"
