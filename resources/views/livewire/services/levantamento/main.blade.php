@@ -75,7 +75,7 @@
                                         <th>DD</th>
                                         <th>Rubrica</th>
                                         <th>Município</th>
-                                        <th>Zona</th>
+                                        <th>Grupo2</th>
                                         <th>Descrição</th>
                                         <th>Em Atribuição</th>
                                         <th>PzReal</th>
@@ -149,7 +149,7 @@
                                             {{-- Rubrica / Local / Descrição --}}
                                             <td>{{ $item->Note->rubrica ?? '—' }}</td>
                                             <td>{{ $item->Note->lexp ?? '—' }}</td>
-                                            <td>{{ $item->Note->group1 ?? '—' }}</td>
+                                            <td>{{ $item->Note->group2 ?? '—' }}</td>
                                             <td class="text-truncate" style="max-width: 220px;">
                                                 {{ $item->Note->material ?? '—' }}
                                             </td>

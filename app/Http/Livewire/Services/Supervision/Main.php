@@ -179,7 +179,7 @@ class Main extends Component
                 'Note.OldAds:id,note_id',
                 'Note.Adsform:id,note_id',
                 'Wpas:id,production_id,dd,created_at',
-                'Note.Files:id,note_id,file_name,path,ext',
+                'Note.Files:id,service_id,note_id,file_name,path,ext',
             ])
 
             // JOIN necessário para created_at e days_left

@@ -165,6 +165,7 @@
                         <th>DD</th>
                         <th>Rubrica</th>
                         <th>Municipio</th>
+                        <th>Grupo2</th>
                         <th>Postes</th>
                         <th>Usuário</th>
                         <th>AttAt</th>
@@ -302,6 +303,8 @@
                                 {{ $item->note?->rubrica }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->note?->lexp }}</td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                                {{ $item->note?->group2 }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->postes ?? '---' }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">

@@ -160,7 +160,7 @@ class Stack extends Component
             ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
             'service:id,uuid,service',
             'user:id,name',
-            'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left',
+            'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
             'note.workform:id,company_id,note_id,informed_at,rejected',
             'note.workform.adsform:id,work_report_id,amount,created_at',
             'note.orders:id,note_id,moaberto'

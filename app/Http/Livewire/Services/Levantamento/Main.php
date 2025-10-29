@@ -217,7 +217,7 @@ class Main extends Component
                 'Wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                 'Service:id,uuid,service',
                 'User:id,name',
-                'Note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,dt_created',
+                'Note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,dt_created,material,group2',
             ])
             ->paginate($this->perPage);
     }
