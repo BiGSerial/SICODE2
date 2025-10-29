@@ -25,6 +25,11 @@ class Main extends Component
         'confirm_getAnalise' => 'go_to_analise',
     ];
 
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'page'   => ['except' => 1],
+    ];
+
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->firstOrFail();
@@ -205,13 +210,14 @@ class Main extends Component
                         ->orWhere('n.material', 'like', "%{$s}%");
                 });
             })
+            ->addSelect('n.dt_created as dt_created')
             ->orderByDesc('productions.priority')
             ->orderBy('n.dt_created')
             ->with([
                 'Wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                 'Service:id,uuid,service',
                 'User:id,name',
-                'Note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left',
+                'Note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,dt_created',
             ])
             ->paginate($this->perPage);
     }

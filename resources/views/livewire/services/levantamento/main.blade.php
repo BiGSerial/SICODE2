@@ -78,7 +78,7 @@
                                         <th>Zona</th>
                                         <th>Descrição</th>
                                         <th>Em Atribuição</th>
-                                        <th>Prazo Obra</th>
+                                        <th>PzReal</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
@@ -86,23 +86,37 @@
                                 <tbody>
                                     @foreach ($lists as $item)
                                         @php
-                                            $prazo = Carbon\Carbon::parse($item->pzo);
+                                            $prazo = Carbon\Carbon::parse($item->dt_created);
 
-                                            $prazoFormatado = $prazo->format('d/m/Y');
+                                            $prazoFormatado = $prazo->addDays(30)->format('d/m/Y');
 
                                             $columnColor = '';
 
-                                            $diasRestantes = $prazo->diffInDays(Carbon\Carbon::now(), false);
+                                            $diasRestantes = Carbon\Carbon::parse($item->dt_created)
+                                                ->startOfDay()
+                                                ->diffInDays(Carbon\Carbon::now()->startOfDay(), false);
 
-                                            if ($diasRestantes < 0) {
-                                                // Prazo vencido (hoje é maior que o prazo)
+                                            if ($diasRestantes > 30) {
+                                                // Prazo vencido
                                                 $columnColor = 'text-bg-danger';
-                                            } elseif ($diasRestantes <= 30) {
-                                                // Até 30 dias para o prazo
-                                                $columnColor = 'text-bg-warning';
-                                            } else {
-                                                // Mais de 30 dias para o prazo
+                                            } elseif ($diasRestantes <= 20) {
+                                                // Mais de 30 dias restantes
                                                 $columnColor = 'text-bg-success';
+                                            } else {
+                                                // Entre 0 e 30 dias
+                                                $columnColor = 'text-bg-warning';
+                                            }
+
+                                            $daysAtt = $item->att_at->diffInDays(Carbon\Carbon::now(), false);
+
+                                            $columnAttColor = '';
+
+                                            if ($daysAtt > 8) {
+                                                $columnAttColor = 'text-bg-danger';
+                                            } elseif ($daysAtt <= 5) {
+                                                $columnAttColor = 'text-bg-success';
+                                            } else {
+                                                $columnAttColor = 'text-bg-warning';
                                             }
 
                                         @endphp
@@ -144,16 +158,14 @@
                                             <td>
                                                 <span
                                                     class="badge
-                                                    @if ($item->Note->days_left < 0) text-bg-secondary
-                                                    @elseif($item->Note->days_left < 6) text-bg-danger
-                                                    @elseif($item->Note->days_left < 10) text-bg-warning
-                                                    @else text-bg-success @endif">
-                                                    {{ max(0, $item->Note->days_left) }} d
+                                                        {{ $columnAttColor }}">
+                                                    {{ $daysAtt }} d
                                                 </span>
                                             </td>
 
                                             <td class="{{ $columnColor }}">
-                                                {{ $prazoFormatado }}
+                                                <span class="badge text-bg-light">{{ $diasRestantes }}</span>
+                                                <p class="py-0 my-0">{{ $prazoFormatado }}</p>
 
                                             </td>
 

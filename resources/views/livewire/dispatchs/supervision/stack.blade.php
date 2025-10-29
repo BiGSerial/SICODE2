@@ -86,10 +86,10 @@
             </div>
 
 
-            @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'supervision', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipios', 'group_filter' => 'supervision', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
+            @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'survey', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'survey', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipios', 'group_filter' => 'survey', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'survey'], key('removeAll'))
 
         </div>
     </div>
@@ -158,7 +158,7 @@
             </div>
             <table class="table table-sm table-striped table-condensed">
                 <thead>
-                    <tr clas="text-center align-middle">
+                    <tr class="text-center align-middle">
                         <th>#</th>
                         <th>#</th>
                         <th>Note</th>
@@ -170,7 +170,7 @@
                         <th>AttAt</th>
                         <th>DtAds</th>
                         <th>MoAberto</th>
-                        <th>PazoObra</th>
+                        <th>DT_Informe</th>
                         <th>Status</th>
                         <th>#</th>
                     </tr>
@@ -256,6 +256,18 @@
                                 $item->wpas?->last()?->completed_at,
                             );
 
+                            $colorColumn = Carbon::parse($item->dt_inform)
+                                ->startOfDay()
+                                ->diffInDays(Carbon::now()->startOfDay());
+
+                            if ($colorColumn > 8) {
+                                $colorColumn = 'text-bg-danger';
+                            } elseif ($colorColumn <= 5) {
+                                $colorColumn = 'text-bg-success';
+                            } else {
+                                $colorColumn = 'text-bg-warning';
+                            }
+
                         @endphp
                         <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
 
@@ -303,8 +315,15 @@
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 R$ {{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}
                             </td>
-                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                <p class="my-0 py-0">{{ Carbon::parse($item->pzo)->format('d/m/Y') }}</p>
+                            <td class="{{ $colorColumn }} fw-bold">
+                                @if ($item->dt_inform)
+                                    <p class="my-0 py-0"><span
+                                            class="badge text-bg-light">{{ Carbon::parse($item->dt_inform)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}</span>
+                                    </p>
+                                    <p class="my-0 py-0">{{ Carbon::parse($item->dt_inform)->format('d/m/Y') }}</p>
+                                @else
+                                    ---
+                                @endif
 
 
                             </td>

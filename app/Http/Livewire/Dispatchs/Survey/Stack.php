@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-
 class Stack extends Component
 {
     use WithPagination;
@@ -28,7 +27,7 @@ class Stack extends Component
     public $note_type = '';
 
     // Filters
-    private $filter_group = 'supervision';
+    private $filter_group = 'survey';
     private $filter;
 
     protected $queryString = [
@@ -49,6 +48,8 @@ class Stack extends Component
 
         $this->service = $service;
     }
+
+    
 
     public function exportToExcel()
     {
@@ -133,10 +134,11 @@ class Stack extends Component
             ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
             ->addSelect('productions.*')
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
+            ->addSelect(DB::raw("n.dt_created as dt_created"))
             ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
             'service:id,uuid,service',
             'user:id,name',
-            'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left'
+            'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left'
             ]);
     }
 
@@ -202,7 +204,7 @@ class Stack extends Component
 
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
-            ->orderBy('pzo', 'desc')
+            ->orderBy('dt_created', 'asc')
             ->orderBy('att_at', 'asc')
             ->orderBy('id', 'asc')
             ->paginate($this->perPage);

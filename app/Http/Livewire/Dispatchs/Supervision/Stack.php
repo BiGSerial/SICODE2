@@ -126,6 +126,26 @@ class Stack extends Component
             END
             ";
 
+
+        $dtInformExpr = "
+            CASE
+                WHEN wr.informed_at IS NOT NULL THEN wr.informed_at
+                WHEN EXISTS (
+                    SELECT 1 FROM partials p
+                    WHERE p.note_id = n.id
+                ) THEN (
+                    SELECT p.created_at
+                    FROM partials p
+                    WHERE p.note_id = n.id
+                    ORDER BY p.created_at DESC
+                    LIMIT 1
+                )
+                ELSE NULL
+            END
+        ";
+
+
+
         return Production::Query()
             ->where('service_id', $this->service)
             ->where('completed', false)
@@ -134,7 +154,9 @@ class Stack extends Component
             ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
             ->addSelect('productions.*')
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
+            ->addSelect(DB::raw("$dtInformExpr AS dt_inform"))
             ->addSelect(DB::raw('af.created_at AS dt_ads'))
+            ->addSelect(DB::raw('wr.informed_at AS dt_informed'))
             ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
             'service:id,uuid,service',
             'user:id,name',
@@ -209,8 +231,8 @@ class Stack extends Component
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
             ->orderBy('partial', 'desc')
-            ->orderBy('pzo', 'asc')
             ->orderByRaw('CASE WHEN dt_ads IS NULL THEN 0 ELSE 1 END DESC')
+            ->orderBy('dt_inform', 'asc')
             ->orderBy('dt_ads', 'asc')
             ->orderBy('att_at', 'asc')
             ->orderBy('id', 'asc')

@@ -169,7 +169,7 @@
                         <th>Usuário</th>
                         <th>AttAt</th>
 
-                        <th>PazoObra</th>
+                        <th>PzoReal</th>
                         <th>Status</th>
                         <th>#</th>
                     </tr>
@@ -243,6 +243,17 @@
                                 $item->wpas?->last()?->completed_at,
                             );
 
+                            $colorColumn = Carbon::parse($item->dt_created)
+                                ->startOfDay()
+                                ->diffInDays(Carbon::now()->startOfDay());
+                            if ($colorColumn > 30) {
+                                $colorColumn = 'text-bg-danger';
+                            } elseif ($colorColumn <= 20) {
+                                $colorColumn = 'text-bg-success';
+                            } else {
+                                $colorColumn = 'text-bg-warning';
+                            }
+
                         @endphp
                         <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
 
@@ -257,7 +268,7 @@
                             </td>
 
 
-                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->note }}</td>
                             <td
                                 class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center ">
@@ -279,8 +290,12 @@
                                 {{ $item->att_at?->diffInDays(Carbon::now()) }} dias
                             </td>
 
-                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                <p class="my-0 py-0">{{ Carbon::parse($item->pzo)->format('d/m/Y') }}</p>
+                            <td class="{{ $colorColumn }} fw-bold">
+                                <p class="my-0 py-0"><span
+                                        class="badge text-bg-light">{{ Carbon::parse($item->dt_created)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}</span>
+                                </p>
+                                <p class="my-0 py-0">
+                                    {{ Carbon::parse($item->dt_created)->addDays(30)->format('d/m/Y') }}</p>
 
 
                             </td>
