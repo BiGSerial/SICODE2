@@ -2,10 +2,267 @@
 
 namespace App\Models;
 
+use App\Enum\ProtestJobStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class ProtestJob extends Model
 {
     use HasFactory;
+    use SoftDeletes;
+
+    protected $fillable = [
+        'protest_id',
+        'med_protest_id',
+        'created_by',
+        'owner_id',
+        'closed_by',
+        'status',
+        'priority',
+        'sent_at',
+        'accepted_at',
+        'started_at',
+        'finished_at',
+        'closed_at',
+        'sla_due_at',
+        'sla_breached_at',
+        'escalated_at',
+        'escalation_level',
+        'outcome',
+        'close_reason',
+        'notes',
+    ];
+
+    protected $casts = [
+        'status'     => ProtestJobStatus::class,
+        'outcome'        => 'array',
+        'sent_at'        => 'datetime',
+        'accepted_at'    => 'datetime',
+        'started_at'     => 'datetime',
+        'finished_at'    => 'datetime',
+        'closed_at'      => 'datetime',
+        'sla_due_at'     => 'datetime',
+        'sla_breached_at' => 'datetime',
+        'escalated_at'   => 'datetime',
+        'escalation_level' => 'integer',
+    ];
+
+    protected $appends = ['status_label','status_badge_class'];
+
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->status->label();
+    }
+
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return $this->status->badgeClass();
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            if (!$model->status) {
+                $model->status = ProtestJobStatus::OPENED;
+                $model->sent_at ??= now();
+            }
+        });
+    }
+
+
+
+    /* ===================== RELAÇÕES ===================== */
+
+    public function protest()
+    {
+        return $this->belongsTo(Protest::class);
+    }
+    public function medProtest()
+    {
+        return $this->belongsTo(MedProtest::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    } // UUID
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+    public function closer()
+    {
+        return $this->belongsTo(User::class, 'closed_by');
+    }
+
+    public function events()
+    {
+        return $this->hasMany(ProtestJobEvent::class, 'protest_job_id');
+    }
+
+
+
+
+
+
+    /* ===================== SCOPES ===================== */
+
+    public function scopeOpen($q)
+    {
+        return $q->whereIn('status', [
+            ProtestJobStatus::OPENED,
+            ProtestJobStatus::ASSIGNED,
+            ProtestJobStatus::IN_PROGRESS,
+            ProtestJobStatus::WAITING,
+            ProtestJobStatus::REOPENED,
+        ]);
+    }
+
+    public function scopeByStatus($q, ProtestJobStatus $s)
+    {
+        return $q->where('status', $s);
+    }
+
+
+
+    /* ===================== TRANSIÇÕES ===================== */
+
+    // Mapa de transições válidas (guarda leve)
+    protected static array $allowed = [
+        ProtestJobStatus::OPENED      => [ProtestJobStatus::ASSIGNED, ProtestJobStatus::CANCELED],
+        ProtestJobStatus::ASSIGNED    => [ProtestJobStatus::IN_PROGRESS, ProtestJobStatus::WAITING, ProtestJobStatus::CANCELED],
+        ProtestJobStatus::IN_PROGRESS => [ProtestJobStatus::WAITING, ProtestJobStatus::DONE, ProtestJobStatus::CANCELED],
+        ProtestJobStatus::WAITING     => [ProtestJobStatus::IN_PROGRESS, ProtestJobStatus::CANCELED],
+        ProtestJobStatus::DONE        => [ProtestJobStatus::REOPENED],
+        ProtestJobStatus::CANCELED    => [],
+        ProtestJobStatus::REOPENED    => [ProtestJobStatus::ASSIGNED, ProtestJobStatus::IN_PROGRESS],
+    ];
+
+    protected function canGo(ProtestJobStatus $to): bool
+    {
+        $from = $this->status->value;
+        return in_array($to->value, self::$allowed[$from] ?? [], true);
+    }
+
+
+    protected function transitionTo(ProtestJobStatus $to, array $extra = [], ?string $changedByUserId = null): void
+    {
+        $from = $this->status;
+
+        // Evitar logar mudanças idênticas
+        if ($from === $to) {
+            return;
+        }
+
+        // Valida transição
+        if (!$this->canGo($to)) {
+            throw new \DomainException("Transição inválida: {$from->value} → {$to->value}");
+        }
+
+        DB::transaction(function () use ($from, $to, $extra, $changedByUserId) {
+            // Carimbo Padrão
+            $stamps = match ($to) {
+                ProtestJobStatus::OPENED => ['sent_at' => now()],
+                ProtestJobStatus::ASSIGNED => ['accepted_at' => $this->accepted_at ?? now()],
+                ProtestJobStatus::IN_PROGRESS => ['started_at' => $this->started_at  ?? now()],
+                ProtestJobStatus::WAITING     => [],
+                ProtestJobStatus::DONE        => [
+                   'finished_at' => $this->finished_at ?? now(),
+                   'closed_at'   => $this->closed_at   ?? now(),
+                   'closed_by'   => $this->closed_by   ?? optional(auth()->user())->id,
+                ],
+                ProtestJobStatus::CANCELED    => [
+                    'closed_at' => $this->closed_at ?? now(),
+                    'closed_by' => $this->closed_by ?? optional(auth()->user())->id,
+                ],
+                ProtestJobStatus::REOPENED    => [
+                    'closed_at' => null,
+                    'closed_by' => null,
+                    'finished_at' => null,
+                ],
+                default                       => [],
+            };
+
+            $original = $this->getOriginal('status');
+            if ($original !== $this->status->value) {
+                throw new \RuntimeException('Status alterado em paralelo. Recarregue e tente novamente.');
+            }
+
+            $this->fill(array_merge(['status' => $to], $stamps, $extra));
+            $this->save();
+
+            $this->events()->create([
+               'type'       => 'status_changed',
+               'actor_id'   => $changedByUserId ?? optional(auth()->user())->id,
+               'meta'       => ['from' => $from->value, 'to' => $to->value] + $extra,
+               'occurred_at' => now(),
+            ]);
+
+        });
+    }
+
+    public function accept(): void
+    {
+        if ($this->status === ProtestJobStatus::OPENED) {
+            $this->transitionTo(ProtestJobStatus::ASSIGNED);
+            return;
+        }
+        $this->transitionTo(ProtestJobStatus::ASSIGNED);
+    }
+
+    public function start(): void
+    {
+        if ($this->status === ProtestJobStatus::OPENED) {
+            $this->transitionTo(ProtestJobStatus::ASSIGNED);
+        }
+        $this->transitionTo(ProtestJobStatus::IN_PROGRESS);
+    }
+
+    public function wait(?string $reason = null): void
+    {
+        $this->transitionTo(ProtestJobStatus::WAITING, ['reason' => $reason]);
+    }
+
+    public function finish(array $outcome = []): void
+    {
+        $extra = [];
+        if ($outcome) {
+            $extra['outcome'] = $outcome;
+        }
+        $this->transitionTo(ProtestJobStatus::DONE, $extra);
+    }
+
+    public function cancel(?string $reason = null): void
+    {
+        $this->transitionTo(ProtestJobStatus::CANCELED, ['reason' => $reason]);
+    }
+
+    public function reopen(?string $reason = null): void
+    {
+        $this->transitionTo(ProtestJobStatus::REOPENED, ['reason' => $reason]);
+    }
+
+    /* ===================== UTIL ===================== */
+
+    // Reatribui dono (zera aceite se quiser novo ACK)
+    public function reassignTo(string $newOwnerUuid, ?string $actorUuid = null): void
+    {
+        DB::transaction(function () use ($newOwnerUuid, $actorUuid) {
+            $old = $this->owner_id;
+
+            $this->update([
+                'owner_id'    => $newOwnerUuid,
+                'accepted_at' => null,
+            ]);
+
+            $this->events()->create([
+                'type'        => 'reassigned',
+                'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
+                'meta'        => ['from_owner' => $old, 'to_owner' => $newOwnerUuid],
+                'occurred_at' => now(),
+            ]);
+        });
+    }
 }
