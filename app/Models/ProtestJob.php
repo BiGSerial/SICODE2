@@ -49,6 +49,18 @@ class ProtestJob extends Model
         'escalation_level' => 'integer',
     ];
 
+
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            if (!$model->status) {
+                $model->status = ProtestJobStatus::OPENED;
+                $model->sent_at ??= now();
+            }
+        });
+    }
+
     protected $appends = ['status_label','status_badge_class'];
 
     public function getStatusLabelAttribute(): string
@@ -59,16 +71,6 @@ class ProtestJob extends Model
     public function getStatusBadgeClassAttribute(): string
     {
         return $this->status->badgeClass();
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $model) {
-            if (!$model->status) {
-                $model->status = ProtestJobStatus::OPENED;
-                $model->sent_at ??= now();
-            }
-        });
     }
 
 
@@ -169,9 +171,9 @@ class ProtestJob extends Model
                 ProtestJobStatus::IN_PROGRESS => ['started_at' => $this->started_at  ?? now()],
                 ProtestJobStatus::WAITING     => [],
                 ProtestJobStatus::DONE        => [
-                   'finished_at' => $this->finished_at ?? now(),
-                   'closed_at'   => $this->closed_at   ?? now(),
-                   'closed_by'   => $this->closed_by   ?? optional(auth()->user())->id,
+                    'finished_at' => $this->finished_at ?? now(),
+                    'closed_at'   => $this->closed_at   ?? now(),
+                    'closed_by'   => $this->closed_by   ?? optional(auth()->user())->id,
                 ],
                 ProtestJobStatus::CANCELED    => [
                     'closed_at' => $this->closed_at ?? now(),
@@ -194,10 +196,10 @@ class ProtestJob extends Model
             $this->save();
 
             $this->events()->create([
-               'type'       => 'status_changed',
-               'actor_id'   => $changedByUserId ?? optional(auth()->user())->id,
-               'meta'       => ['from' => $from->value, 'to' => $to->value] + $extra,
-               'occurred_at' => now(),
+                'type'       => 'status_changed',
+                'actor_id'   => $changedByUserId ?? optional(auth()->user())->id,
+                'meta'       => ['from' => $from->value, 'to' => $to->value] + $extra,
+                'occurred_at' => now(),
             ]);
 
         });
