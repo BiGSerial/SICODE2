@@ -157,13 +157,13 @@ class ProtestJob extends Model
     /* ===================== TRANSIÇÕES ===================== */
 
     protected static array $allowed = [
-        ProtestJobStatus::OPENED      => [ProtestJobStatus::ASSIGNED, ProtestJobStatus::CANCELED],
-        ProtestJobStatus::ASSIGNED    => [ProtestJobStatus::IN_PROGRESS, ProtestJobStatus::WAITING, ProtestJobStatus::CANCELED],
-        ProtestJobStatus::IN_PROGRESS => [ProtestJobStatus::WAITING, ProtestJobStatus::DONE, ProtestJobStatus::CANCELED],
-        ProtestJobStatus::WAITING     => [ProtestJobStatus::IN_PROGRESS, ProtestJobStatus::CANCELED],
-        ProtestJobStatus::DONE        => [ProtestJobStatus::REOPENED],
-        ProtestJobStatus::CANCELED    => [],
-        ProtestJobStatus::REOPENED    => [ProtestJobStatus::ASSIGNED, ProtestJobStatus::IN_PROGRESS],
+        ProtestJobStatus::OPENED->value      => [ProtestJobStatus::ASSIGNED->value, ProtestJobStatus::CANCELED->value],
+        ProtestJobStatus::ASSIGNED->value    => [ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::WAITING->value, ProtestJobStatus::CANCELED->value],
+        ProtestJobStatus::IN_PROGRESS->value => [ProtestJobStatus::WAITING->value, ProtestJobStatus::DONE->value, ProtestJobStatus::CANCELED->value],
+        ProtestJobStatus::WAITING->value     => [ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::CANCELED->value],
+        ProtestJobStatus::DONE->value        => [ProtestJobStatus::REOPENED->value],
+        ProtestJobStatus::CANCELED->value    => [],
+        ProtestJobStatus::REOPENED->value    => [ProtestJobStatus::ASSIGNED->value, ProtestJobStatus::IN_PROGRESS->value],
     ];
 
     protected function canGo(ProtestJobStatus $to): bool

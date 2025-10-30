@@ -72,7 +72,8 @@ class ControlMedProtest extends Component
         $this->modProtest = $modProtest->load([
             'protest',
             'comments.user',
-            'protest.allNotes', // precisa do accessor/método no model Protest
+            'protest.notes',
+            'protest.medProtests.notes',
         ]);
 
         $this->notePage = 0;
@@ -115,7 +116,7 @@ class ControlMedProtest extends Component
 
     public function nextPage()
     {
-        $total = $this->modProtest?->protest?->allNotes?->count() ?? 0;
+        $total = $this->modProtest?->protest?->all_notes?->count() ?? 0;
 
         if ($this->notePage < $total - 1) {
             $this->notePage++;
