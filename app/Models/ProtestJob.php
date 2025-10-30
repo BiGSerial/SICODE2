@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\ProtestJobPriority;
 use App\Enum\ProtestJobStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,23 +34,32 @@ class ProtestJob extends Model
         'outcome',
         'close_reason',
         'notes',
+
+        'need_evidence',
+        'is_advance',
     ];
 
     protected $casts = [
-        'status'     => ProtestJobStatus::class,
-        'outcome'        => 'array',
-        'sent_at'        => 'datetime',
-        'accepted_at'    => 'datetime',
-        'started_at'     => 'datetime',
-        'finished_at'    => 'datetime',
-        'closed_at'      => 'datetime',
-        'sla_due_at'     => 'datetime',
-        'sla_breached_at' => 'datetime',
-        'escalated_at'   => 'datetime',
-        'escalation_level' => 'integer',
+        'status'            => ProtestJobStatus::class,
+        'priority'          => ProtestJobPriority::class,
+
+        'outcome'           => 'array',
+
+        'sent_at'           => 'datetime',
+        'accepted_at'       => 'datetime',
+        'started_at'        => 'datetime',
+        'finished_at'       => 'datetime',
+        'closed_at'         => 'datetime',
+
+        'sla_due_at'        => 'datetime',
+        'sla_breached_at'   => 'datetime',
+
+        'escalated_at'      => 'datetime',
+        'escalation_level'  => 'integer',
+
+        'need_evidence'     => 'boolean',
+        'is_advance'        => 'boolean',
     ];
-
-
 
     protected static function booted(): void
     {
@@ -58,10 +68,21 @@ class ProtestJob extends Model
                 $model->status = ProtestJobStatus::OPENED;
                 $model->sent_at ??= now();
             }
+
+            if (!$model->priority) {
+                $model->priority = ProtestJobPriority::NORMAL;
+            }
         });
     }
 
-    protected $appends = ['status_label','status_badge_class'];
+    protected $appends = [
+        'status_label',
+        'status_badge_class',
+        'priority_label',
+        'priority_badge_class',
+    ];
+
+    /* ===================== ACCESSORS ===================== */
 
     public function getStatusLabelAttribute(): string
     {
@@ -73,7 +94,15 @@ class ProtestJob extends Model
         return $this->status->badgeClass();
     }
 
+    public function getPriorityLabelAttribute(): string
+    {
+        return $this->priority->label();
+    }
 
+    public function getPriorityBadgeClassAttribute(): string
+    {
+        return $this->priority->badgeClass();
+    }
 
     /* ===================== RELAÇÕES ===================== */
 
@@ -81,6 +110,7 @@ class ProtestJob extends Model
     {
         return $this->belongsTo(Protest::class);
     }
+
     public function medProtest()
     {
         return $this->belongsTo(MedProtest::class);
@@ -89,11 +119,13 @@ class ProtestJob extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
-    } // UUID
+    }
+
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
+
     public function closer()
     {
         return $this->belongsTo(User::class, 'closed_by');
@@ -104,34 +136,26 @@ class ProtestJob extends Model
         return $this->hasMany(ProtestJobEvent::class, 'protest_job_id');
     }
 
-
-
-
-
-
     /* ===================== SCOPES ===================== */
 
     public function scopeOpen($q)
     {
         return $q->whereIn('status', [
-            ProtestJobStatus::OPENED,
-            ProtestJobStatus::ASSIGNED,
-            ProtestJobStatus::IN_PROGRESS,
-            ProtestJobStatus::WAITING,
-            ProtestJobStatus::REOPENED,
+            ProtestJobStatus::OPENED->value,
+            ProtestJobStatus::ASSIGNED->value,
+            ProtestJobStatus::IN_PROGRESS->value,
+            ProtestJobStatus::WAITING->value,
+            ProtestJobStatus::REOPENED->value,
         ]);
     }
 
     public function scopeByStatus($q, ProtestJobStatus $s)
     {
-        return $q->where('status', $s);
+        return $q->where('status', $s->value);
     }
-
-
 
     /* ===================== TRANSIÇÕES ===================== */
 
-    // Mapa de transições válidas (guarda leve)
     protected static array $allowed = [
         ProtestJobStatus::OPENED      => [ProtestJobStatus::ASSIGNED, ProtestJobStatus::CANCELED],
         ProtestJobStatus::ASSIGNED    => [ProtestJobStatus::IN_PROGRESS, ProtestJobStatus::WAITING, ProtestJobStatus::CANCELED],
@@ -148,60 +172,81 @@ class ProtestJob extends Model
         return in_array($to->value, self::$allowed[$from] ?? [], true);
     }
 
-
     protected function transitionTo(ProtestJobStatus $to, array $extra = [], ?string $changedByUserId = null): void
     {
         $from = $this->status;
 
-        // Evitar logar mudanças idênticas
+        // já está no mesmo status? não faz nada
         if ($from === $to) {
             return;
         }
 
-        // Valida transição
+        // valida se pode
         if (!$this->canGo($to)) {
             throw new \DomainException("Transição inválida: {$from->value} → {$to->value}");
         }
 
         DB::transaction(function () use ($from, $to, $extra, $changedByUserId) {
-            // Carimbo Padrão
+
             $stamps = match ($to) {
-                ProtestJobStatus::OPENED => ['sent_at' => now()],
-                ProtestJobStatus::ASSIGNED => ['accepted_at' => $this->accepted_at ?? now()],
-                ProtestJobStatus::IN_PROGRESS => ['started_at' => $this->started_at  ?? now()],
-                ProtestJobStatus::WAITING     => [],
-                ProtestJobStatus::DONE        => [
+                ProtestJobStatus::OPENED => [
+                    'sent_at' => now(),
+                ],
+
+                ProtestJobStatus::ASSIGNED => [
+                    'accepted_at' => $this->accepted_at ?? now(),
+                ],
+
+                ProtestJobStatus::IN_PROGRESS => [
+                    'started_at' => $this->started_at ?? now(),
+                ],
+
+                ProtestJobStatus::WAITING => [
+                    // nada obrigatório
+                ],
+
+                ProtestJobStatus::DONE => [
                     'finished_at' => $this->finished_at ?? now(),
                     'closed_at'   => $this->closed_at   ?? now(),
                     'closed_by'   => $this->closed_by   ?? optional(auth()->user())->id,
                 ],
-                ProtestJobStatus::CANCELED    => [
+
+                ProtestJobStatus::CANCELED => [
                     'closed_at' => $this->closed_at ?? now(),
                     'closed_by' => $this->closed_by ?? optional(auth()->user())->id,
                 ],
-                ProtestJobStatus::REOPENED    => [
-                    'closed_at' => null,
-                    'closed_by' => null,
+
+                ProtestJobStatus::REOPENED => [
+                    'closed_at'   => null,
+                    'closed_by'   => null,
                     'finished_at' => null,
                 ],
-                default                       => [],
             };
 
+            // proteção contra corrida de estado concorrente
             $original = $this->getOriginal('status');
             if ($original !== $this->status->value) {
                 throw new \RuntimeException('Status alterado em paralelo. Recarregue e tente novamente.');
             }
 
-            $this->fill(array_merge(['status' => $to], $stamps, $extra));
+            // atualiza o job
+            $this->fill(array_merge(
+                ['status' => $to],
+                $stamps,
+                $extra
+            ));
             $this->save();
 
+            // loga evento
             $this->events()->create([
-                'type'       => 'status_changed',
-                'actor_id'   => $changedByUserId ?? optional(auth()->user())->id,
-                'meta'       => ['from' => $from->value, 'to' => $to->value] + $extra,
+                'type'        => 'status_changed',
+                'actor_id'    => $changedByUserId ?? optional(auth()->user())->id,
+                'meta'        => [
+                    'from' => $from->value,
+                    'to'   => $to->value,
+                ] + $extra,
                 'occurred_at' => now(),
             ]);
-
         });
     }
 
@@ -211,6 +256,7 @@ class ProtestJob extends Model
             $this->transitionTo(ProtestJobStatus::ASSIGNED);
             return;
         }
+
         $this->transitionTo(ProtestJobStatus::ASSIGNED);
     }
 
@@ -219,12 +265,15 @@ class ProtestJob extends Model
         if ($this->status === ProtestJobStatus::OPENED) {
             $this->transitionTo(ProtestJobStatus::ASSIGNED);
         }
+
         $this->transitionTo(ProtestJobStatus::IN_PROGRESS);
     }
 
     public function wait(?string $reason = null): void
     {
-        $this->transitionTo(ProtestJobStatus::WAITING, ['reason' => $reason]);
+        $this->transitionTo(ProtestJobStatus::WAITING, [
+            'reason' => $reason,
+        ]);
     }
 
     public function finish(array $outcome = []): void
@@ -233,22 +282,27 @@ class ProtestJob extends Model
         if ($outcome) {
             $extra['outcome'] = $outcome;
         }
+
         $this->transitionTo(ProtestJobStatus::DONE, $extra);
     }
 
     public function cancel(?string $reason = null): void
     {
-        $this->transitionTo(ProtestJobStatus::CANCELED, ['reason' => $reason]);
+        $this->transitionTo(ProtestJobStatus::CANCELED, [
+            'reason' => $reason,
+        ]);
     }
 
     public function reopen(?string $reason = null): void
     {
-        $this->transitionTo(ProtestJobStatus::REOPENED, ['reason' => $reason]);
+        $this->transitionTo(ProtestJobStatus::REOPENED, [
+            'reason' => $reason,
+        ]);
     }
 
-    /* ===================== UTIL ===================== */
-
-    // Reatribui dono (zera aceite se quiser novo ACK)
+    /**
+     * Trocar o responsável (owner_id), resetando aceite.
+     */
     public function reassignTo(string $newOwnerUuid, ?string $actorUuid = null): void
     {
         DB::transaction(function () use ($newOwnerUuid, $actorUuid) {
@@ -262,7 +316,10 @@ class ProtestJob extends Model
             $this->events()->create([
                 'type'        => 'reassigned',
                 'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
-                'meta'        => ['from_owner' => $old, 'to_owner' => $newOwnerUuid],
+                'meta'        => [
+                    'from_owner' => $old,
+                    'to_owner'   => $newOwnerUuid,
+                ],
                 'occurred_at' => now(),
             ]);
         });

@@ -2,93 +2,122 @@
 
 namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
-use App\Models\Comment;
+use App\Enum\ProtestJobPriority;
+use App\Enum\ProtestJobStatus;
 use App\Models\MedProtest;
-use App\Models\ProtestUser;
+use App\Models\ProtestJob;
 use App\Models\Service;
 use App\Models\User;
-use App\Models\UserAssignment;
 use App\Notifications\SystemNotification;
 use Livewire\Component;
+use Illuminate\Support\Facades\DB;
 
 class ControlMedProtest extends Component
 {
-    public $modProtest;
-    public $notePage = 0;
-    public $needsEvidence = 0;
-    public $needsConfirmation = true;
-    public $serviceId;
-    public $selectedUser;
-    public $userList;
-    public $isEngineer = false;
+    /* ===================== CONTEXTO ===================== */
 
-    public $responsible;
-    public $monitoring;
+    public ?MedProtest $modProtest = null;
+    public int $notePage = 0;
 
-    public $deleteCommentId;
-    public $comment = '';
+    // formulário de criação do job
+    public ?string $selectedUser = null;      // owner_id (UUID do usuário)
+    public string $priority = '';             // string (ex: 'normal')
+    public bool $is_advance = false;          // avanço parceiro?
+    public bool $need_evidence = false;       // precisa evidência obrigatória?
+    public ?string $sla_due_at = null;        // prazo de retorno (SLA)
+    public string $notes = '';                // instrução/comentário inicial para o executor
 
+    // suporte UI
+    public string $userSearch = '';
+    public $userList = [];
     public $serviceList = [];
-    public $selectedService = '';
-    public $userSearch = '';
 
-    public $usersTemporarilyAssigned = [];
-    public $userAssignment;
+    // comentários da medida
+    public $deleteCommentId = null;
+    public string $comment = '';
+
+    // flag pra confirmar encerramento imediato
+    public bool $pendingCloseNow = false;
 
     protected $listeners = [
         'openModProtestControl',
-        'refreshComponent' => '$refresh',
-        'removeUserAssigment152030' => 'confirmRemoveUserAssignment',
-        'closeMeansure02110202' => 'closingMeasure',
+        'refreshComponent'       => '$refresh',
+        'confirmCloseMeasureNow' => 'doCloseMeasureNow',
     ];
 
-    public function updatedServiceId($value)
-    {
-
-        if ($value === 'construction') {
-            $this->userList = User::where('responsible', true)->whereNull('deleted_at')->orderBy('name')->get();
-        } elseif ($value === 'maintenance') {
-            $this->userList = User::where('engineer', true)->whereNull('deleted_at')->orderBy('name')->get();
-        } elseif ($value === 'partner') {
-            $this->userList = User::where('onlyparner', true)->whereNull('deleted_at')->orderBy('name')->get();
-        } else {
-            $this->userList = User::whereNull('deleted_at')
-                ->orderBy('name')
-                ->get();
-        }
-
-    }
-
-    protected function rules()
-    {
-        return [
-            'modProtest.needsEvidence' => 'boolean',
-            'modProtest.needsConfirmation' => 'boolean',
-            'modProtest.completed' => 'boolean',
-            'modProtest.completed_at' => 'nullable|date',
-            'needsEvidence' => 'boolean',
-            'needsConfirmation' => 'boolean',
-        ];
-    }
-
-
-
-    public function updatedUserSearch()
-    {
-        $this->userList = User::when($this->serviceId, function ($q) {
-            $q->whereRelation('ToServices', 'service_id', $this->serviceId);
-        })->where('name', 'like', '%' . $this->userSearch . '%')->whereNull('deleted_at')->orderBy('name')->get();
-    }
+    /* ===================== MOUNT ===================== */
 
     public function mount()
     {
+        // lista de serviços (pode virar filtro ou só contexto exibido)
         $this->serviceList = Service::orderBy('service')->get();
-        $this->userList = User::whereNull('deleted_at')->orderBy('name')->get();
+
+        // lista inicial de usuários disponíveis pra atribuir
+        $this->userList = User::whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
+
+        // prioridade padrão
+        $this->priority = ProtestJobPriority::NORMAL->value;
     }
 
-    public function nextPage($noteList)
+    /* ===================== ABRIR MODAL ===================== */
+
+    public function openModProtestControl(MedProtest $modProtest)
     {
-        if ($this->notePage < count($noteList) - 1) {
+        // limpa o form sempre que abrir
+        $this->resetFormForNewJob();
+
+        // carrega tudo que a UI precisa
+        $this->modProtest = $modProtest->load([
+            'protest',
+            'comments.user',
+            'protest.allNotes', // precisa do accessor/método no model Protest
+        ]);
+
+        $this->notePage = 0;
+
+        // abre modal
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => 'controlModProtestModal',
+        ]);
+    }
+
+    protected function resetFormForNewJob(): void
+    {
+        $this->selectedUser     = null;
+        $this->priority         = ProtestJobPriority::NORMAL->value;
+        $this->is_advance       = false;
+        $this->need_evidence    = false;
+        $this->sla_due_at       = null;
+        $this->notes            = '';
+        $this->comment          = '';
+        $this->deleteCommentId  = null;
+        $this->pendingCloseNow  = false;
+    }
+
+    /* ===================== BUSCA DINÂMICA DE USUÁRIO ===================== */
+
+    public function updatedUserSearch()
+    {
+        $needle = trim($this->userSearch);
+
+        $this->userList = User::query()
+            ->whereNull('deleted_at')
+            ->when($needle, function ($q) use ($needle) {
+                $q->where('name', 'like', '%' . $needle . '%');
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    /* ===================== PAGINAR NOTAS ASSOCIADAS ===================== */
+
+    public function nextPage()
+    {
+        $total = $this->modProtest?->protest?->allNotes?->count() ?? 0;
+
+        if ($this->notePage < $total - 1) {
             $this->notePage++;
         }
     }
@@ -100,505 +129,261 @@ class ControlMedProtest extends Component
         }
     }
 
+    /* ===================== COMENTÁRIOS DA MEDIDA ===================== */
 
-    public function addComment()
+    public function addCommentToMedProtest()
     {
-        if (trim($this->comment) === '') {
-            session()->flash('error', 'O comentário não pode estar vazio.');
+        if (!$this->modProtest || trim($this->comment) === '') {
             return;
         }
 
-        try {
+        $newComment = $this->modProtest->Comments()->create([
+            'message' => $this->comment,
+            'user_id' => auth()->id(),
+        ]);
 
-            $this->modProtest->Comments()->create([
-                'message' => $this->comment,
-                'user_id' => auth()->id(),
-            ]);
-
-
-
-            // Notificar usuários atribuídos, exceto o autor do comentário
-            if ($recipients = $this->modProtest->Assignments()
-            ->where('user_id', '!=', auth()->id())->get()) {
-
-
-
-                foreach ($recipients as $recipient) {
-
-                    if ($recipient->user) {
-                        if ($recipient->User?->onlyparner) {
-                            $link = route('protests.partner.view', $this->modProtest->id);
-                        } else {
-                            $link = route('protests.services.view', $this->modProtest->id);
-                        }
-                    } elseif ($recipient->monitoring) {
-                        $link = route('protests.services.view_only', $this->modProtest->id);
-                    } else {
-                        $link = route('protests.dispatch.view', $this->modProtest->protest?->nota);
-                    }
-
-                    $recipient->User?->notify(new SystemNotification(
-                        titulo: 'Novo comentário na Medida de Reclamação',
-                        mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->modProtest->protest?->nota.'.',
-                        link: $link, // ou outra rota que você tiver
-                        status: 6,
-                        extras: [
-                            'med_protest_id' => $this->modProtest->id,
-                            'commented_by'   => auth()->id(),
-                        ]
-                    ));
-                }
-            }
-
-
-
-            $this->comment = '';
-            $this->emit('refreshComponent');
-
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Comentário adicionado com sucesso!',
-            ]);
-
-        } catch (\Throwable $th) {
-            $this->dispatchBrowserEvent('torrada', [
-               'status'   => 'danger',
-               'menssage' => 'Ooops.... ocorreu um erro ao adicionar o comentário: ',
-            ]);
-        }
-
-    }
-
-    // public function getFilteredUsersProperty()
-    // {
-    //     return User::query()
-    //         ->when($this->selectedService, fn ($q) => $q->where('service_id', $this->selectedService))
-    //         ->when($this->userSearch, fn ($q) => $q->where('name', 'like', '%' . $this->userSearch . '%'))
-    //         ->get();
-    // }
-
-
-
-    public function removeComment()
-    {
-        if ($this->deleteCommentId) {
-            $this->deleteCommentId->delete();
-            $this->deleteCommentId = null;
-
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Comentário removido com sucesso!',
-            ]);
-
-            $this->emit('refreshComponent');
-        }
-    }
-
-    public function deleteComment(Comment $comment)
-    {
-        $this->deleteCommentId = $comment;
-
-        if ($this->deleteCommentId) {
-
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Remover Comentário?',
-                // 'msg'   => "
-                // Você deseja atribuir a NOTA/OV para você?</br></br>
-                // <div class='card card-light'>
-                // <div class='card-body'>
-                // <p><strong>NOTA/OV estará disponível em acompanhamento como
-                // sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
-                // </div>
-                // </div>
-                // ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Remover!',
-                'btnCanceltxt'  => 'Não, Cancele!',
-                'action'        => 'removeComment172030',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhum comentário Removido.',
-
-            ]);
-        }
-    }
-
-    public function addUserAssignment()
-    {
-
-        // dd($this->selectedUser, $this->isEngineer);
-        $isUser = false;
-
-        $existsUser = $this->modProtest->Assignments()
-            ->where('user', true)
-            ->exists();
-
-        if (!$this->isEngineer && $existsUser) {
-            $isUser = true;
-        }
-
-
-        if (empty($this->usersTemporarilyAssigned) && !$isUser) {
-            $this->usersTemporarilyAssigned[] = [
-                'id'   => $this->selectedUser,
-                'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
-                'isEngineer' => $this->isEngineer,
-            ];
-
-            $triggers = $this->userList->find($this->selectedUser)?->UserProtest?->triggers;
-
-            if ($triggers) {
-                foreach ($triggers as $trigger) {
-                    $this->usersTemporarilyAssigned[] = [
-                        'id'   => $trigger->User->id,
-                        'name' => $trigger->User->name,
-                        'isEngineer' => true,
-                    ];
-                }
-            }
-
-        } else {
-            $userExists = collect($this->usersTemporarilyAssigned)->contains(function ($user) {
-                return $user['id'] === $this->selectedUser;
-            });
-
-            $hasNonEngineerUser = collect($this->usersTemporarilyAssigned)->contains(function ($user) {
-
-                return $user['isEngineer'] === false;
-            });
-
-            if (!$userExists && !$isUser && !($this->isEngineer === false && $hasNonEngineerUser)) {
-                $this->usersTemporarilyAssigned[] = [
-                    'id'   => $this->selectedUser,
-                    'name' => $this->userList->find($this->selectedUser)->name ?? 'Usuário Desconhecido',
-                    'isEngineer' => $this->isEngineer,
-                ];
-
-                $triggers = $this->userList->find($this->selectedUser)?->UserProtest?->triggers;
-
-                if ($triggers) {
-                    foreach ($triggers as $trigger) {
-                        $triggerExists = collect($this->usersTemporarilyAssigned)->contains(function ($tempUser) use ($trigger) {
-                            return $tempUser['id'] === $trigger->User->id;
-                        });
-
-                        if (!$triggerExists) {
-                            $this->usersTemporarilyAssigned[] = [
-                                'id'   => $trigger->User->id,
-                                'name' => $trigger->User->name,
-                                'isEngineer' => true,
-                            ];
-                        }
-                    }
-                }
-            } else {
-                if ($isUser) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Apenas um usuário pode ser atribuído!',
-                        'timer'    => 2500,
-                    ]);
-
-                    return;
-                }
-            }
-        }
-    }
-
-
-    public function removeTempUserAssignment($userId)
-    {
-        $this->usersTemporarilyAssigned = collect($this->usersTemporarilyAssigned)
-            ->reject(function ($user) use ($userId) {
-                return $user['id'] === $userId;
-            })->values()->all();
-    }
-
-
-    public function removeUserAssignment(UserAssignment $userAssignment)
-    {
-
-
-        if ($userAssignment) {
-
-            // dd($userAssignment);
-
-            $this->userAssignment = $userAssignment->load('user');
-
-            $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Remover Usuario?',
-                'msg'   => "
-                    Você deseja remover o usuário <strong>{$this->userAssignment->User->name}</strong> da atribuição?</br></br>
-                ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Remover!',
-                'btnCanceltxt'  => 'Não, Cancele!',
-                'action'        => 'removeUserAssigment152030',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhum comentário Removido.',
-
-            ]);
-
-
-        } else {
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'danger',
-                'menssage' => 'Usuário não encontrado para remoção.',
-            ]);
-        }
-    }
-
-    public function confirmRemoveUserAssignment()
-    {
-        if ($this->userAssignment) {
-            // Verificar se o usuário tem triggers e removê-los
-            $triggers = $this->userAssignment->User?->UserProtest?->triggers;
-            if ($triggers) {
-                foreach ($triggers as $triggerUser) {
-                    $triggerAssignment = $this->modProtest->Assignments()
-                    ->where('user_id', $triggerUser->User->id)
-                    ->first();
-
-                    if ($triggerAssignment) {
-                        $triggerAssignment->delete();
-                    }
-                }
-            }
-
-            $this->userAssignment->delete();
-
-            $this->dispatchBrowserEvent('torrada', [
-            'status'   => 'success',
-            'menssage' => 'Usuário removido com sucesso!',
-            ]);
-
-            $this->emitSelf('refreshComponent');
-
-            $this->userAssignment = null;
-        } else {
-            $this->dispatchBrowserEvent('torrada', [
-            'status'   => 'danger',
-            'menssage' => 'Nenhum usuário selecionado para remoção.',
-            ]);
-        }
-    }
-
-
-    public function saveMeasures()
-    {
-        // if (empty($this->usersTemporarilyAssigned)) {
-        //     $this->dispatchBrowserEvent('torrada', [
-        //         'status'   => 'warning',
-        //         'menssage' => 'Nenhum usuário atribuído para salvar as medidas.',
-        //     ]);
-        //     return;
-        // }
-
-        // $this->modProtest->needsEvidence = $this->needsEvidence;
-        // $this->modProtest->needsConf irmation = $this->needsConfirmation;
-        $this->modProtest->save();
-
-        if (!$this->modProtest->Assignments()->where('responsible', true)->exists()) {
-            $this->modProtest->Assignments()->updateOrCreate(
-                [
-                    'user_id' => auth()->id(),
-                    'assignable_id' => $this->modProtest->id,
-                    'assignable_type' => MedProtest::class,
-                ],
-                [
-                    'responsible' => true,
-                    'started_at' => now(),
-                ]
+        if ($newComment) {
+            $this->notifyInvolvedUsers(
+                "Novo comentário na medida {$this->modProtest->protest?->nota}."
             );
-
-
-
-
         }
 
-        foreach ($this->usersTemporarilyAssigned as $user) {
-
-            $exists = $this->modProtest->Assignments()
-                ->where('user', true)
-                ->exists();
-
-            if ($exists && !$user['isEngineer']) {
-                continue;
-            }
-
-            $check = $this->modProtest->Assignments()->updateOrCreate(
-                [
-                    'user_id' => $user['id'],
-                    'assignable_id' => $this->modProtest->id,
-                    'assignable_type' => MedProtest::class,
-                ],
-                [
-                    'monitoring' => $user['isEngineer'],
-                    'user' => !$user['isEngineer'],
-                    'started_at' => now(),
-                ]
-            );
-
-
-            if ($check->wasRecentlyCreated) {
-                $mensagek = [
-                    'link' => '',
-                    'message' => ''
-                ];
-                if ($check->user) {
-                    if ($check->User?->onlyparner) {
-                        $mensagek['link'] = route('protests.partner.view', $this->modProtest->id);
-                        $mensagek['message'] = 'Você foi atribuído a uma nova medida da reclamação com responsável '.$this->modProtest->protest?->nota.'.';
-                    } else {
-                        $mensagek['link'] = route('protests.services.view', $this->modProtest->id);
-                        $mensagek['message'] = 'Você foi atribuído a uma nova medida da reclamação com responsável '.$this->modProtest->protest?->nota.'.';
-                    }
-                } elseif ($check->monitoring) {
-                    $mensagek['link'] = route('protests.services.view_only', $this->modProtest->id);
-                    $mensagek['message'] = 'Você foi atribuído a uma nova medida da reclamação acompanhamento '.$this->modProtest->protest?->nota.'.';
-                } else {
-                    $mensagek['link'] = route('protests.dispatch.view', $this->modProtest->protest?->nota);
-                }
-
-                $check->User?->notify(new SystemNotification(
-                    titulo: 'Nova Medida Atribuída',
-                    mensagem: $mensagek['message'],
-                    link: $mensagek['link'], // ou outra rota que você tiver
-                    status: 7,
-                    extras: [
-                        'med_protest_id' => $this->modProtest->id,
-                        'commented_by'   => auth()->id(),
-                    ]
-                ));
-            }
-
-        }
-
-        $defaults = ProtestUser::where('default', true)->get();
-
-        if ($defaults) {
-            foreach ($defaults as $user) {
-                $this->modProtest->Assignments()->updateOrCreate(
-                    [
-                        'user_id' => $user->user_id,
-                        'assignable_id' => $this->modProtest->id,
-                        'assignable_type' => MedProtest::class,
-                    ],
-                    [
-                        'monitoring' => true,
-                        'started_at' => now(),
-                    ]
-                );
-            }
-        }
+        $this->comment = '';
+        $this->emit('refreshComponent');
 
         $this->dispatchBrowserEvent('torrada', [
             'status'   => 'success',
-            'menssage' => 'Medidas salvas com sucesso!',
+            'menssage' => 'Comentário adicionado com sucesso!',
         ]);
-
-        $this->cancelChanges();
     }
 
-    public function closeMeasure()
+    public function markCommentForDeletion($commentId)
     {
+        $this->deleteCommentId = $commentId;
+
         $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Encerrar Medida?',
-                'msg'   => "
-                    Você deseja encerrar a medida <strong>{$this->modProtest->id}</strong>?</br></br>
-                ",
-                'icon'          => 'warning',
-                'btnOktxt'      => 'Sim, Encerrar!',
-                'btnCanceltxt'  => 'Não, Cancele!',
-                'action'        => 'closeMeansure02110202',
-                'cancel_titulo' => 'Cancelado!',
-                'cancel_msg'    => 'Nenhuma medida encerrada.',
-
-            ]);
+            'title'         => 'Remover Comentário?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Remover!',
+            'btnCanceltxt'  => 'Não, Cancelar',
+            'action'        => 'removeCommentFromMedProtest',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhum comentário removido.',
+        ]);
     }
 
-    public function closingMeasure()
+    public function removeCommentFromMedProtest()
     {
-        $this->modProtest->update([
-            'completed' => true,
-            'completed_at' => now()
-        ]);
-
-        $this->modProtest->Assignments()->updateOrCreate(
-            [
-                'user_id' => auth()->id(),
-                'assignable_id' => $this->modProtest->id,
-                'assignable_type' => MedProtest::class,
-            ],
-            [
-                'responsible' => true,
-                'user' => true,
-                'started_at' => now(),
-            ]
-        );
-
-
-        foreach ($this->modProtest->load('assignments.user')->assignments as $user) {
-            $user->update(
-                [
-
-                    'completed' => true,
-                    'ended_at' => now(),
-                ]
-            );
+        if (!$this->modProtest || !$this->deleteCommentId) {
+            return;
         }
+
+        $comment = $this->modProtest->Comments()
+            ->where('id', $this->deleteCommentId)
+            ->first();
+
+        if ($comment) {
+            $comment->delete();
+        }
+
+        $this->deleteCommentId = null;
 
         $this->dispatchBrowserEvent('torrada', [
             'status'   => 'success',
-            'menssage' => 'Medidas Encerrada com sucesso!',
+            'menssage' => 'Comentário removido com sucesso!',
         ]);
-
-        $this->cancelChanges();
-    }
-
-    public function openModProtestControl(MedProtest $modProtest)
-    {
-        $this->modProtest = $modProtest->load('protest', 'comments', 'assignments.user');
-
-        if ($this->modProtest) {
-
-            $this->notePage = 0;
-
-            if ($this->modProtest->assignments->isEmpty()) {
-                $this->modProtest->needsConfirmation = true;
-            }
-            # code...
-
-
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'controlModProtestModal',
-            ]);
-        }
-    }
-
-    public function cancelChanges()
-    {
-        $this->modProtest = null;
-        $this->notePage = 0;
-        $this->needsEvidence = 0;
-        $this->needsConfirmation = 0;
-        $this->serviceId = null;
-        $this->selectedUser = null;
-        $this->userList = [];
-        $this->isEngineer = false;
-
-        $this->responsible = null;
-        $this->monitoring = null;
-
-        $this->usersTemporarilyAssigned = [];
 
         $this->emit('refreshComponent');
-        $this->dispatchBrowserEvent('hideModal');
     }
 
+    protected function notifyInvolvedUsers(string $msg): void
+    {
+        // Aqui você pode disparar SystemNotification pros envolvidos na medida,
+        // se quiser manter teu comportamento antigo.
+        // Mantido vazio pra não quebrar nada agora.
+    }
+
+    /* ===================== VALIDAÇÃO DO FORM DO JOB ===================== */
+
+    protected function validateJobForm(): array
+    {
+        return $this->validate([
+            'selectedUser'  => 'required|exists:users,id',
+            'priority'      => 'required|in:' .
+                implode(',', array_map(fn ($e) => $e->value, ProtestJobPriority::cases())),
+            'is_advance'    => 'boolean',
+            'need_evidence' => 'boolean',
+            'sla_due_at'    => 'nullable|date',
+            'notes'         => 'nullable|string|max:5000',
+        ]);
+    }
+
+    /* ===================== CRIAR JOB (DESPACHAR) ===================== */
+
+    public function dispatchJob()
+    {
+        if (!$this->modProtest) {
+            return;
+        }
+
+        $data = $this->validateJobForm();
+
+        DB::transaction(function () use ($data) {
+
+            $job = ProtestJob::create([
+                'protest_id'     => $this->modProtest->protest_id,
+                'med_protest_id' => $this->modProtest->id,
+
+                'created_by'     => auth()->id(),
+                'owner_id'       => $data['selectedUser'],
+
+                // IMPORTANTE: salvar string, não o objeto enum
+                'status'         => ProtestJobStatus::OPENED->value,
+                'priority'       => ProtestJobPriority::from($data['priority'])->value,
+
+                'is_advance'     => $data['is_advance'] ?? false,
+                'need_evidence'  => $data['need_evidence'] ?? false,
+
+                'sla_due_at'     => $data['sla_due_at'] ?? null,
+                'notes'          => $data['notes'] ?? null,
+            ]);
+
+            // notificar responsável
+            $job->owner?->notify(new SystemNotification(
+                titulo: 'Nova atividade de reclamação',
+                mensagem: "Você recebeu uma tarefa referente à Medida {$this->modProtest->id}.",
+                link: route('protests.dispatch.view', $this->modProtest->protest?->nota),
+                status: 7,
+                extras: [
+                    'protest_job_id' => $job->id,
+                    'med_protest_id' => $this->modProtest->id,
+                ]
+            ));
+        });
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => 'Atividade criada e despachada!',
+        ]);
+
+        $this->closeModalAndReset();
+    }
+
+    /* ===================== ENCERRAR DIRETO ===================== */
+
+    /**
+     * Passo 1: botão "Encerrar agora" chama isso.
+     * A gente só valida e dispara o alerta de confirmação.
+     */
+    public function closeNow()
+    {
+        if (!$this->modProtest) {
+            return;
+        }
+
+        // valida pra garantir que os campos obrigatórios estão OK
+        $this->validateJobForm();
+
+        $this->pendingCloseNow = true;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Encerrar agora?',
+            'msg'           => "Isso vai encerrar a medida e registrar a atividade como concluída imediatamente.",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Encerrar!',
+            'btnCanceltxt'  => 'Não, Cancelar',
+            'action'        => 'confirmCloseMeasureNow',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma medida encerrada.',
+        ]);
+    }
+
+    /**
+     * Passo 2: se o usuário confirmar no swal, o front dispara
+     * o listener 'confirmCloseMeasureNow', que cai aqui.
+     */
+    public function doCloseMeasureNow()
+    {
+        if (!$this->modProtest || !$this->pendingCloseNow) {
+            return;
+        }
+
+        $data = $this->validateJobForm();
+
+        DB::transaction(function () use ($data) {
+
+            // cria o job já finalizado, atribuído a mim
+            $job = ProtestJob::create([
+                'protest_id'     => $this->modProtest->protest_id,
+                'med_protest_id' => $this->modProtest->id,
+
+                'created_by'     => auth()->id(),
+                'owner_id'       => auth()->id(),
+                'closed_by'      => auth()->id(),
+
+                // SALVANDO STRING DO ENUM
+                'status'         => ProtestJobStatus::DONE->value,
+                'priority'       => ProtestJobPriority::from($data['priority'])->value,
+
+                'is_advance'     => $data['is_advance'] ?? false,
+                'need_evidence'  => $data['need_evidence'] ?? false,
+
+                'sla_due_at'     => $data['sla_due_at'] ?? null,
+                'notes'          => $data['notes'] ?? null,
+
+                'finished_at'    => now(),
+                'closed_at'      => now(),
+            ]);
+
+            // marca a medida como concluída
+            $this->modProtest->update([
+                'completed'     => true,
+                'completed_at'  => now(),
+            ]);
+
+            // registra evento explícito de término
+            $job->events()->create([
+                'type'        => 'status_changed',
+                'actor_id'    => auth()->id(),
+                'meta'        => [
+                    'from' => null,
+                    'to'   => ProtestJobStatus::DONE->value,
+                ],
+                'occurred_at' => now(),
+            ]);
+        });
+
+        $this->pendingCloseNow = false;
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => 'Medida encerrada e atividade registrada!',
+        ]);
+
+        $this->closeModalAndReset();
+    }
+
+    /* ===================== FECHAR MODAL / RESET ===================== */
+
+    protected function closeModalAndReset(): void
+    {
+        $this->emit('refreshComponent');
+
+        $this->dispatchBrowserEvent('hideModal', [
+            'id' => 'controlModProtestModal',
+        ]);
+
+        $this->resetFormForNewJob();
+        $this->modProtest  = null;
+        $this->notePage    = 0;
+    }
+
+    /* ===================== RENDER ===================== */
 
     public function render()
     {
-        return view('livewire.protests.dispatch.actions.control-med-protest');
+        return view('livewire.protests.dispatch.actions.control-med-protest', [
+            'priorityOptions' => ProtestJobPriority::cases(),
+        ]);
     }
 }

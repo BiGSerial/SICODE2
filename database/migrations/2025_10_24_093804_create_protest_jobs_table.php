@@ -24,7 +24,7 @@ return new class () extends Migration {
             $table->enum('status', [
                 'opened','assigned','in_progress','waiting','done','canceled','reopened'
             ])->index();
-            $table->enum('priority', ['low','normal','high','urgent'])->default('normal');
+            $table->enum('priority', ['low','normal','high','urgent'])->default('normal')->index();
 
             // Marcos do ciclo
             $table->timestamp('sent_at')->nullable();
@@ -43,6 +43,10 @@ return new class () extends Migration {
             $table->json('outcome')->nullable();
             $table->text('close_reason')->nullable();
             $table->text('notes')->nullable();
+
+            // Booleanos
+            $table->boolean('need_evidence')->default(false);
+            $table->boolean('is_advance')->default(false);
 
             // Auditoria
             $table->softDeletes();

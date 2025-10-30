@@ -75,6 +75,46 @@
             opacity: 1;
         }
 
+        .modern-card {
+            border: 0;
+            border-radius: 16px;
+            background-color: #fff;
+            box-shadow: 0 20px 45px -10px rgba(0, 0, 0, .5);
+        }
+
+        .modern-card-body {
+            padding: 1.5rem 1.5rem 1rem 1.5rem;
+        }
+
+        .modern-card-title {
+            font-weight: 600;
+            font-size: .95rem;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            color: #6c757d;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        .avatar-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .comments-container {
+            max-height: 260px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
         @media (max-width: 600px) {
             .modal-header-modern {
                 padding: 1.2rem 0.9rem 1rem 1rem;
@@ -94,14 +134,14 @@
 @endpush
 
 <div wire:ignore.self class="modal fade" id="controlModProtestModal" tabindex="-1"
-    aria-labelledby="modalEntityProtocolLabel" aria-hidden="true">
+    aria-labelledby="controlModProtestModalLabel" aria-hidden="true">
 
     <x-show-loading />
 
     <div class="modal-dialog modal-xl">
         <div class="modal-content rounded-4">
 
-            {{-- Header moderno --}}
+            {{-- HEADER MODERNO --}}
             <div class="modal-header-modern">
                 <div class="modal-header-content">
                     <div class="modal-header-icon">
@@ -109,101 +149,127 @@
                     </div>
                     <div class="modal-header-texts">
                         <span class="modal-header-title">
-                            Controle do Desdobramento:
+                            Controle da Medida:
                             <strong>{{ $modProtest?->protest?->nota }}#{{ $modProtest?->med_id }}</strong>
                         </span>
                         <span class="modal-header-desc">
-                            Gerencie atribuições, medidas, comentários e configuração deste processo.
+                            Abra uma atividade (ProtestJob) para alguém OU encerre a medida imediatamente.
                         </span>
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-modern" data-bs-dismiss="modal"
-                    aria-label="Fechar"></button>
+                    wire:click="cancelChanges" aria-label="Fechar"></button>
             </div>
 
+            {{-- BODY --}}
             <div class="modal-body p-4">
+
+                {{-- BLOCO SUPERIOR: INFO BÁSICA + NOTAS ASSOCIADAS --}}
                 <div class="row g-4 mb-4">
-                    {{-- Info Básica --}}
+
+                    {{-- Info Básica da Reclamação / Medida --}}
                     <div class="col-lg-4">
                         <div class="modern-card h-100">
                             <div class="modern-card-body">
                                 <div class="modern-card-title">
                                     <i class="ri-information-line me-2"></i>Informações Básicas
                                 </div>
+
                                 <div class="d-flex flex-column gap-2">
-                                    <div class="d-flex justify-content-between"><span class="text-muted">Nota:</span>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Nota:</span>
                                         <strong>{{ $modProtest?->protest?->nota }}</strong>
                                     </div>
-                                    <div class="d-flex justify-content-between"><span
-                                            class="text-muted">Município:</span>
+
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Município:</span>
                                         <span>{{ $modProtest?->protest?->cidade }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between"><span class="text-muted">Grupo:</span>
+
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Grupo:</span>
                                         <span>{{ $modProtest?->protest?->txtGrpCodificacao }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between"><span class="text-muted">Causa:</span>
+
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Causa:</span>
                                         <span>{{ $modProtest?->txtCodCodificacao }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between"><span
-                                            class="text-muted">SubCausa:</span>
+
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">SubCausa:</span>
                                         <span>{{ $modProtest?->txtCodMedida }}</span>
                                     </div>
+
                                     <span class="text-muted small d-block mt-1">Descrição:</span>
-                                    <span
-                                        class="fw-medium small">{{ $modProtest?->protest?->comments->last()?->message }}</span>
+                                    <span class="fw-medium small">
+                                        {{ $modProtest?->protest?->comments->last()?->message }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {{-- Notas Associadas (swiper entre notas) --}}
+                    {{-- Notas Associadas / Paginação interna --}}
                     <div class="col-lg-8">
                         <div class="modern-card h-100">
                             <div class="modern-card-body">
                                 <div class="modern-card-title">
                                     <i class="ri-file-list-3-line me-2"></i>Notas Associadas
                                 </div>
+
                                 @if ($modProtest?->protest?->all_notes?->isNotEmpty())
+                                    @php
+                                        $current = $modProtest?->protest?->all_notes[$notePage] ?? null;
+                                    @endphp
+
                                     <div class="d-flex flex-column gap-2 mb-3">
                                         <div class="d-flex justify-content-between">
                                             <span class="text-muted">Nota:</span>
-                                            <span>{{ $modProtest?->protest?->all_notes[$notePage]?->note ?? '--' }}</span>
+                                            <span>{{ $current?->note ?? '--' }}</span>
                                         </div>
+
                                         <div class="d-flex justify-content-between">
                                             <span class="text-muted">Rubrica:</span>
-                                            <span>{{ $modProtest?->protest?->all_notes[$notePage]?->rubrica ?? '--' }}</span>
+                                            <span>{{ $current?->rubrica ?? '--' }}</span>
                                         </div>
+
                                         <div class="d-flex justify-content-between">
                                             <span class="text-muted">Município:</span>
-                                            <span>{{ $modProtest?->protest?->all_notes[$notePage]?->lexp ?? '--' }}</span>
+                                            <span>{{ $current?->lexp ?? '--' }}</span>
                                         </div>
+
                                         <div class="d-flex justify-content-between">
                                             <span class="text-muted">Cliente:</span>
-                                            <span>{{ $modProtest?->protest?->all_notes[$notePage]?->client ?? '--' }}</span>
+                                            <span>{{ $current?->client ?? '--' }}</span>
                                         </div>
-                                        @if ($modProtest?->protest?->all_notes[$notePage]?->type_note == 2)
+
+                                        @if ($current?->type_note == 2)
                                             <div class="d-flex justify-content-between">
                                                 <span class="text-muted">Status:</span>
-                                                <span>{{ $modProtest?->protest?->all_notes[$notePage]?->nstats ?? '--' }}</span>
+                                                <span>{{ $current?->nstats ?? '--' }}</span>
                                             </div>
-                                        @elseif($modProtest?->protest?->all_notes[$notePage]?->type_note == 1)
+                                        @elseif ($current?->type_note == 1)
                                             <div class="d-flex justify-content-between">
                                                 <span class="text-muted">Centro Trabalho:</span>
-                                                <span>{{ $modProtest?->protest?->all_notes[$notePage]?->centerJob ?? '--' }}</span>
+                                                <span>{{ $current?->centerJob ?? '--' }}</span>
                                             </div>
                                         @endif
                                     </div>
+
                                     <div class="d-flex justify-content-between align-items-center">
                                         <small class="text-muted">
                                             {{ $notePage + 1 }} de {{ $modProtest?->protest?->all_notes?->count() }}
                                         </small>
+
                                         <div class="btn-group" role="group">
-                                            <button wire:click="previousNote" class="btn btn-sm btn-outline-primary"
-                                                {{ $notePage <= 0 ? 'disabled' : '' }}>
+                                            <button class="btn btn-sm btn-outline-primary" wire:click="previousPage"
+                                                @if ($notePage <= 0) disabled @endif>
                                                 <i class="ri-arrow-left-s-line"></i>
                                             </button>
-                                            <button wire:click="nextNote" class="btn btn-sm btn-outline-primary"
-                                                {{ $notePage >= $modProtest?->protest?->all_notes?->count() - 1 ? 'disabled' : '' }}>
+
+                                            <button class="btn btn-sm btn-outline-primary" wire:click="nextPage"
+                                                @if ($notePage >= $modProtest?->protest?->all_notes?->count() - 1) disabled @endif>
                                                 <i class="ri-arrow-right-s-line"></i>
                                             </button>
                                         </div>
@@ -216,316 +282,255 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {{-- Configuração e usuários --}}
+                </div> {{-- /row g-4 mb-4 --}}
+
+                {{-- NOVA ATIVIDADE (ProtestJob) --}}
                 <div class="row g-4 mb-4">
-
                     <div class="col-12">
                         <div class="modern-card">
                             <div class="modern-card-body">
+
                                 <div class="modern-card-title">
-                                    <i class="ri-settings-2-line me-2"></i>Configuração e Atribuição de Usuários
+                                    <i class="ri-clipboard-line me-2"></i>Nova Atividade (Despacho)
                                 </div>
 
-                                {{-- Configuração do Serviço --}}
-                                <div class="row g-3 mb-4">
+                                <div class="row g-3">
+
+                                    {{-- Responsável --}}
+                                    <div class="col-md-6">
+                                        <div class="form-floating position-relative">
+                                            <select class="form-select" id="jobOwner" wire:model="selectedUser">
+                                                <option value="">Selecione o responsável</option>
+                                                @foreach ($userList as $u)
+                                                    <option value="{{ $u->id }}">
+                                                        {{ mb_strtoupper($u->name) }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <label for="jobOwner">Responsável</label>
+                                        </div>
+                                        @error('selectedUser')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+
+                                        {{-- busca rápida de usuário --}}
+                                        <div class="mt-2">
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-light">
+                                                    <i class="ri-search-line"></i>
+                                                </span>
+                                                <input type="text" class="form-control"
+                                                    placeholder="Buscar usuário..."
+                                                    wire:model.debounce.300ms="userSearch">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Prioridade --}}
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <select class="form-select" id="serviceSelect" wire:model="serviceId">
-                                                <option value="">Todos os serviços</option>
-                                                @forelse ($serviceList as $service)
-                                                    <option value="{{ $service->uuid }}">{{ $service->service }}
+                                            <select class="form-select" id="jobPriority" wire:model="priority">
+                                                @foreach ($priorityOptions as $opt)
+                                                    <option value="{{ $opt->value }}">
+                                                        {{ $opt->label() }}
                                                     </option>
-                                                @empty
-                                                    <option value="">Nenhum serviço disponível</option>
-                                                @endforelse
-                                                <option value="construction">--- Construção ---</option>
-                                                <option value="partner">--- Empreiteira ---</option>
-                                                <option value="maintenance">--- Engenharia ---</option>
+                                                @endforeach
                                             </select>
-                                            <label for="serviceSelect">Filtrar por Serviço</label>
+                                            <label for="jobPriority">Prioridade</label>
                                         </div>
+                                        @error('priority')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Flags --}}
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="isAdvanceToggle"
+                                                wire:model="is_advance">
+                                            <label class="form-check-label fw-medium text-info" for="isAdvanceToggle">
+                                                <i class="ri-road-map-line me-1"></i>Avanço Parceiro
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="needEvidenceToggle"
+                                                wire:model="need_evidence">
+                                            <label class="form-check-label fw-medium text-warning"
+                                                for="needEvidenceToggle">
+                                                <i class="ri-camera-line me-1"></i>Evidência obrigatória
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {{-- SLA --}}
+                                    <div class="col-md-4">
+                                        <div class="form-floating">
+                                            <input type="datetime-local" class="form-control" id="slaDue"
+                                                wire:model="sla_due_at">
+                                            <label for="slaDue">Retorno até (SLA)</label>
+                                        </div>
+                                        @error('sla_due_at')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Orientações iniciais --}}
+                                    <div class="col-12">
+                                        <div class="form-floating">
+                                            <textarea class="form-control" style="height: 90px" id="jobNotes" wire:model="notes"
+                                                placeholder="Orientações para o responsável"></textarea>
+                                            <label for="jobNotes">Orientações / Comentário inicial</label>
+                                        </div>
+                                        @error('notes')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                </div>{{-- /row g-3 --}}
+
+                                <div class="row g-3 mt-4">
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-success w-100 py-3"
+                                            wire:click="dispatchJob">
+                                            <i class="ri-send-plane-fill me-2"></i>
+                                            Despachar Atividade
+                                        </button>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="d-flex gap-3 align-items-center h-100">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="requireTracking"
-                                                    wire:model="modProtest.needsConfirmation">
-                                                <label class="form-check-label fw-medium" for="requireTracking">
-                                                    <i class="ri-eye-line me-1"></i>Acompanhamento
-                                                </label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="needsConfirmation"
-                                                    wire:model="modProtest.needsEvidence">
-                                                <label class="form-check-label fw-medium" for="needsConfirmation">
-                                                    <i class="ri-camera-line me-1"></i>Exigir Evidência
-                                                </label>
-                                            </div>
-                                        </div>
+                                        <button type="button" class="btn btn-danger w-100 py-3"
+                                            wire:click="closeNow">
+                                            <i class="ri-shut-down-line me-2"></i>
+                                            Encerrar Agora
+                                        </button>
                                     </div>
                                 </div>
 
-                                {{-- Atribuição de Usuários --}}
-                                <div class="border-top pt-4">
-                                    <div
-                                        class="modern-card-title d-flex justify-content-between align-items-center mb-3">
-                                        <span><i class="ri-team-line me-2"></i>Usuários Atribuídos</span>
-                                        @if ($modProtest?->Assignments?->isNotEmpty() || !empty($usersTemporarilyAssigned))
-                                            <span class="badge bg-primary">
-                                                {{ ($modProtest?->Assignments?->count() ?? 0) + count($usersTemporarilyAssigned ?? []) }}
-                                            </span>
-                                        @endif
-                                    </div>
-
-                                    {{-- Busca e Seleção de Usuário --}}
-                                    <div class="row g-3 mb-4">
-                                        <div class="col-lg-5">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control" id="userSearch"
-                                                    wire:model.debounce.300ms="userSearch"
-                                                    placeholder="Buscar usuário...">
-                                                <label for="userSearch">Buscar usuário por nome</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <div class="form-floating position-relative">
-                                                <select class="form-select" id="selectUser" wire:model="selectedUser"
-                                                    wire:loading.attr="disabled" wire:target="updatedServiceId">
-                                                    <option value="">Selecione um usuário</option>
-                                                    @if (!empty($userList))
-                                                        @foreach ($userList as $user)
-                                                            <option value="{{ $user->id }}">
-                                                                <span>{{ mb_strtoupper($user->name) }} </span>-
-                                                                {{ $user->company?->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    @endif
-                                                </select>
-                                                <label for="selectUser">Usuário</label>
-                                                <div class="position-absolute top-50 end-0 translate-middle-y me-3"
-                                                    wire:loading wire:target="updatedServiceId">
-                                                    <div class="spinner-border spinner-border-sm text-primary"
-                                                        role="status"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-2">
-                                            <div class="form-check form-switch mt-3">
-                                                <input class="form-check-input" type="checkbox" id="engineerToggle"
-                                                    wire:model="isEngineer">
-                                                <label class="form-check-label fw-medium text-info"
-                                                    for="engineerToggle">
-                                                    <i class="ri-user-star-line me-1"></i>Acompanhante
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-1">
-                                            <button type="button" class="btn btn-primary w-100 h-100"
-                                                wire:click="addUserAssignment" @disabled($modProtest?->completed)>
-                                                <i class="ri-user-add-line me-1"></i>Add
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {{-- Lista de Usuários Atribuídos --}}
-                                    <div class="border rounded p-3 bg-light comments-container">
-                                        @php
-                                            $hasUsers =
-                                                !empty($usersTemporarilyAssigned) ||
-                                                $modProtest?->Assignments?->isNotEmpty();
-                                        @endphp
-                                        @if ($hasUsers)
-                                            <div class="d-flex flex-column gap-2">
-                                                {{-- Temporários --}}
-                                                @if (!empty($usersTemporarilyAssigned))
-                                                    @foreach ($usersTemporarilyAssigned as $user)
-                                                        <div
-                                                            class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <i class="ri-user-line text-primary"></i>
-                                                                <span class="fw-medium">{{ $user['name'] }}</span>
-                                                                <span
-                                                                    class="badge {{ $user['isEngineer'] ? 'bg-info' : 'bg-success' }}">
-                                                                    {{ $user['isEngineer'] ? 'Acompanhante' : 'Usuario' }}
-                                                                </span>
-                                                                <small class="text-muted">(Pendente)</small>
-                                                            </div>
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-outline-danger"
-                                                                wire:click="removeTempUserAssignment('{{ $user['id'] }}')">
-                                                                <i class="ri-close-line"></i>
-                                                            </button>
-                                                        </div>
-                                                    @endforeach
-                                                @endif
-                                                {{-- Salvos --}}
-                                                @if ($modProtest?->assignments?->isNotEmpty())
-                                                    @foreach ($modProtest?->assignments as $assignment)
-                                                        @php
-                                                            $typeUser = $assignment->monitoring
-                                                                ? 'Acompanhante'
-                                                                : ($assignment->responsible
-                                                                    ? 'Responsável'
-                                                                    : 'Usuário');
-                                                            $rowClass = $assignment->monitoring
-                                                                ? 'bg-info'
-                                                                : ($assignment->responsible
-                                                                    ? 'bg-warning'
-                                                                    : 'bg-success');
-                                                        @endphp
-                                                        <div
-                                                            class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <i class="ri-user-follow-line text-success"></i>
-                                                                <span
-                                                                    class="fw-medium">{{ $assignment->User?->name }}</span>
-                                                                <span
-                                                                    class="badge {{ $rowClass }}">{{ $typeUser }}</span>
-                                                            </div>
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-outline-danger"
-                                                                wire:click="removeUserAssignment('{{ $assignment->id }}')"
-                                                                @disabled($modProtest?->completed)>
-                                                                <i class="ri-close-line"></i>
-                                                            </button>
-                                                        </div>
-                                                    @endforeach
-                                                @endif
-                                            </div>
-                                        @else
-                                            <div class="text-center text-muted py-3">
-                                                <i class="ri-user-unfollow-line fs-3"></i>
-                                                <p class="mb-0 mt-2">Nenhum usuário atribuído</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
+                </div>{{-- /row g-4 mb-4 --}}
 
-                    {{-- Comentários/Observações --}}
-                    <div class="row g-4 mb-4">
-                        <div class="col-12">
-                            <div class="modern-card">
-                                <div class="modern-card-body">
-                                    <div class="modern-card-title d-flex justify-content-between align-items-center">
-                                        <span>
-                                            <i class="ri-chat-3-line me-2"></i>
-                                            Observações - {{ $modProtest?->protest?->nota }}
-                                            #{{ $modProtest?->med_id }}
+                {{-- COMENTÁRIOS DA MEDIDA (histórico interno da medida) --}}
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="modern-card">
+                            <div class="modern-card-body">
+                                <div class="modern-card-title d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="ri-chat-3-line me-2"></i>
+                                        Observações da Medida
+                                        ({{ $modProtest?->protest?->nota }}#{{ $modProtest?->med_id }})
+                                    </span>
+
+                                    @if ($modProtest?->comments?->isNotEmpty())
+                                        <span class="badge bg-primary">
+                                            {{ $modProtest->comments?->count() }}
                                         </span>
-                                        @if ($modProtest?->comments?->isNotEmpty())
-                                            <span
-                                                class="badge bg-primary">{{ $modProtest->comments?->count() }}</span>
-                                        @endif
+                                    @endif
+                                </div>
+
+                                {{-- Input de novo comentário --}}
+                                <div class="comment-input-section mb-4">
+                                    <div class="form-floating mb-3">
+                                        <textarea class="form-control" id="commentInput" rows="3" style="height:80px;" wire:model.defer="comment"
+                                            placeholder="Digite seu comentário..."></textarea>
+                                        <label for="commentInput">Digite seu comentário...</label>
                                     </div>
-                                    <div class="comment-input-section mb-4">
-                                        <div class="form-floating mb-3">
-                                            <textarea class="form-control" id="commentInput" rows="3" wire:model.defer="comment"
-                                                placeholder="Digite seu comentário..." style="height: 80px;"></textarea>
-                                            <label for="commentInput">Digite seu comentário...</label>
-                                        </div>
-                                        <div class="d-flex justify-content-end">
-                                            <button type="button" class="btn btn-primary px-4"
-                                                wire:click.prevent="addComment">
-                                                <i class="ri-send-plane-2-line me-2"></i>Enviar Comentário
-                                            </button>
-                                        </div>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="button" class="btn btn-primary px-4"
+                                            wire:click.prevent="addCommentToMedProtest">
+                                            <i class="ri-send-plane-2-line me-2"></i>Enviar Comentário
+                                        </button>
                                     </div>
-                                    <div class="comments-container bg-light rounded p-3">
-                                        @if ($modProtest?->Comments?->isNotEmpty())
-                                            @foreach ($modProtest?->Comments->sortByDesc('created_at') as $comment)
-                                                <div class="comment-item mb-3 p-3 bg-white rounded border">
-                                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <div class="avatar-circle bg-primary text-white">
-                                                                {{ strtoupper(substr($comment->user->name, 0, 1)) }}
-                                                            </div>
-                                                            <div>
-                                                                <span
-                                                                    class="fw-medium {{ $comment->user_id === auth()->user()->id ? 'text-primary' : '' }}">
-                                                                    {{ $comment->user->name }}
-                                                                </span>
-                                                                <div class="d-flex align-items-center gap-2">
-                                                                    @if ($comment->user?->email)
-                                                                        <i class="ri-microsoft-teams-line text-primary"
-                                                                            style="cursor:pointer"
-                                                                            onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')"
-                                                                            title="Abrir no Teams"></i>
-                                                                    @endif
-                                                                    <small class="text-muted">
-                                                                        <i class="ri-time-line me-1"></i>
-                                                                        {{ $comment->created_at->diffForHumans() }}
-                                                                    </small>
-                                                                </div>
+                                </div>
+
+                                {{-- Lista de comentários --}}
+                                <div class="comments-container bg-light rounded p-3">
+                                    @if ($modProtest?->Comments?->isNotEmpty())
+                                        @foreach ($modProtest?->Comments->sortByDesc('created_at') as $c)
+                                            <div class="comment-item mb-3 p-3 bg-white rounded border">
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="avatar-circle bg-primary text-white">
+                                                            {{ strtoupper(substr($c->user->name, 0, 1)) }}
+                                                        </div>
+                                                        <div>
+                                                            <span
+                                                                class="fw-medium {{ $c->user_id === auth()->id() ? 'text-primary' : '' }}">
+                                                                {{ $c->user->name }}
+                                                            </span>
+
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                @if ($c->user?->email)
+                                                                    <i class="ri-microsoft-teams-line text-primary"
+                                                                        style="cursor:pointer"
+                                                                        onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $c->user?->email }}','_blank')"
+                                                                        title="Abrir no Teams"></i>
+                                                                @endif
+                                                                <small class="text-muted">
+                                                                    <i class="ri-time-line me-1"></i>
+                                                                    {{ $c->created_at->diffForHumans() }}
+                                                                </small>
                                                             </div>
                                                         </div>
-                                                        @if (
-                                                            ($comment->created_at->diffInHours() < 1 && $comment->id === $modProtest->comments->max('id')) ||
-                                                                auth()->user()->admin ||
-                                                                auth()->user()->superadm)
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-outline-danger"
-                                                                wire:click="deleteComment({{ $comment->id }})"
-                                                                title="Excluir comentário">
-                                                                <i class="ri-delete-bin-line"></i>
-                                                            </button>
-                                                        @endif
                                                     </div>
-                                                    <p class="mb-0 text-dark">{{ $comment->message }}</p>
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <div class="text-center text-muted py-4">
-                                                <i class="ri-chat-3-line fs-3"></i>
-                                                <p class="mb-0 mt-2">Não há observações para exibir</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    {{-- Botões de ação --}}
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <div class="modern-card">
-                                <div class="modern-card-body">
-                                    <div class="modern-card-title">
-                                        <i class="ri-checkbox-multiple-line me-2"></i>Ações do Desdobramento
-                                    </div>
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <button type="button" class="btn btn-success w-100 py-3"
-                                                wire:click="saveMeasures" @disabled($modProtest?->completed)>
-                                                <i class="ri-save-3-fill me-2"></i>
-                                                <span class="fw-medium">Salvar Medidas</span>
-                                            </button>
+                                                    @php
+                                                        $isLast = $c->id === $modProtest->comments->max('id');
+                                                        $fresh = $c->created_at->diffInHours() < 1;
+                                                        $canDelete =
+                                                            ($fresh && $isLast) ||
+                                                            auth()->user()->admin ||
+                                                            auth()->user()->superadm;
+                                                    @endphp
+
+                                                    @if ($canDelete)
+                                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                            title="Excluir comentário"
+                                                            wire:click="markCommentForDeletion({{ $c->id }})">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    @endif
+                                                </div>
+
+                                                <p class="mb-0 text-dark">{{ $c->message }}</p>
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <div class="text-center text-muted py-4">
+                                            <i class="ri-chat-3-line fs-3"></i>
+                                            <p class="mb-0 mt-2">Não há observações para exibir</p>
                                         </div>
-                                        <div class="col-md-4">
-                                            <button type="button" class="btn btn-danger w-100 py-3"
-                                                wire:click="closeMeasure" @disabled($modProtest?->completed)>
-                                                <i class="ri-stop-circle-line me-2"></i>
-                                                <span class="fw-medium">Encerrar Medida</span>
-                                            </button>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <button type="button" class="btn btn-outline-secondary w-100 py-3"
-                                                wire:click="cancelChanges">
-                                                <i class="ri-close-circle-line me-2"></i>
-                                                <span class="fw-medium">Cancelar Alterações</span>
-                                            </button>
-                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>{{-- /row g-4 mb-4 --}}
+
+                {{-- BOTÃO CANCELAR / FECHAR MODAL --}}
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="modern-card">
+                            <div class="modern-card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <button type="button" class="btn btn-outline-secondary w-100 py-3"
+                                            wire:click="cancelChanges" data-bs-dismiss="modal">
+                                            <i class="ri-close-circle-line me-2"></i>
+                                            Fechar / Cancelar Alterações
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div><!-- /modal-body -->
-            </div>
+                </div>{{-- /row g-3 --}}
+            </div>{{-- /modal-body --}}
         </div>
     </div>
+</div>
