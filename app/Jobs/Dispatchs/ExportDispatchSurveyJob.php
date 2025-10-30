@@ -15,6 +15,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
 class ExportDispatchSurveyJob implements ShouldQueue
@@ -48,57 +49,93 @@ class ExportDispatchSurveyJob implements ShouldQueue
         $filePath = 'exports/' . now()->format('Ymd_His') . '_survey_' . $service->id . '.xlsx';
 
         try {
-            // === Base Query (idêntica à tela, mas sem joins desnecessários)
+            // =====================
+            // 🔍 MESMA BASE DA TELA
+            // =====================
+            $pzoExpr = "
+                CASE
+                WHEN n.type_note = 1
+                AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$' THEN
+                    CASE
+                    WHEN CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) BETWEEN 1 AND 12 THEN
+                        DATE_ADD(
+                            DATE_ADD(
+                                MAKEDATE(
+                                    CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED), 1
+                                ),
+                                INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
+                            ),
+                            INTERVAL 27 DAY
+                        )
+                    ELSE NULL
+                    END
+                WHEN n.type_note = 2 THEN
+                    DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
+                ELSE NULL
+                END
+            ";
+
             $builder = Production::query()
                 ->where('service_id', $service->uuid)
                 ->where('completed', false)
                 ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
                 ->addSelect('productions.*')
-                ->addSelect(DB::raw("
-                    CASE
-                        WHEN n.type_note = 1 AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$'
-                        THEN DATE_ADD(
-                            MAKEDATE(CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED), 1),
-                            INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
-                        ) + INTERVAL 27 DAY
-                        WHEN n.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
-                        ELSE NULL
-                    END AS pzo
-                "))
+                ->addSelect(DB::raw("$pzoExpr AS pzo"))
+                ->addSelect(DB::raw("n.dt_created AS dt_created"))
                 ->with([
                     'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                     'service:id,uuid,service',
                     'user:id,name',
-                    'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left'
+                    'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2'
                 ]);
 
-            // 🔍 Aplicar filtros
+            // =====================
+            // 🔍 FILTROS
+            // =====================
             if (!empty($this->params['search'])) {
                 $s = '%' . $this->params['search'] . '%';
                 $builder->where(function ($q) use ($s) {
                     $q->where('n.note', 'like', $s)
-                      ->orWhere('n.rubrica', 'like', $s)
-                      ->orWhere('n.lexp', 'like', $s);
+                        ->orWhere('n.rubrica', 'like', $s)
+                        ->orWhere('n.lexp', 'like', $s)
+                        ->orWhere('productions.odi', 'like', $s)
+                        ->orWhere('productions.odd', 'like', $s)
+                        ->orWhere('productions.ods', 'like', $s)
+                        ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', $s))
+                        ->orWhereHas('note.orders', fn ($oq) => $oq->where('ordem', 'like', $s));
                 });
             }
 
             if (!empty($this->params['multiSearch'])) {
                 $ms = (array) $this->params['multiSearch'];
-                $builder->whereHas('note', fn ($q) => $q->whereIn('note', $ms));
+                $builder->where(function ($q) use ($ms) {
+                    $q->whereHas('note', function ($query) use ($ms) {
+                        $query->whereIn('note', $ms)
+                            ->orWhereIn('rubrica', $ms)
+                            ->orWhereIn('lexp', $ms);
+                    })
+                    ->orWhereHas('user', fn ($uq) => $uq->whereIn('name', $ms))
+                    ->orWhereHas('note.orders', fn ($oq) => $oq->whereIn('ordem', $ms));
+                });
             }
 
             if (!empty($this->params['note_type'])) {
                 $builder->where('n.type_note', $this->params['note_type']);
             }
 
-            // === Exporta ===
+            // =====================
+            // 📤 EXPORTAÇÃO USANDO CLASSE
+            // =====================
             (new DispatchSurveyStack($builder, $service->uuid))
                 ->store($filePath, 'local');
 
+            // =====================
+            // 🔔 NOTIFICAÇÃO AO USUÁRIO
+            // =====================
             if ($user && Storage::disk('local')->exists($filePath)) {
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
-                    'Seu relatório de Levantamento foi gerado com sucesso.',
+                    'Seu relatório de levantamento foi gerado com sucesso.',
                     Storage::url($filePath),
                     4,
                     []
@@ -119,7 +156,7 @@ class ExportDispatchSurveyJob implements ShouldQueue
             if ($user) {
                 $user->notify(new SystemNotification(
                     'Erro na exportação',
-                    'Não foi possível gerar o relatório de Levantamento no momento. Tente novamente.',
+                    'Não foi possível gerar o relatório de levantamento no momento. Tente novamente.',
                     null,
                     5,
                     []
@@ -135,7 +172,7 @@ class ExportDispatchSurveyJob implements ShouldQueue
         if ($user = User::find($this->userId)) {
             $user->notify(new SystemNotification(
                 'Exportação falhou',
-                'A geração do relatório de Levantamento falhou após novas tentativas.',
+                'A geração do relatório de levantamento falhou após novas tentativas.',
                 null,
                 5,
                 []
