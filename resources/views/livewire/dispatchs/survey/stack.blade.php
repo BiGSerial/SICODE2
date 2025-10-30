@@ -158,7 +158,7 @@
             </div>
             <table class="table table-sm table-striped table-condensed">
                 <thead>
-                    <tr class="text-center align-middle">
+                    <tr class="text-center align-middle sticky-top shadow-sm table-dark" style="top: 60px;">
                         <th>#</th>
 
                         <th>Note</th>
@@ -171,6 +171,8 @@
                         <th>AttAt</th>
 
                         <th>PzoReal</th>
+                        <th>Em Despacho</th>
+                        <th>Em Att</th>
                         <th>Status</th>
                         <th>#</th>
                     </tr>
@@ -188,6 +190,30 @@
                                 $shortName = $parts[0] . ' ' . end($parts); // Começa com o primeiro nome
 
                                 return $shortName;
+                            }
+                        }
+
+                        if (!function_exists('getColorClass')) {
+                            function getColorClass($dateField, int $daysLimit)
+                            {
+                                $colorClass = '';
+
+                                if ($dateField) {
+                                    $daysDiff = Carbon::parse($dateField)
+                                        ->startOfDay()
+                                        ->diffInDays(Carbon::now()->startOfDay());
+
+                                    $daysWarningLimit = ceil($daysLimit * 0.7);
+
+                                    if ($daysDiff > $daysLimit) {
+                                        $colorClass = 'text-bg-danger';
+                                    } elseif ($daysDiff <= $daysWarningLimit) {
+                                        $colorClass = 'text-bg-success';
+                                    } else {
+                                        $colorClass = 'text-bg-warning';
+                                    }
+                                }
+                                return $colorClass;
                             }
                         }
                     @endphp
@@ -255,6 +281,9 @@
                                 $colorColumn = 'text-bg-warning';
                             }
 
+                            $attColorClass = getColorClass($item->att_at, 9);
+                            $dispatchColorClass = getColorClass($item->dispatch_at, 30);
+
                         @endphp
                         <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
 
@@ -299,6 +328,26 @@
                                     {{ Carbon::parse($item->dt_created)->addDays(30)->format('d/m/Y') }}</p>
 
 
+                            </td>
+                            <td class="{{ $dispatchColorClass }} fw-bold border-start">
+                                @if ($item->dispatch_at)
+                                    <p class="my-0 py-0"><span
+                                            class="badge text-bg-light">{{ Carbon::parse($item->dispatch_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}</span>
+                                    </p>
+                                    <p class="my-0 py-0">{{ Carbon::parse($item->dispatch_at)->format('d/m/Y') }}</p>
+                                @else
+                                    ---
+                                @endif
+                            </td>
+                            <td class="{{ $attColorClass }} fw-bold border-start">
+                                @if ($item->att_at)
+                                    <p class="my-0 py-0"><span
+                                            class="badge text-bg-light">{{ Carbon::parse($item->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}</span>
+                                    </p>
+                                    <p class="my-0 py-0">{{ Carbon::parse($item->att_at)->format('d/m/Y') }}</p>
+                                @else
+                                    ---
+                                @endif
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 <span class="badge {{ Notestatus::status($item->status)->colorbg }}"
