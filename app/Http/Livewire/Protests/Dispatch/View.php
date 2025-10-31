@@ -25,6 +25,8 @@ class View extends Component
     public $protestTemp;
     public $medProtest;
 
+    public $expandedJobs = [];
+
     protected $listeners = [
         'refreshComponent' => '$refresh',
         'removeComment172030' => 'removeComment',
@@ -304,6 +306,11 @@ class View extends Component
                 'menssage' => 'Medida não encontrada.',
             ]);
         }
+    }
+
+    public function toggleJobs($medProtestId)
+    {
+        $this->expandedJobs[$medProtestId] = !($this->expandedJobs[$medProtestId] ?? false);
     }
 
     public function render()

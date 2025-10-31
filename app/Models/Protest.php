@@ -65,10 +65,6 @@ class Protest extends Model
     }
 
 
-
-
-
-
     public function evidenceFiles(): HasManyThrough
     {
         return $this->hasManyThrough(
@@ -115,7 +111,10 @@ class Protest extends Model
             ->values();
     }
 
-
+    public function ProtestJobs()
+    {
+        return $this->hasMany(ProtestJob::class);
+    }
 
 
 }

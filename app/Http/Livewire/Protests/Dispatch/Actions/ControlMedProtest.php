@@ -249,11 +249,17 @@ class ControlMedProtest extends Component
                 'notes'          => $data['notes'] ?? null,
             ]);
 
+            if ($job->owner?->onlyparner) {
+                $link = route('protests.partner.view', $this->modProtest->protest?->nota);
+            } else {
+                $link = route('protests.services.view', $this->modProtest->protest?->nota);
+            }
+
             // notificar responsável
             $job->owner?->notify(new SystemNotification(
                 titulo: 'Nova atividade de reclamação',
                 mensagem: "Você recebeu uma tarefa referente à Medida {$this->modProtest->id}.",
-                link: route('protests.dispatch.view', $this->modProtest->protest?->nota),
+                link: $link,
                 status: 7,
                 extras: [
                     'protest_job_id' => $job->id,
@@ -377,6 +383,12 @@ class ControlMedProtest extends Component
         $this->resetFormForNewJob();
         $this->modProtest  = null;
         $this->notePage    = 0;
+    }
+
+
+    public function closeModal()
+    {
+        $this->closeModalAndReset();
     }
 
     /* ===================== RENDER ===================== */

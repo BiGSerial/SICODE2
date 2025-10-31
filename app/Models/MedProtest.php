@@ -81,5 +81,9 @@ class MedProtest extends Model
             ->values();
     }
 
+    public function ProtestJobs()
+    {
+        return $this->hasMany(ProtestJob::class);
+    }
 
 }

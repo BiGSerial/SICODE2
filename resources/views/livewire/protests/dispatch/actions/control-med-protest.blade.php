@@ -300,7 +300,7 @@
                                     {{-- Responsável --}}
                                     <div class="col-md-6">
                                         <div class="form-floating position-relative">
-                                            <select class="form-select" id="jobOwner" wire:model="selectedUser">
+                                            <select class="form-select" id="jobOwner" wire:model.defer="selectedUser">
                                                 <option value="">Selecione o responsável</option>
                                                 @foreach ($userList as $u)
                                                     <option value="{{ $u->id }}">
@@ -330,7 +330,7 @@
                                     {{-- Prioridade --}}
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <select class="form-select" id="jobPriority" wire:model="priority">
+                                            <select class="form-select" id="jobPriority" wire:model.defer="priority">
                                                 @foreach ($priorityOptions as $opt)
                                                     <option value="{{ $opt->value }}">
                                                         {{ $opt->label() }}
@@ -348,7 +348,7 @@
                                     <div class="col-md-4">
                                         <div class="form-check form-switch mt-4">
                                             <input class="form-check-input" type="checkbox" id="isAdvanceToggle"
-                                                wire:model="is_advance">
+                                                wire:model.defer="is_advance">
                                             <label class="form-check-label fw-medium text-info" for="isAdvanceToggle">
                                                 <i class="ri-road-map-line me-1"></i>Avanço Parceiro
                                             </label>
@@ -358,7 +358,7 @@
                                     <div class="col-md-4">
                                         <div class="form-check form-switch mt-4">
                                             <input class="form-check-input" type="checkbox" id="needEvidenceToggle"
-                                                wire:model="need_evidence">
+                                                wire:model.defer="need_evidence">
                                             <label class="form-check-label fw-medium text-warning"
                                                 for="needEvidenceToggle">
                                                 <i class="ri-camera-line me-1"></i>Evidência obrigatória
@@ -370,7 +370,7 @@
                                     <div class="col-md-4">
                                         <div class="form-floating">
                                             <input type="datetime-local" class="form-control" id="slaDue"
-                                                wire:model="sla_due_at">
+                                                wire:model.defer="sla_due_at">
                                             <label for="slaDue">Retorno até (SLA)</label>
                                         </div>
                                         @error('sla_due_at')
@@ -381,7 +381,7 @@
                                     {{-- Orientações iniciais --}}
                                     <div class="col-12">
                                         <div class="form-floating">
-                                            <textarea class="form-control" style="height: 90px" id="jobNotes" wire:model="notes"
+                                            <textarea class="form-control" style="height: 150px" id="jobNotes" wire:model.defer="notes"
                                                 placeholder="Orientações para o responsável"></textarea>
                                             <label for="jobNotes">Orientações / Comentário inicial</label>
                                         </div>
@@ -520,7 +520,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-12">
                                         <button type="button" class="btn btn-outline-secondary w-100 py-3"
-                                            wire:click="cancelChanges" data-bs-dismiss="modal">
+                                            wire:click="closeModal" data-bs-dismiss="modal">
                                             <i class="ri-close-circle-line me-2"></i>
                                             Fechar / Cancelar Alterações
                                         </button>
