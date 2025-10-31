@@ -23,6 +23,7 @@
             <th scope="col" class="fw-bold text-center">Postes L</th>
             <th scope="col" class="fw-bold text-center">RetornoInterno</th>
             <th scope="col" class="fw-bold text-center">Status</th>
+            <th scope="col" class="fw-bold text-center">DiasStatus</th>
             <th scope="col" class="fw-bold text-center">Prazo Real</th>
             <th scope="col" class="fw-bold text-center">Situação</th>
             <th scope="col" class="fw-bold text-center">Usuario</th>
@@ -106,6 +107,8 @@
                     <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
                             style="font-size: 8px;">{{ $list->nstats }}</span></td>
                 @endif
+                <td class="fw-light text-center">{{ $list->dt_status ? $list->dt_status->diffInDays() : '_____' }}
+                </td>
                 <td scope="col"
                     class="text-center
                 @if ($list->days_left < 0) text-bg-secondary
