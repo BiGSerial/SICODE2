@@ -45,11 +45,11 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
     public function map($viab): array
     {
         return [
-            $viab->Note->note,
+            $viab->Note?->note,
             // ordens concatenadas
-            $viab->Orders->pluck('ordem')->implode("\n"),
-            $viab->Note->rubrica,
-            $viab->Note->lexp,
+            $viab->Orders?->pluck('ordem')->implode("\n"),
+            $viab->Note?->rubrica,
+            $viab->Note?->lexp,
             optional($viab->hired_at)->format('d/m/Y'),
             optional($viab->sended_at)->format('d/m/Y'),
             $viab->sended_at
@@ -129,14 +129,21 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
                 $sheet->getStyle('L')->getNumberFormat()->setFormatCode('R$ #.##0,00');
                 $sheet->getStyle('M')->getNumberFormat()->setFormatCode('R$ #.##0,00');
 
-                // alinhamento e autosize
-                $sheet->getStyle('A1:Z1000')->getAlignment()
+                // quebra de linha na coluna B
+                $sheet->getStyle('B')->getAlignment()->setWrapText(true);
+
+                // alinhamento
+                $sheet->getStyle('A1:N1000')->getAlignment()
                       ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
                       ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
-                foreach (range('A', 'Z') as $col) {
+                // autosize apenas para as colunas necessárias
+                foreach (['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'] as $col) {
                     $sheet->getColumnDimension($col)->setAutoSize(true);
                 }
+
+                // largura fixa para coluna B devido ao wrap text
+                $sheet->getColumnDimension('B')->setWidth(20);
             },
         ];
     }
