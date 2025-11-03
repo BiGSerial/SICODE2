@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 use App\Helpers\TextFormatter;
 use App\Models\Production;
 use App\Models\Service;
+use App\Traits\WildcardFormatter;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -14,6 +15,8 @@ class Stack extends Component
     use WithPagination;
 
     use TextFormatter;
+
+    use WildcardFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -182,22 +185,23 @@ class Stack extends Component
 
 
         return $this->baseQuery()
-         ->when($this->search, function ($q) {
-             $q->where(function ($q) {
-                 $q->where('n.note', 'like', '%' . $this->search . '%')
-                     ->orWhere('n.rubrica', 'like', '%' . $this->search . '%')
-                     ->orWhere('n.lexp', 'like', '%' . $this->search . '%')
-                     ->orWhere('productions.odi', 'like', '%' . $this->search . '%')
-                     ->orWhere('productions.odd', 'like', '%' . $this->search . '%')
-                     ->orWhere('productions.ods', 'like', '%' . $this->search . '%')
-                     ->orWhereHas('user', function ($q) {
-                         $q->where('name', 'like', '%' . $this->search . '%');
-                     })
-                     ->orWhereHas('note.orders', function ($q) {
-                         $q->where('ordem', 'like', '%' . $this->search . '%');
-                     });
-             });
-         })
+            ->when(trim($this->search), function ($q) {
+                $q->where(function ($q) {
+                    $search = $this->formatWithWildcard($this->search);
+                    $q->where('n.note', $search->type, $search->search)
+                        ->orWhere('n.rubrica', $search->type, $search->search)
+                        ->orWhere('n.lexp', $search->type, $search->search)
+                        ->orWhere('productions.odi', $search->type, $search->search)
+                        ->orWhere('productions.odd', $search->type, $search->search)
+                        ->orWhere('productions.ods', $search->type, $search->search)
+                        ->orWhereHas('user', function ($q) use ($search) {
+                            $q->where('name', $search->type, $search->search);
+                        })
+                        ->orWhereHas('note.orders', function ($q) use ($search) {
+                            $q->where('ordem', $search->type, $search->search);
+                        });
+                });
+            })
             ->when(count($this->multiSearch) > 0, function ($q) {
                 $q->where(function ($q) {
                     $q->whereHas('note', function ($query) {
