@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Exports\parner\exportExcel;
+use App\Exports\Partner\ExportViabilityToExcel;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 use ZipArchive;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Todoviability extends Component
 {
@@ -35,15 +36,17 @@ class Todoviability extends Component
     /** @var string|null */
     public $search = '';
 
-    // Grupo de filtros usado pelos componentes de filtro
+    /**
+     * Grupo chave dos filtros (componentes filhos salvam na sessão com essa chave)
+     */
     private string $filter_group = 'partner';
 
-    /** @var array<string, mixed>|null */
+    /** @var array<string,mixed>|null */
     private $filter = null;
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
-        'page'    => ['except' => 1, 'as' => 'p'],
+        'page'    => ['except' => 1,  'as' => 'p'],
         'perPage' => ['as' => 'pp'],
     ];
 
@@ -53,7 +56,7 @@ class Todoviability extends Component
 
     public function mount(): void
     {
-        // Só o que a view realmente usa
+        // só o necessário pra view de filtros
         $this->cities = City::query()
             ->select(['rdMunicipio', 'regiao', 'cidade'])
             ->orderBy('cidade')
@@ -65,13 +68,21 @@ class Todoviability extends Component
         $this->resetPage();
     }
 
+    /**
+     * Exporta o EXCEL da listagem atual (sem paginação)
+     */
     public function export_excel()
     {
-        // Evita paginação: pega tudo da query atual
-        $rows = $this->lists()->get();
-        return (new exportExcel($rows))->download(now()->format('YmdHis') . '-exportViabilityParner.xlsx');
+        $rows = $this->listsQuery()->get();
+
+        $fileName = now()->format('YmdHis') . '-exportViabilityPartner.xlsx';
+
+        return Excel::download(new ExportViabilityToExcel($rows), $fileName);
     }
 
+    /**
+     * Download individual de arquivo
+     */
     public function downloadFile(int $id)
     {
         $file = File::find($id);
@@ -91,6 +102,9 @@ class Todoviability extends Component
         ]);
     }
 
+    /**
+     * Abre checklist FTVEO
+     */
     public function openForms(int $id)
     {
         if ($id) {
@@ -98,6 +112,9 @@ class Todoviability extends Component
         }
     }
 
+    /**
+     * Download ZIP com arquivos selecionados
+     */
     public function downloadZip()
     {
         if (!count($this->files_selected)) {
@@ -123,6 +140,7 @@ class Todoviability extends Component
         foreach ($files as $file) {
             if (Storage::exists($file->path)) {
                 $content = Storage::get($file->path);
+                // usa nome.ext pra ficar igual à visualização
                 $zip->addFromString($file->file_name . '.' . $file->ext, $content);
             }
         }
@@ -133,19 +151,24 @@ class Todoviability extends Component
         return response()->download($zipFile)->deleteFileAfterSend(true);
     }
 
-    /** Atualiza o array de IDs de notas “em atividade” do usuário atual */
+    /**
+     * Atualiza os IDs de notas em atividade (checkbox "em atividade")
+     */
     public function inActivityUpdate(): array
     {
+        $user = Auth::user();
+
         $this->inActivity = Note::query()
-            ->whereHas('Viabilities', function ($q) {
+            ->whereHas('Viabilities', function ($q) use ($user) {
                 $q->where('canceled', false)
                   ->where('inActivity', true)
                   ->where('completed', false)
                   ->where('tacit', false);
 
-                if (!Auth::user()->superadm) {
-                    $companyId = optional(Auth::user()->Employee->Contract)->Company->id
-                              ?? optional(Auth::user()->Company)->id;
+                // escopo por empresa se não for superadm
+                if (!$user->superadm) {
+                    $companyId = optional($user->Employee->Contract)->Company->id
+                              ?? optional($user->Company)->id;
                     $q->when($companyId, fn ($qq) => $qq->where('company_id', $companyId));
                 }
             })
@@ -155,6 +178,9 @@ class Todoviability extends Component
         return $this->inActivity;
     }
 
+    /**
+     * Alterna inActivity direto na viabilidade
+     */
     public function putInActivity(int $id): void
     {
         if ($viab = Viability::find($id)) {
@@ -163,26 +189,41 @@ class Todoviability extends Component
         }
     }
 
+    /**
+     * Helper pra checkbox
+     */
     public function checkInActivity($item): bool
     {
         return (bool)($item->inActivity ?? false);
     }
 
     /**
-     * Retorna a query base (NÃO pagina).
-     * Use $this->lists()->paginate($this->perPage) no render.
+     * Lê filtros salvos pelos componentes de filtro (na sessão nativa PHP)
      */
-    protected function lists()
+    protected function getFilterFromSession(): void
     {
-        // filtros vindos dos components de filtro (guardados em sessão)
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
-        } if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        } else {
+            $this->filter = null;
+        }
+    }
 
-
+    /**
+     * Monta a query base SEM paginação e SEM orderBy/select final.
+     * Aqui vai:
+     *  - regras de visibilidade
+     *  - eager loading mínimo
+     *  - busca textual
+     *  - filtros avançados
+     */
+    protected function baseQuery()
+    {
+        $this->getFilterFromSession();
 
         $user = Auth::user();
 
@@ -191,9 +232,9 @@ class Todoviability extends Component
             ->where('completed', false)
             ->where('tacit', false)
             ->where('rejected', false)
-            ->where('visible_partner', false); // mantive sua regra original
+            ->where('visible_partner', false); // regra original mantida
 
-        // Escopo por empresa (não-superadm)
+        // Se não é superadm, restringe por empresa:
         if (!$user->superadm) {
             $companyIds = $user->Companies?->pluck('id')->all() ?? [];
             $ownCompany = $user->Company?->id;
@@ -208,19 +249,21 @@ class Todoviability extends Component
             });
         }
 
-        // Eager loading enxuto (somente colunas usadas na view)
+        // Carrega só o que a view usa
         $query->with([
             'Note:id,client,material,rubrica,txpriority,lexp,note,is45',
             'Note.Orders:id,note_id,ordem,statusSist',
+            'Note.Files:id,note_id', // só pra contar arquivos via relacionamento de Note->Files
             'Company:id,name',
             'Files:id,note_id,file_name,ext,path',
             'comments:id,user_id,message,created_at',
             'comments.User:id,name,email',
             'Form:id,viability_id,reason,changes,responsible,description',
             'Engineer:id,name,email',
+            'Note.City:id,regiao,cidade', // pra região/município
         ]);
 
-        // Busca textual
+        // Busca rápida nota / OV (ordem)
         if (filled($this->search)) {
             $s = trim($this->search);
             $query->where(function ($q) use ($s) {
@@ -229,41 +272,50 @@ class Todoviability extends Component
             });
         }
 
-        // Filtros por criticidade
-        if (isset($this->filter['txpriority']) && is_array($this->filter['txpriority']) && count($this->filter['txpriority'])) {
+        // Filtro Criticidade (txpriority)
+        if (!empty($this->filter['txpriority']) && is_array($this->filter['txpriority'])) {
             $txpriorities = $this->filter['txpriority'];
             $query->whereHas('Note', fn ($qq) => $qq->whereIn('txpriority', $txpriorities));
         }
 
-        // Filtros por rubrica
-        if (isset($this->filter['rubrica']) && is_array($this->filter['rubrica']) && count($this->filter['rubrica'])) {
+        // Filtro Rubrica
+        if (!empty($this->filter['rubrica']) && is_array($this->filter['rubrica'])) {
             $rubricas = $this->filter['rubrica'];
             $query->whereHas('Note', fn ($qq) => $qq->whereIn('rubrica', $rubricas));
         }
 
-        // Filtro por cidade (lexp)
-        if (isset($this->filter['city']) && is_array($this->filter['city']) && count($this->filter['city'])) {
+        // Filtro Cidade (lexp)
+        if (!empty($this->filter['city']) && is_array($this->filter['city'])) {
             $cities = $this->filter['city'];
             $query->whereHas('Note', fn ($qq) => $qq->whereIn('lexp', $cities));
         }
 
-        // Ordenação: is45 desc (nota expressa), depois sended_at asc
-        $query->leftJoin('notes', 'notes.id', '=', 'viabilities.note_id')
-              ->orderByDesc('notes.is45')
-              ->orderBy('viabilities.sended_at', 'asc')
-              ->orderBy('id', 'asc')
-              ->select('viabilities.*');
-
-
         return $query;
+    }
+
+    /**
+     * Aplica ordenação e select final (espelha a tabela Blade)
+     * NÃO pagina aqui.
+     */
+    protected function listsQuery()
+    {
+        return $this->baseQuery()
+            ->leftJoin('notes', 'notes.id', '=', 'viabilities.note_id')
+            ->orderByDesc('notes.is45')
+            ->orderBy('viabilities.sended_at', 'asc')
+            ->orderBy('viabilities.id', 'asc')
+            ->select('viabilities.*');
     }
 
     public function render()
     {
+        // atualiza quem está "em atividade"
         $this->inActivityUpdate();
 
+        $paginated = $this->listsQuery()->paginate($this->perPage);
+
         return view('livewire.partner.todoviability', [
-            'lists'  => $this->lists()->paginate($this->perPage),
+            'lists'  => $paginated,
             'cities' => $this->cities,
         ]);
     }
