@@ -14,10 +14,6 @@
 
                         </a>
                     </li>
-
-
-
-
                 </div>
             </ul>
         </li>
@@ -30,6 +26,12 @@
                     <li>
                         <a href="{{ route('protests.dispatch.lists') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>EM ABERTO</span>
+
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('protests.dispatch.monitoring') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>EM ANDAMENTO</span>
 
                         </a>
                     </li>
