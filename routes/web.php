@@ -4,7 +4,8 @@ use App\Http\Controllers\Config\ConfigController;
 use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\{Auth, Route};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\{Artisan, Auth, Route};
 
 /*
 |--------------------------------------------------------------------------
@@ -70,7 +71,10 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     Route::get('/services', 'services')->name('services');
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
-
+        Route::post('/jobs_view/restart', function (Request $request) {
+            Artisan::call('queue:restart');
+            return response()->json(['ok' => true, 'message' => 'queue:restart enviado']);
+        })->middleware('can:superadm')->name('restart_jobs');
     });
 });
 
