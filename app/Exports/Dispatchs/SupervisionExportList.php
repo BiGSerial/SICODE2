@@ -138,7 +138,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         if ($row->adsform) {
             $ads_origin = 'NOVO';
-            $ads = $row->adsform->created_at;
+            $ads = $row->adsform->informed_at ?? '-';
         } elseif ($row->OldAds->isNotEmpty()) {
             $ads_origin = 'ANTIGO';
             $ads =  $row->OldAds->last()->date;
