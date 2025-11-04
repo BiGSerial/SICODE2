@@ -44,6 +44,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             'notes.nstats',
             'notes.centerjob',
             'work_reports.created_at as work_dt_created', // Assumindo que 'work_dt_created' está correto
+            'work_reports.informed_at as work_dt_informed',
             'notes.postes',
         ]);
 
@@ -171,7 +172,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $ads ? 'SIM' : 'NÃO',
             $ads_origin,
             $ads ? $ads->format('d/m/Y') : '---',
-            $row->work_dt_created ? Carbon::parse($row->work_dt_created)->format('d/m/Y') : '---',
+            $row->work_dt_informed ? Carbon::parse($row->work_dt_informed)->format('d/m/Y') : '---',
             $inPrazo,
             $userInform,
             $partner,

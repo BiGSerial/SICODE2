@@ -48,10 +48,20 @@
                 @endphp
                 <span class="badge {{ $statusClass }}">{{ $statusText }}</span>
                 <span class="badge text-bg-light">Fonte: {{ $workerSource }}</span>
+                <button id="btn-queue-restart" class="btn btn-sm btn-warning text-dark" type="button"
+                    title="Reiniciar workers">
+                    <span class="d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-power"></i>
+                        <span>Reiniciar</span>
+                        <span id="queue-restart-spinner" class="spinner-border spinner-border-sm ms-1 d-none"
+                            role="status" aria-hidden="true"></span>
+                    </span>
+                </button>
             </div>
         </div>
 
         <div class="card-body">
+            <div id="jobs-restart-alert" class="alert d-none mb-3"></div>
             {{-- KPIs por fila (grid fluido, sem conflito com specs) --}}
             <div class="jobs-auto-grid">
                 @forelse($queueCounts as $q)
@@ -225,7 +235,8 @@
                                                     <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                                                 </div>
                                             </td>
-                                            <td class="text-end" title="{{ $job->available_at->toDateTimeString() }}">
+                                            <td class="text-end"
+                                                title="{{ $job->available_at->toDateTimeString() }}">
                                                 {{ $job->available_at->diffForHumans() }}</td>
                                         </tr>
                                     @empty
@@ -360,5 +371,80 @@
                 <div class="alert alert-danger mt-3 mb-0">{{ session('error') }}</div>
             @endif
         </div>
+        <div id="jobs-restart-alert" class="alert d-none mb-3"></div>
     </div>
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const btn = document.getElementById('btn-queue-restart');
+                const spin = document.getElementById('queue-restart-spinner');
+                const alertBox = document.getElementById('jobs-restart-alert');
+
+                // Proteção: exige meta CSRF no layout (padrao do Laravel em app.blade)
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+                async function showAlert(type, text) {
+                    // type: 'success' | 'danger' | 'warning' | 'info'
+                    alertBox.className = 'alert alert-' + type + ' mb-3';
+                    alertBox.textContent = text;
+                    // mostra
+                    alertBox.classList.remove('d-none');
+
+                    // some sozinho em 4s quando sucesso/info
+                    if (['success', 'info'].includes(type)) {
+                        setTimeout(() => {
+                            alertBox.classList.add('d-none');
+                            alertBox.textContent = '';
+                        }, 4000);
+                    }
+                }
+
+                btn?.addEventListener('click', async () => {
+                    try {
+                        if (!csrf) {
+                            await showAlert('danger', 'CSRF token ausente. Verifique o layout.');
+                            return;
+                        }
+                        // trava botão + mostra spinner
+                        btn.disabled = true;
+                        spin.classList.remove('d-none');
+
+                        const res = await fetch(@json(route('config.system.restart_jobs')), {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        // tenta ler json, mesmo em status 4xx/5xx
+                        let data = {};
+                        try {
+                            data = await res.json();
+                        } catch (_) {}
+
+                        if (res.ok && data?.ok) {
+                            await showAlert('success', data.message ?? 'queue:restart enviado.');
+                            // opcional: pedir para o Livewire dar um refresh nos dados
+                            if (window.Livewire) {
+                                // tenta chamar método refreshData do componente atual
+                                @this.call('refreshData');
+                            }
+                        } else {
+                            const msg = (data?.message || data?.error || 'Falha ao reiniciar a fila.') +
+                                (res.status ? ` (HTTP ${res.status})` : '');
+                            await showAlert('danger', msg);
+                        }
+                    } catch (e) {
+                        await showAlert('danger', 'Erro de rede ou permissão ao chamar a rota.');
+                    } finally {
+                        // restaura botão/spinner
+                        spin.classList.add('d-none');
+                        btn.disabled = false;
+                    }
+                });
+            });
+        </script>
+    @endpush
+
 </div>
