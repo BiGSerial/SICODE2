@@ -38,8 +38,10 @@ class View extends Component
     {
         $this->protest = Protest::where('nota', $request->route('protest'))
         ->with([
+            'medProtests',
             'medProtests.notes',
-            'medProtests.assignments',
+            'medProtests.LastProtestJob',
+            'medProtests.ProtestJobs',
             'comments' => function ($q) {
                 $q->orderBy('created_at', 'DESC');
             },

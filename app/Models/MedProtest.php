@@ -86,4 +86,9 @@ class MedProtest extends Model
         return $this->hasMany(ProtestJob::class);
     }
 
+    public function LastProtestJob()
+    {
+        return $this->hasOne(ProtestJob::class)->latestOfMany();
+    }
+
 }

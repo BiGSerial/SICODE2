@@ -496,6 +496,41 @@
                 background: #f8f9fa;
                 border-top: 1px solid #e9ecef;
             }
+
+            .icon-btn-table,
+            .job-action-btn {
+                width: 34px;
+                height: 34px;
+                border-radius: .5rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                line-height: 1;
+            }
+
+            .measure-row-main td {
+                vertical-align: top;
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+            }
+
+            .mini-label {
+                font-size: .7rem;
+                line-height: 1.1;
+                color: #6c757d;
+                text-transform: uppercase;
+                font-weight: 500;
+                letter-spacing: .03em;
+                margin-bottom: .25rem;
+            }
+
+            .mini-value {
+                font-size: .92rem;
+                line-height: 1.3;
+                font-weight: 600;
+                color: #2c3e50;
+            }
         </style>
     @endpush
 
@@ -669,7 +704,7 @@
                             @if ($ultimaMovimentacao)
                                 <div class="text-center mt-2 pt-2 border-top">
                                     <small class="text-muted"><i class="ri-time-line me-1"></i>Última atualização:
-                                        {{ $ultimaMovimentacao->updated_at->diffForHumans() }}</small>
+                                        {{ $ultimaMovimentacao->updated_at?->diffForHumans() }}</small>
                                 </div>
                             @endif
                         </div>
@@ -764,369 +799,241 @@
             </div>
 
             @if ($protest->medProtests?->isNotEmpty())
-
                 <div class="table-responsive">
-                    <table class="table mb-0" style="font-size:.9rem;">
+                    <table class="table align-middle mb-0" style="font-size:.95rem;">
                         <thead class="table-light">
                             <tr class="text-nowrap">
-                                <th style="min-width:140px;">Medida</th>
-                                <th style="min-width:180px;">Responsável / Executor</th>
-                                <th style="min-width:140px;">Situação Execução</th>
-                                <th style="min-width:160px;">Prazo da Medida</th>
-                                <th style="min-width:260px;">SLA da Atividade Atual</th>
-                                <th style="width:1%; text-align:center;">Ações</th>
-                                <th style="width:1%;"></th> {{-- expand --}}
+                                <th style="min-width:160px;">Medida</th>
+                                <th style="min-width:220px;">Responsável / Executor</th>
+                                <th style="min-width:160px;">Situação Execução</th>
+                                <th style="min-width:170px;">Prazo da Medida</th>
+                                <th style="min-width:280px;">SLA da Atividade Atual</th>
+                                <th class="text-center" style="width:1%;">Ações</th>
+                                <th style="width:1%;"></th>
                             </tr>
                         </thead>
 
                         <tbody>
                             @foreach ($protest->medProtests->sortByDesc('dtCriacaoMedida') as $medProtest)
                                 @php
-                                    // ===== Dados básicos da medida =====
-                                    $assignmentResp = $medProtest->assignments?->where('responsible', true)->last();
-                                    $assignmentUser = $medProtest->assignments?->where('user', true)->last();
-
-                                    $responsibleName = $assignmentResp?->User?->name ?? '—';
-                                    $executorName = $assignmentUser?->User?->name ?? null;
-
-                                    $hasExecutor = (bool) $executorName;
-
-                                    if ($assignmentUser) {
-                                        $execStatusText = $assignmentUser->completed ? 'Concluída' : 'Pendente';
-                                        $execStatusColor = $assignmentUser->completed ? 'success' : 'warning';
-                                        $finishedAt = $assignmentUser->ended_at?->format('d/m/Y H:i');
-                                    } else {
-                                        $execStatusText = 'Sem Atribuição';
-                                        $execStatusColor = 'danger';
-                                        $finishedAt = null;
-                                    }
-
-                                    $isAberta = $medProtest->statusSist === 'MEDA';
-                                    $statusBadgeText = $isAberta ? 'ABERTO' : 'FECHADO';
-                                    $statusBadgeColor = $isAberta ? 'success' : 'secondary';
-
-                                    $prazoDesejadoCarbon = $medProtest->dtFimMedidaDesej;
-                                    $prazoDesejadoTxt = $prazoDesejadoCarbon
-                                        ? $prazoDesejadoCarbon->format('d/m/Y')
-                                        : '—';
-
-                                    $prazoBadge = null;
-                                    if ($prazoDesejadoCarbon) {
-                                        $diffDias = now()->diffInDays($prazoDesejadoCarbon, false);
-
-                                        if ($prazoDesejadoCarbon->endOfDay()->isPast()) {
-                                            $prazoBadge = '<span class="badge bg-danger">VENCIDA</span>';
-                                        } elseif ($diffDias <= 1) {
-                                            $prazoBadge =
-                                                '<span class="badge bg-warning text-dark">vence em ' .
-                                                $diffDias .
-                                                'd</span>';
-                                        } else {
-                                            $prazoBadge =
-                                                '<span class="badge bg-success">faltam ' . $diffDias . 'd</span>';
-                                        }
-                                    }
-
-                                    $fimReal = $medProtest->dtFimMedida
-                                        ? $medProtest->dtFimMedida->format('d/m/Y')
-                                        : null;
-                                    $onTime = null;
-                                    if ($medProtest->dtFimMedida && $medProtest->dtFimMedidaDesej) {
-                                        $onTime = $medProtest->dtFimMedida <= $medProtest->dtFimMedidaDesej;
-                                    }
-                                    if ($fimReal) {
-                                        $fimRealBadge =
-                                            $onTime === null
-                                                ? '<span class="badge bg-secondary">Finalizada ' . $fimReal . '</span>'
-                                                : ($onTime
-                                                    ? '<span class="badge bg-success">Finalizada ' .
-                                                        $fimReal .
-                                                        '</span>'
-                                                    : '<span class="badge bg-danger">Finalizada ' .
-                                                        $fimReal .
-                                                        '</span>');
-                                    } else {
-                                        $fimRealBadge = null;
-                                    }
-
+                                    /** @var \App\Models\ProtestJob|null $last */
+                                    $last = $medProtest->LastProtestJob;
                                     $jobs = $medProtest->ProtestJobs ?? collect();
+                                    $expanded = $expandedJobs[$medProtest->id] ?? false;
 
-                                    // job principal (aberto mais urgente; se não houver, pega mais recente)
-                                    $openJobs = $jobs->filter(function ($j) {
-                                        $st = $j->status instanceof \BackedEnum ? $j->status->value : $j->status;
-                                        return !in_array($st, ['done', 'canceled']);
-                                    });
+                                    // Pessoas (do LAST)
+                                    $creator = $last?->creator?->name;
+                                    $owner = $last?->owner?->name;
 
-                                    $mainJob =
-                                        $openJobs->sortBy('sla_due_at')->first() ??
-                                        $jobs->sortByDesc('created_at')->first();
-
-                                    // ===== Cálculo da barra SLA (medida) =====
-                                    $startAt = $mainJob?->created_at
-                                        ? \Carbon\Carbon::parse($mainJob->created_at)
-                                        : null;
-                                    $dueAt = $mainJob?->sla_due_at ? \Carbon\Carbon::parse($mainJob->sla_due_at) : null;
-                                    $finishAt = $mainJob?->finished_at
-                                        ? \Carbon\Carbon::parse($mainJob->finished_at)
-                                        : null;
+                                    // Datas (já são Carbon por cast do modelo)
+                                    $startAt = $last?->created_at;
+                                    $dueAt = $last?->sla_due_at;
+                                    $finishAt = $last?->finished_at;
                                     $nowRef = now();
+                                    $prazoTxt =
+                                        $protest->tipoNota == 'OU'
+                                            ? $protest->dtConclusaoDesej->format('d/m/Y H:i')
+                                            : $medProtest->dtFimMedidaDesej->format('d/m/Y H:i');
 
-                                    $endRef = $finishAt ?? $nowRef;
+                                    $prazoDate =
+                                        $protest->tipoNota == 'OU'
+                                            ? $protest->dtConclusaoDesej
+                                            : $medProtest->dtFimMedidaDesej;
 
-                                    $segments = [];
-                                    $slaStateBadge = '';
-                                    $slaExplainTop = '';
-                                    $slaExplainMid = '';
-                                    $slaExplainBot = '';
-                                    $isLateNow = false;
+                                    $medFinished = $medProtest->dtFimMedida;
 
-                                    if ($mainJob && $startAt && $dueAt) {
-                                        $compareEnd = $finishAt ?? $nowRef;
-
-                                        $totalSpan = $compareEnd->max($dueAt)->diffInSeconds($startAt);
-                                        $totalSpan = max($totalSpan, 1);
-
-                                        $pct = function ($from, $to) use ($startAt, $totalSpan) {
-                                            $sec = $to->diffInSeconds($from, false);
-                                            if ($sec < 0) {
-                                                $sec = 0;
-                                            }
-                                            return max(0, min(100, ($sec / $totalSpan) * 100));
-                                        };
-
-                                        if (!$finishAt) {
-                                            if ($nowRef->lte($dueAt)) {
-                                                // ainda no prazo
-                                                $pastPct = $pct($startAt, $nowRef);
-                                                $remainingPct = $pct($nowRef, $dueAt);
-
-                                                $segments[] = ['class' => 'sla-ontrack', 'w' => $pastPct];
-                                                $segments[] = ['class' => 'sla-remaining', 'w' => $remainingPct];
-
-                                                $slaStateBadge =
-                                                    '<span class="badge bg-success text-light">no prazo</span>';
-                                                $slaExplainTop = 'Limite: ' . $dueAt->format('d/m/Y H:i');
-                                                $slaExplainMid = 'em ' . now()->diffForHumans($dueAt, true);
-                                                $slaExplainBot =
-                                                    'Status Atividade: ' .
-                                                    strtoupper(
-                                                        str_replace(
-                                                            '_',
-                                                            ' ',
-                                                            $mainJob->status instanceof \BackedEnum
-                                                                ? $mainJob->status->value
-                                                                : $mainJob->status,
-                                                        ),
-                                                    );
-                                            } else {
-                                                // atrasado em andamento
-                                                $onTimePct = $pct($startAt, $dueAt);
-                                                $latePct = $pct($dueAt, $nowRef);
-
-                                                $segments[] = ['class' => 'sla-sla-window', 'w' => $onTimePct];
-                                                $segments[] = ['class' => 'sla-late', 'w' => $latePct];
-
-                                                $isLateNow = true;
-                                                $slaStateBadge =
-                                                    '<span class="badge bg-danger text-light">ATRASADO</span>';
-                                                $slaExplainTop = 'Limite: ' . $dueAt->format('d/m/Y H:i');
-                                                $slaExplainMid = 'atraso há ' . $dueAt->diffForHumans($nowRef, true);
-                                                $slaExplainBot =
-                                                    'Status Atividade: ' .
-                                                    strtoupper(
-                                                        str_replace(
-                                                            '_',
-                                                            ' ',
-                                                            $mainJob->status instanceof \BackedEnum
-                                                                ? $mainJob->status->value
-                                                                : $mainJob->status,
-                                                        ),
-                                                    );
-                                            }
+                                    $medStatus = [
+                                        'status' => 'Desconhecido',
+                                        'badge' => 'text-bg-secondary',
+                                    ];
+                                    if ($medFinished) {
+                                        if ($medFinished->startOfDay()->gt($prazoDate->startOfDay())) {
+                                            $medStatus = [
+                                                'status' => 'Fora do Prazo',
+                                                'badge' => 'text-bg-danger',
+                                            ];
                                         } else {
-                                            // finalizado
-                                            if ($finishAt->lte($dueAt)) {
-                                                // terminou ANTES do SLA
-                                                $workPct = $pct($startAt, $finishAt);
-                                                $sparePct = $pct($finishAt, $dueAt);
-
-                                                $segments[] = ['class' => 'sla-ontrack', 'w' => $workPct];
-                                                $segments[] = ['class' => 'sla-early', 'w' => $sparePct];
-
-                                                $slaStateBadge =
-                                                    '<span class="badge bg-success text-light">entregue no prazo</span>';
-                                                $slaExplainTop = 'Concluído: ' . $finishAt->format('d/m/Y H:i');
-                                                $slaExplainMid = 'SLA: ' . $dueAt->format('d/m/Y H:i');
-                                                $slaExplainBot = 'Folga de ' . $finishAt->diffForHumans($dueAt, true);
-                                            } else {
-                                                // terminou DEPOIS do SLA
-                                                $onTimePct = $pct($startAt, $dueAt);
-                                                $latePct = $pct($dueAt, $finishAt);
-
-                                                $segments[] = ['class' => 'sla-sla-window', 'w' => $onTimePct];
-                                                $segments[] = ['class' => 'sla-late', 'w' => $latePct];
-
-                                                $slaStateBadge =
-                                                    '<span class="badge bg-danger text-light">entregue com atraso</span>';
-                                                $slaExplainTop = 'Concluído: ' . $finishAt->format('d/m/Y H:i');
-                                                $slaExplainMid = 'SLA: ' . $dueAt->format('d/m/Y H:i');
-                                                $slaExplainBot = 'Atraso de ' . $dueAt->diffForHumans($finishAt, true);
-                                            }
+                                            $medStatus = [
+                                                'status' => 'No Prazo',
+                                                'badge' => 'text-bg-success',
+                                            ];
                                         }
                                     } else {
-                                        // sem SLA / sem atividade principal
-                                        if ($mainJob) {
-                                            $slaStateBadge = '<span class="badge bg-secondary">sem SLA definido</span>';
-                                            $slaExplainTop =
-                                                'Atividade ' .
-                                                $mainJob->id .
-                                                ' criada em ' .
-                                                $mainJob->created_at?->format('d/m/Y H:i');
-                                            $slaExplainBot =
-                                                'Status: ' .
-                                                strtoupper(
-                                                    str_replace(
-                                                        '_',
-                                                        ' ',
-                                                        $mainJob->status instanceof \BackedEnum
-                                                            ? $mainJob->status->value
-                                                            : $mainJob->status,
-                                                    ),
-                                                );
+                                        if (now()->startOfDay()->gt($prazoDate->startOfDay())) {
+                                            $medStatus = [
+                                                'status' => 'Atrasada',
+                                                'badge' => 'text-bg-danger',
+                                            ];
                                         } else {
-                                            $slaStateBadge = '<span class="badge bg-danger">AGUARDANDO DESPACHO</span>';
-                                            $slaExplainTop = 'Nenhuma atividade atribuída ainda.';
+                                            $medStatus = [
+                                                'status' => 'No Prazo',
+                                                'badge' => 'text-bg-success',
+                                            ];
                                         }
                                     }
 
-                                    // todos jobs encerrados?
-                                    $allJobsClosed = $jobs->every(function ($j) {
-                                        $st = $j->status instanceof \BackedEnum ? $j->status->value : $j->status;
-                                        return in_array($st, ['done', 'canceled']);
-                                    });
+                                    // Badge de SLA do card principal
+                                    $slaBadge = '<span class="badge bg-secondary">SEM SLA</span>';
+                                    if ($last && $dueAt) {
+                                        if (!$finishAt && $nowRef->lte($dueAt)) {
+                                            $slaBadge = '<span class="badge bg-success text-light">NO PRAZO</span>';
+                                        } elseif (!$finishAt && $nowRef->gt($dueAt)) {
+                                            $slaBadge = '<span class="badge bg-danger text-light">ATRASADO</span>';
+                                        } elseif ($finishAt && $finishAt->lte($dueAt)) {
+                                            $slaBadge =
+                                                '<span class="badge bg-success text-light">ENTREGUE NO PRAZO</span>';
+                                        } elseif ($finishAt && $finishAt->gt($dueAt)) {
+                                            $slaBadge =
+                                                '<span class="badge bg-danger text-light">ENTREGUE COM ATRASO</span>';
+                                        }
+                                    }
 
-                                    $canConfirmMeasure = $allJobsClosed && !$medProtest->completed;
-                                    $expanded = $expandedJobs[$medProtest->id] ?? false;
+                                    // Barra de SLA (percentual do LAST)
+                                    $pct = 0;
+                                    if ($startAt && $dueAt) {
+                                        $total = max($dueAt->diffInSeconds($startAt), 1);
+                                        $until = $finishAt ?: $nowRef;
+                                        $spent = max(min($until->diffInSeconds($startAt), $total), 0);
+                                        $pct = max(0, min(100, round(($spent / $total) * 100)));
+                                    }
+
+                                    // Situação Execução (usar accessors do LAST; se não houver, cai para statusSist da medida)
+                                    $execStatusText = $last?->status_label ?? ($medProtest->statusSist ?? '—');
+                                    $execStatusClass = $last?->status_badge_class ?? 'bg-secondary';
+
+                                    // Estados da medida (pelo statusSist)
+                                    $isClosedMeasure = $medProtest->statusSist === 'MEDE';
+                                    $isActiveMeasure = $medProtest->statusSist === 'MEDA';
+                                    $showActions = $isActiveMeasure;
+
+                                    // Destaque visual da linha quando o LAST está atrasado e em aberto
+                                    $rowClass = '';
+                                    if ($last && !$finishAt && $dueAt && $nowRef->gt($dueAt)) {
+                                        $rowClass = 'table-danger';
+                                    }
+
+                                    // Badge curto do status da medida
+                                    $statusBadgeColor = $isClosedMeasure
+                                        ? 'info'
+                                        : ($isActiveMeasure
+                                            ? 'success'
+                                            : 'secondary');
+                                    $statusBadgeText = $isClosedMeasure
+                                        ? 'Encerrada'
+                                        : ($isActiveMeasure
+                                            ? 'Ativa'
+                                            : $medProtest->statusSist ?? '—');
                                 @endphp
 
-                                {{-- ===== LINHA PRINCIPAL ===== --}}
-                                <tr class="measure-row-main @if ($isLateNow) table-danger @endif">
+                                {{-- ===== LINHA PRINCIPAL DA MEDIDA ===== --}}
+                                <tr class="measure-row-main {{ $rowClass }}"
+                                    style="--bs-table-bg: var(--bs-body-bg);">
                                     {{-- Medida --}}
-                                    <td style="min-width:140px;">
-                                        <div class="fw-bold mb-1">
-                                            # {{ $medProtest->med_id }}
-                                            <span
-                                                class="badge bg-{{ $statusBadgeColor }} ms-1">{{ $statusBadgeText }}</span>
-                                            @if ($medProtest->completed)
-                                                <span class="badge bg-info ms-1">
-                                                    <i class="ri-check-double-line me-1"></i>Finalizada
-                                                </span>
-                                            @endif
-                                        </div>
-                                        <div class="text-muted small text-truncate" style="max-width:240px;">
-                                            {{ $medProtest->txtCodMedida }}
+                                    <td class="align-top border-start"
+                                        style="border-left: 4px solid {{ $isClosedMeasure ? '#0dcaf0' : ($rowClass ? '#dc3545' : '#0d6efd') }};">
+                                        <div class="d-flex flex-column">
+                                            <div class="fw-bold d-flex align-items-center gap-2 mb-1">
+                                                <span># {{ $medProtest->med_id }}</span>
+                                                <span
+                                                    class="badge bg-{{ $statusBadgeColor }}">{{ $statusBadgeText }}</span>
+                                                @if ($isClosedMeasure)
+                                                    <span class="badge bg-secondary">Finalizada</span>
+                                                @endif
+                                            </div>
+                                            <div class="text-muted small text-truncate" style="max-width:260px;">
+                                                {{ $medProtest->txtCodMedida }}
+                                            </div>
                                         </div>
                                     </td>
 
-                                    {{-- Responsável / Executor --}}
-                                    <td style="min-width:180px;">
+                                    {{-- Responsável / Executor (do LAST) --}}
+                                    <td class="align-top">
                                         <div class="mini-label">Resp. Técnico</div>
-                                        <div class="mini-value mb-2">
-                                            {{ $responsibleName }}
-                                        </div>
-
+                                        <div class="mini-value mb-2">{{ $creator ?? '—' }}</div>
                                         <div class="mini-label">Executor</div>
                                         <div class="mini-value">
-                                            @if ($hasExecutor)
-                                                <span class="badge bg-secondary">{{ $executorName }}</span>
+                                            @if ($owner)
+                                                <span class="badge bg-secondary">{{ $owner }}</span>
                                             @else
                                                 <span class="badge bg-danger">SEM EXECUTOR</span>
                                             @endif
                                         </div>
                                     </td>
 
-                                    {{-- Situação Execução --}}
-                                    <td style="min-width:140px;">
+                                    {{-- Situação Execução (do LAST via accessor) --}}
+                                    <td class="align-top">
                                         <div class="mini-label">Situação</div>
                                         <div class="mini-value mb-2">
-                                            <span class="badge bg-{{ $execStatusColor }}">
-                                                {{ strtoupper($execStatusText) }}
-                                            </span>
+                                            <span
+                                                class="badge {{ $execStatusClass }}">{{ strtoupper($execStatusText) }}</span>
                                         </div>
-
-                                        @if ($finishedAt)
-                                            <div class="text-muted small" style="line-height:1.3;">
-                                                Fechou: {{ $finishedAt }}
+                                        @if ($finishAt)
+                                            <div class="text-muted small">Fechou: {{ $finishAt->format('d/m/Y H:i') }}
                                             </div>
                                         @endif
                                     </td>
 
                                     {{-- Prazo da Medida --}}
-                                    <td style="min-width:160px;">
+                                    <td class="align-top">
                                         <div class="mini-label">Prazo Desejado</div>
-                                        <div class="mini-value mb-2">{{ $prazoDesejadoTxt }}</div>
-
-                                        @if ($prazoBadge)
-                                            <div class="mb-1">{!! $prazoBadge !!}</div>
+                                        <div class="mini-value mb-2">{{ $prazoTxt }}</div>
+                                        @if ($medFinished)
+                                            <div><span class="badge bg-info">Concluído em
+                                                    {{ $medFinished->format('d/m/Y H:i') }}</span></div>
                                         @endif
-
-                                        @if ($fimRealBadge)
-                                            <div>{!! $fimRealBadge !!}</div>
-                                        @endif
+                                        <div><span class="badge {{ $medStatus['badge'] }}">
+                                                {{ $medStatus['status'] }}</span></div>
                                     </td>
 
-                                    {{-- SLA da Atividade Atual --}}
-                                    <td style="min-width:260px;">
+                                    {{-- SLA da Atividade Atual (LAST) --}}
+                                    <td class="align-top">
                                         <div class="mini-label d-flex align-items-center justify-content-between">
                                             <span>SLA / Progresso</span>
-                                            {!! $slaStateBadge !!}
+                                            {!! $slaBadge !!}
                                         </div>
 
-                                        @if (!empty($segments))
-                                            <div class="sla-bar-wrap mb-2 mt-1">
-                                                @foreach ($segments as $seg)
-                                                    <div class="sla-seg {{ $seg['class'] }}"
-                                                        style="width: {{ number_format($seg['w'], 2, '.', '') }}%;">
-                                                    </div>
-                                                @endforeach
+                                        @if ($startAt && $dueAt)
+                                            <div class="progress my-2" style="height:10px;">
+                                                <div class="progress-bar {{ !$finishAt && $dueAt && now()->gt($dueAt) ? 'bg-danger' : 'bg-success' }}"
+                                                    role="progressbar" style="width: {{ $pct }}%;"></div>
                                             </div>
+                                            <div class="sla-info-lines">
+                                                <div>Limite: <strong
+                                                        class="text-primary">{{ $dueAt->format('d/m/Y H:i') }}</strong>
+                                                </div>
+                                                @if (!$finishAt && $dueAt)
+                                                    <div>
+                                                        {{ now()->lte($dueAt) ? 'restam ' . now()->diffForHumans($dueAt, true) : 'atraso há ' . $dueAt->diffForHumans(now(), true) }}
+                                                    </div>
+                                                @endif
+                                                @if ($finishAt)
+                                                    <div>Finalizado: {{ $finishAt->format('d/m/Y H:i') }}</div>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <div class="text-muted">Sem referência de SLA.</div>
                                         @endif
-
-                                        <div class="sla-info-lines">
-                                            @if ($slaExplainTop)
-                                                <div>{{ $slaExplainTop }}</div>
-                                            @endif
-                                            @if ($slaExplainMid)
-                                                <div>{{ $slaExplainMid }}</div>
-                                            @endif
-                                            @if ($slaExplainBot)
-                                                <div>{{ $slaExplainBot }}</div>
-                                            @endif
-                                        </div>
                                     </td>
 
-                                    {{-- Ações --}}
-                                    <td style="text-align:center; white-space:nowrap;">
-                                        <button class="btn btn-outline-primary icon-btn-table mb-1"
-                                            title="Gerenciar / Criar Atividade"
-                                            wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
-                                            <i class="ri-play-circle-line"></i>
-                                        </button>
-
-                                        @if ($medProtest->completed)
-                                            <button class="btn btn-outline-info icon-btn-table mb-1"
-                                                title="Imprimir Laudo da Medida"
-                                                onclick="window.open('{{ route('protests.print', $medProtest->id) }}', '_blank')">
-                                                <i class="ri-printer-line"></i>
-                                            </button>
-                                        @endif
-
-                                        @if ($canConfirmMeasure)
-                                            <button class="btn btn-outline-success icon-btn-table mb-1"
-                                                title="Confirmar Conclusão da Medida"
-                                                wire:click.prevent="approveMed({{ $medProtest->id }})">
-                                                <i class="ri-check-line"></i>
-                                            </button>
+                                    {{-- Ações (somente MEDA) --}}
+                                    <td class="text-center align-top" style="white-space:nowrap;">
+                                        @if ($showActions)
+                                            <div class="d-flex align-items-center justify-content-center gap-1">
+                                                <button class="btn btn-outline-primary icon-btn-table"
+                                                    title="Gerenciar / Criar Atividade"
+                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
+                                                    <i class="ri-play-circle-line"></i>
+                                                </button>
+                                                @if ($isActiveMeasure && $last && !$finishAt)
+                                                    <button class="btn btn-outline-success icon-btn-table"
+                                                        title="Confirmar Conclusão da Medida"
+                                                        wire:click.prevent="approveMed({{ $medProtest->id }})">
+                                                        <i class="ri-check-line"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="text-muted small">—</span>
                                         @endif
                                     </td>
 
@@ -1135,7 +1042,9 @@
                                         @if ($jobs->isNotEmpty())
                                             <button class="btn btn-outline-secondary icon-btn-table"
                                                 wire:click="toggleJobs({{ $medProtest->id }})"
-                                                title="Ver atividades relacionadas">
+                                                title="Ver atividades relacionadas"
+                                                aria-expanded="{{ $expanded ? 'true' : 'false' }}"
+                                                aria-controls="jobs-{{ $medProtest->id }}">
                                                 <i
                                                     class="{{ $expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
                                             </button>
@@ -1143,206 +1052,72 @@
                                     </td>
                                 </tr>
 
-                                {{-- ===== LINHA EXPANDIDA COM OS JOBS ===== --}}
+                                {{-- ===== BLOCO DE JOBS (COLLAPSE) ===== --}}
                                 @if ($jobs->isNotEmpty() && $expanded)
-                                    <tr>
+                                    <tr id="jobs-{{ $medProtest->id }}">
                                         <td colspan="7" class="jobs-cell">
                                             @foreach ($jobs->sortByDesc('created_at') as $job)
                                                 @php
-                                                    // normaliza enums
-                                                    $jobStatusRaw =
-                                                        $job->status instanceof \BackedEnum
-                                                            ? $job->status->value
-                                                            : $job->status;
-                                                    $jobPriorityRaw =
-                                                        $job->priority instanceof \BackedEnum
-                                                            ? $job->priority->value
-                                                            : $job->priority;
+                                                    // Accessors do modelo
+                                                    $jobStatusLabel = $job->status_label;
+                                                    $jobStatusBadgeClass = $job->status_badge_class;
+                                                    $jobPriorityLabel = $job->priority_label;
+                                                    $jobPriorityBadge = $job->priority_badge_class;
 
-                                                    $statusColorMap = [
-                                                        'opened' => 'primary',
-                                                        'assigned' => 'info',
-                                                        'in_progress' => 'warning',
-                                                        'waiting' => 'secondary',
-                                                        'done' => 'success',
-                                                        'canceled' => 'dark',
-                                                        'reopened' => 'danger',
-                                                    ];
-                                                    $statusColor = $statusColorMap[$jobStatusRaw] ?? 'secondary';
+                                                    // Datas (já são Carbon pelo cast)
+                                                    $jStart = $job->created_at;
+                                                    $jDue = $job->sla_due_at;
+                                                    $jFinish = $job->finished_at;
 
-                                                    // datas
-                                                    $jobStart = $job->created_at
-                                                        ? \Carbon\Carbon::parse($job->created_at)
-                                                        : null;
-                                                    $jobDue = $job->sla_due_at
-                                                        ? \Carbon\Carbon::parse($job->sla_due_at)
-                                                        : null;
-                                                    $jobFinish = $job->finished_at
-                                                        ? \Carbon\Carbon::parse($job->finished_at)
-                                                        : null;
-                                                    $nowRef = now();
-                                                    $compareEnd = $jobFinish ?? $nowRef;
-
-                                                    $jobDueTxt = $jobDue ? $jobDue->format('d/m/Y H:i') : '—';
-                                                    $jobFinishTxt = $jobFinish ? $jobFinish->format('d/m/Y H:i') : '—';
-
-                                                    // barra SLA por job
-                                                    $jobSegments = [];
-                                                    $jobSlaStateBadge = '';
-                                                    $jobSlaLine1 = '';
-                                                    $jobSlaLine2 = '';
-                                                    $jobSlaLine3 = '';
-                                                    $jobLateNow = false;
-
-                                                    if ($jobStart && $jobDue) {
-                                                        $totalSpan = $compareEnd
-                                                            ->max($jobDue)
-                                                            ->diffInSeconds($jobStart);
-                                                        $totalSpan = max($totalSpan, 1);
-
-                                                        $pctJob = function ($from, $to) use ($jobStart, $totalSpan) {
-                                                            $sec = $to->diffInSeconds($from, false);
-                                                            if ($sec < 0) {
-                                                                $sec = 0;
-                                                            }
-                                                            return max(0, min(100, ($sec / $totalSpan) * 100));
-                                                        };
-
-                                                        if (!$jobFinish) {
-                                                            // em andamento
-                                                            if ($nowRef->lte($jobDue)) {
-                                                                // dentro do prazo
-                                                                $pastPct = $pctJob($jobStart, $nowRef);
-                                                                $remainPct = $pctJob($nowRef, $jobDue);
-
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-ontrack',
-                                                                    'w' => $pastPct,
-                                                                ];
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-remaining',
-                                                                    'w' => $remainPct,
-                                                                ];
-
-                                                                $jobSlaStateBadge =
-                                                                    '<span class="badge bg-success text-light">no prazo</span>';
-                                                                $jobSlaLine1 =
-                                                                    'Limite: ' . $jobDue->format('d/m/Y H:i');
-                                                                $jobSlaLine2 =
-                                                                    'restam ' . now()->diffForHumans($jobDue, true);
-                                                                $jobSlaLine3 =
-                                                                    'Status: ' .
-                                                                    strtoupper(str_replace('_', ' ', $jobStatusRaw));
-                                                            } else {
-                                                                // atrasado em andamento
-                                                                $onTimePct = $pctJob($jobStart, $jobDue);
-                                                                $latePct = $pctJob($jobDue, $nowRef);
-
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-sla-window',
-                                                                    'w' => $onTimePct,
-                                                                ];
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-late',
-                                                                    'w' => $latePct,
-                                                                ];
-
-                                                                $jobLateNow = true;
-                                                                $jobSlaStateBadge =
-                                                                    '<span class="badge bg-danger text-light">ATRASADO</span>';
-                                                                $jobSlaLine1 =
-                                                                    'Limite: ' . $jobDue->format('d/m/Y H:i');
-                                                                $jobSlaLine2 =
-                                                                    'atraso há ' .
-                                                                    $jobDue->diffForHumans($nowRef, true);
-                                                                $jobSlaLine3 =
-                                                                    'Status: ' .
-                                                                    strtoupper(str_replace('_', ' ', $jobStatusRaw));
-                                                            }
+                                                    // Badge de SLA por job
+                                                    $jBadge = '<span class="badge bg-secondary">sem SLA</span>';
+                                                    if ($jDue) {
+                                                        if (!$jFinish && now()->lte($jDue)) {
+                                                            $jBadge =
+                                                                '<span class="badge bg-success text-light">no prazo</span>';
+                                                        } elseif (!$jFinish && now()->gt($jDue)) {
+                                                            $jBadge =
+                                                                '<span class="badge bg-danger text-light">atrasado</span>';
+                                                        } elseif ($jFinish && $jFinish->lte($jDue)) {
+                                                            $jBadge =
+                                                                '<span class="badge bg-success text-light">entregue no prazo</span>';
                                                         } else {
-                                                            // finalizado
-                                                            if ($jobFinish->lte($jobDue)) {
-                                                                // entregue ANTES
-                                                                $workPct = $pctJob($jobStart, $jobFinish);
-                                                                $sparePct = $pctJob($jobFinish, $jobDue);
-
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-ontrack',
-                                                                    'w' => $workPct,
-                                                                ];
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-early',
-                                                                    'w' => $sparePct,
-                                                                ];
-
-                                                                $jobSlaStateBadge =
-                                                                    '<span class="badge bg-success text-light">entregue no prazo</span>';
-                                                                $jobSlaLine1 =
-                                                                    'Concluído: ' . $jobFinish->format('d/m/Y H:i');
-                                                                $jobSlaLine2 = 'SLA: ' . $jobDue->format('d/m/Y H:i');
-                                                                $jobSlaLine3 =
-                                                                    'Folga de ' .
-                                                                    $jobFinish->diffForHumans($jobDue, true);
-                                                            } else {
-                                                                // entregue DEPOIS
-                                                                $onTimePct = $pctJob($jobStart, $jobDue);
-                                                                $latePct = $pctJob($jobDue, $jobFinish);
-
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-sla-window',
-                                                                    'w' => $onTimePct,
-                                                                ];
-                                                                $jobSegments[] = [
-                                                                    'class' => 'sla-late',
-                                                                    'w' => $latePct,
-                                                                ];
-
-                                                                $jobSlaStateBadge =
-                                                                    '<span class="badge bg-danger text-light">entregue com atraso</span>';
-                                                                $jobSlaLine1 =
-                                                                    'Concluído: ' . $jobFinish->format('d/m/Y H:i');
-                                                                $jobSlaLine2 = 'SLA: ' . $jobDue->format('d/m/Y H:i');
-                                                                $jobSlaLine3 =
-                                                                    'Atraso de ' .
-                                                                    $jobDue->diffForHumans($jobFinish, true);
-                                                            }
+                                                            $jBadge =
+                                                                '<span class="badge bg-danger text-light">entregue com atraso</span>';
                                                         }
-                                                    } else {
-                                                        // sem SLA
-                                                        $jobSlaStateBadge =
-                                                            '<span class="badge bg-secondary">sem SLA</span>';
-                                                        $jobSlaLine1 =
-                                                            'Criada em ' . $job->created_at?->format('d/m/Y H:i');
-                                                        $jobSlaLine2 =
-                                                            'Status: ' .
-                                                            strtoupper(str_replace('_', ' ', $jobStatusRaw));
+                                                    }
+
+                                                    // Percentual de SLA do job
+                                                    $jPct = 0;
+                                                    if ($jStart && $jDue) {
+                                                        $jTotal = max($jDue->diffInSeconds($jStart), 1);
+                                                        $jUntil = $jFinish ?: now();
+                                                        $jSpent = max(min($jUntil->diffInSeconds($jStart), $jTotal), 0);
+                                                        $jPct = max(0, min(100, round(($jSpent / $jTotal) * 100)));
                                                     }
                                                 @endphp
 
                                                 <div
-                                                    class="job-box @if ($jobLateNow && !$jobFinish) border-danger border-2 @endif">
-
-                                                    {{-- HEADER DA ATIVIDADE --}}
+                                                    class="job-box {{ !$jFinish && $jDue && now()->gt($jDue) ? 'border-danger border-2' : '' }}">
                                                     <div class="job-header-line">
-
                                                         <div class="job-left-chunk">
-                                                            <span class="job-id-badge">
-                                                                ATVD {{ $job->id }}
+                                                            <span class="job-id-badge">ATVD {{ $job->id }}</span>
+
+                                                            {{-- Status via accessor --}}
+                                                            <span class="job-status-pill {{ $jobStatusBadgeClass }}">
+                                                                {{ strtoupper($jobStatusLabel) }}
                                                             </span>
 
-                                                            <span class="job-status-pill bg-{{ $statusColor }}">
-                                                                {{ strtoupper(str_replace('_', ' ', $jobStatusRaw)) }}
-                                                            </span>
-
-                                                            <span class="job-priority-pill">
-                                                                {{ $jobPriorityRaw }}
+                                                            {{-- Prioridade via accessor --}}
+                                                            <span
+                                                                class="job-priority-pill badge {{ $jobPriorityBadge }}">
+                                                                {{ $jobPriorityLabel }}
                                                             </span>
 
                                                             @if ($job->is_advance)
                                                                 <span class="badge bg-dark text-white"
-                                                                    style="font-size:.65rem;">AVANÇO</span>
+                                                                    style="font-size:.65rem;">AVANÇA</span>
                                                             @endif
-
                                                             @if ($job->need_evidence)
                                                                 <span class="badge bg-warning text-dark"
                                                                     style="font-size:.65rem;">EVIDÊNCIA</span>
@@ -1356,31 +1131,22 @@
                                                                 </div>
                                                             </div>
 
-                                                            {{-- Botões de ação do job --}}
                                                             <div class="d-flex align-items-center gap-1">
-
-                                                                {{-- EDITAR JOB --}}
                                                                 <button class="btn btn-outline-primary job-action-btn"
                                                                     title="Editar atividade"
                                                                     wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'openJobEditor', {{ $job->id }})">
                                                                     <i class="ri-pencil-line"></i>
                                                                 </button>
-
-                                                                {{-- FINALIZAR --}}
                                                                 <button class="btn btn-outline-success job-action-btn"
                                                                     title="Marcar como concluída"
                                                                     wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'finishJob', {{ $job->id }})">
                                                                     <i class="ri-check-line"></i>
                                                                 </button>
-
-                                                                {{-- REABRIR --}}
                                                                 <button class="btn btn-outline-warning job-action-btn"
                                                                     title="Reabrir atividade"
                                                                     wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'reopenJob', {{ $job->id }})">
                                                                     <i class="ri-refresh-line"></i>
                                                                 </button>
-
-                                                                {{-- CANCELAR --}}
                                                                 <button class="btn btn-outline-danger job-action-btn"
                                                                     title="Cancelar atividade"
                                                                     wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'cancelJob', {{ $job->id }})">
@@ -1390,67 +1156,45 @@
                                                         </div>
                                                     </div>
 
-                                                    {{-- CORPO DA ATIVIDADE --}}
                                                     <div class="job-body-grid">
-
-                                                        {{-- BLOCO SLA --}}
                                                         <div class="job-col-block">
                                                             <div class="job-label job-sla-headline">
                                                                 <span>SLA / Progresso</span>
                                                                 <span
-                                                                    class="job-sla-badge">{!! $jobSlaStateBadge !!}</span>
+                                                                    class="job-sla-badge">{!! $jBadge !!}</span>
                                                             </div>
 
-                                                            @if (!empty($jobSegments))
+                                                            @if ($jStart && $jDue)
                                                                 <div class="sla-bar-wrap-job mb-2 mt-1">
-                                                                    @foreach ($jobSegments as $seg)
-                                                                        <div class="sla-seg {{ $seg['class'] }}"
-                                                                            style="width: {{ number_format($seg['w'], 2, '.', '') }}%;">
-                                                                        </div>
-                                                                    @endforeach
+                                                                    <div class="sla-seg {{ !$jFinish && now()->gt($jDue) ? 'sla-late' : 'sla-ontrack' }}"
+                                                                        style="width: {{ $jPct }}%;"></div>
                                                                 </div>
                                                             @endif
 
                                                             <div class="sla-info-lines">
-                                                                @if ($jobSlaLine1)
-                                                                    <div>{{ $jobSlaLine1 }}</div>
-                                                                @endif
-                                                                @if ($jobSlaLine2)
-                                                                    <div>{{ $jobSlaLine2 }}</div>
-                                                                @endif
-                                                                @if ($jobSlaLine3)
-                                                                    <div>{{ $jobSlaLine3 }}</div>
-                                                                @endif
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- BLOCO DATAS --}}
-                                                        <div class="job-col-block">
-                                                            <div class="job-label">Prazo SLA</div>
-                                                            <div class="job-value">
-                                                                {{ $jobDueTxt }}
-                                                                @if ($job->sla_breached_at && !$jobFinish)
-                                                                    <span class="badge bg-danger ms-1"
-                                                                        style="font-size:.65rem;">Atraso</span>
-                                                                @endif
-                                                            </div>
-
-                                                            <div class="job-label mt-3">Finalizado em</div>
-                                                            <div class="job-value">
-                                                                {{ $jobFinishTxt }}
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- BLOCO NOTAS / INSTRUÇÕES --}}
-                                                        @if ($job->notes)
-                                                            <div class="job-col-block">
-                                                                <div class="job-label">Instruções / Observações</div>
-                                                                <div class="job-value" style="white-space:pre-line;">
-                                                                    {{ $job->notes }}
+                                                                <div>Limite:
+                                                                    {{ $jDue ? $jDue->format('d/m/Y H:i') : '—' }}
                                                                 </div>
+                                                                @if (!$jFinish && $jDue)
+                                                                    <div>
+                                                                        {{ now()->lte($jDue) ? 'restam ' . now()->diffForHumans($jDue, true) : 'atraso há ' . $jDue->diffForHumans(now(), true) }}
+                                                                    </div>
+                                                                @endif
+                                                                @if ($jFinish)
+                                                                    <div>Finalizado:
+                                                                        {{ $jFinish->format('d/m/Y H:i') }}</div>
+                                                                @endif
                                                             </div>
-                                                        @endif
+                                                        </div>
 
+                                                        <div class="job-col-block">
+                                                            <div class="job-label">Criado em</div>
+                                                            <div class="job-value">
+                                                                {{ $jStart?->format('d/m/Y H:i') ?? '—' }}</div>
+                                                            <div class="job-label mt-3">Observações</div>
+                                                            <div class="job-value" style="white-space:pre-line;">
+                                                                {{ $job->notes }}</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             @endforeach
@@ -1458,6 +1202,7 @@
                                     </tr>
                                 @endif
                             @endforeach
+
                         </tbody>
                     </table>
                 </div>
@@ -1468,9 +1213,9 @@
                     <p class="mb-0 text-center">Não há medidas cadastradas para esta reclamação</p>
                 </div>
             @endif
-
         </div>
     </div>
+
 
     {{-- ==== Interações / Comentários ==== --}}
     <div class="modern-card">
