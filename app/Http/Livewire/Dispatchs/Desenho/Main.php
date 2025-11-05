@@ -6,6 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\Design\BlockEvaluator;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -84,6 +85,9 @@ class Main extends Component
     public $group5_s = [];
 
     public $not_assigned = false;
+
+    // TODO: 27 Dias Status Temporário - Remover no Futuro
+    public $only_27 = false;
 
     protected $listeners = [
         'refresh_dispatch'  => '$refresh',
@@ -632,6 +636,17 @@ class Main extends Component
                             ->orWhere('nexp', '')
                             ->orWhere('nexp', null);
                     });
+                })
+                // NOTE: Remover no futuro.
+                ->when($this->only_27, function ($q) {
+                    $q->where('days_left', '<=', 3)
+                      // exige que a ÚLTIMA production (da relação acima) seja desse serviço e confirmada
+                    ->whereHas(
+                        'lastProduction',
+                        fn ($r) =>
+                        $r->where('service_id', $this->service->uuid)
+                            ->where('confirmed', true)
+                    );
                 });
         }
 
@@ -643,6 +658,13 @@ class Main extends Component
 
         return $query;
 
+    }
+
+    public function needBlock(Note $note): array
+    {
+        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+        // retorna estrutura pra view usar diretamente
+        return $eval;
     }
 
     public function getBaseProperty()

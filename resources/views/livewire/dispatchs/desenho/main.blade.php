@@ -299,6 +299,18 @@
                 </button>
 
             </div>
+            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0">
+                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
+                    wire:click="$set('only_27', {{ !$only_27 }})">
+                    27 Dias
+                    @if ($only_27)
+                        <span class="badge text-bg-success">ON</span>
+                    @else
+                        <span class="badge text-bg-danger">OFF</span>
+                    @endif
+                </button>
+
+            </div>
         </div>
     </div>
 
@@ -391,162 +403,58 @@
                     </thead>
                     <tbody>
                         @php
-                            function getDaysStatus($list): array
-                            {
-                                $days = $list->dt_status->diffInDays(now());
+                            if (!function_exists('reduceName')) {
+                                function reduceName($name, bool $first = false): string
+                                {
+                                    if ($name) {
+                                        $name = explode(' ', $name);
+                                    } else {
+                                        return '';
+                                    }
 
-                                if ($days > 6) {
-                                    $bgColor = 'text-bg-danger';
-                                } elseif ($days < 4) {
-                                    $bgColor = 'text-bg-success';
-                                } else {
-                                    $bgColor = 'text-bg-warning';
+                                    if ($first) {
+                                        return $name[0];
+                                    } else {
+                                        return $name[0] . ' ' . end($name);
+                                    }
                                 }
+                            }
 
-                                return [
-                                    'days' => $days,
-                                    'bgColor' => $bgColor,
-                                ];
+                            if (!function_exists('dstatus')) {
+                                function dstatus($note): array
+                                {
+                                    $dstatus = [
+                                        'days' => 0,
+                                        'bgColor' => '',
+                                    ];
+
+                                    $days = $note->dt_status?->diffInDays();
+                                    $dstatus['days'] = $days;
+
+                                    if ($days < 4) {
+                                        $dstatus['bgColor'] = 'text-bg-success';
+                                    } elseif ($days > 5) {
+                                        $dstatus['bgColor'] = 'text-bg-danger';
+                                    } else {
+                                        $dstatus['bgColor'] = 'text-bg-warning';
+                                    }
+
+                                    return $dstatus;
+                                }
                             }
                         @endphp
                         @foreach ($lists as $list)
                             @php
-                                $block = 0;
-                                $exception = false;
-                                $production = '';
-                                $user = [];
-                                $dstatus = getDaysStatus($list);
 
-                                $production = $list->Productions->where('service_id', $this->service->uuid);
+                                $e = $this->needBlock($list); // ['block'=>.., 'command'=>.., 'color'=>.., 'reason'=>..]
+                                $rowClass = $e['color'];
+                                $block = $e['block'];
+                                $command = $e['command'];
+                                $production = $e['production'];
+                                $reason = $e['reason'];
 
-                                if ($production->where('completed', false)->where('confirmed', false)->count()) {
-                                    $block = 1;
+                                $user = $production?->user;
 
-                                    $lastProduction = $production
-                                        ->where('completed', false)
-                                        ->where('confirmed', false)
-                                        ->last();
-
-                                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                                    $count = $production->count();
-
-                                    $lastName = explode(' ', $lastName);
-                                    $lastName =
-                                        count($lastName) > 1 ? $lastName[0] . ' ' . end($lastName) : $lastName[0];
-
-                                    $company = explode(' ', $company)[0];
-
-                                    $user = [
-                                        'lastUser' => $lastName,
-                                        'countProd' => $count,
-                                        'status' => $status,
-                                        'company' => $company,
-                                    ];
-                                } elseif ($production->where('completed', true)->where('confirmed', false)->count()) {
-                                    $block = 2;
-
-                                    $lastProduction = $production
-                                        ->where('completed', true)
-                                        ->where('confirmed', false)
-                                        ->last();
-
-                                    $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                    $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                    $status = $lastProduction->status ?? 'Desconhecido';
-
-                                    $count = $production->count();
-
-                                    $lastName = explode(' ', $lastName);
-                                    $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                    $company = explode(' ', $company)[0];
-
-                                    $user = [
-                                        'lastUser' => $lastName,
-                                        'countProd' => $count,
-                                        'status' => $status,
-                                        'company' => $company,
-                                    ];
-                                } elseif ($production->where('completed', true)->where('confirmed', true)->count()) {
-                                    if (
-                                        $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->where('dt_note', $list->dt_status)
-                                            ->where('noinconsistency', false)
-                                            ->where('type_note', 2)
-                                            ->count()
-                                    ) {
-                                        $block = 3;
-
-                                        $lastProduction = $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->where('dt_note', $list->dt_status)
-                                            ->where('noinconsistency', false)
-                                            ->where('type_note', 2)
-                                            ->last();
-
-                                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                                        $count = $production->count();
-
-                                        // Get First and Last name from User Name,
-                                        $lastName = explode(' ', $lastName);
-                                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                        // Get just first Company name.
-                                        $company = explode(' ', $company)[0];
-
-                                        $user = [
-                                            'lastUser' => $lastName,
-                                            'countProd' => $count,
-                                            'status' => $status,
-                                            'company' => $company,
-                                        ];
-                                    } else {
-                                        $lastProduction = $production
-                                            ->where('completed', true)
-                                            ->where('confirmed', true)
-                                            ->last();
-
-                                        $lastName = $lastProduction->User->name ?? 'Desconhecido';
-                                        $company = $lastProduction->Company->name ?? 'Desconhecido';
-                                        $status = $lastProduction->status ?? 'Desconhecido';
-
-                                        $count = $production->count();
-
-                                        $company = explode(' ', $company)[0];
-
-                                        $lastName = explode(' ', $lastName);
-                                        $lastName = $lastName[0] . ' ' . end($lastName);
-
-                                        $user = [
-                                            'lastUser' => $lastName,
-                                            'countProd' => $count,
-                                            'status' => $status,
-                                            'company' => $company,
-                                        ];
-                                    }
-
-                                    // Determine table row color based on block status
-                                }
-
-                                $tableRowClass = '';
-                                if ($block == 1 && $user['lastUser'] != 'Desconhecido') {
-                                    $tableRowClass = 'table-primary';
-                                } elseif ($block == 1 && $user['lastUser'] == 'Desconhecido') {
-                                    $tableRowClass = 'table-warning';
-                                } elseif ($block == 2) {
-                                    $tableRowClass = 'table-success';
-                                } elseif ($block == 3) {
-                                    $tableRowClass = 'table-danger';
-                                }
                             @endphp
 
 
@@ -554,17 +462,16 @@
                             <tr wire:key="{{ $list->id }}"
                                 class="align-middle
                                     ">
-                                <td>
-                                    <input
-                                        class="form-check-input border border-1 border-primary {{ $tableRowClass }}"
-                                        type="checkbox" value="{{ $list->id }}" wire:model.defer="selected"
-                                        @disabled($block && !$exception)>
+                                <td class="{{ $rowClass }}">
+                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
+                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                        @disabled($block && !$command)>
                                 </td>
                                 {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                <td class="fw-bold copy-text @if ($list->is45) text-bg-warning @endif {{ $tableRowClass }}"
+                                <td class="fw-bold copy-text @if ($list->is45) text-bg-warning @endif {{ $rowClass }}"
                                     data-value="{{ $list->note }}">
                                     <span>
                                         {{ $list->note }}
@@ -581,46 +488,46 @@
                                         @endif
                                     </span>
                                 </td>
-                                <td class="fw-bold text-success text-center {{ $tableRowClass }}">
+                                <td class="fw-bold text-success text-center {{ $rowClass }}">
                                     @if ($list->doe)
                                         <i class="ri-checkbox-circle-line"></i>
                                     @endif
                                 </td>
-                                <td class="fw-bold text-danger text-center {{ $tableRowClass }}">
+                                <td class="fw-bold text-danger text-center {{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         wire:click.prevent="check_mmgd({{ $list->id }})"
                                         value='{{ $list->id }}' @checked($list->mmgd)>
                                 </td>
-                                <td class="fw-bold text-danger text-center {{ $tableRowClass }}">
+                                <td class="fw-bold text-danger text-center {{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         wire:click.prevent="check_is45({{ $list->id }})"
                                         value='{{ $list->id }}' @checked($list->is45)>
                                 </td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ date('d/m/Y', strToTime($list->dt_created)) }}
                                 </td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ mb_strtoupper($list->numPedido) }}</td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->rubrica }}</td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->lexp }}</td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->material }}</td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->rubrica }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->material }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->group2 ? $list->group2 : '_____' }}
                                 </td>
 
-                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->group5 ? $list->group5 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->postes }}
                                 </td>
-                                <td class="fw-light text-center {{ $tableRowClass }}" tabindex="0"
+                                <td class="fw-light text-center {{ $rowClass }}" tabindex="0"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Desenhos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
                                     @if ($user)
-                                        <span class="badge text-bg-dark">{{ $user['countProd'] }}</span><br>
-                                        {{ $user['lastUser'] }}
+                                        <span class="badge text-bg-dark">{{ $e['count'] }}</span><br>
+                                        {{ $user->name }}
                                     @else
                                         --
                                     @endif
@@ -628,12 +535,16 @@
                                 </td>
 
                                 @if ($list->type_note != 1)
-                                    <td class="fw-light text-center {{ $tableRowClass }}">{{ $list->nstats }} </td>
+                                    <td class="fw-light text-center {{ $rowClass }}">{{ $list->nstats }} </td>
                                 @else
                                     <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
                                             style="font-size: 8px;">{{ $list->nstats }}</span></td>
                                 @endif
-                                <td class="fw-light text-center {{ $dstatus['bgColor'] }}" tabindex="0"
+
+                                @php
+                                    $days = dstatus($list);
+                                @endphp
+                                <td class="fw-light text-center {{ $days['bgColor'] }}" tabindex="0"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Dias no Status"
                                     data-bs-content="
@@ -643,17 +554,17 @@
                                     <span class='fs-4 text-danger'>&#9632;</span> > 6 VENCIDO <br>
                                     {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                                     ">
-                                    {{ $dstatus['days'] }}
+                                    {{ $days['days'] }}
                                 </td>
                                 <td scope="col"
                                     class="text-center
                                     @if ($list->days_left < 0) text-bg-secondary
                                     @elseif($list->days_left >= 0 && $list->days_left < 6)
-                                    table-danger
+                                    text-bg-danger
                                     @elseif($list->days_left >= 6 && $list->days_left < 10)
-                                        table-warning
+                                        text-bg-warning
                                     @else
-                                        table-success @endif
+                                        text-bg-success @endif
                                 "
                                     tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="top" data-bs-title="Prazo Real"
@@ -668,7 +579,7 @@
                                 </td>
 
 
-                                <td class="fw-light text-center {{ $tableRowClass }}">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->pze_parecer === 'Vencido')
                                         <span class="badge text-bg-danger">VENCIDO</span>
                                     @elseif ($list->pze_parecer === 'Não vencido')
@@ -679,13 +590,18 @@
                                 </td>
 
 
-                                <td class="fw-bold text-center {{ $tableRowClass }}">
-                                    @if (!$block)
+                                <td class="fw-bold text-center {{ $rowClass }}" data-bs-toggle="tooltip"
+                                    data-bs-placement="top" data-bs-title="{{ $e['reason'] }}">
+                                    @if ($command)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                            wire:click.prevent="get_single_note({{ $list->id }})"
+                                            data-bs-toggle="tooltip" data-bs-placement="top"
+                                            data-bs-title="Despachar nota"></i>
                                     @else
-                                        <span style="font-size: 11px">{{ $user['company'] }}</span>
+                                        <span style="font-size: 11px" data-bs-toggle="tooltip"
+                                            data-bs-placement="top"
+                                            data-bs-title="Empresa responsável">{{ reduceName($user?->company->name) }}</span>
                                     @endif
 
                                 </td>
