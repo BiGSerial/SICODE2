@@ -74,7 +74,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
         Route::post('/jobs_view/restart', function (Request $request) {
             Artisan::call('queue:restart');
             return response()->json(['ok' => true, 'message' => 'queue:restart enviado']);
-        })->middleware('can:superadm')->name('restart_jobs');
+        })->middleware('can:superadm', 'throttle:2,1')->name('restart_jobs');
     });
 });
 

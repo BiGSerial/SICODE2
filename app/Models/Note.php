@@ -77,6 +77,11 @@ class Note extends Model
         return $this->hasOne(Production::class)->latestOfMany('created_at');
     }
 
+    public function lastProduction()
+    {
+        return $this->hasOne(Production::class)->latestOfMany('created_at');
+    }
+
     public function Historic()
     {
         return $this->hasMany(Notetimeline::class);
