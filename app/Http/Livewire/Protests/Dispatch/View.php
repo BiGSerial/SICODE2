@@ -215,44 +215,20 @@ class View extends Component
 
     public function finishMedProtes()
     {
-        if ($this->protestTemp) {
+       if ($this->protestTemp) {
+            $this->protestTemp->update(['completed' => true, 'completed_at' => now()]);
 
-            $this->protestTemp->update([
-                'completed' => true,
-                'completed_at' => now(),
-            ]);
-
-            $completedMed =  $this->protestTemp->Assignments()->where('completed', true)->count();
-
-            $this->protestTemp->Assignments()->where('completed', false)->update([
-                'completed' => true,
-                'ended_at' => now(),
-            ]);
-
-            if (!$completedMed) {
-                $this->medProtest->comments()->create([
-                    'user_id' => auth()->id(),
-                    'message' => '[SISTEMA] Medida Encerrada pelo Responsável ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
-                ]);
-            }
-
-            $this->medProtest->comments()->create([
-               'user_id' => auth()->id(),
-               'message' => '[SISTEMA] Medida Aprovada pelo Responsável ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
+            $this->protestTemp->comments()->create([
+                'user_id' => auth()->id(),
+                'message' => '[SISTEMA] Medida concluída por ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
             ]);
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',
-                'menssage' => 'Medida encerrada com sucesso!',
+                'menssage' => 'Medida concluída com sucesso!',
             ]);
 
             $this->emit('refreshComponent');
-
-        } else {
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'danger',
-                'menssage' => 'Medida não encontrada.',
-            ]);
         }
     }
 

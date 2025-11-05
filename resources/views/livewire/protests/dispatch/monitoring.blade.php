@@ -100,30 +100,57 @@
             <table class="table table-sm table-striped table-condensed">
                 <thead class="table-dark">
                     <tr class="align-middle text-center sticky-top" style="top: 60px;">
+                        <th>Prioridade</th>
                         <th>Despachante</th>
                         <th>Tipo</th>
+                        <th></th>
                         <th>Nota</th>
                         <th>Medida</th>
                         <th>Cod</th>
                         <th>TipoReclamação</th>
-                        <th>CausaRaiz</th>
-                        <th>Origem</th>
                         <th>Município</th>
+                        <th>Responsável</th>
+                        <th>Empresa</th>
+
                         <th>Abertura</th>
-                        <th>Tempo</th>
+                        <th>FimDesejado</th>
                         <th>SLA</th>
-                        <th>Prioridade</th>
-                        <th>Status Resposta</th>
+
+                        <th>Status</th>
                         <th style="width:48px;"></th>
                     </tr>
                 </thead>
                 @php
                     if (!function_exists('reduceName')) {
-                        function reduceName(string $name)
+                        function reduceName(string $name, bool $first = false)
                         {
                             $name = explode(' ', $name);
 
+                            if ($first) {
+                                return $name[0];
+                            }
+
                             return $name[0] . ' ' . end($name);
+                        }
+                    }
+
+                    if (!function_exists('getWishDate')) {
+                        function getWishDate($item)
+                        {
+                            if ($item->protest?->tipoNota == 'NA') {
+                                return $item->protest->dtConclusaoDesej;
+                            }
+                            return $item->medProtest->dtFimMedidaDesej;
+                        }
+                    }
+
+                    if (!function_exists('getApertureDate')) {
+                        function getApertureDate($item)
+                        {
+                            if ($item->protest?->tipoNota == 'NA') {
+                                return $item->protest->dtAberturaNota;
+                            }
+                            return $item->medProtest->dtCriacaoMedida;
                         }
                     }
                 @endphp
@@ -136,33 +163,44 @@
                                     : $slaLeft == 0)
                                 ? 'text-bg-warning'
                                 : 'text-bg-success';
+
                         @endphp
                         <tr class="text-center">
+                            <td>
+                                <span class="badge {{ $item->priority_badge_class }}">{{ $item->priority_label }}</span>
+                            </td>
                             <td class="fw-bold">{{ reduceName($item->creator?->name) }}
                             </td>
                             <td><span class="badge text-bg-secondary">{{ $item->protest?->tipoNota }}</span></td>
-                            <td class="fw-bold">{{ $item->protest?->nota }}</td>
+                            <td>
+                                @if ($item->is_advance)
+                                    <span class="badge text-bg-info">A</span>
+                                @endif
+                            </td>
+                            <td class="fw-bold">
+
+                                {{ $item->protest?->nota }}
+                            </td>
                             <td class="fw-bold"># {{ $item->medProtest?->med_id }}</td>
 
                             <td><span class="badge text-bg-secondary">{{ $item->protest?->codecodf }}</span></td>
 
                             {{-- As demais <td> podem ser preenchidas conforme sua lógica --}}
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td class="text-uppercase">{{ $item->protest?->txtGrpCodificacao }}</td>
                             <td>{{ $item->protest?->cidade }}</td>
-                            <td></td>
-                            <td></td>
+                            <td class="text-uppercase fw-bold">{{ reduceName($item->owner?->name) }}</td>
+                            <td class="text-uppercase">{{ reduceName($item->owner?->company?->name, true) }}
+                            </td>
+
+                            <td>{{ getApertureDate($item) ? getApertureDate($item)->format('d/m/Y') : '---' }}</td>
+                            <td>{{ getWishDate($item) ? getWishDate($item)->format('d/m/Y') : '---' }}</td>
                             <td class="fw-bold">
-                                <span class="badge {{ $slaClass }}" title="Dias para o Vencimento">{{ $slaLeft }} d</span>
-
+                                <span class="badge {{ $slaClass }}"
+                                    title="Dias para o Vencimento">{{ $slaLeft }} d</span>
                             </td>
-
                             <td>
-                                <span
-                                    class="badge {{ $item->priority_badge_class }}">{{ $item->priority_label }}</span>
+                                <div class="badge {{ $item->status_badge_class }}">{{ $item->status_label }}</div>
                             </td>
-                            <td></td>
                             <td style="width:48px;"></td>
                         </tr>
                     @endforeach

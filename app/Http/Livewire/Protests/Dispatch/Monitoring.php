@@ -15,7 +15,14 @@ class Monitoring extends Component
 
     public function baseQuery()
     {
+        $viewer = auth()->user();
+
         $query = ProtestJob::open()
+        ->when(!$viewer->superadm, function ($q) use ($viewer) {
+
+            $q->whereIn('owner_id', $viewer->descendantsQuery(true)->select('users.id'))
+                ->orWhereNull('owner_id');
+        })
         ->orderBy('priority', 'desc')
         ->with(['MedProtest', 'Protest', 'Owner:id,name', 'Creator:id,name', 'Closer:id,name']);
         return $query;
