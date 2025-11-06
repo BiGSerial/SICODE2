@@ -251,7 +251,7 @@ class Todoviability extends Component
 
         // Carrega só o que a view usa
         $query->with([
-            'Note:id,client,material,rubrica,txpriority,lexp,note,is45',
+            'Note:id,client,material,rubrica,txpriority,lexp,note,is45,days_left,mesalization,type_note',
             'Note.Orders:id,note_id,ordem,statusSist',
             'Note.Files:id,note_id', // só pra contar arquivos via relacionamento de Note->Files
             'Company:id,name',
