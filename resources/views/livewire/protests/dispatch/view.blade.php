@@ -831,12 +831,12 @@
                                     $finishAt = $last?->finished_at;
                                     $nowRef = now();
                                     $prazoTxt =
-                                        $protest->tipoNota == 'OU'
-                                            ? $protest->dtConclusaoDesej->format('d/m/Y H:i')
-                                            : $medProtest->dtFimMedidaDesej->format('d/m/Y H:i');
+                                        $protest->tipoNota == 'NA'
+                                            ? $protest->dtConclusaoDesej?->format('d/m/Y H:i')
+                                            : $medProtest->dtFimMedidaDesej?->format('d/m/Y H:i');
 
                                     $prazoDate =
-                                        $protest->tipoNota == 'OU'
+                                        $protest->tipoNota == 'NA'
                                             ? $protest->dtConclusaoDesej
                                             : $medProtest->dtFimMedidaDesej;
 
@@ -847,7 +847,7 @@
                                         'badge' => 'text-bg-secondary',
                                     ];
                                     if ($medFinished) {
-                                        if ($medFinished->startOfDay()->gt($prazoDate->startOfDay())) {
+                                        if ($medFinished?->startOfDay()->gt($prazoDate?->startOfDay())) {
                                             $medStatus = [
                                                 'status' => 'Fora do Prazo',
                                                 'badge' => 'text-bg-danger',
@@ -859,7 +859,7 @@
                                             ];
                                         }
                                     } else {
-                                        if (now()->startOfDay()->gt($prazoDate->startOfDay())) {
+                                        if (now()->startOfDay()->gt($prazoDate?->startOfDay())) {
                                             $medStatus = [
                                                 'status' => 'Atrasada',
                                                 'badge' => 'text-bg-danger',
@@ -968,7 +968,8 @@
                                                 class="badge {{ $execStatusClass }}">{{ strtoupper($execStatusText) }}</span>
                                         </div>
                                         @if ($finishAt)
-                                            <div class="text-muted small">Fechou: {{ $finishAt->format('d/m/Y H:i') }}
+                                            <div class="text-muted small">Fechou:
+                                                {{ $finishAt?->format('d/m/Y H:i') }}
                                             </div>
                                         @endif
                                     </td>
@@ -979,7 +980,7 @@
                                         <div class="mini-value mb-2">{{ $prazoTxt }}</div>
                                         @if ($medFinished)
                                             <div><span class="badge bg-info">Concluído em
-                                                    {{ $medFinished->format('d/m/Y H:i') }}</span></div>
+                                                    {{ $medFinished?->format('d/m/Y H:i') }}</span></div>
                                         @endif
                                         <div><span class="badge {{ $medStatus['badge'] }}">
                                                 {{ $medStatus['status'] }}</span></div>
@@ -999,7 +1000,7 @@
                                             </div>
                                             <div class="sla-info-lines">
                                                 <div>Limite: <strong
-                                                        class="text-primary">{{ $dueAt->format('d/m/Y H:i') }}</strong>
+                                                        class="text-primary">{{ $dueAt?->format('d/m/Y H:i') }}</strong>
                                                 </div>
                                                 @if (!$finishAt && $dueAt)
                                                     <div>
@@ -1007,7 +1008,7 @@
                                                     </div>
                                                 @endif
                                                 @if ($finishAt)
-                                                    <div>Finalizado: {{ $finishAt->format('d/m/Y H:i') }}</div>
+                                                    <div>Finalizado: {{ $finishAt?->format('d/m/Y H:i') }}</div>
                                                 @endif
                                             </div>
                                         @else
@@ -1173,7 +1174,7 @@
 
                                                             <div class="sla-info-lines">
                                                                 <div>Limite:
-                                                                    {{ $jDue ? $jDue->format('d/m/Y H:i') : '—' }}
+                                                                    {{ $jDue ? $jDue?->format('d/m/Y H:i') : '—' }}
                                                                 </div>
                                                                 @if (!$jFinish && $jDue)
                                                                     <div>
@@ -1182,7 +1183,7 @@
                                                                 @endif
                                                                 @if ($jFinish)
                                                                     <div>Finalizado:
-                                                                        {{ $jFinish->format('d/m/Y H:i') }}</div>
+                                                                        {{ $jFinish?->format('d/m/Y H:i') }}</div>
                                                                 @endif
                                                             </div>
                                                         </div>

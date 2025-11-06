@@ -78,6 +78,16 @@ class ControlMedProtest extends Component
 
         $this->notePage = 0;
 
+        if ($this->modProtest->protest?->tipoNota == 'NA') {
+
+            $this->sla_due_at = $this->modProtest->protest->dtConclusaoDesej;
+
+        } else {
+            $this->sla_due_at = $this->modProtest->dtFimMedidaDesej;
+        }
+
+        $this->userSearch = '';
+
         // abre modal
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'controlModProtestModal',
