@@ -54,7 +54,7 @@ class ExportViabilityToExcel implements
             'Ordens',
             'Criticidade',
             'Cliente',
-            'Qtd Arquivos',
+            // 'Qtd Arquivos',
             'Contratado',
             'Recebido',
             'Prazo Viabilidade',
@@ -110,7 +110,7 @@ class ExportViabilityToExcel implements
             $viab->Note->client ?? 'Normal',
 
             // Qtd Arquivos (da nota)
-            $viab->Note->Files->count(),
+            // $viab->Note->Files->count(),
 
             // Contratado
             $viab->hired ? 'SIM' : 'NÃO',
