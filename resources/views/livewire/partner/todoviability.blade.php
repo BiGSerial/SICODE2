@@ -195,7 +195,10 @@
                                     {{ $viability->Note->txpriority ?? 'Normal' }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    {{ $viability->Note->Files->count() }}
+                                    @if ($viability?->Note?->Files?->isNotEmpty())
+                                        <x-files.select-download-list :files="$viability?->Note?->Files" />
+                                    @endif
+
                                 </td>
 
 

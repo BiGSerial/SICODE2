@@ -253,7 +253,7 @@ class Todoviability extends Component
         $query->with([
             'Note:id,client,material,rubrica,txpriority,lexp,note,is45,days_left,mesalization,type_note',
             'Note.Orders:id,note_id,ordem,statusSist',
-            'Note.Files:id,note_id', // só pra contar arquivos via relacionamento de Note->Files
+            'Note.Files:id,note_id,service_id,file_name,ext,path', // só pra contar arquivos via relacionamento de Note->Files
             'Company:id,name',
             'Files:id,note_id,file_name,ext,path',
             'comments:id,user_id,message,created_at',
