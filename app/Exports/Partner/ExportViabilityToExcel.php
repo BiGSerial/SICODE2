@@ -2,6 +2,7 @@
 
 namespace App\Exports\Partner;
 
+use App\Helpers\DaysLeft;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -52,6 +53,7 @@ class ExportViabilityToExcel implements
             'Nota',
             'Ordens',
             'Criticidade',
+            'Cliente',
             'Qtd Arquivos',
             'Contratado',
             'Recebido',
@@ -86,7 +88,7 @@ class ExportViabilityToExcel implements
         // Prazo Obra (helper DaysLeft)
         $prazoObra = null;
         if ($viab->Note) {
-            $lastDateHelper = new \App\Helpers\DaysLeft($viab->Note);
+            $lastDateHelper = new DaysLeft($viab->Note);
             $prazoObra = $lastDateHelper->getLastDate();
         }
 
@@ -103,6 +105,9 @@ class ExportViabilityToExcel implements
 
             // Criticidade
             $viab->Note->txpriority ?? 'Normal',
+
+             // Cliente
+            $viab->Note->client ?? 'Normal',
 
             // Qtd Arquivos (da nota)
             $viab->Note->Files->count(),
