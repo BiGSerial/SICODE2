@@ -53,9 +53,9 @@
 
     </ul>
 
-    <div class="col-12">
+    {{-- <div class="col-12">
         @livewire('production.users.occupation-protests', key('production-protests-' . $service->uuid))
-    </div>
+    </div> --}}
 
 
 </aside>

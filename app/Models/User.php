@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -138,6 +140,111 @@ class User extends Authenticatable
         return $this->hasOne(ProtestUser::class);
     }
 
+
+    /**
+     * ESCOPO ESTÁTICO
+     */
+
+    // Retorna os níveis de profundidade disponíveis para um viewerId específico
+    public static function depthsAvailableFor(
+        string $viewerIdOrAncestorId,
+        bool $includeSelf = false,
+        bool $includeDelegations = true,
+        bool $includeDelegatesTreesForPrincipal = false
+    ): Collection {
+        $ancestorIds = static::visibleAncestorIdsFor(
+            $viewerIdOrAncestorId,
+            $includeDelegations,
+            $includeDelegatesTreesForPrincipal
+        );
+
+        return DB::table('user_closure as uc')
+            ->whereIn('uc.ancestor_id', $ancestorIds)
+            ->when(!$includeSelf, fn ($q) => $q->where('uc.depth', '>', 0))
+            ->distinct()
+            ->orderBy('uc.depth')
+            ->pluck('uc.depth')
+            ->map(fn ($d) => (int) $d)
+            ->values();
+    }
+
+    /** Query de usuários em um depth específico, a partir de um ancestor/viewer arbitrário */
+    public static function descendantsAtLevelFor(
+        string $viewerIdOrAncestorId,
+        int $depth,
+        bool $includeDelegations = true,
+        bool $includeDelegatesTreesForPrincipal = false
+    ): Builder {
+        $ancestorIds = static::visibleAncestorIdsFor(
+            $viewerIdOrAncestorId,
+            $includeDelegations,
+            $includeDelegatesTreesForPrincipal
+        );
+
+        return static::query()
+            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
+            ->whereIn('uc.ancestor_id', $ancestorIds)
+            ->where('uc.depth', $depth)
+            ->when(
+                in_array(SoftDeletes::class, class_uses_recursive(static::class)),
+                fn ($q) => $q->whereNull('users.deleted_at')
+            )
+            ->select('users.*')
+            ->distinct();
+    }
+
+    /** Monta o conjunto de ancestors “visíveis” para um viewer/ancestor arbitrário */
+    protected static function visibleAncestorIdsFor(
+        string $viewerIdOrAncestorId,
+        bool $includeDelegations = true,
+        bool $includeDelegatesTreesForPrincipal = false
+    ): Collection {
+        $ids = collect([$viewerIdOrAncestorId]);
+
+        if ($includeDelegations) {
+            // Quem delegou para este viewer
+            $principalIds = UserDelegation::query()
+                ->where('delegate_id', $viewerIdOrAncestorId)
+                ->pluck('principal_id');
+            $ids = $ids->merge($principalIds);
+        }
+
+        if ($includeDelegatesTreesForPrincipal) {
+            // Delegados deste viewer (se quiser incluir as árvores deles)
+            $delegateIds = UserDelegation::query()
+                ->where('principal_id', $viewerIdOrAncestorId)
+                ->pluck('delegate_id');
+            $ids = $ids->merge($delegateIds);
+        }
+
+        return $ids->unique()->values();
+    }
+
+
+
+    public static function usersAtDepthGlobal(int $depth): Builder
+    {
+        $rootIds = static::query()->whereNull('manager_id')->pluck('id');
+
+        return static::query()
+            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
+            ->whereIn('uc.ancestor_id', $rootIds) // <-- só caminhos a partir das raízes
+            ->where('uc.depth', $depth)
+            ->select('users.*')
+            ->distinct();
+    }
+
+    public static function depthsGlobal(bool $includeZero = false): \Illuminate\Support\Collection
+    {
+        return DB::table('user_closure as uc')
+            ->when(!$includeZero, fn ($q) => $q->where('uc.depth', '>', 0))
+            ->distinct()
+            ->orderBy('uc.depth')
+            ->pluck('uc.depth')
+            ->map(fn ($d) => (int) $d)
+            ->values();
+    }
+
     /* -------------------
        Relações de chefia
     --------------------*/
@@ -175,17 +282,70 @@ class User extends Authenticatable
     /**
      * Descendentes (Users) "abaixo" deste usuário (inclui ele mesmo se $includeSelf = true).
      */
-    public function descendantsQuery(bool $includeSelf = true)
-    {
+    public function descendantsQuery(
+        bool $includeSelf = true,
+        bool $includeDelegations = false,
+        bool $includeDelegatesTreesForPrincipal = false
+    ): Builder {
+        $ancestorIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
+
         $q = static::query()
             ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
-            ->where('uc.ancestor_id', $this->id);
+            ->whereIn('uc.ancestor_id', $ancestorIds)
+            ->when(!$includeSelf, fn ($q2) => $q2->where('uc.depth', '>', 0))
+            ->when(in_array(SoftDeletes::class, class_uses_recursive(static::class)), fn ($q2) => $q2->whereNull('users.deleted_at'))
+            ->select('users.*', 'uc.depth')
+            ->distinct();
 
-        if (!$includeSelf) {
-            $q->where('uc.depth', '>', 0);
+        return $q;
+    }
+
+    protected function visibleAncestorIds(bool $includeDelegations = true, bool $includeDelegatesTreesForPrincipal = false): Collection
+    {
+        // Começa sempre pelo próprio usuário
+        $ids = collect([$this->id]);
+
+        if ($includeDelegations) {
+            // Se eu sou DELEGADO, também enxergo as árvores de quem me delegou
+            // (UserDelegation: principal_id -> delegate_id = $this->id)
+            $principalIds = $this->delegationsReceived()->pluck('principal_id');
+            $ids = $ids->merge($principalIds);
         }
 
-        return $q->select('users.*')->distinct();
+        if ($includeDelegatesTreesForPrincipal) {
+            // Se eu sou o DELEGADOR e quero incluir as árvores dos meus delegados
+            // (UserDelegation: principal_id = $this->id -> delegate_id)
+            $delegateIds = $this->delegationsGiven()->pluck('delegate_id');
+            $ids = $ids->merge($delegateIds);
+        }
+
+        return $ids->unique()->values();
+    }
+
+
+    public function depthsAvailable(bool $includeSelf = false, bool $includeDelegations = true, bool $includeDelegatesTreesForPrincipal = false): Collection
+    {
+        $ancestorIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
+
+        return DB::table('user_closure as uc')
+            ->whereIn('uc.ancestor_id', $ancestorIds)
+            ->when(!$includeSelf, fn ($q) => $q->where('uc.depth', '>', 0))
+            ->distinct()
+            ->orderBy('uc.depth')
+            ->pluck('uc.depth');
+    }
+
+    public function descendantsAtLevel(int $depth, bool $includeDelegations = true, bool $includeDelegatesTreesForPrincipal = false): Builder
+    {
+        $ancestorIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
+
+        return static::query()
+            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
+            ->whereIn('uc.ancestor_id', $ancestorIds)
+            ->where('uc.depth', $depth)
+            ->when(in_array(SoftDeletes::class, class_uses_recursive(static::class)), fn ($q) => $q->whereNull('users.deleted_at'))
+            ->select('users.*')
+            ->distinct();
     }
 
     /**

@@ -1,40 +1,37 @@
 @php
-    $filters = [
-        [
-            'key' => 'type',
-            'label' => 'Tipo',
-            'type' => 'single',
-            'provider' => [
-                'type' => 'static',
-                'options' => [
-                    ['value' => 'OU', 'label' => 'Ouvidoria'],
-                    ['value' => 'NA', 'label' => 'Atendimento'],
-                    ['value' => 'PR', 'label' => 'Procon'],
-                ],
-            ],
-        ],
-        [
-            'key' => 'city',
-            'label' => 'Município',
-            'type' => 'multi',
-            'provider' => [
-                'type' => 'eloquent',
-                'model' => \App\Models\Protest::class,
-                'value' => 'cidade',
-                'label' => 'cidade',
-                'distinct' => true,
-                'orderBy' => ['cidade' => 'asc'],
-                'limit' => 300,
-            ],
-        ],
-        [
-            'key' => 'desired_between',
-            'label' => 'Desejada (de/até)',
-            'type' => 'daterange',
-            'include_nulls' => false,
-            'treat_zero_date_as_null' => false,
-        ],
-    ];
+
+    if (!function_exists('reduceName')) {
+        function reduceName(string $name, bool $first = false)
+        {
+            $name = explode(' ', $name);
+
+            if ($first) {
+                return $name[0];
+            }
+
+            return $name[0] . ' ' . end($name);
+        }
+    }
+
+    if (!function_exists('getWishDate')) {
+        function getWishDate($item)
+        {
+            if ($item->protest?->tipoNota == 'NA') {
+                return $item->protest->dtConclusaoDesej;
+            }
+            return $item->medProtest->dtFimMedidaDesej;
+        }
+    }
+
+    if (!function_exists('getApertureDate')) {
+        function getApertureDate($item)
+        {
+            if ($item->protest?->tipoNota == 'NA') {
+                return $item->protest->dtAberturaNota;
+            }
+            return $item->medProtest->dtCriacaoMedida;
+        }
+    }
 @endphp
 
 <div>
@@ -59,7 +56,54 @@
         </select>
     </div>
 
-    @livewire('components.filters.bar', ['config' => $filters, 'group' => 'protests', 'manualApply' => true], key('filters-bar'))
+    {{-- Filtros --}}
+    <div class="d-flex flex-wrap gap-3 mb-3 align-items-end">
+        <div>
+            <select class="form-select" id="filter1" wire:model="deep">
+                <option value="">Selecione...</option>
+                @foreach ($deepList as $d)
+                    <option value="{{ $d }}">Nível {{ $d }}</option>
+                @endforeach
+            </select>
+        </div>
+
+
+        <div>
+            <label for="filter2" class="form-label">Usuarios Superiores</label>
+            <select class="form-select" id="filter2" wire:model.defer="userViewer">
+                @if (!empty($userViewerList))
+                    <option value="" selected>Selecione um usuário</option>
+                    @foreach ($userViewerList as $id => $name)
+                        <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                @else
+                    <option value="" disabled selected>Selecione um nivel</option>
+                @endif
+            </select>
+        </div>
+
+
+        {{-- <div>
+            <label for="filter3" class="form-label">Filtro 3</label>
+            <select class="form-select" id="filter3" wire:model="filter3">
+                <option value="">Selecione...</option>
+                <option value="1">Opção 1</option>
+                <option value="2">Opção 2</option>
+                <option value="3">Opção 3</option>
+            </select>
+        </div> --}}
+
+        <div>
+            <button type="button" class="btn btn-primary" wire:click="applyFilters">
+                <i class="ri-search-line me-1"></i>
+                Aplicar
+            </button>
+            <button type="button" class="btn btn-primary" wire:click="cleanFilters">
+                <i class="ri-search-line me-1"></i>
+                Limpar
+            </button>
+        </div>
+    </div>
 
     {{-- Header da tabela / ações --}}
 
@@ -120,40 +164,7 @@
                         <th style="width:48px;"></th>
                     </tr>
                 </thead>
-                @php
-                    if (!function_exists('reduceName')) {
-                        function reduceName(string $name, bool $first = false)
-                        {
-                            $name = explode(' ', $name);
 
-                            if ($first) {
-                                return $name[0];
-                            }
-
-                            return $name[0] . ' ' . end($name);
-                        }
-                    }
-
-                    if (!function_exists('getWishDate')) {
-                        function getWishDate($item)
-                        {
-                            if ($item->protest?->tipoNota == 'NA') {
-                                return $item->protest->dtConclusaoDesej;
-                            }
-                            return $item->medProtest->dtFimMedidaDesej;
-                        }
-                    }
-
-                    if (!function_exists('getApertureDate')) {
-                        function getApertureDate($item)
-                        {
-                            if ($item->protest?->tipoNota == 'NA') {
-                                return $item->protest->dtAberturaNota;
-                            }
-                            return $item->medProtest->dtCriacaoMedida;
-                        }
-                    }
-                @endphp
                 <tbody>
                     @foreach ($lists as $item)
                         @php

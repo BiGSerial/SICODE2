@@ -75,6 +75,14 @@ class NotifyStatus
                     'bgcolor' => 'text-bg-info'
                 ];
 
+            case 8:
+                return (object) [
+                    'status' => 'Aviso de Vencimento',
+                    'icon' => 'bi bi-exclamation-circle',
+                    'color' => 'text-warning',
+                    'bgcolor' => 'text-bg-warning'
+                ];
+
             default:
                 return (object) [
                     'status' => 'Sem Status',

@@ -154,6 +154,17 @@ class ProtestJob extends Model
         return $q->where('status', $s->value);
     }
 
+    public function scopeWithSla($q)
+    {
+        return $q->whereNotNull('sla_due_at');
+    }
+
+    public function scopeOpenLike($q)
+    {
+
+        return $this->scopeOpen($q);
+    }
+
     /* ===================== TRANSIÇÕES ===================== */
 
     protected static array $allowed = [
@@ -320,6 +331,50 @@ class ProtestJob extends Model
                     'from_owner' => $old,
                     'to_owner'   => $newOwnerUuid,
                 ],
+                'occurred_at' => now(),
+            ]);
+        });
+    }
+
+    public function alreadyWarned(string $code): bool
+    {
+        return $this->events()
+            ->where('type', 'sla_warning')
+            ->where('meta->code', $code)
+            ->exists();
+    }
+
+    /**
+ * Registra evento de aviso de SLA.
+ */
+    public function logSlaWarning(string $code, array $extra = [], ?string $actorUuid = null): void
+    {
+        $this->events()->create([
+            'type'        => 'sla_warning',
+            'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
+            'meta'        => array_merge(['code' => $code], $extra),
+            'occurred_at' => now(),
+        ]);
+    }
+
+    /**
+     * Registra evento de estouro de SLA + carimba "sla_breached_at" (idempotente).
+     */
+    public function breachSla(?string $reason = null, ?string $actorUuid = null): void
+    {
+        if ($this->sla_breached_at) {
+            return; // já marcado
+        }
+
+        DB::transaction(function () use ($reason, $actorUuid) {
+            $this->update([
+                'sla_breached_at' => now(),
+            ]);
+
+            $this->events()->create([
+                'type'        => 'sla_breached',
+                'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
+                'meta'        => array_filter(['reason' => $reason]),
                 'occurred_at' => now(),
             ]);
         });
