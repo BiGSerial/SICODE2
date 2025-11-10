@@ -60,6 +60,7 @@ class ExportViabilityToExcel implements
             'Prazo Viabilidade',
             'Prazo Obra',
             'Rubrica',
+            'Material',
             'Região',
             'Município',
             'Status',
@@ -127,8 +128,11 @@ class ExportViabilityToExcel implements
             // Rubrica
             $viab->Note->rubrica ?? '',
 
+            // Material
+            $viab->Note->material ?? '',
+
             // Região
-            $viab->Note->City?->regiao ?? '',
+            $viab->note->City?->regiao ?? '',
 
             // Município
             $viab->Note->lexp ?? $viab->Note->City?->cidade ?? '',
