@@ -139,6 +139,7 @@
                             <th class="text-center align-middle">Prazo Viab</th>
                             <th class="text-center align-middle">Prazo Obra</th>
                             <th class="text-center align-middle">Rubrica</th>
+                            <th class="text-center align-middle">Material</th>
                             <th class="text-center align-middle">Regiao</th>
                             <th class="text-center align-middle">Municipio</th>
                             <th class="text-center align-middle">Status</th>
@@ -223,6 +224,9 @@
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $viability->note->rubrica }}
+                                </td>
+                                <td class="text-center align-middle">
+                                    {{ $viability->note->material }}
                                 </td>
                                 <td class="text-center align-middle">
                                     {{ $viability->note->City?->regiao }}

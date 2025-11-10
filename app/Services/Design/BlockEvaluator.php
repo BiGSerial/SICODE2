@@ -44,9 +44,9 @@ class BlockEvaluator
         }
 
         // ===== 5) Estados herdados
-        if ($prod->confirmed ?? false) {
-            return $this->res(self::HOLD_RED, true, 'prod_confirmed', $prod, $prodCount);
-        }
+        // if ($prod->confirmed ?? false) {
+        //     return $this->res(self::HOLD_RED, true, 'prod_confirmed', $prod, $prodCount);
+        // }
         if ($prod->completed ?? false) {
             return $this->res(self::HOLD_GREEN, false, 'prod_completed', $prod, $prodCount);
         }
