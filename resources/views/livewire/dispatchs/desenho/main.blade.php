@@ -601,7 +601,7 @@
                                     @else
                                         <span style="font-size: 11px" data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-title="Empresa responsável">{{ reduceName($user?->company->name) }}</span>
+                                            data-bs-title="Empresa responsável">{{ reduceName($user?->company?->name) }}</span>
                                     @endif
 
                                 </td>
