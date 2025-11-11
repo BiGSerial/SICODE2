@@ -69,6 +69,20 @@
                 </button>
 
             </div>
+            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                data-bs-trigger="hover focus" data-bs-placement="right"
+                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
+                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+                <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
+                    Somente D5
+                    @if ($filter_d5)
+                        <span class="badge text-bg-success">ON</span>
+                    @else
+                        <span class="badge text-bg-danger">OFF</span>
+                    @endif
+                </button>
+
+            </div>
         </div>
 
     </div>
@@ -164,6 +178,7 @@
                             <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Dias Informe</th>
+                            <th scope="col" class="fw-bold text-center">Dias D5</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
@@ -180,6 +195,12 @@
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
                                 $partial = $e['isPartial'];
+
+                                if ($list->FiveNote) {
+                                    $dateFive = Carbon::parse($list->FiveNote->completed_at);
+                                } else {
+                                    $dateFive = null;
+                                }
                             @endphp
 
 
@@ -321,6 +342,13 @@
                                         text-bg-warning @endif
                                     ">
                                     {{ $days_left }}
+                                </td>
+                                <td scope="col" class="text-center text-bg-info">
+                                    @if ($dateFive)
+                                        {{ $dateFive?->startOfDay()->diffInDays() }}
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->pze_parecer === 'Vencido')
