@@ -34,7 +34,6 @@ class ProtestJob extends Model
         'outcome',
         'close_reason',
         'notes',
-
         'need_evidence',
         'is_advance',
     ];
@@ -134,6 +133,11 @@ class ProtestJob extends Model
     public function events()
     {
         return $this->hasMany(ProtestJobEvent::class, 'protest_job_id');
+    }
+
+    public function Comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable');
     }
 
     /* ===================== SCOPES ===================== */

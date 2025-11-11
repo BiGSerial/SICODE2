@@ -33,6 +33,13 @@ class Monitoring extends Component
         sort($this->deepList);
     }
 
+    public function goTo($protestNote)
+    {
+        return redirect()->route('protests.dispatch.view', [
+            'protest' => $protestNote
+        ]);
+    }
+
     public function updatedDeep($value)
     {
         // reset quando limpar nível
@@ -64,7 +71,7 @@ class Monitoring extends Component
                 }
 
                 // pegue os ids de descendentes (incluindo o próprio) como array
-                $ownerIds = $user->descendantsQuery(true)->pluck('users.id')->toArray();
+                $ownerIds = $user->descendantsQuery(true, true)->pluck('users.id')->toArray();
 
                 // agrupe where/or para não “soltar” o orWhereNull
                 $q->where(function ($qq) use ($ownerIds) {

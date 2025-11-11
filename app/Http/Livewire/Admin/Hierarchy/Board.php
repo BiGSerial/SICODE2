@@ -37,11 +37,18 @@ class Board extends Component
     public ?string $dlg_to   = null;
     public string $dlg_reason = '';
 
+    public ?string $delegationId = null;
+
     protected $queryString = [
         'leftSearch'        => ['except' => ''],
         'treeSearch'        => ['except' => ''],
         'selectedManagerId' => ['except' => ''],
         'companyFilter'     => ['except' => ''],
+    ];
+
+    protected $listeners = [
+        '000_finalizeDelegation' => 'finalizeDelegation',
+        '000_removeDelegation'   => 'deleteDelegation',
     ];
 
     public function updated($propertyName)
@@ -524,6 +531,100 @@ class Board extends Component
             ];
         }
         return $map;
+    }
+
+    public function toFinalizeDelegation(string $delegationId): void
+    {
+        $this->delegationId = $delegationId;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Finalizar Delegação',
+            'msg'           => "Você deseja finalizar a Delegação do Usuário?</strong>?",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Finalize!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => '000_finalizeDelegation',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma delegação foi finalizada.',
+        ]);
+    }
+
+    public function finalizeDelegation(): void
+    {
+        if (!$this->delegationId) {
+            return;
+        }
+
+        try {
+            $d = \App\Models\UserDelegation::findOrFail($this->delegationId);
+
+            // Se já possui fim e já está inativa, apenas avisa
+            if ($d->valid_to && $d->valid_to->lt(now())) {
+                $this->dispatchBrowserEvent('toast', [
+                    'type' => 'info',
+                    'msg'  => 'Esta delegação já está finalizada.'
+                ]);
+                return;
+            }
+
+            // Define o fim para "agora - 1s" para não permanecer ativa (já que o filtro usa >= now())
+            $d->valid_to = now()->subSecond();
+            $d->save();
+
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'success',
+                'msg'  => 'Delegação finalizada.'
+            ]);
+            $this->emit('$refresh');
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'error',
+                'msg'  => 'Não foi possível finalizar a delegação: ' . $e->getMessage()
+            ]);
+        }
+
+        $this->delegationId = null;
+    }
+
+    public function toDeleteDelegation(string $delegationId): void
+    {
+        $this->delegationId = $delegationId;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Remover Delegação',
+            'msg'           => "Você deseja remover a Delegação do Usuário?</strong>?",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Remova!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => '000_removeDelegation',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma delegação foi finalizada.',
+        ]);
+    }
+
+    public function deleteDelegation(): void
+    {
+        if (!$this->delegationId) {
+            return;
+        }
+
+        try {
+            $d = \App\Models\UserDelegation::findOrFail($this->delegationId);
+            $d->delete();
+
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'success',
+                'msg'  => 'Delegação removida.'
+            ]);
+            $this->emit('$refresh');
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'error',
+                'msg'  => 'Não foi possível remover a delegação: ' . $e->getMessage()
+            ]);
+        }
+
+        $this->delegationId = null;
     }
 
     public function render()

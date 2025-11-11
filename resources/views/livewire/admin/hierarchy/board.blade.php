@@ -438,13 +438,35 @@
                 @else
                     @forelse($delegations as $d)
                         <div class="bg-dark border border-info rounded p-2 mb-2 text-white shadow-sm">
-                            <div class="small">Titular: <strong>{{ data_get($d, 'principal.name') }}</strong></div>
-                            <div class="small">Delegado: <strong>{{ data_get($d, 'delegate.name') }}</strong></div>
-                            <div class="small text-muted">
-                                {{ $d->valid_from->format('d/m/Y') }} —
-                                {{ $d->valid_to ? $d->valid_to->format('d/m/Y') : 'sem fim' }}
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                <div>
+                                    <div class="small">Titular: <strong>{{ data_get($d, 'principal.name') }}</strong>
+                                    </div>
+                                    <div class="small">Delegado: <strong>{{ data_get($d, 'delegate.name') }}</strong>
+                                    </div>
+                                    <div class="small text-muted">
+                                        {{ $d->valid_from->format('d/m/Y') }} —
+                                        {{ $d->valid_to ? $d->valid_to->format('d/m/Y') : 'sem fim' }}
+                                    </div>
+                                    <div class="small text-muted">Motivo: {{ $d->reason }}</div>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    {{-- Finalizar (encerra agora) --}}
+                                    <button class="btn btn-outline-warning btn-sm"
+                                        wire:click="toFinalizeDelegation('{{ $d->id }}')"
+                                        title="Finalizar agora esta delegação (deixa de ficar ativa)">
+                                        Finalizar
+                                    </button>
+
+                                    {{-- Remover (exclui o registro) --}}
+                                    <button class="btn btn-outline-danger btn-sm"
+                                        wire:click="toDeleteDelegation('{{ $d->id }}')"
+                                        title="Remover esta delegação definitivamente">
+                                        Remover
+                                    </button>
+                                </div>
                             </div>
-                            <div class="small text-muted">Motivo: {{ $d->reason }}</div>
                         </div>
                     @empty
                         <div class="text-white-50 text-center p-2">Nenhuma delegação ativa para este usuário.</div>

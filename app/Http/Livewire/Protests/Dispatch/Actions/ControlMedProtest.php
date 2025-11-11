@@ -61,6 +61,7 @@ class ControlMedProtest extends Component
         $this->priority = ProtestJobPriority::NORMAL->value;
     }
 
+
     /* ===================== ABRIR MODAL ===================== */
 
     public function openModProtestControl(MedProtest $modProtest)
@@ -257,6 +258,8 @@ class ControlMedProtest extends Component
 
                 'sla_due_at'     => $data['sla_due_at'] ?? null,
                 'notes'          => $data['notes'] ?? null,
+
+                'sent_at'        => now(),
             ]);
 
             if ($job->owner?->onlyparner) {
@@ -393,6 +396,11 @@ class ControlMedProtest extends Component
         $this->resetFormForNewJob();
         $this->modProtest  = null;
         $this->notePage    = 0;
+    }
+
+    public function cancelChanges()
+    {
+        
     }
 
 

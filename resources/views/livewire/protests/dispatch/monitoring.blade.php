@@ -212,7 +212,18 @@
                             <td>
                                 <div class="badge {{ $item->status_badge_class }}">{{ $item->status_label }}</div>
                             </td>
-                            <td style="width:48px;"></td>
+                            <td style="width:48px;">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" title="Visualizar"
+                                        wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $item->id }})">
+                                        <i class="ri-eye-line"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        wire:click="goTo({{ $item->protest?->nota }})" title="Seguir">
+                                        <i class="ri-bookmark-line"></i>
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -236,4 +247,7 @@
 
 
     {{-- Drawer lateral de detalhes --}}
+    @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
+
+    {{-- Modal de busca múltipla --}}
 </div>
