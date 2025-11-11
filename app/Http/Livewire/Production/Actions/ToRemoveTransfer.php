@@ -46,7 +46,8 @@ class ToRemoveTransfer extends Component
                 'status' => 2,
                 'completed' => false,
                 'completed_at' => null,
-                'blocked' => false,
+                'block' => false,
+                'block_wpa' => false,
             ]);
 
             $this->dispatchBrowserEvent('swal', [
