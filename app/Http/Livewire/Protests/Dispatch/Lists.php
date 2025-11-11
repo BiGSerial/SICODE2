@@ -34,6 +34,11 @@ class Lists extends Component
     // Filters
     public $filtersState = [];
 
+    // Filters
+    private $filter_group = 'protests';
+
+    private $filter;
+
 
     protected $queryString = [
         'type' => ['except' => '', 'as' => 'tipo'],
@@ -133,8 +138,22 @@ class Lists extends Component
         }
     }
 
+
+    public function baseQuery()
+    {
+        return Protest::query();
+    }
+
     public function getListsProperty()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
         $query = Protest::query()
             ->select('protests.*')
             ->selectRaw("
@@ -159,14 +178,10 @@ class Lists extends Component
             ")
             ->whereHas('medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
-                  ->orWhere(function ($q) {
-                      $q->where('needsConfirmation', true)
-                        ->where('completed', false);
-                  });
+                   ->whereDoesntHave('ProtestJobs');
             });
 
-        // Filtros dinâmicos do componente (mantido do seu código)
-        $this->applyFilters($query, $this->filtersState, $this->filtersMap());
+
 
         // Busca simples
         $query->when($this->search, function ($query) {

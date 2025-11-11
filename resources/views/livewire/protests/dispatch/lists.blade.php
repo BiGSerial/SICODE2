@@ -1,47 +1,5 @@
 @php
-    $filters = [
-        [
-            'key' => 'type',
-            'label' => 'Tipo',
-            'type' => 'single',
-            'provider' => [
-                'type' => 'static',
-                'options' => [
-                    ['value' => 'OU', 'label' => 'Ouvidoria'],
-                    ['value' => 'NA', 'label' => 'Atendimento'],
-                    ['value' => 'PR', 'label' => 'Procon'],
-                ],
-            ],
-        ],
-        [
-            'key' => 'city',
-            'label' => 'Município',
-            'type' => 'multi',
-            'provider' => [
-                'type' => 'eloquent',
-                'model' => \App\Models\Protest::class,
-                'value' => 'cidade',
-                'label' => 'cidade',
-                'distinct' => true,
-                'orderBy' => ['cidade' => 'asc'],
-                'limit' => 300,
-            ],
-        ],
 
-        // [
-        //     'key' => 'search',
-        //     'label' => 'Pesquisar Nota',
-        //     'type' => 'text',
-        //     'placeholder' => 'Nº da Nota...',
-        // ],
-        [
-            'key' => 'desired_between',
-            'label' => 'Desejada (de/até)',
-            'type' => 'daterange',
-            'include_nulls' => false,
-            'treat_zero_date_as_null' => false,
-        ],
-    ];
 @endphp
 
 <div>
@@ -64,9 +22,16 @@
             <option value="50">50</option>
             <option value="100">100</option>
         </select>
+
+        @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'protests', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
+        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'protests', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'protests', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+        @livewire('components.filter.remove-all', ['group_filter' => 'protests'], key('removeAll'))
     </div>
 
-    @livewire('components.filters.bar', ['config' => $filters, 'group' => 'protests', 'manualApply' => true], key('filters-bar'))
+
+
+
     {{-- Header da tabela / ações --}}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0 text-uppercase d-flex align-items-center gap-2">
