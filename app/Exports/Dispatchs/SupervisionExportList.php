@@ -78,7 +78,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Tipo','Note', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Data ADS', 'Informado Em', 'Prazo ADS', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
+            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Data ADS', 'Informado Em', 'Prazo ADS', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
         ];
     }
 
@@ -111,7 +111,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             }
         }
 
-
+        $notaD5 = $row->FiveNote ?? null;
 
         $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
 
@@ -167,6 +167,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         return [
             $informe,
             $row->note,
+            $notaD5 ? $notaD5->note_d5 : '---',
             $ordens,
             $dd,
             $ads ? 'SIM' : 'NÃO',
@@ -184,6 +185,12 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             "R$ ".number_format($sumOrders, 2, ',', '.'),
             $row->type_note == 2 ? $row->nstats : $row->centerjob,
             $diasInforme,
+            $notaD5 && $notaD5->completed_at ? $notaD5->completed_at->startOfDay()->diffInDays(Carbon::now(), false) : '---',
+            $notaD5 ? ($notaD5->created_at ? $notaD5->created_at->format('d/m/Y H:i:s') : '---') : '---',
+            $notaD5 ? ($notaD5->dispatch_at ? $notaD5->dispatch_at->format('d/m/Y H:i:s') : '---') : '---',
+            $notaD5 ? ($notaD5->completed_at ? $notaD5->completed_at->format('d/m/Y H:i:s') : '---') : '---',
+            $notaD5 ? ($notaD5->name ? $notaD5->name : '---') : '---',
+            $notaD5 && $notaD5->company ? $notaD5->company->name : '---',
             $status,
             $production?->dispatch_at->format('d/m/Y H:i:s'),
             $production?->att_at->format('d/m/Y H:i:s'),
@@ -218,8 +225,9 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
                     ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
                 $sheet->getStyle('A:Z')->getAlignment()->setWrapText(true);
+                $lastCol   = $sheet->getHighestColumn();
 
-                $event->sheet->getStyle('A1:X1')->applyFromArray([
+                $event->sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
                     'font' => [
                     'bold'  => true,
                     'color' => ['rgb' => 'FFFFFF'],

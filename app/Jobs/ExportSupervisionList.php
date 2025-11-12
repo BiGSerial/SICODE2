@@ -93,6 +93,12 @@ class ExportSupervisionList implements ShouldQueue
             });
         }
 
+        if (!empty($this->params['filterD5'])) {
+            $query->where(function ($q) {
+                $q->whereHas('FiveNote');
+            });
+        }
+
         if (!empty($this->params['filter']['rubrica'])) {
             $query->whereIn('rubrica', $this->params['filter']['rubrica']);
         }

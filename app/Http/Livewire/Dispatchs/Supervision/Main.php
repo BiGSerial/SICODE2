@@ -82,6 +82,7 @@ class Main extends Component
 
     //Botão de exibição de nao atribuído
     public $not_assigned = false;
+    public $filter_d5 = false;
 
     // Filters
     private $filter_group = 'supervision';
@@ -234,6 +235,7 @@ class Main extends Component
             'filter'      => $this->filter,
             'serviceUuid' => $this->service->uuid,
             'user_id'     => auth()->user()->id,
+            'filterD5'     => $this->filter_d5,
         ]);
 
         $this->dispatchBrowserEvent('swal', [
@@ -1086,6 +1088,11 @@ class Main extends Component
         }
     }
 
+    public function filterD5()
+    {
+        $this->filter_d5 = !$this->filter_d5;
+    }
+
 
     public function getListsProperty()
     {
@@ -1153,6 +1160,12 @@ class Main extends Component
                         $subquery->where('service_id', $this->service->uuid)
                             ->where('confirmed', false);
                     });
+            });
+        }
+
+        if ($this->filter_d5) {
+            $query->where(function ($q) {
+                $q->whereHas('FiveNote');
             });
         }
 
