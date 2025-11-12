@@ -291,6 +291,26 @@ class View extends Component
         $this->expandedJobs[$medProtestId] = !($this->expandedJobs[$medProtestId] ?? false);
     }
 
+
+    public function finishJob($jobId)
+    {
+        $job = DB::table('protest_jobs')->where('id', $jobId)->first();
+
+        if ($job) {
+            DB::table('protest_jobs')->where('id', $jobId)->update([
+                'completed' => true,
+                'completed_at' => now(),
+            ]);
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Tarefa concluída com sucesso!',
+            ]);
+
+            $this->emit('refreshComponent');
+        }
+    }
+
     public function render()
     {
         return view('livewire.protests.dispatch.view');

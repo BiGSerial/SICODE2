@@ -1140,17 +1140,17 @@
                                                                 </button>
                                                                 <button class="btn btn-outline-success job-action-btn"
                                                                     title="Marcar como concluída"
-                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'finishJob', {{ $job->id }})">
+                                                                    wire:click.prevent="approveMed({{ $job->medProtest->id }})">
                                                                     <i class="ri-check-line"></i>
                                                                 </button>
                                                                 <button class="btn btn-outline-warning job-action-btn"
                                                                     title="Reabrir atividade"
-                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'reopenJob', {{ $job->id }})">
+                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'reopenJob', {{ $job->medProtest->id }})">
                                                                     <i class="ri-refresh-line"></i>
                                                                 </button>
                                                                 <button class="btn btn-outline-danger job-action-btn"
                                                                     title="Cancelar atividade"
-                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'cancelJob', {{ $job->id }})">
+                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'cancelJob', {{ $job->medProtest->id }})">
                                                                     <i class="ri-close-line"></i>
                                                                 </button>
                                                             </div>
