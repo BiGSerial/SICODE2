@@ -1,37 +1,54 @@
-{{-- resources/views/exports/levantamento.blade.php --}}
+{{-- resources/views/exports/dispatchs/surveyStack.blade.php --}}
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Custom\WpaStatus;
 
+    /** Normaliza para Carbon|null (aceita Carbon|string|null) */
+    if (!function_exists('toCarbon')) {
+        function toCarbon($v): ?Carbon
+        {
+            if (empty($v)) {
+                return null;
+            }
+            if ($v instanceof Carbon) {
+                return $v;
+            }
+            try {
+                return Carbon::parse($v);
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+    }
+
+    /** Cor por prazo (verde ≤70% do limite, amarelo entre 70% e limite, vermelho > limite) */
+    if (!function_exists('getColor')) {
+        function getColor($date, int $limit): string
+        {
+            $d = toCarbon($date)?->startOfDay();
+            if (!$d) {
+                return '#ffffff';
+            }
+            $diff = $d->diffInDays(Carbon::now()->startOfDay());
+            $warn = (int) ceil($limit * 0.7);
+            return $diff > $limit ? '#f8d7da' : ($diff <= $warn ? '#d1e7dd' : '#fff3cd');
+        }
+    }
+
+    /** Nome curto do usuário */
     if (!function_exists('shortUser')) {
-        function shortUser($name)
+        function shortUser($name): string
         {
             if (empty($name)) {
                 return 'Desconhecido';
             }
-            $parts = explode(' ', trim($name));
+            $parts = preg_split('/\s+/', trim((string) $name));
             return $parts[0] . ' ' . (count($parts) > 1 ? end($parts) : '');
         }
     }
 
-    if (!function_exists('getColor')) {
-        function getColor($dateField, int $limit)
-        {
-            if (!$dateField) {
-                return '#ffffff';
-            }
-            $diff = Carbon::parse($dateField)
-                ->startOfDay()
-                ->diffInDays(Carbon::now()->startOfDay());
-            $warn = ceil($limit * 0.7);
-            return $diff > $limit
-                ? '#f8d7da' // vermelho claro
-                : ($diff <= $warn
-                    ? '#d1e7dd'
-                    : '#fff3cd'); // verde ou amarelo
-        }
-    }
+    $agora = Carbon::now()->startOfDay();
 @endphp
 
 <!DOCTYPE html>
@@ -45,15 +62,6 @@
             font-family: 'DejaVu Sans', Arial, sans-serif;
             font-size: 12px;
             color: #222;
-        }
-
-        h2 {
-            text-align: center;
-            margin-bottom: 8px;
-        }
-
-        p {
-            margin: 2px 0;
         }
 
         table {
@@ -76,16 +84,8 @@
             font-weight: bold;
         }
 
-        .text-left {
-            text-align: left;
-        }
-
         .fw-bold {
             font-weight: bold;
-        }
-
-        .small {
-            font-size: 11px;
         }
     </style>
 </head>
@@ -94,14 +94,12 @@
     <table>
         <thead>
             <tr>
-
                 <th>Nota</th>
                 <th>DD / Status WPA</th>
                 <th>Rubrica</th>
                 <th>Município</th>
                 <th>Grupo 2</th>
                 <th>Usuário</th>
-
                 <th>Prazo Real</th>
                 <th>Prazo (dias)</th>
                 <th>Em Despacho</th>
@@ -111,65 +109,76 @@
                 <th>Status Produção</th>
             </tr>
         </thead>
-
         <tbody>
             @foreach ($lists as $item)
                 @php
-                    // Cores por data
-                    $colorPrazo = getColor($item->dt_created, 30);
-                    $colorDispatch = getColor($item->dispatch_at, 30);
-                    $colorAtt = getColor($item->att_at, 9);
+                    // Usar relação NOTE (sem alias) — dt_created vem do Note com cast (recomendado no Model Note)
+                    $dtCreated = toCarbon($item->note?->dt_created);
+                    $dispatchAt = toCarbon($item->dispatch_at); // tem cast no Production
+                    $attAt = toCarbon($item->att_at); // tem cast no Production
 
+                    // Cores
+                    $colorPrazo = getColor($dtCreated, 30);
+                    $colorDispatch = getColor($dispatchAt, 30);
+                    $colorAtt = getColor($attAt, 9);
+
+                    // WPA (último registro)
+                    $lastWpa = optional($item->wpas)->last();
                     $wpa = WpaStatus::status(
-                        $item->wpas?->last()?->dd,
-                        $item->wpas?->last()?->execstats,
-                        $item->wpas?->last()?->completed_at,
+                        $lastWpa->dd ?? null,
+                        $lastWpa->execstats ?? null,
+                        $lastWpa->completed_at ?? null,
                     );
                 @endphp
 
                 <tr>
-
                     <td class="fw-bold">{{ $item->note?->note }}</td>
+
                     <td>
-                        {{ $item->wpas?->last()?->dd }}
+                        {{ $lastWpa->dd ?? '' }}
+                        {{-- Ex.: {{ $wpa->label ?? '' }} --}}
                     </td>
+
                     <td>{{ $item->note?->rubrica ?? '---' }}</td>
                     <td>{{ $item->note?->lexp ?? '---' }}</td>
                     <td>{{ $item->note?->group2 ?? '---' }}</td>
                     <td>{{ shortUser($item->user?->name ?? '') }}</td>
 
-                    {{-- Última atualização --}}
-
-
-                    {{-- Prazo real --}}
+                    {{-- Prazo real: dt_created + 30 --}}
                     <td style="background-color: {{ $colorPrazo }}">
-                        {{ $item->dt_created ? Carbon::parse($item->dt_created)->addDays(30)->format('d/m/Y') : '---' }}
+                        {{ $dtCreated ? $dtCreated->copy()->addDays(30)->format('d/m/Y') : '---' }}
                     </td>
-                    <td>{{ $item->dt_created ? $item->dt_created->diffInDays(Carbon::now()) . ' dias' : '---' }}</td>
+
+                    {{-- Prazo (dias) desde dt_created --}}
+                    <td>
+                        @php $diffPrazo = $dtCreated ? $dtCreated->startOfDay()->diffInDays($agora) : null; @endphp
+                        {{ $diffPrazo !== null ? $diffPrazo . ' dias' : '---' }}
+                    </td>
+
                     {{-- Em despacho --}}
                     <td style="background-color: {{ $colorDispatch }}">
-                        {{ $item->dispatch_at ? Carbon::parse($item->dispatch_at)->format('d/m/Y') : '---' }}
+                        {{ $dispatchAt ? $dispatchAt->format('d/m/Y') : '---' }}
                     </td>
-
-                    <td>{{ $item->dispatch_at ? $item->dispatch_at->diffInDays(Carbon::now()) . ' dias' : '---' }}</td>
+                    <td>
+                        @php $diffDispatch = $dispatchAt ? $dispatchAt->startOfDay()->diffInDays($agora) : null; @endphp
+                        {{ $diffDispatch !== null ? $diffDispatch . ' dias' : '---' }}
+                    </td>
 
                     {{-- Em atendimento --}}
                     <td style="background-color: {{ $colorAtt }}">
-                        {{ $item->att_at ? Carbon::parse($item->att_at)->format('d/m/Y') : '---' }}
+                        {{ $attAt ? $attAt->format('d/m/Y') : '---' }}
                     </td>
-
-                    <td>{{ $item->att_at ? $item->att_at->diffInDays(Carbon::now()) . ' dias' : '---' }}</td>
-
-                    {{-- Status geral --}}
                     <td>
-                        {{ Notestatus::status($item->status)->status ?? '---' }}
+                        @php $diffAtt = $attAt ? $attAt->startOfDay()->diffInDays($agora) : null; @endphp
+                        {{ $diffAtt !== null ? $diffAtt . ' dias' : '---' }}
                     </td>
+
+                    {{-- Status geral da produção --}}
+                    <td>{{ Notestatus::status($item->status)->status ?? '---' }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
-
-
 </body>
 
 </html>

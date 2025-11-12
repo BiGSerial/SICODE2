@@ -62,7 +62,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function map($row): array
     {
         // Evita Carbon::parse quando já são instâncias de Carbon (tipicamente são)
-        $city = $this->cities->firstWhere('rdMunicipio', $row->Note->nexp);
+        // $city = $this->cities->firstWhere('rdMunicipio', $row->Note?->nexp);
 
 
 
@@ -126,8 +126,8 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->group5,
             $row->Note->material,
             $row->Note->lexp,
-            $city?->centro ?? '',
-            $city?->baseConstrucao ?? '',
+            $row->Note->city?->centro ?? '',
+            $row->Note->city?->baseConstrucao ?? '',
             $row->dt_note?->format('d/m/Y H:i:s'),
             $row->dispatch_at?->format('d/m/Y H:i:s'),
             $row->att_at?->format('d/m/Y H:i:s'),
