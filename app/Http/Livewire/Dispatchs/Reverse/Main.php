@@ -523,7 +523,8 @@ class Main extends Component
         } else {
             $query->where(function ($q) {
                 $q->where('nstats', 2)
-                ->orWhere('nstats', 21);
+                ->orWhere('nstats', 21)
+                ->orWhere('nstats', 4);
             });
         }
 
