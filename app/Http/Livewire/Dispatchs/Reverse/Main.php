@@ -93,6 +93,7 @@ class Main extends Component
     public $not_assigned = false;
     public $mmgd = false;
 
+
     // Filters
     private $filter_group = 'analises';
 

@@ -7,6 +7,7 @@ use App\Models\EvidenceFile;
 use App\Models\MedProtest;
 use App\Models\Noteable;
 use App\Models\Protest;
+use App\Models\ProtestJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -24,6 +25,7 @@ class View extends Component
     public $files;
     public $protestTemp;
     public $medProtest;
+    public $jobTemp;
 
     public $expandedJobs = [];
 
@@ -32,6 +34,8 @@ class View extends Component
         'removeComment172030' => 'removeComment',
         'FinishMedProtest172030' => 'finishMedProtes',
         'Reject172030' => 'rejectMed',
+        'confirmJob172030' => 'confirmJob',
+        'cancelJob172030' => 'cancelJob',
     ];
 
     public function mount(Request $request)
@@ -215,7 +219,7 @@ class View extends Component
 
     public function finishMedProtes()
     {
-       if ($this->protestTemp) {
+        if ($this->protestTemp) {
             $this->protestTemp->update(['completed' => true, 'completed_at' => now()]);
 
             $this->protestTemp->comments()->create([
@@ -289,6 +293,84 @@ class View extends Component
     public function toggleJobs($medProtestId)
     {
         $this->expandedJobs[$medProtestId] = !($this->expandedJobs[$medProtestId] ?? false);
+    }
+
+    public function toConfirmJob(ProtestJob $job)
+    {
+        $this->jobTemp = $job;
+
+        if ($this->jobTemp) {
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Deseja Confirmar a Tarefa?',
+                'msg'   => "
+                Você está prestes a confirmar a tarefa?
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Confirme!',
+                'btnCanceltxt'  => 'Não, Cancele!',
+                'action'        => 'confirmJob172030',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma ação realizada.',
+
+            ]);
+        }
+    }
+
+    public function confirmJob()
+    {
+        if ($this->jobTemp) {
+
+            $this->jobTemp->confirmJob();
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Tarefa confirmada com sucesso!',
+            ]);
+
+            $this->jobTemp = null;
+
+            $this->emit('refreshComponent');
+        }
+    }
+
+    public function toCancelJob(ProtestJob $job)
+    {
+        $this->jobTemp = $job;
+
+        if ($this->jobTemp) {
+
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Deseja Cancelar a Tarefa?',
+                'msg'   => "
+                Você está prestes a cancelar a tarefa?
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Cancele!',
+                'btnCanceltxt'  => 'Não!',
+                'action'        => 'cancelJob172030',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma ação realizada.',
+
+            ]);
+        }
+    }
+
+    public function cancelJob()
+    {
+        if ($this->jobTemp) {
+
+            $this->jobTemp->cancelJob("Atividade cancelada pelo usuário ".auth()->user()->name);
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Tarefa cancelada com sucesso!',
+            ]);
+
+            $this->jobTemp = null;
+
+            $this->emit('refreshComponent');
+        }
     }
 
 

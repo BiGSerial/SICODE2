@@ -1,4 +1,25 @@
 <div>
+    @php
+        if (!function_exists('reduceName')) {
+            function reduceName($name, bool $first = false)
+            {
+                $partName = explode(' ', trim($name));
+                if (count($partName) === 0) {
+                    return '';
+                }
+
+                if (count($partName) === 1) {
+                    return $name;
+                }
+
+                if ($first) {
+                    return $partName[0];
+                }
+
+                return $partName[0] . ' ' . end($partName);
+            }
+        }
+    @endphp
     {{-- Modal dentro do componente --}}
     <div class="modal fade" id="protestJobViewModal" tabindex="-1" wire:ignore.self>
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -67,7 +88,7 @@
                                                         <div class="text-muted">Dono</div>
                                                         <div class="fw-semibold text-truncate"
                                                             title="{{ $job->owner?->name ?? '—' }}">
-                                                            {{ $job->owner?->name ?? '—' }}
+                                                            {{ reduceName($job->owner?->name) ?? '—' }}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -80,7 +101,7 @@
                                                         <div class="text-muted">Criador</div>
                                                         <div class="fw-semibold text-truncate"
                                                             title="{{ $job->creator?->name ?? '—' }}">
-                                                            {{ $job->creator?->name ?? '—' }}
+                                                            {{ reduceName($job->creator?->name) ?? '—' }}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -107,7 +128,7 @@
                                             </li>
                                             <li
                                                 class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-flag-checkered me-2 text-secondary"></i>Fim</span>
+                                                <span><i class="bi bi-flag-fill me-2 text-secondary"></i>Fim</span>
                                                 <span class="fw-semibold">{{ $fmt($job->finished_at) }}</span>
                                             </li>
                                             <li
@@ -116,7 +137,16 @@
                                                     por</span>
                                                 <span class="fw-semibold text-truncate"
                                                     title="{{ $job->closer?->name ?? '—' }}">
-                                                    {{ $job->closer?->name ?? '—' }}
+                                                    {{ reduceName($job->closer?->name) ?? '—' }}
+                                                </span>
+                                            </li>
+                                            <li
+                                                class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i
+                                                        class="bi bi-check-circle me-2 text-secondary"></i>Confirmado</span>
+                                                <span class="fw-semibold text-truncate"
+                                                    title="{{ $job->confirmed_at?->format('d/m/Y H:i') ?? '—' }}">
+                                                    {{ $job->confirmed_at?->format('d/m/Y H:i') ?? '—' }}
                                                 </span>
                                             </li>
                                         </ul>
@@ -242,26 +272,29 @@
                             <div class="col-12 col-lg-8">
                                 <ul class="nav nav-tabs" role="tablist">
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" data-bs-toggle="tab"
-                                            data-bs-target="#pj-tab-protest" type="button" role="tab">
-                                            Protest / Nota
+                                        <button class="nav-link {{ $tabIndex === 0 ? 'active' : '' }}"
+                                            data-bs-toggle="tab" data-bs-target="#pj-tab-protest" type="button"
+                                            role="tab" wire:click.prevent="$set('tabIndex', 0)">
+                                            Nota
                                         </button>
                                     </li>
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pj-tab-med"
-                                            type="button" role="tab">
-                                            MedProtest
+                                        <button class="nav-link {{ $tabIndex === 1 ? 'active' : '' }}"
+                                            data-bs-toggle="tab" data-bs-target="#pj-tab-med" type="button"
+                                            role="tab" wire:click.prevent="$set('tabIndex', 1)">
+                                            Medida
                                         </button>
                                     </li>
-                                    <li class="nav-item" role="presentation">
+                                    <li class="nav-item {{ $tabIndex === 2 ? 'active' : '' }}" role="presentation">
                                         <button class="nav-link" data-bs-toggle="tab"
-                                            data-bs-target="#pj-tab-timeline" type="button" role="tab">
+                                            data-bs-target="#pj-tab-timeline" type="button" role="tab"
+                                            wire:click.prevent="$set('tabIndex', 2)">
                                             Timeline
                                         </button>
                                     </li>
-                                    <li class="nav-item" role="presentation">
+                                    <li class="nav-item {{ $tabIndex === 3 ? 'active' : '' }}" role="presentation">
                                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pj-tab-msg"
-                                            type="button" role="tab">
+                                            type="button" role="tab" wire:click.prevent="$set('tabIndex', 3)">
                                             Mensagens
                                         </button>
                                     </li>
@@ -269,7 +302,8 @@
 
                                 <div class="tab-content bg-white border border-top-0 p-3">
                                     {{-- ================== TAB: PROTEST ================== --}}
-                                    <div class="tab-pane fade show active" id="pj-tab-protest" role="tabpanel">
+                                    <div class="tab-pane fade {{ $tabIndex === 0 ? 'show active' : '' }}"
+                                        id="pj-tab-protest" role="tabpanel">
                                         @if ($protest)
                                             <div class="row g-3">
                                                 {{-- KPIs do Protest --}}
@@ -392,14 +426,15 @@
                                     </div>
 
                                     {{-- ================== TAB: MEDPROTEST ================== --}}
-                                    <div class="tab-pane fade" id="pj-tab-med" role="tabpanel">
+                                    <div class="tab-pane fade {{ $tabIndex === 1 ? 'show active' : '' }}"
+                                        id="pj-tab-med" role="tabpanel">
                                         @if ($medProtest)
                                             <div class="row g-3">
                                                 {{-- KPIs da MedProtest --}}
                                                 <div class="col-12">
                                                     <div class="card border-0 shadow-sm">
                                                         <div class="card-header bg-white">
-                                                            <strong>Dados da MedProtest</strong>
+                                                            <strong>Dados da Medida #{{ $medProtest->med_id }}</strong>
                                                         </div>
                                                         <div class="card-body small">
                                                             <div class="row g-2">
@@ -501,7 +536,8 @@
                                     </div>
 
                                     {{-- ================== TAB: TIMELINE (cards semânticos) ================== --}}
-                                    <div class="tab-pane fade" id="pj-tab-timeline" role="tabpanel">
+                                    <div class="tab-pane fade {{ $tabIndex === 2 ? 'show active' : '' }}"
+                                        id="pj-tab-timeline" role="tabpanel">
                                         @forelse($timeline as $t)
                                             @if ($t['kind'] === 'event')
                                                 @php($c = $t['card'])
@@ -576,7 +612,8 @@
                                     </div>
 
                                     {{-- ================== TAB: MENSAGENS ================== --}}
-                                    <div class="tab-pane fade" id="pj-tab-msg" role="tabpanel">
+                                    <div class="tab-pane fade {{ $tabIndex === 3 ? 'show active' : '' }}"
+                                        id="pj-tab-msg" role="tabpanel">
                                         <div class="row g-2">
                                             <div class="col-12 col-md-4">
                                                 <label class="form-label small">Destino</label>

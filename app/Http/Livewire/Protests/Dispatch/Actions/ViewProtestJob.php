@@ -11,6 +11,9 @@ class ViewProtestJob extends Component
 {
     public ?string $jobId = null;
 
+    // UI/UX state
+    public int $tabIndex = 0;
+
     // Objetos carregados
     public ?ProtestJob $job = null;
     public $protest = null;

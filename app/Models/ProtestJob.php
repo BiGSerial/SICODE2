@@ -36,6 +36,8 @@ class ProtestJob extends Model
         'notes',
         'need_evidence',
         'is_advance',
+        'confirmed',
+        'confirmed_at',
     ];
 
     protected $casts = [
@@ -58,6 +60,8 @@ class ProtestJob extends Model
 
         'need_evidence'     => 'boolean',
         'is_advance'        => 'boolean',
+        'confirm'           => 'boolean',
+        'confirmed_at'      => 'datetime',
     ];
 
     protected static function booted(): void
@@ -129,6 +133,8 @@ class ProtestJob extends Model
     {
         return $this->belongsTo(User::class, 'closed_by');
     }
+
+    
 
     public function events()
     {
@@ -291,9 +297,11 @@ class ProtestJob extends Model
         ]);
     }
 
-    public function finish(array $outcome = []): void
+    public function finish(array $outcome = [], ?string $reason = null): void
     {
         $extra = [];
+        $extra['close_reason'] = $reason;
+
         if ($outcome) {
             $extra['outcome'] = $outcome;
         }
@@ -305,6 +313,7 @@ class ProtestJob extends Model
     {
         $this->transitionTo(ProtestJobStatus::CANCELED, [
             'reason' => $reason,
+            'close_reason' => $this->close_reason ?? $reason,
         ]);
     }
 
@@ -339,6 +348,26 @@ class ProtestJob extends Model
             ]);
         });
     }
+
+    public function confirmJob(?string $actorUuid = null): void
+    {
+        $this->update([
+            'confirmed' => true,
+            'confirmed_at' => now(),
+        ]);
+
+        $this->events()->create([
+                'type'        => 'confirm_job',
+                'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
+                'meta'        => [
+                    'confirmed' => true,
+                    'message' => 'Job confirmado e aceito pelo responsável',
+                ],
+                'occurred_at' => now(),
+            ]);
+    }
+
+
 
     public function alreadyWarned(string $code): bool
     {

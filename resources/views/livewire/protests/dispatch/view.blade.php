@@ -1133,26 +1133,45 @@
                                                             </div>
 
                                                             <div class="d-flex align-items-center gap-1">
-                                                                <button class="btn btn-outline-primary job-action-btn"
-                                                                    title="Editar atividade"
-                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'openJobEditor', {{ $job->id }})">
-                                                                    <i class="ri-pencil-line"></i>
+                                                                <button class="btn btn-outline-info job-action-btn"
+                                                                    title="Visualizar atividade"
+                                                                    wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $job->id }})">
+                                                                    <i class="ri-eye-line"></i>
                                                                 </button>
-                                                                <button class="btn btn-outline-success job-action-btn"
-                                                                    title="Marcar como concluída"
-                                                                    wire:click.prevent="approveMed({{ $job->medProtest->id }})">
-                                                                    <i class="ri-check-line"></i>
-                                                                </button>
-                                                                <button class="btn btn-outline-warning job-action-btn"
-                                                                    title="Reabrir atividade"
-                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'reopenJob', {{ $job->medProtest->id }})">
-                                                                    <i class="ri-refresh-line"></i>
-                                                                </button>
-                                                                <button class="btn btn-outline-danger job-action-btn"
-                                                                    title="Cancelar atividade"
-                                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'cancelJob', {{ $job->medProtest->id }})">
-                                                                    <i class="ri-close-line"></i>
-                                                                </button>
+                                                                @if (!$job->confirmed)
+                                                                    <button
+                                                                        class="btn btn-outline-primary job-action-btn"
+                                                                        title="Editar atividade"
+                                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'openJobEditor', {{ $job->id }})"
+                                                                        @disabled($job->status->value === 'done')>
+                                                                        <i class="ri-pencil-line"></i>
+                                                                    </button>
+                                                                    <button
+                                                                        class="btn btn-outline-success job-action-btn"
+                                                                        title="Marcar como concluída"
+                                                                        wire:click.prevent="toConfirmJob({{ $job->id }})"
+                                                                        @disabled($job->status->value !== 'done')>
+
+                                                                        <i class="ri-check-line"></i>
+
+                                                                    </button>
+
+
+                                                                    <button
+                                                                        class="btn btn-outline-warning job-action-btn"
+                                                                        title="Reabrir atividade"
+                                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'reopenJob', {{ $job->medProtest->id }})"
+                                                                        @disabled($job->status->value !== 'done')>
+                                                                        <i class="ri-refresh-line"></i>
+                                                                    </button>
+                                                                    <button
+                                                                        class="btn btn-outline-danger job-action-btn"
+                                                                        title="Cancelar atividade"
+                                                                        wire:click.prevent="toCancelJob({{ $job->id }})"
+                                                                        @disabled($job->status->value === 'cancelled')>
+                                                                        <i class="ri-close-line"></i>
+                                                                    </button>
+                                                                @endif
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1324,4 +1343,5 @@
     @livewire('protests.dispatch.actions.add-notes-relation', key('add-notes-relation-' . $protest->id))
     @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest-' . $protest->id))
     @livewire('protests.dispatch.actions.edit-control-med-protest', key('edit-control-med-protest-' . $protest->id))
+    @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
 </div>
