@@ -55,6 +55,16 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
             border-color: #143f47;
 
         }
+
+        .avatar-circle {
+            width: var(--avatar-size, 120px) !important;
+            height: var(--avatar-size, 120px) !important;
+            min-width: var(--avatar-size, 120px) !important;
+            min-height: var(--avatar-size, 120px) !important;
+            object-fit: cover;
+            border-radius: 50% !important;
+            display: inline-block;
+        }
     </style>
 
 
@@ -138,18 +148,25 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                 {{-- USER MENU --}}
                 <li class="nav-item mx-2">
                     <div class="dropdown  d-flex align-items-center">
+                        @php
+                            $authUser = auth()->user();
+                            $navDelegations = $authUser?->delegationsReceived()->active()->with('principal')->get();
+                            $navDelegationsNames = $navDelegations
+                                ? $navDelegations->map(fn($delegation) => $delegation->principal?->name)->filter()->implode(', ')
+                                : '';
+                        @endphp
                         <a class="nav-link nav-profile" href="#" data-bs-toggle="dropdown">
-                            @if (auth()->user()->avatar)
-                            @else
-                                @php
-                                    $name = explode(' ', Auth()->User()->name);
-                                    $name = end($name) . $name[0];
-                                @endphp
-
-                                <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed={{ Auth()->User()->email }}"
-                                    alt="" style="height: 100px">
-                            @endif
-
+                            <div class="position-relative d-inline-block">
+                                <img src="{{ $authUser?->avatar_url }}" alt="Avatar"
+                                    class="rounded-circle avatar-circle" style="--avatar-size: 42px;">
+                                @if ($navDelegations && $navDelegations->isNotEmpty())
+                                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-light rounded-circle"
+                                        data-bs-toggle="tooltip"
+                                        title="Delegado por {{ $navDelegationsNames ?: 'outros usuarios' }}">
+                                        <span class="visually-hidden">Delegado ativo</span>
+                                    </span>
+                                @endif
+                            </div>
                         </a><!-- End Profile Iamge Icon -->
 
                         <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
@@ -160,6 +177,16 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
+
+                            @if ($navDelegations && $navDelegations->isNotEmpty())
+                                <li class="px-3">
+                                    <small class="text-muted d-block">Cobrindo</small>
+                                    <span class="small">{{ $navDelegationsNames }}</span>
+                                </li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                            @endif
 
                             <li>
                                 <a class="dropdown-item d-flex align-items-center"

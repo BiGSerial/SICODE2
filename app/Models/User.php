@@ -14,6 +14,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -274,6 +276,32 @@ class User extends Authenticatable
     {
         // Sou o delegado
         return $this->hasMany(UserDelegation::class, 'delegate_id');
+    }
+
+    public function getAvatarUrlAttribute(): string
+    {
+        if ($this->avatar) {
+            if (Str::startsWith($this->avatar, 'dicebear:')) {
+                $seed = trim(Str::after($this->avatar, 'dicebear:')) ?: $this->email;
+
+                return 'https://api.dicebear.com/9.x/pixel-art/svg?seed=' . urlencode($seed);
+            }
+
+            if (Str::startsWith($this->avatar, ['http://', 'https://'])) {
+                return $this->avatar;
+            }
+
+            if (Storage::disk('public')->exists($this->avatar)) {
+                return asset('storage/' . $this->avatar);
+            }
+        }
+
+        return 'https://api.dicebear.com/9.x/pixel-art/svg?seed=' . urlencode($this->email ?? 'sicode');
+    }
+
+    public function getIsDelegatedAttribute(): bool
+    {
+        return $this->delegationsReceived()->active()->exists();
     }
 
     /* -----------------------------------------
