@@ -2,20 +2,44 @@
 
 namespace App\Http\Livewire\Components\Count\Protest;
 
-use App\Models\MedProtest;
+use App\Models\ProtestJob;
 use Livewire\Component;
+use Illuminate\Support\Collection;
 
 class HasProtests extends Component
 {
-    public function getHasProtestsProperty()
+    protected ?Collection $hierarchyIds = null;
+
+    public function getHasProtestsProperty(): bool
     {
-        return MedProtest::whereHas('assignments', function ($query) {
-            $query
-                ->where('user_id', auth()->id())
-                ->where('completed', false)
-                ->where('responsible', false)
-                ->where('transfered', false);
-        })->exists();
+        $ownerIds = $this->resolveOwnerIds();
+
+        if ($ownerIds->isEmpty()) {
+            return false;
+        }
+
+        return ProtestJob::query()
+            ->whereIn('owner_id', $ownerIds)
+            ->whereNull('closed_at')
+            ->exists();
+    }
+
+    protected function resolveOwnerIds(): Collection
+    {
+        if ($this->hierarchyIds instanceof Collection) {
+            return $this->hierarchyIds;
+        }
+
+        $user = auth()->user();
+
+        if (!$user) {
+            return $this->hierarchyIds = collect();
+        }
+
+        $ids = $user->descendantsQuery(true, true)
+            ->pluck('users.id');
+
+        return $this->hierarchyIds = $ids->unique()->values();
     }
 
     public function render()

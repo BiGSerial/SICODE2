@@ -6,8 +6,8 @@ use App\Exports\Protests\ProtestsExportList;
 use App\Models\Protest;
 use App\Models\User;
 use App\Notifications\SystemNotification;
-use App\Traits\AppliesQueryFilters; // Importe o trait
-use App\Traits\WildcardFormmater; // Importe o trait
+use App\Traits\AppliesQueryFilters;
+use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,7 +24,7 @@ class ProtestExportListJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
     use AppliesQueryFilters;
-    use WildcardFormmater; // Adicione os traits aqui
+    use WildcardFormmater;
 
     public $params;
     public $userId;
@@ -41,38 +41,83 @@ class ProtestExportListJob implements ShouldQueue
 
         try {
             $query = Protest::query()
-                ->whereHas('medProtests', function ($query) {
-                    $query->where('statusSist', 'MEDA')
-                        ->orWhere(function ($query) {
-                            $query->where('needsConfirmation', true)
-                                ->where('completed', false);
-                        });
-                });
+                ->select('protests.*')
+                ->selectRaw("
+                    CASE
+                        WHEN protests.tipoNota = 'NA' THEN protests.dtConclusaoDesej
+                        ELSE (
+                            SELECT mp.dtFimMedidaDesej
+                            FROM med_protests mp
+                            WHERE mp.protest_id = protests.id
+                              AND mp.statusSist = 'MEDA'
+                            ORDER BY mp.dtCriacaoMedida DESC
+                            LIMIT 1
+                        )
+                    END AS vencimento,
+                    CASE
+                        WHEN protests.tipoNota = 'NA' THEN protests.dtAberturaNota
+                        ELSE (
+                            SELECT mp2.dtCriacaoMedida
+                            FROM med_protests mp2
+                            WHERE mp2.protest_id = protests.id
+                              AND mp2.statusSist = 'MEDA'
+                            ORDER BY mp2.dtCriacaoMedida DESC
+                            LIMIT 1
+                        )
+                    END AS abertura
+                ")
+                ->with([
+                    'medProtests' => function ($q) {
+                        $q->orderByDesc('dtCriacaoMedida')
+                            ->with(['ProtestJobs' => fn ($job) => $job->orderByDesc('created_at')]);
+                    },
+                    'Notes',
+                ]);
 
-            // Defina o mapa de filtros para que o trait entenda como aplicar
             $filtersMap = [
                 'city' => ['type' => 'in', 'column' => 'cidade'],
                 'type' => ['type' => 'equals', 'column' => 'tipoNota'],
                 'desired_between' => ['type' => 'between_dates', 'column' => 'dtConclusaoDesej'],
             ];
 
-            // Aplica os filtros dinâmicos do componente Bar
             $this->applyFilters($query, $this->params['filtersState'] ?? [], $filtersMap);
 
-            // Aplica os filtros de busca simples e busca múltipla
-            if (!empty($this->params['search'])) {
-                $formatted = $this->formatWithWildcard($this->params['search']);
-                $query->where('nota', $formatted->type, $formatted->search);
-            }
-            if (!empty($this->params['multisearch'])) {
-                $query->whereIn('nota', $this->params['multisearch']);
+            $isSearching = filled($this->params['search'] ?? null) || !empty($this->params['multisearch']);
+
+            if (!$isSearching) {
+                $query->whereHas('medProtests', function ($q) {
+                    $q->where('statusSist', 'MEDA')
+                        ->whereDoesntHave('ProtestJobs');
+                });
             }
 
-            $query->orderBy('dtConclusaoDesej');
+            if (!empty($this->params['search'])) {
+                $formatted = $this->formatWithWildcard($this->params['search']);
+                $query->where(function ($q) use ($formatted) {
+                    $q->where('nota', $formatted->type, $formatted->search)
+                        ->orWhere('txtGrpCodificacao', $formatted->type, $formatted->search)
+                        ->orWhereHas('Notes', function ($noteQuery) use ($formatted) {
+                            $noteQuery->where('note', $formatted->type, $formatted->search)
+                                ->orWhere('material', $formatted->type, $formatted->search);
+                        });
+                });
+            }
+
+            if (!empty($this->params['multisearch'])) {
+                $values = (array) $this->params['multisearch'];
+                $query->where(function ($sub) use ($values) {
+                    $sub->whereIn('nota', $values)
+                        ->orWhereHas('Notes', function ($noteQuery) use ($values) {
+                            $noteQuery->whereIn('note', $values);
+                        });
+                });
+            }
+
+            $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-exportProtestsList.xlsx';
 
-            (new \App\Exports\Protests\ProtestsExportList($query))->store($filePath, 'local');
+            (new ProtestsExportList($query))->store($filePath, 'local');
 
             if ($user && Storage::disk('local')->exists($filePath)) {
                 $user->notify(new SystemNotification(
@@ -85,12 +130,11 @@ class ProtestExportListJob implements ShouldQueue
             } else {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
-
         } catch (Throwable $e) {
             Log::error('ProtestExportListJob falhou', [
                 'user_id' => $this->userId,
-                'params' => $this->params,
-                'error' => $e->getMessage(),
+                'params'  => $this->params,
+                'error'   => $e->getMessage(),
             ]);
 
             if ($user) {
@@ -102,15 +146,13 @@ class ProtestExportListJob implements ShouldQueue
                     []
                 ));
             }
-            // Repasse o erro para que a fila saiba que a job falhou
+
             throw $e;
         }
     }
 
-    // Este método é necessário para que o trait `AppliesQueryFilters` funcione
     protected function filtersMap(): array
     {
-        // Replicamos a mesma lógica do seu componente Livewire, se necessário
         return [
             'city' => ['type' => 'in', 'column' => 'cidade'],
             'type' => ['type' => 'equals', 'column' => 'tipoNota'],
@@ -118,3 +160,4 @@ class ProtestExportListJob implements ShouldQueue
         ];
     }
 }
+

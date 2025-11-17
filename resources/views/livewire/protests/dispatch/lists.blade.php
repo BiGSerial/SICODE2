@@ -1,5 +1,7 @@
 @php
-
+    use Carbon\Carbon;
+    use Illuminate\Support\Str;
+    use App\Enum\ProtestJobStatus;
 @endphp
 
 <div>
@@ -12,7 +14,7 @@
             <input wire:model.debounce.500ms="search" class="form-control" id="searchInput" placeholder="Buscar..." />
             <button type="button"
                 class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0"
-                data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca múltipla">
+                data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca mÃºltipla">
                 <i class="ri-checkbox-multiple-blank-line"></i>
             </button>
         </div>
@@ -32,11 +34,11 @@
 
 
 
-    {{-- Header da tabela / ações --}}
+    {{-- Header da tabela / aÃ§Ãµes --}}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0 text-uppercase d-flex align-items-center gap-2">
             <i class="ri-alert-line"></i>
-            Reclamações
+            ReclamaÃ§Ãµes
         </h5>
 
         <button wire:click="exportToExcel" class="btn btn-success btn-sm">
@@ -61,10 +63,10 @@
                     <th>Nota</th>
                     <th>Tipo</th>
                     <th>Cod</th>
-                    <th>TipoReclamação</th>
+                    <th>TipoReclamaÃ§Ã£o</th>
                     <th>CausaRaiz</th>
                     <th>Origem</th>
-                    <th>Município</th>
+                    <th>MunicÃ­pio</th>
                     <th>Abertura</th>
                     <th>Tempo</th>
                     <th>Desejada</th>
@@ -72,152 +74,105 @@
                     <th style="width:48px;"></th>
                 </tr>
             </thead>
-            <tbody>
-                @php
-                    use Carbon\Carbon;
-
-                    if (!function_exists('getVencimentoStatus')) {
-                        function getVencimentoStatus($vencimento): array
-                        {
-                            $vencimento = Carbon::parse($vencimento);
-
-                            if ($vencimento->endOfDay()->isPast()) {
-                                return [
-                                    'vencimento' => $vencimento->format('d/m/Y'),
-                                    'color' => 'text-bg-danger',
-                                    'text' => 'VENCIDO',
-                                ];
-                            } elseif ($vencimento->diffInDays() > 2) {
-                                return [
-                                    'vencimento' => $vencimento->format('d/m/Y'),
-                                    'color' => 'text-bg-success',
-                                    'text' => 'NO PRAZO',
-                                ];
-                            } else {
-                                return [
-                                    'vencimento' => $vencimento->format('d/m/Y'),
-                                    'color' => 'text-bg-warning',
-                                    'text' => 'VENCENDO',
-                                ];
-                            }
-                        }
-                    }
-
-                    if (!function_exists('extractOrigem')) {
-                        function extractOrigem($descricao)
-                        {
-                            $origem = explode('Tipo de Solicitante: ', $descricao);
-                            if (count($origem) <= 1) {
-                                $origem = explode('Nota de Atendimento ', $descricao);
-                            }
-                            return count($origem) > 1 ? $origem[1] : $descricao;
-                        }
-                    }
-
-                @endphp
-                @forelse ($lists as $list)
+                        <tbody>
+                @forelse ($lists as $protest)
                     @php
-                        $statusColor = !$list->dtConclusaoDesej->isPast() ? 'success' : 'danger';
-                        $statusText = !$list->dtConclusaoDesej->isPast() ? 'No Prazo' : 'Vencido';
+                        $activeMed = $protest->medProtests->firstWhere('statusSist', 'MEDA') ?? $protest->medProtests->first();
+                        $startDate = $protest->tipoNota === 'NA' ? $protest->dtAberturaNota : optional($activeMed)->dtCriacaoMedida;
+                        $deadline = $protest->tipoNota === 'NA' ? $protest->dtConclusaoDesej : optional($activeMed)->dtFimMedidaDesej;
 
-                        $medProtest = $list->medProtests?->sortBy('statusSist')?->sortByDesc('med_id')?->first();
-                        $andamento = $medProtest?->Assignments?->where('user', true)->last();
+                        $elapsed = $startDate
+                            ? Carbon::parse($startDate)->diffForHumans(now(), [
+                                'parts' => 2,
+                                'short' => true,
+                                'syntax' => Carbon::DIFF_ABSOLUTE,
+                            ])
+                            : '—';
 
-                        $color = '';
-                        if (
-                            $medProtest?->needsConfirmation &&
-                            $medProtest?->statusSist == 'MEDE' &&
-                            !$andamento?->completed
-                        ) {
-                            $color = 'table-warning';
-                        } elseif ($andamento?->completed) {
-                            $color = 'table-success';
-                        } elseif ($medProtest?->statusSist == 'MEDA' && $andamento && !$andamento?->completed) {
-                            $color = 'table-primary';
+                        $deadlineBadge = [
+                            'label' => 'Sem prazo',
+                            'class' => 'badge bg-secondary-subtle text-secondary',
+                            'date'  => '—',
+                        ];
+
+                        if ($deadline) {
+                            $deadlineDate = Carbon::parse($deadline);
+                            $deadlineBadge['date'] = $deadlineDate->format('d/m/Y');
+
+                            if ($deadlineDate->endOfDay()->isPast()) {
+                                $deadlineBadge['label'] = 'Vencido';
+                                $deadlineBadge['class'] = 'badge bg-danger-subtle text-danger';
+                            } elseif ($deadlineDate->diffInDays() <= 2) {
+                                $deadlineBadge['label'] = 'Vencendo';
+                                $deadlineBadge['class'] = 'badge bg-warning-subtle text-warning';
+                            } else {
+                                $deadlineBadge['label'] = 'No prazo';
+                                $deadlineBadge['class'] = 'badge bg-success-subtle text-success';
+                            }
                         }
 
-                        $due = getVencimentoStatus($list->vencimento);
-                        $abertura = getVencimentoStatus($list->abertura);
+                        $latestJob = $activeMed?->ProtestJobs->first();
+                        $jobStatusLabel = 'Sem Job';
+                        $jobStatusClass = 'badge bg-secondary-subtle text-secondary';
 
+                        if ($latestJob) {
+                            $enum = ProtestJobStatus::tryFrom($latestJob->status);
+                            $jobStatusLabel = $enum ? $enum->label() : Str::headline($latestJob->status);
+
+                            $jobStatusClass = match ($enum?->value ?? $latestJob->status) {
+                                'done'        => 'badge bg-success-subtle text-success',
+                                'waiting'     => 'badge bg-dark-subtle text-dark',
+                                'in_progress' => 'badge bg-warning-subtle text-warning',
+                                'canceled'    => 'badge bg-danger-subtle text-danger',
+                                default       => 'badge bg-primary-subtle text-primary',
+                            };
+                        }
                     @endphp
-
-                    <tr wire:key='list-{{ $list->id }}' wire:dblclick="goTo({{ $list->nota }})"
+                    <tr wire:key="list-{{ $protest->id }}" wire:dblclick="goTo({{ $protest->nota }})"
                         class="align-middle text-center">
-                        <td class="{{ $color }}" style="width:15px;">
-                            @if (!$medProtest?->completed && $medProtest?->needsConfirmation)
-                                <i class="ri-eye-line text-primary"></i>
-                            @endif
+                        <td>{{ $protest->medProtests->count() }}</td>
+                        <td class="fw-semibold">{{ $protest->nota }}</td>
+                        <td>{{ $protest->tipoNota }}</td>
+                        <td>{{ $activeMed?->codMedida ?? '—' }}</td>
+                        <td class="small">{{ $activeMed?->txtCodCodificacao ?? '—' }}</td>
+                        <td class="small">{{ Str::limit($protest->descCausa ?? '—', 22) }}</td>
+                        <td class="small">{{ Str::limit($protest->descricao ?? '—', 22) }}</td>
+                        <td class="small">{{ $protest->cidade ?? '—' }}</td>
+                        <td>{{ optional($startDate)->format('d/m/Y') ?? '—' }}</td>
+                        <td>
+                            <div class="d-flex flex-column lh-1">
+                                <span class="fw-semibold">{{ $elapsed }}</span>
+                                @if ($startDate)
+                                    <small class="text-muted">{{ Carbon::parse($startDate)->diffForHumans() }}</small>
+                                @endif
+                            </div>
                         </td>
-
-                        <td class="fw-bold {{ $color }}">{{ $list->nota }}</td>
-                        <td class="{{ $color }}"><span
-                                class="badge text-bg-secondary opacity-50">{{ $list?->tipoNota }}</span>
+                        <td>
+                            <span class="{{ $deadlineBadge['class'] }}">
+                                {{ $deadlineBadge['date'] }} · {{ $deadlineBadge['label'] }}
+                            </span>
                         </td>
-                        <td class="{{ $color }}"><span
-                                class="badge text-bg-secondary opacity-50">{{ $medProtest?->codMedida }}</span>
+                        <td>
+                            <span class="{{ $jobStatusClass }}">{{ $jobStatusLabel }}</span>
                         </td>
-
-                        <td class="small {{ $color }}">{{ $medProtest?->txtCodCodificacao }}</td>
-                        <td class="small {{ $color }}">{{ $medProtest?->txtCodMedida }}</td>
-
-                        @php
-
-                            $origem = extractOrigem($list->descricao);
-                        @endphp
-
-
-                        <td class="text-truncate text-uppercase {{ $color }}" style="max-width:160px;"
-                            title="{{ $list->descricao }}">
-                            {{ $origem }}
-                        </td>
-
-                        <td class="small {{ $color }} ">{{ $list->cidade }}</td>
-                        <td class="{{ $color }} fs-6 fw-bold">{{ $abertura['vencimento'] }}</td>
-
-                        <td class="{{ $abertura['color'] }} text-center">
-                            {{ Carbon::parse($list->abertura)->startOfDay()->diffInDays(now()->startOfDay()) }}
-                        </td>
-                        <td class="{{ $color }}"><span
-                                class="badge {{ $due['color'] }}">{{ $due['vencimento'] }}</span>
-                        </td>
-
-                        @php
-                            if (!$andamento) {
-                                $statusAndamento = 'NA';
-                                $statusColor = 'secondary';
-                            } elseif ($andamento->completed) {
-                                $statusAndamento = 'Concluído';
-                                $statusColor = 'success';
-                            } else {
-                                $statusAndamento = 'Em Andamento';
-                                $statusColor = 'danger';
-                            }
-                        @endphp
-
-                        <td class="{{ $color }}">
-                            <span class="badge text-bg-{{ $statusColor }}">{{ $statusAndamento }}</span>
-                        </td>
-
-                        <td class="{{ $color }}">
-                            <button class="btn btn-outline-primary btn-sm px-2"
-                                wire:click="showDetails({{ $list->id }})" title="Ver detalhes">
-                                <i class="ri-eye-line"></i>
+                        <td>
+                            <button class="btn btn-outline-primary btn-sm rounded-circle"
+                                wire:click="goTo({{ $protest->nota }})" title="Abrir Protest">
+                                <i class="ri-external-link-line"></i>
                             </button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="11" class="text-center py-5">
-                            <i class="ri-inbox-line fs-1 d-block mb-2"></i>
-                            Nenhum registro encontrado.
+                        <td colspan="13" class="text-center py-4 text-muted">
+                            Nenhuma reclamação encontrada.
                         </td>
                     </tr>
                 @endforelse
-            </tbody>
-        </table>
+            </tbody>        </table>
     </div>
 
-    {{-- Paginação --}}
+    {{-- PaginaÃ§Ã£o --}}
     <div class="d-flex justify-content-between align-items-center mt-2">
         {{ $lists->links() }}
         <div class="text-muted small">
@@ -267,7 +222,7 @@
             <div class="drawer-content">
                 <div class="info-grid">
                     <div class="info-card">
-                        <div class="info-label"><i class="ri-map-pin-line me-1"></i>Município</div>
+                        <div class="info-label"><i class="ri-map-pin-line me-1"></i>MunicÃ­pio</div>
                         <div class="info-value">{{ $selected->cidade }}</div>
                     </div>
                     <div class="info-card">
@@ -288,14 +243,14 @@
 
                 <div class="desc-block">
                     <div class="desc-title">
-                        <i class="ri-information-line me-2"></i>Descrição
+                        <i class="ri-information-line me-2"></i>DescriÃ§Ã£o
                     </div>
                     <p class="mb-0 text-secondary">
                         {{ $selected->comments->last()?->message }}
                     </p>
                 </div>
 
-                {{-- Timeline opcional (só exibe se tiver datas) --}}
+                {{-- Timeline opcional (sÃ³ exibe se tiver datas) --}}
                 {{-- @php
                     $timeline = [
                         [
@@ -333,7 +288,7 @@
                             <th>Status</th>
                             <th>Dt Abertura</th>
                             <th>Desejada</th>
-                            <th>Responsável</th>
+                            <th>ResponsÃ¡vel</th>
                             <th>Enviado Em</th>
                         </tr>
                         @foreach ($selected->medProtests as $medida)
@@ -372,7 +327,7 @@
     @endif
 
 
-    {{-- Modal: Busca Múltipla --}}
+    {{-- Modal: Busca MÃºltipla --}}
     <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -380,18 +335,18 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="buscarMultiLabel">
                         <i class="ri-search-2-line me-2"></i>
-                        Busca Múltipla de Notas
+                        Busca MÃºltipla de Notas
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     <div class="form-floating">
                         <textarea class="form-control" id="advanceSearch" style="height: 200px;"
-                            placeholder="Cole aqui vários valores (vírgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
-                        <label for="advanceSearch">Números / valores</label>
+                            placeholder="Cole aqui vÃ¡rios valores (vÃ­rgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
+                        <label for="advanceSearch">NÃºmeros / valores</label>
                     </div>
                     <div class="form-text">
-                        Separe por vírgula <strong>,</strong> ou por quebra de linha.
+                        Separe por vÃ­rgula <strong>,</strong> ou por quebra de linha.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -483,7 +438,7 @@
         font-size: 1.2rem;
     }
 
-    /* Botão fechar */
+    /* BotÃ£o fechar */
     .details-drawer--modern .drawer-close {
         background: rgba(255, 255, 255, .15);
         border: 0;
@@ -517,7 +472,7 @@
         align-items: center;
     }
 
-    /* Conteúdo rolável */
+    /* ConteÃºdo rolÃ¡vel */
     .details-drawer--modern .drawer-content {
         height: calc(100vh - 176px);
         /* header + strip + footer */
@@ -575,7 +530,7 @@
         margin-top: .15rem;
     }
 
-    /* Descrição */
+    /* DescriÃ§Ã£o */
     .details-drawer--modern .desc-block .desc-title {
         font-weight: 700;
         color: #334155;

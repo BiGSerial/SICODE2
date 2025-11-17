@@ -30,15 +30,11 @@ class Lists extends Component
     public $showDetails = false;
     public $selected = null;
 
-
-    // Filters
     public $filtersState = [];
 
-    // Filters
     private $filter_group = 'protests';
 
     private $filter;
-
 
     protected $queryString = [
         'type' => ['except' => '', 'as' => 'tipo'],
@@ -55,11 +51,9 @@ class Lists extends Component
 
     public function onFiltersUpdated($payload = [])
     {
-
         $this->filtersState = $payload ?: [];
         $this->resetPage();
     }
-
 
     protected function filtersMap(): array
     {
@@ -76,13 +70,11 @@ class Lists extends Component
                 'type' => 'between_dates',
                 'column' => 'dtConclusaoDesej',
             ],
-
         ];
     }
 
     public function mount()
     {
-
     }
 
     public function showDetails($id)
@@ -97,33 +89,29 @@ class Lists extends Component
         $this->selected = null;
     }
 
-
-
     public function goTo($protestNote)
     {
         return redirect()->route('protests.dispatch.view', [
-            'protest' => $protestNote
+            'protest' => $protestNote,
         ]);
     }
 
-
     public function exportToExcel()
     {
-
         $params = [
-         'filtersState' => $this->filtersState,
-         'search' => $this->search,
-         'multisearch' => $this->multisearch,
-    ];
+            'filtersState' => $this->filtersState,
+            'search'       => $this->search,
+            'multisearch'  => $this->multisearch,
+        ];
 
         ProtestExportListJob::dispatch($params, auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'EXPORTAÇÃO INICIADA',
-            'text' => 'A exportação foi iniciada, você receberá uma notificação quando estiver pronta.',
-            'timer' => 5000,
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO INICIADA',
+            'text'     => 'A exportação foi iniciada, você receberá uma notificação quando estiver pronta.',
+            'timer'    => 5000,
         ]);
     }
 
@@ -136,12 +124,6 @@ class Lists extends Component
             $this->resetPage();
             $this->dispatchBrowserEvent('hideModal');
         }
-    }
-
-
-    public function baseQuery()
-    {
-        return Protest::query();
     }
 
     public function getListsProperty()
@@ -157,82 +139,95 @@ class Lists extends Component
         $query = Protest::query()
             ->select('protests.*')
             ->selectRaw("
-                -- VENCIMENTO
                 CASE
-                    WHEN protests.tipoNota IN ('OU','PR') THEN (
-                        SELECT MAX(mp.dtFimMedidaDesej)
+                    WHEN protests.tipoNota = 'NA' THEN protests.dtConclusaoDesej
+                    ELSE (
+                        SELECT mp.dtFimMedidaDesej
                         FROM med_protests mp
                         WHERE mp.protest_id = protests.id
+                          AND mp.statusSist = 'MEDA'
+                        ORDER BY mp.dtCriacaoMedida DESC
+                        LIMIT 1
                     )
-                    ELSE protests.dtConclusaoDesej
                 END AS vencimento,
-                -- ABERTURA
                 CASE
-                    WHEN protests.tipoNota IN ('OU','PR') THEN (
-                        SELECT MAX(mp2.dtCriacaoMedida)
+                    WHEN protests.tipoNota = 'NA' THEN protests.dtAberturaNota
+                    ELSE (
+                        SELECT mp2.dtCriacaoMedida
                         FROM med_protests mp2
                         WHERE mp2.protest_id = protests.id
+                          AND mp2.statusSist = 'MEDA'
+                        ORDER BY mp2.dtCriacaoMedida DESC
+                        LIMIT 1
                     )
-                    ELSE protests.dtAberturaNota
                 END AS abertura
             ")
-            ->whereHas('medProtests', function ($q) {
+            ->with([
+                'medProtests' => function ($q) {
+                    $q->orderByDesc('dtCriacaoMedida')
+                        ->with(['ProtestJobs' => fn ($job) => $job->orderByDesc('created_at')]);
+                },
+                'Notes',
+            ]);
+
+        if (!$this->isSearching()) {
+            $query->whereHas('medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
-                   ->whereDoesntHave('ProtestJobs');
+                    ->whereDoesntHave('ProtestJobs');
             });
+        }
 
-
-
-        // Busca simples
         $query->when($this->search, function ($query) {
-            $this->multisearch   = '';
+            $this->multisearch   = [];
             $this->advanceSearch = '';
             $this->resetPage();
 
             $formatted = $this->formatWithWildcard($this->search);
 
             $query->where(function ($q) use ($formatted) {
-                $q->where('nota', $formatted->type, $formatted->search);
+                $q->where('nota', $formatted->type, $formatted->search)
+                    ->orWhere('txtGrpCodificacao', $formatted->type, $formatted->search)
+                    ->orWhereHas('Notes', function ($noteQuery) use ($formatted) {
+                        $noteQuery->where('note', $formatted->type, $formatted->search)
+                                  ->orWhere('material', $formatted->type, $formatted->search);
+                    });
             });
         });
 
-        // Busca múltipla
         $query->when($this->multisearch, function ($query) {
-            $query->whereIn('nota', $this->multisearch)
-                  ->orWhereRelation('Notes', function ($q) {
-                      $q->whereIn('note', $this->multisearch);
-                  });
+            $query->where(function ($sub) {
+                $sub->whereIn('nota', $this->multisearch)
+                    ->orWhereHas('Notes', function ($noteQuery) {
+                        $noteQuery->whereIn('note', $this->multisearch);
+                    });
+            });
         });
 
-        // Filtro por cidade (mantido)
         if (isset($this->filter['city'])) {
             $query->whereIn('cidade', $this->filter['city']);
         }
 
-        // Filtro por intervalo de "vencimento" (opcional)
         if (!empty($this->filter['vencimento_from']) && !empty($this->filter['vencimento_to'])) {
-            // Como "vencimento" é alias, use HAVING em vez de WHERE
             $query->havingRaw('vencimento BETWEEN ? AND ?', [
                 $this->filter['vencimento_from'],
                 $this->filter['vencimento_to'],
             ]);
         }
 
-        // Eager load
-        $query->with(['medProtests']);
-
-        // Ordenação: mais antigo primeiro por "vencimento", empurrando NULLs para o fim (compatível com MariaDB/MySQL)
         $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
 
         return $query;
     }
 
-
-
     public function render()
     {
         return view('livewire.protests.dispatch.lists', [
-            'lists' => $this->lists->paginate($this->perPage)
+            'lists' => $this->lists->paginate($this->perPage),
         ]);
+    }
+
+    protected function isSearching(): bool
+    {
+        return filled($this->search) || !empty($this->multisearch);
     }
 }
