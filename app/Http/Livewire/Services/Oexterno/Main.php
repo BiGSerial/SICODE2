@@ -43,6 +43,7 @@ class Main extends Component
     public $waiting;
 
     public $typeNote = "";
+    public $statusFilter = '';
 
     public $column = 'dt_created';
     public $direction = 'asc';
@@ -62,6 +63,7 @@ class Main extends Component
 
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
+        'statusFilter' => ['except' => '', 'as' => 'status'],
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
@@ -311,9 +313,11 @@ class Main extends Component
         //     });
         // }
 
-        $query->where(function ($q) {
-            $q->where(function ($q) {
-                $q->where('nstats', 20)
+        $allowedStatuses = $this->statusFilter ? [(int) $this->statusFilter] : [20, 11];
+
+        $query->where(function ($q) use ($allowedStatuses) {
+            $q->where(function ($q) use ($allowedStatuses) {
+                $q->whereIn('nstats', $allowedStatuses)
                     ->where('type_note', 2);
             })->orWhere(function ($q) {
                 $q->where('centerjob', 'ORGAOEXT')
