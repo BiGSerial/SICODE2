@@ -2,89 +2,134 @@
 
 namespace App\Http\Livewire\Protests\Services;
 
-use App\Models\MedProtest;
-use App\Traits\WildcardFormmater;
+use App\Models\ProtestJob;
+use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Accompany extends Component
 {
-    use WildcardFormmater;
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
-    public $perPage = 50;
-    public $search = '';
-    public $dt_start;
-    public $dt_end;
-    public $month;
+    /** Filtros */
+    public int $perPage = 50;
+    public string $search = '';
+    public ?int $selectedUserId = null;
 
     protected $queryString = [
-        'page' => ['except' => 1],
+        'page'           => ['except' => 1],
+        'perPage'        => ['except' => 50],
+        'search'         => ['except' => ''],
+        'selectedUserId' => ['except' => null],
     ];
 
-    public function getListProperty()
+    public function updatingPerPage(): void
     {
-        return MedProtest::query()
-                    // garante que há assignment do usuário, em monitoramento e não concluída
-                    ->whereHas('Assignments', function ($q) {
-                        $q->where('user_id', auth()->id())
-                        ->where('monitoring', true)
-                        ->where('completed', false);
-                    })
-                    // join para permitir ordenar pelo due_at da assignment do usuário
-                    ->join('user_assignments as ua', function ($join) {
-                        $join->on('ua.assignable_id', '=', 'med_protests.id')
-                            ->where('ua.assignable_type', '=', (new \App\Models\MedProtest())->getMorphClass())
-                            ->where('ua.user_id', '=', auth()->id())
-                            ->where('ua.monitoring', '=', true)
-                            ->where('ua.completed', '=', false);
-                    })
-                    ->with([
-                        'Protest',
-                        'Assignments.user',    // se quiser, pode restringir para o usuário atual via with + constraint
-                        'Comments.user',
-                        'Notes',
-                    ])
-                    ->when($this->search, function ($q) {
-
-                        $term = $this->formatWithWildcard($this->search);
-                        $q->where(function ($q) use ($term) {
-                            $q->whereHas('Protest', function ($q) use ($term) {
-                                $q->where('nota', $term->type, $term->search)
-                                  ->orWhere('txtGrpCodificacao', $term->type, $term->search);
-                            })->whereHas('Protest.Notes', function ($q) use ($term) {
-                                $q->where('note', $term->type, $term->search)
-                                  ->orWhere('material', $term->type, $term->search);
-                            });
-                        });
-                    })
-                    ->when($this->dt_start, function ($q) {
-                        $q->whereDate('ua.started_at', '>=', $this->dt_start);
-                    })
-                    ->when($this->dt_end, function ($q) {
-                        $q->whereDate('ua.started_at', '<=', $this->dt_end);
-                    })
-                    ->when($this->month, function ($q) {
-                        $q->whereMonth('ua.started_at', $this->month)
-                          ->whereYear('ua.started_at', now()->year);
-                    })
-                    ->select('med_protests.*')
-                    ->distinct()              // evita duplicatas caso haja mais de uma assignment que case
-                    ->orderByDesc('ua.started_at')
-                    ->paginate($this->perPage);
+        $this->resetPage();
     }
 
-    public function clearFilters()
+    public function updatingSearch(): void
     {
-        $this->reset(['dt_start', 'dt_end', 'month']);
+        $this->resetPage();
+    }
+
+    public function updatingSelectedUserId(): void
+    {
+        $this->resetPage();
+    }
+
+    /**
+     * Usuários sob a hierarquia do usuário logado (closure table user_closure)
+     */
+    protected function availableUsersQuery()
+    {
+        $userId = auth()->id();
+
+        return User::query()
+            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
+            ->where('uc.ancestor_id', $userId)
+            ->where('uc.depth', '>', 0) // abaixo na hierarquia
+            ->select('users.*')
+            ->orderBy('users.name')
+            ->distinct();
+    }
+
+    /**
+     * Accessor Livewire: $this->availableUsers
+     */
+    public function getAvailableUsersProperty()
+    {
+        return $this->availableUsersQuery()->get();
+    }
+
+    /**
+     * Query base: jobs em aberto da equipe (subordinados + opcionalmente o próprio)
+     */
+    protected function baseQuery()
+    {
+        // IDs da galera sob a hierarquia + opcionalmente o próprio gestor
+        $subordinatesIds = $this->availableUsers
+            ->pluck('id')
+            ->push(auth()->id())
+            ->unique()
+            ->values()
+            ->all();
+
+        return ProtestJob::query()
+            ->open() // scopeOpen do modelo
+            ->whereIn('owner_id', $subordinatesIds)
+            ->with([
+                'protest',
+                'medProtest',
+                'Comments' => function ($q) {
+                    $q->latest();
+                },
+                'creator:id,name',
+                'owner:id,name,email',
+            ])
+            ->when($this->selectedUserId, function ($q) {
+                $q->where('owner_id', $this->selectedUserId);
+            })
+            ->when($this->search, function ($q) {
+                $term = '%' . $this->search . '%';
+
+                $q->where(function ($qq) use ($term) {
+                    $qq->where('id', 'like', $term)
+                        ->orWhere('notes', 'like', $term)
+                        ->orWhereHas('protest', function ($sub) use ($term) {
+                            $sub->where('nota', 'like', $term)
+                                ->orWhere('cidade', 'like', $term)
+                                ->orWhere('txtGrpCodificacao', 'like', $term);
+                        })
+                        ->orWhereHas('owner', function ($sub) use ($term) {
+                            $sub->where('name', 'like', $term);
+                        });
+                });
+            })
+            ->orderByDesc('priority')
+            ->orderBy('sla_due_at')
+            ->orderByDesc('sent_at');
+    }
+
+    /** Lista paginada */
+    public function getListProperty()
+    {
+        return $this->baseQuery()->paginate($this->perPage);
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'selectedUserId', 'perPage']);
         $this->resetPage();
     }
 
     public function render()
     {
         return view('livewire.protests.services.accompany', [
-            'list' => $this->list,
+            'list'           => $this->list,
+            'availableUsers' => $this->availableUsers,
         ]);
     }
 }

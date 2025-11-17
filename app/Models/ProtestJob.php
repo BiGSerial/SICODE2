@@ -20,8 +20,8 @@ class ProtestJob extends Model
         'created_by',
         'owner_id',
         'closed_by',
-        'status',
         'priority',
+        'status',
         'sent_at',
         'accepted_at',
         'started_at',
@@ -78,6 +78,8 @@ class ProtestJob extends Model
         });
     }
 
+    // ...
+
     protected $appends = [
         'status_label',
         'status_badge_class',
@@ -87,25 +89,54 @@ class ProtestJob extends Model
 
     /* ===================== ACCESSORS ===================== */
 
+    protected function resolveStatusEnum(): \App\Enum\ProtestJobStatus
+    {
+        if ($this->status instanceof \App\Enum\ProtestJobStatus) {
+            return $this->status;
+        }
+
+        if (!empty($this->attributes['status'] ?? null)) {
+            return \App\Enum\ProtestJobStatus::from($this->attributes['status']);
+        }
+
+        // fallback pra não quebrar
+        return \App\Enum\ProtestJobStatus::OPENED;
+    }
+
+    protected function resolvePriorityEnum(): \App\Enum\ProtestJobPriority
+    {
+        if ($this->priority instanceof \App\Enum\ProtestJobPriority) {
+            return $this->priority;
+        }
+
+        if (!empty($this->attributes['priority'] ?? null)) {
+            return \App\Enum\ProtestJobPriority::from($this->attributes['priority']);
+        }
+
+        // fallback pra registros antigos sem prioridade
+        return \App\Enum\ProtestJobPriority::NORMAL;
+    }
+
     public function getStatusLabelAttribute(): string
     {
-        return $this->status->label();
+        return $this->resolveStatusEnum()->label();
     }
 
     public function getStatusBadgeClassAttribute(): string
     {
-        return $this->status->badgeClass();
+        return $this->resolveStatusEnum()->badgeClass();
     }
 
     public function getPriorityLabelAttribute(): string
     {
-        return $this->priority->label();
+        return $this->resolvePriorityEnum()->label();
     }
 
     public function getPriorityBadgeClassAttribute(): string
     {
-        return $this->priority->badgeClass();
+        return $this->resolvePriorityEnum()->badgeClass();
     }
+
 
     /* ===================== RELAÇÕES ===================== */
 
@@ -134,7 +165,7 @@ class ProtestJob extends Model
         return $this->belongsTo(User::class, 'closed_by');
     }
 
-    
+
 
     public function events()
     {
@@ -183,8 +214,8 @@ class ProtestJob extends Model
         ProtestJobStatus::IN_PROGRESS->value => [ProtestJobStatus::WAITING->value, ProtestJobStatus::DONE->value, ProtestJobStatus::CANCELED->value],
         ProtestJobStatus::WAITING->value     => [ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::CANCELED->value],
         ProtestJobStatus::DONE->value        => [ProtestJobStatus::REOPENED->value],
-        ProtestJobStatus::CANCELED->value    => [],
-        ProtestJobStatus::REOPENED->value    => [ProtestJobStatus::ASSIGNED->value, ProtestJobStatus::IN_PROGRESS->value],
+        ProtestJobStatus::CANCELED->value    => [ProtestJobStatus::REOPENED->value],
+        ProtestJobStatus::REOPENED->value    => [ProtestJobStatus::ASSIGNED->value, ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::CANCELED->value],
     ];
 
     protected function canGo(ProtestJobStatus $to): bool
@@ -233,6 +264,8 @@ class ProtestJob extends Model
                 ],
 
                 ProtestJobStatus::CANCELED => [
+                    'confirmed' => true,
+                    'confirmed_at' => now(),
                     'closed_at' => $this->closed_at ?? now(),
                     'closed_by' => $this->closed_by ?? optional(auth()->user())->id,
                 ],
@@ -241,12 +274,16 @@ class ProtestJob extends Model
                     'closed_at'   => null,
                     'closed_by'   => null,
                     'finished_at' => null,
+                    'confirmed'     => false,
+                    'confirmed_at'  => null,
                 ],
             };
 
             // proteção contra corrida de estado concorrente
-            $original = $this->getOriginal('status');
-            if ($original !== $this->status->value) {
+            $currentInDb = static::whereKey($this->getKey())->value('status');
+
+
+            if ($currentInDb->value !== $this->status->value) {
                 throw new \RuntimeException('Status alterado em paralelo. Recarregue e tente novamente.');
             }
 

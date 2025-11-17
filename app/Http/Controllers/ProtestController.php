@@ -17,6 +17,11 @@ class ProtestController extends Controller
         return view('protest.services.view', ['medProtestId' => $medProtestId]);
     }
 
+    public function view_controller($medProtestId)
+    {
+        return view('protest.services.viewUpper', ['medProtestId' => $medProtestId]);
+    }
+
     public function view_only($medProtestId)
     {
         return view('protest.services.view_only', ['medProtestId' => $medProtestId]);

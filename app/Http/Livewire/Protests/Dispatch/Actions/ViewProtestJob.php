@@ -35,6 +35,7 @@ class ViewProtestJob extends Component
 
     // Confirmações (SweetAlert)
     protected $listeners = [
+        'refresh'            => '$refresh',
         'open'               => 'open',
         'confirmEscalate'    => 'doEscalate',
         'confirmReopen'      => 'doReopen',
@@ -231,16 +232,20 @@ class ViewProtestJob extends Component
 
         try {
             // Usa método do modelo
-            $this->job->reopen('Reabertura via modal');
+            $this->job->reopen('Reaberto via Controlador por ' . Auth()->user()->name);
             $this->open($this->jobId);
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',
                 'menssage' => 'Atividade reaberta.',
             ]);
+
+            $this->emitUp('refresh');
+            $this->emitSelf('refresh');
+
         } catch (\Throwable $e) {
             $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'error',
+                'status'   => 'danger',
                 'menssage' => 'Falha ao reabrir: ' . $e->getMessage(),
             ]);
         }
@@ -263,7 +268,7 @@ class ViewProtestJob extends Component
             ]);
         } catch (\Throwable $e) {
             $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'error',
+                'status'   => 'danger',
                 'menssage' => 'Falha ao cancelar: ' . $e->getMessage(),
             ]);
         }

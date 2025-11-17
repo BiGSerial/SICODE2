@@ -6,7 +6,7 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
                 <li class="breadcrumb-item">Reclamação</li>
-                <li class="breadcrumb-item">View</li>
+                <li class="breadcrumb-item">View Controller</li>
             </ol>
         </ol>
     </nav>
@@ -18,7 +18,7 @@
 @endsection
 
 @section('content')
-    @livewire('protests.services.view', ['jobId' => $medProtestId], key('protests.view'))
+    @livewire('protests.services.view-upper', ['jobId' => $medProtestId], key('protests.view'))
 @endsection
 
 @push('script')

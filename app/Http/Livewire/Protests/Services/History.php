@@ -2,8 +2,12 @@
 
 namespace App\Http\Livewire\Protests\Services;
 
-use App\Models\MedProtest;
+use App\Models\ProtestJob;
+use App\Models\User;
 use App\Traits\WildcardFormmater;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -11,13 +15,16 @@ class History extends Component
 {
     use WildcardFormmater;
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
-    public $perPage = 50;
-    public $search = '';
-    public $dt_start;
-    public $dt_end;
-    public $month;
+    public int $perPage = 50;
+    public string $search = '';
+    public ?string $dt_start = null;
+    public ?string $dt_end = null;
+    public ?string $month = null;
+
+    protected ?Collection $authorizedUserIds = null;
 
     protected $listeners = [
         'refreshComponent' => '$refresh',
@@ -27,51 +34,134 @@ class History extends Component
         'perPage' => ['as' => 'pagina'],
     ];
 
-    public function getListProperty()
+    public function updated($propertyName): void
     {
-        return MedProtest::WhereHas('Assignments', function ($q) {
-            $q->where('user_id', auth()->id())
-            //   ->where('user', true)
-              ->where('completed', true);
-        })  // join para permitir ordenar pelo started_at da assignment do usuário
-                    ->join('user_assignments as ua', function ($join) {
-                        $join->on('ua.assignable_id', '=', 'med_protests.id')
-                            ->where('ua.assignable_type', '=', (new \App\Models\MedProtest())->getMorphClass())
-                            ->where('ua.user_id', '=', auth()->id());
-                    })
-                    ->with([
-                        'Protest',
-                        'Assignments.user',    // se quiser, pode restringir para o usuário atual via with + constraint
-                        'Comments.user',
-                        'Notes',
-                    ])
-                     ->when($this->search, function ($q) {
+        if (in_array($propertyName, ['perPage', 'search', 'dt_start', 'dt_end', 'month'], true)) {
+            $this->resetPage();
+        }
+    }
 
-                         $term = $this->formatWithWildcard($this->search);
-                         $q->where(function ($q) use ($term) {
-                             $q->whereHas('Protest', function ($q) use ($term) {
-                                 $q->where('nota', $term->type, $term->search)
-                                   ->orWhere('txtGrpCodificacao', $term->type, $term->search);
-                             })->whereHas('Protest.Notes', function ($q) use ($term) {
-                                 $q->where('note', $term->type, $term->search)
-                                   ->orWhere('material', $term->type, $term->search);
-                             });
-                         });
-                     })
-                    ->when($this->dt_start, function ($q) {
-                        $q->whereDate('ua.started_at', '>=', $this->dt_start);
-                    })
-                    ->when($this->dt_end, function ($q) {
-                        $q->whereDate('ua.started_at', '<=', $this->dt_end);
-                    })
-                    ->when($this->month, function ($q) {
-                        $q->whereMonth('ua.started_at', $this->month)
-                          ->whereYear('ua.started_at', now()->year);
-                    })
-                    ->select('med_protests.*')
-                    ->distinct()              // evita duplicatas caso haja mais de uma assignment que case
-                    ->orderBy('ua.ended_at')
-                    ->paginate($this->perPage);
+    public function getListProperty(): LengthAwarePaginator
+    {
+        $userIds = $this->authorizedUserIds();
+
+        if ($userIds->isEmpty()) {
+            return ProtestJob::query()->whereRaw('1 = 0')->paginate($this->perPage);
+        }
+
+        $query = ProtestJob::query()
+            ->with([
+                'owner:id,name',
+                'creator:id,name',
+                'medProtest' => function ($q) {
+                    $q->with([
+                        'protest.notes',
+                        'notes',
+                    ]);
+                },
+            ])
+            ->whereIn('owner_id', $userIds)
+            ->whereNotNull('closed_at');
+
+        $query->when($this->search, function ($q) {
+            $term = $this->formatWithWildcard($this->search);
+
+            $q->where(function ($sub) use ($term) {
+                $sub->whereHas('medProtest.protest', function ($inner) use ($term) {
+                    $inner->where('nota', $term->type, $term->search)
+                        ->orWhere('txtGrpCodificacao', $term->type, $term->search);
+                })
+                ->orWhereHas('medProtest.protest.notes', function ($inner) use ($term) {
+                    $inner->where('note', $term->type, $term->search)
+                        ->orWhere('material', $term->type, $term->search);
+                })
+                ->orWhereHas('medProtest.notes', function ($inner) use ($term) {
+                    $inner->where('note', $term->type, $term->search)
+                        ->orWhere('material', $term->type, $term->search);
+                });
+            });
+        });
+
+        $query->when($this->dt_start, function ($q) {
+            $q->whereDate('closed_at', '>=', $this->dt_start);
+        });
+
+        $query->when($this->dt_end, function ($q) {
+            $q->whereDate('closed_at', '<=', $this->dt_end);
+        });
+
+        $query->when($this->month, function ($q) {
+            try {
+                $target = Carbon::createFromFormat('Y-m', $this->month)->startOfMonth();
+            } catch (\Throwable $th) {
+                return;
+            }
+
+            $q->whereYear('closed_at', $target->year)
+                ->whereMonth('closed_at', $target->month);
+        });
+
+        return $query->orderByDesc('closed_at')->paginate($this->perPage);
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'dt_start', 'dt_end', 'month']);
+        $this->resetPage();
+    }
+
+    protected function authorizedUserIds(): Collection
+    {
+        if ($this->authorizedUserIds instanceof Collection) {
+            return $this->authorizedUserIds;
+        }
+
+        /** @var User|null $viewer */
+        $viewer = auth()->user();
+
+        if (!$viewer) {
+            return $this->authorizedUserIds = collect();
+        }
+
+        $ids = $viewer->descendantsQuery(
+            includeSelf: true,
+            includeDelegations: false,
+            includeDelegatesTreesForPrincipal: false
+        )
+        ->pluck('users.id')
+        ->push($viewer->id)
+        ->unique()
+        ->values();
+
+        return $this->authorizedUserIds = $ids;
+    }
+
+    public function deadlineFor(ProtestJob $job): ?Carbon
+    {
+        $medProtest = $job->medProtest;
+        $protest = $medProtest?->protest;
+
+        if (!$medProtest || !$protest) {
+            return null;
+        }
+
+        if (($protest->tipoNota ?? null) === 'NA') {
+            return $protest->dtConclusaoDesej;
+        }
+
+        return $medProtest->dtFimMedidaDesej;
+    }
+
+    public function finishedWithinDeadline(ProtestJob $job): ?bool
+    {
+        $deadline = $this->deadlineFor($job);
+        $finishedAt = $job->closed_at ?? $job->finished_at;
+
+        if (!$deadline || !$finishedAt) {
+            return null;
+        }
+
+        return $finishedAt->lessThanOrEqualTo($deadline);
     }
 
     public function render()

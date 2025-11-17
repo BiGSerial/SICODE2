@@ -1,35 +1,39 @@
 @php
-
     if (!function_exists('reduceName')) {
         function reduceName(string $name, bool $first = false)
         {
-            $name = explode(' ', $name);
+            $name = explode(' ', trim($name));
 
             if ($first) {
-                return $name[0];
+                return $name[0] ?? '';
             }
 
-            return $name[0] . ' ' . end($name);
+            $firstName = $name[0] ?? '';
+            $lastName = count($name) > 1 ? end($name) : '';
+
+            return trim($firstName . ' ' . $lastName);
         }
     }
 
     if (!function_exists('getWishDate')) {
         function getWishDate($item)
         {
-            if ($item->protest?->tipoNota == 'NA') {
-                return $item->protest->dtConclusaoDesej;
+            if ($item->protest?->tipoNota === 'NA') {
+                return $item->protest?->dtConclusaoDesej;
             }
-            return $item->medProtest->dtFimMedidaDesej;
+
+            return $item->medProtest?->dtFimMedidaDesej;
         }
     }
 
     if (!function_exists('getApertureDate')) {
         function getApertureDate($item)
         {
-            if ($item->protest?->tipoNota == 'NA') {
-                return $item->protest->dtAberturaNota;
+            if ($item->protest?->tipoNota === 'NA') {
+                return $item->protest?->dtAberturaNota;
             }
-            return $item->medProtest->dtCriacaoMedida;
+
+            return $item->medProtest?->dtCriacaoMedida;
         }
     }
 @endphp
@@ -38,87 +42,290 @@
     {{-- Loading --}}
     <x-show-loading />
 
-    {{-- Top Controls --}}
-    <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
-        <div class="flex-grow-1 position-relative">
-            <input wire:model.debounce.500ms="search" class="form-control" id="searchInput" placeholder="Buscar..." />
-            <button type="button"
-                class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0"
-                data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca múltipla">
-                <i class="ri-checkbox-multiple-blank-line"></i>
-            </button>
-        </div>
+    {{-- ================== TOP: BUSCA E FILTROS ================== --}}
+    <div class="card mb-3 shadow-sm border-0">
+        <div class="card-body">
+            {{-- Linha 1: perPage + busca geral --}}
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-sm-4 col-md-2">
+                    <div class="form-floating w-100">
+                        <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <label for="perPageSelect">Registros</label>
+                    </div>
+                </div>
 
-        <select class="form-select w-auto" wire:model="perPage">
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-        </select>
+                <div class="col-12 col-sm-8 col-md-7">
+                    <div class="form-floating w-100 position-relative">
+                        <input wire:model.debounce.500ms="search" class="form-control border border-secondary"
+                            id="searchInput" placeholder="Buscar por nota, cidade, responsável..." />
+                        <label for="searchInput">Buscar por nota, cidade, responsável…</label>
+
+                        <button type="button"
+                            class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0"
+                            data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca múltipla">
+                            <i class="ri-checkbox-multiple-blank-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-3 d-flex justify-content-md-end gap-2">
+                    <button type="button" class="btn btn-primary" wire:click="applyFilters">
+                        <i class="ri-filter-3-line me-1"></i>
+                        Aplicar
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" wire:click="cleanFilters">
+                        <i class="ri-eraser-line me-1"></i>
+                        Limpar
+                    </button>
+                </div>
+            </div>
+
+            <hr class="my-3">
+
+            {{-- Linha 2: filtro por usuário / hierarquia --}}
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-4">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border border-secondary" id="searchName"
+                            wire:model.debounce.300ms="searchName" placeholder="Filtrar lista de usuários">
+                        <label for="searchName">Filtrar lista de usuários</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="filterUser" class="form-label small mb-1">Usuário responsável / hierarquia</label>
+                    <select class="form-select border border-secondary" id="filterUser" wire:model.defer="userViewer">
+                        <option value="">Todos</option>
+
+                        @forelse ($userViewerList as $user)
+                            <option value="{{ $user->id }}">
+                                {{ reduceName($user->name) }}
+                            </option>
+                        @empty
+                            <option value="" disabled>Nenhum usuário encontrado</option>
+                        @endforelse
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <small class="text-muted d-block">
+                        Selecione um usuário para ver apenas os jobs da sua hierarquia (descendentes).
+                    </small>
+                </div>
+            </div>
+        </div>
     </div>
 
-    {{-- Filtros --}}
-    <div class="d-flex flex-wrap gap-3 mb-3 align-items-end">
-        <div>
-            <select class="form-select" id="filter1" wire:model="deep">
-                <option value="">Selecione...</option>
-                @foreach ($deepList as $d)
-                    <option value="{{ $d }}">Nível {{ $d }}</option>
-                @endforeach
-            </select>
-        </div>
+    @php
+        $total = $stats['total'] ?? 0;
 
+        $overdue = $stats['overdue'] ?? 0;
+        $overdue_pct = $stats['overdue_pct'] ?? 0;
+        $dueSoon = $stats['dueSoon'] ?? 0;
+        $dueSoon_pct = $stats['dueSoon_pct'] ?? 0;
+        $within = $stats['within'] ?? 0;
+        $within_pct = $stats['within_pct'] ?? 0;
 
-        <div>
-            <label for="filter2" class="form-label">Usuarios Superiores</label>
-            <select class="form-select" id="filter2" wire:model.defer="userViewer">
-                @if (!empty($userViewerList))
-                    <option value="" selected>Selecione um usuário</option>
-                    @foreach ($userViewerList as $id => $name)
-                        <option value="{{ $id }}">{{ $name }}</option>
-                    @endforeach
-                @else
-                    <option value="" disabled selected>Selecione um nivel</option>
-                @endif
-            </select>
-        </div>
+        $na = $stats['na'] ?? 0;
+        $ou = $stats['ou'] ?? 0;
+        $pr = $stats['pr'] ?? 0;
 
+        $msgResponded = $stats['responded_messages'] ?? 0;
+        $msgPending = $stats['pending_messages_for_you'] ?? 0;
+    @endphp
 
-        {{-- <div>
-            <label for="filter3" class="form-label">Filtro 3</label>
-            <select class="form-select" id="filter3" wire:model="filter3">
-                <option value="">Selecione...</option>
-                <option value="1">Opção 1</option>
-                <option value="2">Opção 2</option>
-                <option value="3">Opção 3</option>
-            </select>
-        </div> --}}
-
-        <div>
-            <button type="button" class="btn btn-primary" wire:click="applyFilters">
-                <i class="ri-search-line me-1"></i>
-                Aplicar
-            </button>
-            <button type="button" class="btn btn-primary" wire:click="cleanFilters">
-                <i class="ri-search-line me-1"></i>
-                Limpar
-            </button>
-        </div>
-    </div>
-
-    {{-- Header da tabela / ações --}}
-
-
-    @if ($lists)
-        {{-- Paginação topo --}}
-        <div class="d-flex justify-content-between align-items-center mt-2">
-            {{ $lists->links() }}
-            <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }}
-                registros
+    {{-- ================== CARDS DE TIPO (NA / OU / PR) ================== --}}
+    <div class="row g-3 mb-3">
+        {{-- Todas --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm h-100 border-0 {{ $typeNote === null ? 'border-primary border-2' : '' }}"
+                style="cursor:pointer" wire:click="setTypeNote(null)">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Todos os tipos</span>
+                        <i class="ri-stack-line fs-4 text-primary"></i>
+                    </div>
+                    <h4 class="fw-bold mb-0">{{ $total }}</h4>
+                    <small class="text-muted mt-2">Todos os jobs dentro dos filtros atuais.</small>
+                </div>
             </div>
         </div>
 
-        {{-- Header de seção --}}
+        {{-- NA --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm h-100 border-0 {{ $typeNote === 'NA' ? 'border-primary border-2' : '' }}"
+                style="cursor:pointer" wire:click="setTypeNote('NA')">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">NA</span>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">NA</span>
+                    </div>
+                    <h4 class="fw-bold mb-0">{{ $na }}</h4>
+                    <small class="text-muted mt-2">Notas NA em aberto.</small>
+                </div>
+            </div>
+        </div>
+
+        {{-- OU --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm h-100 border-0 {{ $typeNote === 'OU' ? 'border-primary border-2' : '' }}"
+                style="cursor:pointer" wire:click="setTypeNote('OU')">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">OU</span>
+                        <span class="badge bg-info-subtle text-info border border-info-subtle">OU</span>
+                    </div>
+                    <h4 class="fw-bold mb-0">{{ $ou }}</h4>
+                    <small class="text-muted mt-2">Notas OU em aberto.</small>
+                </div>
+            </div>
+        </div>
+
+        {{-- PR --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm h-100 border-0 {{ $typeNote === 'PR' ? 'border-primary border-2' : '' }}"
+                style="cursor:pointer" wire:click="setTypeNote('PR')">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">PR</span>
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">PR</span>
+                    </div>
+                    <h4 class="fw-bold mb-0">{{ $pr }}</h4>
+                    <small class="text-muted mt-2">Notas PR em aberto.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================== CARDS DE SLA ================== --}}
+    <div class="row g-3 mb-3">
+        {{-- Total em andamento (zera filtro SLA) --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === null ? 'border-primary border-2' : '' }}"
+                style="cursor:pointer" wire:click="setSlaFilter(null)">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Total em andamento</span>
+                        <i class="ri-list-check-2 fs-4 text-primary"></i>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end">
+                        <h3 class="fw-bold mb-0">{{ $total }}</h3>
+                        <span class="badge bg-light text-muted">100%</span>
+                    </div>
+                    <small class="text-muted mt-2">
+                        Reclamações abertas dentro dos filtros atuais.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        {{-- SLA vencidos --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'overdue' ? 'border-danger border-2' : '' }}"
+                style="cursor:pointer" wire:click="setSlaFilter('overdue')">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">SLA vencidos</span>
+                        <i class="ri-timer-off-line fs-4 text-danger"></i>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <h3 class="fw-bold mb-0 text-danger">{{ $overdue }}</h3>
+                        <span class="badge text-bg-danger">{{ $overdue_pct }}%</span>
+                    </div>
+                    <small class="text-muted">
+                        Atividades que já estouraram o prazo.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        {{-- Vencendo em até 3 dias --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'dueSoon' ? 'border-warning border-2' : '' }}"
+                style="cursor:pointer" wire:click="setSlaFilter('dueSoon')">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Vencendo em 3 dias</span>
+                        <i class="ri-timer-line fs-4 text-warning"></i>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <h3 class="fw-bold mb-0 text-warning">{{ $dueSoon }}</h3>
+                        <span class="badge text-bg-warning">{{ $dueSoon_pct }}%</span>
+                    </div>
+                    <small class="text-muted">
+                        Itens em atenção imediata.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        {{-- Dentro do prazo (SLA saudável) --}}
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'within' ? 'border-success border-2' : '' }}"
+                style="cursor:pointer" wire:click="setSlaFilter('within')">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Dentro do prazo</span>
+                        <i class="ri-checkbox-circle-line fs-4 text-success"></i>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <h3 class="fw-bold mb-0 text-success">{{ $within }}</h3>
+                        <span class="badge text-bg-success">{{ $within_pct }}%</span>
+                    </div>
+                    <small class="text-muted">
+                        Jobs com SLA ainda saudável.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================== CARDS DE MENSAGENS ================== --}}
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Mensagens</span>
+                        <i class="ri-message-3-line fs-4 text-info"></i>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="text-muted small">Jobs já respondidos</div>
+                        <h4 class="fw-bold mb-0 text-info">{{ $msgResponded }}</h4>
+                    </div>
+
+                    <div class="mt-auto">
+                        <small class="text-muted d-block">
+                            Pendentes para você:
+                            <span class="fw-bold {{ $msgPending > 0 ? 'text-danger' : '' }}">
+                                {{ $msgPending }}
+                            </span>
+                        </small>
+                        <small class="text-muted">
+                            (Considerando a última mensagem da Medida.)
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================== LISTA PRINCIPAL ================== --}}
+    @if ($lists->count())
+        {{-- Paginação topo --}}
+        <div class="d-flex justify-content-between align-items-center mt-2 mb-2">
+            {{ $lists->links() }}
+            <div class="text-muted small">
+                Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
+                {{ $lists->total() }} registros
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header py-0 text-bg-danger d-flex justify-content-between align-items-center">
                 <h5 class="card-title my-0">RECLAMAÇÕES EM ANDAMENTO</h5>
@@ -135,13 +342,11 @@
                             Exportando...
                         </span>
                     </button>
-
-
                 </div>
             </div>
 
             {{-- Tabela --}}
-            <table class="table table-sm table-striped table-condensed">
+            <table class="table table-sm table-striped table-condensed mb-0">
                 <thead class="table-dark">
                     <tr class="align-middle text-center sticky-top" style="top: 60px;">
                         <th>Prioridade</th>
@@ -150,17 +355,18 @@
                         <th></th>
                         <th>Nota</th>
                         <th>Medida</th>
-                        <th>Cod</th>
-                        <th>TipoReclamação</th>
+                        <th>Cód</th>
+                        <th>Tipo Reclamação</th>
                         <th>Município</th>
                         <th>Responsável</th>
                         <th>Empresa</th>
-
                         <th>Abertura</th>
-                        <th>FimDesejado</th>
-                        <th>SLA</th>
-
+                        <th>Fim desejado</th>
                         <th>Status</th>
+                        <th>SLA</th>
+                        <th>
+                            <i class="ri-message-3-line" title="Mensagens na Medida"></i>
+                        </th>
                         <th style="width:48px;"></th>
                     </tr>
                 </thead>
@@ -168,56 +374,139 @@
                 <tbody>
                     @foreach ($lists as $item)
                         @php
-                            $slaLeft = now()->diffInDays($item->sla_due_at, false);
-                            $slaClass = ($slaLeft < 0
-                                    ? 'text-bg-danger'
-                                    : $slaLeft == 0)
-                                ? 'text-bg-warning'
-                                : 'text-bg-success';
+                            // SLA
+                            if ($item->sla_due_at) {
+                                $slaLeft = now()->diffInDays($item->sla_due_at, false);
 
+                                if ($slaLeft < 0) {
+                                    $slaClass = 'text-bg-danger';
+                                } elseif ($slaLeft === 0 || $slaLeft <= 3) {
+                                    $slaClass = 'text-bg-warning';
+                                } else {
+                                    $slaClass = 'text-bg-success';
+                                }
+                            } else {
+                                $slaLeft = null;
+                                $slaClass = 'text-bg-secondary';
+                            }
+
+                            // Mensagens (última da MedProtest)
+                            $currentUserId = auth()->id();
+                            $creatorId = $item->created_by ?? ($item->creator_id ?? optional($item->creator)->id);
+                            $lastComment = $item->medProtest?->Comments?->first();
+
+                            $hasMessage = false;
+                            $pendingForYou = false;
+
+                            if ($creatorId && $lastComment) {
+                                $authorId = $lastComment->user_id;
+
+                                if ($authorId) {
+                                    $isFromDispatcher = $authorId === $creatorId;
+                                    $isFromCurrentUser = $currentUserId && $authorId === $currentUserId;
+
+                                    $hasMessage = !$isFromDispatcher;
+                                    $pendingForYou = $hasMessage && !$isFromCurrentUser;
+                                }
+                            }
                         @endphp
+
                         <tr class="text-center">
                             <td>
-                                <span class="badge {{ $item->priority_badge_class }}">{{ $item->priority_label }}</span>
+                                <span class="badge {{ $item->priority_badge_class }}">
+                                    {{ $item->priority_label }}
+                                </span>
                             </td>
-                            <td class="fw-bold">{{ reduceName($item->creator?->name) }}
+
+                            <td class="fw-bold">
+                                {{ reduceName($item->creator?->name) }}
                             </td>
-                            <td><span class="badge text-bg-secondary">{{ $item->protest?->tipoNota }}</span></td>
+
+                            <td>
+                                <span class="badge text-bg-secondary">
+                                    {{ $item->protest?->tipoNota }}
+                                </span>
+                            </td>
+
                             <td>
                                 @if ($item->is_advance)
                                     <span class="badge text-bg-info">A</span>
                                 @endif
                             </td>
-                            <td class="fw-bold">
 
+                            <td class="fw-bold">
                                 {{ $item->protest?->nota }}
                             </td>
-                            <td class="fw-bold"># {{ $item->medProtest?->med_id }}</td>
 
-                            <td><span class="badge text-bg-secondary">{{ $item->protest?->codecodf }}</span></td>
-
-                            {{-- As demais <td> podem ser preenchidas conforme sua lógica --}}
-                            <td class="text-uppercase">{{ $item->protest?->txtGrpCodificacao }}</td>
-                            <td>{{ $item->protest?->cidade }}</td>
-                            <td class="text-uppercase fw-bold">{{ reduceName($item->owner?->name) }}</td>
-                            <td class="text-uppercase">{{ reduceName($item->owner?->company?->name, true) }}
-                            </td>
-
-                            <td>{{ getApertureDate($item) ? getApertureDate($item)->format('d/m/Y') : '---' }}</td>
-                            <td>{{ getWishDate($item) ? getWishDate($item)->format('d/m/Y') : '---' }}</td>
                             <td class="fw-bold">
-                                <span class="badge {{ $slaClass }}"
-                                    title="Dias para o Vencimento">{{ $slaLeft }} d</span>
+                                # {{ $item->medProtest?->med_id }}
                             </td>
+
                             <td>
-                                <div class="badge {{ $item->status_badge_class }}">{{ $item->status_label }}</div>
+                                <span class="badge text-bg-secondary">
+                                    {{ $item->protest?->codecodf }}
+                                </span>
                             </td>
+
+                            <td class="text-uppercase">
+                                {{ $item->protest?->txtGrpCodificacao }}
+                            </td>
+
+                            <td>
+                                {{ $item->protest?->cidade }}
+                            </td>
+
+                            <td class="text-uppercase fw-bold">
+                                {{ reduceName($item->owner?->name) }}
+                            </td>
+
+                            <td class="text-uppercase">
+                                {{ reduceName($item->owner?->company?->name, true) }}
+                            </td>
+
+                            <td>
+                                @php $aperture = getApertureDate($item); @endphp
+                                {{ $aperture ? $aperture->format('d/m/Y') : '---' }}
+                            </td>
+
+                            <td>
+                                @php $wish = getWishDate($item); @endphp
+                                {{ $wish ? $wish->format('d/m/Y') : '---' }}
+                            </td>
+
+                            <td>
+                                <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
+                            </td>
+
+                            <td class="fw-bold">
+                                @if ($slaLeft !== null)
+                                    <span class="badge {{ $slaClass }}" title="Dias para o vencimento">
+                                        {{ $slaLeft }} d
+                                    </span>
+                                @else
+                                    <span class="badge text-bg-secondary">—</span>
+                                @endif
+                            </td>
+
+                            <td>
+                                @if ($pendingForYou)
+                                    <i class="ri-message-3-fill text-info"
+                                        title="Última mensagem da Medida é de outro usuário, aguardando sua resposta"></i>
+                                @elseif ($hasMessage)
+                                    <i class="ri-message-2-line text-muted"
+                                        title="Última mensagem da Medida é sua (respondido por você)"></i>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+
                             <td style="width:48px;">
                                 <div class="d-flex gap-1 justify-content-center">
                                     <button type="button" class="btn btn-sm btn-outline-primary" title="Visualizar"
                                         wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $item->id }})">
                                         <i class="ri-eye-line"></i>
                                     </button>
+
                                     <button type="button" class="btn btn-sm btn-outline-secondary"
                                         wire:click="goTo({{ $item->protest?->nota }})" title="Seguir">
                                         <i class="ri-bookmark-line"></i>
@@ -229,25 +518,25 @@
                 </tbody>
             </table>
         </div>
+
         {{-- Paginação base --}}
         <div class="d-flex justify-content-between align-items-center mt-2">
             {{ $lists->links() }}
             <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }}
-                registros
+                Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
+                {{ $lists->total() }} registros
             </div>
         </div>
     @else
         <div class="card">
             <div class="card-body text-center">
-                <p>Não há registros para exibir.</p>
+                <p class="mb-0">Não há registros para exibir com os filtros atuais.</p>
             </div>
         </div>
     @endif
 
-
     {{-- Drawer lateral de detalhes --}}
     @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
 
-    {{-- Modal de busca múltipla --}}
+    {{-- Modal de busca múltipla (já existente em outro lugar) --}}
 </div>

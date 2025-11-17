@@ -2,8 +2,10 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Enum\ProtestJobStatus;
 use App\Helpers\TextFormatter;
-use App\Models\Protest;
+use App\Models\ProtestJob;
+use App\Models\User;
 use App\Traits\WildcardFormmater;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -18,75 +20,219 @@ class Closeds extends Component
 
     protected $paginationTheme = 'bootstrap';
 
-    public $service;
-    public $perPage = 200;
-    public $search;
-    public $advanceSearch;
-    public $multisearch = [];
-    public $typeNote = "";
+    public int $perPage   = 200;
 
-    public $inPrazo = 0;
+    /** Busca principal (nota da reclamação) */
+    public string $search = '';
 
+    /** Tipo de nota (NA / OU / ambos) */
+    public string $typeNote = '';
 
-    // Filters
-    private $filter_group = 'oexterno';
+    /** 1 = FORA SLA, 2 = DENTRO SLA, '' = todos */
+    public $inPrazo = '';
+
+    /** Filtro por usuário (hierarquia) */
+    public string $searchName = '';
+    public $userViewer = null;
+    public $userViewerList = [];
+
+    private string $filter_group = 'oexterno';
     private $filter;
 
-
     protected $queryString = [
-       'typeNote' => ['except' => '', 'as' => 'tipo'],
-       'search'  => ['except' => '', 'as' => 'buscar'],
-       'page'    => ['except' => 1, 'as' => 'p'],
-       'perPage' => ['as' => 'pp'],
-       'inPrazo' => ['except' => '', 'as' => 'emPrazo'],
+        'typeNote'   => ['except' => '', 'as' => 'tipo'],
+        'search'     => ['except' => '', 'as' => 'buscar'],
+        'page'       => ['except' => 1, 'as' => 'p'],
+        'perPage'    => ['as' => 'pp'],
+        'inPrazo'    => ['except' => '', 'as' => 'emPrazo'],
+        'userViewer' => ['except' => null, 'as' => 'usr'],
     ];
 
+    public function mount()
+    {
+        $this->loadUserViewerList();
+    }
 
+    protected function loadUserViewerList(): void
+    {
+        $this->userViewerList = User::query()
+            ->when($this->searchName !== '', function ($q) {
+                $q->where('name', 'ilike', '%'.$this->searchName.'%');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    public function updatedSearchName($value): void
+    {
+        $this->loadUserViewerList();
+    }
 
     public function goTo($protestNote)
     {
         return redirect()->route('protests.dispatch.view', [
-
-            'protest' => $protestNote
+            'protest' => $protestNote,
         ]);
+    }
+
+    /**
+     * Jobs finalizados + confirmados.
+     */
+    protected function baseQuery()
+    {
+        $query = ProtestJob::query()
+            ->where('status', ProtestJobStatus::DONE->value)
+            ->where('confirmed', true)
+            ->with([
+                'protest.Notes',
+                'protest.medProtests',
+                'medProtest',
+                'creator:id,name',
+                'owner:id,name,company_id',
+                'owner.company:id,name',
+                'closer:id,name',
+            ]);
+
+        // Filtro hierárquico por usuário (dono do job)
+        $query->when($this->userViewer, function ($q) {
+            $user = User::find($this->userViewer);
+            if (!$user) {
+                return;
+            }
+
+            $ownerIds = $user->descendantsQuery(true, true)
+                ->pluck('users.id')
+                ->toArray();
+
+            if (empty($ownerIds)) {
+                // garante que não retorna nada se não houver descendentes
+                $q->whereRaw('1 = 0');
+                return;
+            }
+
+            $q->whereIn('owner_id', $ownerIds);
+        });
+
+        // Tipo de nota (NA / OU / ambos)
+        $query->when($this->typeNote !== '', function ($q) {
+            $q->whereHas('protest', function ($sub) {
+                $sub->where('tipoNota', $this->typeNote);
+            });
+        });
+
+        // Prazo SLA
+        $query->when($this->inPrazo !== '', function ($q) {
+            if ((int) $this->inPrazo === 1) {
+                // FORA do SLA
+                $q->whereNotNull('finished_at')
+                    ->whereNotNull('sla_due_at')
+                    ->whereColumn('finished_at', '>', 'sla_due_at');
+            } elseif ((int) $this->inPrazo === 2) {
+                // DENTRO do SLA
+                $q->whereNotNull('finished_at')
+                    ->whereNotNull('sla_due_at')
+                    ->whereColumn('finished_at', '<=', 'sla_due_at');
+            }
+        });
+
+        // Busca por nota da reclamação
+        $query->when($this->search !== '', function ($q) {
+            $formatted = $this->formatWithWildcard($this->search);
+
+            $q->whereHas('protest', function ($sub) use ($formatted) {
+                $sub->where('nota', $formatted->type, $formatted->search);
+            });
+        });
+
+        return $query
+            ->orderByDesc('finished_at')
+            ->orderByDesc('sent_at');
     }
 
     public function getListsProperty()
     {
-        return Protest::query()
-            ->whereDoesntHave('medProtests', function ($query) {
-                $query->where('statusSist', 'MEDA');
-            })
-            ->when($this->inPrazo, function ($query) {
-                if ($this->inPrazo == 1) {
-                    $query->whereHas('medProtests', function ($q) {
-                        $q->whereColumn('med_protests.dtFimMedida', '>', 'protests.dtConclusaoDesej');
-                    });
-                } elseif ($this->inPrazo == 2) {
-                    $query->whereDoesntHave('medProtests', function ($q) {
-                        $q->whereColumn('med_protests.dtFimMedida', '>', 'protests.dtConclusaoDesej');
-                    })->has('medProtests');
+        return $this->baseQuery()->paginate($this->perPage);
+    }
+
+    /**
+     * Estatísticas para os cards de resumo.
+     */
+    public function getStatsProperty(): array
+    {
+        $base  = $this->baseQuery();
+        $total = (clone $base)->count();
+
+        $jobs = (clone $base)->get();
+
+        $diffDays = [];
+        $withinContract = 0;
+        $outContract    = 0;
+        $withinSla      = 0;
+        $outSla         = 0;
+
+        foreach ($jobs as $job) {
+            $protest    = $job->protest;
+            $openedAt   = $protest?->dtAberturaNota;
+            $dueAt      = $protest?->dtConclusaoDesej;
+            $finishedAt = $job->finished_at;
+            $slaDueAt   = $job->sla_due_at;
+
+            if ($openedAt && $finishedAt) {
+                $diffDays[] = $openedAt->startOfDay()->diffInDays($finishedAt->startOfDay());
+            }
+
+            if ($dueAt && $finishedAt) {
+                if ($finishedAt->gt($dueAt)) {
+                    $outContract++;
+                } else {
+                    $withinContract++;
                 }
-            })
-            ->when($this->typeNote, function ($query) {
-                $query->where('tipoNota', $this->typeNote);
-            })
-            ->when($this->search, function ($query) {
-                $formatted = $this->formatWithWildcard($this->search);
-                $query->where('nota', $formatted->type, $formatted->search);
-            })
-            ->with(['MedProtests'])
+            }
 
-            ->orderBy('dtConclusaoDesej', 'ASC')
-            ->orderBy('dtAberturaNota', 'DESC')
-            ->paginate($this->perPage);
+            if ($slaDueAt && $finishedAt) {
+                if ($finishedAt->gt($slaDueAt)) {
+                    $outSla++;
+                } else {
+                    $withinSla++;
+                }
+            }
+        }
 
+        $avgClosingDays = count($diffDays)
+            ? round(array_sum($diffDays) / count($diffDays), 1)
+            : null;
+
+        $pct = function ($value) use ($total) {
+            return $total > 0 ? round(($value / $total) * 100) : 0;
+        };
+
+        return [
+            'total'                   => $total,
+            'avg_closing_days'        => $avgClosingDays,
+
+            'within_contract'         => $withinContract,
+            'within_contract_pct'     => $pct($withinContract),
+            'out_contract'            => $outContract,
+            'out_contract_pct'        => $pct($outContract),
+
+            'within_sla'              => $withinSla,
+            'within_sla_pct'          => $pct($withinSla),
+            'out_sla'                 => $outSla,
+            'out_sla_pct'             => $pct($outSla),
+        ];
+    }
+
+    public function exportToExcel(): void
+    {
+        // pluga o export depois com baseQuery()->get()
     }
 
     public function render()
     {
         return view('livewire.protests.dispatch.closeds', [
-            'lists' => $this->lists
+            'lists'        => $this->lists,
+            'stats'        => $this->stats,
+            'userViewerList' => $this->userViewerList,
         ]);
     }
 }

@@ -1,264 +1,263 @@
-@push('css')
-    <style>
-        .medprotest-header {
-            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
-            border-radius: 18px;
-            color: #fff;
-            padding: 1.8rem 2rem 1.2rem 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 114, 255, .08);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .medprotest-header::before {
-            content: '';
-            position: absolute;
-            right: -20px;
-            top: -40px;
-            width: 170px;
-            height: 170px;
-            background: rgba(255, 255, 255, 0.09);
-            border-radius: 50%;
-        }
-
-        .medprotest-header .header-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: .25rem;
-            text-shadow: 0 2px 5px rgba(0, 0, 0, .09);
-        }
-
-        .medprotest-header .header-details {
-            color: rgba(255, 255, 255, 0.86);
-            font-size: .95rem;
-        }
-
-        .medprotest-header .tag-pill {
-            background: rgba(0, 0, 0, .18);
-            border-radius: 999px;
-            padding: .25rem .7rem;
-            font-size: .75rem;
-        }
-
-        .modern-card {
-            background: #fff;
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, .08);
-            margin-bottom: 1.3rem;
-        }
-
-        .modern-card-body {
-            padding: 1.3rem;
-        }
-
-        .modern-card-title {
-            font-size: .9rem;
-            font-weight: 600;
-            color: #607d8b;
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: .5px;
-        }
-
-        .avatar-circle {
-            font-size: 14px;
-            font-weight: 600;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .chat-container {
-            height: 310px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: #0072ff #f8f9fa;
-        }
-
-        .chat-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .chat-container::-webkit-scrollbar-thumb {
-            background: #0072ff;
-        }
-
-        .chat-container::-webkit-scrollbar-thumb:hover {
-            background: #0051a2;
-        }
-
-        .message-bubble {
-            border: 1px solid #e9ecef;
-            transition: all 0.2s;
-        }
-
-        .message-bubble:hover {
-            box-shadow: 0 4px 10px rgba(0, 0, 0, .06);
-        }
-
-        .upload-zone {
-            transition: all 0.3s ease;
-            cursor: pointer;
-            background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.1) 100%);
-        }
-
-        .upload-zone:hover {
-            border-color: var(--bs-primary) !important;
-            background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.15) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(13, 110, 253, 0.15);
-        }
-
-        .upload-zone-bg {
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(13, 110, 253, 0.1) 0%, transparent 70%);
-            animation: float 6s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        @keyframes float {
-
-            0%,
-            100% {
-                transform: translateY(0px) rotate(0deg);
-            }
-
-            50% {
-                transform: translateY(-10px) rotate(180deg);
-            }
-        }
-
-        .upload-icon {
-            animation: bounce 2s infinite;
-        }
-
-        @keyframes bounce {
-
-            0%,
-            20%,
-            50%,
-            80%,
-            100% {
-                transform: translateY(0);
-            }
-
-            40% {
-                transform: translateY(-10px);
-            }
-
-            60% {
-                transform: translateY(-5px);
-            }
-        }
-
-        .file-item {
-            transition: all 0.3s ease;
-            border-left: 4px solid transparent !important;
-        }
-
-        .file-item:hover {
-            transform: translateX(5px);
-            border-left-color: var(--bs-primary) !important;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .file-item:hover .file-icon {
-            transform: scale(1.1);
-        }
-
-        .progress-bar {
-            background: linear-gradient(45deg, #007bff, #0056b3);
-        }
-
-        #closeReason:focus {
-            box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
-        }
-
-        .sla-chip {
-            font-size: .78rem;
-            border-radius: 999px;
-            padding: .12rem .6rem;
-        }
-    </style>
-@endpush
-
-@php
-    /** @var \App\Models\ProtestJob $job */
-
-    $medProtest = $job->medProtest;
-    $protest = $medProtest?->protest;
-
-    // Tipo da reclamação
-    $tipoLabel = match ($protest?->tipoNota) {
-        'OU' => 'Ouvidoria',
-        'NA' => 'Atendimento',
-        'PR' => 'Procon',
-        default => 'Reclamação',
-    };
-
-    // Flags de status do job
-    $jobStarted = filled($job->started_at);
-    $jobFinished = filled($job->finished_at);
-    $jobClosed = filled($job->closed_at);
-
-    // SLA do JOB (sempre conta a partir do started_at ou created_at até sla_due_at)
-    $now = now();
-    $baseStart = $job->started_at ?? $job->created_at;
-    $dueAt = $job->sla_due_at;
-
-    $slaStatus = [
-        'color' => 'secondary',
-        'text' => 'SLA não configurado',
-        'icon' => 'ri-time-line',
-        'percent' => 0,
-        'label' => 'Sem datas suficientes para cálculo',
-    ];
-
-    if ($baseStart && $dueAt) {
-        $totalSec = max($dueAt->diffInSeconds($baseStart), 1);
-        $elapsedSec = min($now->diffInSeconds($baseStart), $totalSec);
-        $percent = intval(($elapsedSec / $totalSec) * 100);
-
-        $diffDays = $now->startOfDay()->diffInDays($dueAt->startOfDay(), false);
-
-        if ($diffDays < 0) {
-            $slaStatus['color'] = 'danger';
-            $slaStatus['text'] = 'SLA estourado';
-            $slaStatus['icon'] = 'ri-error-warning-line';
-            $slaStatus['percent'] = 100;
-            $slaStatus['label'] = 'Atraso de ' . abs($diffDays) . ' dia(s)';
-        } elseif ($percent >= 80) {
-            $slaStatus['color'] = 'warning';
-            $slaStatus['text'] = 'SLA em atenção';
-            $slaStatus['icon'] = 'ri-timer-line';
-            $slaStatus['percent'] = $percent;
-            $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
-        } else {
-            $slaStatus['color'] = 'success';
-            $slaStatus['text'] = 'SLA no prazo';
-            $slaStatus['icon'] = 'ri-check-line';
-            $slaStatus['percent'] = $percent;
-            $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
-        }
-    }
-
-    // Evidência obrigatória
-    $needsEvidence = (bool) ($medProtest->needsEvidence ?? false);
-    $hasEvidence = $medProtest?->evidenceFiles?->count() > 0;
-@endphp
-
 <div>
+
     <x-show-loading />
+
+    @push('css')
+        <style>
+            .medprotest-header {
+                background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+                border-radius: 18px;
+                color: #fff;
+                padding: 1.8rem 2rem 1.2rem 2rem;
+                margin-bottom: 2rem;
+                box-shadow: 0 8px 32px rgba(0, 114, 255, .08);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .medprotest-header::before {
+                content: '';
+                position: absolute;
+                right: -20px;
+                top: -40px;
+                width: 170px;
+                height: 170px;
+                background: rgba(255, 255, 255, 0.09);
+                border-radius: 50%;
+            }
+
+            .medprotest-header .header-title {
+                font-size: 1.4rem;
+                font-weight: 700;
+                color: #fff;
+                margin-bottom: .25rem;
+                text-shadow: 0 2px 5px rgba(0, 0, 0, .09);
+            }
+
+            .medprotest-header .header-details {
+                color: rgba(255, 255, 255, 0.86);
+                font-size: .95rem;
+            }
+
+            .medprotest-header .tag-pill {
+                background: rgba(0, 0, 0, .18);
+                border-radius: 999px;
+                padding: .25rem .7rem;
+                font-size: .75rem;
+            }
+
+            .modern-card {
+                background: #fff;
+                border: none;
+                border-radius: 16px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, .08);
+                margin-bottom: 1.3rem;
+            }
+
+            .modern-card-body {
+                padding: 1.3rem;
+            }
+
+            .modern-card-title {
+                font-size: .9rem;
+                font-weight: 600;
+                color: #607d8b;
+                margin-bottom: 1rem;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+            }
+
+            .avatar-circle {
+                font-size: 14px;
+                font-weight: 600;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .chat-container {
+                height: 310px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: #0072ff #f8f9fa;
+            }
+
+            .chat-container::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .chat-container::-webkit-scrollbar-thumb {
+                background: #0072ff;
+            }
+
+            .chat-container::-webkit-scrollbar-thumb:hover {
+                background: #0051a2;
+            }
+
+            .message-bubble {
+                border: 1px solid #e9ecef;
+                transition: all 0.2s;
+            }
+
+            .message-bubble:hover {
+                box-shadow: 0 4px 10px rgba(0, 0, 0, .06);
+            }
+
+            .upload-zone {
+                transition: all 0.3s ease;
+                cursor: pointer;
+                background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.1) 100%);
+            }
+
+            .upload-zone:hover {
+                border-color: var(--bs-primary) !important;
+                background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.15) 100%);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(13, 110, 253, 0.15);
+            }
+
+            .upload-zone-bg {
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(circle, rgba(13, 110, 253, 0.1) 0%, transparent 70%);
+                animation: float 6s ease-in-out infinite;
+                pointer-events: none;
+            }
+
+            @keyframes float {
+
+                0%,
+                100% {
+                    transform: translateY(0px) rotate(0deg);
+                }
+
+                50% {
+                    transform: translateY(-10px) rotate(180deg);
+                }
+            }
+
+            .upload-icon {
+                animation: bounce 2s infinite;
+            }
+
+            @keyframes bounce {
+
+                0%,
+                20%,
+                50%,
+                80%,
+                100% {
+                    transform: translateY(0);
+                }
+
+                40% {
+                    transform: translateY(-10px);
+                }
+
+                60% {
+                    transform: translateY(-5px);
+                }
+            }
+
+            .file-item {
+                transition: all 0.3s ease;
+                border-left: 4px solid transparent !important;
+            }
+
+            .file-item:hover {
+                transform: translateX(5px);
+                border-left-color: var(--bs-primary) !important;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+            }
+
+            .file-item:hover .file-icon {
+                transform: scale(1.1);
+            }
+
+            .progress-bar {
+                background: linear-gradient(45deg, #007bff, #0056b3);
+            }
+
+            #closeReason:focus {
+                box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
+            }
+
+            .sla-chip {
+                font-size: .78rem;
+                border-radius: 999px;
+                padding: .12rem .6rem;
+            }
+        </style>
+    @endpush
+
+    @php
+        /** @var \App\Models\ProtestJob $job */
+
+        $medProtest = $job->medProtest;
+        $protest = $medProtest?->protest;
+
+        $tipoLabel = match ($protest?->tipoNota) {
+            'OU' => 'Ouvidoria',
+            'NA' => 'Atendimento',
+            'PR' => 'Procon',
+            default => 'Reclamação',
+        };
+
+        $jobStarted = filled($job->started_at);
+        $jobFinished = filled($job->finished_at);
+        $jobClosed = filled($job->closed_at);
+
+        $now = now();
+        $baseStart = $job->started_at ?? $job->created_at;
+        $dueAt = $job->sla_due_at;
+
+        $slaStatus = [
+            'color' => 'secondary',
+            'text' => 'SLA não configurado',
+            'icon' => 'ri-time-line',
+            'percent' => 0,
+            'label' => 'Sem datas suficientes para cálculo',
+        ];
+
+        if ($baseStart && $dueAt) {
+            $totalSec = max($dueAt->diffInSeconds($baseStart), 1);
+            $elapsedSec = min($now->diffInSeconds($baseStart), $totalSec);
+            $percent = intval(($elapsedSec / $totalSec) * 100);
+            $diffDays = $now->startOfDay()->diffInDays($dueAt->startOfDay(), false);
+
+            if ($diffDays < 0) {
+                $slaStatus['color'] = 'danger';
+                $slaStatus['text'] = 'SLA estourado';
+                $slaStatus['icon'] = 'ri-error-warning-line';
+                $slaStatus['percent'] = 100;
+                $slaStatus['label'] = 'Atraso de ' . abs($diffDays) . ' dia(s)';
+            } elseif ($percent >= 80) {
+                $slaStatus['color'] = 'warning';
+                $slaStatus['text'] = 'SLA em atenção';
+                $slaStatus['icon'] = 'ri-timer-line';
+                $slaStatus['percent'] = $percent;
+                $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
+            } else {
+                $slaStatus['color'] = 'success';
+                $slaStatus['text'] = 'SLA no prazo';
+                $slaStatus['icon'] = 'ri-check-line';
+                $slaStatus['percent'] = $percent;
+                $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
+            }
+        }
+
+        $needsEvidence = (bool) ($medProtest->needsEvidence ?? false);
+        $hasEvidence = $medProtest?->evidenceFiles?->count() > 0;
+
+        $authUser = auth()->user();
+        $isSupervisorView = $canManageJob && $authUser && $job->owner && $authUser->id !== $job->owner_id;
+    @endphp
 
     {{-- ================= CABEÇALHO DO JOB ================= --}}
     <div class="medprotest-header mb-4">
@@ -301,7 +300,7 @@
                             <span class="tag-pill">
                                 <i class="ri-flag-2-line me-1"></i>
                                 Status:
-                                <span class="badge {{ $job->status_badge_class }} ms-1">
+                                <span class="{{ $job->status_badge_class }} ms-1">
                                     {{ $job->status_label }}
                                 </span>
                             </span>
@@ -309,11 +308,21 @@
                             <span class="tag-pill">
                                 <i class="ri-vip-crown-2-line me-1"></i>
                                 Prioridade:
-                                <span class="badge {{ $job->priority_badge_class }} ms-1">
+                                <span class="{{ $job->priority_badge_class }} ms-1">
                                     {{ $job->priority_label }}
                                 </span>
                             </span>
                         </div>
+
+                        @if ($isSupervisorView)
+                            <div class="mt-2">
+                                <span class="badge bg-light text-dark">
+                                    Você está visualizando este Job como <strong>gestor</strong> do responsável.
+                                    O fluxo de início/encerramento é o padrão da atividade;
+                                    as ferramentas de gestão ficam em uma seção separada abaixo.
+                                </span>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -402,7 +411,7 @@
                         <div class="border-top pt-2 mt-2">
                             <div class="text-muted mb-1">Resumo da Reclamação</div>
                             <div class="fw-medium">
-                                {{ $protest?->resume ?? ($protest?->descricao ?? 'Sem resumo disponível.') }}
+                                {{ $protest?->resume ?? 'Sem resumo disponível.' }}
                             </div>
                         </div>
                     </div>
@@ -459,20 +468,20 @@
             </div>
         </div>
 
-        {{-- Controle da Atividade (Start / Close) --}}
+        {{-- Controle da Atividade (Fluxo padrão) --}}
         <div class="col-md-4 mb-3">
             <div class="modern-card h-100">
                 <div class="modern-card-body d-flex flex-column">
                     <div class="modern-card-title">
-                        <i class="ri-play-circle-line me-1"></i>Controle da Atividade
+                        <i class="ri-play-circle-line me-1"></i>Controle da Atividade (Fluxo do Job)
                     </div>
 
                     <div class="mb-2 small">
                         @if (!$jobStarted)
                             <div class="alert alert-info py-2 mb-2">
                                 <i class="ri-information-line me-1"></i>
-                                Clique em <strong>Iniciar atividade</strong> para registrar o início do atendimento
-                                deste Job.
+                                A atividade ainda não foi iniciada. O responsável (ou seu gestor) pode registrar o
+                                início da atividade.
                             </div>
                         @else
                             <div class="alert alert-light border py-2 mb-2">
@@ -520,34 +529,100 @@
                         @enderror
                         <small class="text-muted d-block mt-1">
                             <i class="ri-information-line me-1"></i>
-                            Este texto alimenta o campo <code>close_reason</code> do Job e será usado em relatórios.
+                            Este campo alimenta o <code>close_reason</code> do Job e faz parte do fluxo oficial de
+                            encerramento da atividade.
                         </small>
                     </div>
 
                     <div class="d-flex flex-column gap-2 mt-auto">
-                        {{-- Botão iniciar --}}
                         <button type="button" class="btn btn-outline-primary w-100" wire:click="startJob"
-                            @disabled($jobStarted)>
+                            @disabled(!$canManageJob || $jobStarted)>
                             <i class="ri-play-circle-line me-1"></i>
                             Iniciar atividade
+                            @if ($isSupervisorView)
+                                <span class="small">(em nome da equipe)</span>
+                            @endif
                         </button>
 
-                        {{-- Botão encerrar --}}
                         <button type="button" class="btn btn-primary w-100" wire:click="finishJob"
-                            @disabled(!$jobStarted || $jobFinished)>
+                            @disabled(!$canManageJob || !$jobStarted || $jobFinished)>
                             <i class="ri-check-double-line me-1"></i>
                             Encerrar atividade
                         </button>
 
                         <small class="text-muted">
-                            O encerramento registra o Job como concluído, mas o SLA continua sendo contado para fins
-                            de análise.
+                            O encerramento registra o Job como concluído no fluxo padrão, mantendo histórico para
+                            análise
+                            gerencial.
                         </small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    {{-- ================= CARD SEPARADO: FERRAMENTAS DE GESTÃO ================= --}}
+    @if ($canManageJob)
+        <div class="modern-card mb-3">
+            <div class="modern-card-body">
+                <div class="modern-card-title d-flex align-items-center gap-2">
+                    <i class="ri-settings-3-line"></i>
+                    Ferramentas de Gestão
+                    <span class="badge bg-secondary ms-1">GESTÃO</span>
+                </div>
+
+                <p class="small text-muted mb-3">
+                    Estas ações são de <strong>gestão</strong> da fila de trabalho:
+                    ajustam prioridade e responsável, mas não encerram o Job.
+                </p>
+
+                <div class="row g-3">
+                    {{-- Prioridade --}}
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Prioridade do Job</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" wire:model="priority">
+                                <option value="">Selecione...</option>
+                                @foreach ($priorityOptions as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                wire:click="updatePriority">
+                                <i class="ri-speed-up-line me-1"></i>Atualizar
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Reatribuir responsável --}}
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Reatribuir responsável</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" wire:model="newOwnerId">
+                                <option value="">Selecione um responsável da sua equipe...</option>
+                                @foreach ($availableUsers as $user)
+                                    <option value="{{ $user->id }}">
+                                        {{ $user->name }} ({{ $user->email }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                wire:click="reassignOwner">
+                                <i class="ri-user-shared-line me-1"></i>Reatribuir
+                            </button>
+                        </div>
+                        @error('newOwnerId')
+                            <small class="text-danger d-block mt-1">{{ $message }}</small>
+                        @enderror
+                        <small class="text-muted d-block mt-1">
+                            Apenas usuários abaixo da sua hierarquia são listados. Aqui você mexe na fila de
+                            responsabilidade, sem alterar o fluxo de encerramento.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ================= CONTEÚDO DEPENDENTE DO INÍCIO DO JOB ================= --}}
     @if ($jobStarted)
@@ -909,16 +984,15 @@
             <div class="modern-card-body">
                 <div class="alert alert-info mb-0">
                     <i class="ri-information-line me-1"></i>
-                    A atividade deste Job ainda não foi iniciada. Clique em
-                    <strong>Iniciar atividade</strong> para começar o atendimento.
+                    A atividade deste Job ainda não foi iniciada. Como gestor, você pode decidir iniciar a atividade
+                    ou acompanhar até que o responsável o faça.
                 </div>
             </div>
         </div>
     @endif
 
-    {{-- COMPONENTE DE RELACIONAR NOTAS --}}
     @if ($medProtest)
-        @livewire('protests.partner.actions.add-notes-relation', ['medProtestId' => $medProtest->id], key('medProtest-AddNotesRelation-' . $medProtest->id))
+        @livewire('protests.services.actions.add-notes-relation', ['medProtestId' => $medProtest->id], key('medProtest-AddNotesRelation-' . $medProtest->id))
     @endif
 
     @push('scripts')
@@ -956,3 +1030,7 @@
         </script>
     @endpush
 </div>
+
+
+
+

@@ -1,12 +1,63 @@
+@php
+    if (!function_exists('reduceName')) {
+        function reduceName($name, bool $first = false)
+        {
+            $partName = explode(' ', trim((string) $name));
+
+            if (count($partName) === 0) {
+                return '';
+            }
+
+            if (count($partName) === 1) {
+                return $partName[0];
+            }
+
+            if ($first) {
+                return $partName[0];
+            }
+
+            return $partName[0] . ' ' . end($partName);
+        }
+    }
+
+    if (!function_exists('getWishDateJob')) {
+        function getWishDateJob($job)
+        {
+            $protest = $job->protest;
+            $medProtest = $job->medProtest;
+
+            if ($protest?->tipoNota === 'NA') {
+                return $protest?->dtConclusaoDesej;
+            }
+
+            return $medProtest?->dtFimMedidaDesej;
+        }
+    }
+
+    if (!function_exists('getApertureDateJob')) {
+        function getApertureDateJob($job)
+        {
+            $protest = $job->protest;
+            $medProtest = $job->medProtest;
+
+            if ($protest?->tipoNota === 'NA') {
+                return $protest?->dtAberturaNota;
+            }
+
+            return $medProtest?->dtCriacaoMedida;
+        }
+    }
+@endphp
+
 <div>
-    {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
-    <div class="card mb-3">
+    {{-- ================== TOP: BUSCA E FILTROS ================== --}}
+    <div class="card mb-3 shadow-sm border-0">
         <div class="card-body">
-            <div class="row g-3">
-                <!-- Per Page Select -->
-                <div class="col-12 col-sm-6 col-md-2 d-flex align-items-center">
+            <div class="row g-3 align-items-end">
+                {{-- 1) Registros por página --}}
+                <div class="col-12 col-sm-4 col-md-2">
                     <div class="form-floating w-100">
                         <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
                             <option value="25">25</option>
@@ -15,16 +66,17 @@
                             <option value="200">200</option>
                             <option value="500">500</option>
                         </select>
-                        <label for="perPageSelect">Registros por página</label>
+                        <label for="perPageSelect">Registros</label>
                     </div>
                 </div>
 
-                <!-- Search Input -->
-                <div class="col-12 col-sm-6 col-md-3 d-flex align-items-center">
-                    <div class="form-floating w-100">
-                        <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
-                            id="search" placeholder="Buscar">
-                        <label for="search">Buscar</label>
+                {{-- 2) Busca principal (nota) --}}
+                <div class="col-12 col-sm-8 col-md-4">
+                    <div class="form-floating w-100 position-relative">
+                        <input wire:model.debounce.800ms="search" type="text"
+                            class="form-control border border-secondary" id="search" placeholder="Buscar nota">
+                        <label for="search">Buscar nota da reclamação</label>
+
                         <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
                             data-bs-toggle="modal" data-bs-target="#buscar_multi">
                             <i class="ri-checkbox-multiple-blank-line"></i>
@@ -32,39 +84,72 @@
                     </div>
                 </div>
 
-                <!-- Type Note Buttons -->
-                <div class="col-12 col-md-3 d-flex align-items-center">
-                    <div class="btn-group w-100 my-0" role="group" aria-label="Tipo de Nota">
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="NA"
-                            id="typeNote1">
+                {{-- 3) Tipo de Nota --}}
+                <div class="col-12 col-md-3">
+                    <label class="form-label small mb-1">Tipo de nota</label>
+                    <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
+                        <input type="radio" class="btn-check" name="typeNote" id="typeNote1" wire:model="typeNote"
+                            value="NA">
                         <label class="btn btn-outline-primary" for="typeNote1">NA</label>
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="OU"
-                            id="typeNote2">
+                        <input type="radio" class="btn-check" name="typeNote" id="typeNote2" wire:model="typeNote"
+                            value="OU">
                         <label class="btn btn-outline-primary" for="typeNote2">OU</label>
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value=""
-                            id="typeNote3">
-                        <label class="btn btn-outline-primary" for="typeNote3">AMBOS</label>
-                    </div>
-                    <div class="btn-group w-100 my-0 ms-2" role="group" aria-label="Tipo de Nota">
-                        <input type="radio" class="btn-check" name="inPrazo" wire:model="inPrazo" value="1"
-                            id="inPrazo1">
-                        <label class="btn btn-outline-primary" for="inPrazo1">FORA</label>
-
-                        <input type="radio" class="btn-check" name="inPrazo" wire:model="inPrazo" value="2"
-                            id="inPrazo2">
-                        <label class="btn btn-outline-primary" for="inPrazo2">DENTRO</label>
-
-                        <input type="radio" class="btn-check" name="inPrazo" wire:model="inPrazo" value=""
-                            id="inPrazo3">
-                        <label class="btn btn-outline-primary" for="inPrazo3">AMBOS</label>
+                        <input type="radio" class="btn-check" name="typeNote" id="typeNote3" wire:model="typeNote"
+                            value="">
+                        <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
                     </div>
                 </div>
 
-                <!-- Filters -->
-                <div class="col-12 col-md-4">
-                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                {{-- 4) SLA --}}
+                <div class="col-12 col-md-3">
+                    <label class="form-label small mb-1">SLA do Job</label>
+                    <div class="btn-group w-100" role="group" aria-label="Prazo SLA">
+                        <input type="radio" class="btn-check" name="inPrazo" id="inPrazo1" wire:model="inPrazo"
+                            value="1">
+                        <label class="btn btn-outline-primary" for="inPrazo1">Fora SLA</label>
+
+                        <input type="radio" class="btn-check" name="inPrazo" id="inPrazo2" wire:model="inPrazo"
+                            value="2">
+                        <label class="btn btn-outline-primary" for="inPrazo2">Dentro SLA</label>
+
+                        <input type="radio" class="btn-check" name="inPrazo" id="inPrazo3" wire:model="inPrazo"
+                            value="">
+                        <label class="btn btn-outline-primary" for="inPrazo3">Todos</label>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-3">
+
+            {{-- Linha 2: filtro por usuário + filtros externos --}}
+            <div class="row g-3 align-items-end">
+                {{-- 5) Busca por nome de usuário --}}
+                <div class="col-12 col-md-3">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border border-secondary" id="searchName"
+                            placeholder="Buscar usuário" wire:model.debounce.500ms="searchName">
+                        <label for="searchName">Buscar responsável</label>
+                    </div>
+                </div>
+
+                {{-- 6) Combo de usuários (hierarquia) --}}
+                <div class="col-12 col-md-3">
+                    <label for="userViewer" class="form-label small mb-1">Responsável / Hierarquia</label>
+                    <select class="form-select border border-secondary" id="userViewer" wire:model="userViewer">
+                        <option value="">Todos os responsáveis</option>
+                        @foreach ($userViewerList as $u)
+                            <option value="{{ $u->id }}">
+                                {{ $u->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- 7) Filtros externos (grupo, região, cidade) --}}
+                <div class="col-12 col-md-6">
+                    <div class="d-flex flex-wrap justify-content-center justify-content-md-end gap-2">
                         @livewire(
                             'components.filter.filter2',
                             [
@@ -79,42 +164,8 @@
                                 'searchColumn' => '',
                                 'sendSearchColumn' => 'entity_type_id',
                             ],
-                            key('entityTypes')
+                            key('closed-entityTypes')
                         )
-
-                        {{-- @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'entities',
-                                'sendFilter' => '',
-                                'modelClass' => \App\Models\Entity::class,
-                                'column' => 'id',
-                                'filterLabel' => 'Entidades',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'name',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'name',
-                                'sendSearchColumn' => 'entity_id',
-                            ],
-                            key('entities')
-                        ) --}}
-
-                        {{-- @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'rubrica',
-                                'sendFilter' => '',
-                                'modelClass' => \App\Models\Note::class,
-                                'column' => 'rubrica',
-                                'filterLabel' => 'Rúbrica',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'rubrica',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'rubrica',
-                                'sendSearchColumn' => 'rubrica',
-                            ],
-                            key('rubrica')
-                        ) --}}
 
                         @livewire(
                             'components.filter.filter2',
@@ -130,7 +181,7 @@
                                 'searchColumn' => 'regiao',
                                 'sendSearchColumn' => 'regiao',
                             ],
-                            key('region')
+                            key('closed-region')
                         )
 
                         @livewire(
@@ -147,186 +198,343 @@
                                 'searchColumn' => 'municipio',
                                 'sendSearchColumn' => 'cidade',
                             ],
-                            key('city')
+                            key('closed-city')
                         )
 
-                        @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
+                        @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('closed-removeAll'))
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
+    {{-- ================== CARDS DE RESUMO ================== --}}
+    @php
+        $total = $stats['total'] ?? 0;
+        $avgClosing = $stats['avg_closing_days'] ?? null;
 
-        @if (!$lists->count())
-        @elseif ($lists->count())
+        $withinContract = $stats['within_contract'] ?? 0;
+        $withinContractPc = $stats['within_contract_pct'] ?? 0;
+        $outContract = $stats['out_contract'] ?? 0;
+        $outContractPc = $stats['out_contract_pct'] ?? 0;
+
+        $withinSla = $stats['within_sla'] ?? 0;
+        $withinSlaPc = $stats['within_sla_pct'] ?? 0;
+        $outSla = $stats['out_sla'] ?? 0;
+        $outSlaPc = $stats['out_sla_pct'] ?? 0;
+    @endphp
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Jobs finalizados</span>
+                        <i class="ri-task-fill fs-4 text-primary"></i>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end">
+                        <h3 class="fw-bold mb-0">{{ $total }}</h3>
+                        <span class="badge bg-light text-muted">100%</span>
+                    </div>
+                    <small class="text-muted mt-2">
+                        Reclamações com job concluído e confirmado.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Tempo médio de conclusão</span>
+                        <i class="ri-time-line fs-4 text-secondary"></i>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <h3 class="fw-bold mb-0">
+                            {{ $avgClosing !== null ? $avgClosing . ' d' : '--' }}
+                        </h3>
+                    </div>
+                    <small class="text-muted">
+                        Da abertura da nota até o fim do job.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">Prazo contratual</span>
+                        <i class="ri-calendar-check-line fs-4 text-success"></i>
+                    </div>
+                    <div class="mb-1">
+                        <div class="d-flex justify-content-between">
+                            <span class="small text-muted">Dentro do prazo</span>
+                            <span class="small fw-bold">
+                                {{ $withinContract }} ({{ $withinContractPc }}%)
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="small text-muted">Fora do prazo</span>
+                            <span class="small fw-bold text-danger">
+                                {{ $outContract }} ({{ $outContractPc }}%)
+                            </span>
+                        </div>
+                    </div>
+                    <small class="text-muted mt-auto">
+                        Data desejada x fim do job.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="text-muted text-uppercase small">SLA</span>
+                        <i class="ri-timer-flash-line fs-4 text-warning"></i>
+                    </div>
+                    <div class="mb-1">
+                        <div class="d-flex justify-content-between">
+                            <span class="small text-muted">Dentro do SLA</span>
+                            <span class="small fw-bold">
+                                {{ $withinSla }} ({{ $withinSlaPc }}%)
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="small text-muted">SLA estourado</span>
+                            <span class="small fw-bold text-danger">
+                                {{ $outSla }} ({{ $outSlaPc }}%)
+                            </span>
+                        </div>
+                    </div>
+                    <small class="text-muted mt-auto">
+                        finished_at x sla_due_at.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================== PAGINAÇÃO TOPO ================== --}}
+    <div class="row mb-2">
+        @if ($lists->count())
             <div class="col-6">
                 {{ $lists->links() }}
             </div>
         @endif
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
-
-            </span>
+            @if ($lists->count())
+                <span class="align-middle">
+                    Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }}
+                    de {{ $lists->total() }} registros.
+                </span>
+            @endif
         </div>
-
-
     </div>
 
-
-    <div class="card">
+    {{-- ================== TABELA DE JOBS FECHADOS ================== --}}
+    <div class="card shadow-sm border-0">
         @if (!$lists->count())
             <div class="card-body">
-                <h4 class="text-center">SEM DADOS EM RECLAMAÇÕES</h4>
+                <h4 class="text-center">SEM JOBS FECHADOS PARA OS FILTROS ATUAIS</h4>
             </div>
         @else
-            <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">RECLAMAÇÕES FECHADAS</h4>
-                <button wire:click="exportToExcel" class="btn btn-success">
+            <div class="card-header fw-bold text-bg-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="ri-clipboard-check-line me-1"></i>
+                    JOBS DE RECLAMAÇÕES FECHADOS
+                </h5>
+                <button wire:click="exportToExcel" class="btn btn-success btn-sm">
                     <i class="ri-file-excel-2-line me-2"></i>Exportar
                 </button>
             </div>
+
             <div class="table-responsive">
-                <table class="table table-sm  table-condensed table-hover table-striped">
+                <table class="table table-sm table-striped table-hover align-middle mb-0">
                     <thead class="table-dark">
-                        <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                            {{-- <th scope="col" class="fw-bold text-center">#</th> --}}
-                            <th scope="col" class="fw-bold text-center">Numero</th>
-                            <th scope="col" class="fw-bold text-center">Tipo</th>
-                            <th scope="col" class="fw-bold text-center">Nota/Ov Ref</th>
-                            <th scope="col" class="fw-bold text-center">Grupo</th>
-                            <th scope="col" class="fw-bold text-center">Dt Abertura</th>
-                            <th scope="col" class="fw-bold text-center">Data Conclusao Desejada</th>
-                            <th scope="col" class="fw-bold text-center">Data Conclusao</th>
-                            <th scope="col" class="fw-bold text-center">Condição</th>
-                            <th scope="col" class="fw-bold text-center">MEDE/TOTAL</th>
-                            <th scope="col" class="fw-bold text-center">Descrição</th>
-                            <th scope="col" class="fw-bold text-center">Município</th>
-                            <th scope="col" class="fw-bold text-center">Status</th>
+                        <tr class="text-center">
+                            <th>Prioridade</th>
+                            <th>Despachante</th>
+                            <th>Tipo</th>
+                            <th></th>
+                            <th>Nota</th>
+                            <th>Medida</th>
+                            <th>Cód</th>
+                            <th>Tipo Reclamação</th>
+                            <th>Município</th>
+                            <th>Responsável</th>
+                            <th>Empresa</th>
+                            <th>Abertura</th>
+                            <th>Fim desejado</th>
+                            <th>Fim do Job</th>
+                            <th>SLA</th>
+                            <th>Prazo</th>
+                            <th>Finalizado por</th>
+                            <th style="width:48px;"></th>
+                        </tr>
                     </thead>
+
                     <tbody>
-                        @foreach ($lists as $index => $list)
+                        @foreach ($lists as $item)
                             @php
+                                $protest = $item->protest;
+                                $medProtest = $item->medProtest;
 
-                                $vencimento = 'Indefinido';
-                                $color = 'text-bg-secondary';
+                                $openedAt = getApertureDateJob($item);
+                                $wishAt = getWishDateJob($item);
+                                $finishedAt = $item->finished_at;
 
-                                if ($list->dtConclusaoDesej) {
-                                    $hoje = now()->startOfDay();
-                                    $dataConclusao = $list->dtConclusaoDesej->startOfDay();
+                                $slaLabel = 'SEM SLA';
+                                $slaClass = 'text-bg-secondary';
 
-                                    if ($hoje->gt($dataConclusao)) {
-                                        $vencimento = 'ATRASADO';
-                                        $color = 'text-bg-danger';
+                                if ($item->sla_due_at && $finishedAt) {
+                                    if ($finishedAt->gt($item->sla_due_at)) {
+                                        $slaLabel = 'SLA ESTOURADO';
+                                        $slaClass = 'text-bg-danger';
                                     } else {
-                                        $diasRestantes = $hoje->diffInDays($dataConclusao);
-
-                                        if ($diasRestantes <= 3) {
-                                            $vencimento = 'VENCENDO';
-                                            $color = 'text-bg-warning';
-                                        } else {
-                                            $vencimento = 'NO PRAZO';
-                                            $color = 'text-bg-success';
-                                        }
+                                        $slaLabel = 'SLA OK';
+                                        $slaClass = 'text-bg-success';
                                     }
                                 }
 
-                                $totalMed = [
-                                    'closed' => $list->medProtests?->where('statusSist', 'MEDE')->count(),
-                                    'total' => $list->medProtests?->count(),
-                                ];
+                                $contractLabel = '--';
+                                $contractClass = 'text-bg-secondary';
 
+                                if ($wishAt && $finishedAt) {
+                                    if ($finishedAt->gt($wishAt)) {
+                                        $contractLabel = 'FORA DO PRAZO';
+                                        $contractClass = 'text-bg-danger';
+                                    } else {
+                                        $contractLabel = 'NO PRAZO';
+                                        $contractClass = 'text-bg-success';
+                                    }
+                                }
                             @endphp
-                            {{-- @dump($list->Productions) --}}
-                            <tr class="align-middle text-center" wire:key="{{ $list->id }}-{{ $list->nota }}"
-                                wire:dblClick='goTo({{ $list->nota }})'>
-                                {{-- <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
-                                    <span class="badge {{ $color }}">{{ $vencimento }}</span>
-                                </td> --}}
 
-                                <td class="fw-bold copy-text text-center" data-value="{{ $list->nota }}">
-                                    {{ $list->nota }}
+                            <tr class="text-center">
+                                <td>
+                                    <span class="badge {{ $item->priority_badge_class }}">
+                                        {{ $item->priority_label }}
+                                    </span>
                                 </td>
 
-
-                                <td class="text-center align-middle "> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    {{ $list->tipoNota }}
+                                <td class="fw-bold">
+                                    {{ reduceName($item->creator?->name) }}
                                 </td>
 
-                                <td class="text-center align-middle text-primary fw-bold">
-                                    {{ $list->Notes->isNotEmpty() ? $list->Notes[0]->note : '--' }}
+                                <td>
+                                    <span class="badge text-bg-secondary">
+                                        {{ $protest?->tipoNota }}
+                                    </span>
                                 </td>
 
-                                <td class="text-start align-middle text-uppercase fw-bold"> {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    {{ $list->txtGrpCodificacao }}
-                                </td>
-                                <td class="text-center align-middle text-bg-secondary">
-                                    {{ $list->dtAberturaNota?->format('d/m/Y') }}
-                                </td>
-                                <td class="fw-light text-center text-bg-dark">
-                                    {{-- Se a data de conclusão desejada for passada, exibe a data --}}
-                                    {{ $list->dtConclusaoDesej?->format('d/m/Y') }}
-                                </td>
-                                <td class="fw-light text-center text-bg-secondary">
-                                    {{-- Se a data de conclusão desejada for passada, exibe a data --}}
-                                    {{ $list->dataFinalValida?->format('d/m/Y') }}
-                                </td>
-                                <td class="fw-light text-center">
-                                    @if ($list->dataFinalValida)
-                                        @if ($list->dtConclusaoDesej < $list->dataFinalValida)
-                                            <span class="badge text-bg-danger">FORA DO PRAZO</span>
-                                        @else
-                                            <span class="badge text-bg-success">NO PRAZO</span>
-                                        @endif
+                                <td>
+                                    @if ($item->is_advance)
+                                        <span class="badge text-bg-info">A</span>
                                     @endif
                                 </td>
-                                <td class="fw-light text-center">
-                                    <span class="badge text-bg-dark">{{ $totalMed['closed'] }} /
-                                        {{ $totalMed['total'] }}</span>
+
+                                <td class="fw-bold">
+                                    {{ $protest?->nota }}
                                 </td>
 
-                                <td class="fw-light text-start">
-                                    <p class="my-0 py-0 fs-6"> {{ $list->descCausa }}</p>
-                                    <p class="my-0 py-0 fs-6"> {{ $list->descSubCausa }}</p>
+                                <td class="fw-bold">
+                                    # {{ $medProtest?->med_id }}
                                 </td>
 
-                                <td class="fw-light text-start fw-bold">
-                                    {{ $list->cidade }}
+                                <td>
+                                    <span class="badge text-bg-secondary">
+                                        {{ $protest?->codecodf }}
+                                    </span>
                                 </td>
-                                <td class="fw-light text-center">{{ $list->statUsuar }}</td>
 
+                                <td class="text-uppercase">
+                                    {{ $protest?->txtGrpCodificacao }}
+                                </td>
 
+                                <td>
+                                    {{ $protest?->cidade }}
+                                </td>
 
+                                <td class="text-uppercase fw-bold">
+                                    {{ reduceName($item->owner?->name) }}
+                                </td>
+
+                                <td class="text-uppercase">
+                                    {{ reduceName($item->owner?->company?->name, true) }}
+                                </td>
+
+                                <td>
+                                    {{ $openedAt ? $openedAt->format('d/m/Y') : '---' }}
+                                </td>
+
+                                <td>
+                                    {{ $wishAt ? $wishAt->format('d/m/Y') : '---' }}
+                                </td>
+
+                                <td class="fw-bold">
+                                    {{ $finishedAt ? $finishedAt->format('d/m/Y') : '---' }}
+                                </td>
+
+                                <td>
+                                    <span class="badge {{ $slaClass }}">
+                                        {{ $slaLabel }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="badge {{ $contractClass }}">
+                                        {{ $contractLabel }}
+                                    </span>
+                                </td>
+
+                                <td class="text-uppercase fw-bold">
+                                    {{ reduceName($item->closer?->name) }}
+                                </td>
+
+                                <td>
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            title="Visualizar Job"
+                                            wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $item->id }})">
+                                            <i class="ri-eye-line"></i>
+                                        </button>
+
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            wire:click="goTo({{ $protest?->nota }})" title="Abrir reclamação">
+                                            <i class="ri-bookmark-line"></i>
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
         @endif
-
     </div>
 
-    <div class="row">
-
-        @if (!$lists->count())
-        @elseif ($lists->count())
+    {{-- ================== PAGINAÇÃO BASE ================== --}}
+    <div class="row mt-2">
+        @if ($lists->count())
             <div class="col-6">
                 {{ $lists->links() }}
             </div>
         @endif
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
-
-            </span>
+            @if ($lists->count())
+                <span class="align-middle">
+                    Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }}
+                    de {{ $lists->total() }} registros.
+                </span>
+            @endif
         </div>
-
-
     </div>
+
+    {{-- Drawer/modal compartilhado com Monitoring --}}
+    @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
 </div>

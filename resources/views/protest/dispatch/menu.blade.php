@@ -1,7 +1,7 @@
 <aside id="sidebar" class="sidebar edp-bg-sprucegreen-100">
 
     <ul class="sidebar-nav" id="sidebar-nav">
-        <li class="nav-item">
+        {{-- <li class="nav-item">
             <a class="nav-link collapsed" data-bs-target="#config_protest-nav" data-bs-toggle="collapse" href="#">
                 <i class="bi bi-menu-button-wide"></i><span>CONFIGURAÇÕES</span><i
                     class="bi bi-chevron-down ms-auto"></i>
@@ -16,7 +16,7 @@
                     </li>
                 </div>
             </ul>
-        </li>
+        </li> --}}
         <li class="nav-item">
             <a class="nav-link collapsed" data-bs-target="#protests-nav" data-bs-toggle="collapse" href="#">
                 <i class="bi bi-menu-button-wide"></i><span>RECLAMAÇÃO</span><i class="bi bi-chevron-down ms-auto"></i>
@@ -25,27 +25,27 @@
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
                         <a href="{{ route('protests.dispatch.lists') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>EM ABERTO</span>
+                            <i class="bi bi-inbox fs-5 edp-text-verde-dark"></i> <span>EM ABERTO</span>
 
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch.monitoring') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>EM ANDAMENTO</span>
+                            <i class="bi bi-arrow-repeat fs-5 edp-text-verde-dark"></i> <span>EM ANDAMENTO</span>
 
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch.closeds') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-file-earmark-text fs-5 text-warning"></i> <span>FECHADOS</span>
+                            <i class="bi bi-check-circle fs-5 edp-text-verde-dark"></i> <span>FECHADOS</span>
                         </a>
                     </li>
 
-                    <li>
+                    {{-- <li>
                         <a href="{{ route('protests.dispatch.per_user') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-person fs-5 text-white"></i> <span>POR USUÁRIO</span>
                         </a>
-                    </li>
+                    </li> --}}
 
                 </div>
             </ul>

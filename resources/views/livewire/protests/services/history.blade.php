@@ -1,10 +1,6 @@
-<div>
-
+﻿<div>
     <div class="mb-4">
-
-
         <div class="row g-3 mb-4">
-            <!-- Registros por página -->
             <div class="col-md-2">
                 <div class="form-floating">
                     <select wire:model="perPage" id="perPage" class="form-select">
@@ -17,25 +13,22 @@
                 </div>
             </div>
 
-            {{-- <!-- Buscar -->
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="form-floating">
-                    <input wire:model.debounce.300ms="search" type="text" id="search" class="form-control"
+                    <input wire:model.debounce.400ms="search" type="text" id="search" class="form-control"
                         placeholder="Digite para buscar...">
-                    <label for="search">Buscar</label>
+                    <label for="search">Buscar por nota ou observação</label>
                 </div>
             </div>
 
-            <!-- Mês -->
             <div class="col-md-2">
                 <div class="form-floating">
                     <input wire:model="month" type="month" id="month" class="form-control"
                         max="{{ date('Y-m') }}">
-                    <label for="month">Mês</label>
+                    <label for="month">Mês de encerramento</label>
                 </div>
             </div>
 
-            <!-- Data início -->
             <div class="col-md-2">
                 <div class="form-floating">
                     <input wire:model="dt_start" type="date" id="dt_start" class="form-control"
@@ -44,7 +37,6 @@
                 </div>
             </div>
 
-            <!-- Data fim -->
             <div class="col-md-2">
                 <div class="form-floating">
                     <input wire:model="dt_end" type="date" id="dt_end" class="form-control"
@@ -53,16 +45,17 @@
                 </div>
             </div>
 
-            <!-- Botão limpar filtros -->
             <div class="col-md-1 d-flex align-items-end">
-                <button wire:click="clearFilters" type="button" class="btn btn-outline-secondary w-100">
+                <button wire:click="clearFilters" type="button" class="btn btn-outline-secondary w-100"
+                    title="Limpar filtros">
                     <i class="ri-refresh-line"></i>
                 </button>
-            </div> --}}
+            </div>
         </div>
     </div>
+
     @if ($list->count() > 0)
-        <div class=" d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center mb-3">
             <div>
                 <i class="ri-information-line"></i>
                 Exibindo {{ $list->firstItem() }} a {{ $list->lastItem() }} de {{ $list->total() }} registros.
@@ -72,67 +65,86 @@
             </div>
         </div>
     @endif
+
     <div class="card">
-        <h4 class="card-header">
-            RECLAMAÇÕES ENCERRADAS POR MIM
-        </h4>
+        <h4 class="card-header">HISTÓRICO DE ATIVIDADES DO TIME</h4>
         <div class="table-responsive">
-
             @if ($list->count() > 0)
-
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered align-middle">
                     <thead>
-                        <tr class="text-center align-middle">
-
-                            <th scope="col-1" class="col-1">Numero Reclamação</th>
-                            <th scope="col-1" class="col-1">Tipo:</th>
-                            <th scope="col-1" class="col-1">Numero Medida:</th>
-                            <th class="col-1">Abertura Reclamação</th>
-                            <th class="col-1">Conclusão Desejada</th>
-                            <th class="col-1">Data da Medida</th>
-                            <th class="col-1">Medida Encerrada</th>
-                            <th class="col-1">Encerrada Sicode</th>
-                            <th class="col-1">Note Ref</th>
-                            <th class="col-1">Enviado Por:</th>
-                            <th class="col">Obs:</th>
+                        <tr class="text-center">
+                            <th class="col-1">Reclamação</th>
+                            <th class="col-1">Tipo</th>
+                            <th class="col-1">Medida</th>
+                            <th class="col-2">Responsável</th>
+                            <th class="col-1">Abertura Recl.</th>
+                            <th class="col-1">Prazo Oficial</th>
+                            <th class="col-1">Medida Enc.</th>
+                            <th class="col-1">Encerrada SICODE</th>
+                            <th class="col-1">SLA</th>
+                            <th class="col-2">Nota Ref.</th>
+                            <th class="col-2">Conclusão</th>
                             <th class="col-1"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($list as $item)
+                        @foreach ($list as $job)
                             @php
-                                $assigment = $item->Assignments->where('user', true)->where('completed', true)->first();
+                                $med = $job->medProtest;
+                                $protest = $med?->protest;
+                                $deadline = $this->deadlineFor($job);
+                                $closedAt = $job->closed_at ?? $job->finished_at;
+                                $withinSla = $this->finishedWithinDeadline($job);
+                                $noteRef = $protest?->notes?->last() ?? $med?->notes?->last();
                             @endphp
-                            <tr class="text-center align-middle" wire:key="item-{{ $item->id }}">
-                                <td>{{ $item->protest->nota }}</td>
-                                <td class='fw-bold'>{{ $item->protest->tipoNota }}</td>
-                                <td>{{ $item->med_id }}</td>
-                                <td class="fw-bold">{{ $item->protest->dtAberturaNota->format('d/m/Y') }}</td>
-                                <td class="fw-bold">{{ $item->protest?->dtConclusaoDesej?->format('d/m/Y') }}</td>
-                                <td class="fw-bold">{{ $item->dtCriacaoMedida?->format('d/m/Y') }}</td>
-                                <td class="fw-bold">{{ $item->dtFimMedida?->format('d/m/Y') }}</td>
-                                <td class="fw-bold">{{ $assigment?->ended_at?->format('d/m/Y H:i:s') }}</td>
-                                <td>{{ $item->Notes->isNotEmpty() ? $item->Notes?->last()?->note : 'SEM NOTA REFERÊNCIA' }}
+                            <tr class="text-center" wire:key="job-{{ $job->id }}">
+                                <td class="fw-semibold">{{ $protest?->nota ?? '-' }}</td>
+                                <td class="fw-semibold">{{ $protest?->tipoNota ?? '-' }}</td>
+                                <td>{{ $med?->med_id ?? '-' }}</td>
+                                <td>{{ $job->owner?->name ?? '–' }}</td>
+                                <td>{{ optional($protest?->dtAberturaNota)->format('d/m/Y') ?? '-' }}</td>
+                                <td>{{ optional($deadline)->format('d/m/Y') ?? 'Sem prazo' }}</td>
+                                <td>{{ optional($med?->dtFimMedida)->format('d/m/Y') ?? '-' }}</td>
+                                <td>{{ optional($closedAt)->format('d/m/Y H:i') ?? '-' }}</td>
+                                <td>
+                                    @if (is_null($withinSla))
+                                        <span class="badge bg-secondary-subtle text-secondary">Sem prazo</span>
+                                    @elseif ($withinSla)
+                                        <span class="badge bg-success-subtle text-success">Dentro do prazo</span>
+                                    @else
+                                        <span class="badge bg-danger-subtle text-danger">Fora do prazo</span>
+                                    @endif
                                 </td>
-                                <td>{{ $item->Assignments->where('responsible', true)->first()?->User->name }}</td>
-                                <td>{{ $item->comments->isNotEmpty() ? $item->comments->first()->message : 'SEM OBSERVAÇÃO' }}
+                                <td>
+                                    {{ $noteRef?->note ?? 'Sem anotação' }}
                                 </td>
-                                <td><a href="{{ route('protests.services.view_only', $item->id) }}"><i
-                                            class="ri-play-circle-fill fs-4 align-middle text-primary"
-                                            style="cursor: pointer;"></i></a></td>
+                                <td class="text-start">
+                                    {{ \Illuminate\Support\Str::limit($job->close_reason ?? '-', 80) }}
+                                </td>
+                                <td>
+                                    @if ($job->med_protest_id)
+                                        <a href="{{ route('protests.services.view', $job->id) }}" class="text-primary"
+                                            title="Visualizar">
+                                            <i class="ri-play-circle-fill fs-4"></i>
+                                        </a>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             @else
-                <div class="alert alert-info">
-                    Nenhum registro encontrado.
+                <div class="alert alert-info mb-0">
+                    Nenhum registro encontrado para os filtros informados.
                 </div>
             @endif
         </div>
     </div>
+
     @if ($list->count() > 0)
-        <div class=" d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center mt-3">
             <div>
                 <i class="ri-information-line"></i>
                 Exibindo {{ $list->firstItem() }} a {{ $list->lastItem() }} de {{ $list->total() }} registros.

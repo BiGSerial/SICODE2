@@ -3,276 +3,303 @@
 namespace App\Http\Livewire\Protests\Services;
 
 use App\Models\EvidenceFile;
-use App\Models\MedProtest;
+use App\Models\ProtestJob;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\Component;
+use Livewire\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class View extends Component
 {
     use WithFileUploads;
 
-    public $medProtest;
-    public $comment;
-    public $conclusion = '';
+    /** @var ProtestJob|null */
+    public $job = null;
 
-    public $filesConfig = [
-        'disk' => 'public',
-        'path' => 'protest_attachments',
-        'maxSize' => (10 * 1024),
+    /** @var \App\Models\MedProtest|null */
+    public $medProtest = null;
+
+    /** Campos de interação */
+    public string $comment     = '';
+    public string $conclusion  = '';   // parecer técnico
+    public string $closeReason = '';   // motivo de encerramento (close_reason obrigatório)
+
+    /** Uploads */
+    public array $filesConfig = [
+        'disk'         => 'public',
+        'path'         => 'protest_attachments',
+        'maxSize'      => (10 * 1024), // 10MB em KB (regra max: é em KB)
         'allowedTypes' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt'],
-
     ];
+
     /**
-     * @var array<TemporaryUploadedFile>
+     * Cesta temporária de arquivos (já validados) antes de salvar de fato.
+     * @var TemporaryUploadedFile[]
      */
     public $tempFiles = [];
+
     /**
-     * @var array<TemporaryUploadedFile>|null
+     * Propriedade ligada ao input de arquivos.
+     * @var TemporaryUploadedFile[]|null
      */
-    public $files = []; // This will hold the files selected for upload
+    public $files = [];
 
     protected $listeners = [
         'refreshComponent' => '$refresh',
-        'confirmFinishMedProtest' => 'finish',
+        'confirmFinishJob' => 'doFinishJob',
     ];
 
-    protected $messages = [
-        'comment.required' => 'O comentário é obrigatório.',
-        'comment.string' => 'O comentário deve ser uma string.',
-        'comment.min' => 'O comentário deve ter pelo menos 10 caracteres.',
-        'conclusion.required' => 'O parecer final é obrigatório.',
-        'conclusion.min'     => 'O parecer final deve ter pelo menos caracteres.',
-        'files.*.mimes' => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
-        'files.*.max' => 'Cada arquivo não pode ter mais de 10MB.',
-        'files.max' => 'Você pode anexar no máximo 5 arquivos de cada vez.',
+    protected array $messages = [
+        'comment.required'     => 'O comentário é obrigatório.',
+        'comment.string'       => 'O comentário deve ser uma string.',
+        'comment.min'          => 'O comentário deve ter pelo menos 10 caracteres.',
+        'conclusion.required'  => 'O parecer final é obrigatório.',
+        'conclusion.min'       => 'O parecer final deve ter pelo menos 10 caracteres.',
+        'closeReason.required' => 'O motivo de encerramento é obrigatório.',
+        'closeReason.min'      => 'O motivo de encerramento deve ter pelo menos 5 caracteres.',
+        'files.*.mimes'        => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
+        'files.*.max'          => 'Cada arquivo não pode ter mais de 10MB.',
+        'files.max'            => 'Você pode anexar no máximo 5 arquivos de cada vez.',
     ];
 
-    // This method is called automatically by Livewire when the 'files' property is updated
-    public function updatedFiles()
+    /** Carrega o JOB como raiz, e dele puxa Protest + MedProtest */
+    public function mount(int $jobId): void
+    {
+        $this->job = ProtestJob::with([
+            'protest.Notes',
+            'medProtest' => function ($q) {
+                $q->with([
+                    'Protest',
+                    'Notes',
+                    'EvidenceFiles',
+                    'Comments' => fn ($qq) => $qq->with('User')->orderByDesc('created_at'),
+                ]);
+            },
+            'Comments' => fn ($q) => $q->latest(),
+            'owner:id,name',
+            'creator:id,name',
+        ])->findOrFail($jobId);
+
+        if (! $this->job->medProtest) {
+            abort(404, 'Medida de Reclamação não associada a este Job.');
+        }
+
+        $this->medProtest = $this->job->medProtest;
+    }
+
+    /** Upload incremental (mantendo tempFiles como "cesta" de anexos) */
+    public function updatedFiles(): void
     {
         try {
-            // Validate the newly added files
             $this->validate([
-                'files.*' => 'mimes:'.implode(',', $this->filesConfig['allowedTypes']).'|max:'.$this->filesConfig['maxSize'],
+                'files'   => 'array|max:5',
+                'files.*' => 'mimes:' . implode(',', $this->filesConfig['allowedTypes'])
+                    . '|max:' . $this->filesConfig['maxSize'], // max em KB
             ]);
 
             foreach ($this->files as $file) {
+                if (! $file instanceof TemporaryUploadedFile) {
+                    continue;
+                }
+
                 $fileName = $file->getClientOriginalName();
 
-                // Check if a file with the same name already exists in tempFiles
+                // Evita duplicado com mesmo nome
                 foreach ($this->tempFiles as $index => $existingFile) {
                     if ($existingFile->getClientOriginalName() === $fileName) {
-                        // Remove the existing file
                         unset($this->tempFiles[$index]);
                         break;
                     }
                 }
 
-                // Add the new file
                 $this->tempFiles[] = $file;
             }
 
-            // Reindex the array to maintain sequential indices
+            // Reorganiza indexes e limpa o input
             $this->tempFiles = array_values($this->tempFiles);
-            $this->files = []; // Clear the input files after adding to tempFiles
-
+            $this->files     = [];
         } catch (ValidationException $e) {
-            $this->emit('showAlert', ['type' => 'error', 'message' => 'Erro ao validar arquivos.', 'errors' => $e->errors()]);
-            $this->reset('files'); // Clear the files that caused the validation error
-            throw $e; // Re-throw to show validation messages
+            $this->emit('showAlert', [
+                'type'    => 'error',
+                'message' => 'Erro ao validar arquivos.',
+                'errors'  => $e->errors(),
+            ]);
+            $this->reset('files');
+            throw $e;
         }
     }
 
-    public function finishMedProtest()
+    /** Botão "Iniciar atividade" (delega início para o modelo ProtestJob) */
+    public function startJob(): void
     {
-        // Validações rápidas de UX: antes de abrir o confirm
-        $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
-        $hasEvidence   = $this->medProtest->evidenceFiles()->count() > 0;
-        $hasConclusion = mb_strlen(trim((string) $this->conclusion)) >= 10;
+        try {
+            // Quem controla se pode ou não iniciar é o próprio modelo ProtestJob
+            // (datas, status, eventos, concorrência etc.)
+            $this->job->start(); // <- método de domínio do ProtestJob
+
+            $this->job->refresh();
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Atividade iniciada. O SLA da atividade está em contagem.',
+            ]);
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Não foi possível iniciar a atividade',
+                'text'     => $e->getMessage(),
+                'timer'    => 6000,
+            ]);
+        }
+    }
+
+    /** Abre o diálogo de confirmação para finalizar o Job */
+    public function finishJob(): void
+    {
+        $needsEvidence = (bool) ($this->need_evidence ?? false);
+        $hasEvidence   = $this->medProtest->evidenceFiles()->exists();
 
         $this->validate([
-            'conclusion' => 'required|min:10',
+            'closeReason' => 'required|min:5',
         ]);
 
-
-        if ($needsEvidence && !$hasEvidence) {
+        if ($needsEvidence && ! $hasEvidence) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'Evidências pendentes',
-                'text'     => 'Esta medida exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
+                'text'     => 'Esta atividade exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
                 'timer'    => 6000,
             ]);
             return;
         }
 
-        if (!$hasConclusion) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Parecer final obrigatório',
-                'text'     => 'Informe o parecer final (mínimo 10 caracteres) para concluir o laudo.',
-                'timer'    => 6000,
-            ]);
-            return;
-        }
-
-        // Abre o confirm padrão que você já usa
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'FINALIZAR MEDIDA DE RECLAMAÇÃO',
-            'msg'           => "Você tem certeza que deseja finalizar esta medida de reclamação?",
+            'title'         => 'FINALIZAR ATIVIDADE DO JOB',
+            'msg'           => 'Tem certeza que deseja finalizar esta atividade da medida de reclamação?',
             'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Finalizar!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirmFinishMedProtest',
+            'btnOktxt'      => 'Sim, finalizar!',
+            'btnCanceltxt'  => 'Não, cancelar',
+            'action'        => 'confirmFinishJob',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Ação Cancelada.',
+            'cancel_msg'    => 'Ação cancelada.',
         ]);
     }
 
-    public function finish()
+    /**
+     * Finalização efetiva:
+     * quem muda estado é EXCLUSIVAMENTE o ProtestJob::done()
+     */
+    public function doFinishJob(): void
     {
-        // validações de segurança no servidor
-        
         $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
-        if ($needsEvidence && !$this->medProtest->evidenceFiles()->exists()) {
+
+        if ($needsEvidence && ! $this->medProtest->evidenceFiles()->exists()) {
             $this->dispatchBrowserEvent('swal', [
-                'position' => 'center','icon' => 'error',
-                'title' => 'Evidências pendentes',
-                'text' => 'Esta medida exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
-                'timer' => 6000,
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Evidências pendentes',
+                'text'     => 'Esta atividade exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
+                'timer'    => 6000,
             ]);
             return;
         }
 
-        $userAssigned = $this->medProtest->Assignments()->where('user_id', auth()->id())
-            ->where('completed', false)
-            ->first();
+        $this->validate([
 
-        if (!$userAssigned) {
+            'closeReason' => 'required|min:5',
+        ]);
+
+        // Regra de permissão ainda fica aqui (domínio de aplicação)
+        if (! (auth()->id() === $this->job->owner_id || auth()->user()?->superadm)) {
             $this->dispatchBrowserEvent('swal', [
-                'position' => 'center','icon' => 'error',
-                'title' => 'Você não está designado para esta medida de reclamação!',
-                'timer' => 5000,
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Permissão negada',
+                'text'     => 'Somente o responsável pelo Job pode encerrar a atividade.',
+                'timer'    => 5000,
             ]);
             return;
         }
 
         DB::beginTransaction();
 
-
         try {
+            /** @var User|null $responsible */
+            $responsible = $this->job->creator;
 
-            $responsible = $this->medProtest->Assignments()
-                ->where('user', false)
-                ->where('responsible', true)
-                ->first()?->User;
-
-            // Finaliza assignment do usuário
-            $userAssigned->update([
-                'completed' => true,
-                'ended_at'  => now(),
-            ]);
-
-            // Se não precisa de confirmação: encerra a MedProtest
-            if (!$this->medProtest->needsConfirmation) {
-                $this->medProtest->update([
-                    'completed'     => true,
-                    'completed_at'  => now(),
-                    'statusSist'    => 'ENCERRADO',
-                ]);
-
-            }
-
-            $this->medProtest->Assignments()
-                   ->where('completed', false)
-                   ->update([
-                       'completed' => true,
-                       'ended_at'  => now(),
-                   ]);
-
-            // cria/atualiza o relatório técnico (hasOne)
-            $this->medProtest->technicalReport()->updateOrCreate(
-                ['med_protest_id' => $this->medProtest->id],
-                [
-                    'title'           => 'Parecer Técnico - Reclamação '.$this->medProtest->protest?->nota,
-                    'initial_content' => null,
-                    'content'         => trim($this->conclusion),
-                    'report_date'     => now()->toDateString(),
-                    'user_id'         => auth()->id(),
-                ]
-            );
-
-            // Adiciona em Comentário o usuário efetivo que finalizou.
+            // Comentário técnico (fica registrado na MedProtest)
             $this->medProtest->comments()->create([
                 'user_id' => auth()->id(),
-                'message' => '[SISTEMA] Medida de reclamação concluída por ' . auth()->user()->name . ' em ' . now()->format('d/m/Y H:i') . '.',
+                'message' => '[SISTEMA] Atividade do Job concluída por ' . auth()->user()->name .
+                    ' em ' . now()->format('d/m/Y H:i') .
+                    ' | Motivo de encerramento: ' . trim($this->closeReason),
             ]);
+            // Relatório técnico vinculado à MedProtest
 
-            if ($responsible && $responsible instanceof User) {
+
+            $mensagemLog = 'Atividade concluída por ' . auth()->user()->name .
+                ' | Motivo: ' . trim($this->closeReason);
+
+            $outcome =  [
+                        'med_protest_id' => $this->medProtest->id,
+                        'protest_job_id' => $this->job->id,
+                        'finished_by'    => auth()->id(),
+            ];
+
+            // Encerramento REAL da atividade: delegado ao método de domínio do ProtestJob
+            $this->job->finish($outcome, trim($this->closeReason));
+
+            // Notifica o despachante / criador do Job
+            if ($responsible instanceof User) {
                 $responsible->notify(new SystemNotification(
-                    titulo: 'Medida de Reclamação finalizada',
-                    mensagem: 'O usuário '.auth()->user()->name.' concluiu a medida da reclamação '.$this->medProtest->protest?->nota.'.',
-                    link: route('protests.dispatch.view', $this->medProtest->protest?->nota), // ou outra rota que você tiver
+                    titulo: 'Job de Medida de Reclamação finalizado',
+                    mensagem: 'O usuário ' . auth()->user()->name . ' concluiu a atividade da reclamação ' . $this->medProtest->protest?->nota . '.',
+                    link: route('protests.dispatch.view', $this->medProtest->protest?->nota),
                     status: 7,
                     extras: [
                         'med_protest_id' => $this->medProtest->id,
+                        'protest_job_id' => $this->job->id,
                         'finished_by'    => auth()->id(),
                     ]
                 ));
             }
 
-
-
+            DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
+
             $this->dispatchBrowserEvent('swal', [
-                'position' => 'center','icon' => 'error',
-                'title' => 'Erro ao finalizar medida de reclamação!',
-                'text' => $th->getMessage(),
-                'timer' => 6000,
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao finalizar atividade!',
+                'text'     => $th->getMessage(),
+                'timer'    => 6000,
             ]);
             return;
         }
 
-        DB::commit();
-
         $this->dispatchBrowserEvent('swal', [
-            'position' => 'center','icon' => 'success',
-            'title' => 'Medida de Reclamação finalizada com sucesso!',
-            'timer' => 5000,
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Atividade finalizada com sucesso!',
+            'timer'    => 5000,
         ]);
 
-        // limpa o parecer depois de finalizar
-        $this->conclusion = '';
+        $this->conclusion  = '';
+        $this->closeReason = '';
+
+        $this->job->refresh();
+        $this->medProtest->refresh();
         $this->emitSelf('refreshComponent');
     }
 
-
-    public function mount($medProtestId)
-    {
-        $this->medProtest = MedProtest::with([
-            'Protest.Notes',
-            'Comments' => function ($query) {
-                $query->with('User')->orderBy('created_at', 'desc');
-            },
-            'Notes',
-            'Assignments.User',
-
-        ])->findOrFail($medProtestId);
-
-        if (!$this->medProtest) {
-            abort(404, 'Medida de Reclamação não encontrada');
-        }
-    }
-
-    public function addComment()
+    public function addComment(): void
     {
         $this->validate([
             'comment' => 'required|string|min:10',
@@ -283,125 +310,131 @@ class View extends Component
             'message' => $this->comment,
         ]);
 
-        if ($recipients = $this->medProtest->Assignments()
-           ->where('user_id', '!=', auth()->id())->get()) {
+        $targets = collect([$this->job->creator, $this->job->owner])
+            ->filter()
+            ->unique('id')
+            ->reject(fn (User $u) => $u->id === auth()->id());
 
-            foreach ($recipients as $recipient) {
-
-                if ($recipient->user) {
-                    if ($recipient->User?->onlyparner) {
-                        $link = route('protests.partner.view', $this->medProtest->id);
-                    } else {
-                        $link = route('protests.services.view', $this->medProtest->id);
-                    }
-                } elseif ($recipient->monitoring) {
-                    $link = route('protests.services.view_only', $this->medProtest->id);
-                } else {
-                    $link = route('protests.dispatch.view', $this->medProtest->protest?->nota);
-                }
-
-                $recipient->User?->notify(new SystemNotification(
-                    titulo: 'Novo comentário na Medida de Reclamação',
-                    mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->medProtest->protest?->nota.'.',
-                    link: $link, // ou outra rota que você tiver
-                    status: 6,
-                    extras: [
-                        'med_protest_id' => $this->medProtest->id,
-                        'commented_by'   => auth()->id(),
-                    ]
-                ));
-            }
+        foreach ($targets as $user) {
+            $user->notify(new SystemNotification(
+                titulo: 'Novo comentário na Medida de Reclamação',
+                mensagem: 'O usuário ' . auth()->user()->name . ' comentou na medida da reclamação ' . $this->medProtest->protest?->nota . '.',
+                link: route('protests.services.view', $this->job->id),
+                status: 6,
+                extras: [
+                    'med_protest_id' => $this->medProtest->id,
+                    'protest_job_id' => $this->job->id,
+                    'commented_by'   => auth()->id(),
+                ]
+            ));
         }
 
         $this->comment = '';
-        $this->emit('refreshComponent'); // Refresh the component to show the new comment
-
+        $this->medProtest->refresh();
+        $this->emitSelf('refreshComponent');
     }
 
-    public function dowloadFile(EvidenceFile $file)
-    {
-        // dd(Storage::fileExists('public/'.$file->path));
-
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'ARQUIVO INEXISTENTE!',
-                'timer'    => 5000,
-            ]);
-
-            return;
-        }
-    }
-
-    public function deleteFile(EvidenceFile $file)
-    {
-        if ($file) {
-            $file->delete();
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Arquivo removido com sucesso!',
-            ]);
-            $this->emit('refreshComponent');
-        }
-    }
-
-    public function removeComment($commentId)
+    public function removeComment(int $commentId): void
     {
         $comment = $this->medProtest->comments()->findOrFail($commentId);
 
-        if ($comment->user_id !== auth()->id()) {
+        if ($comment->user_id !== auth()->id() && ! auth()->user()?->admin && ! auth()->user()?->superadm) {
             abort(403, 'Você não tem permissão para remover este comentário.');
         }
 
         $comment->delete();
-        $this->emit('refreshComponent'); // Refresh the component to remove the comment
-
+        $this->medProtest->refresh();
+        $this->emitSelf('refreshComponent');
     }
 
-    public function saveFiles()
+    public function downloadFile(EvidenceFile $file)
+    {
+        if (Storage::fileExists('public/' . $file->path)) {
+            return Storage::download('public/' . $file->path);
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'ARQUIVO INEXISTENTE!',
+            'timer'    => 5000,
+        ]);
+        return;
+    }
+
+    public function deleteFile(EvidenceFile $file): void
+    {
+        if ($file) {
+            $file->delete();
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Arquivo removido com sucesso!',
+            ]);
+
+            $this->medProtest->refresh();
+            $this->emitSelf('refreshComponent');
+        }
+    }
+
+    public function saveFiles(): void
     {
         if (empty($this->tempFiles)) {
-            $this->dispatch('showAlert', ['type' => 'warning', 'message' => 'Nenhum arquivo para salvar.']);
+            $this->dispatch('showAlert', [
+                'type'    => 'warning',
+                'message' => 'Nenhum arquivo para salvar.',
+            ]);
             return;
         }
 
-        $savedFiles = [];
         foreach ($this->tempFiles as $file) {
             try {
-                // Generate a unique filename to prevent conflicts
-                $filename =  'evidencia_'.$this->medProtest->protest->nota. '_' . $this->medProtest->med_id . '_'.uniqid(). ".". $file->getClientOriginalExtension();
-                $path = $file->storeAs($this->filesConfig['path'] . "/" . $this->medProtest->protest->nota, $filename, 'public');
+                if (! $file instanceof TemporaryUploadedFile) {
+                    continue;
+                }
 
-                // Store file information in the database
+                $filename = 'evidencia_' .
+                    $this->medProtest->protest->nota . '_' .
+                    $this->medProtest->med_id . '_' .
+                    uniqid() . '.' . $file->getClientOriginalExtension();
+
+                $path = $file->storeAs(
+                    $this->filesConfig['path'] . '/' . $this->medProtest->protest->nota,
+                    $filename,
+                    'public'
+                );
+
                 $this->medProtest->EvidenceFiles()->create([
-                    'user_id' => auth()->id(),
+                    'user_id'       => auth()->id(),
                     'original_name' => $file->getClientOriginalName(),
-                    'stored_name' => $filename,
-                    'disk' => $this->filesConfig['disk'],
-                    'path' => $path,
-                    'mime' => $file->getClientMimeType(),
-                    'extension' => $file->getClientOriginalExtension(),
-                    'size' => $file->getSize(),
-                    'sha256' => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_at' => now(),
-                ])->save();
-                $savedFiles[] = $file->getClientOriginalName();
+                    'stored_name'   => $filename,
+                    'disk'          => $this->filesConfig['disk'],
+                    'path'          => $path,
+                    'mime'          => $file->getClientMimeType(),
+                    'extension'     => $file->getClientOriginalExtension(),
+                    'size'          => $file->getSize(),
+                    'sha256'        => hash_file('sha256', $file->getRealPath()),
+                    'uploaded_at'   => now(),
+                ]);
             } catch (\Exception $e) {
-                // Log the error and notify the user
-                logger()->error('Error saving file: ' . $e->getMessage(), ['file' => $file->getClientOriginalName(), 'medProtestId' => $this->medProtest->id]);
-                $this->dispatch('showAlert', ['type' => 'error', 'message' => 'Erro ao salvar o arquivo ' . $file->getClientOriginalName() . '. Por favor, tente novamente.']);
+                logger()->error('Error saving file: ' . $e->getMessage(), [
+                    'file'         => $file instanceof TemporaryUploadedFile ? $file->getClientOriginalName() : null,
+                    'medProtestId' => $this->medProtest->id ?? null,
+                ]);
+
+                $this->dispatch('showAlert', [
+                    'type'    => 'error',
+                    'message' => 'Erro ao salvar o arquivo. Por favor, tente novamente.',
+                ]);
             }
         }
 
-        $this->tempFiles = []; // Clear temporary files after saving
-        $this->emit('refreshComponent'); // Refresh the component to display saved attachments
-
+        $this->tempFiles = [];
+        $this->medProtest->refresh();
+        $this->emitSelf('refreshComponent');
     }
 
-    public function removeFile($index)
+    public function removeFile(int $index): void
     {
         if (isset($this->tempFiles[$index])) {
             unset($this->tempFiles[$index]);
@@ -410,62 +443,55 @@ class View extends Component
         }
     }
 
-    public function clearAllFiles()
+    public function clearAllFiles(): void
     {
         $this->tempFiles = [];
-        $this->reset('files'); // Also clear any current files in the Livewire property
-
+        $this->reset('files');
     }
 
-    // Helper function to get file icon class based on extension
-    public function getFileIconClass($extension)
+    public function getFileIconClass(string $extension): string
     {
-        return match ($extension) {
-            'pdf' => 'bg-danger text-white',
-            'doc', 'docx' => 'bg-primary text-white',
-            'xls', 'xlsx' => 'bg-success text-white',
+        return match (strtolower($extension)) {
+            'pdf'                => 'bg-danger text-white',
+            'doc', 'docx'        => 'bg-primary text-white',
+            'xls', 'xlsx'        => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt' => 'bg-secondary text-white',
-            default => 'bg-dark text-white',
+            'txt'                => 'bg-secondary text-white',
+            default              => 'bg-dark text-white',
         };
     }
 
-    // Helper function to get file icon based on extension
-    public function getFileIcon($extension)
+    public function getFileIcon(string $extension): string
     {
-        return match ($extension) {
-            'pdf' => 'ri-file-pdf-fill',
-            'doc', 'docx' => 'ri-file-word-fill',
-            'xls', 'xlsx' => 'ri-file-excel-fill',
+        return match (strtolower($extension)) {
+            'pdf'                => 'ri-file-pdf-fill',
+            'doc', 'docx'        => 'ri-file-word-fill',
+            'xls', 'xlsx'        => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt' => 'ri-file-text-fill',
-            default => 'ri-file-fill',
+            'txt'                => 'ri-file-text-fill',
+            default              => 'ri-file-fill',
         };
     }
 
-    // Helper function to format file size
-    public function formatFileSize($bytes)
+    public function formatFileSize(int $bytes): string
     {
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
-        } elseif ($bytes >= 1048576) {
-            return number_format($bytes / 1048576, 2) . ' MB';
-        } elseif ($bytes >= 1024) {
-            return number_format($bytes / 1024, 2) . ' KB';
-        } elseif ($bytes > 1) {
-            return $bytes . ' bytes';
-        } else {
-            return '0 bytes';
         }
+        if ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 2) . ' MB';
+        }
+        if ($bytes >= 1024) {
+            return number_format($bytes / 1024, 2) . ' KB';
+        }
+        if ($bytes > 1) {
+            return $bytes . ' bytes';
+        }
+        return '0 bytes';
     }
-
-
-
 
     public function render()
     {
-        return view('livewire.protests.services.view', [
-            'medProtest' => $this->medProtest,
-        ]);
+        return view('livewire.protests.services.view');
     }
 }

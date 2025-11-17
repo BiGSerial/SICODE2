@@ -1,6 +1,110 @@
 <div>
     @php
         use Carbon\Carbon;
+        use App\Enum\ProtestJobStatus;
+
+        $now = now();
+
+        /**
+         * ==== CÁLCULO DO PRAZO PRINCIPAL DA RECLAMAÇÃO ====
+         * - NA  => usa dtConclusaoDesej do Protest
+         * - OUTROS => usa dtFimMedidaDesej da medida com MAIOR med_id
+         */
+
+        $latestMeasure = null;
+        $mainDeadline = null;
+        $mainDeadlineOrigin = null;
+
+        if ($protest->tipoNota === 'NA') {
+            $mainDeadline = $protest->dtConclusaoDesej;
+            $mainDeadlineOrigin = 'Prazo do atendimento (SAC)';
+        } else {
+            $latestMeasure = $protest->medProtests ? $protest->medProtests->sortByDesc('med_id')->first() : null;
+
+            $mainDeadline = $latestMeasure?->dtFimMedidaDesej;
+            $mainDeadlineOrigin = $latestMeasure ? 'Prazo da medida #' . $latestMeasure->med_id : 'Prazo não definido';
+        }
+
+        $openedAt = $protest->dtAberturaNota;
+
+        // Dias totais entre abertura e prazo
+        $totalDays = $openedAt && $mainDeadline ? max($openedAt->diffInDays($mainDeadline), 1) : null;
+
+        // Dias já percorridos
+        $elapsedDays =
+            $openedAt && $mainDeadline ? min($openedAt->diffInDays(min($now, $mainDeadline)), $totalDays) : null;
+
+        $timelinePct = $totalDays && $elapsedDays !== null ? round(($elapsedDays / $totalDays) * 100) : null;
+
+        // Diferença em dias pro status global
+        $daysDiff = $mainDeadline
+            ? $now->diffInDays($mainDeadline, false) // negativo se já passou
+            : null;
+
+        if (!$mainDeadline) {
+            $globalStatus = [
+                'color' => 'secondary',
+                'icon' => 'ri-question-line',
+                'text' => 'Sem prazo definido',
+            ];
+            $daysText = '—';
+        } elseif ($mainDeadline->endOfDay()->isPast()) {
+            $globalStatus = [
+                'color' => 'danger',
+                'icon' => 'ri-close-circle-line',
+                'text' => 'Vencida',
+            ];
+            $daysText = abs($daysDiff) . ' dia(s) em atraso';
+        } elseif ($daysDiff <= 3) {
+            $globalStatus = [
+                'color' => 'warning',
+                'icon' => 'ri-time-line',
+                'text' => 'Vencendo',
+            ];
+            $daysText = $daysDiff . ' dia(s) restantes';
+        } else {
+            $globalStatus = [
+                'color' => 'success',
+                'icon' => 'ri-check-circle-line',
+                'text' => 'No prazo',
+            ];
+            $daysText = $daysDiff . ' dia(s) restantes';
+        }
+
+        /**
+         * ==== MÉTRICAS GERAIS DE MEDIDAS E JOBS ====
+         */
+
+        $totalMedidas = $protest->medProtests?->count() ?? 0;
+        $medidasAtivas = $protest->medProtests?->where('statusSist', 'MEDA')->count() ?? 0;
+        $medidasEncerradas = $protest->medProtests?->where('statusSist', 'MEDE')->count() ?? 0;
+
+        // Junta todos os jobs das medidas
+        $allJobs = $protest->medProtests ? $protest->medProtests->flatMap->ProtestJobs : collect();
+
+        $totalJobs = $allJobs->count();
+
+        $openStatusValues = [
+            ProtestJobStatus::OPENED->value,
+            ProtestJobStatus::ASSIGNED->value,
+            ProtestJobStatus::IN_PROGRESS->value,
+            ProtestJobStatus::WAITING->value,
+            ProtestJobStatus::REOPENED->value,
+        ];
+
+        $jobsAbertos = $allJobs->filter(fn($job) => in_array($job->status->value, $openStatusValues, true))->count();
+
+        $jobsConcluidos = $allJobs->filter(fn($job) => $job->status->value === ProtestJobStatus::DONE->value)->count();
+
+        $jobsAtrasados = $allJobs
+            ->filter(fn($job) => $job->sla_due_at && !$job->finished_at && $now->gt($job->sla_due_at))
+            ->count();
+
+        $jobsParaConfirmar = $allJobs
+            ->filter(fn($job) => $job->status->value === ProtestJobStatus::DONE->value && !$job->confirmed)
+            ->count();
+
+        $progressGlobalJobs = $totalJobs > 0 ? round(($jobsConcluidos / $totalJobs) * 100) : 0;
     @endphp
 
     @push('css')
@@ -69,12 +173,6 @@
                 display: flex;
                 align-items: center;
                 gap: .5rem;
-            }
-
-            .modern-card-value {
-                font-size: 2.2rem;
-                font-weight: 700;
-                color: #2c3e50;
             }
 
             .badge-status {
@@ -242,15 +340,11 @@
                 .modern-card-body {
                     padding: .8rem;
                 }
-
-                .modern-card-value {
-                    font-size: 1.5rem;
-                }
             }
         </style>
 
+        {{-- estilos das linhas de job / medida (mantidos do seu código) --}}
         <style>
-            /* botão ação em tabela / job-line */
             .icon-btn-table,
             .job-action-btn {
                 width: 32px;
@@ -263,7 +357,6 @@
                 line-height: 1;
             }
 
-            /* cada atividade (job) expandida */
             .job-box {
                 background: #fff;
                 border: 1px solid #dee2e6;
@@ -284,7 +377,6 @@
                 margin-bottom: .75rem;
             }
 
-            /* bloco da esquerda (id, status, prioridade) */
             .job-left-chunk {
                 display: flex;
                 flex-wrap: wrap;
@@ -324,7 +416,6 @@
                 color: #fff;
             }
 
-            /* bloco da direita (dono + botões) */
             .job-right-chunk {
                 display: flex;
                 flex-wrap: wrap;
@@ -353,7 +444,6 @@
                 font-size: .8rem;
             }
 
-            /* corpo da atividade (SLA, datas, notas) */
             .job-body-grid {
                 display: flex;
                 flex-wrap: wrap;
@@ -385,21 +475,6 @@
                 font-size: .8rem;
             }
 
-            /* cabeçalho do bloco de SLA de cada atividade */
-            .job-sla-headline {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                flex-wrap: wrap;
-                row-gap: .5rem;
-                column-gap: .5rem;
-            }
-
-            .job-sla-badge .badge {
-                font-size: .65rem;
-            }
-
-            /* barra SLA da atividade */
             .sla-bar-wrap-job {
                 width: 220px;
                 max-width: 100%;
@@ -409,104 +484,6 @@
                 box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05);
                 height: 8px;
                 display: flex;
-            }
-
-            /* linha mais "painel técnico" da medida */
-            .measure-row-main td {
-                vertical-align: top;
-                padding-top: 1rem;
-                padding-bottom: 1rem;
-            }
-
-            /* célula compacta de label/value na tabela principal */
-            .mini-label {
-                font-size: .7rem;
-                line-height: 1.1;
-                color: #6c757d;
-                text-transform: uppercase;
-                font-weight: 500;
-                letter-spacing: .03em;
-                margin-bottom: .25rem;
-            }
-
-            .mini-value {
-                font-size: .9rem;
-                line-height: 1.3;
-                font-weight: 600;
-                color: #2c3e50;
-            }
-
-            /* barra SLA na tabela principal (medida) */
-            .sla-bar-wrap {
-                width: 220px;
-                max-width: 100%;
-                background: #f1f3f5;
-                border-radius: 6px;
-                overflow: hidden;
-                box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05);
-                height: 10px;
-                display: flex;
-            }
-
-            .sla-seg {
-                height: 100%;
-                font-size: 0;
-            }
-
-            /* cores dos segmentos */
-            .sla-ontrack {
-                background: #0d6efd33;
-            }
-
-            /* decorrido dentro do prazo */
-            .sla-remaining {
-                background: #ced4da;
-            }
-
-            /* tempo restante até SLA */
-            .sla-sla-window {
-                background: #19875466;
-            }
-
-            /* janela SLA "teórica" */
-            .sla-early {
-                background: #198754;
-            }
-
-            /* sobra antes do SLA */
-            .sla-late {
-                background: #dc3545;
-            }
-
-            /* atraso */
-
-            /* legenda / status sla */
-            .sla-info-lines {
-                font-size: .75rem;
-                line-height: 1.3;
-                color: #495057;
-            }
-
-            .sla-info-lines .badge {
-                font-size: .65rem;
-            }
-
-            /* linha expandida de jobs */
-            .jobs-cell {
-                background: #f8f9fa;
-                border-top: 1px solid #e9ecef;
-            }
-
-            .icon-btn-table,
-            .job-action-btn {
-                width: 34px;
-                height: 34px;
-                border-radius: .5rem;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 0;
-                line-height: 1;
             }
 
             .measure-row-main td {
@@ -531,9 +508,13 @@
                 font-weight: 600;
                 color: #2c3e50;
             }
+
+            .jobs-cell {
+                background: #f8f9fa;
+                border-top: 1px solid #e9ecef;
+            }
         </style>
     @endpush
-
 
     <x-show-loading />
 
@@ -567,8 +548,9 @@
                                 {{ $tipo }} #{{ $protest->nota }}
                                 <span class="badge bg-light text-primary ms-2">{{ $protest->tipoNota }}</span>
                             </h1>
-                            <div class="header-subtitle text-white-50">{{ $protest->cidade }} —
-                                {{ $protest->txtGrpCodificacao }}</div>
+                            <div class="header-subtitle text-white-50">
+                                {{ $protest->cidade }} — {{ $protest->txtGrpCodificacao }}
+                            </div>
                         </div>
                     </div>
                     <p class="header-description mb-0">
@@ -578,33 +560,13 @@
                 </div>
             </div>
             <div class="col-md-4 text-end">
-                @php
-                    $now = now();
-
-                    if ($protest->tipoNota == 'OU') {
-                        if ($protest->medProtests->where('statusSist' == 'MEDA')->isNotEmpty()) {
-                            $dtConclusao = $protest->medProtests->where('statusSist', 'MEDA')->last()->dtFimMedidaDesej;
-                        } else {
-                            $dtConclusao = $protest->medProtests->last()->dtFimMedidaDesej;
-                        }
-                    } else {
-                        $dtConclusao = $protest->dtConclusaoDesej;
-                    }
-
-                    $daysDiff = $dtConclusao ? $now->diffInDays($dtConclusao, false) : 0;
-
-                    if ($dtConclusao && $dtConclusao->endOfDay()->isPast()) {
-                        $status = ['color' => 'danger', 'text' => 'Vencida', 'icon' => 'ri-close-circle-line'];
-                    } elseif ($daysDiff > 3) {
-                        $status = ['color' => 'success', 'text' => 'No Prazo', 'icon' => 'ri-check-circle-line'];
-                    } else {
-                        $status = ['color' => 'warning', 'text' => 'Vencendo', 'icon' => 'ri-time-line'];
-                    }
-                @endphp
-                <span class="badge badge-status bg-{{ $status['color'] }} text-light">
-                    <i class="{{ $status['icon'] }} me-1"></i>
-                    {{ $status['text'] }}
+                <span class="badge badge-status bg-{{ $globalStatus['color'] }} text-light">
+                    <i class="{{ $globalStatus['icon'] }} me-1"></i>
+                    {{ $globalStatus['text'] }}
                 </span>
+                <div class="mt-2 small text-white-75">
+                    {{ $mainDeadline ? $daysText : 'Sem prazo principal definido' }}
+                </div>
             </div>
         </div>
     </div>
@@ -615,104 +577,192 @@
         <div class="col-md-4 mb-3">
             <div class="modern-card h-100">
                 <div class="modern-card-body">
-                    <div class="modern-card-title"><i class="ri-information-line me-1"></i>Informações Básicas</div>
+                    <div class="modern-card-title">
+                        <i class="ri-information-line me-1"></i>Informações Básicas
+                    </div>
                     <div class="d-flex flex-column gap-2">
-                        <div class="d-flex justify-content-between"><span class="text-muted small">Nota:</span><span
-                                class="fw-medium">{{ $protest->nota }}</span></div>
-                        <div class="d-flex justify-content-between"><span
-                                class="text-muted small">Município:</span><span
-                                class="fw-medium">{{ $protest->cidade }}</span></div>
-                        <div class="d-flex justify-content-between"><span class="text-muted small">Grupo:</span><span
-                                class="fw-medium">{{ $protest->txtGrpCodificacao }}</span></div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Nota:</span>
+                            <span class="fw-medium">{{ $protest->nota }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Município:</span>
+                            <span class="fw-medium">{{ $protest->cidade }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Grupo:</span>
+                            <span class="fw-medium">{{ $protest->txtGrpCodificacao }}</span>
+                        </div>
                         <div class="border-top pt-2 mt-2">
                             <span class="text-muted small d-block">Causa:</span>
                             <span
                                 class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodCodificacao }}</span>
                             <span class="text-muted small d-block mt-1">SubCausa:</span>
                             <span class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodMedida }}</span>
-                            <span class="text-muted small d-block mt-1">Descrição:</span>
-                            <span class="fw-medium small">{{ $protest->comments->last()?->message }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        {{-- Cronograma --}}
-        <div class="col-md-4 mb-3">
-            <div class="modern-card h-100">
-                <div class="modern-card-body">
-                    <div class="modern-card-title"><i class="ri-calendar-line me-1"></i>Cronograma</div>
-                    <div class="text-center mb-3">
-                        <i class="{{ $status['icon'] }} fs-3 text-{{ $status['color'] }} me-2"></i>
-                        <span class="badge bg-{{ $status['color'] }} px-3 py-2">{{ $status['text'] }}</span>
-                        <br>
-                        @if ($dtConclusao && !$dtConclusao->isPast())
-                            <small class="text-muted">{{ abs($daysDiff) }} dias restantes</small>
-                        @elseif($dtConclusao)
-                            <small class="text-danger">{{ abs($daysDiff) }} dias em atraso</small>
-                        @endif
-                    </div>
-                    <div class="border-top pt-2">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small"><i class="ri-play-circle-line me-1"></i>Abertura:</span>
-                            <span class="fw-medium small">{{ $protest->dtAberturaNota?->format('d/m/Y') }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small"><i class="ri-flag-line me-1"></i>Conclusão Desejada:</span>
-                            <span class="fw-medium small">{{ $dtConclusao?->format('d/m/Y') }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            <div class="d-flex justify-content-between align-items-center my-1">
+                                <span class="text-muted small">Descrição:</span>
+                                @if (!$showResumeEdit)
+                                    <button class="btn btn-sm btn-outline-primary p-1" wire:click="editResume"
+                                        title="Editar descrição">
+                                        <i class="ri-pencil-line"></i>
+                                    </button>
+                                @else
+                                    <button class="btn btn-sm btn-outline-success p-1" wire:click="saveResume"
+                                        title="Salvar descrição">
+                                        <i class="ri-save-line"></i>
+                                    </button>
+                                @endif
+                            </div>
 
-        {{-- Métricas --}}
-        <div class="col-md-4 mb-3">
-            <div class="modern-card h-100">
-                <div class="modern-card-body">
-                    <div class="modern-card-title"><i class="ri-dashboard-line me-1"></i>Métricas</div>
-                    @php
-                        $totalMedidas = $protest->medProtests?->count() ?? 0;
-                        $medidasConcluidas = $protest->medProtests?->where('statusSist', 'MEDE')->count() ?? 0;
-                        $ultimaMovimentacao = $protest->medProtests?->sortByDesc('updated_at')->first();
-                        $progressoPercentual =
-                            $totalMedidas > 0 ? round(($medidasConcluidas / $totalMedidas) * 100) : 0;
-                    @endphp
-                    <div class="d-flex flex-column gap-3">
-                        <div class="text-center">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted">Progresso:</span>
-                                <span class="small fw-medium">{{ $progressoPercentual }}%</span>
-                            </div>
-                            <div class="progress">
-                                <div class="progress-bar bg-success" role="progressbar"
-                                    style="width: {{ $progressoPercentual }}%"></div>
-                            </div>
-                            <small class="text-muted mt-1 d-block">{{ $medidasConcluidas }}/{{ $totalMedidas }}
-                                medidas</small>
-                        </div>
-                        <div class="border-top pt-2">
-                            <div class="row text-center">
-                                <div class="col-6"><span
-                                        class="fs-5 fw-bold text-primary">{{ $totalMedidas }}</span><br><small
-                                        class="text-muted">Total</small></div>
-                                <div class="col-6"><span
-                                        class="fs-5 fw-bold text-success">{{ $medidasConcluidas }}</span><br><small
-                                        class="text-muted">Concluídas</small></div>
-                            </div>
-                            @if ($ultimaMovimentacao)
-                                <div class="text-center mt-2 pt-2 border-top">
-                                    <small class="text-muted"><i class="ri-time-line me-1"></i>Última atualização:
-                                        {{ $ultimaMovimentacao->updated_at?->diffForHumans() }}</small>
-                                </div>
+                            @if ($showResumeEdit)
+                                <textarea class="form-control form-control-sm" rows="6" wire:model.defer="resumeEdit"></textarea>
+                            @else
+                                <span class="fw-medium small" style="white-space: pre-line;">
+                                    {{ $protest->resume ?? 'SEM DESCRIÇÃO PARA RECLAMAÇÃO' }}
+                                </span>
                             @endif
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        {{-- Cronograma (refinado) --}}
+        <div class="col-md-4 mb-3">
+            <div class="modern-card h-100">
+                <div class="modern-card-body">
+                    <div class="modern-card-title">
+                        <i class="ri-calendar-line me-1"></i>Cronograma
+                    </div>
+
+                    <div class="mb-3 text-center">
+                        <i class="{{ $globalStatus['icon'] }} fs-3 text-{{ $globalStatus['color'] }} me-2"></i>
+                        <span class="badge bg-{{ $globalStatus['color'] }} px-3 py-2">
+                            {{ $globalStatus['text'] }}
+                        </span>
+                        <br>
+                        <small
+                            class="d-block mt-1 {{ $mainDeadline && $mainDeadline->isPast() ? 'text-danger' : 'text-muted' }}">
+                            {{ $mainDeadline ? $daysText : 'Prazo não definido' }}
+                        </small>
+                    </div>
+
+                    <div class="border-top pt-2">
+                        <div class="mb-2">
+                            <span class="text-muted small d-block">
+                                <i class="ri-flag-line me-1"></i>Prazo principal
+                            </span>
+                            <span class="fw-medium small d-block">
+                                {{ $mainDeadline ? $mainDeadline->format('d/m/Y') : '—' }}
+                            </span>
+                            <span class="text-muted small">{{ $mainDeadlineOrigin }}</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">
+                                <i class="ri-play-circle-line me-1"></i>Abertura:
+                            </span>
+                            <span class="fw-medium small">
+                                {{ $openedAt?->format('d/m/Y') ?? '—' }}
+                            </span>
+                        </div>
+
+                        @if ($openedAt && $mainDeadline && $timelinePct !== null)
+                            <div class="mt-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small">Linha do tempo da reclamação</span>
+                                    <span class="small fw-medium">{{ $timelinePct }}%</span>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar bg-{{ $mainDeadline->isPast() ? 'danger' : 'primary' }}"
+                                        role="progressbar" style="width: {{ $timelinePct }}%;"></div>
+                                </div>
+                                <div class="d-flex justify-content-between mt-1 small text-muted">
+                                    <span>{{ $openedAt->format('d/m/Y') }}</span>
+                                    <span>{{ $mainDeadline->format('d/m/Y') }}</span>
+                                </div>
+                            </div>
+                        @else
+                            <div class="mt-2 text-muted small">
+                                Sem dados suficientes para montar a linha do tempo (abertura ou prazo ausentes).
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Métricas (refinado para controlador) --}}
+        <div class="col-md-4 mb-3">
+            <div class="modern-card h-100">
+                <div class="modern-card-body">
+                    <div class="modern-card-title">
+                        <i class="ri-dashboard-line me-1"></i>Métricas da Reclamação
+                    </div>
+
+                    {{-- Progresso global das atividades --}}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Progresso das atividades (jobs)</span>
+                            <span class="small fw-medium">
+                                {{ $progressGlobalJobs }}%
+                            </span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" role="progressbar"
+                                style="width: {{ $progressGlobalJobs }}%;"></div>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            {{ $jobsConcluidos }}/{{ $totalJobs }} atividades concluídas
+                        </small>
+                    </div>
+
+                    <div class="border-top pt-2">
+                        <div class="row text-center mb-2">
+                            <div class="col-4">
+                                <span class="fs-5 fw-bold text-primary">{{ $totalMedidas }}</span><br>
+                                <small class="text-muted">Medidas</small>
+                            </div>
+                            <div class="col-4">
+                                <span class="fs-5 fw-bold text-success">{{ $medidasAtivas }}</span><br>
+                                <small class="text-muted">Ativas</small>
+                            </div>
+                            <div class="col-4">
+                                <span class="fs-5 fw-bold text-info">{{ $medidasEncerradas }}</span><br>
+                                <small class="text-muted">Encerradas</small>
+                            </div>
+                        </div>
+
+                        <div class="row text-center mt-3">
+                            <div class="col-6 mb-2">
+                                <span class="fw-bold">{{ $jobsAbertos }}</span><br>
+                                <small class="text-muted">
+                                    <i class="ri-task-line me-1"></i>Jobs em aberto
+                                </small>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <span class="fw-bold">{{ $jobsAtrasados }}</span><br>
+                                <small class="text-danger">
+                                    <i class="ri-timer-flash-line me-1"></i>Jobs atrasados
+                                </small>
+                            </div>
+                            <div class="col-12 mt-1">
+                                <span class="fw-bold">{{ $jobsParaConfirmar }}</span><br>
+                                <small class="text-warning">
+                                    <i class="ri-check-double-line me-1"></i>
+                                    Concluídos aguardando confirmação
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
     </div>
+
+
 
     {{-- ==== Anexos & Evidências ==== --}}
     <div class="modern-card">
@@ -790,6 +840,7 @@
     </div>
 
     {{-- ==== Medidas Registradas ==== --}}
+    {{-- ==== Medidas Registradas ==== --}}
     <div class="modern-card">
         <div class="modern-card-body">
             <div class="d-flex justify-content-between flex-wrap align-items-start mb-3">
@@ -821,6 +872,23 @@
                                     $jobs = $medProtest->ProtestJobs ?? collect();
                                     $expanded = $expandedJobs[$medProtest->id] ?? false;
 
+                                    // === Métricas de jobs por medida ===
+                                    $jobsTotal = $jobs->count();
+
+                                    $openStatusValues = [
+                                        \App\Enum\ProtestJobStatus::OPENED->value,
+                                        \App\Enum\ProtestJobStatus::ASSIGNED->value,
+                                        \App\Enum\ProtestJobStatus::IN_PROGRESS->value,
+                                        \App\Enum\ProtestJobStatus::WAITING->value,
+                                        \App\Enum\ProtestJobStatus::REOPENED->value,
+                                    ];
+
+                                    $jobsOpen = $jobs
+                                        ->filter(fn($job) => in_array($job->status->value, $openStatusValues, true))
+                                        ->count();
+
+                                    $jobsClosed = $jobsTotal - $jobsOpen;
+
                                     // Pessoas (do LAST)
                                     $creator = $last?->creator?->name;
                                     $owner = $last?->owner?->name;
@@ -830,6 +898,7 @@
                                     $dueAt = $last?->sla_due_at;
                                     $finishAt = $last?->finished_at;
                                     $nowRef = now();
+
                                     $prazoTxt =
                                         $protest->tipoNota == 'NA'
                                             ? $protest->dtConclusaoDesej?->format('d/m/Y H:i')
@@ -940,8 +1009,25 @@
                                                     <span class="badge bg-secondary">Finalizada</span>
                                                 @endif
                                             </div>
+
                                             <div class="text-muted small text-truncate" style="max-width:260px;">
                                                 {{ $medProtest->txtCodMedida }}
+                                            </div>
+
+                                            {{-- Métricas de jobs da medida --}}
+                                            <div class="mt-1 small">
+                                                <i class="ri-task-line me-1 text-secondary"></i>
+                                                <span class="text-muted">
+                                                    {{ $jobsTotal }} atividade(s)
+                                                </span>
+                                                @if ($jobsTotal > 0)
+                                                    <span class="ms-2 text-success">
+                                                        {{ $jobsClosed }} encerrada(s)
+                                                    </span>
+                                                    <span class="ms-2 text-warning">
+                                                        {{ $jobsOpen }} em aberto
+                                                    </span>
+                                                @endif
                                             </div>
                                         </div>
                                     </td>
@@ -964,12 +1050,13 @@
                                     <td class="align-top">
                                         <div class="mini-label">Situação</div>
                                         <div class="mini-value mb-2">
-                                            <span
-                                                class="badge {{ $execStatusClass }}">{{ strtoupper($execStatusText) }}</span>
+                                            <span class="badge {{ $execStatusClass }}">
+                                                {{ strtoupper($execStatusText) }}
+                                            </span>
                                         </div>
                                         @if ($finishAt)
-                                            <div class="text-muted small">Fechou:
-                                                {{ $finishAt?->format('d/m/Y H:i') }}
+                                            <div class="text-muted small">
+                                                Fechou: {{ $finishAt?->format('d/m/Y H:i') }}
                                             </div>
                                         @endif
                                     </td>
@@ -979,11 +1066,17 @@
                                         <div class="mini-label">Prazo Desejado</div>
                                         <div class="mini-value mb-2">{{ $prazoTxt }}</div>
                                         @if ($medFinished)
-                                            <div><span class="badge bg-info">Concluído em
-                                                    {{ $medFinished?->format('d/m/Y H:i') }}</span></div>
+                                            <div>
+                                                <span class="badge bg-info">
+                                                    Concluído em {{ $medFinished?->format('d/m/Y H:i') }}
+                                                </span>
+                                            </div>
                                         @endif
-                                        <div><span class="badge {{ $medStatus['badge'] }}">
-                                                {{ $medStatus['status'] }}</span></div>
+                                        <div>
+                                            <span class="badge {{ $medStatus['badge'] }}">
+                                                {{ $medStatus['status'] }}
+                                            </span>
+                                        </div>
                                     </td>
 
                                     {{-- SLA da Atividade Atual (LAST) --}}
@@ -999,16 +1092,22 @@
                                                     role="progressbar" style="width: {{ $pct }}%;"></div>
                                             </div>
                                             <div class="sla-info-lines">
-                                                <div>Limite: <strong
-                                                        class="text-primary">{{ $dueAt?->format('d/m/Y H:i') }}</strong>
+                                                <div>Limite:
+                                                    <strong class="text-primary">
+                                                        {{ $dueAt?->format('d/m/Y H:i') }}
+                                                    </strong>
                                                 </div>
                                                 @if (!$finishAt && $dueAt)
                                                     <div>
-                                                        {{ now()->lte($dueAt) ? 'restam ' . now()->diffForHumans($dueAt, true) : 'atraso há ' . $dueAt->diffForHumans(now(), true) }}
+                                                        {{ now()->lte($dueAt)
+                                                            ? 'restam ' . now()->diffForHumans($dueAt, true)
+                                                            : 'atraso há ' . $dueAt->diffForHumans(now(), true) }}
                                                     </div>
                                                 @endif
                                                 @if ($finishAt)
-                                                    <div>Finalizado: {{ $finishAt?->format('d/m/Y H:i') }}</div>
+                                                    <div>Finalizado:
+                                                        {{ $finishAt?->format('d/m/Y H:i') }}
+                                                    </div>
                                                 @endif
                                             </div>
                                         @else
@@ -1023,9 +1122,9 @@
                                                 <button class="btn btn-outline-primary icon-btn-table"
                                                     title="Gerenciar / Criar Atividade"
                                                     wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
-                                                    <i class="ri-play-circle-line"></i>
+                                                    <i class="ri-send-plane-line"></i>
                                                 </button>
-                                                @if ($isActiveMeasure && $last && !$finishAt)
+                                                @if ($isActiveMeasure && $last && !$finishAt && $jobs->every(fn($job) => $job->confirmed))
                                                     <button class="btn btn-outline-success icon-btn-table"
                                                         title="Confirmar Conclusão da Medida"
                                                         wire:click.prevent="approveMed({{ $medProtest->id }})">
@@ -1065,12 +1164,12 @@
                                                     $jobPriorityLabel = $job->priority_label;
                                                     $jobPriorityBadge = $job->priority_badge_class;
 
-                                                    // Datas (já são Carbon pelo cast)
+                                                    // Datas
                                                     $jStart = $job->created_at;
                                                     $jDue = $job->sla_due_at;
                                                     $jFinish = $job->finished_at;
 
-                                                    // Badge de SLA por job
+                                                    // Badge SLA job
                                                     $jBadge = '<span class="badge bg-secondary">sem SLA</span>';
                                                     if ($jDue) {
                                                         if (!$jFinish && now()->lte($jDue)) {
@@ -1088,7 +1187,7 @@
                                                         }
                                                     }
 
-                                                    // Percentual de SLA do job
+                                                    // Percentual SLA job
                                                     $jPct = 0;
                                                     if ($jStart && $jDue) {
                                                         $jTotal = max($jDue->diffInSeconds($jStart), 1);
@@ -1138,7 +1237,7 @@
                                                                     wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $job->id }})">
                                                                     <i class="ri-eye-line"></i>
                                                                 </button>
-                                                                @if (!$job->confirmed)
+                                                                @if (!$job->confirmed && $job->status->value !== 'canceled')
                                                                     <button
                                                                         class="btn btn-outline-primary job-action-btn"
                                                                         title="Editar atividade"
@@ -1151,12 +1250,8 @@
                                                                         title="Marcar como concluída"
                                                                         wire:click.prevent="toConfirmJob({{ $job->id }})"
                                                                         @disabled($job->status->value !== 'done')>
-
                                                                         <i class="ri-check-line"></i>
-
                                                                     </button>
-
-
                                                                     <button
                                                                         class="btn btn-outline-warning job-action-btn"
                                                                         title="Reabrir atividade"
@@ -1197,7 +1292,9 @@
                                                                 </div>
                                                                 @if (!$jFinish && $jDue)
                                                                     <div>
-                                                                        {{ now()->lte($jDue) ? 'restam ' . now()->diffForHumans($jDue, true) : 'atraso há ' . $jDue->diffForHumans(now(), true) }}
+                                                                        {{ now()->lte($jDue)
+                                                                            ? 'restam ' . now()->diffForHumans($jDue, true)
+                                                                            : 'atraso há ' . $jDue->diffForHumans(now(), true) }}
                                                                     </div>
                                                                 @endif
                                                                 @if ($jFinish)
@@ -1210,10 +1307,12 @@
                                                         <div class="job-col-block">
                                                             <div class="job-label">Criado em</div>
                                                             <div class="job-value">
-                                                                {{ $jStart?->format('d/m/Y H:i') ?? '—' }}</div>
+                                                                {{ $jStart?->format('d/m/Y H:i') ?? '—' }}
+                                                            </div>
                                                             <div class="job-label mt-3">Observações</div>
                                                             <div class="job-value" style="white-space:pre-line;">
-                                                                {{ $job->notes }}</div>
+                                                                {{ $job->notes }}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1235,6 +1334,7 @@
             @endif
         </div>
     </div>
+
 
 
     {{-- ==== Interações / Comentários ==== --}}

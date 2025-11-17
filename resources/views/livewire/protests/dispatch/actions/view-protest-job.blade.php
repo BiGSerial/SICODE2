@@ -195,75 +195,14 @@
 
                                 {{-- ====== RESULTADO (Outcome) ====== --}}
                                 <div class="card border-0 shadow-sm mt-3">
-                                    <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                                    <div
+                                        class="card-header  d-flex align-items-center justify-content-between {{ $job->status->value == 'done' ? 'text-bg-success shadow' : 'bg-white' }}">
                                         <strong>Resultado</strong>
-                                        @if (empty($outcome))
-                                            <span class="badge bg-secondary">—</span>
-                                        @endif
+
                                     </div>
                                     <div class="card-body small">
-                                        @php
-                                            $isAssoc = static function ($arr) {
-                                                if (!is_array($arr)) {
-                                                    return false;
-                                                }
-                                                return array_keys($arr) !== range(0, count($arr) - 1);
-                                            };
-                                        @endphp
-
-                                        @if ($outcome)
-                                            @if ($isAssoc($outcome))
-                                                <div class="table-responsive">
-                                                    <table class="table table-sm align-middle mb-0">
-                                                        <tbody>
-                                                            @foreach ($outcome as $k => $v)
-                                                                <tr>
-                                                                    <th class="text-muted" style="width: 40%">
-                                                                        <i
-                                                                            class="bi bi-tag me-2"></i>{{ \Illuminate\Support\Str::headline($k) }}
-                                                                    </th>
-                                                                    <td class="fw-semibold">
-                                                                        @if (is_array($v) || is_object($v))
-                                                                            <code
-                                                                                class="small">{{ json_encode($v, JSON_UNESCAPED_UNICODE) }}</code>
-                                                                        @else
-                                                                            {{ $v === '' ? '—' : (is_bool($v) ? ($v ? 'Sim' : 'Não') : $v) }}
-                                                                        @endif
-                                                                    </td>
-                                                                </tr>
-                                                            @endforeach
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-
-                                                <div class="mt-2 d-flex flex-wrap gap-1">
-                                                    @foreach (array_keys($outcome) as $k)
-                                                        <span
-                                                            class="badge text-bg-light border">{{ \Illuminate\Support\Str::headline($k) }}</span>
-                                                    @endforeach
-                                                </div>
-                                            @else
-                                                <ul class="mb-0">
-                                                    @foreach ((array) $outcome as $item)
-                                                        <li>
-                                                            @if (is_array($item) || is_object($item))
-                                                                <code
-                                                                    class="small">{{ json_encode($item, JSON_UNESCAPED_UNICODE) }}</code>
-                                                            @else
-                                                                {{ $item }}
-                                                            @endif
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
-                                            @endif
-
-                                            <details class="mt-2">
-                                                <summary class="text-muted">Ver JSON bruto</summary>
-                                                <pre class="mt-2 mb-0" style="white-space: pre-wrap;">{{ json_encode($outcome, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                            </details>
-                                        @else
-                                            <div class="text-muted">Sem resultado informado.</div>
-                                        @endif
+                                        <div class="text-muted">{{ $job->close_reason ?? 'Sem resultado informado.' }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -698,9 +637,9 @@
                     @endif
                 </div>
 
-                <div class="modal-footer bg-light border-0">
-                    @if ($job)
-                        <div class="d-flex align-items-center gap-1 me-1">
+                <div class="modal-footer bg-light border-0 d-flex justify-content-between">
+                    @if ($job && !$job->confirmed)
+                        <div class="d-flex align-items-center gap-1">
                             {{-- Reescalar --}}
                             <button class="btn btn-sm btn-warning" title="Reescalar" wire:click="askEscalate"
                                 @disabled(!$this->canEscalate)>
@@ -719,6 +658,8 @@
                                 <i class="bi bi-x-circle"></i>
                             </button>
                         </div>
+                    @else
+                        <div></div>
                     @endif
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal"
                         wire:click="close">Fechar</button>

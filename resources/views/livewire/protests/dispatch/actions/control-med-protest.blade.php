@@ -202,9 +202,10 @@
                                     </div>
 
                                     <span class="text-muted small d-block mt-1">Descrição:</span>
-                                    <span class="fw-medium small">
-                                        {{ $modProtest?->protest?->comments->last()?->message }}
-                                    </span>
+                                    <div class="description-container" style="max-height: 120px; overflow-y: auto; scrollbar-width: thin;">
+                                        <span class="fw-medium small"
+                                            style="white-space: pre-line;">{{ $modProtest?->protest?->resume ?? 'SEM DESCRIÇÃO PARA RECLAMAÇÃO' }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
