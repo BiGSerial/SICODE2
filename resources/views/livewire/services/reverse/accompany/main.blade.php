@@ -157,8 +157,8 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
-                                        <tr
-                                            class="align-middle @if ($list->block) table-primary @endif">
+                                        <tr class="align-middle @if ($list->block) table-primary @endif"
+                                            wire:key="{{ $list->id }}">
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                                 {{ $list->Note->note }}
