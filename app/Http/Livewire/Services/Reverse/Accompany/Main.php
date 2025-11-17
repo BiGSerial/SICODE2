@@ -156,20 +156,25 @@ class Main extends Component
             return $q->where('name', 'like', '%' . $this->user_search . '%');
         })->orderBy('name')->get();
 
-        return Production::Where('service_id', $this->service->uuid)
+        return Production::Where('productions.service_id', $this->service->uuid)
+            ->join('notes as n', 'productions.note_id', '=', 'n.id')
             ->when($this->user_s, function ($q) {
-                return $q->where('user_id', $this->user_s);
+                return $q->where('productions.user_id', $this->user_s);
             }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
+                return $q->where('productions.user_id', Auth()->user()->id);
             })
-            ->where('completed', false)
+            ->where('productions.completed', false)
             ->when($this->search, function ($q, $s) {
-                return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
-                    ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+                return $q->where(function ($query) use ($s) {
+                    $query->where('n.note', 'like', '%' . $s . '%')
+                      ->orWhere('n.material', 'like', '%' . $s . '%');
+                });
             })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
+            ->select('productions.*')
+            ->orderBy('n.type_note', 'desc')
+            ->orderBy('n.days_left', 'asc')
+            ->orderBy('productions.id', 'asc')
+            ->with('note', 'user')
             ->paginate($this->perPage);
     }
 
