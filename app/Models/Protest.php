@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\ProtestType;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,11 +27,13 @@ class Protest extends Model
         'descSubCausa',
         'descricao',
         'resume',
+        'type_note',
     ];
 
     protected $appends = ['data_final_valida', 'all_notes'];
 
     protected $casts = [
+        'type_note' => ProtestType::class,
         'dtAberturaNota' => 'date',
         'dtConclusaoDesej' => 'date',
     ];
