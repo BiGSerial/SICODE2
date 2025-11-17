@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Services\Oexterno;
 
 use App\Models\Bancoupdate;
-use App\Models\Note;
+use App\Models\External;
 use App\Models\Service;
 use Carbon\Carbon;
 use Livewire\Component;
@@ -63,61 +63,65 @@ class Historic extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::Query();
+        $query = External::query()
+            ->where('completed', true)
+            ->with([
+                'Note:id,note,rubrica,lexp,centerjob,type_note,nstats',
+                'Entity:id,name,nick,entity_type_id',
+                'Entity.Type:id,name',
+                'User:id,name',
+                'Protocols:id,external_id,protocol,created_at',
+            ]);
 
-        // $query->where(function($q){
-        //     $q->
-        // })
-        $query->whereHas('Externals', function ($q) {
-            $q->where('completed', true);
-        });
+        if ($term = trim((string) $this->search)) {
+            $collection = collect(explode(' ', $term))->filter()->values();
 
-        if (trim($this->search)) {
-            $query->where(function ($q) {
-                $q->where('note', 'like', "%" . $this->search . "%")
-                    ->orWhereRelation('External.Protocols', 'protocol', 'like', "%" . $this->search . "%");
+            $query->where(function ($root) use ($collection) {
+                foreach ($collection as $token) {
+                    $wild = '%' . $token . '%';
+                    $root->where(function ($q) use ($token, $wild) {
+                        $q->where('externals.note_id', $token)
+                            ->orWhereRelation('Note', 'note', 'like', $wild)
+                            ->orWhereRelation('Protocols', 'protocol', 'like', $wild)
+                            ->orWhereRelation('Entity', 'name', 'like', $wild)
+                            ->orWhereRelation('Entity', 'nick', 'like', $wild);
+                    });
+                }
             });
         }
 
         if ($this->typeNote) {
-            $query->where('type_note', $this->typeNote);
+            $query->whereHas('Note', function ($q) {
+                $q->where('type_note', $this->typeNote);
+            });
         }
 
         if (isset($this->filter['rubrica'])) {
-
-            $query->whereIn('rubrica', $this->filter['rubrica']);
+            $query->whereHas('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
         }
 
         if (isset($this->filter['city'])) {
-
-            $query->whereIn('lexp', $this->filter['city']);
+            $query->whereHas('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
         }
 
         if ($this->dtIn || $this->dtOut) {
-            if ($this->dtIn && !$this->dtOut) {
-                $startOfDay = Carbon::parse($this->dtIn)->startOfDay();
-                $query->whereRelation('External', function ($q) use ($startOfDay) {
-                    $q->whereDate('updated_at', '>=', $startOfDay);
-                });
-            }
+            $start = $this->dtIn ? Carbon::parse($this->dtIn)->startOfDay() : null;
+            $end   = $this->dtOut ? Carbon::parse($this->dtOut)->endOfDay() : null;
 
-            if (!$this->dtIn && $this->dtOut) {
-                $endOfDay = Carbon::parse($this->dtOut)->endOfDay();
-                $query->whereRelation('External', function ($q) use ($endOfDay) {
-                    $q->whereDate('updated_at', '<=', $endOfDay);
-                });
-            }
-
-            if (!$this->dtIn && $this->dtOut) {
-                $startOfDay = Carbon::parse($this->dtIn)->startOfDay();
-                $endOfDay = Carbon::parse($this->dtOut)->endOfDay();
-                $query->whereRelation('External', function ($q) use ($endOfDay, $startOfDay) {
-                    $q->whereBetween('updated_at', [$startOfDay, $endOfDay]);
-                });
+            if ($start && $end) {
+                $query->whereBetween('externals.updated_at', [$start, $end]);
+            } elseif ($start) {
+                $query->where('externals.updated_at', '>=', $start);
+            } elseif ($end) {
+                $query->where('externals.updated_at', '<=', $end);
             }
         }
 
-        return $query;
+        return $query->orderByDesc('externals.updated_at');
     }
 
     public function render()

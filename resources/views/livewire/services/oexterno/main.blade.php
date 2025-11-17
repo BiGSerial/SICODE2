@@ -5,146 +5,202 @@
         use App\Helpers\SelectOptions;
     @endphp
 
-    {{-- Carrega o Loading da página --}}
+    {{-- Carrega o Loading da pagina --}}
     <x-show-loading />
+
+    <style>
+        .filters-grid .filter-card {
+            background-color: #f9fbfd;
+            border: 1px solid #dde2eb;
+            border-radius: 0.75rem;
+            padding: 1rem 1.25rem;
+            height: 100%;
+        }
+
+        .filters-grid .filter-card h6 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+            color: #6c757d;
+        }
+
+        .filters-grid .btn-group .btn {
+            min-width: 72px;
+        }
+
+        .filters-grid .chip-filters {
+            gap: 0.5rem;
+        }
+    </style>
 
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">
         <div class="card-body">
-            <div class="row g-3">
-                <!-- Per Page Select -->
-                <div class="col-12 col-sm-6 col-md-2 d-flex align-items-center">
-                    <div class="form-floating w-100">
-                        <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="200">200</option>
-                            <option value="500">500</option>
-                        </select>
-                        <label for="perPageSelect">Registros por página</label>
+            <div class="row g-3 filters-grid">
+                <div class="col-12 col-lg-5 col-xl-4">
+                    <div class="filter-card">
+                        <h6>Pesquisa</h6>
+                        <div class="row g-2">
+                            <div class="col-12 col-sm-5">
+                                <div class="form-floating w-100">
+                                    <select class="form-select border border-secondary" wire:model="perPage"
+                                        id="perPageSelect">
+                                        <option value="25">25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="200">200</option>
+                                        <option value="500">500</option>
+                                    </select>
+                                    <label for="perPageSelect">Registros por pagina</label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-7">
+                                <div class="form-floating w-100 position-relative">
+                                    <input wire:model.bounce.2s="search" type="text"
+                                        class="form-control border border-secondary" id="search" placeholder="Buscar">
+                                    <label for="search">Buscar</label>
+                                    <button
+                                        class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                                        data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                                        <i class="ri-checkbox-multiple-blank-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Search Input -->
-                <div class="col-12 col-sm-6 col-md-3 d-flex align-items-center">
-                    <div class="form-floating w-100">
-                        <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
-                            id="search" placeholder="Buscar">
-                        <label for="search">Buscar</label>
-                        <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                            data-bs-toggle="modal" data-bs-target="#buscar_multi">
-                            <i class="ri-checkbox-multiple-blank-line"></i>
-                        </button>
+                <div class="col-12 col-lg-4 col-xl-3">
+                    <div class="filter-card">
+                        <h6>Classificacao</h6>
+                        <div class="mb-3">
+                            <small class="text-muted d-block mb-2">Tipo de nota</small>
+                            <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
+                                <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1"
+                                    id="typeNote1">
+                                <label class="btn btn-outline-primary" for="typeNote1">Nota</label>
+
+                                <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2"
+                                    id="typeNote2">
+                                <label class="btn btn-outline-primary" for="typeNote2">OV</label>
+
+                                <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value=""
+                                    id="typeNote3">
+                                <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
+                            </div>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block mb-2">Status</small>
+                            <div class="btn-group w-100" role="group" aria-label="Status">
+                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
+                                    value="" id="statusAll">
+                                <label class="btn btn-outline-secondary" for="statusAll">Todos</label>
+
+                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
+                                    value="11" id="status11">
+                                <label class="btn btn-outline-secondary" for="status11">11</label>
+
+                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
+                                    value="20" id="status20">
+                                <label class="btn btn-outline-secondary" for="status20">20</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Type Note Buttons -->
-                <div class="col-12 col-md-3 d-flex align-items-center">
-                    <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1"
-                            id="typeNote1">
-                        <label class="btn btn-outline-primary" for="typeNote1">Nota</label>
+                <div class="col-12 col-xl-5">
+                    <div class="filter-card h-100">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="mb-0">Filtros adicionais</h6>
+                            @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
+                        </div>
+                        <div class="d-flex flex-wrap chip-filters">
+                            @livewire(
+                                'components.filter.filter2',
+                                [
+                                    'myKey' => 'entityTypes',
+                                    'sendFilter' => 'entities',
+                                    'modelClass' => \App\Models\EntityType::class,
+                                    'column' => 'id',
+                                    'filterLabel' => 'Tipos de Entidade',
+                                    'groupFilter' => 'oexterno',
+                                    'displayColumn' => 'name',
+                                    'direction' => 'ASC',
+                                    'searchColumn' => 'name',
+                                    'sendSearchColumn' => 'entity_type_id',
+                                ],
+                                key('entityTypes')
+                            )
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2"
-                            id="typeNote2">
-                        <label class="btn btn-outline-primary" for="typeNote2">OV</label>
+                            @livewire(
+                                'components.filter.filter2',
+                                [
+                                    'myKey' => 'entities',
+                                    'sendFilter' => '',
+                                    'modelClass' => \App\Models\Entity::class,
+                                    'column' => 'id',
+                                    'filterLabel' => 'Entidades',
+                                    'groupFilter' => 'oexterno',
+                                    'displayColumn' => 'name',
+                                    'direction' => 'ASC',
+                                    'searchColumn' => 'name',
+                                    'sendSearchColumn' => 'entity_id',
+                                ],
+                                key('entities')
+                            )
 
-                        <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value=""
-                            id="typeNote3">
-                        <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
-                    </div>
-                </div>
+                            @livewire(
+                                'components.filter.filter2',
+                                [
+                                    'myKey' => 'rubrica',
+                                    'sendFilter' => '',
+                                    'modelClass' => \App\Models\Note::class,
+                                    'column' => 'rubrica',
+                                    'filterLabel' => 'Rubrica',
+                                    'groupFilter' => 'oexterno',
+                                    'displayColumn' => 'rubrica',
+                                    'direction' => 'ASC',
+                                    'searchColumn' => 'rubrica',
+                                    'sendSearchColumn' => 'rubrica',
+                                ],
+                                key('rubrica')
+                            )
 
-                <!-- Filters -->
-                <div class="col-12 col-md-4">
-                    <div class="d-flex flex-wrap justify-content-center gap-2">
-                        @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'entityTypes',
-                                'sendFilter' => 'entities',
-                                'modelClass' => \App\Models\EntityType::class,
-                                'column' => 'id',
-                                'filterLabel' => 'Tipos de Entidade',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'name',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'name',
-                                'sendSearchColumn' => 'entity_type_id',
-                            ],
-                            key('entityTypes')
-                        )
+                            @livewire(
+                                'components.filter.filter2',
+                                [
+                                    'myKey' => 'region',
+                                    'sendFilter' => 'city',
+                                    'modelClass' => \App\Models\Edp_depc\City::class,
+                                    'column' => 'regiao',
+                                    'filterLabel' => 'Regiao',
+                                    'groupFilter' => 'oexterno',
+                                    'displayColumn' => 'regiao',
+                                    'direction' => 'ASC',
+                                    'searchColumn' => 'regiao',
+                                    'sendSearchColumn' => 'regiao',
+                                ],
+                                key('region')
+                            )
 
-                        @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'entities',
-                                'sendFilter' => '',
-                                'modelClass' => \App\Models\Entity::class,
-                                'column' => 'id',
-                                'filterLabel' => 'Entidades',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'name',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'name',
-                                'sendSearchColumn' => 'entity_id',
-                            ],
-                            key('entities')
-                        )
-
-                        @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'rubrica',
-                                'sendFilter' => '',
-                                'modelClass' => \App\Models\Note::class,
-                                'column' => 'rubrica',
-                                'filterLabel' => 'Rúbrica',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'rubrica',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'rubrica',
-                                'sendSearchColumn' => 'rubrica',
-                            ],
-                            key('rubrica')
-                        )
-
-                        @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'region',
-                                'sendFilter' => 'city',
-                                'modelClass' => \App\Models\Edp_depc\City::class,
-                                'column' => 'regiao',
-                                'filterLabel' => 'Região',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'regiao',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'regiao',
-                                'sendSearchColumn' => 'regiao',
-                            ],
-                            key('region')
-                        )
-
-                        @livewire(
-                            'components.filter.filter2',
-                            [
-                                'myKey' => 'city',
-                                'sendFilter' => '',
-                                'modelClass' => \App\Models\Edp_depc\City::class,
-                                'column' => 'cidade',
-                                'filterLabel' => 'Município',
-                                'groupFilter' => 'oexterno',
-                                'displayColumn' => 'municipio',
-                                'direction' => 'ASC',
-                                'searchColumn' => 'municipio',
-                                'sendSearchColumn' => 'cidade',
-                            ],
-                            key('city')
-                        )
-
-                        @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
+                            @livewire(
+                                'components.filter.filter2',
+                                [
+                                    'myKey' => 'city',
+                                    'sendFilter' => '',
+                                    'modelClass' => \App\Models\Edp_depc\City::class,
+                                    'column' => 'cidade',
+                                    'filterLabel' => 'Municipio',
+                                    'groupFilter' => 'oexterno',
+                                    'displayColumn' => 'municipio',
+                                    'direction' => 'ASC',
+                                    'searchColumn' => 'municipio',
+                                    'sendSearchColumn' => 'cidade',
+                                ],
+                                key('city')
+                            )
+                        </div>
                     </div>
                 </div>
             </div>
