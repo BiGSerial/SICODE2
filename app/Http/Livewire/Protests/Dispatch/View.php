@@ -41,6 +41,7 @@ class View extends Component
         'Reject172030'          => 'rejectMed',
         'confirmJob172030'      => 'confirmJob',
         'cancelJob172030'       => 'cancelJob',
+        'reopenJob172030'       => 'reopenJob',
     ];
 
     /** ===== LIFECYCLE ===== */
@@ -408,6 +409,50 @@ class View extends Component
             $this->emit('refreshComponent');
         } catch (\Throwable $e) {
             $this->toast('danger', 'Erro ao cancelar tarefa: ' . $e->getMessage());
+        }
+    }
+
+
+    public function toReopen(ProtestJob $job): void
+    {
+        $this->jobTemp = $job;
+
+        if (!$this->jobTemp) {
+            $this->toast('danger', 'Atividade não encontrada.');
+            return;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Deseja Reabrir a Tarefa?',
+            'msg'           => "Você está prestes a reabrir a tarefa?",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Reabra!',
+            'btnCanceltxt'  => 'Não!',
+            'action'        => 'reopenJob172030',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma ação realizada.',
+        ]);
+    }
+
+    public function reopenJob(): void
+    {
+        if (!$this->jobTemp) {
+            return;
+        }
+
+        try {
+            // garante estado atual
+            $this->jobTemp->refresh();
+
+            $this->jobTemp->reopen(
+                "Atividade reaberta pelo usuário " . auth()->user()->name
+            );
+
+            $this->toast('success', 'Tarefa reaberta com sucesso!');
+            $this->jobTemp = null;
+            $this->emit('refreshComponent');
+        } catch (\Throwable $e) {
+            $this->toast('danger', 'Erro ao reabrir tarefa: ' . $e->getMessage());
         }
     }
 

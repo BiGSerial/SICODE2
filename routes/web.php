@@ -264,7 +264,7 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
     Route::prefix('/services')->name('services.')->group(function () {
         Route::get('/', 'main')->name('main');
         Route::get('/view/{jobId}', 'view')->name('view');
-        Route::get('/view_controller/{medProtestId}', 'view_controller')->name('view_controller');
+        Route::get('/view_controller/{jobId}', 'view_controller')->name('view_controller');
         Route::get('/view_only/{medProtestId}', 'view_only')->name('view_only');
         Route::get('/accompany', 'accompany')->name('accompany');
         Route::get('/history', 'history')->name('history');

@@ -125,7 +125,7 @@
 
                                 // SLA: usa sla_due_at como data limite do job
                                 $slaDue = $job->sla_due_at;
-                                $startRef = $job->accepted_at ?? $job->sent_at;
+                                $startRef = $job->accepted_at ?? ($job->sent_at ?? $job->created_at);
 
                                 $slaProgress = null;
                                 $slaClassBar = 'bg-success';
@@ -163,16 +163,20 @@
 
                                 // Último comentário para ícone
                                 $currentUserId = auth()->id();
-                                $lastComment = $job->Comments->first();
+                                $creatorId = $job->creator_id ?? optional($job->creator)->id;
+                                $lastComment = $med?->Comments?->first();
                                 $hasPendingComment = false;
                                 $hasComment = false;
 
                                 if ($lastComment) {
-                                    $hasComment = true;
                                     $authorId = $lastComment->user_id;
 
-                                    if ($authorId && $authorId !== $currentUserId) {
-                                        $hasPendingComment = true;
+                                    if ($authorId) {
+                                        $isFromCreator = $creatorId && $authorId === $creatorId;
+                                        $isFromCurrentUser = $currentUserId && $authorId === $currentUserId;
+
+                                        $hasComment = !$isFromCreator;
+                                        $hasPendingComment = $hasComment && !$isFromCurrentUser;
                                     }
                                 }
 
@@ -251,9 +255,9 @@
 
                                 {{-- SLA do Job --}}
                                 <td>
-                                    @if ($slaDue)
+                                    @if ($job->sla_due_at)
                                         <div class="small mb-1">
-                                            Limite: <strong>{{ $slaDue->format('d/m/Y H:i') }}</strong>
+                                            Limite: <strong>{{ $job->sla_due_at->format('d/m/Y H:i') }}</strong>
                                         </div>
 
                                         @if (!is_null($slaProgress))

@@ -4,9 +4,10 @@ namespace App\Enum;
 
 enum ProtestType: int
 {
-    case BTZERO         = 1;
+    case CIP            = 1;
     case CONSTRUCTION   = 2;
-    case CIP            = 3;
+    case BTZERO         = 3;
+
 
 
     public function label(): string

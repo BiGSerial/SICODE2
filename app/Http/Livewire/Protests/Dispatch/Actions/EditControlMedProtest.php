@@ -123,6 +123,8 @@ class EditControlMedProtest extends Component
         ]);
 
         $this->emit('refreshJobEditor');
+        $this->emitUp('refreshComponent');
+
     }
 
     // reabrir (caso DONE ou CANCELED → REOPENED → ASSIGNED)

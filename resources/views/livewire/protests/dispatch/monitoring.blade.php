@@ -62,7 +62,7 @@
                     <div class="form-floating w-100 position-relative">
                         <input wire:model.debounce.500ms="search" class="form-control border border-secondary"
                             id="searchInput" placeholder="Buscar por nota, cidade, responsável..." />
-                        <label for="searchInput">Buscar por nota, cidade, responsável…</label>
+                        <label for="searchInput">Buscar por nota, cidade, responsável</label>
 
                         <button type="button"
                             class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0"
@@ -86,18 +86,18 @@
 
             <hr class="my-3">
 
-            {{-- Linha 2: filtro por usuário / hierarquia --}}
+            {{-- Linha 2: filtro por usuario / hierarquia --}}
             <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-lg-4">
                     <div class="form-floating">
                         <input type="text" class="form-control border border-secondary" id="searchName"
-                            wire:model.debounce.300ms="searchName" placeholder="Filtrar lista de usuários">
-                        <label for="searchName">Filtrar lista de usuários</label>
+                            wire:model.debounce.300ms="searchName" placeholder="Filtrar lista de usuarios">
+                        <label for="searchName">Filtrar lista de usuarios</label>
                     </div>
                 </div>
 
-                <div class="col-12 col-md-4">
-                    <label for="filterUser" class="form-label small mb-1">Usuário responsável / hierarquia</label>
+                <div class="col-12 col-lg-4">
+                    <label for="filterUser" class="form-label small mb-1">Usuario responsavel / hierarquia</label>
                     <select class="form-select border border-secondary" id="filterUser" wire:model.defer="userViewer">
                         <option value="">Todos</option>
 
@@ -106,17 +106,40 @@
                                 {{ reduceName($user->name) }}
                             </option>
                         @empty
-                            <option value="" disabled>Nenhum usuário encontrado</option>
+                            <option value="" disabled>Nenhum usuario encontrado</option>
                         @endforelse
                     </select>
                 </div>
 
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-lg-4">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterTypeNote" wire:model="typeNote">
+                            <option value="">Todos os tipos</option>
+
+                            @forelse ($noteTypeOptions as $option)
+                                <option value="{{ $option }}">{{ $option }}</option>
+                            @empty
+                                <option value="" disabled>Nenhum tipo disponivel</option>
+                            @endforelse
+                        </select>
+                        <label for="filterTypeNote">Tipo de nota</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-12 col-lg-8">
                     <small class="text-muted d-block">
-                        Selecione um usuário para ver apenas os jobs da sua hierarquia (descendentes).
+                        Selecione um usuario para ver apenas os jobs da sua hierarquia (descendentes).
+                    </small>
+                </div>
+                <div class="col-12 col-lg-4">
+                    <small class="text-muted d-block">
+                        Tipos listados a partir dos valores unicos em Protest->tipoNota.
                     </small>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -130,76 +153,9 @@
         $within = $stats['within'] ?? 0;
         $within_pct = $stats['within_pct'] ?? 0;
 
-        $na = $stats['na'] ?? 0;
-        $ou = $stats['ou'] ?? 0;
-        $pr = $stats['pr'] ?? 0;
-
         $msgResponded = $stats['responded_messages'] ?? 0;
         $msgPending = $stats['pending_messages_for_you'] ?? 0;
     @endphp
-
-    {{-- ================== CARDS DE TIPO (NA / OU / PR) ================== --}}
-    <div class="row g-3 mb-3">
-        {{-- Todas --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm h-100 border-0 {{ $typeNote === null ? 'border-primary border-2' : '' }}"
-                style="cursor:pointer" wire:click="setTypeNote(null)">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">Todos os tipos</span>
-                        <i class="ri-stack-line fs-4 text-primary"></i>
-                    </div>
-                    <h4 class="fw-bold mb-0">{{ $total }}</h4>
-                    <small class="text-muted mt-2">Todos os jobs dentro dos filtros atuais.</small>
-                </div>
-            </div>
-        </div>
-
-        {{-- NA --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm h-100 border-0 {{ $typeNote === 'NA' ? 'border-primary border-2' : '' }}"
-                style="cursor:pointer" wire:click="setTypeNote('NA')">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">NA</span>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">NA</span>
-                    </div>
-                    <h4 class="fw-bold mb-0">{{ $na }}</h4>
-                    <small class="text-muted mt-2">Notas NA em aberto.</small>
-                </div>
-            </div>
-        </div>
-
-        {{-- OU --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm h-100 border-0 {{ $typeNote === 'OU' ? 'border-primary border-2' : '' }}"
-                style="cursor:pointer" wire:click="setTypeNote('OU')">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">OU</span>
-                        <span class="badge bg-info-subtle text-info border border-info-subtle">OU</span>
-                    </div>
-                    <h4 class="fw-bold mb-0">{{ $ou }}</h4>
-                    <small class="text-muted mt-2">Notas OU em aberto.</small>
-                </div>
-            </div>
-        </div>
-
-        {{-- PR --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm h-100 border-0 {{ $typeNote === 'PR' ? 'border-primary border-2' : '' }}"
-                style="cursor:pointer" wire:click="setTypeNote('PR')">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">PR</span>
-                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">PR</span>
-                    </div>
-                    <h4 class="fw-bold mb-0">{{ $pr }}</h4>
-                    <small class="text-muted mt-2">Notas PR em aberto.</small>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {{-- ================== CARDS DE SLA ================== --}}
     <div class="row g-3 mb-3">
@@ -217,7 +173,7 @@
                         <span class="badge bg-light text-muted">100%</span>
                     </div>
                     <small class="text-muted mt-2">
-                        Reclamações abertas dentro dos filtros atuais.
+                        Reclamacoes abertas considerando os filtros e os prazos desejados.
                     </small>
                 </div>
             </div>
@@ -229,7 +185,7 @@
                 style="cursor:pointer" wire:click="setSlaFilter('overdue')">
                 <div class="card-body d-flex flex-column">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">SLA vencidos</span>
+                        <span class="text-muted text-uppercase small">Prazo vencido</span>
                         <i class="ri-timer-off-line fs-4 text-danger"></i>
                     </div>
                     <div class="d-flex justify-content-between align-items-end mb-1">
@@ -237,13 +193,13 @@
                         <span class="badge text-bg-danger">{{ $overdue_pct }}%</span>
                     </div>
                     <small class="text-muted">
-                        Atividades que já estouraram o prazo.
+                        Atividades com a data desejada vencida.
                     </small>
                 </div>
             </div>
         </div>
 
-        {{-- Vencendo em até 3 dias --}}
+        {{-- Vencendo em ate 3 dias --}}
         <div class="col-12 col-md-3">
             <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'dueSoon' ? 'border-warning border-2' : '' }}"
                 style="cursor:pointer" wire:click="setSlaFilter('dueSoon')">
@@ -257,13 +213,13 @@
                         <span class="badge text-bg-warning">{{ $dueSoon_pct }}%</span>
                     </div>
                     <small class="text-muted">
-                        Itens em atenção imediata.
+                        Itens com data desejada em ate 3 dias.
                     </small>
                 </div>
             </div>
         </div>
 
-        {{-- Dentro do prazo (SLA saudável) --}}
+        {{-- Dentro do prazo (SLA saudavel) --}}
         <div class="col-12 col-md-3">
             <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'within' ? 'border-success border-2' : '' }}"
                 style="cursor:pointer" wire:click="setSlaFilter('within')">
@@ -277,7 +233,7 @@
                         <span class="badge text-bg-success">{{ $within_pct }}%</span>
                     </div>
                     <small class="text-muted">
-                        Jobs com SLA ainda saudável.
+                        Jobs com data desejada acima de 3 dias.
                     </small>
                 </div>
             </div>
@@ -317,7 +273,7 @@
 
     {{-- ================== LISTA PRINCIPAL ================== --}}
     @if ($lists->count())
-        {{-- Paginação topo --}}
+        {{-- PaginaÃ§Ã£o topo --}}
         <div class="d-flex justify-content-between align-items-center mt-2 mb-2">
             {{ $lists->links() }}
             <div class="text-muted small">
@@ -357,13 +313,13 @@
                         <th>Medida</th>
                         <th>Cód</th>
                         <th>Tipo Reclamação</th>
-                        <th>Município</th>
+                        <th>Municí­pio</th>
                         <th>Responsável</th>
                         <th>Empresa</th>
                         <th>Abertura</th>
                         <th>Fim desejado</th>
                         <th>Status</th>
-                        <th>SLA</th>
+                        <th>Prazo (dias)</th>
                         <th>
                             <i class="ri-message-3-line" title="Mensagens na Medida"></i>
                         </th>
@@ -374,13 +330,15 @@
                 <tbody>
                     @foreach ($lists as $item)
                         @php
-                            // SLA
-                            if ($item->sla_due_at) {
-                                $slaLeft = now()->diffInDays($item->sla_due_at, false);
+                            // Prazo desejado
+                            $wish = getWishDate($item);
+
+                            if ($wish) {
+                                $slaLeft = now()->diffInDays($wish, false);
 
                                 if ($slaLeft < 0) {
                                     $slaClass = 'text-bg-danger';
-                                } elseif ($slaLeft === 0 || $slaLeft <= 3) {
+                                } elseif ($slaLeft <= 3) {
                                     $slaClass = 'text-bg-warning';
                                 } else {
                                     $slaClass = 'text-bg-success';
@@ -390,7 +348,7 @@
                                 $slaClass = 'text-bg-secondary';
                             }
 
-                            // Mensagens (última da MedProtest)
+                            // Mensagens (Ãºltima da MedProtest)
                             $currentUserId = auth()->id();
                             $creatorId = $item->created_by ?? ($item->creator_id ?? optional($item->creator)->id);
                             $lastComment = $item->medProtest?->Comments?->first();
@@ -470,7 +428,6 @@
                             </td>
 
                             <td>
-                                @php $wish = getWishDate($item); @endphp
                                 {{ $wish ? $wish->format('d/m/Y') : '---' }}
                             </td>
 
@@ -480,11 +437,11 @@
 
                             <td class="fw-bold">
                                 @if ($slaLeft !== null)
-                                    <span class="badge {{ $slaClass }}" title="Dias para o vencimento">
+                                    <span class="badge {{ $slaClass }}" title="Dias para a data desejada">
                                         {{ $slaLeft }} d
                                     </span>
                                 @else
-                                    <span class="badge text-bg-secondary">—</span>
+                                    <span class="badge text-bg-secondary">---</span>
                                 @endif
                             </td>
 
@@ -496,7 +453,7 @@
                                     <i class="ri-message-2-line text-muted"
                                         title="Última mensagem da Medida é sua (respondido por você)"></i>
                                 @else
-                                    <span class="text-muted">—</span>
+                                    <span class="text-muted">-</span>
                                 @endif
                             </td>
 
@@ -519,7 +476,7 @@
             </table>
         </div>
 
-        {{-- Paginação base --}}
+        {{-- PaginaÃ§Ã£o base --}}
         <div class="d-flex justify-content-between align-items-center mt-2">
             {{ $lists->links() }}
             <div class="text-muted small">
@@ -538,5 +495,5 @@
     {{-- Drawer lateral de detalhes --}}
     @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
 
-    {{-- Modal de busca múltipla (já existente em outro lugar) --}}
+    {{-- Modal de busca mÃºltipla (jÃ¡ existente em outro lugar) --}}
 </div>

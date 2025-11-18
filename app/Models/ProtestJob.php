@@ -76,6 +76,22 @@ class ProtestJob extends Model
                 $model->priority = ProtestJobPriority::NORMAL;
             }
         });
+
+        static::created(function (self $model) {
+
+
+            $user = User::find($model->owner_id);
+            $model->events()->create([
+                'type'        => 'job_created',
+                'actor_id'    => $model->created_by ?? optional(auth()->user())->id,
+                'meta'        => [
+                    'message'  => 'Job criado para o usuário ' . ($user?->name ?? 'N/A'),
+                    'status'   => $model->status->value,
+                    'priority' => $model->priority->value,
+                ],
+                'occurred_at' => now(),
+            ]);
+        });
     }
 
     // ...
@@ -215,7 +231,7 @@ class ProtestJob extends Model
         ProtestJobStatus::WAITING->value     => [ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::CANCELED->value],
         ProtestJobStatus::DONE->value        => [ProtestJobStatus::REOPENED->value],
         ProtestJobStatus::CANCELED->value    => [ProtestJobStatus::REOPENED->value],
-        ProtestJobStatus::REOPENED->value    => [ProtestJobStatus::ASSIGNED->value, ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::CANCELED->value],
+        ProtestJobStatus::REOPENED->value    => [ProtestJobStatus::ASSIGNED->value, ProtestJobStatus::IN_PROGRESS->value, ProtestJobStatus::CANCELED->value, ProtestJobStatus::DONE->value],
     ];
 
     protected function canGo(ProtestJobStatus $to): bool
@@ -276,6 +292,7 @@ class ProtestJob extends Model
                     'finished_at' => null,
                     'confirmed'     => false,
                     'confirmed_at'  => null,
+                    'started_at'    => null,
                 ],
             };
 
@@ -307,6 +324,7 @@ class ProtestJob extends Model
             ]);
         });
     }
+
 
     public function accept(): void
     {
@@ -356,6 +374,7 @@ class ProtestJob extends Model
 
     public function reopen(?string $reason = null): void
     {
+
         $this->transitionTo(ProtestJobStatus::REOPENED, [
             'reason' => $reason,
         ]);
@@ -368,20 +387,24 @@ class ProtestJob extends Model
     {
         DB::transaction(function () use ($newOwnerUuid, $actorUuid) {
             $old = $this->owner_id;
+            $oldOwner = $old ? User::find($old) : null;
+            $newOwner = User::find($newOwnerUuid);
 
             $this->update([
-                'owner_id'    => $newOwnerUuid,
-                'accepted_at' => null,
+            'owner_id'    => $newOwnerUuid,
+            'accepted_at' => null,
             ]);
 
             $this->events()->create([
-                'type'        => 'reassigned',
-                'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
-                'meta'        => [
-                    'from_owner' => $old,
-                    'to_owner'   => $newOwnerUuid,
-                ],
-                'occurred_at' => now(),
+            'type'        => 'reassigned',
+            'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
+            'meta'        => [
+                'from_owner' => $old,
+                'to_owner'   => $newOwnerUuid,
+                'from_owner_name' => $oldOwner?->name ?? 'N/A',
+                'to_owner_name'   => $newOwner?->name ?? 'N/A',
+            ],
+            'occurred_at' => now(),
             ]);
         });
     }

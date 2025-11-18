@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
 use Livewire\Component;
@@ -28,6 +29,7 @@ class Monitoring extends Component
 
     /** Lista de usuários para o select */
     public $userViewerList = [];
+    public array $noteTypeOptions = [];
 
     protected $queryString = [
         'perPage'    => ['except' => 50],
@@ -39,11 +41,13 @@ class Monitoring extends Component
 
     protected $listeners = [
         'refresh' => '$refresh',
+        'refreshComponent' => '$refresh',
     ];
 
     public function mount(): void
     {
         $this->loadUserViewerList();
+        $this->loadNoteTypeOptions();
     }
 
     protected function loadUserViewerList(): void
@@ -61,6 +65,25 @@ class Monitoring extends Component
         $this->loadUserViewerList();
     }
 
+    public function updatedTypeNote($value): void
+    {
+        $this->typeNote = $value ?: null;
+        $this->resetPage();
+    }
+
+    protected function loadNoteTypeOptions(): void
+    {
+        $this->noteTypeOptions = Protest::query()
+            ->select('tipoNota')
+            ->whereNotNull('tipoNota')
+            ->distinct()
+            ->orderBy('tipoNota')
+            ->pluck('tipoNota')
+            ->filter()
+            ->values()
+            ->toArray();
+    }
+
     public function goTo($protestNote)
     {
         return redirect()->route('protests.dispatch.view', [
@@ -68,7 +91,7 @@ class Monitoring extends Component
         ]);
     }
 
-    /** Clicar no card de tipo (NA/OU/PR ou “todos”) */
+    /** Ajusta o filtro por tipo de nota */
     public function setTypeNote(?string $type = null): void
     {
         $this->typeNote = $type ?: null;
@@ -167,46 +190,39 @@ class Monitoring extends Component
         return $this->baseQuery()->paginate($this->perPage);
     }
 
-    /** Estatísticas para os cards (inclui mensagens e NA/OU/PR) */
+    /** Estatisticas para os cards (inclui mensagens e prazos desejados) */
     public function getStatsProperty(): array
     {
         $base = $this->baseQuery();
+        $jobs = (clone $base)->get();
+        $total = $jobs->count();
 
-        $total = (clone $base)->count();
+        $overdue = 0;
+        $dueSoon = 0;
+        $within = 0;
+        $referenceDate = now();
 
-        $overdue = (clone $base)
-            ->whereNotNull('sla_due_at')
-            ->where('sla_due_at', '<', now())
-            ->count();
+        $currentUserId = auth()->id();
+        $respondedMessages = 0; // Ultima msg nao e do despachante
+        $pendingForYouMessages = 0; // Ultima msg nao e do despachante e nao e do usuario logado
 
-        $dueSoon = (clone $base)
-            ->whereNotNull('sla_due_at')
-            ->whereBetween('sla_due_at', [now(), now()->addDays(3)])
-            ->count();
+        foreach ($jobs as $job) {
+            $desiredDate = $this->resolveDesiredDate($job);
 
-        $within = max($total - $overdue - $dueSoon, 0);
+            if ($desiredDate) {
+                $diffInDays = $referenceDate->diffInDays($desiredDate, false);
 
-        // Contagem por tipo de nota (NA / OU / PR)
-        $na = (clone $base)
-            ->whereHas('protest', fn ($q) => $q->where('tipoNota', 'NA'))
-            ->count();
+                if ($diffInDays < 0) {
+                    $overdue++;
+                } elseif ($diffInDays <= 3) {
+                    $dueSoon++;
+                } else {
+                    $within++;
+                }
+            } else {
+                $within++;
+            }
 
-        $ou = (clone $base)
-            ->whereHas('protest', fn ($q) => $q->where('tipoNota', 'OU'))
-            ->count();
-
-        $pr = (clone $base)
-            ->whereHas('protest', fn ($q) => $q->where('tipoNota', 'PR'))
-            ->count();
-
-        // --- Mensagens ---
-        $currentUserId   = auth()->id();
-        $jobsForMessages = (clone $base)->get();
-
-        $respondedMessages     = 0; // última msg ≠ despachante
-        $pendingForYouMessages = 0; // última msg ≠ despachante e ≠ usuário logado
-
-        foreach ($jobsForMessages as $job) {
             $creatorId = $job->created_by
                 ?? $job->creator_id
                 ?? optional($job->creator)->id;
@@ -251,11 +267,6 @@ class Monitoring extends Component
             'dueSoon_pct'              => $pct($dueSoon),
             'within'                   => $within,
             'within_pct'               => $pct($within),
-
-            'na'                       => $na,
-            'ou'                       => $ou,
-            'pr'                       => $pr,
-
             'responded_messages'       => $respondedMessages,
             'pending_messages_for_you' => $pendingForYouMessages,
         ];
@@ -284,6 +295,16 @@ class Monitoring extends Component
             'lists'          => $this->lists,
             'userViewerList' => $this->userViewerList,
             'stats'          => $this->stats,
+            'noteTypeOptions' => $this->noteTypeOptions,
         ]);
+    }
+
+    protected function resolveDesiredDate($job)
+    {
+        if ($job->protest?->tipoNota === 'NA') {
+            return $job->protest?->dtConclusaoDesej;
+        }
+
+        return $job->medProtest?->dtFimMedidaDesej;
     }
 }

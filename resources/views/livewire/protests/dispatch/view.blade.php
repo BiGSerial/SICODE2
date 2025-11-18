@@ -341,6 +341,32 @@
                     padding: .8rem;
                 }
             }
+
+            .avatar-circle {
+                width: 50px;
+                height: 50px;
+                min-width: 50px;
+                min-height: 50px;
+                border-radius: 50%;
+                overflow: hidden;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+                background: #f1f5f9;
+            }
+
+            .chat-container .avatar-circle {
+                width: 50px !important;
+                height: 50px !important;
+                min-width: 50px !important;
+                min-height: 50px !important;
+            }
+
+            .avatar-circle img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
         </style>
 
         {{-- estilos das linhas de job / medida (mantidos do seu código) --}}
@@ -840,7 +866,7 @@
     </div>
 
     {{-- ==== Medidas Registradas ==== --}}
-    {{-- ==== Medidas Registradas ==== --}}
+
     <div class="modern-card">
         <div class="modern-card-body">
             <div class="d-flex justify-content-between flex-wrap align-items-start mb-3">
@@ -865,7 +891,7 @@
                         </thead>
 
                         <tbody>
-                            @foreach ($protest->medProtests->sortByDesc('dtCriacaoMedida') as $medProtest)
+                            @foreach ($protest->medProtests->sortByDesc('med_id') as $medProtest)
                                 @php
                                     /** @var \App\Models\ProtestJob|null $last */
                                     $last = $medProtest->LastProtestJob;
@@ -894,7 +920,7 @@
                                     $owner = $last?->owner?->name;
 
                                     // Datas (já são Carbon por cast do modelo)
-                                    $startAt = $last?->created_at;
+                                    $startAt = $last->started_at ?? $last?->created_at;
                                     $dueAt = $last?->sla_due_at;
                                     $finishAt = $last?->finished_at;
                                     $nowRef = now();
@@ -1165,7 +1191,7 @@
                                                     $jobPriorityBadge = $job->priority_badge_class;
 
                                                     // Datas
-                                                    $jStart = $job->created_at;
+                                                    $jStart = $job->started_at ?? $job->created_at;
                                                     $jDue = $job->sla_due_at;
                                                     $jFinish = $job->finished_at;
 
@@ -1195,6 +1221,7 @@
                                                         $jSpent = max(min($jUntil->diffInSeconds($jStart), $jTotal), 0);
                                                         $jPct = max(0, min(100, round(($jSpent / $jTotal) * 100)));
                                                     }
+
                                                 @endphp
 
                                                 <div
@@ -1255,7 +1282,7 @@
                                                                     <button
                                                                         class="btn btn-outline-warning job-action-btn"
                                                                         title="Reabrir atividade"
-                                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'reopenJob', {{ $job->medProtest->id }})"
+                                                                        wire:click.prevent="toReopen({{ $job->id }})"
                                                                         @disabled($job->status->value !== 'done')>
                                                                         <i class="ri-refresh-line"></i>
                                                                     </button>
@@ -1280,9 +1307,14 @@
                                                             </div>
 
                                                             @if ($jStart && $jDue)
-                                                                <div class="sla-bar-wrap-job mb-2 mt-1">
-                                                                    <div class="sla-seg {{ !$jFinish && now()->gt($jDue) ? 'sla-late' : 'sla-ontrack' }}"
-                                                                        style="width: {{ $jPct }}%;"></div>
+                                                                <div class="progress mb-2 mt-1" style="height: 10px;">
+                                                                    <div class="progress-bar {{ !$jFinish && now()->gt($jDue) ? 'bg-danger' : 'bg-success' }}"
+                                                                        role="progressbar"
+                                                                        style="width: {{ $jPct }}%;"
+                                                                        aria-valuenow="{{ $jPct }}"
+                                                                        aria-valuemin="0" aria-valuemax="100">
+                                                                        {{ $jPct }}%
+                                                                    </div>
                                                                 </div>
                                                             @endif
 
@@ -1375,8 +1407,9 @@
                             <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
                                 <div class="d-flex gap-3">
                                     <div class="flex-shrink-0">
-                                        <div class="avatar-circle bg-primary text-white">
-                                            {{ strtoupper(substr($comment->user->name, 0, 2)) }}
+                                        <div class="avatar-circle" title="{{ $comment->user->name }}">
+                                            <img src="{{ $comment->user->avatar_url }}"
+                                                alt="Avatar de {{ $comment->user->name }}">
                                         </div>
                                     </div>
 

@@ -93,7 +93,7 @@ class migrate_to_protestjob extends Command
                     $assignmentCreated  = $userAssignment->created_at ?? now();
                     $finishedAt         = $userAssignment->ended_at;
                     $slaDueAt           = $userAssignment->due_at ?? $responsibleAssignment->due_at;
-                    $status             = $userAssignment->completed ? ProtestJobStatus::DONE->value : ProtestJobStatus::OPENED->value;
+                    $status             = $userAssignment->completed ? ProtestJobStatus::DONE->value : ($userAssignment->started_at ? ProtestJobStatus::IN_PROGRESS->value : ProtestJobStatus::ASSIGNED->value);
                     $firstComment       = $medProtest->Comments->first();
                     $notes              = $firstComment?->message;
 
@@ -119,7 +119,7 @@ class migrate_to_protestjob extends Command
                                 'priority'       => ProtestJobPriority::NORMAL->value,
                                 'status'         => $status,
                                 'sent_at'        => $assignmentCreated,
-                                'started_at'     => $assignmentCreated,
+                                'started_at'     => $userAssignment->started_at ?? null,
                                 'accepted_at'    => $userAssignment->started_at ?? $assignmentCreated,
                                 'finished_at'    => $finishedAt,
                                 'closed_at'      => $userAssignment->completed ? $finishedAt : null,
@@ -167,6 +167,44 @@ class migrate_to_protestjob extends Command
         if (!empty($missingIds)) {
             $this->warn('Os seguintes med_protest_id não geraram ProtestJob (verifique logs/dados): ' . implode(', ', $missingIds));
         }
+
+
+
+        $jobsProcessed      = 0;
+        $protestResumeLinks = 0;
+        $jobNotesFilled     = 0;
+
+        ProtestJob::query()
+            ->with([
+                'protest.Comments' => fn ($q) => $q->orderBy('created_at'),
+                // 'medProtest.TechnicalReport',
+            ])
+            ->chunkById($chunkSize, function ($protestJobs) use (&$jobsProcessed, &$protestResumeLinks, &$jobNotesFilled) {
+                foreach ($protestJobs as $protestJob) {
+                    $jobsProcessed++;
+
+                    $protest = $protestJob->protest;
+                    if ($protest) {
+                        $firstComment = $protest->Comments->first();
+                        $commentMessage = $firstComment ? trim((string) $firstComment->message) : '';
+
+                        if ($commentMessage !== '' && blank($protest->resume)) {
+                            $protest->resume = $commentMessage;
+                            $protest->save();
+                            $protestResumeLinks++;
+                        }
+                    }
+
+                    // $technicalReportContent = $protestJob->medProtest?->TechnicalReport?->content;
+                    // if (!blank($technicalReportContent) && blank($protestJob->close_reason)) {
+                    //     $protestJob->close_reason = $technicalReportContent;
+                    //     $protestJob->save();
+                    //     $jobNotesFilled++;
+                    // }
+                }
+            });
+
+        $this->info("Jobs avaliados: {$jobsProcessed} | Resumos preenchidos: {$protestResumeLinks} | Notes preenchidas via Relatorios Tecnicos: {$jobNotesFilled}");
 
         return $errors === 0 ? Command::SUCCESS : Command::FAILURE;
     }

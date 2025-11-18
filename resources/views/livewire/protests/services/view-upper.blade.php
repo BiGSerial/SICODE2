@@ -68,14 +68,29 @@
             }
 
             .avatar-circle {
-                font-size: 14px;
-                font-weight: 600;
-                width: 40px;
-                height: 40px;
+                width: 50px;
+                height: 50px;
+                min-width: 50px;
+                min-height: 50px;
                 border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                overflow: hidden;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+                background: #f1f5f9;
+            }
+
+            .chat-container .avatar-circle {
+                width: 50px !important;
+                height: 50px !important;
+                min-width: 50px !important;
+                min-height: 50px !important;
+            }
+
+            .avatar-circle img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
             }
 
             .chat-container {
@@ -180,9 +195,9 @@
                 transform: scale(1.1);
             }
 
-            .progress-bar {
-                background: linear-gradient(45deg, #007bff, #0056b3);
-            }
+            /* .progress-bar {
+                                        background: linear-gradient(45deg, #007bff, #0056b3);
+                                    } */
 
             #closeReason:focus {
                 box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
@@ -206,6 +221,7 @@
             'OU' => 'Ouvidoria',
             'NA' => 'Atendimento',
             'PR' => 'Procon',
+            'REDA' => 'Ressarcimento',
             default => 'Reclamação',
         };
 
@@ -229,7 +245,7 @@
             $totalSec = max($dueAt->diffInSeconds($baseStart), 1);
             $elapsedSec = min($now->diffInSeconds($baseStart), $totalSec);
             $percent = intval(($elapsedSec / $totalSec) * 100);
-            $diffDays = $now->startOfDay()->diffInDays($dueAt->startOfDay(), false);
+            $diffDays = $now->diffInDays($dueAt, false);
 
             if ($diffDays < 0) {
                 $slaStatus['color'] = 'danger';
@@ -252,7 +268,7 @@
             }
         }
 
-        $needsEvidence = (bool) ($medProtest->needsEvidence ?? false);
+        $needsEvidence = (bool) ($job->need_evidence ?? false);
         $hasEvidence = $medProtest?->evidenceFiles?->count() > 0;
 
         $authUser = auth()->user();
@@ -275,7 +291,17 @@
                         <div class="header-title">
                             {{ $tipoLabel }} #{{ $protest?->nota ?? '—' }}
                             @if ($medProtest)
-                                <span class="mx-1">|</span> Medida #{{ $medProtest->med_id }}
+                                <span class="mx-1"></span> Medida #{{ $medProtest->med_id }}
+                            @endif
+                            @if ($job->need_evidence)
+                                <span class="mx-1 badge text-bg-warning small fs-6">
+                                    <i class="ri-file-list-3-line align-middle"></i> Evidência
+                                </span>
+                            @endif
+                            @if ($job->is_advance)
+                                <span class="mx-1 badge text-bg-primary small fs-6">
+                                    <i class="ri-arrow-right-circle-line align-middle"></i> Avança
+                                </span>
                             @endif
                         </div>
 
@@ -342,7 +368,7 @@
                         <span class="small text-white-50">
                             <i class="ri-timer-flash-line me-1"></i>SLA da atividade
                         </span>
-                        <span class="badge bg-{{ $slaStatus['color'] }} sla-chip">
+                        <span class="badge text-bg-{{ $slaStatus['color'] }} sla-chip">
                             <i class="{{ $slaStatus['icon'] }} me-1"></i>{{ $slaStatus['text'] }}
                         </span>
                     </div>
@@ -925,8 +951,10 @@
                                             <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
                                                 <div class="d-flex gap-3">
                                                     <div class="flex-shrink-0">
-                                                        <div class="avatar-circle bg-primary text-white">
-                                                            {{ strtoupper(substr($comment->user->name, 0, 2)) }}
+                                                        <div class="avatar-circle"
+                                                            title="{{ $comment->user->name }}">
+                                                            <img src="{{ $comment->user->avatar_url }}"
+                                                                alt="Avatar de {{ $comment->user->name }}">
                                                         </div>
                                                     </div>
                                                     <div class="flex-grow-1">
@@ -1030,7 +1058,3 @@
         </script>
     @endpush
 </div>
-
-
-
-

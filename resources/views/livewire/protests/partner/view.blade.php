@@ -62,14 +62,29 @@
         }
 
         .avatar-circle {
-            font-size: 14px;
-            font-weight: 600;
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            min-height: 50px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            overflow: hidden;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            background: #f1f5f9;
+        }
+
+        .chat-container .avatar-circle {
+            width: 50px !important;
+            height: 50px !important;
+            min-width: 50px !important;
+            min-height: 50px !important;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .message-bubble {
@@ -718,8 +733,13 @@
                             <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
                                 <div class="d-flex gap-3">
                                     <div class="flex-shrink-0">
-                                        <div class="avatar-circle bg-primary text-white">
-                                            {{ strtoupper(substr($comment->user->name, 0, 2)) }}
+                                        @php
+                                            $commentUser = $comment->user;
+                                            $avatarSeed = $commentUser?->email ?? $commentUser?->name ?? 'partner';
+                                            $avatarUrl = $commentUser?->avatar_url ?? 'https://api.dicebear.com/9.x/pixel-art/svg?seed=' . urlencode($avatarSeed);
+                                        @endphp
+                                        <div class="avatar-circle" title="{{ $commentUser->name ?? 'Usuário' }}">
+                                            <img src="{{ $avatarUrl }}" alt="Avatar de {{ $commentUser->name ?? 'Usuário' }}">
                                         </div>
                                     </div>
                                     <div class="flex-grow-1">

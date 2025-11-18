@@ -81,8 +81,15 @@ class Accompany extends Component
             ->open() // scopeOpen do modelo
             ->whereIn('owner_id', $subordinatesIds)
             ->with([
-                'protest',
-                'medProtest',
+                'protest.Notes',
+                'medProtest' => function ($q) {
+                    $q->with([
+                        'Notes',
+                        'Comments' => function ($cq) {
+                            $cq->latest();
+                        },
+                    ]);
+                },
                 'Comments' => function ($q) {
                     $q->latest();
                 },
