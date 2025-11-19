@@ -113,6 +113,8 @@ class Jobform extends Component
             if ($hist) {
                 $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
                 $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
+            } else {
+                $time = 0;
             }
 
             $update = $this->production->update([
