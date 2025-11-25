@@ -1,6 +1,11 @@
 {
-    "appver": "1.26.0",
+    "appver": "1.27.0",
     "historic": [
+        {
+            "version": "1.27.0",
+            "description": "Changes Massive Protest Job and Others",
+            "date": "2025-11-25"
+        },
         {
             "version": "1.26.0",
             "description": "Changed FLUX OE, pool payment and other major fixies in other areas",
