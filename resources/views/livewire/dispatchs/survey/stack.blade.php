@@ -160,7 +160,7 @@
                 <thead>
                     <tr class="text-center align-middle sticky-top shadow-sm table-dark" style="top: 60px;">
                         <th>#</th>
-
+                        <th>Despachante</th>
                         <th>Note</th>
                         <th>DD</th>
                         <th>Rubrica</th>
@@ -298,6 +298,8 @@
                             </td>
 
 
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
+                                {{ shortUser($item->dispatcher?->name) }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->note }}</td>
                             <td

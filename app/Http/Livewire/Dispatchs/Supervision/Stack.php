@@ -160,13 +160,15 @@ class Stack extends Component
             ->addSelect(DB::raw("$dtInformExpr AS dt_inform"))
             ->addSelect(DB::raw('af.created_at AS dt_ads'))
             ->addSelect(DB::raw('wr.informed_at AS dt_informed'))
-            ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-            'service:id,uuid,service',
-            'user:id,name',
-            'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
-            'note.workform:id,company_id,note_id,informed_at,rejected',
-            'note.workform.adsform:id,work_report_id,amount,created_at',
-            'note.orders:id,note_id,moaberto'
+            ->with([
+                'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
+                'service:id,uuid,service',
+                'user:id,name',
+                'dispatcher:id,name',
+                'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
+                'note.workform:id,company_id,note_id,informed_at,rejected',
+                'note.workform.adsform:id,work_report_id,amount,created_at',
+                'note.orders:id,note_id,moaberto',
             ])
         ;
     }

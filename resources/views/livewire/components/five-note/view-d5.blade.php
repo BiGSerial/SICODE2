@@ -86,29 +86,30 @@
                                                         <div class="fivefx-completion-name">
                                                             {{ $production?->user?->name }}
                                                             @if ($production->User?->email)
-                                                                <span class="teams-contact-icon" 
+                                                                <span class="teams-contact-icon"
                                                                     title="Entrar em contato"
                                                                     onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $production->User?->email }}', '_blank')">
-                                                                    <i class="bx bxl-microsoft-teams fs-4 align-middle"></i>
+                                                                    <i
+                                                                        class="bx bxl-microsoft-teams fs-4 align-middle"></i>
                                                                 </span>
 
                                                                 <style>
-                                                                .teams-contact-icon {
-                                                                    cursor: pointer;
-                                                                    display: inline-block;
-                                                                    transition: all 0.3s ease;
-                                                                    padding: 4px;
-                                                                    border-radius: 4px;
-                                                                }
+                                                                    .teams-contact-icon {
+                                                                        cursor: pointer;
+                                                                        display: inline-block;
+                                                                        transition: all 0.3s ease;
+                                                                        padding: 4px;
+                                                                        border-radius: 4px;
+                                                                    }
 
-                                                                .teams-contact-icon:hover {
-                                                                    background-color: rgba(0, 120, 212, 0.1);
-                                                                    transform: scale(1.1);
-                                                                }
+                                                                    .teams-contact-icon:hover {
+                                                                        background-color: rgba(0, 120, 212, 0.1);
+                                                                        transform: scale(1.1);
+                                                                    }
 
-                                                                .teams-contact-icon:hover i {
-                                                                    color: #0078d4 !important;
-                                                                }
+                                                                    .teams-contact-icon:hover i {
+                                                                        color: #0078d4 !important;
+                                                                    }
                                                                 </style>
                                                             @endif
                                                         </div>
@@ -230,6 +231,12 @@
                             placeholder="Digite o nome do responsável"
                             style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px;"
                             disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="responsibleName" class="form-label fivefx-k">Observações da Parceira</label>
+                        <div class="fivefx-completion-card">
+                            {{ $five?->Comments?->last()?->message ?? 'Nenhuma Observação' }}
+                        </div>
                     </div>
                 </div>
 

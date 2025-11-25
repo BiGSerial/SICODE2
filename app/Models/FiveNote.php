@@ -74,5 +74,24 @@ class FiveNote extends Model
     }
 
 
+    public function Comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable');
+    }
+
+    public function done(?string $responsible, ?string $comment = null)
+    {
+        $this->name = $responsible ?? $this->name;
+        $this->is_completed = true;
+        $this->completed_at = now();
+        $this->save();
+
+        if ($comment) {
+            $this->Comments()->create([
+                'user_id' => auth()->id(),
+                'message' => $comment,
+            ]);
+        }
+    }
 
 }

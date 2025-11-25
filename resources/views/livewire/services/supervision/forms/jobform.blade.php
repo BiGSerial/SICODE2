@@ -306,6 +306,21 @@
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <div class="col-md-6">
+                                            <div class="hi d-flex align-items-start gap-2">
+                                                <div class="hi-ico text-primary"><i class="ri-message-3-line"></i>
+                                                </div>
+                                                <div class="hi-body">
+                                                    <div class="hi-k">Observação</div>
+                                                    <div class="hi-v">
+
+                                                        {!! nl2br(e($five->description)) !!}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div>
                                     </div>
 
                                     {{-- datas/status em chips --}}
@@ -335,10 +350,11 @@
                                         <div class="obs">
                                             <div class="d-flex align-items-center gap-2 mb-2">
                                                 <i class="ri-chat-3-line text-primary"></i>
-                                                <span class="fw-semibold">Observações</span>
+                                                <span class="fw-semibold">Observações Empreiteira</span>
                                             </div>
                                             <div class="obs-box">
-                                                {!! nl2br(e($five->description)) !!}
+                                                {{ $five?->Comments?->last()?->message ?? 'Nenhuma Observação' }}
+
                                             </div>
                                         </div>
                                     @endif

@@ -160,6 +160,7 @@
                 <thead>
                     <tr class="text-center align-middle sticky-top shadow-sm table-dark" style="top: 60px;">
                         <th>#</th>
+                        <th>Despachante</th>
                         <th>#</th>
                         <th>Note</th>
                         <th>DD</th>
@@ -311,6 +312,9 @@
                                         id="checkbox-{{ $item->id }}" value="{{ $item->id }}">
                                     <label class="form-check-label" for="checkbox-{{ $item->id }}"></label>
                                 </div>
+                            </td>
+                            <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
+                                {{ shortUser($item->dispatcher?->name) }}
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 <span class="badge {{ $type['color'] }}" data-bs-toggle="tooltip"

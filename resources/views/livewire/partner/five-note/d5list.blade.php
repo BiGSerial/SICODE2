@@ -1,4 +1,3 @@
-{{-- resources/views/livewire/fivenote/index.blade.php --}}
 <div x-data="fiveListPage()" class="five-list-page d-flex flex-column">
     {{-- === CSS escopado === --}}
     <style>
@@ -265,7 +264,7 @@
 
                                     @if (!function_exists('getOrder'))
                                         @php
-                                            function getOrder($note): string
+                                            function getOrder($note): ?string
                                             {
                                                 return $note->WorkForm?->Orders?->sortBy('ordem')->first()?->ordem;
                                             }
@@ -476,7 +475,7 @@
                         month: '',
                         start: '',
                         end: ''
-                    }; 
+                    };
                 },
             }
         }

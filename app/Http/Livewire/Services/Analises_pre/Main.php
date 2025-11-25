@@ -31,6 +31,8 @@ class Main extends Component
     //Botão de  nao atribuído.
     public $not_assigned = false;
 
+    public $assigned_mmgd = false;
+
     protected $listeners = [
         'refresh_service'   => '$refresh',
         'getCopy'           => 'copy',
@@ -55,6 +57,16 @@ class Main extends Component
             'status'   => 'success',
             'menssage' => $msg,
         ]);
+    }
+
+    public function filterMMGD()
+    {
+        if ($this->assigned_mmgd) {
+            $this->assigned_mmgd = false;
+        } else {
+            $this->assigned_mmgd = true;
+        }
+
     }
 
     public function to_accompany(Note $note)
@@ -212,6 +224,9 @@ class Main extends Component
                     ->orWhereNull('rubrica');
             });
         })
+            ->when($this->assigned_mmgd, function ($q) {
+                return $q->whereIn('num_material', [21, 78, 79]);
+            })
             ->with('Productions.User')
             ->orderBy('pze_parecer', 'DESC')
             ->orderBy('dt_created');

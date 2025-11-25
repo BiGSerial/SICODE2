@@ -230,6 +230,13 @@
                             style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px;"
                             disabled>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="responsibleName" class="form-label fivefx-k">Observações</label>
+                        <div class="fivefx-completion-card">
+                            {{ $five->Comments?->last()?->message ?? 'Nenhuma Observação' }}
+                        </div>
+                    </div>
                 </div>
 
 

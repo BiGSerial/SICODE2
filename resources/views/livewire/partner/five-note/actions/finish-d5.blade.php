@@ -255,10 +255,25 @@
                 </div>
                 {{-- Campo para nome do responsável --}}
                 <div class="mb-3">
-                    <label for="responsibleName" class="form-label fivefx-k">Responsável pela Informação</label>
-                    <input type="text" class="form-control" id="responsibleName" wire:model.bounce.1s="five.name"
-                        placeholder="Digite o nome do responsável"
+                    <label for="responsibleName" class="form-label fivefx-k">
+                        Responsável pela Informação <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" class="form-control @error('five.name') is-invalid @enderror"
+                        id="responsibleName" wire:model.bounce.1s="five.name" placeholder="Digite o nome do responsável"
                         style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px;">
+                    @error('five.name')
+                        <div class="invalid-feedback" style="color: #f87171;">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="observations" class="form-label fivefx-k">Observações</label>
+                    <textarea class="form-control @error('observations') is-invalid @enderror" id="observations"
+                        wire:model.defer="observations" placeholder="Digite as observações" rows="4"
+                        style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px; resize: vertical;"></textarea>
+                    @error('observations')
+                        <div class="invalid-feedback" style="color: #f87171;">{{ $message }}</div>
+                    @enderror
                 </div>
             </div>
 

@@ -138,10 +138,12 @@ class Stack extends Component
             ->addSelect('productions.*')
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
             ->addSelect(DB::raw("n.dt_created as dt_created"))
-            ->with(['wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-            'service:id,uuid,service',
-            'user:id,name',
-            'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2'
+            ->with([
+                'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
+                'service:id,uuid,service',
+                'user:id,name',
+                'dispatcher:id,name',
+                'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
             ]);
     }
 

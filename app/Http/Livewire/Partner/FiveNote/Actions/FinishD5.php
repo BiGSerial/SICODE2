@@ -12,6 +12,7 @@ class FinishD5 extends Component
 {
     public $five;
     public $hasEvidence = false;
+    public $observations;
 
     public $origin = 'EMPREITEIRA';
 
@@ -106,9 +107,8 @@ class FinishD5 extends Component
         DB::beginTransaction();
 
         try {
-            $this->five->is_completed = true;
-            $this->five->completed_at = now();
-            $this->five->save();
+
+            $this->five->done(null, $this->observations);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -144,6 +144,7 @@ class FinishD5 extends Component
     public function clearAll()
     {
         $this->five = null;
+        $this->observations = null;
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
         $this->resetErrorBag();
         $this->dispatchBrowserEvent('hideModal');

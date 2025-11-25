@@ -70,6 +70,22 @@
 
             </div>
         </div>
+        <div class="mb-3">
+            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
+                data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas MMGD"
+                data-bs-content="<p>Ao clicar, apenas as notas de MMGD estarao visiveis.</p> <p>A palavra ON significa que o filtro esta ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
+                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
+                    wire:click.prevent="filterMMGD()">
+                    Somente MMGD
+                    @if ($assigned_mmgd)
+                        <span class="badge text-bg-success">ON</span>
+                    @else
+                        <span class="badge text-bg-danger">OFF</span>
+                    @endif
+                </button>
+
+            </div>
+        </div>
     </div>
 
     <div class="row">

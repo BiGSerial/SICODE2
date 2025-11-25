@@ -14,6 +14,7 @@ class BlockEvaluator
     public const HOLD_YELLOW = 2;
     public const HOLD_GREEN  = 3;
     public const HOLD_RED    = 4;
+    public const HOLD_INCONST  = 5;
 
     private function dateEq(mixed $a, mixed $b): bool
     {
@@ -105,8 +106,12 @@ class BlockEvaluator
             return $this->res(self::HOLD_BLUE, false, 'production_status_2_not_completed', $prod, $prodCount);
         }
 
+        if ($dtDifferent && $completed && !$confirmed) {
+            return $this->res(self::HOLD_INCONST, false, 'production_completed_waiting_confirmation', $prod, $prodCount);
+        }
+
         // 8) Aberto genérico => BLUE
-        return $this->res(self::HOLD_BLUE, false, 'prod_open_generic', $prod, $prodCount);
+        return $this->res(self::HOLD_INCONST, false, 'prod_inconst_open_generic', $prod, $prodCount);
     }
 
     private function latestProductionForService(Note $note, string $serviceUuid): ?Production
@@ -199,6 +204,7 @@ class BlockEvaluator
             self::HOLD_YELLOW => 'table-warning',
             self::HOLD_GREEN  => 'table-success',
             self::HOLD_RED    => 'table-danger',
+            self::HOLD_INCONST => 'table-secondary',
             default           => '',
         };
     }
