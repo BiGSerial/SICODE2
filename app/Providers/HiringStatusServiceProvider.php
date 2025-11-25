@@ -3,20 +3,22 @@
 namespace App\Providers;
 
 use App\Services\HiringStatus\HiringStatusBuilder;
-use App\Services\HiringStatus\Rules\ApprovalApprovedRule;
-use App\Services\HiringStatus\Rules\ApprovalWithCompletedReclaimRule;
-use App\Services\HiringStatus\Rules\ApprovalWithoutReclaimsRule;
-use App\Services\HiringStatus\Rules\ApprovalWithPendingReclaimRule;
-use App\Services\HiringStatus\Rules\FinishedOrNotNeedHiring;
-use App\Services\HiringStatus\Rules\HiringDirectlyNoNeedApproveRule;
-use App\Services\HiringStatus\Rules\NoApprovalRule;
-use App\Services\HiringStatus\Rules\ViabilityApprovedHired;
-use App\Services\HiringStatus\Rules\ViabilityApprovedNotHiredRule;
-use App\Services\HiringStatus\Rules\ViabilityInProgressRule;
-use App\Services\HiringStatus\Rules\ViabilityRejectedWithCompletedReclaimRule;
-use App\Services\HiringStatus\Rules\ViabilityRejectedWithoutReclaimsRule;
-use App\Services\HiringStatus\Rules\ViabilityRejectedWithPendingReclaimRule;
-use App\Services\HiringStatus\Rules\WaitingsWithPendingReclaimRule;
+use App\Services\HiringStatus\Rules\{
+    ApprovalApprovedRule,
+    ApprovalWithCompletedReclaimRule,
+    ApprovalWithoutReclaimsRule,
+    ApprovalWithPendingReclaimRule,
+    FinishedOrNotNeedHiring,
+    HiringDirectlyNoNeedApproveRule,
+    NoApprovalRule,
+    ViabilityApprovedHired,
+    ViabilityApprovedNotHiredRule,
+    ViabilityInProgressRule,
+    ViabilityRejectedWithCompletedReclaimRule,
+    ViabilityRejectedWithoutReclaimsRule,
+    ViabilityRejectedWithPendingReclaimRule,
+    WaitingsWithPendingReclaimRule
+};
 use Illuminate\Support\ServiceProvider;
 
 class HiringStatusServiceProvider extends ServiceProvider

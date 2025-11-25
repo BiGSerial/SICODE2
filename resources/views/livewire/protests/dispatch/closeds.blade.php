@@ -364,6 +364,7 @@
                             <th>Nota</th>
                             <th>Medida</th>
                             <th>Cód</th>
+                            <th>txCodMed</th>
                             <th>Tipo Reclamação</th>
                             <th>Município</th>
                             <th>Responsável</th>
@@ -450,6 +451,9 @@
                                     <span class="badge text-bg-secondary">
                                         {{ $protest?->codecodf }}
                                     </span>
+                                </td>
+                                <td class="">
+                                    {{ $medProtest?->txtCodMedida }}
                                 </td>
 
                                 <td class="text-uppercase">

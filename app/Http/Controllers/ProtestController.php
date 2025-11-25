@@ -103,4 +103,10 @@ class ProtestController extends Controller
         return view('protest.partner.history');
     }
 
+
+    public function dashboard()
+    {
+        return view('protest.dispatch.dashboard');
+    }
+
 }

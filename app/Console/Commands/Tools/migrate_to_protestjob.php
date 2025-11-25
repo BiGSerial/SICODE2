@@ -195,12 +195,12 @@ class migrate_to_protestjob extends Command
                         }
                     }
 
-                    // $technicalReportContent = $protestJob->medProtest?->TechnicalReport?->content;
-                    // if (!blank($technicalReportContent) && blank($protestJob->close_reason)) {
-                    //     $protestJob->close_reason = $technicalReportContent;
-                    //     $protestJob->save();
-                    //     $jobNotesFilled++;
-                    // }
+                    $technicalReportContent = $protestJob->medProtest?->TechnicalReport?->content;
+                    if (!blank($technicalReportContent) && blank($protestJob->close_reason)) {
+                        $protestJob->close_reason = $technicalReportContent;
+                        $protestJob->save();
+                        $jobNotesFilled++;
+                    }
                 }
             });
 

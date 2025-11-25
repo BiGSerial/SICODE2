@@ -214,7 +214,8 @@ class Lists extends Component
             ]);
         }
 
-        $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
+        $query->orderByRaw('ISNULL(vencimento), vencimento ASC')
+              ->orderBy('id', 'ASC');
 
         return $query;
     }

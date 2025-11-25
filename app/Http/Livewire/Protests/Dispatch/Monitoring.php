@@ -121,7 +121,9 @@ class Monitoring extends Component
                 'closer:id,name',
             ])
             ->where('confirmed', '!=', true)
-            ->orderBy('priority', 'desc');
+            ->orderBy('priority', 'desc')
+            ->orderBy('sla_due_at')
+            ->orderBy('id');
 
         // Filtro por responsável / hierarquia
         $query->when($this->userViewer, function ($q) {

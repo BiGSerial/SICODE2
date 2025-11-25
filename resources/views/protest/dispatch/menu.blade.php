@@ -24,6 +24,12 @@
             <ul id="protests-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
+                        <a href="{{ route('protests.dashboard') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-speedometer2 fs-5 edp-text-verde-dark"></i> <span>DASHBOARD</span>
+
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('protests.dispatch.lists') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-inbox fs-5 edp-text-verde-dark"></i> <span>EM ABERTO</span>
 

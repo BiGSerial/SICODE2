@@ -76,10 +76,28 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password'          => 'hashed',
-        'first_pass'       => 'boolean',
-        'bypassprod'      => 'boolean',
-        'engineer'       => 'boolean',
-        'onlyparner'      => 'boolean',
+
+        // booleans
+        'first_pass'   => 'boolean',
+        'bypassprod'   => 'boolean',
+        'engineer'     => 'boolean',
+        'onlyparner'   => 'boolean',
+        'superadm'     => 'boolean',
+        'admin'        => 'boolean',
+        'management'   => 'boolean',
+        'operator'     => 'boolean',
+        'user'         => 'boolean',
+        'contract'     => 'boolean',
+        'responsible'  => 'boolean',
+        'btzero'       => 'boolean',
+        'can_dispatch' => 'boolean',
+
+        ];
+
+
+    protected $appends = [
+        'avatar_url',
+        'is_delegated',
     ];
 
     public function Employee()

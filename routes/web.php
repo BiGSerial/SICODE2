@@ -286,9 +286,9 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
         Route::get('/view_only/{medProtestId}', 'partner_view_only')->name('view_only');
         Route::get('/history', 'partner_history')->name('history');
 
-
     });
 
+    Route::get('/dashboard', 'dashboard')->middleware('can:management')->name('dashboard');
     Route::get('/print/{medProtestId}', 'print')->name('print');
 });
 

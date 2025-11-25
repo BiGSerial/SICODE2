@@ -39,7 +39,7 @@ class CheckProtestSlaBreak extends Command
         $window = (int) $this->option('window');
         $now    = CarbonImmutable::now();
 
-        $this->info("Verificando SLAs (${window}min window)…");
+        $this->info("Verificando SLAs ({$window}min window)…");
 
         // ========= PASSO A: AVISOS (somente futuros dentro de +1 dia) =========
         ProtestJob::query()

@@ -38,7 +38,7 @@
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0 text-uppercase d-flex align-items-center gap-2">
             <i class="ri-alert-line"></i>
-            ReclamaÃ§Ãµes
+            Reclamações
         </h5>
 
         <button wire:click="exportToExcel" class="btn btn-success btn-sm">
@@ -63,10 +63,11 @@
                     <th>Nota</th>
                     <th>Tipo</th>
                     <th>Cod</th>
-                    <th>TipoReclamaÃ§Ã£o</th>
+                    <th>TipoReclamação</th>
+                    <th>TxCodeMedida</th>
                     <th>CausaRaiz</th>
                     <th>Origem</th>
-                    <th>MunicÃ­pio</th>
+                    <th>Município</th>
                     <th>Abertura</th>
                     <th>Tempo</th>
                     <th>Desejada</th>
@@ -74,25 +75,26 @@
                     <th style="width:48px;"></th>
                 </tr>
             </thead>
-                        <tbody>
+            <tbody>
                 @forelse ($lists as $protest)
                     @php
-                        $activeMed = $protest->medProtests->firstWhere('statusSist', 'MEDA') ?? $protest->medProtests->first();
-                        $startDate = $protest->tipoNota === 'NA' ? $protest->dtAberturaNota : optional($activeMed)->dtCriacaoMedida;
-                        $deadline = $protest->tipoNota === 'NA' ? $protest->dtConclusaoDesej : optional($activeMed)->dtFimMedidaDesej;
+                        $activeMed =
+                            $protest->medProtests->firstWhere('statusSist', 'MEDA') ?? $protest->medProtests->first();
+                        $startDate =
+                            $protest->tipoNota === 'NA'
+                                ? $protest->dtAberturaNota
+                                : optional($activeMed)->dtCriacaoMedida;
+                        $deadline =
+                            $protest->tipoNota === 'NA'
+                                ? $protest->dtConclusaoDesej
+                                : optional($activeMed)->dtFimMedidaDesej;
 
-                        $elapsed = $startDate
-                            ? Carbon::parse($startDate)->diffForHumans(now(), [
-                                'parts' => 2,
-                                'short' => true,
-                                'syntax' => Carbon::DIFF_ABSOLUTE,
-                            ])
-                            : '—';
+                        $elapsed = $startDate ? Carbon::parse($startDate)->diffInDays(now()) : '—';
 
                         $deadlineBadge = [
                             'label' => 'Sem prazo',
                             'class' => 'badge bg-secondary-subtle text-secondary',
-                            'date'  => '—',
+                            'date' => '—',
                         ];
 
                         if ($deadline) {
@@ -116,15 +118,20 @@
                         $jobStatusClass = 'badge bg-secondary-subtle text-secondary';
 
                         if ($latestJob) {
-                            $enum = ProtestJobStatus::tryFrom($latestJob->status);
-                            $jobStatusLabel = $enum ? $enum->label() : Str::headline($latestJob->status);
+                            $statusValue = $latestJob->status;
+                            $enum =
+                                $statusValue instanceof ProtestJobStatus
+                                    ? $statusValue
+                                    : ProtestJobStatus::tryFrom((string) $statusValue);
 
-                            $jobStatusClass = match ($enum?->value ?? $latestJob->status) {
-                                'done'        => 'badge bg-success-subtle text-success',
-                                'waiting'     => 'badge bg-dark-subtle text-dark',
+                            $jobStatusLabel = $enum ? $enum->label() : Str::headline((string) $statusValue);
+
+                            $jobStatusClass = match ($enum?->value ?? (string) $statusValue) {
+                                'done' => 'badge bg-success-subtle text-success',
+                                'waiting' => 'badge bg-dark-subtle text-dark',
                                 'in_progress' => 'badge bg-warning-subtle text-warning',
-                                'canceled'    => 'badge bg-danger-subtle text-danger',
-                                default       => 'badge bg-primary-subtle text-primary',
+                                'canceled' => 'badge bg-danger-subtle text-danger',
+                                default => 'badge bg-primary-subtle text-primary',
                             };
                         }
                     @endphp
@@ -134,6 +141,7 @@
                         <td class="fw-semibold">{{ $protest->nota }}</td>
                         <td>{{ $protest->tipoNota }}</td>
                         <td>{{ $activeMed?->codMedida ?? '—' }}</td>
+                        <td>{{ $activeMed?->txtCodMedida ?? '—' }}</td>
                         <td class="small">{{ $activeMed?->txtCodCodificacao ?? '—' }}</td>
                         <td class="small">{{ Str::limit($protest->descCausa ?? '—', 22) }}</td>
                         <td class="small">{{ Str::limit($protest->descricao ?? '—', 22) }}</td>
@@ -141,7 +149,8 @@
                         <td>{{ optional($startDate)->format('d/m/Y') ?? '—' }}</td>
                         <td>
                             <div class="d-flex flex-column lh-1">
-                                <span class="fw-semibold">{{ $elapsed }}</span>
+                                <span
+                                    class="fw-semibold badge {{ $deadlineBadge['class'] }}">{{ $elapsed }}</span>
                                 @if ($startDate)
                                     <small class="text-muted">{{ Carbon::parse($startDate)->diffForHumans() }}</small>
                                 @endif
@@ -169,7 +178,8 @@
                         </td>
                     </tr>
                 @endforelse
-            </tbody>        </table>
+            </tbody>
+        </table>
     </div>
 
     {{-- PaginaÃ§Ã£o --}}
@@ -222,7 +232,7 @@
             <div class="drawer-content">
                 <div class="info-grid">
                     <div class="info-card">
-                        <div class="info-label"><i class="ri-map-pin-line me-1"></i>MunicÃ­pio</div>
+                        <div class="info-label"><i class="ri-map-pin-line me-1"></i>Município</div>
                         <div class="info-value">{{ $selected->cidade }}</div>
                     </div>
                     <div class="info-card">
@@ -243,7 +253,7 @@
 
                 <div class="desc-block">
                     <div class="desc-title">
-                        <i class="ri-information-line me-2"></i>DescriÃ§Ã£o
+                        <i class="ri-information-line me-2"></i>Descrição
                     </div>
                     <p class="mb-0 text-secondary">
                         {{ $selected->comments->last()?->message }}
