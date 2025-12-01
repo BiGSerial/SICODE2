@@ -153,9 +153,19 @@ class Workreports extends Component
 
     public function submit()
     {
+
+        if (!$this->hasFiles) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Arquivos Obrigatórios',
+                'html'     => 'Desde do dia <strong>01/05/2025</strong>, tornou-se obrigatório o anexo de imagens evidenciando a obra, incluindo os ativos cadastrados. Favor anexar os arquivos antes de prosseguir.',
+            ]);
+            return;
+        }
+
+
         try {
-
-
 
             $this->validate();
 
@@ -506,9 +516,9 @@ class Workreports extends Component
         if (!$eval->command) {
             $productionInfo = '';
             if (isset($eval->production) && $eval->production) {
-            $userName = $eval->production->user->name ?? 'Não informado';
-            $serviceName = $eval->production->service->service ?? 'Não informado';
-            $productionInfo = "<div class='alert alert-info'>
+                $userName = $eval->production->user->name ?? 'Não informado';
+                $serviceName = $eval->production->service->service ?? 'Não informado';
+                $productionInfo = "<div class='alert alert-info'>
                 <strong>Resposável:</strong><br>
                 Usuário: {$userName}<br>
                 Serviço: {$serviceName}

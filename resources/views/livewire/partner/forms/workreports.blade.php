@@ -380,17 +380,25 @@
                             @endif
 
                             <!-- File Upload Section (Conditional) -->
-                            @if ($form['changes'])
-                                <div class="card shadow-sm mb-4 border-primary border-top border-2">
-                                    <div class="card-header bg-light">
-                                        <h5 class="mb-0"><i class="ri-file-upload-line me-2"></i>Arquivos de
-                                            Alterações</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
-                                    </div>
+
+                            <div class="card shadow-sm mb-4 border-primary border-top border-2">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="ri-file-upload-line me-2"></i>Arquivos de
+                                        Evidencias de Obras</h5>
                                 </div>
-                            @endif
+                                <div class="card-body">
+                                    <div class="alert alert-info d-flex align-items-start" role="alert">
+                                        <i class="ri-information-line me-2 fs-5"></i>
+                                        <div>
+                                            <strong>Atenção:</strong> Apartir de <strong>01/12/2025</strong> torna-se
+                                            obrigatório anexar as evidências de realização das obras, incluindo fotos
+                                            dos ativos cadastrados e instalados.
+                                        </div>
+                                    </div>
+                                    @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
+                                </div>
+                            </div>
+
 
                             <!-- Observations -->
                             <div class="card shadow-sm mb-4">

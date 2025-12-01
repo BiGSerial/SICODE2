@@ -112,6 +112,15 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         }
 
         $notaD5 = $row->FiveNote ?? null;
+        $diasD5 = '---';
+
+        if ($notaD5 && $notaD5->completed_at) {
+            $completedAt = $notaD5->completed_at instanceof Carbon
+                ? $notaD5->completed_at->copy()
+                : Carbon::parse($notaD5->completed_at);
+
+            $diasD5 = $completedAt->startOfDay()->diffInDays(Carbon::now(), false);
+        }
 
         $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
 
@@ -185,7 +194,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             "R$ ".number_format($sumOrders, 2, ',', '.'),
             $row->type_note == 2 ? $row->nstats : $row->centerjob,
             $diasInforme,
-            $notaD5 && $notaD5->completed_at ? $notaD5->completed_at->startOfDay()->diffInDays(Carbon::now(), false) : '---',
+            $diasD5,
             $notaD5 ? ($notaD5->created_at ? $notaD5->created_at->format('d/m/Y H:i:s') : '---') : '---',
             $notaD5 ? ($notaD5->dispatch_at ? $notaD5->dispatch_at->format('d/m/Y H:i:s') : '---') : '---',
             $notaD5 ? ($notaD5->completed_at ? $notaD5->completed_at->format('d/m/Y H:i:s') : '---') : '---',

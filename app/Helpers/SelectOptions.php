@@ -469,6 +469,7 @@ class SelectOptions
             (object)['reason' => 'ADS (Atestado de Serviço)', 'value' => 'ADS'],
             (object)['reason' => 'ASBUILT (Projeto Conforme Construído)', 'value' => 'ASBUILT'],
             (object)['reason' => 'CROQUI (Projeto a mão ou anotações)', 'value' => 'CROQUI'],
+            (object)['reason' => 'EVIDENCIA (Evidência de Conclusão de Obra)', 'value' => 'EVIDENCIA'],
             (object)['reason' => 'FICHA VIAB TECNICA', 'value' => 'FTVEO'],
             (object)['reason' => 'IMAGEM', 'value' => 'IMAGEM'],
             (object)['reason' => 'LISTA (Clientes BT0, etc..)', 'value' => 'LISTA'],

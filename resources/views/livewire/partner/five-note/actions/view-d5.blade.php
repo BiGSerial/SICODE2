@@ -234,7 +234,7 @@
                     <div class="mb-3">
                         <label for="responsibleName" class="form-label fivefx-k">Observações</label>
                         <div class="fivefx-completion-card">
-                            {{ $five->Comments?->last()?->message ?? 'Nenhuma Observação' }}
+                            {{ $five?->Comments?->last()?->message ?? 'Nenhuma Observação' }}
                         </div>
                     </div>
                 </div>
