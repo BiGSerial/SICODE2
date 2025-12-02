@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\ProtestType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -35,6 +36,7 @@ class MedProtest extends Model
         'completed' => 'boolean',
         'needsEvidence' => 'boolean',
         'needsConfirmation' => 'boolean',
+        'protest_type' => ProtestType::class,
     ];
 
     public function Notes()
