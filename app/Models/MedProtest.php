@@ -24,6 +24,7 @@ class MedProtest extends Model
         'completed_at',
         'needsEvidence',
         'needsConfirmation',
+        'protest_type',
     ];
 
     protected $casts = [

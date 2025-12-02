@@ -90,6 +90,7 @@ class ProtestListUpd extends Command
                     'dtCriacaoMedida'    => $record->dtCriacaoMedida,
                     'dtFimMedidaDesej'   => $record->dtFimMedidaDesej,
                     'dtFimMedida'        => $record->dtFimMedida,
+                    'protest_type'       => $record->Rastreio,
                     'updated_at'         => now(),
                 ];
 
@@ -124,7 +125,8 @@ class ProtestListUpd extends Command
                         'dtCriacaoMedida',
                         'dtFimMedidaDesej',
                         'dtFimMedida',
-                        'updated_at'
+                        'updated_at',
+                        'protest_type',
                     ]
                 );
             }
