@@ -99,7 +99,7 @@ class PruneProtestMed extends Command
                 foreach ($meds as $med) {
                     $processed++;
 
-                    if (! $dryRun && $med->statusSist) {
+                    if (! $dryRun && $med->statusSist === 'MEDA') {
                         $med->delete();
                         $deletedCount++;
                     }

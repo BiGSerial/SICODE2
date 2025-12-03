@@ -14,6 +14,10 @@ class ViewProtestJob extends Component
     // UI/UX state
     public int $tabIndex = 0;
 
+    // Propriedade necessária para corrigir o erro "Public property [$messageTarget] not found"
+    // Define o padrão como 'med' já que removemos a opção de 'job'
+    public string $messageTarget = 'med';
+
     // Objetos carregados
     public ?ProtestJob $job = null;
     public $protest = null;
@@ -29,7 +33,6 @@ class ViewProtestJob extends Component
     ];
 
     // Envio de mensagem
-    public string $messageTarget = 'job'; // 'job' | 'med'
     public string $newMessage = '';
     public bool   $restrict = false;
 
@@ -40,6 +43,7 @@ class ViewProtestJob extends Component
         'confirmEscalate'    => 'doEscalate',
         'confirmReopen'      => 'doReopen',
         'confirmCancel'      => 'doCancel',
+        'confirmConfirm'     => 'doConfirm',
     ];
 
     /** Abre e popula o modal deste componente */
@@ -69,7 +73,8 @@ class ViewProtestJob extends Component
         $this->outcome    = $this->job->outcome ?? [];
 
         // Listas por origem (desc)
-        $this->commentsByOrigin['job']     = $this->job->Comments?->sortByDesc('created_at')->values()->toArray() ?? [];
+        // 'job' deixado vazio propositalmente para não exibir mensagens do ProtestJob na aba, conforme solicitado
+        $this->commentsByOrigin['job']     = [];
         $this->commentsByOrigin['med']     = $this->medProtest?->Comments?->sortByDesc('created_at')->values()->toArray() ?? [];
         $this->commentsByOrigin['protest'] = $this->protest?->Comments?->sortByDesc('created_at')->values()->toArray() ?? [];
 
@@ -88,34 +93,26 @@ class ViewProtestJob extends Component
     public function sendMessage(): void
     {
         $this->validate([
-            'messageTarget' => 'required|in:job,med',
             'newMessage'    => 'required|string|min:2',
         ], [], ['newMessage' => 'mensagem']);
 
-        try {
-            if ($this->messageTarget === 'job') {
-                $this->job->Comments()->create([
-                    'user_id'   => optional(auth()->user())->id,
-                    'message'   => $this->newMessage,
-                    'restrict'  => $this->restrict,
-                    'granted'   => false,
-                    'dismissed' => false,
-                ]);
-            } else {
-                if (!$this->medProtest) {
-                    $this->dispatchBrowserEvent('toast', ['type' => 'warning', 'msg' => 'Este ProtestJob não possui MedProtest associada.']);
-                    return;
-                }
-                $this->medProtest->Comments()->create([
-                    'user_id'   => optional(auth()->user())->id,
-                    'message'   => $this->newMessage,
-                    'restrict'  => $this->restrict,
-                    'granted'   => false,
-                    'dismissed' => false,
-                ]);
-            }
+        // Trava de segurança: garante que só envia se houver MedProtest
+        if (!$this->medProtest) {
+            $this->dispatchBrowserEvent('toast', ['type' => 'warning', 'msg' => 'Este ProtestJob não possui MedProtest associada.']);
+            return;
+        }
 
-            // Recarregar
+        try {
+            // Cria o comentário diretamente na MedProtest
+            $this->medProtest->Comments()->create([
+                'user_id'   => optional(auth()->user())->id,
+                'message'   => $this->newMessage,
+                'restrict'  => $this->restrict,
+                'granted'   => false,
+                'dismissed' => false,
+            ]);
+
+            // Recarregar os dados para atualizar a lista
             $this->open($this->jobId);
 
             $this->newMessage = '';
@@ -162,6 +159,24 @@ class ViewProtestJob extends Component
             'btnOktxt'      => 'Sim, Reabrir!',
             'btnCanceltxt'  => 'Não, Cancelar',
             'action'        => 'confirmReopen',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma alteração realizada.',
+        ]);
+    }
+
+    public function askConfirm(): void
+    {
+        if (!$this->job) {
+            return;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Confirmar atividade?',
+            'msg'           => 'Isso irá confirmar a atividade do usuário.',
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Confirmar!',
+            'btnCanceltxt'  => 'Não, Cancelar',
+            'action'        => 'confirmConfirm',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma alteração realizada.',
         ]);
@@ -247,6 +262,28 @@ class ViewProtestJob extends Component
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'danger',
                 'menssage' => 'Falha ao reabrir: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function doConfirm(): void
+    {
+        if (!$this->job) {
+            return;
+        }
+
+        try {
+            // Usa método do modelo
+            $this->job->confirmJob();
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Atividade confirmada.',
+            ]);
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'danger',
+                'menssage' => 'Falha ao confirmar: ' . $e->getMessage(),
             ]);
         }
     }
@@ -452,7 +489,10 @@ class ViewProtestJob extends Component
             }
         };
 
+        // Mantive no timeline histórico, mas pode ser removido se desejar limpar também a timeline.
+        // Se quiser remover da timeline, comente a linha abaixo:
         $pushComments($this->job->Comments, 'ProtestJob');
+
         $pushComments($this->medProtest?->Comments, 'MedProtest');
         $pushComments($this->protest?->Comments, 'Protest');
 
@@ -467,10 +507,10 @@ class ViewProtestJob extends Component
         $this->reset([
             'jobId','job','protest','medProtest',
             'outcome','timeline','commentsByOrigin',
-            'messageTarget','newMessage','restrict',
+            'newMessage','restrict',
         ]);
-        $this->messageTarget = 'job';
         $this->restrict = false;
+        $this->messageTarget = 'med';
     }
 
     public function render()

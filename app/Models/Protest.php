@@ -30,7 +30,8 @@ class Protest extends Model
         'type_note',
     ];
 
-    protected $appends = ['data_final_valida', 'all_notes'];
+    protected $appends = ['data_final_valida'];
+    // protected $appends = [];
 
     protected $casts = [
         'type_note' => ProtestType::class,

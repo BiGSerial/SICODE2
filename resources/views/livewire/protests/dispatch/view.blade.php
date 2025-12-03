@@ -185,10 +185,11 @@
             }
 
             .avatar-circle {
+                --avatar-size: 40px;
                 font-size: 14px;
                 font-weight: 600;
-                width: 40px;
-                height: 40px;
+                width: var(--avatar-size);
+                height: var(--avatar-size);
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
@@ -343,10 +344,11 @@
             }
 
             .avatar-circle {
-                width: 50px;
-                height: 50px;
-                min-width: 50px;
-                min-height: 50px;
+                --avatar-size: 50px;
+                width: var(--avatar-size);
+                height: var(--avatar-size);
+                min-width: var(--avatar-size);
+                min-height: var(--avatar-size);
                 border-radius: 50%;
                 overflow: hidden;
                 border: 2px solid #fff;
@@ -355,10 +357,7 @@
             }
 
             .chat-container .avatar-circle {
-                width: 50px !important;
-                height: 50px !important;
-                min-width: 50px !important;
-                min-height: 50px !important;
+                --avatar-size: 50px;
             }
 
             .avatar-circle img {
@@ -883,6 +882,7 @@
                                 <th style="min-width:160px;">Medida</th>
                                 <th style="min-width:220px;">Responsável / Executor</th>
                                 <th style="min-width:160px;">Situação Execução</th>
+                                <th style="min-width:170px;">Data Abertura</th>
                                 <th style="min-width:170px;">Prazo da Medida</th>
                                 <th style="min-width:280px;">SLA da Atividade Atual</th>
                                 <th class="text-center" style="width:1%;">Ações</th>
@@ -1087,6 +1087,25 @@
                                         @endif
                                     </td>
 
+                                    {{-- Data Abertura Medida --}}
+                                    <td class="align-top">
+                                        <div class="mini-label">Data Abertura</div>
+                                        <div class="mini-value mb-2">
+                                            {{ $medProtest->dtCriacaoMedida?->format('d/m/Y') }}</div>
+                                        {{-- @if ($medFinished)
+                                            <div>
+                                                <span class="badge bg-info">
+                                                    Concluído em {{ $medFinished?->format('d/m/Y H:i') }}
+                                                </span>
+                                            </div>
+                                        @endif
+                                        <div>
+                                            <span class="badge {{ $medStatus['badge'] }}">
+                                                {{ $medStatus['status'] }}
+                                            </span>
+                                        </div> --}}
+                                    </td>
+
                                     {{-- Prazo da Medida --}}
                                     <td class="align-top">
                                         <div class="mini-label">Prazo Desejado</div>
@@ -1094,7 +1113,7 @@
                                         @if ($medFinished)
                                             <div>
                                                 <span class="badge bg-info">
-                                                    Concluído em {{ $medFinished?->format('d/m/Y H:i') }}
+                                                    Concluído em {{ $medFinished?->format('d/m/Y') }}
                                                 </span>
                                             </div>
                                         @endif
@@ -1293,6 +1312,15 @@
                                                                         @disabled($job->status->value === 'cancelled')>
                                                                         <i class="ri-close-line"></i>
                                                                     </button>
+                                                                    @can('management')
+                                                                        <button
+                                                                            class="btn btn-outline-danger job-action-btn"
+                                                                            title="Deletar atividade"
+                                                                            wire:click.prevent="deleteJob({{ $job->id }})"
+                                                                            onclick="return confirm('Tem certeza que deseja deletar esta atividade?')">
+                                                                            <i class="ri-delete-bin-line"></i>
+                                                                        </button>
+                                                                    @endcan
                                                                 @endif
                                                             </div>
                                                         </div>
@@ -1344,6 +1372,17 @@
                                                             <div class="job-label mt-3">Observações</div>
                                                             <div class="job-value" style="white-space:pre-line;">
                                                                 {{ $job->notes }}
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="job-col-block">
+                                                            <div class="job-label">Finalizado em</div>
+                                                            <div class="job-value">
+                                                                {{ $job->finished_at?->format('d/m/Y H:i') ?? '—' }}
+                                                            </div>
+                                                            <div class="job-label mt-3">Resultado</div>
+                                                            <div class="job-value" style="white-space:pre-line;">
+                                                                {{ $job->close_reason ?? '—' }}
                                                             </div>
                                                         </div>
                                                     </div>

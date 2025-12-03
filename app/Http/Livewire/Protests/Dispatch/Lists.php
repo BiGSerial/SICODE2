@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ProtestExportListJob;
+use App\Models\MedProtest;
 use App\Models\Protest;
 use App\Traits\{AppliesQueryFilters, WildcardFormmater};
 use Livewire\Component;
@@ -30,6 +31,14 @@ class Lists extends Component
     public $showDetails = false;
     public $selected = null;
 
+    // Variáveis de seleção (Filtros)
+    public $selectedProtestType = "";
+    public $selectedTipoNota = "";
+
+    // NOTA: As variáveis públicas $tipoNotas e $aProtestTypes foram removidas
+    // para evitar o problema de desaparecimento no Livewire 2.
+    // Elas agora são carregadas via Computed Properties abaixo.
+
     public $filtersState = [];
 
     private $filter_group = 'protests';
@@ -37,14 +46,14 @@ class Lists extends Component
     private $filter;
 
     protected $queryString = [
-        'type' => ['except' => '', 'as' => 'tipo'],
+        'type'    => ['except' => '', 'as' => 'tipo'],
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
     ];
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list'    => '$refresh',
         'filters.updated' => 'onFiltersUpdated',
         'filters.applied' => 'onFiltersUpdated',
     ];
@@ -59,15 +68,15 @@ class Lists extends Component
     {
         return [
             'city' => [
-                'type' => 'in',
+                'type'   => 'in',
                 'column' => 'cidade',
             ],
             'type' => [
-                'type' => 'equals',
+                'type'   => 'equals',
                 'column' => 'tipoNota',
             ],
             'desired_between' => [
-                'type' => 'between_dates',
+                'type'   => 'between_dates',
                 'column' => 'dtConclusaoDesej',
             ],
         ];
@@ -75,6 +84,32 @@ class Lists extends Component
 
     public function mount()
     {
+        // O mount fica vazio ou apenas com inicializações simples.
+        // O carregamento de dados agora é feito nas Computed Properties.
+    }
+
+    /*
+     * Computed Property para Tipos de Notas
+     * Substitui a antiga variável pública.
+     */
+    public function getTypeNotesProperty()
+    {
+        return Protest::select('tipoNota')
+            ->distinct()
+            ->orderBy('tipoNota', 'ASC')
+            ->get();
+    }
+
+    /*
+     * Computed Property para Tipos de Protesto
+     * Substitui a antiga variável pública.
+     */
+    public function getProtestTypesProperty()
+    {
+        return MedProtest::select('protest_type')
+            ->distinct()
+            ->orderBy('protest_type', 'ASC')
+            ->get();
     }
 
     public function showDetails($id)
@@ -91,6 +126,7 @@ class Lists extends Component
 
     public function goTo($protestNote)
     {
+        
         return redirect()->route('protests.dispatch.view', [
             'protest' => $protestNote,
         ]);
@@ -203,6 +239,16 @@ class Lists extends Component
             });
         });
 
+        $query->when($this->selectedTipoNota, function ($query) {
+            $query->where('tipoNota', $this->selectedTipoNota);
+        });
+
+        $query->when($this->selectedProtestType, function ($query) {
+            $query->whereHas('medProtests', function ($q) {
+                $q->where('protest_type', $this->selectedProtestType);
+            });
+        });
+
         if (isset($this->filter['city'])) {
             $query->whereIn('cidade', $this->filter['city']);
         }
@@ -224,6 +270,9 @@ class Lists extends Component
     {
         return view('livewire.protests.dispatch.lists', [
             'lists' => $this->lists->paginate($this->perPage),
+            // Aqui passamos as Computed Properties. O Livewire entende o snake_case.
+            'protest_Types' =>  $this->ProtestTypes,
+            'tipoNotas' => $this->TypeNotes,
         ]);
     }
 

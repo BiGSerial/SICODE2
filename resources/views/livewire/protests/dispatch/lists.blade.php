@@ -29,6 +29,30 @@
         @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'protests', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
         @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'protests', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
         @livewire('components.filter.remove-all', ['group_filter' => 'protests'], key('removeAll'))
+
+        <div class="d-flex gap-2">
+            <div class="form-group">
+                <label for="protestTypeFilter" class="form-label small mb-1">Tipo de Protesto</label>
+                <select id="protestTypeFilter" class="form-select form-select-sm" wire:model="selectedProtestType"
+                    style="min-width: 180px;">
+                    <option value="">Todos</option>
+                    @foreach ($protest_Types as $type)
+                        <option value="{{ $type->protest_type }}">{{ $type->protest_type_label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="tipoNotaFilter" class="form-label small mb-1">Tipo de Nota</label>
+                <select id="tipoNotaFilter" class="form-select form-select-sm" wire:model="selectedTipoNota"
+                    style="min-width: 150px;">
+                    <option value="">Todos</option>
+                    @foreach ($tipoNotas as $tipo)
+                        <option value="{{ $tipo->tipoNota }}">{{ $tipo->tipoNota }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
     </div>
 
 
@@ -79,7 +103,8 @@
                 @forelse ($lists as $protest)
                     @php
                         $activeMed =
-                            $protest->medProtests->firstWhere('statusSist', 'MEDA') ?? $protest->medProtests->first();
+                            $protest->medProtests->sortByDesc('dtCriacaoMedida')->firstWhere('statusSist', 'MEDA') ??
+                            $protest->medProtests->sortByDesc('dtCriacaoMedida')->first();
                         $startDate =
                             $protest->tipoNota === 'NA'
                                 ? $protest->dtAberturaNota
@@ -135,9 +160,11 @@
                             };
                         }
                     @endphp
-                    <tr wire:key="list-{{ $protest->id }}" wire:dblclick="goTo({{ $protest->nota }})"
+                    <tr wire:key="list-{{ $protest->id }}"
+                        ondblclick="window.location.href='{{ route('protests.dispatch.view', ['protest' => $protest->nota]) }}'"
                         class="align-middle text-center">
-                        <td>{{ $protest->medProtests->count() }}</td>
+                        {{-- <td>{{ $protest->medProtests->count() }}</td> --}}
+                        <td>{{ $activeMed->med_id }}</td>
                         <td class="fw-semibold">{{ $protest->nota }}</td>
                         <td>{{ $protest->tipoNota }}</td>
                         <td>{{ $activeMed?->codMedida ?? '—' }}</td>

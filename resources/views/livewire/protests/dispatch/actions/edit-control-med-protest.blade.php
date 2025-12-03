@@ -109,6 +109,33 @@
             gap: .4rem;
         }
 
+        .avatar-circle {
+            --avatar-size: 50px;
+            width: var(--avatar-size);
+            height: var(--avatar-size);
+            max-width: var(--avatar-size);
+            max-height: var(--avatar-size);
+            min-width: var(--avatar-size);
+            min-height: var(--avatar-size);
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
         .comments-container {
             max-height: 220px;
             overflow-y: auto;
@@ -128,6 +155,14 @@
                 font-size: 1.4rem;
                 width: 33px;
                 height: 33px;
+            }
+
+            .avatar-circle {
+                --avatar-size: 40px;
+                font-size: 14px;
+                font-weight: 600;
+                width: var(--avatar-size);
+                height: var(--avatar-size);
             }
         }
     </style>

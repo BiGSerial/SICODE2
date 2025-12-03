@@ -1,4 +1,24 @@
 <div>
+    <style>
+        .avatar-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            overflow: hidden;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+
     @php
         if (!function_exists('reduceName')) {
             function reduceName($name, bool $first = false)
@@ -33,8 +53,6 @@
                             <span class="badge {{ $job->priority_badge_class }}">{{ $job->priority_label }}</span>
                         @endif
                     </h6>
-
-
 
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
                         wire:click="close"></button>
@@ -553,79 +571,85 @@
                                     {{-- ================== TAB: MENSAGENS ================== --}}
                                     <div class="tab-pane fade {{ $tabIndex === 3 ? 'show active' : '' }}"
                                         id="pj-tab-msg" role="tabpanel">
-                                        <div class="row g-2">
-                                            <div class="col-12 col-md-4">
-                                                <label class="form-label small">Destino</label>
-                                                <select class="form-select form-select-sm" wire:model="messageTarget">
-                                                    <option value="job">ProtestJob</option>
-                                                    <option value="med" @disabled(!$medProtest)>MedProtest
-                                                    </option>
-                                                </select>
-                                            </div>
-                                            <div class="col-12 col-md-8">
-                                                <label class="form-label small">Mensagem</label>
-                                                <textarea class="form-control form-control-sm" rows="3" wire:model.defer="newMessage"
-                                                    placeholder="Escreva sua mensagem…"></textarea>
-                                            </div>
-                                            <div class="col-12 d-flex align-items-center justify-content-between">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox"
-                                                        id="pjv-chkRestrict" wire:model="restrict">
-                                                    <label class="form-check-label small" for="pjv-chkRestrict">
-                                                        Restrita (contratados não veem)
-                                                    </label>
+
+                                        @if ($medProtest)
+                                            <div class="row g-2" x-data x-init="$wire.set('messageTarget', 'med')">
+                                                <div class="col-12">
+                                                    <label class="form-label small fw-bold">Nova mensagem para
+                                                        MedProtest
+                                                        #{{ $medProtest->med_id }}</label>
+                                                    <textarea class="form-control form-control-sm" rows="3" wire:model.defer="newMessage"
+                                                        placeholder="Escreva sua mensagem para a medida…"></textarea>
                                                 </div>
-                                                <button class="btn btn-sm btn-primary" wire:click="sendMessage"
-                                                    wire:loading.attr="disabled" wire:target="sendMessage">
-                                                    Enviar
-                                                </button>
+                                                <div class="col-12 d-flex align-items-center justify-content-between">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            id="pjv-chkRestrict" wire:model="restrict">
+                                                        <label class="form-check-label small" for="pjv-chkRestrict">
+                                                            Restrita (contratados não veem)
+                                                        </label>
+                                                    </div>
+                                                    <button class="btn btn-sm btn-primary" wire:click="sendMessage"
+                                                        wire:loading.attr="disabled" wire:target="sendMessage">
+                                                        Enviar
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
+                                        @else
+                                            <div class="alert alert-warning small">
+                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                Não há MedProtest vinculada para enviar mensagens.
+                                            </div>
+                                        @endif
 
                                         <hr>
-                                        <div class="row g-3">
-                                            <div class="col-12 col-md-6">
-                                                <div class="d-flex align-items-center justify-content-between mb-1">
-                                                    <h6 class="small mb-0">Comentários no ProtestJob</h6>
-                                                    <span
-                                                        class="badge text-bg-light border">{{ count($commentsByOrigin['job'] ?? []) }}</span>
-                                                </div>
-                                                @forelse($commentsByOrigin['job'] as $c)
-                                                    <div class="border rounded p-2 mb-2 bg-light-subtle small">
-                                                        <div class="text-muted">
-                                                            {{ $c['user']['name'] ?? '—' }} •
-                                                            {{ \Carbon\Carbon::parse($c['created_at'])->format('d/m/Y H:i') }}
-                                                        </div>
-                                                        <div>{{ $c['message'] }}</div>
-                                                        @if (!empty($c['restrict']))
-                                                            <span
-                                                                class="badge bg-warning text-dark mt-1">Restrito</span>
-                                                        @endif
-                                                    </div>
-                                                @empty
-                                                    <div class="text-muted small">Sem comentários.</div>
-                                                @endforelse
-                                            </div>
-                                            <div class="col-12 col-md-6">
-                                                <div class="d-flex align-items-center justify-content-between mb-1">
-                                                    <h6 class="small mb-0">Comentários na MedProtest</h6>
+
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <div
+                                                    class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                                                    <h6 class="small mb-0 fw-bold">Histórico de Mensagens (MedProtest)
+                                                    </h6>
                                                     <span
                                                         class="badge text-bg-light border">{{ count($commentsByOrigin['med'] ?? []) }}</span>
                                                 </div>
+
                                                 @forelse($commentsByOrigin['med'] as $c)
-                                                    <div class="border rounded p-2 mb-2 bg-light-subtle small">
-                                                        <div class="text-muted">
-                                                            {{ $c['user']['name'] ?? '—' }} •
-                                                            {{ \Carbon\Carbon::parse($c['created_at'])->format('d/m/Y H:i') }}
+                                                    <div class="d-flex gap-3 mb-4">
+                                                        {{-- Avatar --}}
+                                                        <div class="flex-shrink-0">
+                                                            <div class="avatar-circle"
+                                                                title="{{ $c['user']['name'] ?? 'Usuário' }}">
+                                                                <img src="{{ $c['user']['avatar_url'] ?? asset('images/default-avatar.png') }}"
+                                                                    alt="Avatar de {{ $c['user']['name'] ?? 'Usuário' }}">
+                                                            </div>
                                                         </div>
-                                                        <div>{{ $c['message'] }}</div>
-                                                        @if (!empty($c['restrict']))
-                                                            <span
-                                                                class="badge bg-warning text-dark mt-1">Restrito</span>
-                                                        @endif
+
+                                                        {{-- Conteúdo --}}
+                                                        <div class="flex-grow-1">
+                                                            <div class="card border-0 bg-light-subtle shadow-sm">
+                                                                <div class="card-body p-2">
+                                                                    <div
+                                                                        class="d-flex justify-content-between align-items-center mb-1">
+                                                                        <strong
+                                                                            class="small">{{ $c['user']['name'] ?? '—' }}</strong>
+                                                                        <span
+                                                                            class="small text-muted">{{ \Carbon\Carbon::parse($c['created_at'])->format('d/m/Y H:i') }}</span>
+                                                                    </div>
+                                                                    <div class="small text-break">
+                                                                        {!! nl2br(e($c['message'])) !!}
+                                                                    </div>
+                                                                    @if (!empty($c['restrict']))
+                                                                        <span
+                                                                            class="badge bg-warning text-dark mt-1">Restrito</span>
+                                                                    @endif
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 @empty
-                                                    <div class="text-muted small">Sem comentários.</div>
+                                                    <div class="text-center text-muted small py-3">Sem mensagens na
+                                                        MedProtest.</div>
                                                 @endforelse
                                             </div>
                                         </div>
@@ -650,6 +674,12 @@
                             <button class="btn btn-sm btn-outline-success" title="Reabrir" wire:click="askReopen"
                                 @disabled(!$this->canReopen)>
                                 <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+
+                            {{-- Confirmar --}}
+                            <button class="btn btn-sm btn-outline-success" title="Confirmar" wire:click="askConfirm"
+                                @disabled($job->status->value !== 'done')>
+                                <i class="bi bi-check-circle"></i>
                             </button>
 
                             {{-- Cancelar --}}

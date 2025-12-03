@@ -456,6 +456,25 @@ class View extends Component
         }
     }
 
+    public function deleteJob(int $jobId): void
+    {
+        try {
+            $job = ProtestJob::find($jobId);
+
+            if (!$job) {
+                $this->toast('danger', 'Atividade não encontrada.');
+                return;
+            }
+
+            $job->delete();
+
+            $this->toast('success', 'Atividade deletada com sucesso!');
+            $this->emit('refreshComponent');
+        } catch (\Throwable $e) {
+            $this->toast('danger', 'Erro ao deletar atividade: ' . $e->getMessage());
+        }
+    }
+
     /** =======================================================================
      *  RENDER
      *  ======================================================================= */

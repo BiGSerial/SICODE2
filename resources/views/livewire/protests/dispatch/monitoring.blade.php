@@ -318,8 +318,9 @@
                         <th>Empresa</th>
                         <th>Abertura</th>
                         <th>Fim desejado</th>
+                        <th>Despachado Em</th>
                         <th>Status</th>
-                        <th>Prazo (dias)</th>
+                        <th>Sla Definido</th>
                         <th>
                             <i class="ri-message-3-line" title="Mensagens na Medida"></i>
                         </th>
@@ -332,6 +333,8 @@
                         @php
                             // Prazo desejado
                             $wish = getWishDate($item);
+
+                            $DueLeft = $item->sla_due_at;
 
                             if ($wish) {
                                 $slaLeft = now()->diffInDays($wish, false);
@@ -346,6 +349,21 @@
                             } else {
                                 $slaLeft = null;
                                 $slaClass = 'text-bg-secondary';
+                            }
+
+                            if ($DueLeft) {
+                                $dueDaysLeft = now()->diffInDays($DueLeft, false);
+
+                                if ($dueDaysLeft < 0) {
+                                    $dueSlaClass = 'text-bg-danger';
+                                } elseif ($dueDaysLeft <= 3) {
+                                    $dueSlaClass = 'text-bg-warning';
+                                } else {
+                                    $dueSlaClass = 'text-bg-success';
+                                }
+                            } else {
+                                $dueDaysLeft = null;
+                                $dueSlaClass = 'text-bg-secondary';
                             }
 
                             // Mensagens (Ãºltima da MedProtest)
@@ -369,7 +387,7 @@
                             }
                         @endphp
 
-                        <tr class="text-center">
+                        <tr class="text-center align-middle">
                             <td>
                                 <span class="badge {{ $item->priority_badge_class }}">
                                     {{ $item->priority_label }}
@@ -425,17 +443,13 @@
                             <td>
                                 @php $aperture = getApertureDate($item); @endphp
                                 {{ $aperture ? $aperture->format('d/m/Y') : '---' }}
+                                <span class="badge text-bg-secondary" title="Dias Aberto">
+                                    {{ $aperture?->diffInDays(now(), true) }} d
+                                </span>
                             </td>
 
                             <td>
                                 {{ $wish ? $wish->format('d/m/Y') : '---' }}
-                            </td>
-
-                            <td>
-                                <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
-                            </td>
-
-                            <td class="fw-bold">
                                 @if ($slaLeft !== null)
                                     <span class="badge {{ $slaClass }}" title="Dias para a data desejada">
                                         {{ $slaLeft }} d
@@ -446,12 +460,50 @@
                             </td>
 
                             <td>
-                                @if ($pendingForYou)
-                                    <i class="ri-message-3-fill text-info"
-                                        title="Última mensagem da Medida é de outro usuário, aguardando sua resposta"></i>
-                                @elseif ($hasMessage)
-                                    <i class="ri-message-2-line text-muted"
-                                        title="Última mensagem da Medida é sua (respondido por você)"></i>
+                                {{ $item->sent_at ? $item->sent_at->format('d/m/Y') : '---' }}
+                                <span class="badge text-bg-secondary" title="Dias Aberto">
+                                    {{ $item->sent_at?->diffInDays(now(), true) }} d
+                                </span>
+                            </td>
+
+                            <td>
+                                <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
+                            </td>
+
+                            <td class="fw-bold">
+                                @if ($dueDaysLeft !== null)
+                                    <span class="badge {{ $dueSlaClass }}" title="Dias para a data Sla">
+                                        {{ $dueDaysLeft }} d
+                                    </span>
+                                @else
+                                    <span class="badge text-bg-secondary">---</span>
+                                @endif
+                            </td>
+
+                            <td>
+                                @if ($item->medProtest?->id)
+                                    @php
+                                        $messageTitle = 'Abrir mensagens da Medida';
+
+                                        if ($pendingForYou) {
+                                            $messageTitle = 'Última mensagem da Medida é de outro usuário, aguardando sua resposta';
+                                        } elseif ($hasMessage) {
+                                            $messageTitle = 'Última mensagem da Medida é sua (respondido por você)';
+                                        }
+                                    @endphp
+
+                                    <button type="button"
+                                        class="btn btn-link p-0 border-0 text-decoration-none align-middle"
+                                        title="{{ $messageTitle }}"
+                                        wire:click="$emitTo('protests.dispatch.actions.messages', 'openMessagesModal', {{ $item->medProtest->id }})">
+                                        @if ($pendingForYou)
+                                            <i class="ri-message-3-fill text-info"></i>
+                                        @elseif ($hasMessage)
+                                            <i class="ri-message-2-line text-muted"></i>
+                                        @else
+                                            <i class="ri-chat-1-line text-muted"></i>
+                                        @endif
+                                    </button>
                                 @else
                                     <span class="text-muted">-</span>
                                 @endif
@@ -494,6 +546,9 @@
 
     {{-- Drawer lateral de detalhes --}}
     @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
+
+    {{-- Modal de mensagens da Medida --}}
+    @livewire('protests.dispatch.actions.messages', key('dispatch-messages-modal'))
 
     {{-- Modal de busca mÃºltipla (jÃ¡ existente em outro lugar) --}}
 </div>

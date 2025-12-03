@@ -39,6 +39,20 @@ class MedProtest extends Model
         'protest_type' => ProtestType::class,
     ];
 
+    protected $appends = ['protest_type_label', 'protest_type_badge_class'];
+
+
+    public function getProtestTypeLabelAttribute(): string
+    {
+        return $this->protest_type?->label() ?? 'Desconhecido';
+    }
+
+    public function getProtestTypeBadgeClassAttribute(): string
+    {
+        return $this->protest_type?->badgeClass() ?? 'badge bg-dark';
+    }
+
+
     public function Notes()
     {
         return $this->morphToMany(

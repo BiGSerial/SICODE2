@@ -438,7 +438,7 @@ class SelectOptions
         return [
             (object)['reason' => 'A pedido da Empreiteira', 'value' => 'A PEDIDO DA EMPREITEIRA'],
             (object)['reason' => 'Alteração de Obra não Informada', 'value' => 'ALTERACAO DE OBRA NAO INFORMADA'],
-            (object)['reason' => 'Falta de Evidências de Execução de Obras', 'value' => 'FALTA DE EVIDÊNCIAS DE EXECUCAO DE OBRAS'],
+            (object)['reason' => 'Falta de Evidências de Execução de Obras', 'value' => 'FALTA DE EVIDENCIAS DE EXECUCAO DE OBRAS'],
             (object)['reason' => 'Obra depende da execução de outra', 'value' => 'OBRA DEPENDE DA EXECUCAO DE OUTRA'],
             (object)['reason' => 'Obra não executada', 'value' => 'OBRA NAO EXECUTADA'],
             (object)['reason' => 'Patrimônio de equipamento informado incorretamente', 'value' => 'PATRIMONIO DE EQUIPAMENTO INFORMADO INCORRETAMENTE'],

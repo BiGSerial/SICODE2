@@ -338,7 +338,7 @@ class ReceiveAdsfomrm extends Component
                 'icon' => 'error',
                 'title' => 'ERRO AO ENVIAR',
                 'html' => '<div class="card bg-primary text-white"><div class="card-body">
-                            <p class="fw-bold">Ocoreu algum problema ao tentar registrar o envio do Informe parcial. Revvise as operações e tente novamente.</p>
+                            <p class="fw-bold">Ocoreu algum problema ao tentar registrar o envio do Informe parcial. Revise as operações e tente novamente.</p>
 
                             </div></div>' . $th->getMessage(),
 

@@ -99,20 +99,43 @@
         }
 
         .avatar-circle {
-            width: 34px;
-            height: 34px;
+            --avatar-size: 50px;
+            width: var(--avatar-size);
+            height: var(--avatar-size);
+            min-width: var(--avatar-size);
+            min-height: var(--avatar-size);
             border-radius: 50%;
-            font-size: 0.8rem;
+            overflow: hidden;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            background: #f1f5f9;
+            font-size: 0.9rem;
             font-weight: 600;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
         .comments-container {
             max-height: 260px;
             overflow-y: auto;
             scrollbar-width: thin;
+        }
+
+        .chat-message {
+            border-radius: 12px;
+        }
+
+        .message-bubble {
+            border: 1px solid #e9ecef;
+            transition: all 0.2s;
         }
 
         @media (max-width: 600px) {
@@ -453,52 +476,63 @@
                                 <div class="comments-container bg-light rounded p-3">
                                     @if ($modProtest?->Comments?->isNotEmpty())
                                         @foreach ($modProtest?->Comments->sortByDesc('created_at') as $c)
-                                            <div class="comment-item mb-3 p-3 bg-white rounded border">
-                                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <div class="avatar-circle bg-primary text-white">
-                                                            {{ strtoupper(substr($c->user->name, 0, 1)) }}
+                                            @php
+                                                $isLast = $c->id === $modProtest->comments->max('id');
+                                                $fresh = $c->created_at->diffInHours() < 1;
+                                                $canDelete =
+                                                    ($fresh && $isLast) ||
+                                                    auth()->user()->admin ||
+                                                    auth()->user()->superadm;
+                                            @endphp
+
+                                            <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom mb-3 pb-3' : '' }}">
+                                                <div class="d-flex gap-3">
+                                                    <div class="flex-shrink-0">
+                                                        <div class="avatar-circle" title="{{ $c->user->name }}">
+                                                            <img src="{{ $c->user->avatar_url }}"
+                                                                alt="Avatar de {{ $c->user->name }}">
                                                         </div>
-                                                        <div>
-                                                            <span
-                                                                class="fw-medium {{ $c->user_id === auth()->id() ? 'text-primary' : '' }}">
-                                                                {{ $c->user->name }}
-                                                            </span>
+                                                    </div>
+
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <span
+                                                                    class="fw-semibold {{ $c->user_id === auth()->user()->id ? 'text-primary' : 'text-dark' }}">
+                                                                    {{ $c->user->name }}
+                                                                </span>
+
+                                                                @if ($c->user?->email)
+                                                                    <button class="btn btn-sm btn-outline-primary p-1"
+                                                                        onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $c->user?->email }}', '_blank')"
+                                                                        title="Abrir chat no Teams">
+                                                                        <i class="bx bxl-microsoft-teams fs-6"></i>
+                                                                    </button>
+                                                                @endif
+                                                            </div>
 
                                                             <div class="d-flex align-items-center gap-2">
-                                                                @if ($c->user?->email)
-                                                                    <i class="ri-microsoft-teams-line text-primary"
-                                                                        style="cursor:pointer"
-                                                                        onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $c->user?->email }}','_blank')"
-                                                                        title="Abrir no Teams"></i>
-                                                                @endif
                                                                 <small class="text-muted">
                                                                     <i class="ri-time-line me-1"></i>
                                                                     {{ $c->created_at->diffForHumans() }}
                                                                 </small>
+
+                                                                @if ($canDelete)
+                                                                    <button class="btn btn-sm btn-outline-danger p-1"
+                                                                        wire:click="markCommentForDeletion({{ $c->id }})"
+                                                                        title="Excluir comentário">
+                                                                        <i class="ri-delete-bin-line fs-6"></i>
+                                                                    </button>
+                                                                @endif
                                                             </div>
                                                         </div>
+
+                                                        <div
+                                                            class="message-bubble p-3 rounded-3 {{ $c->user_id === auth()->user()->id ? 'bg-primary bg-opacity-10' : 'bg-light' }}">
+                                                            <p class="mb-0 text-dark">{{ $c->message }}</p>
+                                                        </div>
                                                     </div>
-
-                                                    @php
-                                                        $isLast = $c->id === $modProtest->comments->max('id');
-                                                        $fresh = $c->created_at->diffInHours() < 1;
-                                                        $canDelete =
-                                                            ($fresh && $isLast) ||
-                                                            auth()->user()->admin ||
-                                                            auth()->user()->superadm;
-                                                    @endphp
-
-                                                    @if ($canDelete)
-                                                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                                            title="Excluir comentário"
-                                                            wire:click="markCommentForDeletion({{ $c->id }})">
-                                                            <i class="ri-delete-bin-line"></i>
-                                                        </button>
-                                                    @endif
                                                 </div>
-
-                                                <p class="mb-0 text-dark">{{ $c->message }}</p>
                                             </div>
                                         @endforeach
                                     @else
