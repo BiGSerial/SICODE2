@@ -1,58 +1,70 @@
 @push('css')
     <style>
         .modal-header-modern {
-            background: linear-gradient(90deg, #6a82fb 0%, #fc5c7d 100%);
+            background: linear-gradient(120deg, #6a82fb 0%, #64b5f6 50%, #6a82fb 100%);
             color: #fff;
             border-radius: 18px 18px 0 0;
-            padding: 1.8rem 2rem 1.2rem 2rem;
+            padding: 1.5rem 1.75rem;
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
             border: none;
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.15);
         }
 
         .modal-header-content {
             display: flex;
             align-items: center;
-            gap: 1.2rem;
+            justify-content: space-between;
+            gap: 1.5rem;
+            flex-wrap: wrap;
             min-width: 0;
+            width: 100%;
+        }
+
+        .modal-header-main {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            min-width: 0;
+            flex: 1;
         }
 
         .modal-header-icon {
-            font-size: 2.7rem;
-            width: 52px;
-            height: 52px;
+            font-size: 1.6rem;
+            width: 48px;
+            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 14px;
             flex-shrink: 0;
         }
 
-        .modal-header-texts {
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.18rem;
-        }
-
         .modal-header-title {
-            font-size: 1.30rem;
+            font-size: 1.25rem;
             font-weight: 700;
             line-height: 1.2;
-            white-space: break-spaces;
-            word-break: break-word;
-            letter-spacing: 0.5px;
+            letter-spacing: .5px;
+            margin: 0;
         }
 
         .modal-header-desc {
-            font-size: .98rem;
-            color: rgba(255, 255, 255, 0.88);
-            font-weight: 400;
-            white-space: break-spaces;
-            word-break: break-word;
-            margin-top: 2px;
+            font-size: .95rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0;
+        }
+
+        .modal-header-code {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-weight: 600;
+            padding: .35rem .9rem;
+            border-radius: 999px;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
         .btn-close-modern {
@@ -140,17 +152,30 @@
 
         @media (max-width: 600px) {
             .modal-header-modern {
-                padding: 1.2rem 0.9rem 1rem 1rem;
+                padding: 1.2rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .modal-header-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
             }
 
             .modal-header-title {
-                font-size: 1.03rem;
+                font-size: 1.05rem;
             }
 
             .modal-header-icon {
-                font-size: 1.4rem;
-                width: 33px;
-                height: 33px;
+                font-size: 1.2rem;
+                width: 40px;
+                height: 40px;
+            }
+
+            .modal-header-code {
+                align-self: flex-start;
             }
         }
     </style>
@@ -167,18 +192,22 @@
             {{-- HEADER MODERNO --}}
             <div class="modal-header-modern">
                 <div class="modal-header-content">
-                    <div class="modal-header-icon">
-                        <i class="ri-settings-5-fill"></i>
+                    <div class="modal-header-main">
+                        <div class="modal-header-icon">
+                            <i class="ri-settings-5-fill"></i>
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            <span class="modal-header-title">Controle da Medida</span>
+                            <span class="modal-header-desc">
+                                Abra uma atividade (ProtestJob) ou encerre a medida imediatamente.
+                            </span>
+                        </div>
                     </div>
-                    <div class="modal-header-texts">
-                        <span class="modal-header-title">
-                            Controle da Medida:
-                            <strong>{{ $modProtest?->protest?->nota }}#{{ $modProtest?->med_id }}</strong>
+                    @if ($modProtest)
+                        <span class="modal-header-code">
+                            {{ $modProtest?->protest?->nota }}#{{ $modProtest?->med_id }}
                         </span>
-                        <span class="modal-header-desc">
-                            Abra uma atividade (ProtestJob) para alguém OU encerre a medida imediatamente.
-                        </span>
-                    </div>
+                    @endif
                 </div>
                 <button type="button" class="btn-close btn-close-modern" data-bs-dismiss="modal"
                     wire:click="cancelChanges" aria-label="Fechar"></button>
@@ -225,7 +254,8 @@
                                     </div>
 
                                     <span class="text-muted small d-block mt-1">Descrição:</span>
-                                    <div class="description-container" style="max-height: 120px; overflow-y: auto; scrollbar-width: thin;">
+                                    <div class="description-container"
+                                        style="max-height: 120px; overflow-y: auto; scrollbar-width: thin;">
                                         <span class="fw-medium small"
                                             style="white-space: pre-line;">{{ $modProtest?->protest?->resume ?? 'SEM DESCRIÇÃO PARA RECLAMAÇÃO' }}</span>
                                     </div>
@@ -394,7 +424,14 @@
                                     <div class="col-md-4">
                                         <div class="form-floating">
                                             <input type="datetime-local" class="form-control" id="slaDue"
-                                                wire:model.defer="sla_due_at">
+                                                wire:model.defer="sla_due_at" step="3600"
+                                                list="allowedHoursControl">
+                                            <datalist id="allowedHoursControl">
+                                                <option value="00:00"></option>
+                                                <option value="08:00"></option>
+                                                <option value="12:00"></option>
+                                                <option value="18:00"></option>
+                                            </datalist>
                                             <label for="slaDue">Retorno até (SLA)</label>
                                         </div>
                                         @error('sla_due_at')
@@ -407,7 +444,8 @@
                                         <div class="form-floating">
                                             <textarea class="form-control" style="height: 150px" id="jobNotes" wire:model.defer="notes"
                                                 placeholder="Orientações para o responsável"></textarea>
-                                            <label for="jobNotes">Orientações / Comentário inicial</label>
+                                            <label for="jobNotes">Orientações / Detalhe a atividade do
+                                                responsável</label>
                                         </div>
                                         @error('notes')
                                             <small class="text-danger">{{ $message }}</small>
@@ -426,12 +464,42 @@
                                     </div>
                                     <div class="col-md-6">
                                         <button type="button" class="btn btn-danger w-100 py-3"
-                                            wire:click="closeNow">
+                                            wire:click="closeNow"
+                                            @if ($showReasonClose) disabled @endif>
                                             <i class="ri-shut-down-line me-2"></i>
                                             Encerrar Agora
                                         </button>
                                     </div>
                                 </div>
+
+                                @if ($showReasonClose)
+                                    <div class="row g-3 mt-3">
+                                        <div class="col-12">
+                                            <div class="alert alert-danger mb-0">
+                                                <div class="form-floating mb-3">
+                                                    <textarea class="form-control" style="height: 120px" id="closeReason"
+                                                        wire:model.defer="reason_close" placeholder="Informe o motivo da conclusão"></textarea>
+                                                    <label for="closeReason">Detalhe o motivo do encerramento imediato</label>
+                                                </div>
+                                                @error('reason_close')
+                                                    <small class="text-danger d-block mb-2">{{ $message }}</small>
+                                                @enderror
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    <button type="button" class="btn btn-danger flex-fill"
+                                                        wire:click="doCloseMeasureNow">
+                                                        <i class="ri-check-line me-1"></i>
+                                                        Confirmar encerramento
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary flex-fill"
+                                                        wire:click="cancelCloseNow">
+                                                        <i class="ri-close-line me-1"></i>
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
 
                             </div>
                         </div>
@@ -446,7 +514,7 @@
                                 <div class="modern-card-title d-flex justify-content-between align-items-center">
                                     <span>
                                         <i class="ri-chat-3-line me-2"></i>
-                                        Observações da Medida
+                                        Comentários da Medida
                                         ({{ $modProtest?->protest?->nota }}#{{ $modProtest?->med_id }})
                                     </span>
 
@@ -485,7 +553,8 @@
                                                     auth()->user()->superadm;
                                             @endphp
 
-                                            <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom mb-3 pb-3' : '' }}">
+                                            <div
+                                                class="chat-message p-3 {{ !$loop->last ? 'border-bottom mb-3 pb-3' : '' }}">
                                                 <div class="d-flex gap-3">
                                                     <div class="flex-shrink-0">
                                                         <div class="avatar-circle" title="{{ $c->user->name }}">
@@ -495,7 +564,8 @@
                                                     </div>
 
                                                     <div class="flex-grow-1">
-                                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-start mb-1">
                                                             <div class="d-flex align-items-center gap-2">
                                                                 <span
                                                                     class="fw-semibold {{ $c->user_id === auth()->user()->id ? 'text-primary' : 'text-dark' }}">

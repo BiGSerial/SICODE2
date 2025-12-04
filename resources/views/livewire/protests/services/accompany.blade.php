@@ -161,22 +161,22 @@
                                         ->diffInDays(now()->startOfDay());
                                 }
 
-                                // Último comentário para ícone
+                                // Estado de mensagens (usa mesma lógica do monitoring)
                                 $currentUserId = auth()->id();
-                                $creatorId = $job->creator_id ?? optional($job->creator)->id;
+                                $creatorId = $job->created_by ?? ($job->creator_id ?? optional($job->creator)->id);
                                 $lastComment = $med?->Comments?->first();
-                                $hasPendingComment = false;
-                                $hasComment = false;
+                                $hasMessage = false;
+                                $pendingForYou = false;
 
-                                if ($lastComment) {
+                                if ($creatorId && $lastComment) {
                                     $authorId = $lastComment->user_id;
 
                                     if ($authorId) {
-                                        $isFromCreator = $creatorId && $authorId === $creatorId;
+                                        $isFromDispatcher = $authorId === $creatorId;
                                         $isFromCurrentUser = $currentUserId && $authorId === $currentUserId;
 
-                                        $hasComment = !$isFromCreator;
-                                        $hasPendingComment = $hasComment && !$isFromCurrentUser;
+                                        $hasMessage = !$isFromDispatcher;
+                                        $pendingForYou = $hasMessage && !$isFromCurrentUser;
                                     }
                                 }
 
@@ -296,12 +296,30 @@
 
                                 {{-- Ícone de comentário --}}
                                 <td>
-                                    @if ($hasPendingComment)
-                                        <i class="ri-message-3-fill text-info"
-                                            title="Há mensagem de outro usuário aguardando resposta"></i>
-                                    @elseif ($hasComment)
-                                        <i class="ri-message-2-line text-muted"
-                                            title="Último comentário é da sua equipe"></i>
+                                    @if ($med?->id)
+                                        @php
+                                            $messageTitle = 'Abrir mensagens da Medida';
+
+                                            if ($pendingForYou) {
+                                                $messageTitle =
+                                                    'Última mensagem é de outro usuário, aguardando sua resposta';
+                                            } elseif ($hasMessage) {
+                                                $messageTitle = 'Última mensagem é da sua equipe';
+                                            }
+                                        @endphp
+
+                                        <button type="button"
+                                            class="btn btn-link p-0 border-0 text-decoration-none align-middle"
+                                            title="{{ $messageTitle }}"
+                                            wire:click="$emitTo('protests.common.messages', 'openMessagesModal', {{ $med->id }})">
+                                            @if ($pendingForYou)
+                                                <i class="ri-message-3-fill text-info"></i>
+                                            @elseif ($hasMessage)
+                                                <i class="ri-message-2-line text-muted"></i>
+                                            @else
+                                                <i class="ri-chat-1-line text-muted"></i>
+                                            @endif
+                                        </button>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
@@ -343,3 +361,5 @@
         </div>
     @endif
 </div>
+
+@livewire('protests.common.messages', key('services-accompany-messages-modal'))

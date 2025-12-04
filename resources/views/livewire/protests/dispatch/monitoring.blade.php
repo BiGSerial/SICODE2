@@ -1,3 +1,25 @@
+@push('css')
+    <style>
+        .highlightable-row {
+            transition: background-color .2s, box-shadow .2s;
+            cursor: pointer;
+        }
+
+        .highlightable-row td {
+            vertical-align: middle;
+        }
+
+        .highlightable-row.highlight-active {
+            background-color: rgba(59, 130, 246, 0.08) !important;
+            box-shadow: inset 0 0 0 999px rgba(59, 130, 246, 0.08);
+        }
+
+        .highlightable-row.highlight-active td {
+            background-color: transparent !important;
+        }
+    </style>
+@endpush
+
 @php
     if (!function_exists('reduceName')) {
         function reduceName(string $name, bool $first = false)
@@ -387,7 +409,7 @@
                             }
                         @endphp
 
-                        <tr class="text-center align-middle">
+                        <tr class="text-center align-middle highlightable-row" data-row-id="{{ $item->id }}">
                             <td>
                                 <span class="badge {{ $item->priority_badge_class }}">
                                     {{ $item->priority_label }}
@@ -486,7 +508,8 @@
                                         $messageTitle = 'Abrir mensagens da Medida';
 
                                         if ($pendingForYou) {
-                                            $messageTitle = 'Última mensagem da Medida é de outro usuário, aguardando sua resposta';
+                                            $messageTitle =
+                                                'Última mensagem da Medida é de outro usuário, aguardando sua resposta';
                                         } elseif ($hasMessage) {
                                             $messageTitle = 'Última mensagem da Medida é sua (respondido por você)';
                                         }
@@ -495,7 +518,7 @@
                                     <button type="button"
                                         class="btn btn-link p-0 border-0 text-decoration-none align-middle"
                                         title="{{ $messageTitle }}"
-                                        wire:click="$emitTo('protests.dispatch.actions.messages', 'openMessagesModal', {{ $item->medProtest->id }})">
+                                        wire:click="$emitTo('protests.common.messages', 'openMessagesModal', {{ $item->medProtest->id }})">
                                         @if ($pendingForYou)
                                             <i class="ri-message-3-fill text-info"></i>
                                         @elseif ($hasMessage)
@@ -548,7 +571,48 @@
     @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
 
     {{-- Modal de mensagens da Medida --}}
-    @livewire('protests.dispatch.actions.messages', key('dispatch-messages-modal'))
+    @livewire('protests.common.messages', key('dispatch-messages-modal'))
 
     {{-- Modal de busca mÃºltipla (jÃ¡ existente em outro lugar) --}}
+    @push('scripts')
+        <script>
+            document.addEventListener('livewire:load', () => {
+                let currentHighlightedId = null;
+
+                const applyHighlight = () => {
+                    document.querySelectorAll('.highlightable-row').forEach(row => {
+                        if (!row.dataset.rowId) {
+                            return;
+                        }
+                        if (row.dataset.rowId === currentHighlightedId) {
+                            row.classList.add('highlight-active');
+                        } else {
+                            row.classList.remove('highlight-active');
+                        }
+                    });
+                };
+
+                const highlightRow = (row) => {
+                    if (!row || !row.dataset.rowId) {
+                        return;
+                    }
+                    currentHighlightedId = row.dataset.rowId;
+                    applyHighlight();
+                };
+
+                document.addEventListener('click', (event) => {
+                    const row = event.target.closest('.highlightable-row');
+                    if (row) {
+                        highlightRow(row);
+                    }
+                });
+
+                Livewire.hook('message.processed', (message, component) => {
+                    if (component.fingerprint.name === 'protests.dispatch.monitoring') {
+                        applyHighlight();
+                    }
+                });
+            });
+        </script>
+    @endpush
 </div>

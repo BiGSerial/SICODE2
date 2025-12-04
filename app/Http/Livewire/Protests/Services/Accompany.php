@@ -78,7 +78,10 @@ class Accompany extends Component
             ->all();
 
         return ProtestJob::query()
-            ->open() // scopeOpen do modelo
+            ->where(function ($q) {
+                $q->whereRelation('medProtest', 'statusSist', 'MEDA')
+                  ->orWhere(fn($qq) => $qq->open());
+            })
             ->whereIn('owner_id', $subordinatesIds)
             ->with([
                 'protest.Notes',

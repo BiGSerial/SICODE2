@@ -1312,7 +1312,7 @@
                                                                         @disabled($job->status->value === 'cancelled')>
                                                                         <i class="ri-close-line"></i>
                                                                     </button>
-                                                                    @can('management')
+                                                                    @can('admin')
                                                                         <button
                                                                             class="btn btn-outline-danger job-action-btn"
                                                                             title="Deletar atividade"

@@ -132,18 +132,22 @@
                                     }
                                 }
 
-                                // Último comentário para ícone
+                                // Estado de mensagens (usa mesma lógica do monitoring)
                                 $currentUserId = auth()->id();
-                                $lastComment = $job->Comments->first();
-                                $hasPendingComment = false;
-                                $hasComment = false;
+                                $creatorId = $job->created_by ?? ($job->creator_id ?? optional($job->creator)->id);
+                                $lastComment = $med?->Comments?->first();
+                                $hasMessage = false;
+                                $pendingForYou = false;
 
-                                if ($lastComment) {
-                                    $hasComment = true;
+                                if ($creatorId && $lastComment) {
                                     $authorId = $lastComment->user_id;
 
-                                    if ($authorId && $authorId !== $currentUserId) {
-                                        $hasPendingComment = true;
+                                    if ($authorId) {
+                                        $isFromDispatcher = $authorId === $creatorId;
+                                        $isFromCurrentUser = $currentUserId && $authorId === $currentUserId;
+
+                                        $hasMessage = !$isFromDispatcher;
+                                        $pendingForYou = $hasMessage && !$isFromCurrentUser;
                                     }
                                 }
 
@@ -247,11 +251,30 @@
 
                                 {{-- Ícone de comentário --}}
                                 <td>
-                                    @if ($hasPendingComment)
-                                        <i class="ri-message-3-fill text-info"
-                                            title="Há mensagem de outro usuário aguardando sua resposta"></i>
-                                    @elseif ($hasComment)
-                                        <i class="ri-message-2-line text-muted" title="Último comentário é seu"></i>
+                                    @if ($med?->id)
+                                        @php
+                                            $messageTitle = 'Abrir mensagens da Medida';
+
+                                            if ($pendingForYou) {
+                                                $messageTitle =
+                                                    'Última mensagem é de outro usuário, aguardando sua resposta';
+                                            } elseif ($hasMessage) {
+                                                $messageTitle = 'Última mensagem é sua/equipe';
+                                            }
+                                        @endphp
+
+                                        <button type="button"
+                                            class="btn btn-link p-0 border-0 text-decoration-none align-middle"
+                                            title="{{ $messageTitle }}"
+                                            wire:click="$emitTo('protests.common.messages', 'openMessagesModal', {{ $med->id }})">
+                                            @if ($pendingForYou)
+                                                <i class="ri-message-3-fill text-info"></i>
+                                            @elseif ($hasMessage)
+                                                <i class="ri-message-2-line text-muted"></i>
+                                            @else
+                                                <i class="ri-chat-1-line text-muted"></i>
+                                            @endif
+                                        </button>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
@@ -305,3 +328,5 @@
     {{-- Modal de visualização do job (mesmo usado no Monitoring) --}}
 
 </div>
+
+@livewire('protests.common.messages', key('partner-main-messages-modal'))

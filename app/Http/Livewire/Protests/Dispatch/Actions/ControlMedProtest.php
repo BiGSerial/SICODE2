@@ -26,6 +26,7 @@ class ControlMedProtest extends Component
     public bool $need_evidence = false;       // precisa evidência obrigatória?
     public ?string $sla_due_at = null;        // prazo de retorno (SLA)
     public string $notes = '';                // instrução/comentário inicial para o executor
+    public string $reason_close = '';
 
     // suporte UI
     public string $userSearch = '';
@@ -36,13 +37,11 @@ class ControlMedProtest extends Component
     public $deleteCommentId = null;
     public string $comment = '';
 
-    // flag pra confirmar encerramento imediato
-    public bool $pendingCloseNow = false;
+    public bool $showReasonClose = false;
 
     protected $listeners = [
         'openModProtestControl',
         'refreshComponent'       => '$refresh',
-        'confirmCloseMeasureNow' => 'doCloseMeasureNow',
     ];
 
     /* ===================== MOUNT ===================== */
@@ -79,13 +78,7 @@ class ControlMedProtest extends Component
 
         $this->notePage = 0;
 
-        if ($this->modProtest->protest?->tipoNota == 'NA') {
-
-            $this->sla_due_at = $this->modProtest->protest->dtConclusaoDesej;
-
-        } else {
-            $this->sla_due_at = $this->modProtest->dtFimMedidaDesej;
-        }
+        $this->sla_due_at = $this->resolveSlaDefault();
 
         $this->userSearch = '';
 
@@ -93,6 +86,49 @@ class ControlMedProtest extends Component
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'controlModProtestModal',
         ]);
+    }
+
+    protected function resolveSlaDefault(): ?string
+    {
+        if (!$this->modProtest) {
+            return null;
+        }
+
+        $protest = $this->modProtest->protest;
+
+        if (!$protest) {
+            return null;
+        }
+
+        if ($protest->tipoNota === 'NA') {
+            $date = $protest->dtConclusaoDesej;
+        } else {
+            $date = $this->modProtest->dtFimMedidaDesej;
+        }
+
+        if (!$date) {
+            return null;
+        }
+
+        if ($date->lt(now())) {
+            $date = now();
+        }
+
+        $allowedHours = [0, 8, 12, 18];
+        $hour = $date->hour;
+
+        $closestHour = collect($allowedHours)->first(function ($value) use ($hour) {
+            return $value >= $hour;
+        });
+
+        if ($closestHour === null) {
+            $closestHour = $allowedHours[array_key_first($allowedHours)];
+            $date = $date->addDay();
+        }
+
+        $date = $date->copy()->setHour($closestHour)->setMinute(0)->setSecond(0);
+
+        return $date->format('Y-m-d H:i');
     }
 
     protected function resetFormForNewJob(): void
@@ -105,7 +141,8 @@ class ControlMedProtest extends Component
         $this->notes            = '';
         $this->comment          = '';
         $this->deleteCommentId  = null;
-        $this->pendingCloseNow  = false;
+        $this->reason_close     = '';
+        $this->showReasonClose  = false;
     }
 
     /* ===================== BUSCA DINÂMICA DE USUÁRIO ===================== */
@@ -217,10 +254,12 @@ class ControlMedProtest extends Component
 
     /* ===================== VALIDAÇÃO DO FORM DO JOB ===================== */
 
-    protected function validateJobForm(): array
+    protected function validateJobForm(bool $requireOwner = true): array
     {
+        $ownerRule = $requireOwner ? 'required|exists:users,id' : 'nullable|exists:users,id';
+
         return $this->validate([
-            'selectedUser'  => 'required|exists:users,id',
+            'selectedUser'  => $ownerRule,
             'priority'      => 'required|in:' .
                 implode(',', array_map(fn ($e) => $e->value, ProtestJobPriority::cases())),
             'is_advance'    => 'boolean',
@@ -291,58 +330,54 @@ class ControlMedProtest extends Component
 
     /* ===================== ENCERRAR DIRETO ===================== */
 
-    /**
-     * Passo 1: botão "Encerrar agora" chama isso.
-     * A gente só valida e dispara o alerta de confirmação.
-     */
     public function closeNow()
     {
         if (!$this->modProtest) {
             return;
         }
 
-        // valida pra garantir que os campos obrigatórios estão OK
-        $this->validateJobForm();
+        // valida pra garantir que os campos obrigatórios estão OK,
+        // mas permite que o responsável fique vazio (vamos assumir quem encerrou).
+        $this->validateJobForm(false);
 
-        $this->pendingCloseNow = true;
-
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Encerrar agora?',
-            'msg'           => "Isso vai encerrar a medida e registrar a atividade como concluída imediatamente.",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Encerrar!',
-            'btnCanceltxt'  => 'Não, Cancelar',
-            'action'        => 'confirmCloseMeasureNow',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma medida encerrada.',
-        ]);
+        $this->reason_close = '';
+        $this->resetErrorBag('reason_close');
+        $this->showReasonClose = true;
     }
 
-    /**
-     * Passo 2: se o usuário confirmar no swal, o front dispara
-     * o listener 'confirmCloseMeasureNow', que cai aqui.
-     */
+    public function cancelCloseNow(): void
+    {
+        $this->showReasonClose = false;
+        $this->reason_close = '';
+        $this->resetErrorBag('reason_close');
+    }
+
     public function doCloseMeasureNow()
     {
-        if (!$this->modProtest || !$this->pendingCloseNow) {
+        if (!$this->modProtest) {
             return;
         }
 
-        $data = $this->validateJobForm();
+        $data = $this->validateJobForm(false);
+
+        $this->validate([
+            'reason_close' => 'required|string|max:5000',
+        ]);
 
         DB::transaction(function () use ($data) {
 
-            // cria o job já finalizado, atribuído a mim
+            $ownerId = $data['selectedUser'] ?? $this->selectedUser ?? auth()->id();
+
+            // cria o job
             $job = ProtestJob::create([
                 'protest_id'     => $this->modProtest->protest_id,
                 'med_protest_id' => $this->modProtest->id,
 
                 'created_by'     => auth()->id(),
-                'owner_id'       => auth()->id(),
-                'closed_by'      => auth()->id(),
+                'owner_id'       => $ownerId,
 
                 // SALVANDO STRING DO ENUM
-                'status'         => ProtestJobStatus::DONE->value,
+                'status'         => ProtestJobStatus::OPENED->value,
                 'priority'       => ProtestJobPriority::from($data['priority'])->value,
 
                 'is_advance'     => $data['is_advance'] ?? false,
@@ -350,30 +385,26 @@ class ControlMedProtest extends Component
 
                 'sla_due_at'     => $data['sla_due_at'] ?? null,
                 'notes'          => $data['notes'] ?? null,
-
-                'finished_at'    => now(),
-                'closed_at'      => now(),
             ]);
+
+            // garante fluxo mínimo antes de finalizar
+            $job->start();
+
+            $job->finish([
+                'finished_by' => auth()->id(),
+                'reason'      => 'Concluído manualmente por ' . auth()->user()->name,
+            ], $this->reason_close);
+
+            $job->confirmJob();
 
             // marca a medida como concluída
             $this->modProtest->update([
                 'completed'     => true,
                 'completed_at'  => now(),
             ]);
-
-            // registra evento explícito de término
-            $job->events()->create([
-                'type'        => 'status_changed',
-                'actor_id'    => auth()->id(),
-                'meta'        => [
-                    'from' => null,
-                    'to'   => ProtestJobStatus::DONE->value,
-                ],
-                'occurred_at' => now(),
-            ]);
         });
 
-        $this->pendingCloseNow = false;
+        $this->cancelCloseNow();
 
         $this->dispatchBrowserEvent('torrada', [
             'status'   => 'success',
