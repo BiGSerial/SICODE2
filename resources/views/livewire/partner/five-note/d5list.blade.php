@@ -171,13 +171,13 @@
                     </button>
                 </div>
 
-                <div class="col-12 col-md-3 ms-auto d-flex align-items-center justify-content-md-end">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="showPassiveToggle" wire:model="showPassive">
-                        <label class="form-check-label small text-muted" for="showPassiveToggle">
-                            Exibir registros passivos
-                        </label>
-                    </div>
+                <div class="col-12 col-md-3 ms-auto">
+                    <label for="passiveFilter" class="form-label small text-muted mb-1">Mostrar</label>
+                    <select id="passiveFilter" class="form-select" wire:model="passiveFilter">
+                        <option value="current">Metas atuais</option>
+                        <option value="passive">Passivos</option>
+                        <option value="all">Tudo</option>
+                    </select>
                 </div>
             </div>
             <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 gap-2">

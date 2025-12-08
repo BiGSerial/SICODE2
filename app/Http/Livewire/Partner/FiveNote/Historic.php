@@ -24,7 +24,7 @@ class Historic extends Component
     public $month;
     public $startDate;
     public $endDate;
-    public $showPassive = true;
+    public $passiveFilter = 'current';
 
     protected $updatesQueryString = [
         'search' => ['except' => ''],
@@ -59,7 +59,8 @@ class Historic extends Component
 
         $query->where('visible_partner', true)
             ->where('is_completed', true)
-            ->when(!$this->showPassive, fn ($q) => $q->where('isPassive', false))
+            ->when($this->passiveFilter === 'current', fn ($q) => $q->where('isPassive', false))
+            ->when($this->passiveFilter === 'passive', fn ($q) => $q->where('isPassive', true))
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
 
@@ -133,7 +134,7 @@ class Historic extends Component
         $this->search = '';
     }
 
-    public function updatedShowPassive()
+    public function updatedPassiveFilter()
     {
         $this->resetPage();
     }
@@ -173,7 +174,7 @@ class Historic extends Component
             'month'          => $this->month,
             'startDate'      => $this->startDate,
             'endDate'        => $this->endDate,
-            'showPassive'    => $this->showPassive,
+            'passiveFilter'  => $this->passiveFilter,
         ];
     }
 

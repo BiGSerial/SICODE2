@@ -83,6 +83,7 @@
         <table class="table table-sm table-hover modern-table align-middle mb-0">
             <thead class="table-dark">
                 <tr class="align-middle text-center">
+                    {{-- <th style="width:15px;">#M</th> --}}
                     <th style="width:15px;">M</th>
                     <th>Nota</th>
                     <th>Tipo</th>
@@ -92,8 +93,9 @@
                     <th>CausaRaiz</th>
                     <th>Origem</th>
                     <th>Município</th>
-                    <th>Abertura</th>
-                    <th>Tempo</th>
+                    <th>Abertura Reclamação</th>
+                    <th>Abertura Medida</th>
+                    <th>Tempo Medida</th>
                     <th>Desejada</th>
                     <th>Status Resposta</th>
                     <th style="width:48px;"></th>
@@ -105,16 +107,24 @@
                         $activeMed =
                             $protest->medProtests->sortByDesc('dtCriacaoMedida')->firstWhere('statusSist', 'MEDA') ??
                             $protest->medProtests->sortByDesc('dtCriacaoMedida')->first();
-                        $startDate =
-                            $protest->tipoNota === 'NA'
-                                ? $protest->dtAberturaNota
-                                : optional($activeMed)->dtCriacaoMedida;
+                        $startDate = $protest->dtAberturaNota;
+                        $startMedDate = optional($activeMed)->dtCriacaoMedida;
+
                         $deadline =
                             $protest->tipoNota === 'NA'
                                 ? $protest->dtConclusaoDesej
                                 : optional($activeMed)->dtFimMedidaDesej;
 
-                        $elapsed = $startDate ? Carbon::parse($startDate)->diffInDays(now()) : '—';
+                        $elapsed = $startDate
+                            ? Carbon::parse($startDate)
+                                ->startOfDay()
+                                ->diffInDays(now()->startOfDay())
+                            : '—';
+                        $elapsedMed = $startMedDate
+                            ? Carbon::parse($startMedDate)
+                                ->startOfDay()
+                                ->diffInDays(now()->startOfDay())
+                            : '—';
 
                         $deadlineBadge = [
                             'label' => 'Sem prazo',
@@ -174,12 +184,14 @@
                         <td class="small">{{ Str::limit($protest->descricao ?? '—', 22) }}</td>
                         <td class="small">{{ $protest->cidade ?? '—' }}</td>
                         <td>{{ optional($startDate)->format('d/m/Y') ?? '—' }}</td>
+                        <td>{{ optional($startMedDate)->format('d/m/Y') ?? '—' }}</td>
                         <td>
                             <div class="d-flex flex-column lh-1">
                                 <span
-                                    class="fw-semibold badge {{ $deadlineBadge['class'] }}">{{ $elapsed }}</span>
-                                @if ($startDate)
-                                    <small class="text-muted">{{ Carbon::parse($startDate)->diffForHumans() }}</small>
+                                    class="fw-semibold badge {{ $deadlineBadge['class'] }}">{{ $elapsedMed }}</span>
+                                @if ($startMedDate)
+                                    <small
+                                        class="text-muted">{{ $startMedDate->diffForHumans(['short' => true]) }}</small>
                                 @endif
                             </div>
                         </td>

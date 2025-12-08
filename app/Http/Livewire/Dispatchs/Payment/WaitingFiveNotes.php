@@ -33,6 +33,7 @@ class WaitingFiveNotes extends Component
 
     public $selectall = false;
     public $selected = [];
+    public $passiveFilter = 'current';
 
 
     // Filters
@@ -188,6 +189,9 @@ class WaitingFiveNotes extends Component
             ->where('is_payed', true)
             ->where('is_archived', false);
 
+        $base->when($this->passiveFilter === 'current', fn ($q) => $q->where('isPassive', false))
+            ->when($this->passiveFilter === 'passive', fn ($q) => $q->where('isPassive', true));
+
         if ($this->search) {
 
 
@@ -254,6 +258,11 @@ class WaitingFiveNotes extends Component
         $page->load(['note', 'productions', 'company', 'evidenceFiles']);
 
         return $page;
+    }
+
+    public function updatedPassiveFilter(): void
+    {
+        $this->resetPage();
     }
 
 

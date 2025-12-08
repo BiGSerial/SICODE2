@@ -75,6 +75,26 @@
             <option value="50">50</option>
             <option value="100">100</option>
         </select>
+
+        <div class="ms-auto" style="min-width:220px;">
+            <label for="passiveFilterPayment" class="form-label small text-muted mb-1">Mostrar</label>
+            <select id="passiveFilterPayment" class="form-select" wire:model="passiveFilter">
+                <option value="current">Metas atuais</option>
+                <option value="passive">Passivos</option>
+                <option value="all">Tudo</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap text-muted small">
+        <div class="d-flex align-items-center gap-2">
+            <span class="legend-dot legend-dot-passive"></span>
+            Registros passivos destacados
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge badge-passive mb-0">Passivo</span>
+            Identificador exibido junto à Nota D5
+        </div>
     </div>
 
     @livewire('components.filters.bar', ['config' => $filters, 'group' => 'payments', 'manualApply' => true], key('filters-bar'))
@@ -108,8 +128,7 @@
                     <tr class="align-middle text-center">
                         <th style="width:15px;"> <input class="form-check-input" type="checkbox" wire:model="selectall"
                                 wire:click="setSelectAll" @checked($this->checkAllSelect($lists))></th>
-                        <th>Nota D5</th>
-                        <th>Nota</th>
+                        <th class="text-start">Nota D5 / Nota</th>
 
                         {{-- <th>Cod</th> --}}
                         <th>Empreiteira</th>
@@ -127,14 +146,22 @@
                 <tbody>
 
                     @forelse ($lists as $list)
-                        <tr class="text-center {{ $list->is_supervisioned ? 'table-success' : '' }}"
-                            wire:dblclick="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})"
+                        <tr @class([
+                            'text-center',
+                            'table-success' => $list->is_supervisioned,
+                            'passive-row' => $list->isPassive,
+                        ]) wire:dblclick="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})"
                             style="cursor: pointer;">
                             <td><input class="form-check-input border border-1 border-primary " type="checkbox"
                                     value="{{ $list->id }}" wire:model.defer="selected">
                             </td>
-                            <td>{{ $list->note_d5 }}</td>
-                            <td>{{ $list->note->note }}</td>
+                            <td class="text-start">
+                                <div class="fw-semibold">{{ $list->note_d5 }}</div>
+                                <div class="small text-muted">{{ $list->note->note }}</div>
+                                @if ($list->isPassive)
+                                    <span class="badge badge-passive mt-1">Passivo</span>
+                                @endif
+                            </td>
                             <td>{{ $list->company?->name }}</td>
                             <td>{{ $list->reason }}</td>
                             <td>{{ $list->codify }}</td>
@@ -586,6 +613,35 @@
             height: 1px;
             background: linear-gradient(90deg, transparent, #eef1f6, transparent);
             margin: .9rem 0 1rem;
+        }
+
+        .passive-row {
+            background-color: rgba(251, 146, 60, 0.08) !important;
+            box-shadow: inset 3px 0 0 #fb923c;
+        }
+
+        .passive-row:hover {
+            background-color: rgba(251, 146, 60, 0.15) !important;
+        }
+
+        .badge-passive {
+            background: #fef3c7;
+            color: #92400e;
+            border-radius: 999px;
+            border: 1px solid #fdba74;
+            font-size: 0.75rem;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .legend-dot-passive {
+            background: linear-gradient(135deg, #f97316, #facc15);
+            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.4);
         }
     </style>
 </div>

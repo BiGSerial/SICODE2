@@ -140,8 +140,12 @@ class ExportFiveNotesJob implements ShouldQueue
 
     protected function applyFilters(Builder $query): void
     {
-        if (($this->params['showPassive'] ?? true) === false) {
+        $passiveFilter = $this->params['passiveFilter'] ?? 'current';
+
+        if ($passiveFilter === 'current') {
             $query->where('isPassive', false);
+        } elseif ($passiveFilter === 'passive') {
+            $query->where('isPassive', true);
         }
 
         if (!empty($this->params['search'])) {
