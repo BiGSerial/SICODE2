@@ -3,10 +3,9 @@
 namespace App\Http\Livewire\Partner\FiveNote;
 
 use App\Helpers\TextFormatter;
-use App\Models\EvidenceFile;
+use App\Jobs\ExportFiveNotesJob;
 use App\Models\FiveNote;
 use App\Traits\WildcardFormmater;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,9 +24,7 @@ class Historic extends Component
     public $month;
     public $startDate;
     public $endDate;
-    public $charged = null;
-
-    public $archives;
+    public $showPassive = true;
 
     protected $updatesQueryString = [
         'search' => ['except' => ''],
@@ -62,6 +59,7 @@ class Historic extends Component
 
         $query->where('visible_partner', true)
             ->where('is_completed', true)
+            ->when(!$this->showPassive, fn ($q) => $q->where('isPassive', false))
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
 
@@ -103,7 +101,8 @@ class Historic extends Component
             ->when($this->month, function ($query) {
                 $query->whereMonth('dispatch_at', $this->month);
             })
-            ->orderBy('completed_at', 'desc');
+            ->orderBy('completed_at', 'desc')
+            ->orderBy('id');
 
         return $query;
     }
@@ -134,13 +133,10 @@ class Historic extends Component
         $this->search = '';
     }
 
-    public function chargeFiles(FiveNote $five)
+    public function updatedShowPassive()
     {
-        $this->charged = $five->load('EvidenceFiles');
-        $this->emitSelf('refresh_component');
+        $this->resetPage();
     }
-
-
 
     public function multiSearch()
     {
@@ -150,34 +146,35 @@ class Historic extends Component
         $this->dispatchBrowserEvent('hideModal');
     }
 
-    public function downloadFile(EvidenceFile $file)
+    public function exportExcel(): void
     {
-        // dd(Storage::fileExists('public/'.$file->path));
+        $userId = auth()->id();
 
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'ARQUIVO INEXISTENTE!',
-                'timer'    => 5000,
-            ]);
-
+        if (!$userId) {
             return;
         }
+
+        ExportFiveNotesJob::dispatch($this->exportPayload(), $userId, 'historic');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO INICIADA',
+            'text'     => 'Você receberá uma notificação com o link para download.',
+            'timer'    => 5000,
+        ]);
     }
 
-    public function deleteFile(EvidenceFile $file)
+    protected function exportPayload(): array
     {
-        if ($file) {
-            $file->delete();
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Arquivo removido com sucesso!',
-            ]);
-            $this->emit('refreshComponent');
-        }
+        return [
+            'search'         => $this->search,
+            'multipleSearch' => $this->multipleSearch,
+            'month'          => $this->month,
+            'startDate'      => $this->startDate,
+            'endDate'        => $this->endDate,
+            'showPassive'    => $this->showPassive,
+        ];
     }
 
     public function render()

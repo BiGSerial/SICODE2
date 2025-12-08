@@ -3,10 +3,9 @@
 namespace App\Http\Livewire\Partner\FiveNote;
 
 use App\Helpers\TextFormatter;
-use App\Models\EvidenceFile;
+use App\Jobs\ExportFiveNotesJob;
 use App\Models\FiveNote;
 use App\Traits\WildcardFormmater;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,9 +24,7 @@ class D5list extends Component
     public $month;
     public $startDate;
     public $endDate;
-    public $charged = null;
-
-    public $archives;
+    public $showPassive = true;
 
     protected $updatesQueryString = [
         'search' => ['except' => ''],
@@ -62,6 +59,7 @@ class D5list extends Component
 
         $query->where('visible_partner', true)
             ->where('is_completed', false)
+            ->when(!$this->showPassive, fn ($q) => $q->where('isPassive', false))
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
 
@@ -104,39 +102,9 @@ class D5list extends Component
                 $query->whereMonth('dispatch_at', $this->month);
             })
             ->orderBy('dispatch_at')
-            ->orderBy();
+            ->orderBy('id');
 
         return $query;
-    }
-
-    public function downloadFile(EvidenceFile $file)
-    {
-        // dd(Storage::fileExists('public/'.$file->path));
-
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'ARQUIVO INEXISTENTE!',
-                'timer'    => 5000,
-            ]);
-
-            return;
-        }
-    }
-
-    public function deleteFile(EvidenceFile $file)
-    {
-        if ($file) {
-            $file->delete();
-            $this->dispatchBrowserEvent('torrada', [
-                'status'   => 'success',
-                'menssage' => 'Arquivo removido com sucesso!',
-            ]);
-            $this->emit('refreshComponent');
-        }
     }
 
     public function toSearch()
@@ -158,13 +126,10 @@ class D5list extends Component
         $this->search = '';
     }
 
-    public function chargeFiles(FiveNote $five)
+    public function updatedShowPassive()
     {
-        $this->charged = $five->load('EvidenceFiles');
-        $this->emitSelf('refresh_component');
+        $this->resetPage();
     }
-
-
 
     public function multiSearch()
     {
@@ -172,6 +137,37 @@ class D5list extends Component
         $this->search = '';
         $this->multipleSearch = $this->formatTextToArray($this->multiSearch);
         $this->dispatchBrowserEvent('hideModal');
+    }
+
+    public function exportExcel(): void
+    {
+        $userId = auth()->id();
+
+        if (!$userId) {
+            return;
+        }
+
+        ExportFiveNotesJob::dispatch($this->exportPayload(), $userId, 'waiting');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO INICIADA',
+            'text'     => 'Você receberá uma notificação com o link para download.',
+            'timer'    => 5000,
+        ]);
+    }
+
+    protected function exportPayload(): array
+    {
+        return [
+            'search'         => $this->search,
+            'multipleSearch' => $this->multipleSearch,
+            'month'          => $this->month,
+            'startDate'      => $this->startDate,
+            'endDate'        => $this->endDate,
+            'showPassive'    => $this->showPassive,
+        ];
     }
 
     public function render()

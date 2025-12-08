@@ -119,7 +119,7 @@ class MigrateFiveNotesFromBaseD5 extends Command
                 // reason padronizado quando possível
                 'reason'          => $mappedReason ?? 'Importado da Base D5 de Passivos em Aberto',
 
-                'name'            => $row->criadoPor ?? $row->notificador ?? null,
+                'name'            => null,
 
                 'dispatch_at'     => $row->dtCriacao,
                 'payed_at'        => $row->dtCriacao,
