@@ -103,7 +103,8 @@ class D5list extends Component
             ->when($this->month, function ($query) {
                 $query->whereMonth('dispatch_at', $this->month);
             })
-            ->orderBy('dispatch_at');
+            ->orderBy('dispatch_at')
+            ->orderBy();
 
         return $query;
     }

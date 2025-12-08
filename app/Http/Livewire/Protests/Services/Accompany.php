@@ -16,7 +16,7 @@ class Accompany extends Component
     /** Filtros */
     public int $perPage = 50;
     public string $search = '';
-    public ?int $selectedUserId = null;
+    public ?string $selectedUserId = null;
 
     protected $queryString = [
         'page'           => ['except' => 1],
@@ -54,6 +54,22 @@ class Accompany extends Component
             ->select('users.*')
             ->orderBy('users.name')
             ->distinct();
+    }
+
+    /**
+     * Retorna IDs do usuário selecionado + descendentes diretos/indiretos.
+     */
+    protected function descendantsOf(string $userId): array
+    {
+        return User::query()
+            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
+            ->where('uc.ancestor_id', $userId)
+            ->select('users.id')
+            ->pluck('users.id')
+            ->push($userId)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
@@ -100,7 +116,8 @@ class Accompany extends Component
                 'owner:id,name,email',
             ])
             ->when($this->selectedUserId, function ($q) {
-                $q->where('owner_id', $this->selectedUserId);
+                $teamIds = $this->descendantsOf($this->selectedUserId);
+                $q->whereIn('owner_id', $teamIds);
             })
             ->when($this->search, function ($q) {
                 $term = '%' . $this->search . '%';
