@@ -1,33 +1,26 @@
-@extends('layouts.padrao')
-
-@php
-    $isBtzeroDispatch = $isBtzeroDispatch ?? false;
-    $dispatchBreadcrumb = $isBtzeroDispatch ? 'BT Zero - Em Andamento' : 'Em Andamento';
-@endphp
+@extends('layouts.company')
 
 @section('breadcrumb')
     <nav aria-label="breadcrumb" class="py-0 my-0">
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                <li class="breadcrumb-item">Dispatch</li>
-
-                <li class="breadcrumb-item">Reclamações</li>
-                <li class="breadcrumb-item active" aria-current="page">{{ $dispatchBreadcrumb }}</li>
+                <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
+                <li class="breadcrumb-item">Construção</li>
+                <li class="breadcrumb-item" aria-current="page">Parceiro</li>
+                <li class="breadcrumb-item" aria-current="page">Notas D5</li>
+                <li class="breadcrumb-item active" aria-current="page">Notas Rejeitadas</li>
             </ol>
         </ol>
     </nav>
 @endsection
 
+
 @section('menu')
-    @include('protest.dispatch.menu')
+    @livewire('partner.menu')
 @endsection
 
 @section('content')
-    @livewire('protests.dispatch.monitoring', [
-        'showOnlyBtzero' => $isBtzeroDispatch,
-        'hideBtzero' => !$isBtzeroDispatch,
-    ])
+    @livewire('partner.five-note.d5list-returned', key('fivenotesreturned'))
 @endsection
 
 @push('script')
@@ -56,7 +49,6 @@
                     Livewire.emit(e.detail.action)
 
                 } else if (
-                    /* Read more about handling dismissals below */
                     result.dismiss === Swal.DismissReason.cancel
                 ) {
                     Swal.fire(
@@ -67,25 +59,5 @@
                 }
             })
         });
-    </script>
-
-    <script>
-        window.addEventListener('copyToBoard', function(e) {
-            copyToClipboard();
-        });
-
-
-
-        function copyToClipboard() {
-            const textToCopy = document.getElementById('clipboard-data').innerText;
-            const textarea = document.createElement('textarea');
-            textarea.textContent = textToCopy;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-
-
-        }
     </script>
 @endpush

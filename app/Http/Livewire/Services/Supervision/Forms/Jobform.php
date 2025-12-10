@@ -270,6 +270,14 @@ class Jobform extends Component
     public function to_finish()
     {
 
+        if ($this->production->dfive == true) {
+            $this->validate([
+                'analise.info' => 'required|min:10|string',
+
+            ], [
+                'analise.info.required' => 'O campo Observações é obrigatório quando a D5 já está em retorno. Detalhe o motivo do retorno.',
+            ]);
+        }
 
         if ($this->d5 == '1') {
             foreach ($this->return as $key => $value) {
@@ -483,6 +491,7 @@ class Jobform extends Component
                         $this->five->update([
                             'is_completed' => false,
                             'completed_at' => null,
+                            'returned'     => true,
                         ]);
                     } else {
                         $this->five->update([

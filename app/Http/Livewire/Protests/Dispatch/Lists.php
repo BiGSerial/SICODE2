@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Enum\ProtestType;
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ProtestExportListJob;
 use App\Models\MedProtest;
@@ -40,6 +41,9 @@ class Lists extends Component
     // Elas agora são carregadas via Computed Properties abaixo.
 
     public $filtersState = [];
+
+    public bool $showOnlyBtzero = false;
+    public bool $hideBtzero = true;
 
     private $filter_group = 'protests';
 
@@ -106,10 +110,18 @@ class Lists extends Component
      */
     public function getProtestTypesProperty()
     {
-        return MedProtest::select('protest_type')
+        $query = MedProtest::select('protest_type')
             ->distinct()
-            ->orderBy('protest_type', 'ASC')
-            ->get();
+            ->where('statusSist', 'MEDA')
+            ->orderBy('protest_type', 'ASC');
+
+        if ($this->showOnlyBtzero) {
+            $query->where('protest_type', ProtestType::BTZERO->value);
+        } elseif ($this->hideBtzero) {
+            $query->where('protest_type', '!=', ProtestType::BTZERO->value);
+        }
+
+        return $query->get();
     }
 
     public function showDetails($id)
@@ -213,6 +225,18 @@ class Lists extends Component
             });
         }
 
+        if ($this->showOnlyBtzero) {
+            $query->whereHas('medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', ProtestType::BTZERO->value);
+            });
+        } elseif ($this->hideBtzero) {
+            $query->whereDoesntHave('medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', ProtestType::BTZERO->value);
+            });
+        }
+
         $query->when($this->search, function ($query) {
             $this->multisearch   = [];
             $this->advanceSearch = '';
@@ -244,8 +268,11 @@ class Lists extends Component
         });
 
         $query->when($this->selectedProtestType, function ($query) {
-            $query->whereHas('medProtests', function ($q) {
-                $q->where('protest_type', $this->selectedProtestType);
+            $selectedType = $this->selectedProtestType;
+
+            $query->whereHas('medProtests', function ($q) use ($selectedType) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', $selectedType);
             });
         });
 
@@ -281,3 +308,4 @@ class Lists extends Component
         return filled($this->search) || !empty($this->multisearch);
     }
 }
+

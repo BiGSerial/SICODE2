@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Enum\ProtestJobStatus;
+use App\Enum\ProtestType;
 use App\Helpers\TextFormatter;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -36,6 +37,8 @@ class Closeds extends Component
     public $userViewer = null;
     public $userViewerList = [];
 
+    public string $protestTypeFilter = 'without_btzero';
+
     private string $filter_group = 'oexterno';
     private $filter;
 
@@ -46,10 +49,16 @@ class Closeds extends Component
         'perPage'    => ['as' => 'pp'],
         'inPrazo'    => ['except' => '', 'as' => 'emPrazo'],
         'userViewer' => ['except' => null, 'as' => 'usr'],
+        'protestTypeFilter' => ['except' => 'without_btzero', 'as' => 'ptype'],
     ];
 
-    public function mount()
+    public function mount($protestTypeFilter = null)
     {
+        if (!is_null($protestTypeFilter)) {
+            $this->protestTypeFilter = $protestTypeFilter;
+        }
+
+        $this->sanitizeProtestTypeFilter();
         $this->loadUserViewerList();
     }
 
@@ -66,6 +75,12 @@ class Closeds extends Component
     public function updatedSearchName($value): void
     {
         $this->loadUserViewerList();
+    }
+
+    public function updatedProtestTypeFilter(): void
+    {
+        $this->sanitizeProtestTypeFilter();
+        $this->resetPage();
     }
 
     public function goTo($protestNote)
@@ -144,9 +159,30 @@ class Closeds extends Component
             });
         });
 
+        if ($this->protestTypeFilter === 'only_btzero') {
+            $query->whereHas('protest.medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', ProtestType::BTZERO->value);
+            });
+        } elseif ($this->protestTypeFilter === 'without_btzero') {
+            $query->whereDoesntHave('protest.medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', ProtestType::BTZERO->value);
+            });
+        }
+
         return $query
             ->orderByDesc('finished_at')
             ->orderByDesc('sent_at');
+    }
+
+    private function sanitizeProtestTypeFilter(): void
+    {
+        $allowed = ['only_btzero', 'without_btzero', 'all'];
+
+        if (!in_array($this->protestTypeFilter, $allowed, true)) {
+            $this->protestTypeFilter = 'without_btzero';
+        }
     }
 
     public function getListsProperty()

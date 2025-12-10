@@ -161,12 +161,12 @@ class Note extends Model
 
     public function Protests()
     {
-        return $this->morphToMany(Protest::class, 'noteable');
+        return $this->morphedByMany(Protest::class, 'noteable');
     }
 
     public function MedProtests()
     {
-        return $this->morphToMany(MedProtest::class, 'noteable');
+        return $this->morphedByMany(MedProtest::class, 'noteable');
     }
 
     public function FiveNote()

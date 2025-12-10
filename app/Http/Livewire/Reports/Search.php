@@ -13,6 +13,7 @@ class Search extends Component
     public $selectedFiles = [];
     public $historico = null;
     public $openServiceId = null;
+    public bool $hasProtestOverview = false;
 
     /** @var \App\Models\Note|null */
     public $lists = null;
@@ -131,6 +132,9 @@ class Search extends Component
             ->first();
 
         // reset de estados voláteis
+        $this->hasProtestOverview = $this->lists
+            ? $this->lists->Protests()->exists()
+            : false;
         $this->historico     = null;   // só carrega se clicarem
         $this->openServiceId = null;
         $this->selectedFiles = [];

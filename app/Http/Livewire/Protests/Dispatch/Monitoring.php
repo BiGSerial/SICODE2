@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Enum\ProtestType;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -31,6 +32,9 @@ class Monitoring extends Component
     public $userViewerList = [];
     public array $noteTypeOptions = [];
 
+    public bool $showOnlyBtzero = false;
+    public bool $hideBtzero = true;
+
     protected $queryString = [
         'perPage'    => ['except' => 50],
         'search'     => ['except' => ''],
@@ -44,8 +48,20 @@ class Monitoring extends Component
         'refreshComponent' => '$refresh',
     ];
 
-    public function mount(): void
+    public function mount($showOnlyBtzero = null, $hideBtzero = null): void
     {
+        if (!is_null($showOnlyBtzero)) {
+            $this->showOnlyBtzero = (bool) $showOnlyBtzero;
+        }
+
+        if (!is_null($hideBtzero)) {
+            $this->hideBtzero = (bool) $hideBtzero;
+        }
+
+        if ($this->showOnlyBtzero) {
+            $this->hideBtzero = false;
+        }
+
         $this->loadUserViewerList();
         $this->loadNoteTypeOptions();
     }
@@ -124,6 +140,18 @@ class Monitoring extends Component
             ->orderBy('priority', 'desc')
             ->orderBy('sla_due_at')
             ->orderBy('id');
+
+        if ($this->showOnlyBtzero) {
+            $query->whereHas('medProtest', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', ProtestType::BTZERO->value);
+            });
+        } elseif ($this->hideBtzero) {
+            $query->whereDoesntHave('medProtest', function ($q) {
+                $q->where('statusSist', 'MEDA')
+                    ->where('protest_type', ProtestType::BTZERO->value);
+            });
+        }
 
         // Filtro por responsável / hierarquia
         $query->when($this->userViewer, function ($q) {

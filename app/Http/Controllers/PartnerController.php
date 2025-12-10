@@ -76,6 +76,11 @@ class PartnerController extends Controller
         return view('partner.fiveNotes.list');
     }
 
+    public function partner_d5_returned()
+    {
+        return view('partner.fiveNotes.returned');
+    }
+
     public function partner_d5_historic()
     {
         return view('partner.fiveNotes.historic');

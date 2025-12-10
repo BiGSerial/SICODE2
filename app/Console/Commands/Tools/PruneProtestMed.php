@@ -36,7 +36,7 @@ class PruneProtestMed extends Command
         $this->newLine();
         $this->info("=== [$activityName] Iniciando " . ($dryRun ? '(DRY RUN)' : '') . " ===");
 
-        $cutoff = Carbon::now()->subHours(24);
+        $cutoff = Carbon::now()->subHours(1);
 
         // Base query: medidas sem atualização há mais de 48h e sem ProtestJob associado
         $baseQuery = MedProtest::query()
@@ -67,11 +67,11 @@ class PruneProtestMed extends Command
         $this->line('Exemplo de registros que serão afetados:');
         foreach ($sample as $med) {
             $this->line(sprintf(
-            ' - MedProtest ID: %d | protest: %s | statusSist: %s | updated_at: %s',
-            $med->id,
-            optional($med->protest)->nota ?? 'N/A',
-            $med->statusSist ?? 'N/A',
-            $med->updated_at ? $med->updated_at->toDateTimeString() : 'N/A'
+                ' - MedProtest ID: %d | protest: %s | statusSist: %s | updated_at: %s',
+                $med->id,
+                optional($med->protest)->nota ?? 'N/A',
+                $med->statusSist ?? 'N/A',
+                $med->updated_at ? $med->updated_at->toDateTimeString() : 'N/A'
             ));
         }
 

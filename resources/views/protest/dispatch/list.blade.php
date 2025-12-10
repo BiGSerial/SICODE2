@@ -1,5 +1,10 @@
 @extends('layouts.padrao')
 
+@php
+    $isBtzeroDispatch = $isBtzeroDispatch ?? false;
+    $dispatchBreadcrumb = $isBtzeroDispatch ? 'BT Zero - Em Aberto' : 'Em Aberto';
+@endphp
+
 @section('breadcrumb')
     <nav aria-label="breadcrumb" class="py-0 my-0">
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
@@ -7,7 +12,7 @@
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Dispatch</li>
                 <li class="breadcrumb-item">Reclamações</li>
-                <li class="breadcrumb-item active" aria-current="page">Em Aberto</li>
+                <li class="breadcrumb-item active" aria-current="page">{{ $dispatchBreadcrumb }}</li>
             </ol>
         </ol>
     </nav>
@@ -18,7 +23,10 @@
 @endsection
 
 @section('content')
-    @livewire('protests.dispatch.lists')
+    @livewire('protests.dispatch.lists', [
+        'showOnlyBtzero' => $isBtzeroDispatch,
+        'hideBtzero' => !$isBtzeroDispatch,
+    ])
 @endsection
 
 @push('script')

@@ -119,6 +119,24 @@
                         <label class="btn btn-outline-primary" for="inPrazo3">Todos</label>
                     </div>
                 </div>
+
+                {{-- 5) Tipo de Protesto --}}
+                <div class="col-12 col-md-3">
+                    <label class="form-label small mb-1">Tipo de Protesto</label>
+                    <div class="btn-group w-100" role="group" aria-label="Tipo de Protesto">
+                        <input type="radio" class="btn-check" name="protestTypeFilter" id="ptype-bt"
+                            wire:model="protestTypeFilter" value="only_btzero">
+                        <label class="btn btn-outline-primary" for="ptype-bt">BT Zero</label>
+
+                        <input type="radio" class="btn-check" name="protestTypeFilter" id="ptype-no-bt"
+                            wire:model="protestTypeFilter" value="without_btzero">
+                        <label class="btn btn-outline-primary" for="ptype-no-bt">Sem BT Zero</label>
+
+                        <input type="radio" class="btn-check" name="protestTypeFilter" id="ptype-all"
+                            wire:model="protestTypeFilter" value="all">
+                        <label class="btn btn-outline-primary" for="ptype-all">Todos</label>
+                    </div>
+                </div>
             </div>
 
             <hr class="my-3">

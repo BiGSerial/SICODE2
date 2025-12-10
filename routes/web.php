@@ -239,6 +239,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
         Route::get('/list', 'partner_d5_list')->name('list');
+        Route::get('/returned', 'partner_d5_returned')->name('returned');
         Route::get('/historic', 'partner_d5_historic')->name('historic');
     });
 });
@@ -260,6 +261,8 @@ Route::prefix('/system')->controller(SystemController::class)->name('system.')->
 
 
 Route::prefix('/protests')->controller(ProtestController::class)->name('protests.')->middleware('auth')->group(function () {
+    Route::get('/common/overview', 'common_overview')->name('common.overview');
+    Route::get('/common/note/{note}', 'common_note')->name('common.note');
 
     Route::prefix('/services')->name('services.')->group(function () {
         Route::get('/', 'main')->name('main');
@@ -278,6 +281,16 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
         Route::get('/config_users', 'dispatch_config_users')->name('config_users');
         Route::get('/per_user', 'dispatch_per_user')->name('per_user');
         Route::get('/monitoring', 'dispatch_monitoring')->name('monitoring');
+    });
+
+    Route::prefix('/dispatch-btzero')->name('dispatch_btzero.')->group(function () {
+        Route::get('/', 'dispatch_btzero_lists')->name('lists');
+        Route::get('/view/{protest}', 'dispatch_view')->name('view');
+        Route::get('/view_only/{protest}', 'dispatch_view_only')->name('view_only');
+        Route::get('/closeds', 'dispatch_btzero_closeds')->name('closeds');
+        Route::get('/config_users', 'dispatch_config_users')->name('config_users');
+        Route::get('/per_user', 'dispatch_per_user')->name('per_user');
+        Route::get('/monitoring', 'dispatch_btzero_monitoring')->name('monitoring');
     });
 
     Route::prefix('/partner')->name('partner.')->group(function () {

@@ -24,7 +24,9 @@ class D5list extends Component
     public $month;
     public $startDate;
     public $endDate;
-    public $passiveFilter = 'current';
+    public $passiveFilter = 'all';
+
+    protected bool $onlyReturned = false;
 
     protected $updatesQueryString = [
         'search' => ['except' => ''],
@@ -59,6 +61,7 @@ class D5list extends Component
 
         $query->where('visible_partner', true)
             ->where('is_completed', false)
+            ->where('returned', $this->onlyReturned)
             ->when($this->passiveFilter === 'current', fn ($q) => $q->where('isPassive', false))
             ->when($this->passiveFilter === 'passive', fn ($q) => $q->where('isPassive', true))
             ->when($this->search, function ($query) {

@@ -22,9 +22,17 @@
     @if ($lists)
         {{-- DADOS DA NOTA --}}
         <div class="card border-0 mt-4 shadow edp-bg-sprucegreen-70 edp-text-verde-dark">
-            <h4 class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                NOTA/OV: <strong class="text-uppercase">{{ $lists->note }}</strong>
-            </h4>
+            <div class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h4 class="mb-0">
+                    NOTA/OV: <strong class="text-uppercase">{{ $lists->note }}</strong>
+                </h4>
+                @if ($hasProtestOverview)
+                    <a href="{{ route('protests.common.note', ['note' => $lists->id]) }}" target="_blank" class="btn btn-outline-light btn-sm">
+                        <i class="ri-external-link-line me-1"></i>
+                        Detalhes do Protesto
+                    </a>
+                @endif
+            </div>
             <div class="card-body">
                 <div class="row">
                     {{-- COLUNA ESQUERDA --}}

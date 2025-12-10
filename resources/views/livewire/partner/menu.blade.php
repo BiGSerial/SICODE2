@@ -170,10 +170,18 @@
                 <ul id="d5note-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
-                            <a href="{{ route('partner.note_d5.list') }}" class="nav-item text-white fw-normal">
-                                <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>AGUARDANDO
+                            <a href="{{ route('partner.note_d5.list') }}"
+                                class="nav-item text-white fw-normal d-flex align-items-center">
+                                <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark me-1"></i> <span>AGUARDANDO
                                     RESOLUÇÃO</span>
-
+                                @livewire('partner.count.d5-open-count', ['returned' => false], key('menu-d5-open'))
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('partner.note_d5.returned') }}"
+                                class="nav-item text-white fw-normal d-flex align-items-center">
+                                <i class="ri-error-warning-line fs-5 text-warning me-1"></i> <span>NOTAS REJEITADAS</span>
+                                @livewire('partner.count.d5-open-count', ['returned' => true], key('menu-d5-returned'))
                             </a>
                         </li>
 

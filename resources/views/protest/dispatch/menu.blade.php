@@ -30,9 +30,10 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('protests.dispatch.lists') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-inbox fs-5 edp-text-verde-dark"></i> <span>EM ABERTO</span>
-
+                        <a href="{{ route('protests.dispatch.lists') }}"
+                            class="nav-item text-white fw-normal d-flex align-items-center">
+                            <i class="bi bi-inbox fs-5 edp-text-verde-dark me-1"></i> <span>EM ABERTO</span>
+                            @livewire('protests.dispatch.menu-open-badge', ['type' => 'normal'], key('menu-open-normal'))
                         </a>
                     </li>
                     <li>
@@ -53,6 +54,27 @@
                         </a>
                     </li> --}}
 
+                    <li>
+                        <a href="{{ route('protests.dispatch_btzero.lists') }}"
+                            class="nav-item text-white fw-normal d-flex align-items-center">
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark me-1"></i> <span>BT ZERO ABERTO</span>
+                            @livewire('protests.dispatch.menu-open-badge', ['type' => 'btzero'], key('menu-open-btzero'))
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('protests.dispatch_btzero.monitoring') }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark"></i> <span>BT ZERO ANDAMENTO</span>
+
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('protests.dispatch_btzero.closeds') }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark"></i> <span>BT ZERO FECHADOS</span>
+
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>

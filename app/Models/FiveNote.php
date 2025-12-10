@@ -33,7 +33,8 @@ class FiveNote extends Model
         'is_payed',
         'payed_at',
         'is_archived',
-        'isPassive'
+        'isPassive',
+        'returned',
     ];
 
     protected $casts = [
@@ -47,6 +48,7 @@ class FiveNote extends Model
         'payed_at'          => 'datetime',
         'is_archived'       => 'boolean',
         'isPassive'         => 'boolean',
+        'returned'          => 'boolean',
     ];
 
     public function note(): BelongsTo

@@ -33,7 +33,7 @@
                 </div>
 
                 {{-- BODY --}}
-                <div class="modal-body edp-bg-stategrey-50">
+                <div class="modal-body edp-bg-stategrey-50 d-flex flex-column">
                     <div class="container">
 
                         {{-- Resumo de informações (card slim) --}}
@@ -350,7 +350,7 @@
                                         <div class="obs">
                                             <div class="d-flex align-items-center gap-2 mb-2">
                                                 <i class="ri-chat-3-line text-primary"></i>
-                                                <span class="fw-semibold">Observações Empreiteira</span>
+                                                <span class="fw-semibold">Observações Empreiteira </span>
                                             </div>
                                             <div class="obs-box">
                                                 {{ $five?->Comments?->last()?->message ?? 'Nenhuma Observação' }}
@@ -612,7 +612,7 @@
                                                     <p>Ao selecionar conclusão que <strong>FISCALIZADO COM
                                                             PENDÊNCIA</strong>. A D5 retornará automáticamente para a
                                                         empreiteira.</p>
-                                                    <p>Nesse caso, pedimos para que detalhe o motivo da pendência no
+                                                    <p>Nesse caso, pedimos para que <strong>detalhe o motivo</strong> da pendência no
                                                         campo Observações no final deste formulário. E assim será gerado
                                                         histórico das tratativas desta D5. Conforme exibido no histórico
                                                         de produção.</p>
@@ -646,49 +646,58 @@
                                                     style="cursor:pointer;"></i>
                                             </span>
                                         </label>
-                                        <textarea id="infoTextArea2" class="form-control border border-secondary" rows="6"
+                                        <textarea id="infoTextArea2" class="form-control border border-secondary @error('analise.info') is-invalid @enderror" rows="6"
                                             wire:model.defer="analise.info" placeholder="Contextualize a fiscalização, apontamentos e demais observações."></textarea>
+                                        @error('analise.info')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                    </div>
-                </div>
+                        <div class="card shadow-sm border-top rounded-0 mt-4">
+                            <div class="card-body edp-bg-stategrey-100 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                <div class="text-muted small">
+                                    <i class="ri-information-line"></i>
+                                    @if (!$d5Selected)
+                                        Selecione se há D5.
+                                    @elseif($needD5Reason && !$hasD5Reason)
+                                        Informe o motivo da D5.
+                                    @elseif(!$hasConclusion)
+                                        Selecione a conclusão.
+                                    @else
+                                        Pronto para encerrar.
+                                    @endif
+                                </div>
 
-                {{-- FOOTER (fixo, com estados) --}}
-                <div class="modal-footer edp-bg-stategrey-100 d-flex justify-content-between">
-                    <div class="text-muted small">
-                        <i class="ri-information-line"></i>
-                        @if (!$d5Selected)
-                            Selecione se há D5.
-                        @elseif($needD5Reason && !$hasD5Reason)
-                            Informe o motivo da D5.
-                        @elseif(!$hasConclusion)
-                            Selecione a conclusão.
-                        @else
-                            Pronto para encerrar.
-                        @endif
-                    </div>
+                                <div class="d-flex gap-2 flex-wrap">{{ $hasEvidence }}
+                                    <button type="button" class="btn btn-secondary" wire:click.prevent="saveForm()" wire:loading.attr="disabled" wire:target="saveForm">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" wire:loading wire:target="saveForm"></span>
+                                        <i class="ri-save-3-line me-1" wire:loading.remove wire:target="saveForm"></i> SALVAR
+                                    </button>
 
-                    <div class="d-flex gap-2">{{ $hasEvidence }}
-                        <button type="button" class="btn btn-secondary" wire:click.prevent="saveForm()">
-                            <i class="ri-save-3-line me-1"></i> SALVAR
-                        </button>
+                                    <button type="button" class="btn btn-info" wire:click.prevent="waitingForm()" wire:loading.attr="disabled" wire:target="waitingForm">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" wire:loading wire:target="waitingForm"></span>
+                                        <i class="ri-time-line me-1" wire:loading.remove wire:target="waitingForm"></i> ESPERAR
+                                    </button>
 
-                        <button type="button" class="btn btn-info" wire:click.prevent="waitingForm()">
-                            <i class="ri-time-line me-1"></i> ESPERAR
-                        </button>
+                                    <button type="button" class="btn btn-warning"
+                                        wire:click="$emitTo('components.pausenote.pausenote2', 'stop_note', {{ $production }})"
+                                        wire:loading.attr="disabled">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"
+                                            wire:loading></span>
+                                        <i class="ri-pause-line me-1" wire:loading.remove></i> PAUSAR
+                                    </button>
 
-                        <button type="button" class="btn btn-warning"
-                            wire:click="$emitTo('components.pausenote.pausenote2', 'stop_note', {{ $production }})">
-                            <i class="ri-pause-line me-1"></i> PAUSAR
-                        </button>
-
-                        <button type="button" class="btn btn-success" wire:click.prevent="to_finish()"
-                            @disabled(!$canFinish)>
-                            <i class="ri-checkbox-circle-line me-1"></i> ENCERRAR
-                        </button>
+                                    <button type="button" class="btn btn-success" wire:click.prevent="to_finish()"
+                                        @disabled(!$canFinish) wire:loading.attr="disabled" wire:target="to_finish">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" wire:loading wire:target="to_finish"></span>
+                                        <i class="ri-checkbox-circle-line me-1" wire:loading.remove wire:target="to_finish"></i> ENCERRAR
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
