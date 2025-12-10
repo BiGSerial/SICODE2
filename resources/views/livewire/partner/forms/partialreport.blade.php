@@ -57,6 +57,7 @@
                                         if ($status == 1) {
                                             $reason = 'EM APROVAÇÃO';
                                         } elseif ($status == 2) {
+                                           
                                             $reason = 'TEMPO MÍNIMO';
                                         } elseif ($status == 3) {
                                             if (!$tNote->partials->last()->supervision) {

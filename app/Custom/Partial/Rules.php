@@ -17,7 +17,7 @@ class Rules
             if (!$partial->allow && !$partial->deny) {
                 return 1;
             } elseif ($partial->allow && $partial->created_at->diffInDays(now()) < self::$days) {
-                return 2;
+                return 0; // Note: Retornoar para 2
             } elseif ((!$partial->payment || !$partial->supervision) && !$partial->deny) {
                 return 3;
             } else {
