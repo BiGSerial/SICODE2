@@ -27,14 +27,14 @@ class Protest extends Model
         'descSubCausa',
         'descricao',
         'resume',
-        'type_note',
+        'type',
     ];
 
     protected $appends = ['data_final_valida'];
     // protected $appends = [];
 
     protected $casts = [
-        'type_note' => ProtestType::class,
+
         'dtAberturaNota' => 'date',
         'dtConclusaoDesej' => 'date',
     ];

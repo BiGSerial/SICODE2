@@ -626,6 +626,37 @@
                             <span class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodMedida }}</span>
 
                             <div class="d-flex justify-content-between align-items-center my-1">
+                                <span class="text-muted small">Categoria do Protesto:</span>
+                                @if (!$showTypeEdit)
+                                    <button class="btn btn-sm btn-outline-primary p-1" wire:click="editType"
+                                        title="Editar categoria">
+                                        <i class="ri-pencil-line"></i>
+                                    </button>
+                                @else
+                                    <button class="btn btn-sm btn-outline-success p-1" wire:click="saveType"
+                                        title="Salvar categoria">
+                                        <i class="ri-save-line"></i>
+                                    </button>
+                                @endif
+                            </div>
+
+                            @if ($showTypeEdit)
+                                <select class="form-select form-select-sm mb-2" wire:model.defer="typeEdit">
+                                    <option value="">Selecione uma categoria</option>
+                                    @foreach ($protestCategories as $category)
+                                        <option value="{{ $category->value }}">{{ $category->reason }}</option>
+                                    @endforeach
+                                </select>
+                                @error('typeEdit')
+                                    <small class="text-danger d-block">{{ $message }}</small>
+                                @enderror
+                            @else
+                                <span class="fw-medium small mb-2 d-block">
+                                    {{ $protest->type ?? 'SEM CATEGORIA DEFINIDA' }}
+                                </span>
+                            @endif
+
+                            <div class="d-flex justify-content-between align-items-center my-1">
                                 <span class="text-muted small">Descrição:</span>
                                 @if (!$showResumeEdit)
                                     <button class="btn btn-sm btn-outline-primary p-1" wire:click="editResume"

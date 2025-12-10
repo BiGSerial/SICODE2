@@ -510,7 +510,7 @@
                                 class="alert {{ $hasEvidence ? 'alert-success' : 'alert-warning' }} py-2 mb-2 small d-flex align-items-start gap-2">
                                 <i class="ri-attachment-2 mt-1"></i>
                                 <div>
-                                    Esta medida exige anexos de evidência.
+                                    Esta medida exige anexos recebidos.
                                     @if ($hasEvidence)
                                         <strong>{{ $medProtest->evidenceFiles->count() }}</strong> arquivo(s) já
                                         anexado(s).
@@ -640,7 +640,7 @@
                 <div class="modern-card mb-4">
                     <div class="modern-card-body">
                         <div class="modern-card-title">
-                            <i class="ri-upload-cloud-2-line me-2"></i>Evidências da Medida
+                            <i class="ri-upload-cloud-2-line me-2"></i>Recebidos da Medida
                         </div>
 
                         @if (!$medProtest)

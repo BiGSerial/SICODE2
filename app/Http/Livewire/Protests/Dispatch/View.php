@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Helpers\SelectOptions;
 use App\Models\Comment;
 use App\Models\EvidenceFile;
 use App\Models\MedProtest;
@@ -24,6 +25,8 @@ class View extends Component
     // Editar resumo da reclamação
     public ?string $resumeEdit = null;
     public bool $showResumeEdit = false;
+    public ?string $typeEdit = null;
+    public bool $showTypeEdit = false;
 
     // Estado de expansão de jobs por MedProtest
     public array $expandedJobs = [];
@@ -217,6 +220,39 @@ class View extends Component
         } catch (\Throwable $e) {
             $this->toast('danger', 'Erro ao salvar resumo: ' . $e->getMessage());
         }
+    }
+
+    public function editType(): void
+    {
+        $this->typeEdit     = $this->protest->type;
+        $this->showTypeEdit = true;
+    }
+
+    public function saveType(): void
+    {
+        $allowedTypes = $this->allowedProtestTypeValues();
+
+        $this->validate([
+            'typeEdit' => 'required|in:' . implode(',', $allowedTypes),
+        ]);
+
+        try {
+            $this->protest->type = $this->typeEdit;
+            $this->protest->save();
+
+            $this->showTypeEdit = false;
+            $this->toast('success', 'Tipo atualizado com sucesso!');
+        } catch (\Throwable $e) {
+            $this->toast('danger', 'Erro ao salvar tipo: ' . $e->getMessage());
+        }
+    }
+
+    protected function allowedProtestTypeValues(): array
+    {
+        return array_map(
+            static fn ($option) => $option->value,
+            SelectOptions::getProtestCategory()
+        );
     }
 
     /** =======================================================================
@@ -481,6 +517,8 @@ class View extends Component
 
     public function render()
     {
-        return view('livewire.protests.dispatch.view');
+        return view('livewire.protests.dispatch.view', [
+            'protestCategories' => SelectOptions::getProtestCategory(),
+        ]);
     }
 }

@@ -172,8 +172,8 @@ class View extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
-                'title'    => 'Evidências pendentes',
-                'text'     => 'Esta atividade exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
+                'title'    => 'Recebidos pendentes',
+                'text'     => 'Esta atividade exige anexos recebidos. Anexe pelo menos um arquivo antes de encerrar.',
                 'timer'    => 6000,
             ]);
             return;
@@ -203,8 +203,8 @@ class View extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'Evidências pendentes',
-                'text'     => 'Esta atividade exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
+                'title'    => 'Recebidos pendentes',
+                'text'     => 'Esta atividade exige anexos recebidos. Anexe pelo menos um arquivo antes de encerrar.',
                 'timer'    => 6000,
             ]);
             return;

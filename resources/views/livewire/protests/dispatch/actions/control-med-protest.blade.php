@@ -415,7 +415,7 @@
                                                 wire:model.defer="need_evidence">
                                             <label class="form-check-label fw-medium text-warning"
                                                 for="needEvidenceToggle">
-                                                <i class="ri-camera-line me-1"></i>Evidência obrigatória
+                                                <i class="ri-mail-open-line me-1"></i>Recebido obrigatório
                                             </label>
                                         </div>
                                     </div>
@@ -505,6 +505,116 @@
                         </div>
                     </div>
                 </div>{{-- /row g-4 mb-4 --}}
+
+                {{-- RECEBIDOS DA MEDIDA --}}
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="modern-card">
+                            <div class="modern-card-body">
+                                <div class="modern-card-title">
+                                    <i class="ri-upload-cloud-2-line me-2"></i>Recebidos da Medida
+                                </div>
+
+                                @if ($modProtest)
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Selecionar arquivos</label>
+                                            <input type="file"
+                                                class="form-control @error('files.*') is-invalid @enderror"
+                                                wire:model="files" multiple
+                                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt">
+                                            <small class="text-muted">
+                                                Tipos permitidos:
+                                                {{ implode(', ', array_map('mb_strtoupper', $filesConfig['allowedTypes'])) }}
+                                                - M?x: {{ $filesConfig['maxSize'] / 1024 }}MB
+                                            </small>
+                                            @error('files.*')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                            <div class="text-muted small mt-2" wire:loading wire:target="files">
+                                                <i class="ri-loader-4-line me-1"></i>Carregando arquivos...
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="bg-light border rounded p-3 h-100">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <span class="fw-semibold">Arquivos recebidos</span>
+                                                    <span class="badge bg-primary">
+                                                        {{ $modProtest->EvidenceFiles->count() }}
+                                                    </span>
+                                                </div>
+
+                                                <x-files.attachments :files="$modProtest->EvidenceFiles"
+                                                    deleteAction="{{ auth()->user()->superadm ? 'deleteFile' : '' }}"
+                                                    downloadAction="downloadFile" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-3">
+
+                                    @if ($tempFiles && count($tempFiles) > 0)
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="fw-semibold mb-0 text-primary">
+                                                Recebidos prontos para envio
+                                            </h6>
+                                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3">
+                                                {{ count($tempFiles) }}
+                                            </span>
+                                        </div>
+
+                                        <div class="mt-2">
+                                            @foreach ($tempFiles as $index => $file)
+                                                <div class="card border-0 shadow-sm mb-2" wire:key="temp-file-{{ $index }}">
+                                                    <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                                                        <div class="d-flex align-items-center gap-3">
+                                                            <div class="file-icon {{ $this->getFileIconClass($file->getClientOriginalExtension()) }} rounded-2 d-flex align-items-center justify-content-center"
+                                                                style="width:42px;height:42px;">
+                                                                <i
+                                                                    class="{{ $this->getFileIcon($file->getClientOriginalExtension()) }} fs-5"></i>
+                                                            </div>
+                                                            <div>
+                                                                <div class="fw-semibold">{{ $file->getClientOriginalName() }}</div>
+                                                                <small class="text-muted">
+                                                                    {{ $this->formatFileSize($file->getSize()) }}
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                            wire:click="removeFile({{ $index }})">
+                                                                <i class="ri-close-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        <div class="d-flex flex-wrap gap-2 mt-3">
+                                            <button type="button" class="btn btn-outline-secondary flex-fill"
+                                                wire:click="clearAllFiles">
+                                                <i class="ri-delete-bin-line me-1"></i>Limpar lista
+                                            </button>
+                                            <button type="button" class="btn btn-primary flex-fill"
+                                                wire:click="saveFiles">
+                                                <i class="ri-upload-2-line me-1"></i>Salvar recebidos
+                                            </button>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-light border mb-0">
+                                            <i class="ri-information-line me-1"></i>
+                                            Nenhum arquivo em fila para envio.
+                                        </div>
+                                    @endif
+                                @else
+                                    <div class="alert alert-info mb-0">
+                                        Selecione uma medida para anexar recebidos.
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {{-- COMENTÁRIOS DA MEDIDA (histórico interno da medida) --}}
                 <div class="row g-4 mb-4">

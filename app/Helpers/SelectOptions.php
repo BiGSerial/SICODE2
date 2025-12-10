@@ -534,4 +534,17 @@ class SelectOptions
             (object)['reason' => 'TRAFO PENDENTE DE BAIXA', 'value' => 'TRAFO PENDENTE DE BAIXA'],
         ];
     }
+
+
+    public static function getProtestCategory()
+    {
+        return [
+            (object)['reason' => 'CIP - ANÁLISES (INVERSÃO DE FLUXO)', 'value' => 'CIP ANALISE (INVERSAO DE FLUXO)'],
+            (object)['reason' => 'CIP - ANÁLISES (PRÉ-ANÁLISE)', 'value' => 'CIP ANALISE (PRE-ANALISE)'],
+            (object)['reason' => 'CIP - PROJETO', 'value' => 'CIP PROJETO'],
+            (object)['reason' => 'CONSTRUÇÃO', 'value' => 'CONSTRUCAO'],
+            (object)['reason' => 'CONSTRUÇÃO BTZERO', 'value' => 'CONSTRUCAO BTZERO'],
+
+        ];
+    }
 }
