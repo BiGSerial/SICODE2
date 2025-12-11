@@ -117,7 +117,7 @@ class MigrateFiveNotesFromBaseD5 extends Command
                 'sintoms'         => null,
 
                 // reason padronizado quando possível
-                'reason'          => $mappedReason ?? 'Importado da Base D5 de Passivos em Aberto',
+                'reason'          => $mappedReason ?? null,
 
                 'name'            => null,
 

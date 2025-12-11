@@ -57,6 +57,7 @@ class Lists extends Component
     ];
 
     protected $listeners = [
+        'refreshComponent'      => '$refresh',
         'refresh_list'    => '$refresh',
         'filters.updated' => 'onFiltersUpdated',
         'filters.applied' => 'onFiltersUpdated',
@@ -138,7 +139,7 @@ class Lists extends Component
 
     public function goTo($protestNote)
     {
-        
+
         return redirect()->route('protests.dispatch.view', [
             'protest' => $protestNote,
         ]);
@@ -308,4 +309,3 @@ class Lists extends Component
         return filled($this->search) || !empty($this->multisearch);
     }
 }
-

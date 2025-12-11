@@ -136,24 +136,26 @@ class PersonalProductionsJob implements ShouldQueue
             $serviceSuffix = $serviceLabel ? '_' . preg_replace('/\s+/', '_', $serviceLabel) : '';
             $dir           = "exports/users/{$this->userId}";
             $filePath      = "{$dir}/" . now()->format('YmdHis') . "{$serviceSuffix}_my_productions.xlsx";
-            Storage::makeDirectory($dir);
+            $disk          = Storage::disk('public');
+            $disk->makeDirectory($dir);
 
             // Exporta exatamente como na sua chamada de referência
-            (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
+            $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'public');
 
             // Notificação de sucesso
-            if ($user && Storage::disk('local')->exists($filePath)) {
+            if ($stored && $user && $disk->exists($filePath)) {
                 $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório pessoal de Produções' . $serviceText . ' está pronto para download.<br><br>Clique para baixar.',
-                    Storage::url($filePath),
+                    $disk->url($filePath),
                     4,
                     []
                 ));
             } else {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
+
 
         } catch (Throwable $e) {
             Log::error('PersonalProductionsJob falhou', [
@@ -162,8 +164,8 @@ class PersonalProductionsJob implements ShouldQueue
                 'error'   => $e->getMessage(),
             ]);
 
-            if ($filePath && Storage::disk('local')->exists($filePath)) {
-                Storage::disk('local')->delete($filePath);
+            if (isset($disk) && $filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
             }
 
             if ($user) {

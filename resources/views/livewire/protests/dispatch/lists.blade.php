@@ -204,7 +204,11 @@
                             <span class="{{ $jobStatusClass }}">{{ $jobStatusLabel }}</span>
                         </td>
                         <td>
-                            <button class="btn btn-outline-primary btn-sm rounded-circle"
+                            <button class="btn btn-primary btn-sm rounded-circle" title="Gerenciar / Criar Atividade"
+                                wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $activeMed->id }})">
+                                <i class="ri-send-plane-line"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm rounded-circle"
                                 wire:click="goTo({{ $protest->nota }})" title="Abrir Protest">
                                 <i class="ri-external-link-line"></i>
                             </button>
@@ -337,7 +341,7 @@
                             <th>Status</th>
                             <th>Dt Abertura</th>
                             <th>Desejada</th>
-                            <th>ResponsÃ¡vel</th>
+                            <th>Responsável</th>
                             <th>Enviado Em</th>
                         </tr>
                         @foreach ($selected->medProtests as $medida)
@@ -384,18 +388,18 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="buscarMultiLabel">
                         <i class="ri-search-2-line me-2"></i>
-                        Busca MÃºltipla de Notas
+                        Busca Multiplas de Notas
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     <div class="form-floating">
                         <textarea class="form-control" id="advanceSearch" style="height: 200px;"
-                            placeholder="Cole aqui vÃ¡rios valores (vÃ­rgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
-                        <label for="advanceSearch">NÃºmeros / valores</label>
+                            placeholder="Cole aqui vários valores (vírgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
+                        <label for="advanceSearch">Números / valores</label>
                     </div>
                     <div class="form-text">
-                        Separe por vÃ­rgula <strong>,</strong> ou por quebra de linha.
+                        Separe por vírgula <strong>,</strong> ou por quebra de linha.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -407,6 +411,9 @@
             </div>
         </div>
     </div>
+
+    {{-- Components Livewire --}}
+    @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest'))
 
 </div>
 

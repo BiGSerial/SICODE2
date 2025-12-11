@@ -126,6 +126,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         //Calculando os dias informados
         $informe = '';
+        $diasInforme = '---';
         if ($row->WorkForm) {
             $partner = $row->WorkForm->company?->name;
             $userInform = $row->WorkForm->user?->name;

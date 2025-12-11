@@ -46,7 +46,9 @@ class ExportDispatchSupervisionJob implements ShouldQueue
             throw new \RuntimeException('Serviço não encontrado para exportação.');
         }
 
+        $disk     = Storage::disk('public');
         $filePath = 'exports/' . now()->format('Ymd_His') . '_supervision_' . $service->uuid . '.xlsx';
+        $disk->makeDirectory(dirname($filePath));
 
         try {
             // === Base query igual à da tela ===
@@ -99,18 +101,20 @@ class ExportDispatchSupervisionJob implements ShouldQueue
             }
 
             // === Executa exportação ===
-            (new DispatchSupervisionStack($builder, $service->uuid))
-                ->store($filePath, 'local');
+            $stored = (new DispatchSupervisionStack($builder, $service->uuid))
+                ->store($filePath, 'public');
 
             // === Notificação ===
-            if ($user && Storage::disk('local')->exists($filePath)) {
+            if ($stored && $user && $disk->exists($filePath)) {
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório de Fiscalização foi gerado com sucesso.',
-                    Storage::url($filePath),
+                    $disk->url($filePath),
                     4,
                     []
                 ));
+            } else {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
 
         } catch (Throwable $e) {
@@ -120,8 +124,8 @@ class ExportDispatchSupervisionJob implements ShouldQueue
                 'error'   => $e->getMessage(),
             ]);
 
-            if ($filePath && Storage::disk('local')->exists($filePath)) {
-                Storage::disk('local')->delete($filePath);
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
             }
 
             if ($user) {

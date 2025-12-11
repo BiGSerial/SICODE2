@@ -117,7 +117,7 @@ class ProtestUpd extends Command
                         'descCausa'          => $record->descCausa,
                         'descSubCausa'       => $record->descSubCausa,
                         'descricao'          => $record->descricao,
-                        'type_note'          => 1,
+
                         'updated_at'         => now(),
                         'created_at'         => is_null($existiting) ? now() : $existiting->created_at,
                     ];
@@ -152,7 +152,7 @@ class ProtestUpd extends Command
                         'descCausa',
                         'descSubCausa',
                         'descricao',
-                        'type_note',
+                       
                         'updated_at',
                         'created_at'
                     ]);
