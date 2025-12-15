@@ -6,7 +6,6 @@ use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseProtest;
 use App\Models\Protest;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class ProtestUpd extends Command
@@ -35,32 +34,31 @@ class ProtestUpd extends Command
         $log = new RegistroJson('upd_protest', $this->options());
         $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
 
-
-        $baseQuery = BaseProtest::query()->from('tbld_usr_baseReclamacoes as t')
-    ->whereIn('id', function ($query) {
-        $query->select('id')
-              ->from('tbld_usr_baseReclamacoes as sub')
-              ->whereColumn('sub.nota', 't.nota')
-              ->orderByDesc('sub.dtCriacaoMedida')
-              ->limit(1);  // no SQL Server vira TOP 1
-    })
-    ->select([
-        't.id',
-        't.nota',
-        't.tipoNota',
-        't.codecodf',
-        't.txtGrpCodificacao',
-        't.statUsuar',
-        't.cidade',
-        't.cenPlan',
-        't.dtAberturaNota',
-        't.dtConclusaoDesej',
-        't.descCausa',
-        't.descSubCausa',
-        't.descricao',
-    ]);
-
-
+        // Pega apenas o último registro por nota (maior dtCriacaoMedida)
+        $baseQuery = BaseProtest::query()
+            ->from('tbld_usr_baseReclamacoes as t')
+            ->whereIn('id', function ($query) {
+                $query->select('id')
+                    ->from('tbld_usr_baseReclamacoes as sub')
+                    ->whereColumn('sub.nota', 't.nota')
+                    ->orderByDesc('sub.dtCriacaoMedida')
+                    ->limit(1); // vira TOP 1 no SQL Server
+            })
+            ->select([
+                't.id',
+                't.nota',
+                't.tipoNota',
+                't.codecodf',
+                't.txtGrpCodificacao',
+                't.statUsuar',
+                't.cidade',
+                't.cenPlan',
+                't.dtAberturaNota',
+                't.dtConclusaoDesej',
+                't.descCausa',
+                't.descSubCausa',
+                't.descricao',
+            ]);
 
         $total = $baseQuery->count();
         $log->setTotal($total);
@@ -68,41 +66,30 @@ class ProtestUpd extends Command
         $bar = new ProgressBar($this->output, $total);
         $bar->setFormat(
             '<bg=blue;fg=white>UPDATE PROTEST LIST: %current%/%max% </>' .
-            '<fg=white;options=bold> [%tins%][I: %ins%/U: %upd%] </>' .
+            '<fg=white;options=bold> [T: %tins%][I: %ins%/U: %upd%] </>' .
             '<fg=green>[%bar%]</> <fg=white;options=bold> %percent%%</> ' .
             '<bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </> %message%'
         );
 
         $bar->setMessage('Starting', 'message');
+        $bar->setMessage('0', 'tins');
+        $bar->setMessage('0', 'ins');
+        $bar->setMessage('0', 'upd');
         $bar->start();
 
-        $baseQuery->orderBy('id')
+        $baseQuery
+            ->orderBy('id')
             ->chunk(2000, function ($protests) use ($bar, &$count) {
+                // todas as notas do chunk
                 $notas = $protests->pluck('nota')->unique()->values();
+
+                // busca o que já existe no banco
                 $existingNotes = Protest::whereIn('nota', $notas)->get()->keyBy('nota');
 
                 $upsertData = [];
 
-                foreach ($notas as $nota) {
-                    $record   = $protests->firstWhere('nota', $nota);
-                    $existiting = $existingNotes->get($nota);
-
-                    $modified = is_null($existiting)
-                        || $existiting->tipoNota !== $record->tipoNota
-                        || $existiting->txtGrpCodificacao !== $record->txtGrpCodificacao
-                        || $existiting->cenPlan !== $record->cenPlan
-                        || $existiting->descSubCausa !== $record->descSubCausa
-                        || $existiting->descCausa !== $record->descCausa
-                        || $existiting->statUsuar !== $record->statUsuar
-                        || $existiting->descricao !== $record->descricao;
-
-                    if (!$modified) {
-                        $bar->setMessage($count['tins'], 'tins');
-                        $bar->setMessage($count['ins'], 'ins');
-                        $bar->setMessage($count['upd'], 'upd');
-                        $bar->advance();
-                        continue;
-                    }
+                foreach ($protests as $record) {
+                    $existing = $existingNotes->get($record->nota);
 
                     $data = [
                         'nota'               => $record->nota,
@@ -119,54 +106,55 @@ class ProtestUpd extends Command
                         'descricao'          => $record->descricao,
 
                         'updated_at'         => now(),
-                        'created_at'         => is_null($existiting) ? now() : $existiting->created_at,
+                        // preserva o created_at se já existir, senão usa agora
+                        'created_at'         => $existing?->created_at ?? now(),
                     ];
 
-                    if (is_null($existiting)) {
+                    // apenas pra estatística
+                    if ($existing === null) {
                         $count['ins']++;
-
                     } else {
                         $count['upd']++;
                     }
 
                     $upsertData[] = $data;
 
-                    $bar->setMessage($count['tins'], 'tins');
-                    $bar->setMessage($count['ins'], 'ins');
-                    $bar->setMessage($count['upd'], 'upd');
+                    $bar->setMessage((string) $count['tins'], 'tins');
+                    $bar->setMessage((string) $count['ins'], 'ins');
+                    $bar->setMessage((string) $count['upd'], 'upd');
                     $bar->advance();
                 }
 
-
-
                 if (!empty($upsertData)) {
-                    Protest::upsert($upsertData, ['nota'], [
-                       'tipoNota',
-                        'codecodf',
-                        'txtGrpCodificacao',
-                        'dtAberturaNota',
-                        'dtConclusaoDesej',
-                        'cenPlan',
-                        'cidade',
-                        'statUsuar',
-                        'descCausa',
-                        'descSubCausa',
-                        'descricao',
-                       
-                        'updated_at',
-                        'created_at'
-                    ]);
+                    Protest::upsert(
+                        $upsertData,
+                        ['nota'], // chave única
+                        [
+                            'tipoNota',
+                            'codecodf',
+                            'txtGrpCodificacao',
+                            'dtAberturaNota',
+                            'dtConclusaoDesej',
+                            'cenPlan',
+                            'cidade',
+                            'statUsuar',
+                            'descCausa',
+                            'descSubCausa',
+                            'descricao',
+                            'updated_at',
+                            'created_at',
+                        ]
+                    );
                 }
 
-
                 $count['tins']++;
-
             });
 
-
-
+        $bar->finish();
+        $this->newLine(2);
         $this->info('Atualização concluída com sucesso!');
-        // Retorne 0 para indicar sucesso
+        $this->info("Inseridos: {$count['ins']} | Atualizados: {$count['upd']}");
+
         return 0;
     }
 }

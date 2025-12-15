@@ -409,33 +409,23 @@ class Jobform extends Component
             // Se for parcial, encerra a supervisão da parcial e libera para pagamento.
             if ($this->production->partial) {
 
-                if ($partial = $this->production->Note->Partials->last()) {
 
-                    if ($this->analise->conclusion == 'reject') {
 
-                        $text = $partial->engineer_info ?? '';
-                        $text .= "\n ------------------------ \n" . "Nota/OV encerrada com rejeição em Fiscalização. \n" . "Motivo: " . $this->analise->info . "\n" . "Fiscal: " . auth()->user()->name;
+                if ($this->analise->conclusion == 'reject') {
 
-                        $partial->update([
-                           'supervision' => true,
-                           'deny' => true,
-                           'allow' => false,
-                           'complete' => true,
-                           'engineer_info' => $text,
-                           'supervision_at' => date('Y-m-d H:i:s'),
-                           'supervision_id' => Auth()->User()->id,
-                        ]);
+                    $text = $partial->engineer_info ?? '';
+                    $text .= "\n ------------------------ \n" . "Nota/OV encerrada com rejeição em Fiscalização. \n" . "Motivo: " . $this->analise->info . "\n" . "Fiscal: " . auth()->user()->name;
 
-                    } elseif ($partial->allow && !$partial->supervision && !$partial->payment) {
-                        $partial->update([
-                            'supervision' => true,
-                            'supervision_at' => date('Y-m-d H:i:s'),
-                            'supervision_id' => Auth()->User()->id,
-                        ]);
-                    }
+                    $this->production->partialReject(false, $text);
+
+                } else {
+                    $this->production->partialFiscalDone();
 
 
                 }
+
+
+
             }
 
             if ($this->d5 == 1 || $this->production->dfive) {

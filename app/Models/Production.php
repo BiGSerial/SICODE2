@@ -175,4 +175,82 @@ class Production extends Model
         return $this->hasOne(Wpa::class)->latest('id');
     }
 
+
+    // Encerramento de Parcial
+    public function partialFiscalDone(): ?\App\Models\Partial
+    {
+        $partial = $this->Note->Partials()
+            ->orderBy('id', 'desc')
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('complete', false)
+            ->where('supervision', false)
+            ->first();
+
+        if ($partial) {
+            $partial->supervision = true;
+            $partial->supervision_at = now();
+            $partial->supervision_id = auth()->user()->id;
+            $partial->save();
+        }
+
+        return $partial;
+    }
+
+     public function partialPaymentDone(): ?\App\Models\Partial
+    {
+        $partial = $this->Note->Partials()
+            ->orderBy('id', 'desc')
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('complete', false)
+            ->where('supervision', true)
+            ->where('payment', false)
+            ->first();
+
+        if ($partial) {
+            $partial->payment = true;
+            $partial->complete = true;
+            $partial->payment_at = now();
+            $partial->payment_id = auth()->user()->id;
+            $partial->save();
+        } else {
+            return null;
+        }
+
+        return $partial;
+    }
+
+     public function partialReject($payment = false, $motivo): ?\App\Models\Partial
+    {
+        $partial = $this->Note->Partials()
+            ->orderBy('id', 'desc')
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('complete', false)
+            ->first();
+
+        if ($partial) {
+
+
+            $partial->payment = $payment;
+            $partial->complete = false;
+            $partial->payment_at = $payment ? now() : null;
+            $partial->payment_id = $payment ? auth()->user()->id : null;
+            $partial->engineer_info = $motivo;
+            $partial->complete = false;
+            $partial->supervision = !$payment ? true : false;
+            $partial->supervision_at = !$payment ? now() : null;
+            $partial->supervision_id = !$payment ? auth()->user()->id : null;
+            $partial->allow = false;
+            $partial->deny = true;
+            $partial->save();
+
+        } else {
+            return null;
+        }
+
+        return $partial;
+    }
+
 }

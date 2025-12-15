@@ -2,6 +2,9 @@
 
 namespace App\Http\Livewire\Protests\Analytics;
 
+use App\Enum\ProtestJobStatus;
+use App\Enum\ProtestType;
+use App\Jobs\Protests\ExportProtestJobsJob;
 use App\Models\MedProtest;
 use App\Models\Protest;
 use App\Models\ProtestJob;
@@ -265,6 +268,196 @@ class UserSlaDashboard extends Component
                 'avg_exec_human'      => $this->secondsToHuman($avgExecSec),
             ];
         })->sortByDesc('total_jobs')->values();
+    }
+
+    protected function buildProductivityPanel(Carbon $start, Carbon $end): array
+    {
+        $daysRange = max($start->diffInDays($end) + 1, 1);
+
+        $dispatchBase = $this->jobsBaseQuery($start, $end, 'sent_at')
+            ->whereNotNull('protest_jobs.sent_at');
+
+        $completionBase = $this->jobsBaseQuery($start, $end, 'finished_at')
+            ->whereNotNull('protest_jobs.finished_at');
+
+        $totalDispatched = (clone $dispatchBase)->count();
+        $totalFinished = (clone $completionBase)
+            ->where('protest_jobs.status', ProtestJobStatus::DONE->value)
+            ->count();
+
+        $openJobs = (clone $dispatchBase)
+            ->where(function ($q) {
+                $q->whereNull('protest_jobs.finished_at')
+                    ->orWhere('protest_jobs.status', '!=', ProtestJobStatus::DONE->value);
+            })
+            ->count();
+
+        return [
+            'total_dispatched'   => $totalDispatched,
+            'total_finished'     => $totalFinished,
+            'open_jobs'          => $openJobs,
+            'avg_daily_dispatch' => round($totalDispatched / $daysRange, 1),
+            'avg_daily_finish'   => round($totalFinished / $daysRange, 1),
+        ];
+    }
+
+    protected function buildBacklogPanel(): array
+    {
+        $base = MedProtest::query()
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs');
+
+        $totalOpen = (clone $base)->count();
+        $olderThanFive = (clone $base)
+            ->whereDate('dtCriacaoMedida', '<=', now()->subDays(5)->startOfDay())
+            ->count();
+        $expired = (clone $base)
+            ->whereNotNull('dtFimMedidaDesej')
+            ->whereDate('dtFimMedidaDesej', '<', now()->startOfDay())
+            ->count();
+
+        return [
+            'total_open'   => $totalOpen,
+            'older_than_5' => $olderThanFive,
+            'expired'      => $expired,
+        ];
+    }
+
+    protected function buildSlaPanel(Carbon $start, Carbon $end): array
+    {
+        $rangeStart = $start->copy()->startOfDay();
+        $rangeEnd   = $end->copy()->endOfDay();
+
+        $medBase = MedProtest::query()
+            ->whereNotNull('dtFimMedida')
+            ->whereNotNull('dtFimMedidaDesej')
+            ->whereBetween('dtFimMedida', [$rangeStart, $rangeEnd]);
+
+        $medTotal = (clone $medBase)->count();
+        $medOnTime = (clone $medBase)
+            ->whereColumn('dtFimMedida', '<=', 'dtFimMedidaDesej')
+            ->count();
+        $medLate = max(0, $medTotal - $medOnTime);
+
+        $medSub = MedProtest::query()
+            ->selectRaw('protest_id, MAX(dtFimMedida) as last_finish')
+            ->whereNotNull('dtFimMedida')
+            ->groupBy('protest_id');
+
+        $protestBase = Protest::query()
+            ->joinSub($medSub, 'med_finish', function ($join) {
+                $join->on('med_finish.protest_id', '=', 'protests.id');
+            })
+            ->whereBetween('med_finish.last_finish', [$rangeStart, $rangeEnd])
+            ->whereNotNull('protests.dtConclusaoDesej');
+
+        $protestTotal = (clone $protestBase)->count();
+        $protestOnTime = (clone $protestBase)
+            ->whereColumn('med_finish.last_finish', '<=', 'protests.dtConclusaoDesej')
+            ->count();
+        $protestLate = max(0, $protestTotal - $protestOnTime);
+
+        $overallTotal = $medTotal + $protestTotal;
+        $overallOnTime = $medOnTime + $protestOnTime;
+
+        return [
+            'med' => [
+                'total'   => $medTotal,
+                'on_time' => $medOnTime,
+                'late'    => $medLate,
+                'rate'    => $medTotal > 0 ? round(($medOnTime / $medTotal) * 100, 1) : 0,
+            ],
+            'protest' => [
+                'total'   => $protestTotal,
+                'on_time' => $protestOnTime,
+                'late'    => $protestLate,
+                'rate'    => $protestTotal > 0 ? round(($protestOnTime / $protestTotal) * 100, 1) : 0,
+            ],
+            'overall_rate' => $overallTotal > 0 ? round(($overallOnTime / $overallTotal) * 100, 1) : 0,
+        ];
+    }
+
+    protected function buildBottlenecksPanel(Carbon $start, Carbon $end): array
+    {
+        $rangeStart = $start->copy()->startOfDay();
+        $rangeEnd   = $end->copy()->endOfDay();
+        $now        = now();
+
+        $categoryRows = MedProtest::query()
+            ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd])
+            ->selectRaw('
+                protest_type,
+                COUNT(*) as total_medidas,
+                SUM(CASE WHEN statusSist = "MEDA" THEN 1 ELSE 0 END) as abertas,
+                SUM(CASE WHEN statusSist = "MEDA" AND dtFimMedidaDesej IS NOT NULL AND dtFimMedidaDesej < ? THEN 1 ELSE 0 END) as vencidas,
+                SUM(CASE WHEN statusSist != "MEDA" AND dtFimMedida IS NOT NULL THEN 1 ELSE 0 END) as concluidas
+            ', [$now])
+            ->groupBy('protest_type')
+            ->get();
+
+        $totalMedidasPeriodo = max(1, $categoryRows->sum('total_medidas'));
+
+        $categories = $categoryRows->map(function ($row) use ($totalMedidasPeriodo) {
+            $total = (int)$row->total_medidas;
+
+            return [
+                'type_value' => $row->protest_type,
+                'label'      => $this->resolveProtestTypeLabel($row->protest_type),
+                'total'      => $total,
+                'abertas'    => (int)$row->abertas,
+                'concluidas' => (int)$row->concluidas,
+                'vencidas'   => (int)$row->vencidas,
+                'percent'    => round(($total / $totalMedidasPeriodo) * 100, 1),
+            ];
+        })->sortByDesc('total')->values();
+
+        $tipoNotaRows = Protest::query()
+            ->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd])
+            ->selectRaw('COALESCE(tipoNota, "Não informado") as tipo, COUNT(*) as total')
+            ->groupBy('tipo')
+            ->orderByDesc('total')
+            ->limit(6)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'tipo'  => $row->tipo,
+                    'total' => (int)$row->total,
+                ];
+            });
+
+        $tipoNotaLateRows = Protest::query()
+            ->whereNotNull('dtConclusaoDesej')
+            ->whereDate('dtConclusaoDesej', '<', now()->startOfDay())
+            ->selectRaw('COALESCE(tipoNota, "Não informado") as tipo, COUNT(*) as total')
+            ->groupBy('tipo')
+            ->orderByDesc('total')
+            ->limit(6)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'tipo'  => $row->tipo,
+                    'total' => (int)$row->total,
+                ];
+            });
+
+        return [
+            'categories'     => $categories,
+            'tipo_nota'      => $tipoNotaRows,
+            'tipo_nota_late' => $tipoNotaLateRows,
+        ];
+    }
+
+    protected function resolveProtestTypeLabel($value): string
+    {
+        if (is_null($value)) {
+            return 'Sem categoria';
+        }
+
+        if ($value instanceof ProtestType) {
+            return $value->label();
+        }
+
+        return ProtestType::tryFrom((int)$value)?->label() ?? 'Desconhecido';
     }
 
     /**
@@ -772,6 +965,28 @@ class UserSlaDashboard extends Component
         })->toArray();
     }
 
+    protected function toast(string $status, string $message): void
+    {
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => $status,
+            'menssage' => $message,
+        ]);
+    }
+
+    public function exportJobs(): void
+    {
+        [$start, $end] = $this->getDateRange();
+
+        ExportProtestJobsJob::dispatch([
+            'start'         => $start->toDateTimeString(),
+            'end'           => $end->toDateTimeString(),
+            'advanceFilter' => $this->advanceFilter,
+            'userId'        => $this->userId,
+        ], (string) auth()->id());
+
+        $this->toast('info', 'Estamos gerando o Excel com os filtros aplicados. Você será notificado ao final.');
+    }
+
 
 
     public function render()
@@ -779,6 +994,10 @@ class UserSlaDashboard extends Component
         [$start, $end] = $this->getDateRange();
 
         $summary         = $this->buildSummary($start, $end);
+        $productivity    = $this->buildProductivityPanel($start, $end);
+        $backlogPanel    = $this->buildBacklogPanel();
+        $slaPanel        = $this->buildSlaPanel($start, $end);
+        $bottlenecks     = $this->buildBottlenecksPanel($start, $end);
         $dispatcherStats = $this->buildDispatcherStats($start, $end);
         $ownerStats      = $this->buildOwnerStats($start, $end);
         $dailyOpenings          = $this->buildDailyOpeningsChart($start, $end);
@@ -793,6 +1012,10 @@ class UserSlaDashboard extends Component
 
         return view('livewire.protests.analytics.user-sla-dashboard', [
             'summary'                 => $summary,
+            'productivity'            => $productivity,
+            'backlogPanel'            => $backlogPanel,
+            'slaPanel'                => $slaPanel,
+            'bottlenecks'             => $bottlenecks,
             'dispatcherStats'         => $dispatcherStats,
             'ownerStats'              => $ownerStats,
             'dailyOpenings'           => $dailyOpenings,
