@@ -138,13 +138,13 @@
 
                             if ($deadlineDate->endOfDay()->isPast()) {
                                 $deadlineBadge['label'] = 'Vencido';
-                                $deadlineBadge['class'] = 'badge bg-danger-subtle text-danger';
+                                $deadlineBadge['class'] = 'badge text-bg-danger bg-opacity-70';
                             } elseif ($deadlineDate->diffInDays() <= 2) {
                                 $deadlineBadge['label'] = 'Vencendo';
-                                $deadlineBadge['class'] = 'badge bg-warning-subtle text-warning';
+                                $deadlineBadge['class'] = 'badge  text-bg-warning bg-opacity-50';
                             } else {
                                 $deadlineBadge['label'] = 'No prazo';
-                                $deadlineBadge['class'] = 'badge bg-success-subtle text-success';
+                                $deadlineBadge['class'] = 'badge  text-bg-success bg-opacity-70';
                             }
                         }
 
@@ -187,8 +187,7 @@
                         <td>{{ optional($startMedDate)->format('d/m/Y') ?? '—' }}</td>
                         <td>
                             <div class="d-flex flex-column lh-1">
-                                <span
-                                    class="fw-semibold badge {{ $deadlineBadge['class'] }}">{{ $elapsedMed }}</span>
+                                <span class="fw-semibold badge text-bg-secondary">{{ $elapsedMed }} d</span>
                                 @if ($startMedDate)
                                     <small
                                         class="text-muted">{{ $startMedDate->diffForHumans(['short' => true]) }}</small>

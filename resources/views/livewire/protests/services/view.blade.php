@@ -332,13 +332,13 @@
                     </div>
                 </div>
 
-                <div class="header-details mt-2">
+                {{-- <div class="header-details mt-2">
                     <i class="ri-information-line me-1"></i>
                     Instruções do Job:
                     <span class="fw-semibold">
                         {{ $job->notes ?? 'Sem instruções detalhadas cadastradas.' }}
                     </span>
-                </div>
+                </div> --}}
             </div>
 
             {{-- Painel compacto de SLA no cabeçalho --}}
@@ -418,6 +418,23 @@
                             <div class="text-muted mb-1">Resumo da Reclamação</div>
                             <div class="fw-medium">
                                 {{ $protest?->resume ?? ($protest?->descricao ?? 'Sem resumo disponível.') }}
+                            </div>
+                        </div>
+                        <div class="border-top pt-2 mt-2">
+                            <div class="alert alert-primary border-0 shadow-sm mb-0" role="alert">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="flex-shrink-0">
+                                        <i class="ri-information-line fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="alert-heading mb-2 fw-bold">
+                                            <i class="ri-file-list-line me-1"></i>Instruções desta Atividade
+                                        </h6>
+                                        <div class="fw-medium">
+                                            {{ $job->notes ?? 'Sem instruções detalhadas cadastradas.' }}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -632,6 +649,13 @@
                 @endif
             </div>
         </div>
+        {{-- ==== Anexos & Evidências ==== --}}
+        <div class="modern-card">
+            <div class="modern-card-body">
+                <div class="modern-card-title mb-2"><i class="ri-attachment-line me-2"></i>Anexos & Evidências</div>
+                <x-files.attachments :files="$protest->evidenceFiles" downloadAction="downloadFile" />
+            </div>
+        </div>
 
         {{-- ================= ANEXOS / COMENTÁRIOS ================= --}}
         <div class="row mt-3">
@@ -841,24 +865,7 @@
                         </div>
 
                         <div class="row g-3">
-                            <div class="col-12 col-lg-5">
-                                <div class="form-floating mb-3">
-                                    <textarea class="form-control @error('comment') is-invalid @enderror" placeholder="Digite seu comentário..."
-                                        id="floatingTextarea" style="height: 140px" wire:model.defer="comment"></textarea>
-                                    <label for="floatingTextarea">Seu comentário</label>
-                                </div>
-                                @error('comment')
-                                    <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
-                                @enderror
-                                <div class="d-grid">
-                                    <button type="button" class="btn btn-primary" wire:click.prevent="addComment">
-                                        <i class="ri-send-plane-fill me-1"></i>
-                                        Enviar comentário
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="col-12 col-lg-7">
+                            <div class="col-12">
                                 <div class="chat-container border rounded bg-light">
                                     @if ($medProtest && $medProtest->comments->isNotEmpty())
                                         @foreach ($medProtest->comments->sortByDesc('created_at') as $comment)
@@ -909,11 +916,28 @@
                                             <i class="ri-chat-3-line fs-1 mb-3 opacity-50"></i>
                                             <h6 class="mb-1">Nenhum comentário ainda</h6>
                                             <p class="mb-0 text-center small">
-                                                Use o campo ao lado para registrar dúvidas, encaminhamentos e
+                                                Use o campo abaixo para registrar dúvidas, encaminhamentos e
                                                 tratativas desta medida.
                                             </p>
                                         </div>
                                     @endif
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-floating mb-3">
+                                    <textarea class="form-control @error('comment') is-invalid @enderror" placeholder="Digite seu comentário..."
+                                        id="floatingTextarea" style="height: 140px" wire:model.defer="comment"></textarea>
+                                    <label for="floatingTextarea">Seu comentário</label>
+                                </div>
+                                @error('comment')
+                                    <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
+                                @enderror
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-primary" wire:click.prevent="addComment">
+                                        <i class="ri-send-plane-fill me-1"></i>
+                                        Enviar comentário
+                                    </button>
                                 </div>
                             </div>
                         </div> {{-- row g-3 --}}

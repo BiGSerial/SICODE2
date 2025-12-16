@@ -41,7 +41,9 @@
         }
     @endphp
     {{-- Modal dentro do componente --}}
+    <x-show-loading />
     <div class="modal fade" id="protestJobViewModal" tabindex="-1" wire:ignore.self>
+
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-primary text-white">
@@ -450,6 +452,18 @@
                                                                         </div>
                                                                         <div class="fw-semibold">
                                                                             {{ $medProtest->completed ? 'Sim' : 'Não' }}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-12">
+                                                                    <div class="p-2 rounded border bg-white shadow-sm">
+                                                                        <div class="text-muted"><i
+                                                                                class="bi bi-info-circle me-2"></i>Instrução
+                                                                            ao usuario
+
+                                                                        </div>
+                                                                        <div class="fw-semibold">
+                                                                            {{ $job->notes ?? null }}
                                                                         </div>
                                                                     </div>
                                                                 </div>

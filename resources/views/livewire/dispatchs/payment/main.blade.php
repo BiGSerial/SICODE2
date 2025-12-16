@@ -211,7 +211,7 @@
                                 }
 
                                 if ($partial) {
-                                    $date = $partial->supervision_at->addDays(5);
+                                    $date = $partial?->supervision_at?->addDays(5);
                                 } else {
                                     $date = $list->fimLancado;
                                 }
@@ -229,9 +229,7 @@
                             @endphp
                             {{-- @dump($list->Productions) --}}
 
-                            <tr
-                                class="align-middle text-center"
-                                wire:key="note-{{ $list->id }}">
+                            <tr class="align-middle text-center" wire:key="note-{{ $list->id }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary " type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
