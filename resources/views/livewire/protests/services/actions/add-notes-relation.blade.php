@@ -1,4 +1,5 @@
 <div>
+    <x-show-loading />
     <div wire:ignore.self class="modal fade" id="addNotesRelationModal" tabindex="-1"
         aria-labelledby="modalEntityProtocolLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">

@@ -49,14 +49,9 @@ class UserSlaDashboard extends Component
     /**
      * Query base para filtrar os ProtestJobs do período / filtros.
      */
-    protected function jobsBaseQuery(Carbon $start, Carbon $end, string $dateColumn = 'sent_at')
+    protected function baseJobsQuery()
     {
-        if (!in_array($dateColumn, ['sent_at', 'finished_at'], true)) {
-            $dateColumn = 'sent_at';
-        }
-
         return ProtestJob::query()
-            ->whereBetween($dateColumn, [$start, $end])
             ->when($this->advanceFilter === 'advance', fn ($q) => $q->where('is_advance', true))
             ->when($this->advanceFilter === 'normal', fn ($q) => $q->where(function ($sub) {
                 $sub->where('is_advance', false)->orWhereNull('is_advance');
@@ -69,6 +64,16 @@ class UserSlaDashboard extends Component
                         ->orWhere('closed_by', $id);
                 });
             });
+    }
+
+    protected function jobsBaseQuery(Carbon $start, Carbon $end, string $dateColumn = 'sent_at')
+    {
+        if (!in_array($dateColumn, ['sent_at', 'finished_at'], true)) {
+            $dateColumn = 'sent_at';
+        }
+
+        return $this->baseJobsQuery()
+            ->whereBetween($dateColumn, [$start, $end]);
     }
 
     protected function getDateRange(): array
@@ -119,17 +124,26 @@ class UserSlaDashboard extends Component
         $dispatcherGlobal = (clone $base)
             ->join('med_protests', 'med_protests.id', '=', 'protest_jobs.med_protest_id')
             ->whereNotNull('protest_jobs.created_by')
-            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, med_protests.created_at, protest_jobs.sent_at)) as avg_reaction_seconds')
+            ->whereNotNull('med_protests.dtCriacaoMedida')
+            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, med_protests.dtCriacaoMedida, protest_jobs.sent_at)) as avg_reaction_seconds')
             ->first();
 
         $avgReactionSeconds = (int)($dispatcherGlobal->avg_reaction_seconds ?? 0);
 
-        // Média global de execução (Responsáveis)
+        // Tempo até aceite pelo responsável (sent_at -> accepted_at)
+        $userReaction = (clone $base)
+            ->whereNotNull('protest_jobs.accepted_at')
+            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, protest_jobs.sent_at, protest_jobs.accepted_at)) as avg_accept_seconds')
+            ->first();
+
+        $avgUserReactionSeconds = (int)($userReaction->avg_accept_seconds ?? 0);
+
+        // Média global de execução (Responsáveis) sent_at -> finished_at
         $ownerGlobal = (clone $base)
             ->whereNotNull('protest_jobs.owner_id')
-            ->whereNotNull('protest_jobs.started_at')
+            ->whereNotNull('protest_jobs.sent_at')
             ->whereNotNull('protest_jobs.finished_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, protest_jobs.started_at, protest_jobs.finished_at)) as avg_exec_seconds')
+            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, protest_jobs.sent_at, protest_jobs.finished_at)) as avg_exec_seconds')
             ->first();
 
         $avgExecSeconds = (int)($ownerGlobal->avg_exec_seconds ?? 0);
@@ -152,17 +166,19 @@ class UserSlaDashboard extends Component
             : 0;
 
         return [
-            'period_label'       => $start->format('d/m/Y') . ' - ' . $end->format('d/m/Y'),
-            'total_jobs'         => $totalJobs,
-            'finished_jobs'      => $finishedJobs,
-            'sla_rate'           => $slaRate,
-            'avg_reaction_sec'   => $avgReactionSeconds,
-            'avg_reaction_human' => $this->secondsToHuman($avgReactionSeconds),
-            'avg_exec_sec'       => $avgExecSeconds,
-            'avg_exec_human'     => $this->secondsToHuman($avgExecSeconds),
-            'self_closure_rate'  => $selfClosureRate,
-            'self_closed'        => $selfClosed,
-            'total_closed'       => $totalClosed,
+            'period_label'             => $start->format('d/m/Y') . ' - ' . $end->format('d/m/Y'),
+            'total_jobs'               => $totalJobs,
+            'finished_jobs'            => $finishedJobs,
+            'sla_rate'                 => $slaRate,
+            'avg_reaction_sec'         => $avgReactionSeconds,
+            'avg_reaction_human'       => $this->secondsToHuman($avgReactionSeconds),
+            'avg_user_reaction_sec'    => $avgUserReactionSeconds,
+            'avg_user_reaction_human'  => $this->secondsToHuman($avgUserReactionSeconds),
+            'avg_exec_sec'             => $avgExecSeconds,
+            'avg_exec_human'           => $this->secondsToHuman($avgExecSeconds),
+            'self_closure_rate'        => $selfClosureRate,
+            'self_closed'              => $selfClosed,
+            'total_closed'             => $totalClosed,
         ];
     }
 
@@ -220,6 +236,13 @@ class UserSlaDashboard extends Component
                 SUM(CASE WHEN protest_jobs.finished_at IS NOT NULL THEN 1 ELSE 0 END) as finished_jobs,
                 SUM(
                     CASE
+                        WHEN protest_jobs.finished_at IS NULL
+                             OR protest_jobs.status != ?
+                        THEN 1 ELSE 0
+                    END
+                ) as open_jobs,
+                SUM(
+                    CASE
                         WHEN protest_jobs.sla_breached_at IS NULL
                              AND protest_jobs.sla_due_at IS NOT NULL
                              AND protest_jobs.finished_at IS NOT NULL
@@ -235,8 +258,8 @@ class UserSlaDashboard extends Component
                     END
                 ) as self_closed,
                 AVG(TIMESTAMPDIFF(SECOND, protest_jobs.sent_at, protest_jobs.finished_at)) as avg_total_seconds,
-                AVG(TIMESTAMPDIFF(SECOND, protest_jobs.started_at, protest_jobs.finished_at)) as avg_exec_seconds
-            ')
+                AVG(TIMESTAMPDIFF(SECOND, protest_jobs.sent_at, protest_jobs.finished_at)) as avg_exec_seconds
+            ', [ProtestJobStatus::DONE->value])
             ->groupBy('protest_jobs.owner_id')
             ->get();
 
@@ -246,6 +269,7 @@ class UserSlaDashboard extends Component
             $totalJobs     = (int)$row->total_jobs;
             $totalAdvance  = (int)($row->total_advance ?? 0);
             $finishedJobs  = (int)($row->finished_jobs ?? 0);
+            $openJobs      = (int)($row->open_jobs ?? 0);
             $slaOnTime     = (int)($row->sla_on_time ?? 0);
             $selfClosed    = (int)($row->self_closed ?? 0);
             $avgTotalSec   = (int)($row->avg_total_seconds ?? 0);
@@ -258,6 +282,7 @@ class UserSlaDashboard extends Component
                 'total_advance'       => $totalAdvance,
                 'advance_ratio'       => $totalJobs > 0 ? round(($totalAdvance / $totalJobs) * 100, 1) : 0,
                 'finished_jobs'       => $finishedJobs,
+                'open_jobs'           => $openJobs,
                 'sla_on_time'         => $slaOnTime,
                 'sla_rate'            => $finishedJobs > 0 ? round(($slaOnTime / $finishedJobs) * 100, 1) : 0,
                 'self_closed'         => $selfClosed,
@@ -274,52 +299,94 @@ class UserSlaDashboard extends Component
     {
         $daysRange = max($start->diffInDays($end) + 1, 1);
 
-        $dispatchBase = $this->jobsBaseQuery($start, $end, 'sent_at')
-            ->whereNotNull('protest_jobs.sent_at');
+        $rangeStart = $start->copy()->startOfDay();
+        $rangeEnd   = $end->copy()->endOfDay();
 
-        $completionBase = $this->jobsBaseQuery($start, $end, 'finished_at')
+        $currentDispatchBase = $this->jobsBaseQuery($rangeStart, $rangeEnd, 'sent_at')
+            ->whereNotNull('protest_jobs.sent_at');
+        $totalDispatched = (clone $currentDispatchBase)->count();
+
+        $finishedBase = $this->jobsBaseQuery($rangeStart, $rangeEnd, 'finished_at')
             ->whereNotNull('protest_jobs.finished_at');
 
-        $totalDispatched = (clone $dispatchBase)->count();
-        $totalFinished = (clone $completionBase)
-            ->where('protest_jobs.status', ProtestJobStatus::DONE->value)
+        $finishedMeta = (clone $finishedBase)
+            ->whereBetween('protest_jobs.sent_at', [$rangeStart, $rangeEnd])
             ->count();
 
-        $openJobs = (clone $dispatchBase)
+        $finishedPassive = (clone $finishedBase)
+            ->where('protest_jobs.sent_at', '<', $rangeStart)
+            ->count();
+
+        $passiveOpen = $this->baseJobsQuery()
+            ->whereNotNull('protest_jobs.sent_at')
+            ->where('protest_jobs.sent_at', '<', $rangeStart)
             ->where(function ($q) {
                 $q->whereNull('protest_jobs.finished_at')
                     ->orWhere('protest_jobs.status', '!=', ProtestJobStatus::DONE->value);
             })
             ->count();
 
+        $finishedTotal = $finishedMeta + $finishedPassive;
+
         return [
-            'total_dispatched'   => $totalDispatched,
-            'total_finished'     => $totalFinished,
-            'open_jobs'          => $openJobs,
-            'avg_daily_dispatch' => round($totalDispatched / $daysRange, 1),
-            'avg_daily_finish'   => round($totalFinished / $daysRange, 1),
+            'total_dispatched'     => $totalDispatched,
+            'finished_meta'        => $finishedMeta,
+            'finished_passive'     => $finishedPassive,
+            'finished_total'       => $finishedTotal,
+            'passivo_aberto'       => $passiveOpen,
+            'avg_daily_dispatch'   => round($totalDispatched / $daysRange, 1),
+            'avg_daily_finish'     => round($finishedTotal / $daysRange, 1),
         ];
     }
 
-    protected function buildBacklogPanel(): array
+    protected function buildBacklogPanel(Carbon $start, Carbon $end): array
     {
-        $base = MedProtest::query()
-            ->where('statusSist', 'MEDA')
-            ->whereDoesntHave('ProtestJobs');
+        $rangeStart = $start->copy()->startOfDay();
+        $rangeEnd   = $end->copy()->endOfDay();
 
-        $totalOpen = (clone $base)->count();
-        $olderThanFive = (clone $base)
+        $periodBase = MedProtest::query()
+            ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd]);
+
+        $totalPeriod = (clone $periodBase)->count();
+        $withJobPeriod = (clone $periodBase)->whereHas('ProtestJobs')->count();
+        $withoutJobPeriod = max(0, $totalPeriod - $withJobPeriod);
+
+        $openBase = MedProtest::query()
+            ->where('statusSist', 'MEDA');
+
+        $currentOpen = (clone $openBase)->count();
+        $currentOpenWithoutJob = (clone $openBase)
+            ->whereDoesntHave('ProtestJobs')
+            ->count();
+
+        $startMonth = $rangeStart->copy()->startOfMonth();
+        $previousMonthStart = $startMonth->copy()->subMonth();
+        $previousMonthEnd = $startMonth->copy()->subDay();
+
+        $passiveOpen = (clone $openBase)
+            ->whereBetween('dtCriacaoMedida', [$previousMonthStart, $previousMonthEnd])
+            ->count();
+
+        $olderThanFive = (clone $openBase)
+            ->whereDoesntHave('ProtestJobs')
             ->whereDate('dtCriacaoMedida', '<=', now()->subDays(5)->startOfDay())
             ->count();
-        $expired = (clone $base)
+
+        $expiredOpen = (clone $openBase)
             ->whereNotNull('dtFimMedidaDesej')
             ->whereDate('dtFimMedidaDesej', '<', now()->startOfDay())
             ->count();
 
         return [
-            'total_open'   => $totalOpen,
-            'older_than_5' => $olderThanFive,
-            'expired'      => $expired,
+            'period_total'       => $totalPeriod,
+            'period_with_job'    => $withJobPeriod,
+            'period_without_job' => $withoutJobPeriod,
+            'current_open'       => $currentOpen,
+            'current_open_without_job' => $currentOpenWithoutJob,
+            'passive_open'       => $passiveOpen,
+            'passive_month_label'=> $previousMonthStart->format('m/Y'),
+            'older_than_5'       => $olderThanFive,
+            'expired_open'       => $expiredOpen,
         ];
     }
 
@@ -327,53 +394,175 @@ class UserSlaDashboard extends Component
     {
         $rangeStart = $start->copy()->startOfDay();
         $rangeEnd   = $end->copy()->endOfDay();
+        $now        = now();
 
-        $medBase = MedProtest::query()
-            ->whereNotNull('dtFimMedida')
+        $periodMedBase = MedProtest::query()
+            ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd]);
+
+        $medCreated     = (clone $periodMedBase)->count();
+        $medStatusOpen  = (clone $periodMedBase)->where('statusSist', 'MEDA')->count();
+        $medStatusClose = (clone $periodMedBase)->where('statusSist', 'MEDE')->count();
+
+        $concludedBase = (clone $periodMedBase)->whereNotNull('dtFimMedida');
+        $concludedTotal = (clone $concludedBase)->count();
+        $concludedOnTime = (clone $concludedBase)
             ->whereNotNull('dtFimMedidaDesej')
-            ->whereBetween('dtFimMedida', [$rangeStart, $rangeEnd]);
-
-        $medTotal = (clone $medBase)->count();
-        $medOnTime = (clone $medBase)
             ->whereColumn('dtFimMedida', '<=', 'dtFimMedidaDesej')
             ->count();
-        $medLate = max(0, $medTotal - $medOnTime);
+        $concludedLate = max(0, $concludedTotal - $concludedOnTime);
 
-        $medSub = MedProtest::query()
-            ->selectRaw('protest_id, MAX(dtFimMedida) as last_finish')
-            ->whereNotNull('dtFimMedida')
-            ->groupBy('protest_id');
+        $jobsPeriod = $this->jobsBaseQuery($rangeStart, $rangeEnd, 'sent_at')
+            ->whereNotNull('protest_jobs.sla_due_at');
 
-        $protestBase = Protest::query()
-            ->joinSub($medSub, 'med_finish', function ($join) {
-                $join->on('med_finish.protest_id', '=', 'protests.id');
+        $jobSlaTotal = (clone $jobsPeriod)->count();
+        $jobSlaLate = (clone $jobsPeriod)
+            ->where(function ($q) use ($now) {
+                $q->whereNotNull('protest_jobs.sla_breached_at')
+                    ->orWhere(function ($sub) {
+                        $sub->whereNotNull('protest_jobs.finished_at')
+                            ->whereColumn('protest_jobs.finished_at', '>', 'protest_jobs.sla_due_at');
+                    })
+                    ->orWhere(function ($sub) use ($now) {
+                        $sub->whereNull('protest_jobs.finished_at')
+                            ->where('protest_jobs.sla_due_at', '<', $now);
+                    });
             })
-            ->whereBetween('med_finish.last_finish', [$rangeStart, $rangeEnd])
-            ->whereNotNull('protests.dtConclusaoDesej');
-
-        $protestTotal = (clone $protestBase)->count();
-        $protestOnTime = (clone $protestBase)
-            ->whereColumn('med_finish.last_finish', '<=', 'protests.dtConclusaoDesej')
             ->count();
-        $protestLate = max(0, $protestTotal - $protestOnTime);
+        $jobSlaOnTime = max(0, $jobSlaTotal - $jobSlaLate);
 
-        $overallTotal = $medTotal + $protestTotal;
-        $overallOnTime = $medOnTime + $protestOnTime;
+        $measureSlaTotal = $concludedTotal;
+        $measureSlaLate  = $concludedLate;
+        $measureSlaOnTime = max(0, $measureSlaTotal - $measureSlaLate);
+
+        $volumetryRaw = (clone $periodMedBase)
+            ->selectRaw('DATE(dtCriacaoMedida) as date,
+                SUM(CASE WHEN statusSist = "MEDA" THEN 1 ELSE 0 END) as opened_status,
+                SUM(CASE WHEN statusSist = "MEDE" THEN 1 ELSE 0 END) as closed_status
+            ')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        $volLabels    = [];
+        $volOpenSeries  = [];
+        $volClosedSeries = [];
+
+        $cursor = $rangeStart->copy();
+        while ($cursor->lte($rangeEnd)) {
+            $key = $cursor->toDateString();
+            $volLabels[] = $cursor->format('d/m');
+            $volOpenSeries[]   = (int)($volumetryRaw[$key]->opened_status ?? 0);
+            $volClosedSeries[] = (int)($volumetryRaw[$key]->closed_status ?? 0);
+            $cursor->addDay();
+        }
+
+        $volumetryChart = [
+            'type' => 'bar',
+            'data' => [
+                'labels'   => $volLabels,
+                'datasets' => [
+                    [
+                        'label'           => 'MEDA (abertas)',
+                        'data'            => $volOpenSeries,
+                        'backgroundColor' => 'rgba(59,130,246,0.5)',
+                        'borderColor'     => '#2563eb',
+                        'borderWidth'     => 1,
+                        'stack'           => 'status',
+                    ],
+                    [
+                        'label'           => 'MEDE (encerradas)',
+                        'data'            => $volClosedSeries,
+                        'backgroundColor' => 'rgba(16,185,129,0.5)',
+                        'borderColor'     => '#10b981',
+                        'borderWidth'     => 1,
+                        'stack'           => 'status',
+                    ],
+                ],
+            ],
+            'options' => [
+                'responsive' => true,
+                'maintainAspectRatio' => false,
+                'plugins' => [
+                    'legend' => ['position' => 'top'],
+                    'title'  => [
+                        'display' => true,
+                        'text'    => 'Volumetria MEDA x MEDE (criação diária)',
+                    ],
+                ],
+                'scales' => [
+                    'x' => ['stacked' => true],
+                    'y' => [
+                        'stacked'     => true,
+                        'beginAtZero' => true,
+                    ],
+                ],
+            ],
+        ];
+
+        $slaChart = [
+            'type' => 'bar',
+            'data' => [
+                'labels'   => ['SLA Solicitado', 'SLA Medida'],
+                'datasets' => [
+                    [
+                        'label'           => 'Cumprido',
+                        'backgroundColor' => 'rgba(16,185,129,0.7)',
+                        'borderColor'     => '#047857',
+                        'borderWidth'     => 1,
+                        'data'            => [$jobSlaOnTime, $measureSlaOnTime],
+                        'stack'           => 'sla',
+                    ],
+                    [
+                        'label'           => 'Vencido',
+                        'backgroundColor' => 'rgba(239,68,68,0.7)',
+                        'borderColor'     => '#b91c1c',
+                        'borderWidth'     => 1,
+                        'data'            => [$jobSlaLate, $measureSlaLate],
+                        'stack'           => 'sla',
+                    ],
+                ],
+            ],
+            'options' => [
+                'responsive'          => true,
+                'maintainAspectRatio' => false,
+                'plugins'             => [
+                    'legend' => ['position' => 'top'],
+                    'title'  => [
+                        'display' => true,
+                        'text'    => 'Cumprimento de SLA (jobs x medidas)',
+                    ],
+                ],
+                'scales' => [
+                    'x' => ['stacked' => true],
+                    'y' => [
+                        'stacked'     => true,
+                        'beginAtZero' => true,
+                    ],
+                ],
+            ],
+        ];
 
         return [
-            'med' => [
-                'total'   => $medTotal,
-                'on_time' => $medOnTime,
-                'late'    => $medLate,
-                'rate'    => $medTotal > 0 ? round(($medOnTime / $medTotal) * 100, 1) : 0,
+            'med_created'        => $medCreated,
+            'med_open_status'    => $medStatusOpen,
+            'med_closed_status'  => $medStatusClose,
+            'concluded_total'    => $concludedTotal,
+            'concluded_on_time'  => $concludedOnTime,
+            'concluded_rate'     => $concludedTotal > 0 ? round(($concludedOnTime / $concludedTotal) * 100, 1) : 0,
+            'job_sla' => [
+                'total'   => $jobSlaTotal,
+                'on_time' => $jobSlaOnTime,
+                'late'    => $jobSlaLate,
+                'rate'    => $jobSlaTotal > 0 ? round(($jobSlaOnTime / $jobSlaTotal) * 100, 1) : 0,
             ],
-            'protest' => [
-                'total'   => $protestTotal,
-                'on_time' => $protestOnTime,
-                'late'    => $protestLate,
-                'rate'    => $protestTotal > 0 ? round(($protestOnTime / $protestTotal) * 100, 1) : 0,
+            'measure_sla' => [
+                'total'   => $measureSlaTotal,
+                'on_time' => $measureSlaOnTime,
+                'late'    => $measureSlaLate,
+                'rate'    => $measureSlaTotal > 0 ? round(($measureSlaOnTime / $measureSlaTotal) * 100, 1) : 0,
             ],
-            'overall_rate' => $overallTotal > 0 ? round(($overallOnTime / $overallTotal) * 100, 1) : 0,
+            'volumetry_chart' => $volumetryChart,
+            'sla_chart'       => $slaChart,
         ];
     }
 
@@ -383,33 +572,55 @@ class UserSlaDashboard extends Component
         $rangeEnd   = $end->copy()->endOfDay();
         $now        = now();
 
-        $categoryRows = MedProtest::query()
-            ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd])
+        $periodBase = MedProtest::query()
+            ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd]);
+
+        $categoryRows = (clone $periodBase)
             ->selectRaw('
                 protest_type,
                 COUNT(*) as total_medidas,
                 SUM(CASE WHEN statusSist = "MEDA" THEN 1 ELSE 0 END) as abertas,
-                SUM(CASE WHEN statusSist = "MEDA" AND dtFimMedidaDesej IS NOT NULL AND dtFimMedidaDesej < ? THEN 1 ELSE 0 END) as vencidas,
-                SUM(CASE WHEN statusSist != "MEDA" AND dtFimMedida IS NOT NULL THEN 1 ELSE 0 END) as concluidas
+                SUM(CASE WHEN statusSist = "MEDA" AND dtFimMedidaDesej IS NOT NULL AND dtFimMedidaDesej < ? THEN 1 ELSE 0 END) as vencidas
             ', [$now])
             ->groupBy('protest_type')
             ->get();
 
+        $prevMonthStart = $rangeStart->copy()->startOfMonth()->subMonth();
+        $prevMonthEnd   = $rangeStart->copy()->startOfMonth()->subDay();
+
+        $passiveRows = MedProtest::query()
+            ->whereBetween('dtCriacaoMedida', [$prevMonthStart, $prevMonthEnd])
+            ->where('statusSist', 'MEDA')
+            ->selectRaw('protest_type, COUNT(*) as total_passivo')
+            ->groupBy('protest_type')
+            ->pluck('total_passivo', 'protest_type');
+
         $totalMedidasPeriodo = max(1, $categoryRows->sum('total_medidas'));
 
-        $categories = $categoryRows->map(function ($row) use ($totalMedidasPeriodo) {
+        $categories = $categoryRows->map(function ($row) use ($totalMedidasPeriodo, $passiveRows) {
             $total = (int)$row->total_medidas;
+            $open  = (int)$row->abertas;
+            $late  = (int)$row->vencidas;
+            $typeKey = $row->protest_type instanceof ProtestType ? $row->protest_type->value : $row->protest_type;
+            $passive = (int)($passiveRows[$typeKey] ?? 0);
 
             return [
                 'type_value' => $row->protest_type,
                 'label'      => $this->resolveProtestTypeLabel($row->protest_type),
                 'total'      => $total,
-                'abertas'    => (int)$row->abertas,
-                'concluidas' => (int)$row->concluidas,
-                'vencidas'   => (int)$row->vencidas,
+                'abertas'    => $open,
+                'passivo'    => $passive,
+                'vencidas'   => $late,
                 'percent'    => round(($total / $totalMedidasPeriodo) * 100, 1),
             ];
         })->sortByDesc('total')->values();
+
+        $categoriesTotals = [
+            'total'   => $categories->sum('total'),
+            'abertas' => $categories->sum('abertas'),
+            'passivo' => $categories->sum('passivo'),
+            'vencidas'=> $categories->sum('vencidas'),
+        ];
 
         $tipoNotaRows = Protest::query()
             ->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd])
@@ -426,7 +637,7 @@ class UserSlaDashboard extends Component
             });
 
         $tipoNotaLateRows = Protest::query()
-            ->whereNotNull('dtConclusaoDesej')
+            ->whereBetween('dtConclusaoDesej', [$rangeStart, $rangeEnd])
             ->whereDate('dtConclusaoDesej', '<', now()->startOfDay())
             ->selectRaw('COALESCE(tipoNota, "Não informado") as tipo, COUNT(*) as total')
             ->groupBy('tipo')
@@ -441,9 +652,10 @@ class UserSlaDashboard extends Component
             });
 
         return [
-            'categories'     => $categories,
-            'tipo_nota'      => $tipoNotaRows,
-            'tipo_nota_late' => $tipoNotaLateRows,
+            'categories'        => $categories,
+            'categories_totals' => $categoriesTotals,
+            'tipo_nota'         => $tipoNotaRows,
+            'tipo_nota_late'    => $tipoNotaLateRows,
         ];
     }
 
@@ -512,7 +724,7 @@ class UserSlaDashboard extends Component
                 'datasets' => [
                     [
                         'type'            => 'bar',
-                        'label'           => 'Abertura Reclamações (Protest)',
+                        'label'           => 'Abertura Reclamações',
                         'data'            => $seriesProtests,
                         'backgroundColor' => 'rgba(102,126,234,0.4)',
                         'borderColor'     => '#667eea',
@@ -520,7 +732,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'        => 'line',
-                        'label'       => 'Média Protest',
+                        'label'       => 'Média Reclamação',
                         'data'        => $avgProtestSeries,
                         'borderColor' => '#1f3a8a',
                         'borderWidth' => 2,
@@ -530,7 +742,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'            => 'line',
-                        'label'           => 'Criação Medidas (MedProtest)',
+                        'label'           => 'Criação Medidas',
                         'data'            => $seriesMed,
                         'borderColor'     => '#f5576c',
                         'backgroundColor' => 'rgba(245,87,108,0.2)',
@@ -539,7 +751,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'        => 'line',
-                        'label'       => 'Média MedProtest',
+                        'label'       => 'Média Medidas',
                         'data'        => $avgMedSeries,
                         'borderColor' => '#b71c1c',
                         'borderWidth' => 2,
@@ -556,7 +768,7 @@ class UserSlaDashboard extends Component
                     'legend' => ['position' => 'top'],
                     'title'  => [
                         'display' => true,
-                        'text'    => 'Aberturas diárias (Protest x MedProtest)',
+                        'text'    => 'Aberturas diárias (Reclamações x Medidas)',
                     ],
                 ],
                 'scales' => [
@@ -672,7 +884,6 @@ class UserSlaDashboard extends Component
 
         $raw = MedProtest::query()
             ->leftJoinSub($jobsSub, 'jobs', 'jobs.med_protest_id', '=', 'med_protests.id')
-            ->where('med_protests.statusSist', 'MEDA')
             ->whereBetween('med_protests.dtCriacaoMedida', [$rangeStart, $rangeEnd])
             ->selectRaw("
                 DATE(med_protests.dtCriacaoMedida) as date,
@@ -714,7 +925,7 @@ class UserSlaDashboard extends Component
                 'datasets' => [
                     [
                         'type'            => 'bar',
-                        'label'           => 'MEDA com Job',
+                        'label'           => 'MEDA criadas com Job',
                         'data'            => $seriesWithJob,
                         'backgroundColor' => 'rgba(16,185,129,0.4)',
                         'borderColor'     => '#10b981',
@@ -723,7 +934,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'        => 'line',
-                        'label'       => 'Média MEDA com Job',
+                        'label'       => 'Media MEDA com Job',
                         'data'        => $avgWithJobSeries,
                         'borderColor' => '#0f766e',
                         'borderWidth' => 2,
@@ -733,7 +944,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'            => 'bar',
-                        'label'           => 'MEDA sem Job',
+                        'label'           => 'MEDA criadas sem Job',
                         'data'            => $seriesNoJob,
                         'backgroundColor' => 'rgba(239,68,68,0.35)',
                         'borderColor'     => '#ef4444',
@@ -742,7 +953,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'        => 'line',
-                        'label'       => 'Média MEDA sem Job',
+                        'label'       => 'Media MEDA sem Job',
                         'data'        => $avgWithoutJobSeries,
                         'borderColor' => '#be123c',
                         'borderWidth' => 2,
@@ -759,7 +970,7 @@ class UserSlaDashboard extends Component
                     'legend' => ['position' => 'top'],
                     'title'  => [
                         'display' => true,
-                        'text'    => 'Medidas MEDA (com x sem Job)',
+                        'text'    => 'MEDA criadas (com x sem Job)',
                     ],
                 ],
                 'scales' => [
@@ -917,6 +1128,7 @@ class UserSlaDashboard extends Component
                 'protest_jobs.id',
                 'protests.nota as protest_number',
                 'med_protests.med_id as med_id',
+                'med_protests.dtFimMedidaDesej as med_sla_due',
                 'protest_jobs.sla_due_at',
                 'protest_jobs.finished_at',
                 'protest_jobs.sla_breached_at',
@@ -927,11 +1139,12 @@ class UserSlaDashboard extends Component
 
         return $rows->map(function ($row) {
             $slaDue    = $row->sla_due_at ? Carbon::parse($row->sla_due_at) : null;
+            $medSlaDue = $row->med_sla_due ? Carbon::parse($row->med_sla_due) : null;
             $finished  = $row->finished_at ? Carbon::parse($row->finished_at) : null;
             $reference = $finished ?? now();
-            $diffSeconds = $slaDue ? $reference->diffInSeconds($slaDue, false) : null;
+            $diffSeconds = $medSlaDue ? $reference->diffInSeconds($medSlaDue, false) : null;
 
-            $isBreached = !is_null($row->sla_breached_at) || ($diffSeconds !== null && $diffSeconds > 0);
+            $isBreached = $diffSeconds !== null && $diffSeconds > 0;
 
             $statusLabel = $isBreached
                 ? 'Fora do prazo'
@@ -956,6 +1169,7 @@ class UserSlaDashboard extends Component
                 'job_id'          => $row->id,
                 'protest_number'  => $row->protest_number ?? 'N/A',
                 'med_id'          => $row->med_id ?? 'N/A',
+                'med_sla_due_at'  => $medSlaDue ? $medSlaDue->format('d/m/Y H:i') : 'N/A',
                 'sla_due_at'      => $slaDue ? $slaDue->format('d/m/Y H:i') : 'N/A',
                 'finished_at'     => $finished ? $finished->format('d/m/Y H:i') : 'Em aberto',
                 'status_label'    => $statusLabel,
@@ -995,7 +1209,7 @@ class UserSlaDashboard extends Component
 
         $summary         = $this->buildSummary($start, $end);
         $productivity    = $this->buildProductivityPanel($start, $end);
-        $backlogPanel    = $this->buildBacklogPanel();
+        $backlogPanel    = $this->buildBacklogPanel($start, $end);
         $slaPanel        = $this->buildSlaPanel($start, $end);
         $bottlenecks     = $this->buildBottlenecksPanel($start, $end);
         $dispatcherStats = $this->buildDispatcherStats($start, $end);

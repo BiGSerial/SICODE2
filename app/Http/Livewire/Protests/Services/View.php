@@ -347,7 +347,7 @@ class View extends Component
         $this->emitSelf('refreshComponent');
     }
 
-    public function downloadFile(EvidenceFile $file)
+    public function downloadFiles(EvidenceFile $file)
     {
         if (Storage::fileExists('public/' . $file->path)) {
             return Storage::download('public/' . $file->path);

@@ -17,12 +17,14 @@ class Accompany extends Component
     public int $perPage = 50;
     public string $search = '';
     public ?string $selectedUserId = null;
+    public bool $onlySelectedUser = false;
 
     protected $queryString = [
         'page'           => ['except' => 1],
         'perPage'        => ['except' => 50],
         'search'         => ['except' => ''],
         'selectedUserId' => ['except' => null],
+        'onlySelectedUser' => ['except' => false],
     ];
 
     public function updatingPerPage(): void
@@ -35,7 +37,16 @@ class Accompany extends Component
         $this->resetPage();
     }
 
-    public function updatingSelectedUserId(): void
+    public function updatingSelectedUserId($value): void
+    {
+        if (empty($value)) {
+            $this->onlySelectedUser = false;
+        }
+
+        $this->resetPage();
+    }
+
+    public function updatingOnlySelectedUser(): void
     {
         $this->resetPage();
     }
@@ -45,13 +56,18 @@ class Accompany extends Component
      */
     protected function availableUsersQuery()
     {
-        $userId = auth()->id();
+        $viewer = auth()->user();
 
-        return User::query()
-            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
-            ->where('uc.ancestor_id', $userId)
-            ->where('uc.depth', '>', 0) // abaixo na hierarquia
-            ->select('users.*')
+        if (!$viewer) {
+            return User::query()->whereRaw('1 = 0');
+        }
+
+        return $viewer
+            ->descendantsQuery(
+                includeSelf: true,
+                includeDelegations: true,
+                includeDelegatesTreesForPrincipal: true
+            )
             ->orderBy('users.name')
             ->distinct();
     }
@@ -96,7 +112,7 @@ class Accompany extends Component
         return ProtestJob::query()
             ->where(function ($q) {
                 $q->whereRelation('medProtest', 'statusSist', 'MEDA')
-                  ->orWhere(fn($qq) => $qq->open());
+                  ->orWhere(fn ($qq) => $qq->open());
             })
             ->whereIn('owner_id', $subordinatesIds)
             ->with([
@@ -116,7 +132,10 @@ class Accompany extends Component
                 'owner:id,name,email',
             ])
             ->when($this->selectedUserId, function ($q) {
-                $teamIds = $this->descendantsOf($this->selectedUserId);
+                $teamIds = $this->onlySelectedUser
+                    ? [$this->selectedUserId]
+                    : $this->descendantsOf($this->selectedUserId);
+
                 $q->whereIn('owner_id', $teamIds);
             })
             ->when($this->search, function ($q) {
@@ -148,7 +167,7 @@ class Accompany extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'selectedUserId', 'perPage']);
+        $this->reset(['search', 'selectedUserId', 'perPage', 'onlySelectedUser']);
         $this->resetPage();
     }
 

@@ -355,14 +355,14 @@ class User extends Authenticatable
         if ($includeDelegations) {
             // Se eu sou DELEGADO, também enxergo as árvores de quem me delegou
             // (UserDelegation: principal_id -> delegate_id = $this->id)
-            $principalIds = $this->delegationsReceived()->pluck('principal_id');
+            $principalIds = $this->delegationsReceived()->active()->pluck('principal_id');
             $ids = $ids->merge($principalIds);
         }
 
         if ($includeDelegatesTreesForPrincipal) {
             // Se eu sou o DELEGADOR e quero incluir as árvores dos meus delegados
             // (UserDelegation: principal_id = $this->id -> delegate_id)
-            $delegateIds = $this->delegationsGiven()->pluck('delegate_id');
+            $delegateIds = $this->delegationsGiven()->active()->pluck('delegate_id');
             $ids = $ids->merge($delegateIds);
         }
 

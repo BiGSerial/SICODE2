@@ -67,73 +67,34 @@
     {{-- ================== TOP: BUSCA E FILTROS ================== --}}
     <div class="card mb-3 shadow-sm border-0">
         <div class="card-body">
-            {{-- Linha 1: perPage + busca geral --}}
             <div class="row g-3 align-items-end">
-                <div class="col-12 col-sm-4 col-md-2">
-                    <div class="form-floating w-100">
+                <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <div class="form-floating">
                         <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
                             <option value="25">25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
-                        <label for="perPageSelect">Registros</label>
+                        <label for="perPageSelect">Registros por página</label>
                     </div>
                 </div>
 
-                <div class="col-12 col-sm-8 col-md-7">
-                    <div class="form-floating w-100 position-relative">
+                <div class="col-12 col-md-7 col-lg-8">
+                    <div class="form-floating position-relative">
                         <input wire:model.debounce.500ms="search" class="form-control border border-secondary"
                             id="searchInput" placeholder="Buscar por nota, cidade, responsável..." />
-                        <label for="searchInput">Buscar por nota, cidade, responsável</label>
+                        <label for="searchInput">Buscar por nota, cidade ou responsável</label>
 
                         <button type="button"
-                            class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0"
-                            data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca múltipla">
+                            class="btn btn-outline-secondary position-absolute top-50 translate-middle-y me-2 border-0"
+                            style="right: .35rem;" data-bs-toggle="modal" data-bs-target="#buscarMultiModal"
+                            title="Busca múltipla">
                             <i class="ri-checkbox-multiple-blank-line"></i>
                         </button>
                     </div>
                 </div>
 
-                <div class="col-12 col-md-3 d-flex justify-content-md-end gap-2">
-                    <button type="button" class="btn btn-primary" wire:click="applyFilters">
-                        <i class="ri-filter-3-line me-1"></i>
-                        Aplicar
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" wire:click="cleanFilters">
-                        <i class="ri-eraser-line me-1"></i>
-                        Limpar
-                    </button>
-                </div>
-            </div>
-
-            <hr class="my-3">
-
-            {{-- Linha 2: filtro por usuario / hierarquia --}}
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-lg-4">
-                    <div class="form-floating">
-                        <input type="text" class="form-control border border-secondary" id="searchName"
-                            wire:model.debounce.300ms="searchName" placeholder="Filtrar lista de usuarios">
-                        <label for="searchName">Filtrar lista de usuarios</label>
-                    </div>
-                </div>
-
-                <div class="col-12 col-lg-4">
-                    <label for="filterUser" class="form-label small mb-1">Usuario responsavel / hierarquia</label>
-                    <select class="form-select border border-secondary" id="filterUser" wire:model.defer="userViewer">
-                        <option value="">Todos</option>
-
-                        @forelse ($userViewerList as $user)
-                            <option value="{{ $user->id }}">
-                                {{ reduceName($user->name) }}
-                            </option>
-                        @empty
-                            <option value="" disabled>Nenhum usuario encontrado</option>
-                        @endforelse
-                    </select>
-                </div>
-
-                <div class="col-12 col-lg-4">
+                <div class="col-12 col-sm-6 col-md-2 col-lg-2">
                     <div class="form-floating">
                         <select class="form-select border border-secondary" id="filterTypeNote" wire:model="typeNote">
                             <option value="">Todos os tipos</option>
@@ -141,27 +102,68 @@
                             @forelse ($noteTypeOptions as $option)
                                 <option value="{{ $option }}">{{ $option }}</option>
                             @empty
-                                <option value="" disabled>Nenhum tipo disponivel</option>
+                                <option value="" disabled>Nenhum tipo disponível</option>
                             @endforelse
                         </select>
                         <label for="filterTypeNote">Tipo de nota</label>
                     </div>
                 </div>
+
             </div>
 
-            <div class="row g-3 mt-1">
-                <div class="col-12 col-lg-8">
-                    <small class="text-muted d-block">
-                        Selecione um usuario para ver apenas os jobs da sua hierarquia (descendentes).
-                    </small>
+            <div class="row g-3 align-items-end mt-0 mt-md-3">
+                <div class="col-12 col-lg-5">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterUser"
+                            wire:model.defer="userViewer">
+                            <option value="">Todos os responsáveis</option>
+
+                            @forelse ($userViewerList as $user)
+                                <option value="{{ $user->id }}">
+                                    {{ reduceName($user->name) }}
+                                </option>
+                            @empty
+                                <option value="" disabled>Nenhum usuário encontrado</option>
+                            @endforelse
+                        </select>
+                        <label for="filterUser">Responsável / hierarquia</label>
+                    </div>
                 </div>
-                <div class="col-12 col-lg-4">
-                    <small class="text-muted d-block">
-                        Tipos listados a partir dos valores unicos em Protest->tipoNota.
-                    </small>
+
+                <div class="col-12 col-sm-6 col-lg-4">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border border-secondary" id="searchName"
+                            wire:model.debounce.300ms="searchName" placeholder="Filtrar lista de usuários">
+                        <label for="searchName">Filtrar responsáveis</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="border rounded py-3 px-3 h-100">
+                        <div class="form-check mb-1">
+                            <input type="checkbox" class="form-check-input" id="onlySelectedUser"
+                                wire:model.defer="onlySelectedUser" {{ empty($userViewer) ? 'disabled' : '' }}>
+                            <label class="form-check-label" for="onlySelectedUser">
+                                Apenas usuário selecionado
+                            </label>
+                        </div>
+                        <small class="text-muted">Ignora descendentes na consulta.</small>
+                    </div>
                 </div>
             </div>
 
+            <div class="row mt-3">
+                <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary" wire:click="cleanFilters">
+                        <i class="ri-eraser-line me-1"></i>
+                        Limpar
+                    </button>
+                    <button type="button" class="btn btn-primary" wire:click="applyFilters">
+                        <i class="ri-filter-3-line me-1"></i>
+                        Aplicar
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

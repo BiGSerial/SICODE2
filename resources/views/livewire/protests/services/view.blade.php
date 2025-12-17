@@ -593,7 +593,7 @@
                     </span>
                     @if ($medProtest)
                         <button class="btn btn-sm btn-warning"
-                            wire:click.defer="$emitTo('protests.services.actions.add-notes-relation', 'openAddNotesRelation', {{ $medProtest->id }})"
+                            wire:click="$emitTo('protests.services.actions.add-notes-relation', 'openAddNotesRelation', {{ $medProtest->id }})"
                             @disabled($jobFinished)>
                             <i class="ri-add-box-fill me-1"></i>Associar notas
                         </button>
@@ -959,7 +959,7 @@
 
     {{-- COMPONENTE DE RELACIONAR NOTAS --}}
     @if ($medProtest)
-        @livewire('protests.partner.actions.add-notes-relation', ['medProtestId' => $medProtest->id], key('medProtest-AddNotesRelation-' . $medProtest->id))
+        @livewire('protests.services.actions.add-notes-relation', ['medProtestId' => $medProtest->id], key('medProtest-AddNotesRelation-' . $medProtest->id))
     @endif
 
     @push('scripts')

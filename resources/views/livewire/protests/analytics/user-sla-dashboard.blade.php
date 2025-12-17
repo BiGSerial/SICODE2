@@ -205,16 +205,16 @@
                         </div>
                         <div>
                             <h1 class="header-title mb-0">
-                                Produtividade x Reclamações
+                                Produtividade x Reclamacoes
                             </h1>
                             <div class="header-subtitle">
-                                Indicadores semanais dos 4 painéis solicitados
+                                Indicadores semanais dos 4 paineis solicitados
                             </div>
                         </div>
                     </div>
                     <p class="header-description mb-0">
-                        Acompanhe despachos por usuário, saúde da pilha MEDA, cumprimento geral de SLA
-                        e gargalos por categoria/tipo de nota no período filtrado.
+                        Acompanhe despachos por usuario, saude da pilha MEDA, cumprimento geral de SLA
+                        e gargalos por categoria/tipo de nota no periodo filtrado.
                     </p>
                 </div>
             </div>
@@ -296,48 +296,51 @@
 
             <div class="row text-center gy-3">
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">Reclamações enviadas</div>
+                    <div class="metric-label">Reclamacoes enviadas</div>
                     <div class="metric-value">{{ $productivity['total_dispatched'] }}</div>
-                    <div class="metric-subtitle">Jobs criados (sent_at)</div>
+                    <div class="metric-subtitle">
+                        Periodo atual · media diaria {{ number_format($productivity['avg_daily_dispatch'], 1) }}
+                    </div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">Reclamações concluídas</div>
-                    <div class="metric-value">{{ $productivity['total_finished'] }}</div>
-                    <div class="metric-subtitle">Status done / closed_at</div>
+                    <div class="metric-label">Concluidas (Meta)</div>
+                    <div class="metric-value">{{ $productivity['finished_meta'] }}</div>
+                    <div class="metric-subtitle">Despachos do periodo atual</div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">Pendentes do período</div>
-                    <div class="metric-value">{{ $productivity['open_jobs'] }}</div>
-                    <div class="metric-subtitle">Despachadas e ainda abertas</div>
+                    <div class="metric-label">Concluidas (Passivo)</div>
+                    <div class="metric-value">{{ $productivity['finished_passive'] }}</div>
+                    <div class="metric-subtitle">Despachos anteriores finalizados</div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">Média diária</div>
-                    <div class="metric-value">{{ number_format($productivity['avg_daily_dispatch'], 1) }}</div>
-                    <div class="metric-subtitle">Envios / concl.:
-                        {{ number_format($productivity['avg_daily_finish'], 1) }}</div>
+                    <div class="metric-label">Passivo em aberto</div>
+                    <div class="metric-value">{{ $productivity['passivo_aberto'] }}</div>
+                    <div class="metric-subtitle">Enviados antes do periodo e ainda abertos</div>
                 </div>
             </div>
 
             <div class="row text-center gy-3 mt-3">
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">Reação média</div>
+                    <div class="metric-label">Reacao despachante</div>
                     <div class="metric-value">{{ $summary['avg_reaction_human'] }}</div>
-                    <div class="metric-subtitle">Criação MEDA até envio do Job</div>
+                    <div class="metric-subtitle">Criacao da MEDA ate envio do job</div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">Execução média</div>
+                    <div class="metric-label">Reacao responsavel</div>
+                    <div class="metric-value">{{ $summary['avg_user_reaction_human'] }}</div>
+                    <div class="metric-subtitle">Envio ate aceite (accepted_at)</div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Execucao media</div>
                     <div class="metric-value">{{ $summary['avg_exec_human'] }}</div>
-                    <div class="metric-subtitle">Início até conclusão</div>
+                    <div class="metric-subtitle">Envio ate conclusao</div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="metric-label">SLA do período</div>
+                    <div class="metric-label">SLA e encerramento</div>
                     <div class="metric-value">{{ number_format($summary['sla_rate'], 1) }}%</div>
-                    <div class="metric-subtitle">Jobs concluídos dentro do prazo</div>
-                </div>
-                <div class="col-md-3 col-6">
-                    <div class="metric-label">Encerramento pelo responsável</div>
-                    <div class="metric-value">{{ number_format($summary['self_closure_rate'], 1) }}%</div>
-                    <div class="metric-subtitle">{{ $summary['self_closed'] }} de {{ $summary['total_closed'] }}</div>
+                    <div class="metric-subtitle">
+                        Auto encerradas: {{ number_format($summary['self_closure_rate'], 1) }}%
+                    </div>
                 </div>
             </div>
 
@@ -382,18 +385,19 @@
                 </div>
                 <div class="col-lg-6">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="modern-card-title">Responsáveis (owner_id)</span>
-                        <span class="badge bg-light text-dark">SLA e execução</span>
+                        <span class="modern-card-title">Responsaveis (owner_id)</span>
+                        <span class="badge bg-light text-dark">SLA e execucao</span>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover table-compact mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Usuário</th>
+                                    <th>Usuario</th>
                                     <th class="text-center">Jobs</th>
+                                    <th class="text-center">Abertos</th>
+                                    <th class="text-center">Concluidos</th>
                                     <th class="text-center">SLA</th>
-                                    <th class="text-center">Enc. por si</th>
-                                    <th class="text-center">Exec. média</th>
+                                    <th class="text-center">Exec. media</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -401,15 +405,15 @@
                                     <tr>
                                         <td>{{ $row['user_name'] }}</td>
                                         <td class="text-center">{{ $row['total_jobs'] }}</td>
+                                        <td class="text-center">{{ $row['open_jobs'] }}</td>
+                                        <td class="text-center">{{ $row['finished_jobs'] }}</td>
                                         <td class="text-center">{{ number_format($row['sla_rate'], 1) }}%</td>
-                                        <td class="text-center">{{ number_format($row['self_closure_rate'], 1) }}%
-                                        </td>
                                         <td class="text-center">{{ $row['avg_exec_human'] }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-3">
-                                            Nenhum responsável com dados no período.
+                                        <td colspan="6" class="text-center text-muted py-3">
+                                            Nenhum responsavel com dados no periodo.
                                         </td>
                                     </tr>
                                 @endforelse
@@ -438,252 +442,359 @@
             <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
                 <div>
                     <div class="modern-card-title mb-1">
-                        <i class="ri-pulse-line me-1"></i> Painel 2 - Saúde do backlog (MEDA)
+                        <i class="ri-pulse-line me-1"></i> Painel 2 - Saude do backlog (MEDIDAS)
                     </div>
                     <div class="small text-muted">
-                        Medidas com status MEDA sem ProtestJob relacionado.
+                        Totais calculados por <code>dtCriacaoMedida</code> no periodo selecionado.
                     </div>
                 </div>
-                <span class="badge bg-light text-dark">Atualizado em {{ now()->format('d/m/Y H:i') }}</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge {{ $medaSnapshot['status_badge_class'] }}">
+                        Saude: {{ $medaSnapshot['status_label'] }}
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        Atualizado em {{ now()->format('d/m/Y H:i') }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="row text-center gy-3">
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Medidas criadas</div>
+                    <div class="metric-value">{{ $backlogPanel['period_total'] }}</div>
+                    <div class="metric-subtitle">Período: {{ $summary['period_label'] }}</div>
+                </div>
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Despachadas</div>
+                    <div class="metric-value">{{ $backlogPanel['period_with_job'] }}</div>
+                    <div class="metric-subtitle">MEDA com ProtestJob</div>
+                </div>
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Não despachadas</div>
+                    <div class="metric-value">{{ $backlogPanel['period_without_job'] }}</div>
+                    <div class="metric-subtitle">FECHADAS SAP ou sem Job</div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row text-center gy-3">
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Em aberto</div>
+                    <div class="metric-value">{{ $backlogPanel['current_open'] }}</div>
+                    <div class="metric-subtitle">Total status MEDA</div>
+                </div>
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Sem job</div>
+                    <div class="metric-value">{{ $backlogPanel['current_open_without_job'] }}</div>
+                    <div class="metric-subtitle">Em aberto e sem ProtestJob</div>
+                </div>
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Passivo</div>
+                    <div class="metric-value">{{ $backlogPanel['passive_open'] }}</div>
+                    <div class="metric-subtitle">Abertas em {{ $backlogPanel['passive_month_label'] }}</div>
+                </div>
+            </div>
+
+            <div class="row text-center gy-3 mt-2">
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Sem job há 5+ dias</div>
+                    <div class="metric-value">{{ $backlogPanel['older_than_5'] }}</div>
+                    <div class="metric-subtitle">MEDA em atraso sem despacho</div>
+                </div>
+                <div class="col-md-4 col-6">
+                    <div class="metric-label">Vencidas</div>
+                    <div class="metric-value">{{ $backlogPanel['expired_open'] }}</div>
+                    <div class="metric-subtitle">dtFimMedidaDesej ultrapassado</div>
+                </div>
+                <div class="col-md-4 col-6">
+
+                </div>
+
+            </div>
+
+            <div class="row text-center gy-3 mt-3">
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">Despachos por dia</div>
+                    <div class="metric-value">{{ number_format($medaSnapshot['avg_dispatch_daily'], 1) }}</div>
+                    <div class="metric-subtitle">
+                        {{ $medaSnapshot['dispatcher_users'] }} despachantes ·
+                        {{ number_format($medaSnapshot['avg_dispatch_per_user'], 1) }} cada
+                    </div>
+                </div>
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">Conclusoes por dia</div>
+                    <div class="metric-value">{{ number_format($medaSnapshot['avg_finish_daily'], 1) }}</div>
+                    <div class="metric-subtitle">
+                        {{ $medaSnapshot['executor_users'] }} responsaveis ·
+                        {{ number_format($medaSnapshot['avg_finish_per_user'], 1) }} cada
+                    </div>
+                </div>
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">Dias para zerar</div>
+                    <div class="metric-value">
+                        @if ($medaSnapshot['days_to_clear'])
+                            ~{{ $medaSnapshot['days_to_clear'] }}
+                        @else
+                            &mdash;
+                        @endif
+                    </div>
+                    <div class="metric-subtitle">{{ $medaSnapshot['status_message'] }}</div>
+                </div>
+
+            </div>
+            <p class="small text-muted mt-2 mb-0">
+                Legenda: "Não despachadas" inclui MEDA resolvidas diretamente no SAP (MEDE)
+                ou sem ProtestJob registrado.
+            </p>
+        </div>
+    </div>
+
+    <div class="chart-card mb-4">
+        <div class="chart-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="ri-stack-line me-2"></i> Medidas criadas por dia (Total MEDA e MEDE)</h5>
+        </div>
+        <div class="chart-card-body" wire:ignore>
+            <div style="max-height: 380px;">
+                <x-grafico.apex :chart="$medaJobsChart" chartId="medaJobs" class="w-100" />
+            </div>
+        </div>
+    </div>
+
+    {{-- Painel 3 --}}
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-time-line me-1"></i> Painel 3 - Analise mensal e SLA
+                    </div>
+                    <div class="small text-muted">
+                        Volumetria das MEDA criadas e cumprimento dos SLAs solicitado x medida no período.
+                    </div>
+                </div>
+                <span class="badge bg-light text-dark">
+                    {{ $summary['period_label'] }}
+                </span>
             </div>
 
             <div class="row text-center gy-3">
                 <div class="col-md-4 col-12">
-                    <div class="metric-label">Abertas sem job</div>
-                    <div class="metric-value">{{ $backlogPanel['total_open'] }}</div>
-                    <div class="metric-subtitle">Status MEDA aguardando despacho</div>
+                    <div class="metric-label">Medidas criadas</div>
+                    <div class="metric-value">{{ $slaPanel['med_created'] }}</div>
+                    <div class="metric-subtitle">dtCriacaoMedida no período</div>
                 </div>
-                <div class="col-md-4 col-6">
-                    <div class="metric-label">> 5 dias sem ação</div>
-                    <div class="metric-value">{{ $backlogPanel['older_than_5'] }}</div>
-                    <div class="metric-subtitle">Criadas há mais de 5 dias</div>
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">Abertas (MEDA)</div>
+                    <div class="metric-value">{{ $slaPanel['med_open_status'] }}</div>
+                    <div class="metric-subtitle">Ainda aguardando execução</div>
                 </div>
-                <div class="col-md-4 col-6">
-                    <div class="metric-label">Vencidas</div>
-                    <div class="metric-value">{{ $backlogPanel['expired'] }}</div>
-                    <div class="metric-subtitle">dtFimMedidaDesej < hoje</div>
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">Encerradas (MEDE)</div>
+                    <div class="metric-value">{{ $slaPanel['med_closed_status'] }}</div>
+                    <div class="metric-subtitle">Concluídas no período</div>
+                </div>
+            </div>
+
+            <div class="row text-center gy-3 mt-3">
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">Conclusões</div>
+                    <div class="metric-value">{{ $slaPanel['concluded_total'] }}</div>
+                    <div class="metric-subtitle">
+                        {{ number_format($slaPanel['concluded_rate'], 1) }}% dentro do prazo
                     </div>
+                </div>
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">SLA solicitado (jobs)</div>
+                    <div class="metric-value">
+                        {{ $slaPanel['job_sla']['on_time'] }} / {{ $slaPanel['job_sla']['total'] }}
+                    </div>
+                    <div class="metric-subtitle">
+                        {{ number_format($slaPanel['job_sla']['rate'], 1) }}% cumprido
+                    </div>
+                </div>
+                <div class="col-md-4 col-12">
+                    <div class="metric-label">SLA da medida</div>
+                    <div class="metric-value">
+                        {{ $slaPanel['measure_sla']['on_time'] }} / {{ $slaPanel['measure_sla']['total'] }}
+                    </div>
+                    <div class="metric-subtitle">
+                        {{ number_format($slaPanel['measure_sla']['rate'], 1) }}% cumprido
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-3">
+                <div class="col-lg-6">
+                    <div style="min-height: 280px;" wire:ignore>
+                        <x-grafico.apex :chart="$slaPanel['volumetry_chart']" chartId="medaVolumetry" class="w-100" />
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div style="min-height: 280px;" wire:ignore>
+                        <x-grafico.apex :chart="$slaPanel['sla_chart']" chartId="slaComparison" class="w-100" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="modern-card-title"><i class="ri-table-line me-1"></i> Lista de SLA (até 50
+                        registros)</span>
+                    <span class="badge bg-light text-dark">Ordenado pelo prazo</span>
                 </div>
 
-                <div class="row text-center gy-3 mt-3">
-                    <div class="col-md-3 col-6">
-                        <div class="metric-label">MEDA em aberto</div>
-                        <div class="metric-value">{{ $medaSnapshot['open_measures'] }}</div>
-                        <div class="metric-subtitle">{{ $medaSnapshot['open_protests'] }} protestos impactados</div>
-                    </div>
-                    <div class="col-md-3 col-6">
-                        <div class="metric-label">Despachos/dia</div>
-                        <div class="metric-value">{{ number_format($medaSnapshot['avg_dispatch_daily'], 1) }}</div>
-                        <div class="metric-subtitle">{{ $medaSnapshot['dispatcher_users'] }} despachantes</div>
-                    </div>
-                    <div class="col-md-3 col-6">
-                        <div class="metric-label">Conclusões/dia</div>
-                        <div class="metric-value">{{ number_format($medaSnapshot['avg_finish_daily'], 1) }}</div>
-                        <div class="metric-subtitle">{{ $medaSnapshot['executor_users'] }} responsáveis</div>
-                    </div>
-                    <div class="col-md-3 col-6">
-                        <div class="metric-label">Dias para zerar</div>
-                        <div class="metric-value">
-                            @if ($medaSnapshot['days_to_clear'])
-                                ~{{ $medaSnapshot['days_to_clear'] }}
-                            @else
-                                &mdash;
-                            @endif
-                        </div>
-                        <div class="metric-subtitle">{{ $medaSnapshot['status_message'] }}</div>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-compact mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Reclamação</th>
+                                <th class="text-center">Med ID</th>
+                                <th class="text-center">SLA Medida</th>
+                                <th class="text-center">SLA Solicitado</th>
+                                <th class="text-center">Finalizado em</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Desvio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($jobSlaList as $job)
+                                <tr>
+                                    <td>
+                                        <strong>{{ $job['protest_number'] }}</strong>
+                                        <div class="small text-muted">Job #{{ $job['job_id'] }}</div>
+                                    </td>
+                                    <td class="text-center">{{ $job['med_id'] }}</td>
+                                    <td class="text-center">{{ $job['med_sla_due_at'] }}</td>
+                                    <td class="text-center">{{ $job['sla_due_at'] }}</td>
+                                    <td class="text-center">{{ $job['finished_at'] }}</td>
+                                    <td class="text-center">
+                                        <span
+                                            class="badge {{ $job['status_badge'] }} text-white px-3">{{ $job['status_label'] }}</span>
+                                    </td>
+                                    <td class="text-center">{{ $job['delta_label'] ?? 'N/A' }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">
+                                        Nenhum job com SLA encontrado no período/filtro.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="chart-card mb-4">
-            <div class="chart-card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="ri-stack-line me-2"></i> Medidas MEDA (com x sem Job)</h5>
+    {{-- Painel 4 --}}
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-focus-2-line me-1"></i> Painel 4 - Gargalos
+                    </div>
+                    <div class="small text-muted">Categorias (protest_type) e tipos de nota que mais geram demanda
+                    </div>
+                </div>
+                <span class="badge bg-light text-dark">Período: {{ $summary['period_label'] }}</span>
             </div>
-            <div class="chart-card-body" wire:ignore>
-                <div style="max-height: 380px;">
-                    <x-grafico.apex :chart="$medaJobsChart" chartId="medaJobs" class="w-100" />
-                </div>
-            </div>
-        </div>
 
-        {{-- Painel 3 --}}
-        <div class="modern-card mb-4">
-            <div class="modern-card-body">
-                <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
-                    <div>
-                        <div class="modern-card-title mb-1">
-                            <i class="ri-time-line me-1"></i> Painel 3 - SLA do processo
-                        </div>
-                        <div class="small text-muted">Cumprimento por Medida e por Reclamação</div>
-                    </div>
-                    <span class="badge bg-light text-dark">Taxa geral:
-                        {{ number_format($slaPanel['overall_rate'], 1) }}%</span>
-                </div>
-
-                <div class="row text-center gy-3">
-                    <div class="col-md-4 col-12">
-                        <div class="metric-label">MEDA com SLA</div>
-                        <div class="metric-value">{{ $slaPanel['med']['on_time'] }} / {{ $slaPanel['med']['total'] }}
-                        </div>
-                        <div class="metric-subtitle">{{ number_format($slaPanel['med']['rate'], 1) }}% cumprido</div>
-                    </div>
-                    <div class="col-md-4 col-12">
-                        <div class="metric-label">Reclamações concluídas</div>
-                        <div class="metric-value">{{ $slaPanel['protest']['on_time'] }} /
-                            {{ $slaPanel['protest']['total'] }}</div>
-                        <div class="metric-subtitle">{{ number_format($slaPanel['protest']['rate'], 1) }}% no prazo
-                        </div>
-                    </div>
-                    <div class="col-md-4 col-12">
-                        <div class="metric-label">Em atraso</div>
-                        <div class="metric-value">{{ $slaPanel['med']['late'] + $slaPanel['protest']['late'] }}</div>
-                        <div class="metric-subtitle">Medidas/Reclamações com SLA vencido</div>
-                    </div>
-                </div>
-
-                <div class="mt-4">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="modern-card-title"><i class="ri-table-line me-1"></i> Lista de SLA (até 50
-                            registros)</span>
-                        <span class="badge bg-light text-dark">Ordenado pelo prazo</span>
-                    </div>
-
-                    <div class="table-responsive">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <h6 class="text-uppercase text-muted small">Regional / Célula (protest_type)</h6>
+                    <div class="table-responsive mt-2">
                         <table class="table table-striped table-hover table-compact mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Reclamação</th>
-                                    <th class="text-center">Med ID</th>
-                                    <th class="text-center">SLA previsto</th>
-                                    <th class="text-center">Finalizado em</th>
-                                    <th class="text-center">Status</th>
-                                    <th class="text-center">Desvio</th>
+                                    <th>Categoria</th>
+                                    <th class="text-center">Total<br>no período</th>
+                                    <th class="text-center">Abertas</th>
+                                    <th class="text-center">Passivo</th>
+                                    <th class="text-center">Vencidas</th>
+                                    <th class="text-center">%</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse ($jobSlaList as $job)
+                                @forelse ($bottlenecks['categories'] as $row)
                                     <tr>
-                                        <td>
-                                            <strong>{{ $job['protest_number'] }}</strong>
-                                            <div class="small text-muted">Job #{{ $job['job_id'] }}</div>
-                                        </td>
-                                        <td class="text-center">{{ $job['med_id'] }}</td>
-                                        <td class="text-center">{{ $job['sla_due_at'] }}</td>
-                                        <td class="text-center">{{ $job['finished_at'] }}</td>
-                                        <td class="text-center">
-                                            <span
-                                                class="badge {{ $job['status_badge'] }} text-white px-3">{{ $job['status_label'] }}</span>
-                                        </td>
-                                        <td class="text-center">{{ $job['delta_label'] ?? 'N/A' }}</td>
+                                        <td>{{ $row['label'] }}</td>
+                                        <td class="text-center">{{ $row['total'] }}</td>
+                                        <td class="text-center">{{ $row['abertas'] }}</td>
+                                        <td class="text-center">{{ $row['passivo'] }}</td>
+                                        <td class="text-center">{{ $row['vencidas'] }}</td>
+                                        <td class="text-center">{{ number_format($row['percent'], 1) }}%</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-3">
-                                            Nenhum job com SLA encontrado no período/filtro.
-                                        </td>
+                                        <td colspan="6" class="text-center text-muted py-3">Sem dados para o
+                                            período.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td>Total</td>
+                                    <td class="text-center">{{ $bottlenecks['categories_totals']['total'] }}</td>
+                                    <td class="text-center">{{ $bottlenecks['categories_totals']['abertas'] }}</td>
+                                    <td class="text-center">{{ $bottlenecks['categories_totals']['passivo'] }}</td>
+                                    <td class="text-center">{{ $bottlenecks['categories_totals']['vencidas'] }}</td>
+                                    <td class="text-center">100%</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
+                    <p class="small text-muted mt-2 mb-0">
+                        Legenda: % = participação da categoria no total de MEDA criadas no período.
+                        Passivo = MEDA abertas no mês anterior que ainda permanecem em status MEDA.
+                    </p>
                 </div>
-            </div>
-        </div>
-
-        {{-- Painel 4 --}}
-        <div class="modern-card mb-4">
-            <div class="modern-card-body">
-                <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
-                    <div>
-                        <div class="modern-card-title mb-1">
-                            <i class="ri-focus-2-line me-1"></i> Painel 4 - Gargalos
+                <div class="col-lg-6">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <h6 class="text-uppercase text-muted small">Tipos de nota (criadas no período)</h6>
+                            <ul class="list-group list-group-flush">
+                                @forelse ($bottlenecks['tipo_nota'] as $tipo)
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <span>{{ $tipo['tipo'] }}</span>
+                                        <span class="badge bg-primary">{{ $tipo['total'] }}</span>
+                                    </li>
+                                @empty
+                                    <li class="list-group-item px-0 text-muted">Sem registros.</li>
+                                @endforelse
+                            </ul>
                         </div>
-                        <div class="small text-muted">Categorias (protest_type) e tipos de nota que mais geram demanda
-                        </div>
-                    </div>
-                    <span class="badge bg-light text-dark">Período: {{ $summary['period_label'] }}</span>
-                </div>
-
-                <div class="row g-4">
-                    <div class="col-lg-6">
-                        <h6 class="text-uppercase text-muted small">Regional / Célula (protest_type)</h6>
-                        <div class="table-responsive mt-2">
-                            <table class="table table-striped table-hover table-compact mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Categoria</th>
-                                        <th class="text-center">Total</th>
-                                        <th class="text-center">Abertas</th>
-                                        <th class="text-center">Vencidas</th>
-                                        <th class="text-center">%</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse ($bottlenecks['categories'] as $row)
-                                        <tr>
-                                            <td>{{ $row['label'] }}</td>
-                                            <td class="text-center">{{ $row['total'] }}</td>
-                                            <td class="text-center">{{ $row['abertas'] }}</td>
-                                            <td class="text-center">{{ $row['vencidas'] }}</td>
-                                            <td class="text-center">{{ number_format($row['percent'], 1) }}%</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted py-3">Sem dados para o
-                                                período.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="row g-3">
-                            <div class="col-sm-6">
-                                <h6 class="text-uppercase text-muted small">Tipos de nota (aberturas)</h6>
-                                <ul class="list-group list-group-flush">
-                                    @forelse ($bottlenecks['tipo_nota'] as $tipo)
-                                        <li
-                                            class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                            <span>{{ $tipo['tipo'] }}</span>
-                                            <span class="badge bg-primary">{{ $tipo['total'] }}</span>
-                                        </li>
-                                    @empty
-                                        <li class="list-group-item px-0 text-muted">Sem registros.</li>
-                                    @endforelse
-                                </ul>
-                            </div>
-                            <div class="col-sm-6">
-                                <h6 class="text-uppercase text-muted small">Tipos de nota vencidos</h6>
-                                <ul class="list-group list-group-flush">
-                                    @forelse ($bottlenecks['tipo_nota_late'] as $tipo)
-                                        <li
-                                            class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                            <span>{{ $tipo['tipo'] }}</span>
-                                            <span class="badge bg-danger">{{ $tipo['total'] }}</span>
-                                        </li>
-                                    @empty
-                                        <li class="list-group-item px-0 text-muted">Sem registros.</li>
-                                    @endforelse
-                                </ul>
-                            </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-uppercase text-muted small">Tipos de nota vencidas no período</h6>
+                            <ul class="list-group list-group-flush">
+                                @forelse ($bottlenecks['tipo_nota_late'] as $tipo)
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <span>{{ $tipo['tipo'] }}</span>
+                                        <span class="badge bg-danger">{{ $tipo['total'] }}</span>
+                                    </li>
+                                @empty
+                                    <li class="list-group-item px-0 text-muted">Sem registros.</li>
+                                @endforelse
+                            </ul>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="chart-card mb-4">
-            <div class="chart-card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="ri-bar-chart-2-line me-2"></i> Aberturas diárias (Protest x MedProtest)
-                </h5>
-            </div>
-            <div class="chart-card-body" wire:ignore>
-                <div style="max-height: 380px;">
-                    <x-grafico.apex :chart="$dailyOpenings" chartId="dailyOpenings" class="w-100" />
-                </div>
-            </div>
-        </div>
-
     </div>
+
+    <div class="chart-card mb-4">
+        <div class="chart-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="ri-bar-chart-2-line me-2"></i> Aberturas diárias (Reclamações x Medidas)
+            </h5>
+        </div>
+        <div class="chart-card-body" wire:ignore>
+            <div style="max-height: 380px;">
+                <x-grafico.apex :chart="$dailyOpenings" chartId="dailyOpenings" class="w-100" />
+            </div>
+        </div>
+    </div>
+
+</div>

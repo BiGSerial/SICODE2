@@ -21,6 +21,7 @@ class Monitoring extends Component
     public string $search     = '';
     public string $searchName = '';
     public $userViewer        = null;
+    public bool $onlySelectedUser = false;
 
     /** Filtro por tipo de nota (NA / OU / PR) */
     public ?string $typeNote  = null;
@@ -39,6 +40,7 @@ class Monitoring extends Component
         'perPage'    => ['except' => 50],
         'search'     => ['except' => ''],
         'userViewer' => ['except' => null],
+        'onlySelectedUser' => ['except' => false],
         'typeNote'   => ['except' => null],
         'slaFilter'  => ['except' => null],
     ];
@@ -84,6 +86,20 @@ class Monitoring extends Component
     public function updatedTypeNote($value): void
     {
         $this->typeNote = $value ?: null;
+        $this->resetPage();
+    }
+
+    public function updatedUserViewer($value): void
+    {
+        if (empty($value)) {
+            $this->onlySelectedUser = false;
+        }
+
+        $this->resetPage();
+    }
+
+    public function updatedOnlySelectedUser(): void
+    {
         $this->resetPage();
     }
 
@@ -161,11 +177,18 @@ class Monitoring extends Component
                 return;
             }
 
-            $ownerIds = $user->descendantsQuery(true, true)->pluck('users.id')->toArray();
+            $ownerIds = $this->onlySelectedUser
+                ? [$user->id]
+                : $user->descendantsQuery(true, true)->pluck('users.id')->toArray();
 
-            $q->where(function ($qq) use ($ownerIds) {
-                $qq->whereIn('owner_id', $ownerIds)
-                    ->orWhereNull('owner_id');
+            $onlySelectedUser = $this->onlySelectedUser;
+
+            $q->where(function ($qq) use ($ownerIds, $onlySelectedUser) {
+                $qq->whereIn('owner_id', $ownerIds);
+
+                if (!$onlySelectedUser) {
+                    $qq->orWhereNull('owner_id');
+                }
             });
         });
 
@@ -309,7 +332,7 @@ class Monitoring extends Component
 
     public function cleanFilters(): void
     {
-        $this->reset(['userViewer', 'searchName', 'search', 'typeNote', 'slaFilter']);
+        $this->reset(['userViewer', 'searchName', 'search', 'typeNote', 'slaFilter', 'onlySelectedUser']);
         $this->loadUserViewerList();
         $this->resetPage();
     }

@@ -24,6 +24,8 @@
         }
     @endphp
 
+    @php $currentUserId = auth()->id(); @endphp
+
     <x-show-loading />
 
     {{-- ================= FILTROS / TOPO ================= --}}
@@ -41,14 +43,18 @@
             </div>
         </div>
 
-        {{-- Selecionar responsável (usuários abaixo na hierarquia) --}}
-        <div class="col-md-4">
+        {{-- Selecionar responsável (inclui hierarquia, delegados e delegações) --}}
+        <div class="col-md-3">
             <div class="form-floating">
                 <select wire:model="selectedUserId" id="selectedUserId" class="form-select">
                     <option value="">Todos os responsáveis</option>
                     @foreach ($availableUsers as $user)
+                        @php $isCurrent = $currentUserId === $user->id; @endphp
                         <option value="{{ $user->id }}">
-                            {{ reduceName($user->name) }} ({{ $user->email }})
+                            {{ $isCurrent ? 'Você' : reduceName($user->name) }} ({{ $user->email }})
+                            @if ($isCurrent)
+                                — atual
+                            @endif
                         </option>
                     @endforeach
                 </select>
@@ -56,8 +62,20 @@
             </div>
         </div>
 
+        {{-- Apenas o usuário selecionado (ignora descendentes) --}}
+        <div class="col-md-2">
+            <div class="form-check mt-md-4 pt-md-2">
+                <input wire:model="onlySelectedUser" type="checkbox" id="onlySelectedUser" class="form-check-input"
+                    {{ $selectedUserId ? '' : 'disabled' }}>
+                <label class="form-check-label" for="onlySelectedUser">
+                    Apenas selecionado
+                </label>
+                <small class="text-muted d-block">Sem descendência.</small>
+            </div>
+        </div>
+
         {{-- Busca geral: nota, cidade, responsável ou texto do job --}}
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="form-floating position-relative">
                 <input wire:model.debounce.500ms="search" type="text" id="search" class="form-control"
                     placeholder="Buscar por nota, cidade, responsável ou texto do job...">
@@ -328,7 +346,8 @@
                                 {{-- Ações --}}
                                 <td>
                                     <div class="d-flex justify-content-center gap-1">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" title="Visualizar"
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            title="Visualizar"
                                             onclick="window.location.href='{{ route('protests.services.view_controller', $job->id) }}'">
                                             <i class="ri-eye-line"></i>
                                         </button>
