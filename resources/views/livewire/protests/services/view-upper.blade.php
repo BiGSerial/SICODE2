@@ -196,8 +196,8 @@
             }
 
             /* .progress-bar {
-                                        background: linear-gradient(45deg, #007bff, #0056b3);
-                                    } */
+                                                background: linear-gradient(45deg, #007bff, #0056b3);
+                                            } */
 
             #closeReason:focus {
                 box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
@@ -213,9 +213,36 @@
 
     @php
         /** @var \App\Models\ProtestJob $job */
+        use Carbon\CarbonInterval;
 
         $medProtest = $job->medProtest;
         $protest = $medProtest?->protest;
+
+        if (!function_exists('formatSlaInterval')) {
+            function formatSlaInterval(int $seconds): string
+            {
+                $interval = CarbonInterval::seconds($seconds)->cascade();
+                $parts = [];
+
+                if ($interval->d > 0) {
+                    $parts[] = $interval->d . ' dia' . ($interval->d > 1 ? 's' : '');
+                }
+
+                if ($interval->h > 0) {
+                    $parts[] = $interval->h . 'h';
+                }
+
+                if ($interval->i > 0 && count($parts) < 2) {
+                    $parts[] = $interval->i . 'min';
+                }
+
+                if (empty($parts) && $interval->s > 0) {
+                    $parts[] = $interval->s . 's';
+                }
+
+                return $parts ? implode(' e ', $parts) : 'menos de 1 minuto';
+            }
+        }
 
         $tipoLabel = match ($protest?->tipoNota) {
             'OU' => 'Ouvidoria',
@@ -243,28 +270,29 @@
 
         if ($baseStart && $dueAt) {
             $totalSec = max($dueAt->diffInSeconds($baseStart), 1);
-            $elapsedSec = min($now->diffInSeconds($baseStart), $totalSec);
+            $elapsedRaw = $now->diffInSeconds($baseStart, false);
+            $elapsedSec = min(max($elapsedRaw, 0), $totalSec);
             $percent = intval(($elapsedSec / $totalSec) * 100);
-            $diffDays = $now->diffInDays($dueAt, false);
+            $secondsToDue = $now->diffInSeconds($dueAt, false);
 
-            if ($diffDays < 0) {
+            if ($secondsToDue < 0) {
                 $slaStatus['color'] = 'danger';
                 $slaStatus['text'] = 'SLA estourado';
                 $slaStatus['icon'] = 'ri-error-warning-line';
                 $slaStatus['percent'] = 100;
-                $slaStatus['label'] = 'Atraso de ' . abs($diffDays) . ' dia(s)';
+                $slaStatus['label'] = 'Atraso de ' . formatSlaInterval(abs($secondsToDue));
             } elseif ($percent >= 80) {
                 $slaStatus['color'] = 'warning';
                 $slaStatus['text'] = 'SLA em atenção';
                 $slaStatus['icon'] = 'ri-timer-line';
                 $slaStatus['percent'] = $percent;
-                $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
+                $slaStatus['label'] = 'Vence em ' . formatSlaInterval($secondsToDue);
             } else {
                 $slaStatus['color'] = 'success';
                 $slaStatus['text'] = 'SLA no prazo';
                 $slaStatus['icon'] = 'ri-check-line';
                 $slaStatus['percent'] = $percent;
-                $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
+                $slaStatus['label'] = 'No prazo, faltam ' . formatSlaInterval($secondsToDue);
             }
         }
 
@@ -291,17 +319,7 @@
                         <div class="header-title">
                             {{ $tipoLabel }} #{{ $protest?->nota ?? '—' }}
                             @if ($medProtest)
-                                <span class="mx-1"></span> Medida #{{ $medProtest->med_id }}
-                            @endif
-                            @if ($job->need_evidence)
-                                <span class="mx-1 badge text-bg-warning small fs-6">
-                                    <i class="ri-file-list-3-line align-middle"></i> Evidência
-                                </span>
-                            @endif
-                            @if ($job->is_advance)
-                                <span class="mx-1 badge text-bg-primary small fs-6">
-                                    <i class="ri-arrow-right-circle-line align-middle"></i> Avança
-                                </span>
+                                <span class="mx-1">|</span> Medida #{{ $medProtest->med_id }}
                             @endif
                         </div>
 
@@ -326,7 +344,7 @@
                             <span class="tag-pill">
                                 <i class="ri-flag-2-line me-1"></i>
                                 Status:
-                                <span class="{{ $job->status_badge_class }} ms-1">
+                                <span class="badge {{ $job->status_badge_class }} ms-1">
                                     {{ $job->status_label }}
                                 </span>
                             </span>
@@ -334,31 +352,21 @@
                             <span class="tag-pill">
                                 <i class="ri-vip-crown-2-line me-1"></i>
                                 Prioridade:
-                                <span class="{{ $job->priority_badge_class }} ms-1">
+                                <span class="badge {{ $job->priority_badge_class }} ms-1">
                                     {{ $job->priority_label }}
                                 </span>
                             </span>
                         </div>
-
-                        @if ($isSupervisorView)
-                            <div class="mt-2">
-                                <span class="badge bg-light text-dark">
-                                    Você está visualizando este Job como <strong>gestor</strong> do responsável.
-                                    O fluxo de início/encerramento é o padrão da atividade;
-                                    as ferramentas de gestão ficam em uma seção separada abaixo.
-                                </span>
-                            </div>
-                        @endif
                     </div>
                 </div>
 
-                <div class="header-details mt-2">
+                {{-- <div class="header-details mt-2">
                     <i class="ri-information-line me-1"></i>
                     Instruções do Job:
                     <span class="fw-semibold">
                         {{ $job->notes ?? 'Sem instruções detalhadas cadastradas.' }}
                     </span>
-                </div>
+                </div> --}}
             </div>
 
             {{-- Painel compacto de SLA no cabeçalho --}}
@@ -368,7 +376,7 @@
                         <span class="small text-white-50">
                             <i class="ri-timer-flash-line me-1"></i>SLA da atividade
                         </span>
-                        <span class="badge text-bg-{{ $slaStatus['color'] }} sla-chip">
+                        <span class="badge bg-{{ $slaStatus['color'] }} sla-chip">
                             <i class="{{ $slaStatus['icon'] }} me-1"></i>{{ $slaStatus['text'] }}
                         </span>
                     </div>
@@ -437,7 +445,24 @@
                         <div class="border-top pt-2 mt-2">
                             <div class="text-muted mb-1">Resumo da Reclamação</div>
                             <div class="fw-medium">
-                                {{ $protest?->resume ?? 'Sem resumo disponível.' }}
+                                {{ $protest?->resume ?? ($protest?->descricao ?? 'Sem resumo disponível.') }}
+                            </div>
+                        </div>
+                        <div class="border-top pt-2 mt-2">
+                            <div class="alert alert-primary border-0 shadow-sm mb-0" role="alert">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="flex-shrink-0">
+                                        <i class="ri-information-line fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="alert-heading mb-2 fw-bold">
+                                            <i class="ri-file-list-line me-1"></i>Instruções desta Atividade
+                                        </h6>
+                                        <div class="fw-medium">
+                                            {{ $job->notes ?? 'Sem instruções detalhadas cadastradas.' }}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -494,20 +519,20 @@
             </div>
         </div>
 
-        {{-- Controle da Atividade (Fluxo padrão) --}}
+        {{-- Controle da Atividade (Start / Close) --}}
         <div class="col-md-4 mb-3">
             <div class="modern-card h-100">
                 <div class="modern-card-body d-flex flex-column">
                     <div class="modern-card-title">
-                        <i class="ri-play-circle-line me-1"></i>Controle da Atividade (Fluxo do Job)
+                        <i class="ri-play-circle-line me-1"></i>Controle da Atividade
                     </div>
 
                     <div class="mb-2 small">
                         @if (!$jobStarted)
                             <div class="alert alert-info py-2 mb-2">
                                 <i class="ri-information-line me-1"></i>
-                                A atividade ainda não foi iniciada. O responsável (ou seu gestor) pode registrar o
-                                início da atividade.
+                                Clique em <strong>Iniciar atividade</strong> para registrar o início do atendimento
+                                deste Job.
                             </div>
                         @else
                             <div class="alert alert-light border py-2 mb-2">
@@ -530,7 +555,7 @@
                                 class="alert {{ $hasEvidence ? 'alert-success' : 'alert-warning' }} py-2 mb-2 small d-flex align-items-start gap-2">
                                 <i class="ri-attachment-2 mt-1"></i>
                                 <div>
-                                    Esta medida exige anexos de evidência.
+                                    Esta medida exige anexos recebidos.
                                     @if ($hasEvidence)
                                         <strong>{{ $medProtest->evidenceFiles->count() }}</strong> arquivo(s) já
                                         anexado(s).
@@ -555,31 +580,28 @@
                         @enderror
                         <small class="text-muted d-block mt-1">
                             <i class="ri-information-line me-1"></i>
-                            Este campo alimenta o <code>close_reason</code> do Job e faz parte do fluxo oficial de
-                            encerramento da atividade.
+                            Este texto alimenta o campo <code>close_reason</code> do Job e será usado em relatórios.
                         </small>
                     </div>
 
                     <div class="d-flex flex-column gap-2 mt-auto">
+                        {{-- Botão iniciar --}}
                         <button type="button" class="btn btn-outline-primary w-100" wire:click="startJob"
-                            @disabled(!$canManageJob || $jobStarted)>
+                            @disabled($jobStarted)>
                             <i class="ri-play-circle-line me-1"></i>
                             Iniciar atividade
-                            @if ($isSupervisorView)
-                                <span class="small">(em nome da equipe)</span>
-                            @endif
                         </button>
 
+                        {{-- Botão encerrar --}}
                         <button type="button" class="btn btn-primary w-100" wire:click="finishJob"
-                            @disabled(!$canManageJob || !$jobStarted || $jobFinished)>
+                            @disabled(!$jobStarted || $jobFinished)>
                             <i class="ri-check-double-line me-1"></i>
                             Encerrar atividade
                         </button>
 
                         <small class="text-muted">
-                            O encerramento registra o Job como concluído no fluxo padrão, mantendo histórico para
-                            análise
-                            gerencial.
+                            O encerramento registra o Job como concluído, mas o SLA continua sendo contado para fins
+                            de análise.
                         </small>
                     </div>
                 </div>

@@ -257,6 +257,18 @@
                             </select>
                         </div>
 
+                        <div class="col-12 mb-2">
+                            <label class="filter-label">
+                                <i class="ri-map-pin-user-line me-1"></i> Tipo de protesto
+                                <small class="text-white-50">(Selecione para filtrar todos os painéis)</small>
+                            </label>
+                            <select wire:model="protestTypes" multiple class="filter-select" size="3">
+                                @foreach ($protestTypeOptions as $option)
+                                    <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <div class="col-12 mt-2">
                             <button class="btn btn-light w-100 fw-semibold text-primary" wire:click="exportJobs"
                                 wire:loading.attr="disabled" wire:target="exportJobs">
@@ -271,6 +283,111 @@
                             </button>
                         </div>
 
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-alarm-warning-line me-1"></i> Alertas de vencimento
+                    </div>
+                    <div class="small text-muted">
+                        Medidas em status MEDA com vencimento hoje ou já vencidas.
+                    </div>
+                </div>
+                <span class="badge bg-light text-dark">Filtros aplicados a todos os painéis.</span>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <h6 class="text-uppercase text-muted small">
+                        Medidas vencendo hoje
+                        <span class="badge bg-light text-dark">{{ $dueMeasures['due_today']->total() }}</span>
+                    </h6>
+                    <ul class="list-group list-group-flush mt-2">
+                        @forelse ($dueMeasures['due_today'] as $measure)
+                            @php
+                                $protestNumber = $measure['protest_number'] ?? null;
+                            @endphp
+                            <li class="list-group-item px-0"
+                                wire:key="due-today-{{ $measure['protest_id'] ?? 'none' }}-{{ $measure['med_id'] ?? $loop->index }}">
+                                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
+                                    <div>
+                                        <div class="fw-semibold text-dark">
+                                            Reclamação {{ $measure['protest_number'] ?? 'N/A' }} · Medida
+                                            {{ $measure['med_id'] ?? 'N/A' }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            Vencimento: <span class="text-primary">{{ $measure['due_date'] ?? '-' }}</span>
+                                            · {{ $measure['protest_type_label'] ?? 'Tipo não informado' }}
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 mt-sm-0">
+                                        @if ($protestNumber && $protestNumber !== 'N/A')
+                                            <a href="{{ route('protests.dispatch.view', ['protest' => $protestNumber]) }}"
+                                                class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">
+                                                <i class="ri-external-link-line me-1"></i> Ver protesto
+                                            </a>
+                                        @else
+                                            <span class="badge bg-secondary">Sem link</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </li>
+                        @empty
+                            <li class="list-group-item px-0 text-muted">Sem medidas com vencimento em aberto hoje.</li>
+                        @endforelse
+                    </ul>
+                    <div class="mt-3">
+                        {{ $dueMeasures['due_today']->links() }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-uppercase text-muted small">
+                        Medidas vencidas
+                        <span class="badge bg-light text-dark">{{ $dueMeasures['overdue']->total() }}</span>
+                    </h6>
+                    <ul class="list-group list-group-flush mt-2">
+                        @forelse ($dueMeasures['overdue'] as $measure)
+                            @php
+                                $protestNumber = $measure['protest_number'] ?? null;
+                            @endphp
+                            <li class="list-group-item px-0"
+                                wire:key="overdue-{{ $measure['protest_id'] ?? 'none' }}-{{ $measure['med_id'] ?? $loop->index }}">
+                                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
+                                    <div>
+                                        <div class="fw-semibold text-dark">
+                                            Reclamação {{ $measure['protest_number'] ?? 'N/A' }} · Medida
+                                            {{ $measure['med_id'] ?? 'N/A' }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            Venceu em: <span class="text-danger">{{ $measure['due_date'] ?? '-' }}</span>
+                                            · {{ $measure['protest_type_label'] ?? 'Tipo não informado' }}
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 mt-sm-0">
+                                        @if ($protestNumber && $protestNumber !== 'N/A')
+                                            <a href="{{ route('protests.dispatch.view', ['protest' => $protestNumber]) }}"
+                                                class="btn btn-sm btn-outline-danger" target="_blank" rel="noopener">
+                                                <i class="ri-external-link-line me-1"></i> Ver protesto
+                                            </a>
+                                        @else
+                                            <span class="badge bg-secondary">Sem link</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </li>
+                        @empty
+                            <li class="list-group-item px-0 text-muted">Sem medidas vencidas dentro do filtro.</li>
+                        @endforelse
+                    </ul>
+                    <div class="mt-3">
+                        {{ $dueMeasures['overdue']->links() }}
                     </div>
                 </div>
             </div>

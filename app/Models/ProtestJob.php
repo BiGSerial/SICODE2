@@ -38,6 +38,7 @@ class ProtestJob extends Model
         'is_advance',
         'confirmed',
         'confirmed_at',
+        'auto',
     ];
 
     protected $casts = [
@@ -61,6 +62,7 @@ class ProtestJob extends Model
         'need_evidence'     => 'boolean',
         'is_advance'        => 'boolean',
         'confirm'           => 'boolean',
+        'auto'              => 'boolean',
         'confirmed_at'      => 'datetime',
     ];
 
@@ -277,6 +279,7 @@ class ProtestJob extends Model
                     'finished_at' => $this->finished_at ?? now(),
                     'closed_at'   => $this->closed_at   ?? now(),
                     'closed_by'   => $this->closed_by   ?? optional(auth()->user())->id,
+
                 ],
 
                 ProtestJobStatus::CANCELED => [
@@ -311,6 +314,10 @@ class ProtestJob extends Model
                 $extra
             ));
             $this->save();
+
+            if ($this->auto && !$this->confirmed && ($this->status === ProtestJobStatus::DONE)) {
+                $this->confirmJob();
+            }
 
             // loga evento
             $this->events()->create([

@@ -1,6 +1,7 @@
 <div>
     @php
         use Illuminate\Support\Str;
+        use Carbon\CarbonInterval;
 
         if (!function_exists('reduceName')) {
             function reduceName(string $name = null, bool $first = false): string
@@ -20,6 +21,32 @@
                 }
 
                 return $parts[0] . ' ' . end($parts);
+            }
+        }
+
+        if (!function_exists('formatSlaDiff')) {
+            function formatSlaDiff(int $seconds): string
+            {
+                $interval = CarbonInterval::seconds($seconds)->cascade();
+                $parts = [];
+
+                if ($interval->d > 0) {
+                    $parts[] = $interval->d . ' dia' . ($interval->d > 1 ? 's' : '');
+                }
+
+                if ($interval->h > 0) {
+                    $parts[] = $interval->h . 'h';
+                }
+
+                if ($interval->i > 0 && count($parts) < 2) {
+                    $parts[] = $interval->i . 'min';
+                }
+
+                if (empty($parts) && $interval->s > 0) {
+                    $parts[] = $interval->s . 's';
+                }
+
+                return $parts ? implode(' e ', $parts) : 'menos de 1 minuto';
             }
         }
     @endphp
@@ -114,21 +141,23 @@
                                 $slaLabel = 'Sem SLA definido';
 
                                 if ($slaDue && $startRef) {
+                                    $now = now();
                                     $totalSeconds = max($slaDue->diffInSeconds($startRef), 1);
-                                    $elapsedSeconds = min(max(now()->diffInSeconds($startRef), 0), $totalSeconds);
+                                    $elapsedSecondsRaw = $now->diffInSeconds($startRef, false);
+                                    $elapsedSeconds = min(max($elapsedSecondsRaw, 0), $totalSeconds);
                                     $slaProgress = intval(($elapsedSeconds / $totalSeconds) * 100);
 
-                                    $daysLeft = now()->startOfDay()->diffInDays($slaDue->startOfDay(), false);
+                                    $secondsToDue = $now->diffInSeconds($slaDue, false);
 
-                                    if ($daysLeft < 0) {
+                                    if ($secondsToDue < 0) {
                                         $slaClassBar = 'bg-danger';
-                                        $slaLabel = 'Vencido há ' . abs($daysLeft) . ' dia(s)';
-                                    } elseif ($daysLeft <= 3) {
+                                        $slaLabel = 'Vencido há ' . formatSlaDiff(abs($secondsToDue));
+                                    } elseif ($secondsToDue <= 259200) {
                                         $slaClassBar = 'bg-warning';
-                                        $slaLabel = 'Vence em ' . $daysLeft . ' dia(s)';
+                                        $slaLabel = 'Vence em ' . formatSlaDiff($secondsToDue);
                                     } else {
                                         $slaClassBar = 'bg-success';
-                                        $slaLabel = 'No prazo, faltam ' . $daysLeft . ' dia(s)';
+                                        $slaLabel = 'No prazo, faltam ' . formatSlaDiff($secondsToDue);
                                     }
                                 }
 

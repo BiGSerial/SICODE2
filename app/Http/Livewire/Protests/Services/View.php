@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Services;
 
+use App\Enum\ProtestJobStatus;
 use App\Models\EvidenceFile;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -88,7 +89,12 @@ class View extends Component
             abort(404, 'Medida de Reclamação não associada a este Job.');
         }
 
+
         $this->medProtest = $this->job->medProtest;
+
+        if ($this->job->status === ProtestJobStatus::OPENED) {
+            $this->job->accept();
+        }
     }
 
     /** Upload incremental (mantendo tempFiles como "cesta" de anexos) */

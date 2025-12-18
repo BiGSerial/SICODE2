@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Protests\Services;
 
 use App\Enum\ProtestJobPriority;
+use App\Enum\ProtestJobStatus;
 use App\Models\Comment;
 use App\Models\EvidenceFile;
 use App\Models\ProtestJob;
@@ -92,6 +93,10 @@ class ViewUpper extends Component
         $this->closeReason = $this->job->close_reason;
 
         $this->availableUsers = $this->loadAvailableUsers($auth);
+
+        if ($this->job->status === ProtestJobStatus::OPENED) {
+            $this->job->accept();
+        }
     }
 
     /**

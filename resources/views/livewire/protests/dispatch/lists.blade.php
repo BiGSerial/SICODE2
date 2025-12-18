@@ -55,8 +55,37 @@
         </div>
     </div>
 
-
-
+    {{-- Cards resumo por status --}}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-6">
+            <button type="button"
+                class="status-summary-card status-summary-card--warning {{ $statusCardFilter === 'due_today' ? 'is-active' : '' }}"
+                wire:click="setStatusCardFilter('due_today')">
+                <div class="status-summary-icon">
+                    <i class="ri-timer-2-line"></i>
+                </div>
+                <div class="status-summary-body">
+                    <span class="status-summary-label">Vencendo hoje</span>
+                    <span class="status-summary-value">{{ $dueTodayCount }}</span>
+                    <small>dtFimMedidaDesej = hoje</small>
+                </div>
+            </button>
+        </div>
+        <div class="col-md-6 col-lg-6">
+            <button type="button"
+                class="status-summary-card status-summary-card--danger {{ $statusCardFilter === 'overdue' ? 'is-active' : '' }}"
+                wire:click="setStatusCardFilter('overdue')">
+                <div class="status-summary-icon">
+                    <i class="ri-error-warning-line"></i>
+                </div>
+                <div class="status-summary-body">
+                    <span class="status-summary-label">Vencidos</span>
+                    <span class="status-summary-value">{{ $overdueCount }}</span>
+                    <small>dtFimMedidaDesej < hoje</small>
+                </div>
+            </button>
+        </div>
+    </div>
 
     {{-- Header da tabela / aÃ§Ãµes --}}
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -203,14 +232,32 @@
                             <span class="{{ $jobStatusClass }}">{{ $jobStatusLabel }}</span>
                         </td>
                         <td>
-                            <button class="btn btn-primary btn-sm rounded-circle" title="Gerenciar / Criar Atividade"
-                                wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $activeMed->id }})">
-                                <i class="ri-send-plane-line"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary btn-sm rounded-circle"
-                                wire:click="goTo({{ $protest->nota }})" title="Abrir Protest">
-                                <i class="ri-external-link-line"></i>
-                            </button>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="ri-more-2-fill"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button class="dropdown-item" type="button"
+                                            wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $activeMed->id }})">
+                                            <i class="ri-send-plane-line me-1"></i> Gerenciar / Criar atividade
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item" type="button"
+                                            wire:click="confirmAutoDemand({{ $activeMed->id }})">
+                                            <i class="ri-robot-line me-1"></i> Auto demanda
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item" type="button"
+                                            wire:click="goTo({{ $protest->nota }})">
+                                            <i class="ri-external-link-line me-1"></i> Abrir protesto
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -417,6 +464,86 @@
 </div>
 
 <style>
+    .status-summary-card {
+        border: none;
+        border-radius: 16px;
+        padding: 1rem 1.2rem;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all .2s ease;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        cursor: pointer;
+        position: relative;
+        background: #fff;
+    }
+
+    .status-summary-card .status-summary-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-size: 1.5rem;
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    .status-summary-card .status-summary-label {
+        font-size: .9rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-weight: 600;
+        display: block;
+    }
+
+    .status-summary-card .status-summary-value {
+        font-size: 1.9rem;
+        font-weight: 700;
+        line-height: 1;
+        display: block;
+    }
+
+    .status-summary-card small {
+        font-size: .78rem;
+        opacity: .8;
+    }
+
+    .status-summary-card.is-active {
+        transform: translateY(-4px);
+        box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+    }
+
+    .status-summary-card--warning {
+        background: linear-gradient(135deg, #fff7e6, #ffe3b3);
+        color: #7a4d00;
+    }
+
+    .status-summary-card--danger {
+        background: linear-gradient(135deg, #ffe4e6, #ffb3c0);
+        color: #7c1d2c;
+    }
+
+    .status-summary-card--success {
+        background: linear-gradient(135deg, #e1f6ea, #a7e3c6);
+        color: #0f5132;
+    }
+
+    .status-summary-card--warning .status-summary-icon {
+        color: #a35d00;
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .status-summary-card--danger .status-summary-icon {
+        color: #b4233b;
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .status-summary-card--success .status-summary-icon {
+        color: #198754;
+        background: rgba(255, 255, 255, 0.6);
+    }
+
     .modern-table th,
     .modern-table td {
         font-size: 0.98em;

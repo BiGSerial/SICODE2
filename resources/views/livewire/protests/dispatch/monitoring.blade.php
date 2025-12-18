@@ -17,6 +17,86 @@
         .highlightable-row.highlight-active td {
             background-color: transparent !important;
         }
+
+        .status-summary-card {
+            border: none;
+            border-radius: 16px;
+            padding: 1rem 1.2rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all .2s ease;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+            cursor: pointer;
+            position: relative;
+            background: #fff;
+        }
+
+        .status-summary-card .status-summary-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            font-size: 1.5rem;
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .status-summary-card .status-summary-label {
+            font-size: .9rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 600;
+            display: block;
+        }
+
+        .status-summary-card .status-summary-value {
+            font-size: 1.9rem;
+            font-weight: 700;
+            line-height: 1;
+            display: block;
+        }
+
+        .status-summary-card small {
+            font-size: .78rem;
+            opacity: .8;
+        }
+
+        .status-summary-card.is-active {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+        }
+
+        .status-summary-card--warning {
+            background: linear-gradient(135deg, #fff7e6, #ffe3b3);
+            color: #7a4d00;
+        }
+
+        .status-summary-card--danger {
+            background: linear-gradient(135deg, #ffe4e6, #ffb3c0);
+            color: #7c1d2c;
+        }
+
+        .status-summary-card--success {
+            background: linear-gradient(135deg, #e1f6ea, #a7e3c6);
+            color: #0f5132;
+        }
+
+        .status-summary-card--warning .status-summary-icon {
+            color: #a35d00;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .status-summary-card--danger .status-summary-icon {
+            color: #b4233b;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .status-summary-card--success .status-summary-icon {
+            color: #198754;
+            background: rgba(255, 255, 255, 0.6);
+        }
     </style>
 @endpush
 
@@ -167,131 +247,48 @@
         </div>
     </div>
 
-    @php
-        $total = $stats['total'] ?? 0;
-
-        $overdue = $stats['overdue'] ?? 0;
-        $overdue_pct = $stats['overdue_pct'] ?? 0;
-        $dueSoon = $stats['dueSoon'] ?? 0;
-        $dueSoon_pct = $stats['dueSoon_pct'] ?? 0;
-        $within = $stats['within'] ?? 0;
-        $within_pct = $stats['within_pct'] ?? 0;
-
-        $msgResponded = $stats['responded_messages'] ?? 0;
-        $msgPending = $stats['pending_messages_for_you'] ?? 0;
-    @endphp
-
-    {{-- ================== CARDS DE SLA ================== --}}
-    <div class="row g-3 mb-3">
-        {{-- Total em andamento (zera filtro SLA) --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === null ? 'border-primary border-2' : '' }}"
-                style="cursor:pointer" wire:click="setSlaFilter(null)">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">Total em andamento</span>
-                        <i class="ri-list-check-2 fs-4 text-primary"></i>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-end">
-                        <h3 class="fw-bold mb-0">{{ $total }}</h3>
-                        <span class="badge bg-light text-muted">100%</span>
-                    </div>
-                    <small class="text-muted mt-2">
-                        Reclamacoes abertas considerando os filtros e os prazos desejados.
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        {{-- SLA vencidos --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'overdue' ? 'border-danger border-2' : '' }}"
-                style="cursor:pointer" wire:click="setSlaFilter('overdue')">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">Prazo vencido</span>
-                        <i class="ri-timer-off-line fs-4 text-danger"></i>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-end mb-1">
-                        <h3 class="fw-bold mb-0 text-danger">{{ $overdue }}</h3>
-                        <span class="badge text-bg-danger">{{ $overdue_pct }}%</span>
-                    </div>
-                    <small class="text-muted">
-                        Atividades com a data desejada vencida.
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        {{-- Vencendo em ate 3 dias --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'dueSoon' ? 'border-warning border-2' : '' }}"
-                style="cursor:pointer" wire:click="setSlaFilter('dueSoon')">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">Vencendo em 3 dias</span>
-                        <i class="ri-timer-line fs-4 text-warning"></i>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-end mb-1">
-                        <h3 class="fw-bold mb-0 text-warning">{{ $dueSoon }}</h3>
-                        <span class="badge text-bg-warning">{{ $dueSoon_pct }}%</span>
-                    </div>
-                    <small class="text-muted">
-                        Itens com data desejada em ate 3 dias.
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        {{-- Dentro do prazo (SLA saudavel) --}}
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100 {{ $slaFilter === 'within' ? 'border-success border-2' : '' }}"
-                style="cursor:pointer" wire:click="setSlaFilter('within')">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">Dentro do prazo</span>
-                        <i class="ri-checkbox-circle-line fs-4 text-success"></i>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-end mb-1">
-                        <h3 class="fw-bold mb-0 text-success">{{ $within }}</h3>
-                        <span class="badge text-bg-success">{{ $within_pct }}%</span>
-                    </div>
-                    <small class="text-muted">
-                        Jobs com data desejada acima de 3 dias.
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ================== CARDS DE MENSAGENS ================== --}}
     <div class="row g-3 mb-3">
         <div class="col-12 col-md-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="text-muted text-uppercase small">Mensagens</span>
-                        <i class="ri-message-3-line fs-4 text-info"></i>
-                    </div>
-
-                    <div class="mb-2">
-                        <div class="text-muted small">Jobs já respondidos</div>
-                        <h4 class="fw-bold mb-0 text-info">{{ $msgResponded }}</h4>
-                    </div>
-
-                    <div class="mt-auto">
-                        <small class="text-muted d-block">
-                            Pendentes para você:
-                            <span class="fw-bold {{ $msgPending > 0 ? 'text-danger' : '' }}">
-                                {{ $msgPending }}
-                            </span>
-                        </small>
-                        <small class="text-muted">
-                            (Considerando a última mensagem da Medida.)
-                        </small>
-                    </div>
+            <button type="button"
+                class="status-summary-card status-summary-card--warning {{ $deadlineCardFilter === 'due_today' ? 'is-active' : '' }}"
+                wire:click="setDeadlineCardFilter('due_today')">
+                <div class="status-summary-icon">
+                    <i class="ri-timer-2-line"></i>
                 </div>
-            </div>
+                <div class="status-summary-body">
+                    <span class="status-summary-label">Vencendo hoje</span>
+                    <span class="status-summary-value">{{ $deadlineSummary['due_today'] ?? 0 }}</span>
+                    <small>Baseado em dtFimMedidaDesej</small>
+                </div>
+            </button>
+        </div>
+        <div class="col-12 col-md-4">
+            <button type="button"
+                class="status-summary-card status-summary-card--danger {{ $deadlineCardFilter === 'overdue' ? 'is-active' : '' }}"
+                wire:click="setDeadlineCardFilter('overdue')">
+                <div class="status-summary-icon">
+                    <i class="ri-error-warning-line"></i>
+                </div>
+                <div class="status-summary-body">
+                    <span class="status-summary-label">Vencidos</span>
+                    <span class="status-summary-value">{{ $deadlineSummary['overdue'] ?? 0 }}</span>
+                    <small>Data desejada anterior a hoje</small>
+                </div>
+            </button>
+        </div>
+        <div class="col-12 col-md-4">
+            <button type="button"
+                class="status-summary-card status-summary-card--success {{ $deadlineCardFilter === 'finished_pending' ? 'is-active' : '' }}"
+                wire:click="setDeadlineCardFilter('finished_pending')">
+                <div class="status-summary-icon">
+                    <i class="ri-check-double-line"></i>
+                </div>
+                <div class="status-summary-body">
+                    <span class="status-summary-label">Finalizados pendentes</span>
+                    <span class="status-summary-value">{{ $deadlineSummary['finished_pending'] ?? 0 }}</span>
+                    <small>Status done e aguardando confirmação</small>
+                </div>
+            </button>
         </div>
     </div>
 

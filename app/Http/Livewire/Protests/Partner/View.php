@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Partner;
 
+use App\Enum\ProtestJobStatus;
 use App\Models\EvidenceFile;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -89,6 +90,10 @@ class View extends Component
         }
 
         $this->medProtest = $this->job->medProtest;
+
+         if ($this->job->status === ProtestJobStatus::OPENED) {
+            $this->job->accept();
+        }
     }
 
     /** Upload incremental (mantendo tempFiles como "cesta" de anexos) */

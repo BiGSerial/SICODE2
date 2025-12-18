@@ -2,10 +2,12 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Enum\ProtestJobStatus;
 use App\Enum\ProtestType;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -35,6 +37,7 @@ class Monitoring extends Component
 
     public bool $showOnlyBtzero = false;
     public bool $hideBtzero = true;
+    public ?string $deadlineCardFilter = null;
 
     protected $queryString = [
         'perPage'    => ['except' => 50],
@@ -43,6 +46,7 @@ class Monitoring extends Component
         'onlySelectedUser' => ['except' => false],
         'typeNote'   => ['except' => null],
         'slaFilter'  => ['except' => null],
+        'deadlineCardFilter' => ['except' => null],
     ];
 
     protected $listeners = [
@@ -137,8 +141,19 @@ class Monitoring extends Component
         $this->resetPage();
     }
 
+    public function setDeadlineCardFilter(?string $filter = null): void
+    {
+        if ($this->deadlineCardFilter === $filter) {
+            $this->deadlineCardFilter = null;
+        } else {
+            $this->deadlineCardFilter = $filter;
+        }
+
+        $this->resetPage();
+    }
+
     /** Query base dos jobs */
-    protected function baseQuery()
+    protected function baseQuery(bool $ignoreDeadlineFilter = false)
     {
         $query = ProtestJob::query()
             ->with([
@@ -234,6 +249,32 @@ class Monitoring extends Component
             }
         });
 
+        if (!$ignoreDeadlineFilter && $this->deadlineCardFilter) {
+            $today = now()->toDateString();
+
+            if ($this->deadlineCardFilter === 'due_today') {
+                $query->where(function ($q) use ($today) {
+                    $q->whereHas('protest', function ($sub) use ($today) {
+                        $sub->where('tipoNota', 'NA')
+                            ->whereDate('dtConclusaoDesej', $today);
+                    })->orWhereHas('medProtest', function ($sub) use ($today) {
+                        $sub->whereDate('dtFimMedidaDesej', $today);
+                    });
+                });
+            } elseif ($this->deadlineCardFilter === 'overdue') {
+                $query->where(function ($q) use ($today) {
+                    $q->whereHas('protest', function ($sub) use ($today) {
+                        $sub->where('tipoNota', 'NA')
+                            ->whereDate('dtConclusaoDesej', '<', $today);
+                    })->orWhereHas('medProtest', function ($sub) use ($today) {
+                        $sub->whereDate('dtFimMedidaDesej', '<', $today);
+                    });
+                });
+            } elseif ($this->deadlineCardFilter === 'finished_pending') {
+                $query->where('status', ProtestJobStatus::DONE->value);
+            }
+        }
+
         return $query;
     }
 
@@ -325,6 +366,44 @@ class Monitoring extends Component
         ];
     }
 
+    public function getDeadlineSummaryProperty(): array
+    {
+        $jobs = $this->baseQuery(true)->get();
+        $today = now()->startOfDay();
+
+        $dueToday = 0;
+        $overdue = 0;
+        $finishedPending = 0;
+
+        foreach ($jobs as $job) {
+            if ($job->status === ProtestJobStatus::DONE) {
+                $finishedPending++;
+            }
+
+            $desiredDate = $this->resolveDesiredDate($job);
+
+            if (!$desiredDate) {
+                continue;
+            }
+
+            $desired = $desiredDate instanceof Carbon
+                ? $desiredDate->copy()->startOfDay()
+                : Carbon::parse($desiredDate)->startOfDay();
+
+            if ($desired->equalTo($today)) {
+                $dueToday++;
+            } elseif ($desired->lessThan($today)) {
+                $overdue++;
+            }
+        }
+
+        return [
+            'due_today' => $dueToday,
+            'overdue' => $overdue,
+            'finished_pending' => $finishedPending,
+        ];
+    }
+
     public function applyFilters(): void
     {
         $this->resetPage();
@@ -332,7 +411,7 @@ class Monitoring extends Component
 
     public function cleanFilters(): void
     {
-        $this->reset(['userViewer', 'searchName', 'search', 'typeNote', 'slaFilter', 'onlySelectedUser']);
+        $this->reset(['userViewer', 'searchName', 'search', 'typeNote', 'slaFilter', 'deadlineCardFilter', 'onlySelectedUser']);
         $this->loadUserViewerList();
         $this->resetPage();
     }
@@ -347,8 +426,8 @@ class Monitoring extends Component
         return view('livewire.protests.dispatch.monitoring', [
             'lists'          => $this->lists,
             'userViewerList' => $this->userViewerList,
-            'stats'          => $this->stats,
             'noteTypeOptions' => $this->noteTypeOptions,
+            'deadlineSummary' => $this->deadlineSummary,
         ]);
     }
 

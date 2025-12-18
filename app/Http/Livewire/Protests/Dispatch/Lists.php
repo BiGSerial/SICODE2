@@ -2,12 +2,17 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
+use App\Enum\ProtestJobPriority;
+use App\Enum\ProtestJobStatus;
 use App\Enum\ProtestType;
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ProtestExportListJob;
 use App\Models\MedProtest;
 use App\Models\Protest;
+use App\Models\ProtestJob;
 use App\Traits\{AppliesQueryFilters, WildcardFormmater};
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -28,6 +33,7 @@ class Lists extends Component
     public $advanceSearch;
     public $multisearch = [];
     public $type = "";
+    public ?string $statusCardFilter = null;
 
     public $showDetails = false;
     public $selected = null;
@@ -45,6 +51,8 @@ class Lists extends Component
     public bool $showOnlyBtzero = false;
     public bool $hideBtzero = true;
 
+    public ?int $autoDemandMedId = null;
+
     private $filter_group = 'protests';
 
     private $filter;
@@ -61,6 +69,7 @@ class Lists extends Component
         'refresh_list'    => '$refresh',
         'filters.updated' => 'onFiltersUpdated',
         'filters.applied' => 'onFiltersUpdated',
+        'createAutoDemandJob'   => 'createAutoDemandJob',
     ];
 
     public function onFiltersUpdated($payload = [])
@@ -93,6 +102,85 @@ class Lists extends Component
         // O carregamento de dados agora é feito nas Computed Properties.
     }
 
+    public function setStatusCardFilter(?string $filter = null): void
+    {
+        if ($this->statusCardFilter === $filter) {
+            $this->statusCardFilter = null;
+        } else {
+            $this->statusCardFilter = $filter;
+        }
+
+        $this->resetPage();
+    }
+
+    public function getDueTodayCountProperty(): int
+    {
+        $today = Carbon::today();
+
+        $query = MedProtest::query()
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs');
+
+        $this->applyBtzeroVisibilityFilter($query);
+        $this->applyMedDeadlineCondition($query, $today, '=');
+
+        return $query->count();
+    }
+
+    public function getOverdueCountProperty(): int
+    {
+        $today = Carbon::today();
+
+        $query = MedProtest::query()
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs');
+
+        $this->applyBtzeroVisibilityFilter($query);
+        $this->applyMedDeadlineCondition($query, $today, '<');
+
+        return $query->count();
+    }
+
+    protected function applyMedDeadlineCondition(Builder $query, Carbon $date, string $operator = '='): void
+    {
+        $query->where(function ($w) use ($date, $operator) {
+            $w->where(function ($branch) use ($date, $operator) {
+                $branch->whereHas('protest', function ($p) use ($date, $operator) {
+                    $p->where('tipoNota', 'NA')
+                        ->whereNotNull('dtConclusaoDesej')
+                        ->whereDate('dtConclusaoDesej', $operator, $date);
+                });
+            })->orWhere(function ($branch) use ($date, $operator) {
+                $branch->whereNotNull('dtFimMedidaDesej')
+                    ->whereDate('dtFimMedidaDesej', $operator, $date)
+                    ->whereHas('protest', function ($p) {
+                        $p->where(function ($type) {
+                            $type->where('tipoNota', '!=', 'NA')
+                                ->orWhereNull('tipoNota');
+                        });
+                    });
+            });
+        });
+    }
+
+    protected function applyBtzeroVisibilityFilter(Builder $query, bool $includeNullWhenHiding = true): void
+    {
+        if ($this->showOnlyBtzero) {
+            $query->where('protest_type', ProtestType::BTZERO->value);
+            return;
+        }
+
+        if ($this->hideBtzero) {
+            $query->where(function (Builder $sub) use ($includeNullWhenHiding) {
+                $sub->where('protest_type', '!=', ProtestType::BTZERO->value);
+
+                if ($includeNullWhenHiding) {
+                    $sub->orWhereNull('protest_type');
+                }
+            });
+        }
+    }
+
     /*
      * Computed Property para Tipos de Notas
      * Substitui a antiga variável pública.
@@ -116,11 +204,7 @@ class Lists extends Component
             ->where('statusSist', 'MEDA')
             ->orderBy('protest_type', 'ASC');
 
-        if ($this->showOnlyBtzero) {
-            $query->where('protest_type', ProtestType::BTZERO->value);
-        } elseif ($this->hideBtzero) {
-            $query->where('protest_type', '!=', ProtestType::BTZERO->value);
-        }
+        $this->applyBtzeroVisibilityFilter($query, includeNullWhenHiding: false);
 
         return $query->get();
     }
@@ -162,6 +246,96 @@ class Lists extends Component
             'text'     => 'A exportação foi iniciada, você receberá uma notificação quando estiver pronta.',
             'timer'    => 5000,
         ]);
+    }
+
+    public function confirmAutoDemand(int $medProtestId): void
+    {
+        $med = MedProtest::with('Protest:id,nota')->find($medProtestId);
+
+        if (!$med) {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'error',
+                'menssage' => 'Medida não encontrada para criar auto demanda.',
+            ]);
+            return;
+        }
+
+        $this->autoDemandMedId = $med->id;
+
+        $nota = $med->Protest?->nota ?? 'Desconhecido';
+
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Criar auto demanda para <strong>#' . ($nota) . '</strong>?',
+            'msg'           => 'Deseja gerar uma atividade automática para a medida <strong>#' . ($med->med_id ?? $med->id) . '</strong> ?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, criar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'createAutoDemandJob',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg'    => 'Nenhuma atividade foi criada.',
+        ]);
+    }
+
+    public function createAutoDemandJob(): void
+    {
+        if (!$this->autoDemandMedId) {
+            return;
+        }
+
+        $med = MedProtest::with('protest')->find($this->autoDemandMedId);
+
+        if (!$med) {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'error',
+                'menssage' => 'Não foi possível localizar a medida selecionada.',
+            ]);
+            $this->resetAutoDemandTarget();
+            return;
+        }
+
+        $hasOpenJob = $med->ProtestJobs()
+            ->open()
+            ->exists();
+
+        if ($hasOpenJob) {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'warning',
+                'menssage' => 'Já existe uma atividade aberta para esta medida.',
+            ]);
+            $this->resetAutoDemandTarget();
+            return;
+        }
+
+        $userId = auth()->user()->id;
+
+        ProtestJob::create([
+            'protest_id'     => $med->protest_id,
+            'med_protest_id' => $med->id,
+            'created_by'     => $userId,
+            'owner_id'       => $userId,
+            'status'         => ProtestJobStatus::OPENED->value,
+            'priority'       => ProtestJobPriority::NORMAL->value,
+            'is_advance'     => false,
+            'need_evidence'  => false,
+            'notes'          => 'Auto demanda gerada a partir da fila do despachante.',
+            'sent_at'        => now(),
+            'sla_due_at'    => now()->addDays(1),
+            'auto'           => true,
+        ]);
+
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => 'Atividade automática criada e atribuída para você.',
+        ]);
+
+        $this->resetAutoDemandTarget();
+        $this->emitSelf('refreshComponent');
+    }
+
+    protected function resetAutoDemandTarget(): void
+    {
+        $this->autoDemandMedId = null;
     }
 
     public function buscarMulti()
@@ -219,12 +393,10 @@ class Lists extends Component
                 'Notes',
             ]);
 
-        if (!$this->isSearching()) {
-            $query->whereHas('medProtests', function ($q) {
-                $q->where('statusSist', 'MEDA')
-                    ->whereDoesntHave('ProtestJobs');
-            });
-        }
+        $query->whereHas('medProtests', function ($q) {
+            $q->where('statusSist', 'MEDA')
+                ->whereDoesntHave('ProtestJobs');
+        });
 
         if ($this->showOnlyBtzero) {
             $query->whereHas('medProtests', function ($q) {
@@ -281,6 +453,24 @@ class Lists extends Component
             $query->whereIn('cidade', $this->filter['city']);
         }
 
+        if ($this->statusCardFilter) {
+            $today = Carbon::today();
+
+            if ($this->statusCardFilter === 'due_today') {
+                $query->whereHas('medProtests', function ($med) use ($today) {
+                    $med->where('statusSist', 'MEDA')
+                        ->whereDoesntHave('ProtestJobs');
+                    $this->applyMedDeadlineCondition($med, $today, '=');
+                });
+            } elseif ($this->statusCardFilter === 'overdue') {
+                $query->whereHas('medProtests', function ($med) use ($today) {
+                    $med->where('statusSist', 'MEDA')
+                        ->whereDoesntHave('ProtestJobs');
+                    $this->applyMedDeadlineCondition($med, $today, '<');
+                });
+            }
+        }
+
         if (!empty($this->filter['vencimento_from']) && !empty($this->filter['vencimento_to'])) {
             $query->havingRaw('vencimento BETWEEN ? AND ?', [
                 $this->filter['vencimento_from'],
@@ -301,6 +491,8 @@ class Lists extends Component
             // Aqui passamos as Computed Properties. O Livewire entende o snake_case.
             'protest_Types' =>  $this->ProtestTypes,
             'tipoNotas' => $this->TypeNotes,
+            'dueTodayCount' => $this->dueTodayCount,
+            'overdueCount' => $this->overdueCount,
         ]);
     }
 

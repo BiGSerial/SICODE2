@@ -11,15 +11,22 @@ use App\Models\ProtestJob;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class UserSlaDashboard extends Component
 {
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
+
     public $dt_in;
     public $dt_out;
     public $advanceFilter = 'all'; // all | advance | normal
     public $userId = null;
+    public array $protestTypes = [];
 
     public $usersOptions = [];
+    public array $protestTypeOptions = [];
 
     protected $queryString = [
         'dt_in'         => ['except' => ''],
@@ -44,6 +51,32 @@ class UserSlaDashboard extends Component
             })
             ->orderBy('name')
             ->get(['id', 'name']);
+
+        $this->protestTypeOptions = collect(ProtestType::cases())->map(function (ProtestType $type) {
+            return [
+                'value' => $type->value,
+                'label' => $type->label(),
+            ];
+        })->values()->all();
+
+        $this->protestTypes = [];
+    }
+
+    public function updated($propertyName)
+    {
+        $paginationSensitiveProps = ['dt_in', 'dt_out', 'advanceFilter', 'userId', 'protestTypes'];
+
+        $isProtestTypesNested = str_starts_with($propertyName, 'protestTypes.');
+
+        if ($isProtestTypesNested || in_array($propertyName, $paginationSensitiveProps, true)) {
+            $this->resetDueMeasuresPagination();
+        }
+    }
+
+    protected function resetDueMeasuresPagination(): void
+    {
+        $this->resetPage('due_today_page');
+        $this->resetPage('overdue_page');
     }
 
     /**
@@ -63,6 +96,11 @@ class UserSlaDashboard extends Component
                         ->orWhere('owner_id', $id)
                         ->orWhere('closed_by', $id);
                 });
+            })
+            ->when($types = $this->getSelectedProtestTypes(), function ($q) use ($types) {
+                $q->whereHas('medProtest', function ($sub) use ($types) {
+                    $sub->whereIn('protest_type', $types);
+                });
             });
     }
 
@@ -74,6 +112,48 @@ class UserSlaDashboard extends Component
 
         return $this->baseJobsQuery()
             ->whereBetween($dateColumn, [$start, $end]);
+    }
+
+    protected function getSelectedProtestTypes(): array
+    {
+        return collect($this->protestTypes)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function applyMedProtestTypeFilter($query)
+    {
+        $types = $this->getSelectedProtestTypes();
+        return $query->when(!empty($types), fn ($q) => $q->whereIn('protest_type', $types));
+    }
+
+    protected function applyProtestTypeFilter($query)
+    {
+        $types = $this->getSelectedProtestTypes();
+        return $query->when(!empty($types), function ($q) use ($types) {
+            $q->whereHas('medProtests', function ($sub) use ($types) {
+                $sub->whereIn('protest_type', $types);
+            });
+        });
+    }
+
+    protected function resolveProtestTypeLabel($value): string
+    {
+        if ($value instanceof ProtestType) {
+            return $value->label();
+        }
+
+        if (is_numeric($value)) {
+            $enum = ProtestType::tryFrom((int) $value);
+            if ($enum) {
+                return $enum->label();
+            }
+        }
+
+        return 'Sem classificacao';
     }
 
     protected function getDateRange(): array
@@ -622,59 +702,51 @@ class UserSlaDashboard extends Component
             'vencidas'=> $categories->sum('vencidas'),
         ];
 
-        $tipoNotaRows = Protest::query()
+        $tipoNota = Protest::query()
+            ->whereNotNull('dtAberturaNota')
             ->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd])
-            ->selectRaw('COALESCE(tipoNota, "Não informado") as tipo, COUNT(*) as total')
-            ->groupBy('tipo')
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->selectRaw('protests.tipoNota as tipoNota, COUNT(*) as total')
+            ->groupBy('protests.tipoNota')
             ->orderByDesc('total')
-            ->limit(6)
+            ->limit(10)
             ->get()
             ->map(function ($row) {
                 return [
-                    'tipo'  => $row->tipo,
-                    'total' => (int)$row->total,
+                    'tipo'  => $row->tipoNota ?? 'Sem classificacao',
+                    'total' => (int)($row->total ?? 0),
                 ];
-            });
+            })
+            ->toArray();
 
-        $tipoNotaLateRows = Protest::query()
-            ->whereBetween('dtConclusaoDesej', [$rangeStart, $rangeEnd])
-            ->whereDate('dtConclusaoDesej', '<', now()->startOfDay())
-            ->selectRaw('COALESCE(tipoNota, "Não informado") as tipo, COUNT(*) as total')
-            ->groupBy('tipo')
+        $tipoNotaLate = MedProtest::query()
+            ->join('protests', 'protests.id', '=', 'med_protests.protest_id')
+            ->where('med_protests.statusSist', 'MEDA')
+            ->whereNotNull('med_protests.dtFimMedidaDesej')
+            ->whereBetween('med_protests.dtFimMedidaDesej', [$rangeStart, $rangeEnd])
+            ->where('med_protests.dtFimMedidaDesej', '<', $now)
+            ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
+            ->selectRaw('protests.tipoNota as tipoNota, COUNT(*) as total')
+            ->groupBy('protests.tipoNota')
             ->orderByDesc('total')
-            ->limit(6)
+            ->limit(10)
             ->get()
             ->map(function ($row) {
                 return [
-                    'tipo'  => $row->tipo,
-                    'total' => (int)$row->total,
+                    'tipo'  => $row->tipoNota ?? 'Sem classificacao',
+                    'total' => (int)($row->total ?? 0),
                 ];
-            });
+            })
+            ->toArray();
 
         return [
-            'categories'        => $categories,
+            'categories'        => $categories->toArray(),
             'categories_totals' => $categoriesTotals,
-            'tipo_nota'         => $tipoNotaRows,
-            'tipo_nota_late'    => $tipoNotaLateRows,
+            'tipo_nota'         => $tipoNota,
+            'tipo_nota_late'    => $tipoNotaLate,
         ];
     }
 
-    protected function resolveProtestTypeLabel($value): string
-    {
-        if (is_null($value)) {
-            return 'Sem categoria';
-        }
-
-        if ($value instanceof ProtestType) {
-            return $value->label();
-        }
-
-        return ProtestType::tryFrom((int)$value)?->label() ?? 'Desconhecido';
-    }
-
-    /**
-     * Gráfico de aberturas diárias usando apenas Protest / MedProtest.
-     */
     protected function buildDailyOpeningsChart(Carbon $start, Carbon $end): array
     {
         $rangeStart = $start->copy()->startOfDay();
@@ -684,6 +756,7 @@ class UserSlaDashboard extends Component
             ->whereNotNull('dtAberturaNota')
             ->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd])
             ->whereHas('ProtestJobs')
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
             ->selectRaw('DATE(dtAberturaNota) as date, COUNT(*) as total')
             ->groupBy('date')
             ->pluck('total', 'date');
@@ -692,6 +765,7 @@ class UserSlaDashboard extends Component
             ->whereNotNull('dtCriacaoMedida')
             ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd])
             ->whereHas('ProtestJobs')
+            ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
             ->selectRaw('DATE(dtCriacaoMedida) as date, COUNT(*) as total')
             ->groupBy('date')
             ->pluck('total', 'date');
@@ -788,17 +862,24 @@ class UserSlaDashboard extends Component
     {
         $openMeasures = MedProtest::where('statusSist', 'MEDA')
             ->whereHas('ProtestJobs')
+            ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
             ->count();
 
         $openProtests = Protest::whereHas('medProtests', function ($q) {
             $q->where('statusSist', 'MEDA')
                 ->whereHas('ProtestJobs');
-        })->count();
+        })
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->count();
 
-        $totalProtests  = Protest::whereHas('ProtestJobs')->count();
+        $totalProtests  = Protest::whereHas('ProtestJobs')
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->count();
         $closedProtests = Protest::whereHas('ProtestJobs', function ($q) {
             $q->whereNotNull('finished_at');
-        })->count();
+        })
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->count();
 
         $baselineStart = $start->copy()->startOfDay();
         $baselineEnd = $end->copy()->endOfDay();
@@ -883,8 +964,10 @@ class UserSlaDashboard extends Component
             ->groupBy('med_protest_id');
 
         $raw = MedProtest::query()
+            ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
             ->leftJoinSub($jobsSub, 'jobs', 'jobs.med_protest_id', '=', 'med_protests.id')
             ->whereBetween('med_protests.dtCriacaoMedida', [$rangeStart, $rangeEnd])
+            ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
             ->selectRaw("
                 DATE(med_protests.dtCriacaoMedida) as date,
                 SUM(CASE WHEN COALESCE(jobs.job_count, 0) > 0 THEN 1 ELSE 0 END) as with_job,
@@ -1179,6 +1262,52 @@ class UserSlaDashboard extends Component
         })->toArray();
     }
 
+    protected function buildDueMeasures(): array
+    {
+        $base = MedProtest::query()
+            ->with(['protest:id,nota'])
+            ->where('statusSist', 'MEDA')
+            ->whereNotNull('dtFimMedidaDesej');
+
+        $base = $this->applyMedProtestTypeFilter($base);
+
+        $todayStart = now()->startOfDay();
+        $todayEnd   = now()->endOfDay();
+        $perPage    = 10;
+
+        $dueTodayQuery = (clone $base)
+            ->whereBetween('dtFimMedidaDesej', [$todayStart, $todayEnd])
+            ->orderBy('dtFimMedidaDesej');
+
+        $overdueQuery = (clone $base)
+            ->where('dtFimMedidaDesej', '<', $todayStart)
+            ->orderBy('dtFimMedidaDesej');
+
+        $dueToday = $dueTodayQuery->paginate($perPage, ['*'], 'due_today_page');
+        $overdue  = $overdueQuery->paginate($perPage, ['*'], 'overdue_page');
+
+        $dueToday->setCollection($this->transformDueMeasures($dueToday->getCollection()));
+        $overdue->setCollection($this->transformDueMeasures($overdue->getCollection()));
+
+        return [
+            'due_today' => $dueToday,
+            'overdue'   => $overdue,
+        ];
+    }
+
+    protected function transformDueMeasures($collection)
+    {
+        return $collection->map(function (MedProtest $measure) {
+            return [
+                'protest_id'         => $measure->protest_id,
+                'protest_number'     => $measure->protest->nota ?? 'N/A',
+                'med_id'             => $measure->med_id ?? 'N/A',
+                'due_date'           => optional($measure->dtFimMedidaDesej)->format('d/m/Y'),
+                'protest_type_label' => $this->resolveProtestTypeLabel($measure->protest_type),
+            ];
+        });
+    }
+
     protected function toast(string $status, string $message): void
     {
         $this->dispatchBrowserEvent('torrada', [
@@ -1219,6 +1348,7 @@ class UserSlaDashboard extends Component
         $dailyDispatchCompletion = $this->buildDailyDispatchCompletionChart($start, $end);
         $jobSlaList             = $this->buildJobSlaList($start, $end);
         $medaSnapshot           = $this->buildMedaSnapshot($start, $end);
+        $dueMeasures            = $this->buildDueMeasures();
 
         $this->dispatchDailyOpeningsChart($dailyOpenings);
         $this->dispatchMedaJobsChart($medaJobsChart);
@@ -1237,6 +1367,7 @@ class UserSlaDashboard extends Component
             'dailyDispatchCompletion' => $dailyDispatchCompletion,
             'jobSlaList'              => $jobSlaList,
             'medaSnapshot'            => $medaSnapshot,
+            'dueMeasures'             => $dueMeasures,
         ]);
     }
 }

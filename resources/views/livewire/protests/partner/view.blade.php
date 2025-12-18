@@ -209,9 +209,36 @@
 
 @php
     /** @var \App\Models\ProtestJob $job */
+    use Carbon\CarbonInterval;
 
     $medProtest = $job->medProtest;
     $protest = $medProtest?->protest;
+
+    if (!function_exists('formatSlaInterval')) {
+        function formatSlaInterval(int $seconds): string
+        {
+            $interval = CarbonInterval::seconds($seconds)->cascade();
+            $parts = [];
+
+            if ($interval->d > 0) {
+                $parts[] = $interval->d . ' dia' . ($interval->d > 1 ? 's' : '');
+            }
+
+            if ($interval->h > 0) {
+                $parts[] = $interval->h . 'h';
+            }
+
+            if ($interval->i > 0 && count($parts) < 2) {
+                $parts[] = $interval->i . 'min';
+            }
+
+            if (empty($parts) && $interval->s > 0) {
+                $parts[] = $interval->s . 's';
+            }
+
+            return $parts ? implode(' e ', $parts) : 'menos de 1 minuto';
+        }
+    }
 
     // Tipo da reclamação
     $tipoLabel = match ($protest?->tipoNota) {
@@ -241,29 +268,30 @@
 
     if ($baseStart && $dueAt) {
         $totalSec = max($dueAt->diffInSeconds($baseStart), 1);
-        $elapsedSec = min($now->diffInSeconds($baseStart), $totalSec);
+        $elapsedRaw = $now->diffInSeconds($baseStart, false);
+        $elapsedSec = min(max($elapsedRaw, 0), $totalSec);
         $percent = intval(($elapsedSec / $totalSec) * 100);
 
-        $diffDays = $now->startOfDay()->diffInDays($dueAt->startOfDay(), false);
+        $secondsToDue = $now->diffInSeconds($dueAt, false);
 
-        if ($diffDays < 0) {
+        if ($secondsToDue < 0) {
             $slaStatus['color'] = 'danger';
             $slaStatus['text'] = 'SLA estourado';
             $slaStatus['icon'] = 'ri-error-warning-line';
             $slaStatus['percent'] = 100;
-            $slaStatus['label'] = 'Atraso de ' . abs($diffDays) . ' dia(s)';
+            $slaStatus['label'] = 'Atraso de ' . formatSlaInterval(abs($secondsToDue));
         } elseif ($percent >= 80) {
             $slaStatus['color'] = 'warning';
             $slaStatus['text'] = 'SLA em atenção';
             $slaStatus['icon'] = 'ri-timer-line';
             $slaStatus['percent'] = $percent;
-            $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
+            $slaStatus['label'] = 'Vence em ' . formatSlaInterval($secondsToDue);
         } else {
             $slaStatus['color'] = 'success';
             $slaStatus['text'] = 'SLA no prazo';
             $slaStatus['icon'] = 'ri-check-line';
             $slaStatus['percent'] = $percent;
-            $slaStatus['label'] = 'Faltam ' . $diffDays . ' dia(s)';
+            $slaStatus['label'] = 'No prazo, faltam ' . formatSlaInterval($secondsToDue);
         }
     }
 

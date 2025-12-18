@@ -37,9 +37,10 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('protests.dispatch.monitoring') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-arrow-repeat fs-5 edp-text-verde-dark"></i> <span>EM ANDAMENTO</span>
-
+                        <a href="{{ route('protests.dispatch.monitoring') }}"
+                            class="nav-item text-white fw-normal d-flex align-items-center">
+                            <i class="bi bi-arrow-repeat fs-5 edp-text-verde-dark me-1"></i> <span>EM ANDAMENTO</span>
+                            @livewire('protests.dispatch.menu-monitoring-badge', ['type' => 'normal'], key('menu-monitoring-normal'))
                         </a>
                     </li>
                     <li>
@@ -63,9 +64,9 @@
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch_btzero.monitoring') }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark"></i> <span>BT ZERO ANDAMENTO</span>
-
+                            class="nav-item text-white fw-normal d-flex align-items-center">
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark me-1"></i> <span>BT ZERO ANDAMENTO</span>
+                            @livewire('protests.dispatch.menu-monitoring-badge', ['type' => 'btzero'], key('menu-monitoring-btzero'))
                         </a>
                     </li>
                     <li>
