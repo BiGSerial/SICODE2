@@ -681,7 +681,7 @@
         <div class="modern-card">
             <div class="modern-card-body">
                 <div class="modern-card-title mb-2"><i class="ri-attachment-line me-2"></i>Anexos & Evidências</div>
-                <x-files.attachments :files="$protest->evidenceFiles" downloadAction="downloadFile" />
+                <x-files.attachments :files="$protest->evidenceFiles" downloadAction="downloadFiles" />
             </div>
         </div>
 
