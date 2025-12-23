@@ -864,7 +864,7 @@
 
                             <x-files.attachments :files="$medProtest->evidenceFiles"
                                 deleteAction="{{ auth()->user()->superadm ? 'deleteFile' : '' }}"
-                                downloadAction="downloadFile" />
+                                downloadAction="downloadFiles" />
                         @endif
                     </div>
                 </div>
