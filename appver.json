@@ -1,6 +1,11 @@
 {
-    "appver": "1.27.2",
+    "appver": "1.27.3",
     "historic": [
+        {
+            "version": "1.27.3",
+            "description": "HotFix protest view download files",
+            "date": "2025-12-23"
+        },
         {
             "version": "1.27.2",
             "description": "Fix View Download Files",

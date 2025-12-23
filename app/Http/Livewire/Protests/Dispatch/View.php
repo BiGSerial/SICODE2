@@ -79,7 +79,7 @@ class View extends Component
      *  ARQUIVOS / EVIDÊNCIAS
      *  ======================================================================= */
 
-    public function dowloadFile(EvidenceFile $file)
+    public function downloadFiles(EvidenceFile $file)
     {
         try {
             $path = 'public/' . $file->path;
