@@ -257,6 +257,7 @@
                             <th scope="col" class="fw-bold text-center">Sts Protocolo</th>
                             <th scope="col" class="fw-bold text-center">Entidade</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
+                            <th scope="col" class="fw-bold text-center">Grp 2</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
                             <th scope="col" class="fw-bold text-center">Pedido</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
@@ -342,6 +343,7 @@
                                 </td>
 
                                 <td class="fw-light text-center">{{ $list->rubrica }}</td>
+                                 <td class="fw-light text-center">{{ $list->group2 }}</td>
                                 <td class="fw-light text-center">{{ $list->lexp }}</td>
 
 
