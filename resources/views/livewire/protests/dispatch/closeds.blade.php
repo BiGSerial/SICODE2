@@ -467,7 +467,7 @@
 
                                 <td>
                                     <span class="badge text-bg-secondary">
-                                        {{ $protest?->codecodf }}
+                                        {{ $protest?->statUsuar }}
                                     </span>
                                 </td>
                                 <td class="">
