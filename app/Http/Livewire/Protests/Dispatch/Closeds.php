@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Protests\Dispatch;
 use App\Enum\ProtestJobStatus;
 use App\Enum\ProtestType;
 use App\Helpers\TextFormatter;
+use App\Jobs\Protests\ExportClosedProtestJobsJob;
 use App\Models\ProtestJob;
 use App\Models\User;
 use App\Traits\WildcardFormmater;
@@ -260,7 +261,26 @@ class Closeds extends Component
 
     public function exportToExcel(): void
     {
-        // pluga o export depois com baseQuery()->get()
+        $filters = [
+            'typeNote'           => $this->typeNote,
+            'search'             => $this->search,
+            'inPrazo'            => $this->inPrazo,
+            'userViewer'         => $this->userViewer,
+            'protestTypeFilter'  => $this->protestTypeFilter,
+        ];
+
+        ExportClosedProtestJobsJob::dispatch($filters, (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Exportação iniciada',
+            'html'     => "<div class='card'><div class='card-body'>
+            <p>Seu arquivo está sendo gerado.</p>
+            <p class='mb-0'><strong>Quando concluir, o link aparecerá na sua Central de Notificações.</strong></p>
+        </div></div>",
+            'timer'    => 5000,
+        ]);
     }
 
     public function render()
