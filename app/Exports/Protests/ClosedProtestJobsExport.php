@@ -31,7 +31,7 @@ class ClosedProtestJobsExport implements FromQuery, WithMapping, WithHeadings, W
             ->where('status', ProtestJobStatus::DONE->value)
             ->where('confirmed', true)
             ->with([
-                'protest:id,nota,tipoNota,cidade,statUsuar,txtGrpCodificacao,dtAberturaNota,dtConclusaoDesej',
+                'protest:id,nota,tipoNota,cidade,statUsuar,txtGrpCodificacao,dtAberturaNota,dtConclusaoDesej,type',
                 'protest.medProtests:id,protest_id,statusSist,protest_type',
                 'medProtest:id,protest_id,med_id,statusSist,txtCodMedida,dtCriacaoMedida,dtFimMedidaDesej,dtFimMedida,protest_type',
                 'creator:id,name',
@@ -127,7 +127,7 @@ class ClosedProtestJobsExport implements FromQuery, WithMapping, WithHeadings, W
             $protest?->tipoNota,
             $med?->protest_type_label,
             $protest?->statUsuar,
-            $protest?->codecodf,
+            $protest?->type,
             $protest?->txtGrpCodificacao,
             $protest?->cidade,
             $med?->med_id,
