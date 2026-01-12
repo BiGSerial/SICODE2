@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Oexterno;
 
 use App\Helpers\SelectOptions;
+use App\Jobs\Reports\ExportExternalReclaimsJob;
 use App\Models\External;
 use App\Models\Entity;
 use App\Models\EntityType;
@@ -108,13 +109,17 @@ class Dashboard extends Component
     //         ->when(!empty($this->rubrics), fn ($qq) => $qq->whereHas('Note', fn ($n) => $n->whereIn('rubrica', $this->rubrics)));
     // }
 
-    protected function applyExternalFilters(\Illuminate\Database\Eloquent\Builder $q, bool $restrictByUsers = false): \Illuminate\Database\Eloquent\Builder
+    protected function applyExternalFilters(
+        \Illuminate\Database\Eloquent\Builder $q,
+        bool $restrictByUsers = false,
+        bool $useExternalDateRange = true
+    ): \Illuminate\Database\Eloquent\Builder
     {
         $start = Carbon::parse($this->dt_in)->startOfDay();
         $end   = Carbon::parse($this->dt_out)->endOfDay();
 
         // filtros padrões sobre externals
-        $q->whereBetween('externals.created_at', [$start, $end])
+        $q->when($useExternalDateRange, fn ($qq) => $qq->whereBetween('externals.created_at', [$start, $end]))
           ->when(!empty($this->status), fn ($qq) => $qq->whereIn('externals.status', $this->status))
           ->when(!empty($this->entityTypeIds), fn ($qq) => $qq->whereHas('Entity', fn ($e) => $e->whereIn('entity_type_id', $this->entityTypeIds)))
           ->when(!empty($this->entityIds), fn ($qq) => $qq->whereIn('externals.entity_id', $this->entityIds))
@@ -150,6 +155,99 @@ class Dashboard extends Component
             ->when(!empty($this->entityIds), fn ($q) => $q->whereIn('ex.entity_id', $this->entityIds))
             ->when(!empty($this->rubrics), fn ($q) => $q->whereIn('nt.rubrica', $this->rubrics))
             ->when(!empty($this->userIds), fn ($q) => $q->whereIn('external_comments.user_id', $this->userIds));
+    }
+
+    protected function baseReclaimExternalQuery()
+    {
+        $start = Carbon::parse($this->dt_in)->startOfDay();
+        $end   = Carbon::parse($this->dt_out)->endOfDay();
+        if ($end->greaterThan(now())) {
+            $end = now()->endOfDay();
+        }
+
+        return DB::table('external_reclaim as er')
+            ->join('reclaims as r', 'r.id', '=', 'er.reclaim_id')
+            ->join('externals as ex', 'ex.id', '=', 'er.external_id')
+            ->leftJoin('entities as en', 'en.id', '=', 'ex.entity_id')
+            ->leftJoin('notes as nt', 'nt.id', '=', 'ex.note_id')
+            ->leftJoin('subcategories as sc', 'sc.id', '=', 'r.subcategory_id')
+            ->leftJoin('categories as ca', 'ca.id', '=', 'sc.category_id')
+            ->whereBetween('r.created_at', [$start, $end])
+            ->when(!empty($this->status), fn ($q) => $q->whereIn('ex.status', $this->status))
+            ->when(!empty($this->entityTypeIds), fn ($q) => $q->whereIn('en.entity_type_id', $this->entityTypeIds))
+            ->when(!empty($this->entityIds), fn ($q) => $q->whereIn('ex.entity_id', $this->entityIds))
+            ->when(!empty($this->rubrics), fn ($q) => $q->whereIn('nt.rubrica', $this->rubrics));
+    }
+
+    protected function reclaimTopCausesRows(): \Illuminate\Support\Collection
+    {
+        return (clone $this->baseReclaimExternalQuery())
+            ->selectRaw('COALESCE(sc.name, r.category, "SEM CAUSA") as cause, COUNT(DISTINCT r.id) as total')
+            ->groupBy('cause')
+            ->orderByDesc('total')
+            ->limit(6)
+            ->get();
+    }
+
+    public function getReclaimStatsProperty(): array
+    {
+        $total = (clone $this->baseReclaimExternalQuery())
+            ->selectRaw('COUNT(DISTINCT r.id) as total')
+            ->value('total') ?? 0;
+
+        $completed = (clone $this->baseReclaimExternalQuery())
+            ->where('er.completed', 1)
+            ->selectRaw('COUNT(DISTINCT r.id) as total')
+            ->value('total') ?? 0;
+
+        $open = max((int)$total - (int)$completed, 0);
+        $rate = $total > 0 ? round(($completed / $total) * 100, 1) : 0;
+
+        return [
+            'total' => (int)$total,
+            'completed' => (int)$completed,
+            'open' => $open,
+            'completion_rate' => $rate,
+        ];
+    }
+
+    public function getReclaimTopCausesListProperty(): array
+    {
+        return $this->reclaimTopCausesRows()
+            ->map(fn ($row) => ['cause' => $row->cause, 'total' => (int)$row->total])
+            ->toArray();
+    }
+
+    public function getReclaimTopCausesChartProperty(): array
+    {
+        $rows = $this->reclaimTopCausesRows();
+
+        return [
+            'type' => 'bar',
+            'data' => [
+                'labels' => $rows->pluck('cause')->toArray(),
+                'datasets' => [[
+                    'label' => 'Reclaims',
+                    'data' => $rows->pluck('total')->map(fn ($v) => (int)$v)->toArray(),
+                    'backgroundColor' => 'rgba(67, 160, 71, .25)',
+                    'borderColor' => '#43A047',
+                    'borderWidth' => 1,
+                ]],
+            ],
+            'options' => [
+                'indexAxis' => 'y',
+                'responsive' => true,
+                'maintainAspectRatio' => false,
+                'plugins' => [
+                    'legend' => ['display' => false],
+                    'title' => ['display' => true, 'text' => 'Principais causas dos retornos internos'],
+                ],
+                'scales' => [
+                    'x' => ['beginAtZero' => true, 'title' => ['display' => true, 'text' => 'Qtd']],
+                    'y' => ['title' => ['display' => true, 'text' => 'Causa']],
+                ],
+            ],
+        ];
     }
 
     /* ========================= Lista ========================= */
@@ -664,6 +762,7 @@ class Dashboard extends Component
         $this->dispatchBrowserEvent('chart-etype', $this->byEntityType);
         $this->dispatchBrowserEvent('chart-rubric-entity', $this->rubricByEntity);
         $this->dispatchBrowserEvent('chart-age', $this->backlogByAge);
+        $this->dispatchBrowserEvent('chart-reclaim-causes', $this->reclaimTopCausesChart);
     }
 
     public function exportAdminCsv()
@@ -684,6 +783,28 @@ class Dashboard extends Component
             'title'    => 'Exportação administrativa',
             'html'     => "<p>Sua exportação será implementada com base nos filtros atuais.</p>",
             'timer'    => 4000,
+        ]);
+    }
+
+    public function exportReclaimRaw()
+    {
+        $params = [
+            'dt_in'         => $this->dt_in,
+            'dt_out'        => $this->dt_out,
+            'status'        => $this->status,
+            'entityTypeIds' => $this->entityTypeIds,
+            'entityIds'     => $this->entityIds,
+            'rubrics'       => $this->rubrics,
+        ];
+
+        ExportExternalReclaimsJob::dispatch($params, (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTACAO EM ANDAMENTO.',
+            'html'     => "<div class='card'><div class='card-body'><p>Seu arquivo esta sendo gerado. Voce sera notificado quando estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificacao.</p></div></div>",
+            'timer'    => 5000,
         ]);
     }
 
@@ -714,6 +835,9 @@ class Dashboard extends Component
             'byType'       => $this->byEntityType,
             'rubricEntity' => $this->rubricByEntity,
             'age'          => $this->backlogByAge,
+            'reclaimStats' => $this->reclaimStats,
+            'reclaimTopCausesChart' => $this->reclaimTopCausesChart,
+            'reclaimTopCausesList' => $this->reclaimTopCausesList,
 
             // opções
             'statusOptions'     => $this->statusOptions,
