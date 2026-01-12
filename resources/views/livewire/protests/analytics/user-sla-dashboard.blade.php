@@ -208,7 +208,7 @@
                                 Produtividade x Reclamacoes
                             </h1>
                             <div class="header-subtitle">
-                                Indicadores semanais dos 4 paineis solicitados
+                                Indicadores semanais dos 5 paineis solicitados
                             </div>
                         </div>
                     </div>
@@ -549,6 +549,179 @@
         <div class="chart-card-body" wire:ignore>
             <div style="max-height: 320px;">
                 <x-grafico.apex :chart="$dailyDispatchCompletion" chartId="dailyDispatchCompletion" class="w-100" />
+            </div>
+        </div>
+    </div>
+
+    {{-- Painel 5 --}}
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-team-line me-1"></i> Painel 5 - Produtividade dos despachantes (MEDE)
+                    </div>
+                    <div class="small text-muted">
+                        Medidas encerradas (MEDE) com vencimento em <code>dtFimMedidaDesej</code>.
+                        Para tipoNota NA, o SLA usa <code>dtConclusaoDesej</code>.
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark">{{ $dispatcherMeasuresPanel['period_label'] }}</span>
+                    <button class="btn btn-outline-primary btn-sm fw-semibold" wire:click="exportDispatcherMeasures"
+                        wire:loading.attr="disabled" wire:target="exportDispatcherMeasures">
+                        <span wire:loading.remove wire:target="exportDispatcherMeasures">
+                            <i class="ri-file-excel-2-line me-1"></i>
+                            Exportar MEDE
+                        </span>
+                        <span wire:loading wire:target="exportDispatcherMeasures">
+                            <i class="ri-loader-4-line me-1"></i>
+                            Preparando...
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="row text-center gy-3">
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Medidas no periodo</div>
+                    <div class="metric-value">{{ $dispatcherMeasuresPanel['total_measures'] }}</div>
+                    <div class="metric-subtitle">Base total do periodo</div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Dentro do prazo</div>
+                    <div class="metric-value">{{ $dispatcherMeasuresPanel['on_time'] }}</div>
+                    <div class="metric-subtitle">
+                        {{ number_format($dispatcherMeasuresPanel['on_time_rate'], 1) }}% dentro do prazo
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Fora do prazo</div>
+                    <div class="metric-value">{{ $dispatcherMeasuresPanel['late'] }}</div>
+                    <div class="metric-subtitle">SLA geral do periodo</div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Despachadas</div>
+                    <div class="metric-value">{{ $dispatcherMeasuresPanel['dispatched_total'] }}</div>
+                    <div class="metric-subtitle">Com ProtestJob registrado</div>
+                </div>
+            </div>
+
+            <div class="row text-center gy-3 mt-2">
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Despachadas no prazo</div>
+                    <div class="metric-value">{{ $dispatcherMeasuresPanel['dispatched_on'] }}</div>
+                    <div class="metric-subtitle">SLA despachadas</div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">Despachadas fora do prazo</div>
+                    <div class="metric-value">{{ $dispatcherMeasuresPanel['dispatched_late'] }}</div>
+                    <div class="metric-subtitle">Atrasos apurados</div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">SLA despachadas</div>
+                    <div class="metric-value">{{ number_format($dispatcherMeasuresPanel['dispatched_rate'], 1) }}%</div>
+                    <div class="metric-subtitle">Dentro do prazo</div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="metric-label">SLA geral</div>
+                    <div class="metric-value">{{ number_format($dispatcherMeasuresPanel['on_time_rate'], 1) }}%</div>
+                    <div class="metric-subtitle">Todas as medidas</div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-compact mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Despachante</th>
+                            <th class="text-center">Medidas</th>
+                            <th class="text-center">Dentro do prazo</th>
+                            <th class="text-center">Fora do prazo</th>
+                            <th class="text-center">SLA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($dispatcherMeasuresPanel['dispatchers'] as $row)
+                            <tr>
+                                <td>{{ $row['user_name'] }}</td>
+                                <td class="text-center">{{ $row['total'] }}</td>
+                                <td class="text-center text-success">{{ $row['on_time'] }}</td>
+                                <td class="text-center text-danger">{{ $row['late'] }}</td>
+                                <td class="text-center">{{ number_format($row['sla_rate'], 1) }}%</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">
+                                    Sem despachos registrados no periodo.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="modern-card-title">
+                        <i class="ri-table-line me-1"></i> Medidas despachadas por usuario
+                    </span>
+                    @if ($dispatcherMeasuresPanel['selected_user'])
+                        <span class="badge bg-light text-dark">
+                            {{ $dispatcherMeasuresPanel['selected_user']['name'] }}
+                        </span>
+                    @else
+                        <span class="badge bg-light text-dark">Selecione um usuario</span>
+                    @endif
+                </div>
+
+                @if ($dispatcherMeasuresPanel['selected_user'])
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-compact mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Reclamacao</th>
+                                    <th class="text-center">Medida</th>
+                                    <th class="text-center">Vencimento</th>
+                                    <th class="text-center">Finalizado</th>
+                                    <th class="text-center">Job</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($dispatcherMeasuresPanel['selected_user']['measures'] as $measure)
+                                    <tr>
+                                        <td>{{ $measure['protest_number'] }}</td>
+                                        <td class="text-center">{{ $measure['med_id'] }}</td>
+                                        <td class="text-center">{{ $measure['due_date'] }}</td>
+                                        <td class="text-center">{{ $measure['finished_at'] }}</td>
+                                        <td class="text-center">#{{ $measure['job_id'] ?? 'N/A' }}</td>
+                                        <td class="text-center">
+                                            <span class="badge {{ $measure['status_badge'] }} text-white px-3">
+                                                {{ $measure['status_label'] }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-3">
+                                            Nenhuma medida encontrada para este usuario.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        {{ $dispatcherMeasuresPanel['selected_user']['measures']->links() }}
+                    </div>
+                @else
+                    <div class="text-muted small">
+                        Selecione um usuario no filtro para listar as medidas despachadas.
+                    </div>
+                @endif
             </div>
         </div>
     </div>
