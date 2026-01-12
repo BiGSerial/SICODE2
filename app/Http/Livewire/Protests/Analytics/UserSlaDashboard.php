@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Protests\Analytics;
 
 use App\Enum\ProtestJobStatus;
 use App\Enum\ProtestType;
+use App\Jobs\Protests\ExportDispatcherMeasuresJob;
 use App\Jobs\Protests\ExportProtestJobsJob;
 use App\Models\MedProtest;
 use App\Models\Protest;
@@ -77,6 +78,7 @@ class UserSlaDashboard extends Component
     {
         $this->resetPage('due_today_page');
         $this->resetPage('overdue_page');
+        $this->resetPage('dispatcher_measures_page');
     }
 
     /**
@@ -643,6 +645,199 @@ class UserSlaDashboard extends Component
             ],
             'volumetry_chart' => $volumetryChart,
             'sla_chart'       => $slaChart,
+        ];
+    }
+
+    protected function measureSlaOnTimeCaseSql(): string
+    {
+        return '
+            CASE
+                WHEN med_protests.dtFimMedida IS NOT NULL
+                     AND protests.tipoNota = "NA"
+                     AND protests.dtConclusaoDesej IS NOT NULL
+                     AND med_protests.dtFimMedida <= protests.dtConclusaoDesej
+                THEN 1
+                WHEN med_protests.dtFimMedida IS NOT NULL
+                     AND (protests.tipoNota <> "NA" OR protests.tipoNota IS NULL)
+                     AND med_protests.dtFimMedidaDesej IS NOT NULL
+                     AND med_protests.dtFimMedida <= med_protests.dtFimMedidaDesej
+                THEN 1
+                ELSE 0
+            END
+        ';
+    }
+
+    protected function periodMeasuresBaseQuery(Carbon $start, Carbon $end)
+    {
+        $query = MedProtest::query()
+            ->where(function ($q) use ($start, $end) {
+                $q->whereHas('protest', function ($sub) use ($start, $end) {
+                    $sub->where('tipoNota', 'NA')
+                        ->whereBetween('dtConclusaoDesej', [$start, $end]);
+                })
+                ->orWhere(function ($sub) use ($start, $end) {
+                    $sub->whereBetween('dtFimMedidaDesej', [$start, $end])
+                        ->whereHas('protest', function ($tipo) {
+                            $tipo->where('tipoNota', '!=', 'NA')
+                                ->orWhereNull('tipoNota');
+                        });
+                });
+            })
+            ->whereDoesntHave('protest.medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA');
+            });
+
+        return $this->applyMedProtestTypeFilter($query);
+    }
+
+    protected function firstDispatchJobSubquery()
+    {
+        return ProtestJob::selectRaw('med_protest_id, MIN(id) as job_id')
+            ->whereNotNull('created_by')
+            ->groupBy('med_protest_id');
+    }
+
+    protected function isMeasureOnTime(MedProtest $measure): bool
+    {
+        $finishedAt = $measure->dtFimMedida;
+        if (! $finishedAt) {
+            return false;
+        }
+
+        $tipoNota = $measure->protest?->tipoNota;
+        if ($tipoNota === 'NA') {
+            $due = $measure->protest?->dtConclusaoDesej;
+            return $due ? $finishedAt->lte($due) : false;
+        }
+
+        $due = $measure->dtFimMedidaDesej;
+        return $due ? $finishedAt->lte($due) : false;
+    }
+
+    protected function buildDispatcherMeasuresPanel(Carbon $start, Carbon $end): array
+    {
+        $rangeStart = $start->copy()->startOfDay();
+        $rangeEnd   = $end->copy()->endOfDay();
+
+        $base = $this->periodMeasuresBaseQuery($rangeStart, $rangeEnd);
+
+        $totalMeasures = (clone $base)->count();
+
+        $concludedBase = (clone $base)->whereNotNull('med_protests.dtFimMedida');
+
+        $onTimeMeasures = (int) (clone $concludedBase)
+            ->join('protests', 'protests.id', '=', 'med_protests.protest_id')
+            ->selectRaw('SUM(' . $this->measureSlaOnTimeCaseSql() . ') as on_time')
+            ->value('on_time');
+
+        $concludedTotal = (clone $concludedBase)->count();
+        $lateMeasures = max(0, $concludedTotal - $onTimeMeasures);
+        $onTimeRate = $concludedTotal > 0
+            ? round(($onTimeMeasures / $concludedTotal) * 100, 1)
+            : 0;
+
+        $firstJobs = $this->firstDispatchJobSubquery();
+
+        $dispatchedBase = (clone $base)
+            ->joinSub($firstJobs, 'first_jobs', 'first_jobs.med_protest_id', '=', 'med_protests.id')
+            ->join('protest_jobs as first_job', 'first_job.id', '=', 'first_jobs.job_id');
+
+        $dispatchedTotal = (clone $dispatchedBase)->count();
+
+        $dispatchedOnTime = (int) (clone $dispatchedBase)
+            ->join('protests', 'protests.id', '=', 'med_protests.protest_id')
+            ->selectRaw('SUM(' . $this->measureSlaOnTimeCaseSql() . ') as on_time')
+            ->value('on_time');
+
+        $dispatchedConcluded = (clone $dispatchedBase)->whereNotNull('med_protests.dtFimMedida')->count();
+        $dispatchedLate = max(0, $dispatchedConcluded - $dispatchedOnTime);
+        $dispatchedRate = $dispatchedConcluded > 0
+            ? round(($dispatchedOnTime / $dispatchedConcluded) * 100, 1)
+            : 0;
+
+        $dispatcherRows = (clone $dispatchedBase)
+            ->join('protests', 'protests.id', '=', 'med_protests.protest_id')
+            ->selectRaw('
+                first_job.created_by as user_id,
+                COUNT(*) as total_measures,
+                SUM(' . $this->measureSlaOnTimeCaseSql() . ') as on_time
+            ')
+            ->groupBy('first_job.created_by')
+            ->get();
+
+        $users = User::whereIn('id', $dispatcherRows->pluck('user_id')->filter())->get()->keyBy('id');
+
+        $dispatchers = $dispatcherRows->map(function ($row) use ($users) {
+            $total = (int) $row->total_measures;
+            $onTime = (int) $row->on_time;
+            $late = max(0, $total - $onTime);
+
+            return [
+                'user_id'    => $row->user_id,
+                'user_name'  => optional($users->get($row->user_id))->name ?? 'N/A',
+                'total'      => $total,
+                'on_time'    => $onTime,
+                'late'       => $late,
+                'sla_rate'   => $total > 0 ? round(($onTime / $total) * 100, 1) : 0,
+            ];
+        })->sortByDesc('total')->values();
+
+        $selectedUser = null;
+        if ($this->userId) {
+            $selectedUserName = User::find($this->userId)?->name ?? 'N/A';
+
+            $listQuery = (clone $base)
+                ->joinSub($firstJobs, 'first_jobs', 'first_jobs.med_protest_id', '=', 'med_protests.id')
+                ->join('protest_jobs as first_job', 'first_job.id', '=', 'first_jobs.job_id')
+                ->where('first_job.created_by', $this->userId)
+                ->with(['protest:id,nota,tipoNota,dtConclusaoDesej'])
+                ->select([
+                    'med_protests.*',
+                    'first_job.id as job_id',
+                    'first_job.sent_at as job_sent_at',
+                ])
+                ->orderByDesc('med_protests.dtFimMedidaDesej');
+
+            $measures = $listQuery->paginate(10, ['*'], 'dispatcher_measures_page');
+
+            $measures->setCollection($measures->getCollection()->map(function (MedProtest $measure) {
+                $isOnTime = $this->isMeasureOnTime($measure);
+                $dueDate = $measure->protest?->tipoNota === 'NA'
+                    ? $measure->protest?->dtConclusaoDesej
+                    : $measure->dtFimMedidaDesej;
+
+                return [
+                    'protest_number' => $measure->protest?->nota ?? 'N/A',
+                    'med_id'         => $measure->med_id ?? 'N/A',
+                    'due_date'       => $dueDate?->format('d/m/Y') ?? 'N/A',
+                    'finished_at'    => $measure->dtFimMedida?->format('d/m/Y') ?? 'N/A',
+                    'job_id'         => $measure->job_id ?? null,
+                    'job_sent_at'    => $measure->job_sent_at
+                        ? Carbon::parse($measure->job_sent_at)->format('d/m/Y H:i')
+                        : 'N/A',
+                    'status_label'   => $isOnTime ? 'Dentro do prazo' : 'Fora do prazo',
+                    'status_badge'   => $isOnTime ? 'bg-success' : 'bg-danger',
+                ];
+            }));
+
+            $selectedUser = [
+                'name'     => $selectedUserName,
+                'measures' => $measures,
+            ];
+        }
+
+        return [
+            'period_label'     => $rangeStart->format('d/m/Y') . ' - ' . $rangeEnd->format('d/m/Y'),
+            'total_measures'   => $totalMeasures,
+            'on_time'          => $onTimeMeasures,
+            'late'             => $lateMeasures,
+            'on_time_rate'     => $onTimeRate,
+            'dispatched_total' => $dispatchedTotal,
+            'dispatched_on'    => $dispatchedOnTime,
+            'dispatched_late'  => $dispatchedLate,
+            'dispatched_rate'  => $dispatchedRate,
+            'dispatchers'      => $dispatchers,
+            'selected_user'    => $selectedUser,
         ];
     }
 
@@ -1332,6 +1527,20 @@ class UserSlaDashboard extends Component
 
 
 
+    public function exportDispatcherMeasures(): void
+    {
+        [$start, $end] = $this->getDateRange();
+
+        ExportDispatcherMeasuresJob::dispatch([
+            'start'        => $start->toDateTimeString(),
+            'end'          => $end->toDateTimeString(),
+            'userId'       => $this->userId,
+            'protestTypes' => $this->getSelectedProtestTypes(),
+        ], (string) auth()->id());
+
+        $this->toast('info', 'Estamos gerando o Excel de medidas MEDE. Voce sera notificado ao final.');
+    }
+
     public function render()
     {
         [$start, $end] = $this->getDateRange();
@@ -1349,6 +1558,7 @@ class UserSlaDashboard extends Component
         $jobSlaList             = $this->buildJobSlaList($start, $end);
         $medaSnapshot           = $this->buildMedaSnapshot($start, $end);
         $dueMeasures            = $this->buildDueMeasures();
+        $dispatcherMeasuresPanel = $this->buildDispatcherMeasuresPanel($start, $end);
 
         $this->dispatchDailyOpeningsChart($dailyOpenings);
         $this->dispatchMedaJobsChart($medaJobsChart);
@@ -1368,6 +1578,7 @@ class UserSlaDashboard extends Component
             'jobSlaList'              => $jobSlaList,
             'medaSnapshot'            => $medaSnapshot,
             'dueMeasures'             => $dueMeasures,
+            'dispatcherMeasuresPanel' => $dispatcherMeasuresPanel,
         ]);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Jobs\Protests;
 
-use App\Exports\Protests\ClosedProtestJobsExport;
+use App\Exports\Protests\DispatcherMeasuresExport;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
@@ -12,7 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
 
-class ExportClosedProtestJobsJob implements ShouldQueue
+class ExportDispatcherMeasuresJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -31,24 +31,22 @@ class ExportClosedProtestJobsJob implements ShouldQueue
     {
         $user = User::find($this->userId);
 
-        if (!$user) {
+        if (! $user) {
             return;
         }
 
-        $filePath = 'exports/protests/' . now()->format('YmdHis') . '_jobs_fechados.xlsx';
-        $disk = Storage::disk('local');
+        $filePath = 'exports/protests/' . now()->format('YmdHis') . '_medidas_mede.xlsx';
 
         try {
-            $disk->makeDirectory('exports/protests');
-            (new ClosedProtestJobsExport($this->filters))->store($filePath, 'local');
+            (new DispatcherMeasuresExport($this->filters))->store($filePath, 'local');
 
-            if (!$disk->exists($filePath)) {
-                throw new \RuntimeException('Arquivo nÇœo foi gerado no disco configurado.');
+            if (! Storage::disk('local')->exists($filePath)) {
+                throw new \RuntimeException('Arquivo nao foi gerado no disco configurado.');
             }
 
             $user->notify(new SystemNotification(
-                titulo: 'Exportação concluída!',
-                mensagem: 'O relatório de jobs fechados foi gerado e está disponível para download.',
+                titulo: 'Exportacao concluida!',
+                mensagem: 'O relatorio de medidas MEDE foi gerado e esta disponivel para download.',
                 link: Storage::url($filePath),
                 status: 4,
                 extras: []
@@ -68,8 +66,8 @@ class ExportClosedProtestJobsJob implements ShouldQueue
     {
         if ($user = User::find($this->userId)) {
             $user->notify(new SystemNotification(
-                titulo: 'Erro na exportação',
-                mensagem: 'Não foi possível gerar o relatório solicitado. ' . $message,
+                titulo: 'Erro na exportacao',
+                mensagem: 'Nao foi possivel gerar o relatorio solicitado. ' . $message,
                 link: null,
                 status: 5,
                 extras: []

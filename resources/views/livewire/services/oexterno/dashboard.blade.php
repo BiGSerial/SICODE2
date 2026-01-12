@@ -151,6 +151,65 @@
         </div>
     </div>
 
+    {{-- RETORNOS INTERNOS (RECLAIM) --}}
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex align-items-center justify-content-between">
+                    <strong><i class="ri-refresh-line me-1"></i>Retornos internos (Reclaim)</strong>
+                    <button class="btn btn-sm btn-outline-success" wire:click="exportReclaimRaw">
+                        <i class="ri-file-excel-line me-1"></i> Exportar reclaims
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-4">
+                        <div>
+                            <div class="text-muted small">Reclaims no periodo</div>
+                            <div class="h4 mb-0">{{ $reclaimStats['total'] ?? 0 }}</div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Concluidos</div>
+                            <div class="h4 mb-0">{{ $reclaimStats['completed'] ?? 0 }}</div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Em aberto</div>
+                            <div class="h4 mb-0">{{ $reclaimStats['open'] ?? 0 }}</div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Taxa de conclusao</div>
+                            <div class="h4 mb-0">{{ $reclaimStats['completion_rate'] ?? 0 }}%</div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="text-muted small mb-2">Principais causas</div>
+                        @if (!empty($reclaimTopCausesList))
+                            <ul class="list-unstyled mb-0">
+                                @foreach ($reclaimTopCausesList as $cause)
+                                    <li class="d-flex justify-content-between align-items-center border-bottom py-1">
+                                        <span>{{ $cause['cause'] }}</span>
+                                        <span class="badge text-bg-light">{{ $cause['total'] }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <div class="text-muted small">Sem dados no periodo.</div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-card h-100">
+                <div class="chart-card-header">
+                    <h5 class="chart-card-title"><i class="ri-pie-chart-2-line me-2"></i>Causas dos retornos</h5>
+                </div>
+                <div class="p-3" wire:ignore>
+                    <div style="height:300px"><canvas id="chartReclaimCauses"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- GRÁFICOS LINHA 1 --}}
     <div class="row">
         <div class="col-lg-6">
@@ -306,6 +365,7 @@
             const ctxByType = document.getElementById('chartByType').getContext('2d');
             const ctxRubEnt = document.getElementById('chartRubricEntity').getContext('2d');
             const ctxAge = document.getElementById('chartAge').getContext('2d');
+            const ctxReclaimCauses = document.getElementById('chartReclaimCauses').getContext('2d');
 
             function ensureOrCreate(id, ctx, cfg) {
                 if (window.extDash[id]) {
@@ -326,6 +386,7 @@
             ensureOrCreate('byType', ctxByType, @json($byType));
             ensureOrCreate('rubEnt', ctxRubEnt, @json($rubricEntity));
             ensureOrCreate('age', ctxAge, @json($age));
+            ensureOrCreate('reclaimCauses', ctxReclaimCauses, @json($reclaimTopCausesChart));
 
             // Atualizações
             window.addEventListener('chart-daily', e => ensureOrCreate('daily', ctxDaily, e.detail));
@@ -335,6 +396,7 @@
             window.addEventListener('chart-etype', e => ensureOrCreate('byType', ctxByType, e.detail));
             window.addEventListener('chart-rubric-entity', e => ensureOrCreate('rubEnt', ctxRubEnt, e.detail));
             window.addEventListener('chart-age', e => ensureOrCreate('age', ctxAge, e.detail));
+            window.addEventListener('chart-reclaim-causes', e => ensureOrCreate('reclaimCauses', ctxReclaimCauses, e.detail));
         })();
     </script>
 @endpush

@@ -17,7 +17,7 @@ class BlockEvaluator
     public const HOLD_RED    = 4; // Obra Já Informada
 
 
-    private const CONSTRUCTION_NSTATS = [50, 51, 52, 53];
+    private const CONSTRUCTION_NSTATS = [51, 52, 53];
 
 
     public function evaluate(Note $note)
