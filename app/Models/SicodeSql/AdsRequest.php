@@ -25,6 +25,7 @@ class AdsRequest extends Model
         'user',
         'email',
         'description',
+        'url',
         'completed_at',
         'created_at',
         'updated_at',

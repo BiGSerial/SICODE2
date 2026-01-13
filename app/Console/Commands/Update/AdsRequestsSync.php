@@ -55,6 +55,7 @@ class AdsRequestsSync extends Command
                     'status' => $row->status,
                     'attempts' => $row->attempts,
                     'description' => $row->description,
+                    'url' => $row->url,
                     'completed_at' => $row->completed_at,
                     'sqlserver_id' => $row->id,
                     'completed' => $row->status === AdsRequestStatus::DONE->value,

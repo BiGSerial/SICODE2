@@ -17,6 +17,7 @@ class AdsRequests extends Component
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
+    protected $listeners = ['confirm_ads_requests_process' => 'confirmProcessRequests'];
 
     public $notesInput = '';
     public $previewItems = [];
@@ -138,23 +139,19 @@ class AdsRequests extends Component
                 continue;
             }
 
-            $previousRequest = AdsRequest::query()
-                ->where('note_id', $note->id)
-                ->where('company_id', $companyId)
-                ->whereNotIn('status', [AdsRequestStatus::CANCELED->value])
-                ->latest('created_at')
-                ->first();
+            $previousRequest = $this->getActiveRequestFor($note->id, $companyId);
 
             if ($previousRequest) {
                 $items[$noteNumber] = [
                     'note_number' => $noteNumber,
                     'note_id' => $note->id,
-                    'status_label' => 'Cancelar anterior',
+                    'status_label' => 'Reagendar',
                     'status_class' => 'text-bg-warning',
-                    'message' => 'Pedido anterior sera cancelado.',
+                    'message' => 'Solicitacao em andamento sera cancelada e reagendada.',
                     'can_process' => true,
                     'previous_request_id' => $previousRequest->id,
                     'previous_status' => $previousRequest->status?->label(),
+                    'will_cancel' => true,
                 ];
                 continue;
             }
@@ -168,6 +165,7 @@ class AdsRequests extends Component
                 'can_process' => true,
                 'previous_request_id' => null,
                 'previous_status' => null,
+                'will_cancel' => false,
             ];
         }
 
@@ -188,6 +186,32 @@ class AdsRequests extends Component
 
     public function processRequests()
     {
+        $cancelNotes = $this->getCancelablePreviewNotes();
+        if ($cancelNotes) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'Confirmar reagendamento',
+                'msg' => $this->buildCancelNotesMessage($cancelNotes),
+                'icon' => 'warning',
+                'btnOktxt' => 'Sim, cancelar e reenviar',
+                'btnCanceltxt' => 'Nao, cancelar',
+                'action' => 'confirm_ads_requests_process',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg' => 'Nenhuma solicitacao foi alterada.',
+            ]);
+
+            return;
+        }
+
+        $this->processRequestsInternal();
+    }
+
+    public function confirmProcessRequests()
+    {
+        $this->processRequestsInternal(true);
+    }
+
+    protected function processRequestsInternal(bool $force = false): void
+    {
         if (!$this->previewItems) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -195,6 +219,10 @@ class AdsRequests extends Component
                 'title' => 'Nenhuma nota valida para processar.',
                 'timer' => 3000,
             ]);
+            return;
+        }
+
+        if (!$force && $this->getCancelablePreviewNotes()) {
             return;
         }
 
@@ -224,6 +252,18 @@ class AdsRequests extends Component
                     ->where('note_id', $item['note_id'])
                     ->max('version');
 
+                $previousRequest = $this->getActiveRequestFor($item['note_id'], $companyId);
+
+                if ($previousRequest) {
+                    $previousRequest->update([
+                        'status' => AdsRequestStatus::CANCELED,
+                        'canceled_at' => now(),
+                        'superseded_by_id' => null,
+                    ]);
+
+                    $this->syncCanceledToSqlServer($previousRequest);
+                }
+
                 $request = AdsRequest::query()->create([
                     'requested_by' => auth()->id(),
                     'company_id' => $companyId,
@@ -235,22 +275,10 @@ class AdsRequests extends Component
                     'version' => $version + 1,
                 ]);
 
-                $previousRequest = AdsRequest::query()
-                    ->where('note_id', $item['note_id'])
-                    ->where('company_id', $companyId)
-                    ->whereNotIn('status', [AdsRequestStatus::CANCELED->value])
-                    ->where('id', '!=', $request->id)
-                    ->latest('created_at')
-                    ->first();
-
                 if ($previousRequest) {
                     $previousRequest->update([
-                        'status' => AdsRequestStatus::CANCELED,
-                        'canceled_at' => now(),
                         'superseded_by_id' => $request->id,
                     ]);
-
-                    $this->syncCanceledToSqlServer($previousRequest);
                 }
 
                 $toMirror[] = [
@@ -336,6 +364,43 @@ class AdsRequests extends Component
         }
     }
 
+    protected function getActiveRequestFor(int $noteId, string $companyId): ?AdsRequest
+    {
+        return AdsRequest::query()
+            ->where('note_id', $noteId)
+            ->where('company_id', $companyId)
+            ->whereIn('status', $this->activeStatuses())
+            ->latest('created_at')
+            ->first();
+    }
+
+    protected function activeStatuses(): array
+    {
+        return [
+            AdsRequestStatus::QUEUED->value,
+            AdsRequestStatus::IN_PROGRESS->value,
+            AdsRequestStatus::RETRY->value,
+        ];
+    }
+
+    protected function getCancelablePreviewNotes(): array
+    {
+        return collect($this->previewItems)
+            ->filter(fn ($item) => !empty($item['can_process']) && !empty($item['will_cancel']))
+            ->pluck('note_number')
+            ->values()
+            ->all();
+    }
+
+    protected function buildCancelNotesMessage(array $notes): string
+    {
+        $list = array_slice($notes, 0, 8);
+        $extra = count($notes) > 8 ? ' e mais ' . (count($notes) - 8) . '...' : '';
+
+        return 'Existem solicitacoes em andamento que serao canceladas e reagendadas para as notas: <strong>' .
+            implode(', ', $list) . $extra . '</strong>. Deseja continuar?';
+    }
+
     protected function parseNotesInput(): array
     {
         $raw = preg_split('/[\s,;]+/', trim((string) $this->notesInput));
@@ -385,7 +450,11 @@ class AdsRequests extends Component
             ->when(!auth()->user()?->superadm, function ($q) {
                 $q->where('requested_by', auth()->id());
             })
-            ->whereNotIn('status', [AdsRequestStatus::DONE->value, AdsRequestStatus::CANCELED->value])
+            ->whereNotIn('status', [
+                AdsRequestStatus::DONE->value,
+                AdsRequestStatus::CANCELED->value,
+                AdsRequestStatus::FAILED->value,
+            ])
             ->orderByDesc('created_at');
 
         if ($this->activeSearch) {
@@ -446,6 +515,7 @@ class AdsRequests extends Component
                 'status' => $sqlRow->status,
                 'attempts' => $sqlRow->attempts,
                 'description' => $sqlRow->description,
+                'url' => $sqlRow->url,
                 'completed_at' => $sqlRow->completed_at,
                 'sqlserver_id' => $sqlRow->id,
                 'completed' => $sqlRow->status === AdsRequestStatus::DONE->value,

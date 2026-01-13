@@ -216,6 +216,7 @@
                         <th>Empresa</th>
                         <th>Status</th>
                         <th>Descricao</th>
+                        <th>ADS</th>
                         <th class="text-center">Versao</th>
                         <th class="text-center">Criado em</th>
                         <th class="text-center">Concluido</th>
@@ -231,6 +232,19 @@
                                 <span class="badge text-bg-secondary">{{ $request->status?->label() }}</span>
                             </td>
                             <td>{{ $request->description ?? '-' }}</td>
+                            <td>
+                                @php
+                                    $linkDate = $request->completed_at ?? $request->updated_at ?? $request->created_at;
+                                    $daysSince = $linkDate ? now()->diffInDays($linkDate) : null;
+                                @endphp
+                                @if ($request->url && $daysSince !== null && $daysSince <= 3)
+                                    <a href="{{ $request->url }}" class="btn btn-sm btn-outline-primary" target="_self">
+                                        Baixar ADS
+                                    </a>
+                                @elseif ($request->url && $daysSince !== null && $daysSince > 30)
+                                    <span class="text-muted">Link Expirado</span>
+                                @endif
+                            </td>
                             <td class="text-center">{{ $request->version }}</td>
                             <td class="text-center">{{ $request->created_at?->format('d/m/Y H:i') }}</td>
                             <td class="text-center">{{ $request->completed_at?->format('d/m/Y H:i') ?? '-' }}</td>
@@ -238,7 +252,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center py-4">Nenhuma solicitacao encontrada.</td>
+                            <td colspan="9" class="text-center py-4">Nenhuma solicitacao encontrada.</td>
                         </tr>
                     @endforelse
                 </tbody>
