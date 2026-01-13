@@ -41,6 +41,8 @@ class AdsRequest extends Model
         'updated_at'    => 'datetime',
     ];
 
+
+ 
     public function requestedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requested_by');
@@ -61,5 +63,5 @@ class AdsRequest extends Model
         return $this->belongsTo(self::class, 'superseded_by_id');
     }
 
-    
+
 }

@@ -12,11 +12,11 @@ return new class () extends Migration {
             $table->id();
 
             // Quem solicitou no SICODE
-            $table->foreignUlid('requested_by')
+            $table->foreignUuid('requested_by')
                 ->constrained('users')
                 ->cascadeOnDelete();
 
-            $table->foreignUlid('company_id')
+            $table->foreignUuid('company_id')
                 ->constrained('companies')
                 ->cascadeOnDelete();
 
