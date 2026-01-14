@@ -381,7 +381,126 @@
                         </thead>
                         <tbody>
                             @foreach ($lists as $list)
-                                
+                                @php
+                                    $daysleft = new DaysLeft($list);
+                                    $daysleft = $daysleft->getDaysLeft();
+                                    $getLastMovement = $list->externals
+                                        ?->sortbydesc('updated_at')
+                                        ->first()
+                                        ?->Comments?->sortbydesc('updated_at')
+                                        ->first()?->created_at;
+
+                                    $countDays = $list->dt_created->startOfDay()->diffInDays(now()->startOfDay());
+
+                                    if ($countDays > 30) {
+                                        $color2 = 'text-bg-danger';
+                                    } elseif ($countDays < 27) {
+                                        $color2 = 'text-bg-success';
+                                    } else {
+                                        $color2 = 'text-bg-warning';
+                                    }
+                                @endphp
+                                <tr class="align-middle" wire:key="{{ $list->id }}"
+                                    wire:dblclick="navigateTo('{{ $list->note }}')">
+                                    <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
+                                        {{ $list->note }}
+                                    </td>
+
+
+                                    <td class="text-center align-middle">
+                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                        <x-files.select-download-list :files='$list->Files' />
+                                    </td>
+                                    <td class="text-center align-middle">
+
+                                        @if ($list->externals->isNotEmpty())
+                                            @php
+                                                $completed = $list->externals->where('completed', true)->count();
+                                                $total = $list->externals->count();
+                                            @endphp
+                                            <span
+                                                class="badge @if ($completed == $total) text-bg-success @else text-bg-danger @endif">
+                                                {{ $completed }} / {{ $total }}</span>
+                                        @else
+                                            <span class="badge text-bg-dark">0/0</span>
+                                        @endif
+                                    </td>
+                                    <td class="fw-light text-center">
+                                        {{ $list->externals?->last()?->protocols?->last()?->protocol }}
+                                    </td>
+                                    <td class="fw-light text-center">
+                                        {{ $list->externals?->last()?->protocols?->last()?->created_at?->format('d/m/Y H:i:s') }}
+                                    </td>
+                                    <td class="fw-light text-center fw-bold">
+                                        {{ $list->externals?->last()?->Comments?->last()?->title }}
+                                    </td>
+                                    <td class="fw-light text-center">
+                                        {{ $list->externals?->last()?->entidade }}
+                                    </td>
+
+                                    <td class="fw-light text-center">{{ $list->rubrica }}</td>
+                                    <td class="fw-light text-center">{{ $list->group2 }}</td>
+                                    <td class="fw-light text-center">{{ $list->lexp }}</td>
+
+
+                                    <td class="fw-light text-center">{{ $list->numPedido }}</td>
+
+
+                                    <td class="fw-light text-center">
+                                        <p class="my-0 py-0">{{ $list->nstats }}</p>
+                                        <p class="my-0 py-0"><span class="test">{{ $list->centerjob }}</span></p>
+                                    </td>
+
+                                    <td class="fw-light text-center ">
+
+                                        <p class="my-0 py-0 fw-bold">
+                                            {{ $getLastMovement?->diffForHumans(['parts' => 2, 'join' => ' e ', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
+                                        </p>
+
+
+                                    </td>
+                                    @php
+                                        $days = $list->dt_status?->startOfDay()->diffInDays();
+
+                                        if ($days > 120) {
+                                            $color = 'text-bg-danger';
+                                        } elseif ($days <= 60) {
+                                            $color = 'text-bg-success';
+                                        } else {
+                                            $color = 'text-bg-warning';
+                                        }
+                                    @endphp
+                                    <td class="fw-light text-center {{ $color }}">
+
+                                        <p class="my-0 py-0 fw-bold">
+                                            {{ $list->dt_status->startOfDay()->diffInDays() }} dias</p>
+                                        <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
+
+                                    </td>
+                                    <td class="fw-light text-center {{ $color2 }}">
+
+                                        <p class="my-0 py-0 fw-bold">
+                                            {{ $list->dt_created->startOfDay()->diffInDays() }} dias</p>
+                                        <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>
+
+                                    </td>
+
+                                    <td class="fw-light text-center fw-bold">
+                                        @if ($list->externals->isNotEmpty())
+                                            @php
+                                                $completed = $list->externals->where('completed', true)->count();
+                                                $total = $list->externals->count();
+                                            @endphp
+                                            @if ($completed == $total)
+                                                <span class="badge text-bg-success">COMPLETADO</span>
+                                            @else
+                                                <span class="badge text-bg-primary">EM ANDAMENTO</span>
+                                            @endif
+                                        @else
+                                            <span class="badge text-bg-dark">SEM REGISTRO</span>
+                                        @endif
+                                    </td>
+                                </tr>
                             @endforeach
                         </tbody>
                     </table>
