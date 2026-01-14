@@ -468,6 +468,20 @@
                                                         <small
                                                             class="text-danger d-block mb-2">{{ $message }}</small>
                                                     @enderror
+
+                                                    <div class="form-floating mb-3">
+                                                        <select class="form-select" id="finishResult" wire:model="result">
+                                                            <option value="">Nao informado</option>
+                                                            @foreach ($resultOptions as $opt)
+                                                                <option value="{{ $opt }}">{{ ucfirst($opt) }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <label for="finishResult">Resultado da medida (opcional)</label>
+                                                    </div>
+                                                    @error('result')
+                                                        <small
+                                                            class="text-danger d-block mb-2">{{ $message }}</small>
+                                                    @enderror
                                                     <div class="d-flex flex-wrap gap-2">
                                                         <button type="button" class="btn btn-danger flex-fill"
                                                             wire:click="finishJob">

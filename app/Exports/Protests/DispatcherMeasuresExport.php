@@ -66,13 +66,17 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                 'med_protests.protest_type',
                 'med_protests.dtFimMedidaDesej',
                 'med_protests.dtFimMedida',
+                'med_protests.result',
                 'protests.nota as protest_nota',
                 'protests.tipoNota as protest_tipo_nota',
                 'protests.dtConclusaoDesej as protest_dt_conclusao_desej',
+                'protests.type',
+                'protests.statUsuar as protest_stat_usuar',
                 'first_job.id as job_id',
                 'first_job.sent_at as job_sent_at',
                 'first_job.created_by as dispatcher_id',
                 'dispatcher.name as dispatcher_name',
+
             ])
             ->orderByDesc('med_protests.dtFimMedidaDesej');
 
@@ -90,11 +94,14 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             $protestType = $protestType->label();
         }
 
+        $lastJobMedProtest = $row->ProtestJobs()?->where('status', 'done')->orderByDesc('id')->first();
+
         return [
             $row->med_id,
             $row->protest_nota,
             $row->protest_tipo_nota,
             $protestType,
+            $row->protest?->type,
             $row->statusSist,
             $this->formatDate($row->dtFimMedidaDesej),
             $this->formatDate($row->dtFimMedida),
@@ -104,6 +111,9 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             $row->job_id,
             $row->dispatcher_name,
             $this->formatDate($row->job_sent_at),
+            $lastJobMedProtest?->Owner?->name,
+            $lastJobMedProtest?->Owner?->Company?->name,
+
         ];
     }
 
@@ -113,7 +123,8 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             'Medida ID',
             'Reclamacao (Nota)',
             'Tipo Nota',
-            'Tipo Protesto',
+            'Tipo Reclamacão',
+            'Categoria Reclamação',
             'Status Medida',
             'Fim medida desejado',
             'Fim medida',
@@ -123,6 +134,7 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             'Job ID',
             'Despachante',
             'Job enviado em',
+            'responsavel_conclusao',
         ];
     }
 

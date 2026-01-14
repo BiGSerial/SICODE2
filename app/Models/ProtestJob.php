@@ -415,23 +415,32 @@ class ProtestJob extends Model
             ]);
         });
     }
-
-    public function confirmJob(?string $actorUuid = null): void
+    public function confirmJob(?string $actorUuid = null, ?string $result = null): void
     {
-        $this->update([
-            'confirmed' => true,
-            'confirmed_at' => now(),
-        ]);
-
-        $this->events()->create([
-                'type'        => 'confirm_job',
-                'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
-                'meta'        => [
-                    'confirmed' => true,
-                    'message' => 'Job confirmado e aceito pelo responsável',
-                ],
-                'occurred_at' => now(),
+        DB::transaction(function () use ($actorUuid, $result) {
+            $this->update([
+                'confirmed' => true,
+                'confirmed_at' => now(),
             ]);
+
+            $normalizedResult = MedProtest::normalizeResult($result);
+            if ($normalizedResult && $this->medProtest) {
+                $this->medProtest->update([
+                    'result' => $normalizedResult,
+                ]);
+            }
+
+            $this->events()->create([
+                    'type'        => 'confirm_job',
+                    'actor_id'    => $actorUuid ?? optional(auth()->user())->id,
+                    'meta'        => [
+                        'confirmed' => true,
+                        'message' => 'Job confirmado e aceito pelo respons?vel',
+                        'result' => $normalizedResult,
+                    ],
+                    'occurred_at' => now(),
+                ]);
+        });
     }
 
 
