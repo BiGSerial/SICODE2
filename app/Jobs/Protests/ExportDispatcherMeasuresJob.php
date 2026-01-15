@@ -36,11 +36,13 @@ class ExportDispatcherMeasuresJob implements ShouldQueue
         }
 
         $filePath = 'exports/protests/' . now()->format('YmdHis') . '_medidas_mede.xlsx';
+        $disk = Storage::disk('local');
 
         try {
+            $disk->makeDirectory('exports/protests');
             (new DispatcherMeasuresExport($this->filters))->store($filePath, 'local');
 
-            if (! Storage::disk('local')->exists($filePath)) {
+            if (! $disk->exists($filePath)) {
                 throw new \RuntimeException('Arquivo nao foi gerado no disco configurado.');
             }
 

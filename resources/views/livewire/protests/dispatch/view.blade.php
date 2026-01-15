@@ -1413,6 +1413,7 @@
                                                             </div>
                                                             <div class="job-label mt-3">Resultado</div>
                                                             <div class="job-value" style="white-space:pre-line;">
+                                                                <p class="my-0 py-0"><strong>Avaliação:</strong> <span class="text-uppercase">{{ $job->medProtest?->result ?? '—' }}</span></p>
                                                                 {{ $job->close_reason ?? '—' }}
                                                             </div>
                                                         </div>

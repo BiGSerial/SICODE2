@@ -116,10 +116,12 @@ class ProtestExportListJob implements ShouldQueue
             $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-exportProtestsList.xlsx';
+            $disk = Storage::disk('local');
 
+            $disk->makeDirectory('exports');
             (new ProtestsExportList($query))->store($filePath, 'local');
 
-            if ($user && Storage::disk('local')->exists($filePath)) {
+            if ($user && $disk->exists($filePath)) {
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório de Reclamação está pronto para download.<br><br>Clique para baixar.',

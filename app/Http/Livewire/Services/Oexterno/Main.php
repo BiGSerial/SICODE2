@@ -317,12 +317,13 @@ class Main extends Component
 
         $query->where(function ($q) use ($allowedStatuses) {
             $q->where(function ($q) use ($allowedStatuses) {
-                $q->whereIn('nstats', $allowedStatuses)
-                    ->where('type_note', 2);
-            })->orWhere(function ($q) {
-                $q->where('centerjob', 'ORGAOEXT')
+                $q->whereIn('nstats', $allowedStatuses);
+
+            })->orWhere(function ($qq){
+                    $qq->where('centerjob', 'ORGAOEXT')
                     ->where('type_note', 1);
-            });
+                });
+
         });
 
         $query->doesntHave('Externals');

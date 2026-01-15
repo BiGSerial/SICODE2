@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Protests\Dispatch\Actions;
 use App\Enum\ProtestJobPriority;
 use App\Enum\ProtestJobStatus;
 use App\Models\EvidenceFile;
+use App\Models\MedProtest;
 use App\Models\ProtestJob;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,8 @@ class EditControlMedProtest extends Component
     public ?string $sla_due_at = null;
     public string $notes = ''; // pode ser "instrução / atualização"
     public string $reason_close = '';
+    public ?string $result = null;
+    public array $resultOptions = [];
 
     // UI aux
     public string $userSearch = '';
@@ -129,6 +132,8 @@ class EditControlMedProtest extends Component
         $this->notes         = $this->job->notes ?? '';
         $this->reason_close  = '';
         $this->showReasonClose = false;
+        $this->result = $this->job?->medProtest?->result;
+        $this->resultOptions = MedProtest::resultOptions();
         $this->resetFileUploads();
 
         $this->dispatchBrowserEvent('showModal', [
@@ -264,6 +269,10 @@ class EditControlMedProtest extends Component
             'reason_close' => 'required|string|max:5000',
         ]);
 
+        $this->validate([
+            'result' => 'nullable|in:' . implode(',', MedProtest::resultOptions()),
+        ]);
+
         try {
             $this->prepareJobForFinish();
 
@@ -280,7 +289,7 @@ class EditControlMedProtest extends Component
             return;
         }
 
-        $this->job->confirmJob();
+        $this->job->confirmJob(null, $this->result);
 
         $this->cancelFinishReason();
 
@@ -603,6 +612,8 @@ class EditControlMedProtest extends Component
             'showReasonClose',
             'tempFiles',
             'files',
+            'result',
+            'resultOptions',
         ]);
 
         $this->userList = User::whereNull('deleted_at')

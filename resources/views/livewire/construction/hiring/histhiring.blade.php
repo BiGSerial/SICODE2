@@ -428,6 +428,9 @@
                     <span class="hx-muted small">
                         Selecionados: {{ count($selected) }}
                     </span>
+                    <button class="btn btn-sm btn-success" wire:click="exportToExcel">
+                        <i class="ri-file-excel-2-line me-1"></i> Exportar
+                    </button>
                     <button class="btn btn-sm btn-primary" wire:click="editSelected" @disabled(!count($selected))>
                         <i class="ri-edit-2-fill me-1"></i> Editar Selecionados
                     </button>
@@ -468,58 +471,62 @@
                                     $regiao =
                                         optional($cities->Where('rdMunicipio', $list->Note->nexp)->first())->regiao ??
                                         '';
+                                    $orders = $list->Orders;
+                                    if ($orders->isEmpty() && $list->Note->Orders->isNotEmpty()) {
+                                        $orders = $list->Note->Orders->filter(
+                                            fn($o) => !(strpos($o->statusSist, 'ENT') === 0 || strpos($o->statusSist, 'ENC') === 0)
+                                        );
+                                    }
+                                    $orders = $orders->sortBy('ordem')->values();
+                                    $orderRows = $orders->isEmpty() ? [null] : $orders->all();
                                 @endphp
 
-                                <tr wire:key="viability-{{ $list->id }}" class="hx-rowbar"
-                                    style="cursor:pointer; border-left-color: {{ $color }};">
-                                    <td class="text-center">
-                                        <input type="checkbox" class="form-check-input" value="{{ $list->id }}"
-                                            wire:model="selected">
-                                    </td>
-
-                                    <td class="text-center hx-strong">{{ $list->Note->note }}</td>
-
-                                    <td class="text-center">
-                                        <x-files.select-download-list :files='$list->Note->Files' />
-                                    </td>
-
-                                    <td class="text-center">
-                                        @if ($list->Orders->isNotEmpty())
-                                            @foreach ($list->Orders as $order)
-                                                <div>{{ $order->ordem }}</div>
-                                            @endforeach
-                                        @else
-                                            @if ($list->Note->Orders->isNotEmpty())
-                                                @foreach ($list->Note->Orders->filter(fn($o) => !(strpos($o->statusSist, 'ENT') === 0 || strpos($o->statusSist, 'ENC') === 0)) as $order)
-                                                    <div>{{ $order->ordem }}</div>
-                                                @endforeach
+                                @foreach ($orderRows as $orderIndex => $order)
+                                    <tr wire:key="viability-{{ $list->id }}-order-{{ $orderIndex }}" class="hx-rowbar"
+                                        style="cursor:pointer; border-left-color: {{ $color }};">
+                                        <td class="text-center">
+                                            @if ($orderIndex === 0)
+                                                <input type="checkbox" class="form-check-input" value="{{ $list->id }}"
+                                                    wire:model="selected">
                                             @endif
-                                        @endif
-                                    </td>
+                                        </td>
 
-                                    <td class="text-center hx-strong">
-                                        {{ Carbon::parse($list->sended_at)->format('d/m/Y') }}</td>
+                                        <td class="text-center hx-strong">{{ $list->Note->note }}</td>
 
-                                    <td class="text-center text-success hx-strong">
-                                        {{ isset($list->hired_at) ? Carbon::parse($list->hired_at)->format('d/m/Y') : '---' }}
-                                    </td>
+                                        <td class="text-center">
+                                            <x-files.select-download-list :files='$list->Note->Files' />
+                                        </td>
 
-                                    <td class="text-center">{{ $list->Company->name ?? '---' }}</td>
-                                    <td class="text-center">{{ $list->Engineer->name ?? '---' }}</td>
-                                    <td class="text-center">{{ $list->Note->rubrica }}</td>
-                                    <td class="text-center">{{ $regiao }}</td>
-                                    <td class="text-center">{{ $list->Note->lexp }}</td>
+                                        <td class="text-center">
+                                            {{ $order ? $order->ordem : '---' }}
+                                        </td>
 
-                                    <td class="text-center">
-                                        @php $v = Viabilitiesstatus::status($list->status); @endphp
-                                        <span class="hx-pill {{ $v->colorbg }}">{{ $v->status }}</span>
-                                    </td>
+                                        <td class="text-center hx-strong">
+                                            {{ Carbon::parse($list->sended_at)->format('d/m/Y') }}</td>
 
-                                    <td class="text-center">
-                                        <i class="ri-pencil-fill text-primary fs-5" style="cursor:pointer"
-                                            wire:click.prevent="$emitTo('construction.hiring.actions.edit','edit_hiring', {{ $list->id }})"></i>
-                                    </td>
-                                </tr>
+                                        <td class="text-center text-success hx-strong">
+                                            {{ isset($list->hired_at) ? Carbon::parse($list->hired_at)->format('d/m/Y') : '---' }}
+                                        </td>
+
+                                        <td class="text-center">{{ $list->Company->name ?? '---' }}</td>
+                                        <td class="text-center">{{ $list->Engineer->name ?? '---' }}</td>
+                                        <td class="text-center">{{ $list->Note->rubrica }}</td>
+                                        <td class="text-center">{{ $regiao }}</td>
+                                        <td class="text-center">{{ $list->Note->lexp }}</td>
+
+                                        <td class="text-center">
+                                            @php $v = Viabilitiesstatus::status($list->status); @endphp
+                                            <span class="hx-pill {{ $v->colorbg }}">{{ $v->status }}</span>
+                                        </td>
+
+                                        <td class="text-center">
+                                            @if ($orderIndex === 0)
+                                                <i class="ri-pencil-fill text-primary fs-5" style="cursor:pointer"
+                                                    wire:click.prevent="$emitTo('construction.hiring.actions.edit','edit_hiring', {{ $list->id }})"></i>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
                             @endforeach
                         </tbody>
                     </table>

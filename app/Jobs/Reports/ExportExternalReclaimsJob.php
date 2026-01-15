@@ -3,14 +3,15 @@
 namespace App\Jobs\Reports;
 
 use App\Exports\Oexterno\ExternalReclaimsExport;
-use App\Models\Notify;
 use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ExportExternalReclaimsJob implements ShouldQueue
@@ -41,19 +42,26 @@ class ExportExternalReclaimsJob implements ShouldQueue
 
     public function handle(): void
     {
+        $user = $this->user ?? User::find($this->userId);
+
         try {
             $fileName = 'exports/' . date('YmdHis') . '-ExternalReclaims.xlsx';
 
-            Excel::store(new ExternalReclaimsExport($this->params), $fileName, 'public');
+            Excel::store(new ExternalReclaimsExport($this->params), $fileName, 'local');
 
-            Notify::create([
-                'user_id' => $this->userId,
-                'title' => 'Exportacao de Reclaims Externos',
-                'info' => 'Seu arquivo esta pronto para download.',
-                'link' => $fileName,
-                'status' => 4,
-                'readed' => false,
-            ]);
+            if (!Storage::disk('local')->exists($fileName)) {
+                throw new \RuntimeException('Arquivo nao foi gerado.');
+            }
+
+            if ($user) {
+                $user->notify(new SystemNotification(
+                    'Exportacao de Reclaims Externos',
+                    'Seu arquivo esta pronto para download.',
+                    Storage::url($fileName),
+                    4,
+                    []
+                ));
+            }
         } catch (\Throwable $exception) {
             Log::error('ExportExternalReclaimsJob falhou', [
                 'error_message' => $exception->getMessage(),
@@ -61,14 +69,15 @@ class ExportExternalReclaimsJob implements ShouldQueue
                 'params' => $this->params,
             ]);
 
-            Notify::create([
-                'user_id' => $this->userId,
-                'title' => 'Erro ao gerar exportacao',
-                'info' => "Ocorreu um erro ao gerar o arquivo.\n" . $exception->getMessage(),
-                'link' => '',
-                'status' => 5,
-                'readed' => false,
-            ]);
+            if ($user) {
+                $user->notify(new SystemNotification(
+                    'Erro ao gerar exportacao',
+                    "Ocorreu um erro ao gerar o arquivo.\n" . $exception->getMessage(),
+                    null,
+                    5,
+                    []
+                ));
+            }
         }
     }
 }

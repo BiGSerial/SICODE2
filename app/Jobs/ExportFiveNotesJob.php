@@ -45,6 +45,8 @@ class ExportFiveNotesJob implements ShouldQueue
             return;
         }
 
+        $disk = Storage::disk('local');
+
         try {
             $query = FiveNote::query();
 
@@ -60,9 +62,10 @@ class ExportFiveNotesJob implements ShouldQueue
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-five-notes-' . $this->context . '.xlsx';
 
+            $disk->makeDirectory('exports');
             Excel::store(new FiveNotesExport(clone $query, $this->context === 'historic'), $filePath, 'local');
 
-            if (!Storage::disk('local')->exists($filePath)) {
+            if (!$disk->exists($filePath)) {
                 throw new \RuntimeException('Arquivo não foi gerado.');
             }
 
