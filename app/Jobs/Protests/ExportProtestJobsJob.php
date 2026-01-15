@@ -37,11 +37,13 @@ class ExportProtestJobsJob implements ShouldQueue
         }
 
         $filePath = 'exports/protests/' . now()->format('YmdHis') . '_protest_jobs.xlsx';
+        $disk = Storage::disk('local');
 
         try {
+            $disk->makeDirectory('exports/protests');
             (new ProtestJobsExport($this->filters))->store($filePath, 'local');
 
-            if (! Storage::disk('local')->exists($filePath)) {
+            if (! $disk->exists($filePath)) {
                 throw new \RuntimeException('Arquivo não foi gerado no disco configurado.');
             }
 
