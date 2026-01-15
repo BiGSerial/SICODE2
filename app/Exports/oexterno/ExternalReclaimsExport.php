@@ -41,6 +41,9 @@ class ExternalReclaimsExport implements FromQuery, WithMapping, WithHeadings, Wi
             ->leftJoin('notes as nt', 'nt.id', '=', 'ex.note_id')
             ->leftJoin('subcategories as sc', 'sc.id', '=', 'r.subcategory_id')
             ->leftJoin('categories as ca', 'ca.id', '=', 'sc.category_id')
+            ->leftJoin('productions as p', 'p.id', '=', 'r.production_id')
+            ->leftJoin('users as u', 'u.id', '=', 'p.user_id')
+            ->leftJoin('companies as co', 'co.id', '=', 'p.company_id')
             ->whereBetween('r.created_at', [$start, $end])
             ->when(!empty($this->filters['status']), fn ($q) => $q->whereIn('ex.status', $this->filters['status']))
             ->when(!empty($this->filters['entityTypeIds']), fn ($q) => $q->whereIn('en.entity_type_id', $this->filters['entityTypeIds']))
@@ -65,6 +68,10 @@ class ExternalReclaimsExport implements FromQuery, WithMapping, WithHeadings, Wi
                 'nt.rubrica as rubrica',
                 'er.completed as external_reclaim_completed',
                 'er.completed_at as external_reclaim_completed_at',
+                'u.name as production_user_name',
+                'co.name as production_company_name',
+                'p.att_at as production_att_at',
+                'p.completed_at as production_completed_at',
             ])
             ->orderByDesc('r.created_at');
     }
@@ -90,6 +97,10 @@ class ExternalReclaimsExport implements FromQuery, WithMapping, WithHeadings, Wi
             $row->rubrica,
             $row->external_reclaim_completed ? 'Sim' : 'Nao',
             $this->formatDate($row->external_reclaim_completed_at),
+            $row->production_user_name,
+            $row->production_company_name,
+            $this->formatDate($row->production_att_at),
+            $this->formatDate($row->production_completed_at),
         ];
     }
 
@@ -114,6 +125,10 @@ class ExternalReclaimsExport implements FromQuery, WithMapping, WithHeadings, Wi
             'Rubrica',
             'External reclaim concluido',
             'External reclaim concluido em',
+            'Producao usuario',
+            'Producao empresa',
+            'Producao att em',
+            'Producao concluida em',
         ];
     }
 

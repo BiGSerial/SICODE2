@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
+use App\Models\MedProtest;
 use App\Models\ProtestJob;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,9 @@ class ViewProtestJob extends Component
     public ?ProtestJob $job = null;
     public $protest = null;
     public $medProtest = null;
+
+    public ?string $result = null;
+    public array $resultOptions = [];
 
     // Exibição
     public array $outcome = [];
@@ -71,6 +75,9 @@ class ViewProtestJob extends Component
         $this->protest    = $this->job->protest;
         $this->medProtest = $this->job->medProtest;
         $this->outcome    = $this->job->outcome ?? [];
+
+        $this->result = $this->medProtest?->result;
+        $this->resultOptions = MedProtest::resultOptions();
 
         // Listas por origem (desc)
         // 'job' deixado vazio propositalmente para não exibir mensagens do ProtestJob na aba, conforme solicitado
@@ -170,15 +177,24 @@ class ViewProtestJob extends Component
             return;
         }
 
+        $options = [];
+        foreach (MedProtest::resultOptions() as $opt) {
+            $options[$opt] = ucfirst($opt);
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Confirmar atividade?',
-            'msg'           => 'Isso irá confirmar a atividade do usuário.',
+            'msg'           => 'Isso ira confirmar a atividade do usuario.',
             'icon'          => 'question',
             'btnOktxt'      => 'Sim, Confirmar!',
-            'btnCanceltxt'  => 'Não, Cancelar',
+            'btnCanceltxt'  => 'Nao, Cancelar',
             'action'        => 'confirmConfirm',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma alteração realizada.',
+            'cancel_msg'    => 'Nenhuma alteracao realizada.',
+            'inputType'     => 'select',
+            'inputOptions'  => $options,
+            'inputValue'    => $this->result,
+            'inputPlaceholder' => 'Nao informado',
         ]);
     }
 
@@ -266,15 +282,23 @@ class ViewProtestJob extends Component
         }
     }
 
-    public function doConfirm(): void
+    public function doConfirm(?string $result = null): void
     {
         if (!$this->job) {
             return;
         }
 
         try {
-            // Usa método do modelo
-            $this->job->confirmJob();
+            // Usa metodo do modelo
+            if ($result !== null) {
+                $this->result = $result;
+            }
+
+            $this->validate([
+                'result' => 'nullable|in:' . implode(',', MedProtest::resultOptions()),
+            ]);
+
+            $this->job->confirmJob(null, $this->result);
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',
@@ -508,6 +532,7 @@ class ViewProtestJob extends Component
             'jobId','job','protest','medProtest',
             'outcome','timeline','commentsByOrigin',
             'newMessage','restrict',
+            'result','resultOptions',
         ]);
         $this->restrict = false;
         $this->messageTarget = 'med';

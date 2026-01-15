@@ -35,6 +35,7 @@ class View extends Component
     public ?MedProtest $protestTemp = null;
     public ?MedProtest $medProtest = null;
     public ?ProtestJob $jobTemp = null;
+    public ?string $result = null;
 
     /** ===== LISTENERS ===== */
     protected $listeners = [
@@ -371,31 +372,46 @@ class View extends Component
         $this->jobTemp = $job;
 
         if (!$this->jobTemp) {
-            $this->toast('danger', 'Atividade não encontrada.');
+            $this->toast('danger', 'Atividade nao encontrada.');
             return;
+        }
+
+        $options = [];
+        foreach (MedProtest::resultOptions() as $opt) {
+            $options[$opt] = ucfirst($opt);
         }
 
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Deseja Confirmar a Tarefa?',
-            'msg'           => "Você está prestes a confirmar a tarefa?",
+            'msg'           => 'Voce esta prestes a confirmar a tarefa?',
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Confirme!',
-            'btnCanceltxt'  => 'Não, Cancele!',
+            'btnCanceltxt'  => 'Nao, Cancele!',
             'action'        => 'confirmJob172030',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma ação realizada.',
+            'cancel_msg'    => 'Nenhuma acao realizada.',
+            'inputType'     => 'select',
+            'inputOptions'  => $options,
+            'inputPlaceholder' => 'Nao informado',
         ]);
     }
 
-    public function confirmJob(): void
+    
+
+    public function confirmJob(?string $result = null): void
     {
         if (!$this->jobTemp) {
             return;
         }
 
         try {
-            // método do modelo já registra evento
-            $this->jobTemp->confirmJob();
+            $this->validate([
+                'jobTemp.id' => 'required',
+                'result' => 'nullable|in:' . implode(',', MedProtest::resultOptions()),
+            ]);
+
+            // metodo do modelo ja registra evento
+            $this->jobTemp->confirmJob(null, $result);
 
             $this->toast('success', 'Tarefa confirmada com sucesso!');
             $this->jobTemp = null;
@@ -405,7 +421,8 @@ class View extends Component
         }
     }
 
-    public function toCancelJob(ProtestJob $job): void
+    
+public function toCancelJob(ProtestJob $job): void
     {
         $this->jobTemp = $job;
 
