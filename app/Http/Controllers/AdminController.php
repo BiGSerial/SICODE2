@@ -24,6 +24,11 @@ class AdminController extends Controller
         return view('admin.category.main');
     }
 
+    public function audit_notes()
+    {
+        return view('admin.audits.notes');
+    }
+
 
     // User Hierarchy View
     public function user_hierarchy()

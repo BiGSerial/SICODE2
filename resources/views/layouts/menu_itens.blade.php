@@ -42,6 +42,9 @@
             <li><a class="dropdown-item" href="{{ route('admin.user.list') }}"><i
                         class="ri-account-pin-box-fill align-middle text-primary"></i>USUARIOS</a>
             </li>
+            <li><a class="dropdown-item" href="{{ route('admin.audits.notes') }}"><i
+                        class="ri-file-search-line align-middle text-primary"></i>AUDITORIA NOTAS</a>
+            </li>
             @can('superadm')
                 <li><a class="dropdown-item" href="{{ route('admin.company.list') }}"><i
                             class="ri-building-4-fill align-middle text-primary"></i>EMPRESAS</a></li>
@@ -105,6 +108,9 @@
             </li>
             <li><a class="dropdown-item" href="{{ route('reports.viabilities') }}"><i
                         class="ri-git-repository-line align-middle text-primary"></i>RELATÓRIO DE VIABILIDADE</a>
+            </li>
+            <li><a class="dropdown-item" href="{{ route('reports.return_intern_dashboard') }}"><i
+                        class="ri-refresh-line align-middle text-primary"></i>RELATORIO RETORNO INTERNO</a>
             </li>
             <li><a class="dropdown-item" href="{{ route('reports.advancedsearch') }}"><i
                         class="ri-search-eye-line align-middle text-primary"></i>BUSCAR AVANÇADA</a>
@@ -360,3 +366,4 @@
     </ul>
 
 </li>
+
