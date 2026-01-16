@@ -1,6 +1,11 @@
 {
-    "appver": "1.27.6",
+    "appver": "1.27.7",
     "historic": [
+        {
+            "version": "1.27.7",
+            "description": "Atualiza\u00e7\u00e3o de Relatorios e corre\u00e7\u00f5es de bugs.",
+            "date": "2026-01-16"
+        },
         {
             "version": "1.27.6",
             "description": "Fix Report, and major bugs fix",
