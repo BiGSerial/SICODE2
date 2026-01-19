@@ -77,12 +77,19 @@ class Accompany extends Component
      */
     protected function descendantsOf(string $userId): array
     {
-        return User::query()
-            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
-            ->where('uc.ancestor_id', $userId)
-            ->select('users.id')
+        $user = User::find($userId);
+
+        if (!$user) {
+            return [];
+        }
+
+        return $user
+            ->descendantsQuery(
+                includeSelf: true,
+                includeDelegations: true,
+                includeDelegatesTreesForPrincipal: true
+            )
             ->pluck('users.id')
-            ->push($userId)
             ->unique()
             ->values()
             ->all();
