@@ -48,4 +48,14 @@ class ReportsController extends Controller
     {
         return view('reports.HistoricRejectReports');
     }
+
+    public function return_intern_dashboard()
+    {
+        return view('reports.return-intern-dashboard');
+    }
+
+    public function return_intern_list()
+    {
+        return view('reports.return-intern-list');
+    }
 }

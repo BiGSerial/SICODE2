@@ -64,6 +64,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/', 'category_main')->name('main');
     });
 
+    Route::prefix('/audits')->name('audits.')->group(function () {
+        Route::get('/notes', 'audit_notes')->name('notes');
+    });
+
     Route::post('/change_pass', 'change_password')->name('change_pass');
 });
 
@@ -141,6 +145,8 @@ Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.'
 Route::prefix('/reports')->controller(ReportsController::class)->name('reports.')->middleware('auth')->group(function () {
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
+    Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
+    Route::get('/return_intern/list', 'return_intern_list')->middleware('can:management')->name('return_intern_list');
     Route::get('/workreports', 'workreports')->name('workreport');
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');

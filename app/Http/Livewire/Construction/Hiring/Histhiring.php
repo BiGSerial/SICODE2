@@ -3,8 +3,10 @@
 namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Helpers\TextFormatter;
+use App\Jobs\Construction\ExportHistHiringJob;
 use App\Models\Edp_depc\City;
 use App\Models\File;
+use App\Models\Note;
 use App\Models\Viability;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -140,8 +142,45 @@ class Histhiring extends Component
         $this->search   = '';
     }
 
+    public function exportToExcel(): void
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        $filters = $_SESSION['filter'][$this->filter_group] ?? [];
+
+        $params = [
+            'search'         => $this->search,
+            'multipleSearch' => $this->multipleSearch,
+            'date_in'        => $this->date_in,
+            'date_out'       => $this->date_out,
+            'dateBy'         => $this->dateBy,
+            'hasNoHired'     => $this->hasNoHired,
+            'filter'         => $filters,
+        ];
+
+        ExportHistHiringJob::dispatch($params, (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTACAO INICIADA',
+            'text'     => 'A exportacao foi iniciada, voce recebera uma notificacao quando estiver pronta.',
+            'timer'    => 5000,
+        ]);
+    }
+
     public function getListsProperty()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        }
+
         $query = Viability::query();
 
         $query->where('hired', true);
@@ -176,7 +215,13 @@ class Histhiring extends Component
             });
         }
 
-        $query->orderBy('sended_at', 'DESC');
+        $orderDateColumn = $this->dateBy ?: 'sended_at';
+        $query->orderBy($orderDateColumn, 'DESC')
+            ->orderBy(
+                Note::select('note')
+                    ->whereColumn('notes.id', 'viabilities.note_id'),
+                'ASC'
+            );
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -185,11 +230,35 @@ class Histhiring extends Component
             });
         }
 
+        if (isset($this->filter['rubrica'])) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+
         if (isset($this->filter['city'])) {
             $query->whereIn('lexp', $this->filter['city']);
         }
 
-        $query->with(['Company', 'User', 'Form', 'Comments.User', 'Files']);
+        $query->with([
+            'Company',
+            'User',
+            'Form',
+            'Comments.User',
+            'Files',
+            'Orders' => function ($q) {
+                $q->where(function ($w) {
+                    $w->where('statusSist', 'NOT LIKE', 'ENT%')
+                        ->where('statusSist', 'NOT LIKE', 'ENC%');
+                });
+            },
+            'Note.Orders' => function ($q) {
+                $q->where(function ($w) {
+                    $w->where('statusSist', 'NOT LIKE', 'ENT%')
+                        ->where('statusSist', 'NOT LIKE', 'ENC%');
+                });
+            },
+        ]);
 
         return $query->paginate($this->perPage);
     }

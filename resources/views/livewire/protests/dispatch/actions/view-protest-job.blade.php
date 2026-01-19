@@ -220,10 +220,30 @@
                                         <strong>Resultado</strong>
 
                                     </div>
-                                    <div class="card-body small">
-                                        <div class="text-muted">{{ $job->close_reason ?? 'Sem resultado informado.' }}
+                                                                        <div class="card-body small">
+                                        <div class="text-muted mb-2">{{ $job->close_reason ?? 'Sem resultado informado.' }}
                                         </div>
+                                        <div class="small">
+                                            <strong>Resultado da medida:</strong>
+                                            <span>{{ $medProtest?->result ? ucfirst($medProtest->result) : 'Nao informado' }}</span>
+                                        </div>
+
+                                        @if ($job && !$job->confirmed && $job->status->value === 'done')
+                                            <div class="mt-2">
+                                                <label class="form-label small">Selecionar resultado (opcional)</label>
+                                                <select class="form-select form-select-sm" wire:model="result">
+                                                    <option value="">Nao informado</option>
+                                                    @foreach ($resultOptions as $opt)
+                                                        <option value="{{ $opt }}">{{ ucfirst($opt) }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('result')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                        @endif
                                     </div>
+
                                 </div>
                             </div>
 

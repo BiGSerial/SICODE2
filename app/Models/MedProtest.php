@@ -11,6 +11,9 @@ class MedProtest extends Model
 {
     use HasFactory;
 
+    public const RESULT_PROCEDENTE = 'procedente';
+    public const RESULT_IMPROCEDENTE = 'improcedente';
+
     protected $fillable = [
         'protest_id',
         'med_id',
@@ -26,6 +29,7 @@ class MedProtest extends Model
         'needsEvidence',
         'needsConfirmation',
         'protest_type',
+        'result',
     ];
 
     protected $casts = [
@@ -41,6 +45,24 @@ class MedProtest extends Model
 
     protected $appends = ['protest_type_label', 'protest_type_badge_class'];
 
+    public static function resultOptions(): array
+    {
+        return [
+            self::RESULT_PROCEDENTE,
+            self::RESULT_IMPROCEDENTE,
+        ];
+    }
+
+    public static function normalizeResult(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = strtolower(trim($value));
+
+        return in_array($value, self::resultOptions(), true) ? $value : null;
+    }
 
     public function getProtestTypeLabelAttribute(): string
     {

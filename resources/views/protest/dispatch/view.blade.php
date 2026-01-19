@@ -33,7 +33,7 @@
                 buttonsStyling: false
             });
 
-            Swal.fire({
+            const swalConfig = {
                 title: e.detail.title,
                 html: e.detail.msg,
                 icon: e.detail.icon,
@@ -41,10 +41,23 @@
                 confirmButtonText: e.detail.btnOktxt,
                 cancelButtonText: e.detail.btnCanceltxt,
                 reverseButtons: true
-            }).then((result) => {
+            };
+
+            if (e.detail.inputOptions) {
+                swalConfig.input = e.detail.inputType || 'select';
+                swalConfig.inputOptions = e.detail.inputOptions;
+                swalConfig.inputValue = e.detail.inputValue || '';
+                swalConfig.inputPlaceholder = e.detail.inputPlaceholder || 'Nao informado';
+            }
+
+            Swal.fire(swalConfig).then((result) => {
                 if (result.isConfirmed) {
 
-                    Livewire.emit(e.detail.action)
+                    if (swalConfig.input) {
+                        Livewire.emit(e.detail.action, result.value)
+                    } else {
+                        Livewire.emit(e.detail.action)
+                    }
 
                 } else if (
                     /* Read more about handling dismissals below */

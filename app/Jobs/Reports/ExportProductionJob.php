@@ -43,6 +43,8 @@ class ExportProductionJob implements ShouldQueue
         $filePath     = null;
         $serviceLabel = '';
 
+        $disk = Storage::disk('local');
+
         try {
             $query = Production::query()
 
@@ -172,10 +174,11 @@ class ExportProductionJob implements ShouldQueue
             $filePath   = 'exports/' . now()->format('YmdHis') . $suffix . '_productions.xlsx';
 
             // Exporta
+            $disk->makeDirectory('exports');
             (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
 
             // Notifica sucesso
-            if ($user && Storage::disk('local')->exists($filePath)) {
+            if ($user && $disk->exists($filePath)) {
                 $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
@@ -195,8 +198,8 @@ class ExportProductionJob implements ShouldQueue
                 'error'   => $e->getMessage(),
             ]);
 
-            if ($filePath && Storage::disk('local')->exists($filePath)) {
-                Storage::disk('local')->delete($filePath);
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
             }
 
             if ($user) {

@@ -2,7 +2,7 @@
 
 namespace App\Jobs\Reports;
 
-use App\Exports\Oexterno\ExternalReclaimsExport;
+use App\Exports\Reports\ReturnInternReportExport;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
-class ExportExternalReclaimsJob implements ShouldQueue
+class ExportInternalReclaimsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -30,10 +30,17 @@ class ExportExternalReclaimsJob implements ShouldQueue
         $this->params = array_merge([
             'dt_in' => null,
             'dt_out' => null,
-            'status' => [],
-            'entityTypeIds' => [],
-            'entityIds' => [],
-            'rubrics' => [],
+            'search' => null,
+            'originFilters' => [],
+            'serviceIds' => [],
+            'category' => null,
+            'dispatcherUserId' => null,
+            'productionUserId' => null,
+            'companyId' => null,
+            'productionStatus' => '',
+            'completedFilter' => '',
+            'resolutionMin' => '',
+            'resolutionMax' => '',
         ], $params);
 
         $this->userId = $userId;
@@ -45,9 +52,9 @@ class ExportExternalReclaimsJob implements ShouldQueue
         $user = $this->user ?? User::find($this->userId);
 
         try {
-            $fileName = 'exports/' . date('YmdHis') . '-ExternalReclaims.xlsx';
+            $fileName = 'exports/' . date('YmdHis') . '-ReturnIntern.xlsx';
 
-            Excel::store(new ExternalReclaimsExport($this->params), $fileName, 'local');
+            Excel::store(new ReturnInternReportExport($this->params), $fileName, 'local');
 
             if (!Storage::disk('local')->exists($fileName)) {
                 throw new \RuntimeException('Arquivo nao foi gerado.');
@@ -55,7 +62,7 @@ class ExportExternalReclaimsJob implements ShouldQueue
 
             if ($user) {
                 $user->notify(new SystemNotification(
-                    'Exportacao de Reclaims Externos',
+                    'Exportacao de Retornos Internos',
                     'Seu arquivo esta pronto para download.',
                     Storage::url($fileName),
                     4,
@@ -63,7 +70,7 @@ class ExportExternalReclaimsJob implements ShouldQueue
                 ));
             }
         } catch (\Throwable $exception) {
-            Log::error('ExportExternalReclaimsJob falhou', [
+            Log::error('ExportInternalReclaimsJob falhou', [
                 'error_message' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
                 'params' => $this->params,
