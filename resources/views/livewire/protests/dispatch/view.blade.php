@@ -1215,16 +1215,23 @@
 
                                     {{-- Expand toggle --}}
                                     <td class="text-end align-top">
-                                        @if ($jobs->isNotEmpty())
-                                            <button class="btn btn-outline-secondary icon-btn-table"
-                                                wire:click="toggleJobs({{ $medProtest->id }})"
-                                                title="Ver atividades relacionadas"
-                                                aria-expanded="{{ $expanded ? 'true' : 'false' }}"
-                                                aria-controls="jobs-{{ $medProtest->id }}">
-                                                <i
-                                                    class="{{ $expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
+                                        <div class="d-flex align-items-center justify-content-end gap-1">
+                                            <button class="btn btn-outline-success icon-btn-table"
+                                                title="Anexar arquivos da medida"
+                                                wire:click.prevent="$emitTo('protests.dispatch.actions.upload-med-protest-files', 'openUploader', {{ $medProtest->id }})">
+                                                <i class="ri-upload-cloud-2-line"></i>
                                             </button>
-                                        @endif
+                                            @if ($jobs->isNotEmpty())
+                                                <button class="btn btn-outline-secondary icon-btn-table"
+                                                    wire:click="toggleJobs({{ $medProtest->id }})"
+                                                    title="Ver atividades relacionadas"
+                                                    aria-expanded="{{ $expanded ? 'true' : 'false' }}"
+                                                    aria-controls="jobs-{{ $medProtest->id }}">
+                                                    <i
+                                                        class="{{ $expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
+                                                </button>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
 
@@ -1547,5 +1554,6 @@
     @livewire('protests.dispatch.actions.add-notes-relation', key('add-notes-relation-' . $protest->id))
     @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest-' . $protest->id))
     @livewire('protests.dispatch.actions.edit-control-med-protest', key('edit-control-med-protest-' . $protest->id))
+    @livewire('protests.dispatch.actions.upload-med-protest-files', key('upload-med-protest-files-' . $protest->id))
     @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
 </div>
