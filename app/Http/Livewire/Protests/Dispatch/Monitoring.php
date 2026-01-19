@@ -194,7 +194,7 @@ class Monitoring extends Component
 
             $ownerIds = $this->onlySelectedUser
                 ? [$user->id]
-                : $user->descendantsQuery(true, true)->pluck('users.id')->toArray();
+                : $user->descendantsQuery(true, true, true)->pluck('users.id')->toArray();
 
             $onlySelectedUser = $this->onlySelectedUser;
 
