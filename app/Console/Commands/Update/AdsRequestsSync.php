@@ -15,16 +15,14 @@ class AdsRequestsSync extends Command
 
     public function handle(): int
     {
-        $since = $this->option('since');
+        $since = $this->option('since') ?: now()->subDay()->toDateTimeString();
         $chunkSize = (int) $this->option('chunk') ?: 1000;
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
         $dryRun = (bool) $this->option('dry-run');
 
         $query = SqlAdsRequest::query();
 
-        if ($since) {
-            $query->where('updated_at', '>=', $since);
-        }
+        $query->where('updated_at', '>=', $since);
 
         if ($limit) {
             $query->limit($limit);
@@ -34,35 +32,82 @@ class AdsRequestsSync extends Command
         $this->info('Sync ADS requests from SQL Server...');
         $this->info('Total rows: ' . $total);
 
-        $updated = 0;
+        $updatedLocal = 0;
+        $updatedSql = 0;
         $skipped = 0;
         $missing = 0;
+        $conflicts = 0;
 
-        $query->orderBy('id')->chunkById($chunkSize, function ($rows) use (&$updated, &$skipped, &$missing, $dryRun) {
+        $query->orderBy('id')->chunkById($chunkSize, function ($rows) use (&$updatedLocal, &$updatedSql, &$skipped, &$missing, &$conflicts, $dryRun) {
+            $sicodeIds = $rows->pluck('sicode_id')->filter()->values();
+            $localsById = $sicodeIds->isEmpty()
+                ? collect()
+                : AdsRequest::query()
+                    ->whereIn('id', $sicodeIds)
+                    ->get()
+                    ->keyBy('id');
+
             foreach ($rows as $row) {
                 if (!$row->sicode_id) {
                     $skipped++;
                     continue;
                 }
 
-                $local = AdsRequest::find($row->sicode_id);
+                $local = $localsById->get($row->sicode_id);
                 if (!$local) {
                     $missing++;
                     continue;
                 }
 
-                $payload = [
+                $sqlUpdatedAt = $row->updated_at?->getTimestamp() ?? 0;
+                $localUpdatedAt = $local->updated_at?->getTimestamp() ?? 0;
+
+                if ($sqlUpdatedAt === $localUpdatedAt) {
+                    $skipped++;
+                    continue;
+                }
+
+                if ($localUpdatedAt > $sqlUpdatedAt) {
+                    $payloadSql = [
+                        'status' => $local->status instanceof AdsRequestStatus ? $local->status->value : $local->status,
+                        'attempts' => $local->attempts,
+                        'description' => $local->description,
+                        'url' => $local->url,
+                        'completed_at' => $local->completed_at,
+                        'partner' => $local->partner ? 1 : 0,
+                        'batch_id' => $local->batch_id,
+                        'updated_at' => $local->updated_at,
+                    ];
+
+                    if (!$dryRun) {
+                        $row->fill($payloadSql);
+                        $row->timestamps = false;
+                        $row->save();
+                    }
+
+                    $updatedSql++;
+                    continue;
+                }
+
+                $payloadLocal = [
                     'status' => $row->status,
                     'attempts' => $row->attempts,
                     'description' => $row->description,
                     'url' => $row->url,
                     'completed_at' => $row->completed_at,
-                    'sqlserver_id' => $row->id,
+                    'partner' => $row->partner,
+                    'batch_id' => $row->batch_id,
                     'completed' => $row->status === AdsRequestStatus::DONE->value,
                     'updated_at' => $row->updated_at,
                 ];
 
-                $local->fill($payload);
+                if (!$local->sqlserver_id) {
+                    $payloadLocal['sqlserver_id'] = $row->id;
+                } elseif ($local->sqlserver_id !== $row->id) {
+                    $conflicts++;
+                }
+
+                $local->fill($payloadLocal);
 
                 if (!$local->isDirty()) {
                     $skipped++;
@@ -74,12 +119,14 @@ class AdsRequestsSync extends Command
                     $local->save();
                 }
 
-                $updated++;
+                $updatedLocal++;
             }
         });
 
-        $this->info('Updated: ' . $updated);
+        $this->info('Updated SICODE: ' . $updatedLocal);
+        $this->info('Updated SQL Server: ' . $updatedSql);
         $this->info('Skipped: ' . $skipped);
+        $this->info('Conflicts: ' . $conflicts);
         $this->info('Missing local: ' . $missing);
 
         return 0;

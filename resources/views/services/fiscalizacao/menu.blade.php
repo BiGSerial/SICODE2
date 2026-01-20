@@ -28,6 +28,13 @@
                             <i class="ri-history-line fw-light edp-text-verde-dark fs-5"></i> <span>MEU HISTÓRICO</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('services.ads.requests', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-file-add-line fw-light edp-text-verde-dark fs-5"></i> <span>Solicitacoes
+                                ADS</span>
+                        </a>
+                    </li>
 
                 </div>
             </ul>

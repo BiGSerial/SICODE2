@@ -445,10 +445,11 @@ class AdsRequests extends Component
 
     public function getActiveRequestsProperty()
     {
+        $visibleUserIds = $this->visibleUserIds();
         $query = AdsRequest::query()
-            ->with(['note', 'company'])
-            ->when(!auth()->user()?->superadm, function ($q) {
-                $q->where('requested_by', auth()->id());
+            ->with(['note', 'company', 'requestedBy'])
+            ->when($visibleUserIds !== null, function ($q) use ($visibleUserIds) {
+                $q->whereIn('requested_by', $visibleUserIds);
             })
             ->whereNotIn('status', [
                 AdsRequestStatus::DONE->value,
@@ -540,10 +541,11 @@ class AdsRequests extends Component
 
     public function getHistoryRequestsProperty()
     {
+        $visibleUserIds = $this->visibleUserIds();
         $query = AdsRequest::query()
-            ->with(['note', 'company'])
-            ->when(!auth()->user()?->superadm, function ($q) {
-                $q->where('requested_by', auth()->id());
+            ->with(['note', 'company', 'requestedBy'])
+            ->when($visibleUserIds !== null, function ($q) use ($visibleUserIds) {
+                $q->whereIn('requested_by', $visibleUserIds);
             })
             ->whereIn('status', [
                 AdsRequestStatus::DONE->value,
@@ -585,5 +587,16 @@ class AdsRequests extends Component
             'historyRequests' => $this->historyRequests,
             'companyOptions' => $this->companyOptions,
         ]);
+    }
+
+    protected function visibleUserIds(): ?\Illuminate\Support\Collection
+    {
+        $user = auth()->user();
+
+        if (!$user || $user->superadm) {
+            return null;
+        }
+
+        return $user->descendantsQuery(true)->pluck('users.id');
     }
 }

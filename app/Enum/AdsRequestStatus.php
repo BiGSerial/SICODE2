@@ -27,4 +27,16 @@ enum AdsRequestStatus: string
             self::DONE        => 'Concluído',
         };
     }
+
+    public function badgeClass(): string
+    {
+        return match($this) {
+            self::QUEUED      => 'text-bg-secondary',
+            self::IN_PROGRESS => 'text-bg-info',
+            self::RETRY       => 'text-bg-warning',
+            self::FAILED      => 'text-bg-danger',
+            self::CANCELED    => 'text-bg-dark',
+            self::DONE        => 'text-bg-success',
+        };
+    }
 }

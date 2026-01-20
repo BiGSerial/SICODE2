@@ -92,6 +92,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
     Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
     Route::get('/protocolNote/{note}', 'protocolNote')->name('protocolNote');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
 
     Route::prefix('/protests')->name('protests.')->group(function () {
         Route::get('/list', 'protests_list')->name('list');

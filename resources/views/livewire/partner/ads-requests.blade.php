@@ -129,7 +129,9 @@
                             <td class="text-center fw-bold">{{ $request->note?->note ?? $request->note_id }}</td>
                             <td>{{ $request->company?->name ?? '-' }}</td>
                             <td>
-                                <span class="badge text-bg-info">{{ $request->status?->label() }}</span>
+                                <span class="badge {{ $request->status?->badgeClass() ?? 'text-bg-secondary' }}">
+                                    {{ $request->status?->label() }}
+                                </span>
                             </td>
                             <td>{{ $request->description ?? '-' }}</td>
                             <td class="text-center">{{ $request->version }}</td>
@@ -219,7 +221,9 @@
                             <td class="text-center fw-bold">{{ $request->note?->note ?? $request->note_id }}</td>
                             <td>{{ $request->company?->name ?? '-' }}</td>
                             <td>
-                                <span class="badge text-bg-secondary">{{ $request->status?->label() }}</span>
+                                <span class="badge {{ $request->status?->badgeClass() ?? 'text-bg-secondary' }}">
+                                    {{ $request->status?->label() }}
+                                </span>
                             </td>
                             <td>{{ $request->description ?? '-' }}</td>
                             <td>

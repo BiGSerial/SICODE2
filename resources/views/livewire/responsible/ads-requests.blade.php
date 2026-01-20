@@ -126,6 +126,7 @@
                     <tr>
                         <th class="text-center">Nota</th>
                         <th>Empresa</th>
+                        <th>Usuario</th>
                         <th>Status</th>
                         <th>Descricao</th>
                         <th class="text-center">Versao</th>
@@ -138,8 +139,11 @@
                         <tr wire:key="active_{{ $request->id }}">
                             <td class="text-center fw-bold">{{ $request->note?->note ?? $request->note_id }}</td>
                             <td>{{ $request->company?->name ?? '-' }}</td>
+                            <td>{{ $request->requestedBy?->name ?? '-' }}</td>
                             <td>
-                                <span class="badge text-bg-info">{{ $request->status?->label() }}</span>
+                                <span class="badge {{ $request->status?->badgeClass() ?? 'text-bg-secondary' }}">
+                                    {{ $request->status?->label() }}
+                                </span>
                             </td>
                             <td>{{ $request->description ?? '-' }}</td>
                             <td class="text-center">{{ $request->version }}</td>
@@ -160,7 +164,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center py-4">Nenhuma solicitacao em andamento.</td>
+                            <td colspan="8" class="text-center py-4">Nenhuma solicitacao em andamento.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -214,6 +218,7 @@
                     <tr>
                         <th class="text-center">Nota</th>
                         <th>Empresa</th>
+                        <th>Usuario</th>
                         <th>Status</th>
                         <th>Descricao</th>
                         <th>ADS</th>
@@ -228,8 +233,11 @@
                         <tr wire:key="history_{{ $request->id }}">
                             <td class="text-center fw-bold">{{ $request->note?->note ?? $request->note_id }}</td>
                             <td>{{ $request->company?->name ?? '-' }}</td>
+                            <td>{{ $request->requestedBy?->name ?? '-' }}</td>
                             <td>
-                                <span class="badge text-bg-secondary">{{ $request->status?->label() }}</span>
+                                <span class="badge {{ $request->status?->badgeClass() ?? 'text-bg-secondary' }}">
+                                    {{ $request->status?->label() }}
+                                </span>
                             </td>
                             <td>{{ $request->description ?? '-' }}</td>
                             <td>
@@ -252,7 +260,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center py-4">Nenhuma solicitacao encontrada.</td>
+                            <td colspan="10" class="text-center py-4">Nenhuma solicitacao encontrada.</td>
                         </tr>
                     @endforelse
                 </tbody>
