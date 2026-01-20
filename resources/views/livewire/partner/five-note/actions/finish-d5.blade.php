@@ -1,6 +1,7 @@
 <div>
     <x-show-loading />
-    <div class="modal fade finish finish-five" id="finishFiveModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
+    <div class="modal fade finish finish-five" id="finishFiveModal" tabindex="-1" aria-hidden="true" wire:ignore.self
+        x-data x-init="$el.addEventListener('hidden.bs.modal', () => $wire.clearMemory())">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content fivefx-card">
                 {{-- HEADER --}}
@@ -13,7 +14,7 @@
                         @endif
                     </h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Fechar"></button>
+                        aria-label="Fechar" wire:click="clearAll"></button>
                 </div>
 
                 {{-- BODY (só mostra conteúdo se existir $five) --}}
@@ -21,6 +22,10 @@
                     @if (!empty($five))
                         {{-- Resumo compacto da D5 --}}
                         <div class="fivefx-grid mb-3">
+                            <div>
+                                <div class="fivefx-k">Nota</div>
+                                <div class="fivefx-v">{{ $five->note?->note ?? '-' }}</div>
+                            </div>
                             <div>
                                 <div class="fivefx-k">Local de Instalação</div>
                                 <div class="fivefx-v">{{ $five->loc_install ?? '—' }}</div>
@@ -46,8 +51,16 @@
                                 <div class="fivefx-v">{{ $five->codify ?? '—' }}</div>
                             </div>
                             <div class="fivefx-col-span">
-                                <div class="fivefx-k">Detalhes</div>
-                                <div class="fivefx-long">{{ $five->description ?? '—' }}</div>
+                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                    <div class="fivefx-k">Detalhes</div>
+                                    @if ($five->isPassive)
+                                        <button type="button" class="btn btn-sm btn-outline-info fivefx-inline-btn"
+                                            wire:click="startEditDescription">
+                                            <i class="ri-edit-2-line me-1"></i> Editar
+                                        </button>
+                                    @endif
+                                </div>
+                                <div class="fivefx-long">{{ $five->description ?? '-' }}</div>
                             </div>
                             <div>
                                 <div class="fivefx-k">Despachado em</div>
@@ -56,6 +69,34 @@
                                 </div>
                             </div>
                         </div>
+
+                        @if ($five->isPassive && $editingDescription)
+                            <div class="fivefx-passive mb-4">
+                                <div class="fivefx-passive-header">
+                                    <div>
+                                        <div class="fivefx-k">Edicao do Passivo</div>
+                                        <div class="fivefx-muted">Edite apenas os detalhes antes de encerrar.</div>
+                                    </div>
+                                    <span class="fivefx-passive-pill">Passivo</span>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="fivefx-k" for="description">Detalhes</label>
+                                    <textarea id="description" class="form-control fivefx-field" rows="3"
+                                        wire:model.defer="five.description"></textarea>
+                                </div>
+
+                                <div class="d-flex justify-content-end gap-2 mt-3">
+                                    <button class="btn btn-outline-light fivefx-btn"
+                                        wire:click="cancelEditDescription">
+                                        <i class="ri-close-line me-1"></i> Fechar
+                                    </button>
+                                    <button class="btn btn-outline-info fivefx-btn" wire:click="savePassiveDetails">
+                                        <i class="ri-save-3-line me-1"></i> Salvar detalhes
+                                    </button>
+                                </div>
+                            </div>
+                        @endif
 
                         {{-- Evidências já anexadas --}}
                         <div class="mb-3">
@@ -258,9 +299,8 @@
                     <label for="responsibleName" class="form-label fivefx-k">
                         Responsável pela Informação <span class="text-danger">*</span>
                     </label>
-                    <input type="text" class="form-control @error('five.name') is-invalid @enderror"
-                        id="responsibleName" wire:model.bounce.1s="five.name" placeholder="Digite o nome do responsável"
-                        style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px;">
+                    <input type="text" class="form-control fivefx-field @error('five.name') is-invalid @enderror"
+                        id="responsibleName" wire:model.bounce.1s="five.name" placeholder="Digite o nome do responsável">
                     @error('five.name')
                         <div class="invalid-feedback" style="color: #f87171;">{{ $message }}</div>
                     @enderror
@@ -268,9 +308,8 @@
 
                 <div class="mb-3">
                     <label for="observations" class="form-label fivefx-k">Observações</label>
-                    <textarea class="form-control @error('observations') is-invalid @enderror" id="observations"
-                        wire:model.defer="observations" placeholder="Digite as observações" rows="4"
-                        style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px; resize: vertical;"></textarea>
+                    <textarea class="form-control fivefx-field @error('observations') is-invalid @enderror" id="observations"
+                        wire:model.defer="observations" placeholder="Digite as observações" rows="4"></textarea>
                     @error('observations')
                         <div class="invalid-feedback" style="color: #f87171;">{{ $message }}</div>
                     @enderror
@@ -279,7 +318,7 @@
 
             {{-- FOOTER --}}
             <div class="modal-footer fivefx-footer">
-                <button class="btn btn-outline-light fivefx-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-outline-light fivefx-btn" data-bs-dismiss="modal" wire:click="clearAll">Cancelar</button>
 
                 {{-- Ligue este botão ao seu método Livewire, ex.: finish({{ $five->id }}) --}}
                 <button class="btn btn-success fivefx-btn"
@@ -294,15 +333,15 @@
     {{-- CSS ESCOPO EXCLUSIVO DO MODAL --}}
     <style>
         .finish-five .fivefx-card {
-            background: linear-gradient(145deg, #1f2937, #0f172a);
+            background: linear-gradient(145deg, #0f172a, #111827);
             color: #e5e7eb;
             border: 0;
             border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .5)
+            box-shadow: 0 24px 60px rgba(3, 7, 18, .55)
         }
 
         .finish-five .fivefx-header {
-            background: rgba(31, 41, 55, .95);
+            background: rgba(15, 23, 42, .95);
             border: 0;
             border-top-left-radius: 14px;
             border-top-right-radius: 14px;
@@ -320,7 +359,7 @@
 
         .finish-five .fivefx-pill {
             display: inline-block;
-            background: #0ea5e9;
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
             color: #fff;
             padding: .15rem .5rem;
             border-radius: 999px;
@@ -357,6 +396,46 @@
             padding: 10px 12px;
             color: #d1d5db;
             white-space: pre-wrap
+        }
+
+        .finish-five .fivefx-field {
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .1);
+            border-radius: 10px;
+            color: #f3f4f6;
+            padding: 10px 12px;
+        }
+
+        .finish-five .fivefx-field:focus {
+            border-color: rgba(34, 211, 238, .6);
+            box-shadow: 0 0 0 .2rem rgba(14, 165, 233, .18);
+        }
+
+        .finish-five .fivefx-passive {
+            background: linear-gradient(135deg, rgba(249, 115, 22, .08), rgba(251, 191, 36, .08));
+            border: 1px solid rgba(249, 115, 22, .25);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .finish-five .fivefx-passive-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .finish-five .fivefx-passive-pill {
+            background: linear-gradient(135deg, #f97316, #facc15);
+            color: #1f2937;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: .2rem .6rem;
+            font-size: .75rem;
+        }
+
+        .finish-five .fivefx-inline-btn {
+            border-radius: 999px;
+            font-weight: 600;
         }
 
         .finish-five .fivefx-subtitle {

@@ -13,6 +13,7 @@ class FinishD5 extends Component
     public $five;
     public $hasEvidence = false;
     public $observations;
+    public $editingDescription = false;
 
     public $origin = 'EMPREITEIRA';
 
@@ -25,10 +26,12 @@ class FinishD5 extends Component
 
     protected $rules = [
         'five.name' => 'required|string|max:255',
+        'five.description' => 'nullable|string|max:2000',
     ];
 
     public function getInfoResponse(FiveNote $five)
     {
+        $this->resetState();
         $this->five = $five;
 
         if ($this->five) {
@@ -141,12 +144,70 @@ class FinishD5 extends Component
         }
     }
 
+    public function savePassiveDetails(): void
+    {
+        if (!$this->five || !$this->five->isPassive) {
+            return;
+        }
+
+        $this->validate([
+            'five.description' => 'nullable|string|max:2000',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $this->five->save();
+
+            DB::commit();
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'Detalhes do passivo atualizados com sucesso!',
+            ]);
+
+            $this->editingDescription = false;
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'error',
+                'menssage' => 'Falha ao atualizar os detalhes do passivo.',
+            ]);
+        }
+    }
+
+    private function resetState(): void
+    {
+        $this->reset(['five', 'observations', 'hasEvidence', 'editingDescription']);
+        $this->resetErrorBag();
+        $this->resetValidation();
+        $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
+    }
+
+    public function startEditDescription(): void
+    {
+        if ($this->five?->isPassive) {
+            $this->editingDescription = true;
+        }
+    }
+
+    public function cancelEditDescription(): void
+    {
+        $this->editingDescription = false;
+        $this->resetValidation('five.description');
+        $this->resetErrorBag('five.description');
+    }
+
+    public function clearMemory(): void
+    {
+        $this->resetState();
+        $this->emitUp('refresh_component');
+    }
+
     public function clearAll()
     {
-        $this->five = null;
-        $this->observations = null;
-        $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
-        $this->resetErrorBag();
+        $this->resetState();
         $this->dispatchBrowserEvent('hideModal');
         $this->emitUp('refresh_component');
 
