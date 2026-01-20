@@ -88,6 +88,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
+    Route::get('/waiting_d5_create', 'waiting_d5_create')->name('waiting_d5_create');
     Route::get('/waiting_list', 'waiting_list')->name('waiting');
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
     Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
