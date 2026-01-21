@@ -35,4 +35,14 @@ class AdminController extends Controller
     {
         return view('admin.users.hierarchy');
     }
+
+    public function control_d5()
+    {
+        return view('admin.control.d5');
+    }
+
+    public function control_viability()
+    {
+        return view('admin.control.viability');
+    }
 }

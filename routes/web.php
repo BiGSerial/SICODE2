@@ -68,6 +68,11 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/notes', 'audit_notes')->name('notes');
     });
 
+    Route::prefix('/control')->name('control.')->middleware('can:superadm')->group(function () {
+        Route::get('/d5', 'control_d5')->name('d5');
+        Route::get('/viability', 'control_viability')->name('viability');
+    });
+
     Route::post('/change_pass', 'change_password')->name('change_pass');
 });
 

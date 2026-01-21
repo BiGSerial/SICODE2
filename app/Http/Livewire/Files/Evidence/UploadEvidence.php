@@ -21,9 +21,9 @@ class UploadEvidence extends Component
     public ?string $type = null;
     public ?string $origin = null;
 
-    /** @var array<\Livewire\TemporaryUploadedFile> */
-    public $files = [];
-    public $tempFiles = [];
+    /** @var array */
+    public $files = []; // Buffer do Livewire
+    public $tempFiles = []; // Lista de arquivos validados para exibição
 
     public array $config = [
         'disk'         => 'public',
@@ -37,15 +37,10 @@ class UploadEvidence extends Component
     ];
 
     protected $listeners = [
-        // Recebe: saveEvidences($fiveId = null)
         'saveEvidences'   => 'saveEvidences',
         'cancelEvidences' => 'cancelEvidences',
     ];
 
-    /**
-     * Agora $five é opcional. Se vier, ótimo; se não, salvamos depois
-     * quando o pai enviar o ID em saveEvidences($fiveId).
-     */
     public function mount(?FiveNote $five = null, string $type, string $origin): void
     {
         $this->five   = $five;
@@ -65,41 +60,22 @@ class UploadEvidence extends Component
         ];
     }
 
+    /**
+     * Disparado automaticamente após o upload do Livewire
+     */
     public function updatedFiles(): void
     {
         $this->validate();
 
         if (!count($this->files)) {
-            $this->emitUp('hasEvidence', false);
+            $this->emitUp('hasEvidence', count($this->tempFiles) > 0);
             return;
         }
-
-        $allowed  = array_map('strtolower', $this->config['allowed_exts']);
-        $maxBytes = $this->config['max_size_mb'] * 1024 * 1024;
 
         foreach ($this->files as $file) {
             $ext = strtolower($file->getClientOriginalExtension());
 
-            if (!in_array($ext, $allowed, true)) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => "Extensão não permitida: {$file->getClientOriginalName()}",
-                    'timer'    => 1500,
-                ]);
-                continue;
-            }
-
-            if ($file->getSize() > $maxBytes) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => "Tamanho excede {$this->config['max_size_mb']}MB: {$file->getClientOriginalName()}",
-                    'timer'    => 1500,
-                ]);
-                continue;
-            }
-
+            // Evitar duplicados na fila visual
             $duplicate = false;
             foreach ($this->tempFiles as $t) {
                 if ($t['original_name'] === $file->getClientOriginalName()) {
@@ -113,11 +89,13 @@ class UploadEvidence extends Component
                     'original_name' => $file->getClientOriginalName(),
                     'extension'     => $ext,
                     'size'          => $file->getSize(),
-                    'file'          => $file,
+                    'file'          => $file, // Objeto TemporaryUploadedFile
                 ];
             }
         }
 
+        // Limpa o buffer para o próximo lote
+        $this->files = [];
         $this->emitUp('hasEvidence', count($this->tempFiles) > 0);
     }
 
@@ -138,17 +116,14 @@ class UploadEvidence extends Component
         $this->emitUp('hasEvidence', false);
     }
 
-    /** Permite setar/atualizar o FiveNote a qualquer momento. */
     public function resolveFive(int $fiveId): void
     {
         $this->five = FiveNote::query()->findOrFail($fiveId);
     }
 
-    /** Próximo sequencial dentro da relação de UM FiveNote. */
     protected function nextSequence(FiveNote $five, $note): int
     {
         $prefix = "{$note}_{$this->origin}_{$this->type}_";
-
         $count = $five->EvidenceFiles()
             ->where('stored_name', 'like', $prefix.'%')
             ->count();
@@ -156,31 +131,21 @@ class UploadEvidence extends Component
         return $count + 1;
     }
 
-    /**
-     * saveEvidences agora pode receber o ID do FiveNote.
-     * Ex.: $emitTo('files.evidence.upload-evidence','saveEvidences', $fiveId)
-     */
     public function saveEvidences(?int $fiveId = null): void
     {
-
-
         if ($fiveId !== null) {
             $this->resolveFive($fiveId);
         }
 
         if (!$this->five) {
             $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'FiveNote não informado',
-                'html'     => '<small>Envie o ID do FiveNote ao salvar as evidências.</small>',
+                'icon'  => 'error',
+                'title' => 'FiveNote não informado',
             ]);
             return;
         }
 
         if (!count($this->tempFiles)) {
-            // Nada na fila: ainda assim liberamos fluxo do pai
-
             $this->emitUp('evidenceSaved');
             return;
         }
@@ -206,33 +171,25 @@ class UploadEvidence extends Component
                     $uniqueId,
                     $t['extension']
                 );
-                $path       = "{$dir}/{$storedName}";
 
                 $storedPath = $t['file']->storeAs($dir, $storedName, $disk);
-
-
 
                 if (!Storage::disk($disk)->exists($storedPath)) {
                     throw new RuntimeException("Falha ao salvar {$t['original_name']}");
                 }
 
-                // Metadados
                 $fileContents = Storage::disk($disk)->get($storedPath);
-                $sha256     = hash('sha256', $fileContents);
-                $mime       = $t['file']->getMimeType();
-                $size       = Storage::disk($disk)->size($storedPath);
 
-                // Persiste via morphMany
                 $this->five->EvidenceFiles()->create([
                     'user_id'       => Auth::id(),
                     'original_name' => $t['original_name'],
                     'stored_name'   => pathinfo($storedName, PATHINFO_FILENAME),
                     'disk'          => $disk,
                     'path'          => $storedPath,
-                    'mime'          => $mime,
+                    'mime'          => $t['file']->getMimeType(),
                     'extension'     => $t['extension'],
-                    'size'          => $size,
-                    'sha256'        => $sha256,
+                    'size'          => Storage::disk($disk)->size($storedPath),
+                    'sha256'        => hash('sha256', $fileContents),
                     'uploaded_at'   => now(),
                     'origin'        => $this->origin,
                 ]);
@@ -243,24 +200,20 @@ class UploadEvidence extends Component
             DB::commit();
 
             $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Evidências salvas com sucesso',
-                'timer'    => 1300,
+                'icon'  => 'success',
+                'title' => 'Evidências salvas com sucesso',
+                'timer' => 1300,
             ]);
 
-            $this->files = [];
             $this->tempFiles = [];
-            // $this->emitUp('hasEvidence', false);
             $this->emitUp('evidenceSaved');
 
         } catch (\Throwable $e) {
             DB::rollBack();
             $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Erro ao salvar evidências',
-                'html'     => '<small>'.e($e->getMessage()).'</small>',
+                'icon'  => 'error',
+                'title' => 'Erro ao salvar evidências',
+                'html'  => '<small>'.e($e->getMessage()).'</small>',
             ]);
         }
     }

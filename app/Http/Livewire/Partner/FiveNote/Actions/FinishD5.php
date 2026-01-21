@@ -14,6 +14,8 @@ class FinishD5 extends Component
     public $hasEvidence = false;
     public $observations;
     public $editingDescription = false;
+    public bool $isSaving = false;
+    public int $evidenceKey = 0;
 
     public $origin = 'EMPREITEIRA';
 
@@ -32,11 +34,12 @@ class FinishD5 extends Component
     public function getInfoResponse(FiveNote $five)
     {
         $this->resetState();
+        $this->evidenceKey++;
         $this->five = $five;
 
         if ($this->five) {
             $this->dispatchBrowserEvent('showModal', [
-                'id' => 'finishFiveModal',
+                'id' => 'finishD5Modal',
             ]);
         }
     }
@@ -78,6 +81,10 @@ class FinishD5 extends Component
 
     public function finishD5()
     {
+        if ($this->isSaving || !$this->five) {
+            return;
+        }
+
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
@@ -96,7 +103,23 @@ class FinishD5 extends Component
 
     public function toSave(): void
     {
-        $this->emitTo('files.evidence.upload-evidence', 'saveEvidences');
+        if ($this->isSaving) {
+            return;
+        }
+
+        $this->isSaving = true;
+
+        if (!$this->five) {
+            $this->isSaving = false;
+            return;
+        }
+
+        if (!$this->hasEvidence) {
+            $this->finish();
+            return;
+        }
+
+        $this->emitTo('files.evidence.upload-evidence', 'saveEvidences', $this->five->id);
     }
 
     public function evidenceSaved()
@@ -127,6 +150,7 @@ class FinishD5 extends Component
 
         } catch (\Throwable $th) {
             DB::rollBack();
+            $this->isSaving = false;
 
             if ($files = $this->five->EvidenceFiles()->where('origin', $this->origin)->get()) {
                 foreach ($files as $f) {
@@ -179,7 +203,7 @@ class FinishD5 extends Component
 
     private function resetState(): void
     {
-        $this->reset(['five', 'observations', 'hasEvidence', 'editingDescription']);
+        $this->reset(['five', 'observations', 'hasEvidence', 'editingDescription', 'isSaving']);
         $this->resetErrorBag();
         $this->resetValidation();
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
@@ -197,12 +221,6 @@ class FinishD5 extends Component
         $this->editingDescription = false;
         $this->resetValidation('five.description');
         $this->resetErrorBag('five.description');
-    }
-
-    public function clearMemory(): void
-    {
-        $this->resetState();
-        $this->emitUp('refresh_component');
     }
 
     public function clearAll()
