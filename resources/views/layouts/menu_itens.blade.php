@@ -45,6 +45,9 @@
             <li><a class="dropdown-item" href="{{ route('admin.audits.notes') }}"><i
                         class="ri-file-search-line align-middle text-primary"></i>AUDITORIA NOTAS</a>
             </li>
+            <li><a class="dropdown-item" href="{{ route('admin.control.d5') }}"><i
+                        class="ri-database-2-line align-middle text-primary"></i>CONTROLE DE DADOS</a>
+            </li>
             @can('superadm')
                 <li><a class="dropdown-item" href="{{ route('admin.company.list') }}"><i
                             class="ri-building-4-fill align-middle text-primary"></i>EMPRESAS</a></li>
@@ -366,4 +369,3 @@
     </ul>
 
 </li>
-

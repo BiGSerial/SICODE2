@@ -80,6 +80,15 @@ class ServicesController extends Controller
         ]);
     }
 
+    public function adsRequests(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.ads_requests', [
+            'service' => $service,
+        ]);
+    }
+
     // Reclamações
     public function protests_list(Request $request)
     {

@@ -76,4 +76,9 @@ class ResponsibleController extends Controller
     {
         return view('responsible.waitingFiveNotes');
     }
+
+    public function adsRequests()
+    {
+        return view('responsible.ads_requests');
+    }
 }

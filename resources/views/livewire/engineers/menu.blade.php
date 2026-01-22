@@ -126,7 +126,11 @@
                                 <i class="ri-history-line text-white fw-light fs-5"></i> <span> HISTÓRICO INFORME</span>
                             </a>
                         </li>
-                    </div>
+                        <li>
+                            <a href="{{ route('engineers.ads.requests') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-file-add-line text-white fw-light fs-5"></i> <span>Solicitacoes ADS</span>
+                            </a>
+                        </li>                    </div>
                 </ul>
             </li>
 
@@ -183,3 +187,4 @@
 
     </aside>
 </div>
+

@@ -64,8 +64,14 @@ class ExportHistHiringJob implements ShouldQueue
             }
 
             if (!empty($this->params['hasNoHired'])) {
-                $query->whereRelation('Orders.Operations', function ($q) {
-                    $q->where('operacao', '0010')->where('status', 'NOT LIKE', 'CONF%');
+                $query->whereHas('Note.Orders', function ($o) {
+                    $o->whereRaw("LTRIM(statusSist) NOT LIKE 'ENT%'")
+                        ->whereRaw("LTRIM(statusSist) NOT LIKE 'ENC%'")
+                        ->whereRaw("LTRIM(statusSist) NOT LIKE 'CANCE%'")
+                        ->whereHas('Operations', function ($op) {
+                            $op->where('operacao', '0010')
+                                ->where('status', 'NOT LIKE', 'CONF%');
+                        });
                 });
             }
 
@@ -102,18 +108,14 @@ class ExportHistHiringJob implements ShouldQueue
                 ->with([
                     'Company',
                     'Justification',
-                    'Orders' => function ($q) {
-                        $q->where(function ($w) {
-                            $w->where('statusSist', 'NOT LIKE', 'ENT%')
-                                ->where('statusSist', 'NOT LIKE', 'ENC%');
-                        });
-                    },
                     'Note.Orders' => function ($q) {
                         $q->where(function ($w) {
-                            $w->where('statusSist', 'NOT LIKE', 'ENT%')
-                                ->where('statusSist', 'NOT LIKE', 'ENC%');
+                            $w->whereRaw("LTRIM(statusSist) NOT LIKE 'ENT%'")
+                                ->whereRaw("LTRIM(statusSist) NOT LIKE 'ENC%'")
+                                ->whereRaw("LTRIM(statusSist) NOT LIKE 'CANCE%'");
                         });
                     },
+                    'Note.Orders.Operations',
                 ])
                 ->orderBy($dateBy, 'DESC')
                 ->orderBy(

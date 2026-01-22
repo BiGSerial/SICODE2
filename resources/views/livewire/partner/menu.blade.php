@@ -89,6 +89,10 @@
                             </li>
                         @endif
                         <li>
+                            <a href="{{ route('partner.ads.requests') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-file-add-line fw-light fs-5"></i> <span>Solicitacoes ADS</span>
+                            </a>
+                        </li>                        <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Concluídas Informadas</span>
                             </a>
@@ -198,3 +202,4 @@
 
     </aside>
 </div>
+
