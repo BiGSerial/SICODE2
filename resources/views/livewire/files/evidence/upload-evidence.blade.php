@@ -1,165 +1,106 @@
+@php $uploadUid = 'upd-' . $this->id; @endphp
+
 <div x-data="{
     isUploading: false,
     progress: 0,
     totalSize: 0,
     uploaded: 0,
-    isDragOver: false,
     human(bytes) {
-        const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+        if (!bytes) return '0 B';
+        const u = ['B', 'KB', 'MB', 'GB'];
         let i = 0;
-        while (bytes >= 1024 && i < u.length - 1) {
-            bytes /= 1024;
-            i++
-        }
-        return (i ? bytes.toFixed(2) : bytes.toFixed(0)) + ' ' + u[i];
+        while (bytes >= 1024 && i < u.length - 1) { bytes /= 1024;
+            i++; }
+        return bytes.toFixed(1) + ' ' + u[i];
     },
-    handleDragOver(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-    },
-    handleDragEnter(e) {
-        e.preventDefault();
-        this.isDragOver = true;
-    },
-    handleDragLeave(e) { e.preventDefault(); if (!e.currentTarget.contains(e.relatedTarget)) { this.isDragOver = false; } },
-    handleDrop(e) {
-        e.preventDefault();
-        this.isDragOver = false;
-        const files = e.dataTransfer.files;
-        if (files.length) {
-            $refs.fileInput.files = files;
-            $refs.fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-    }
-}"
-    x-on:livewire-upload-start="
-        isUploading=true;
-        totalSize=[...$refs.fileInput.files].reduce((s,f)=> s + f.size, 0);
-        progress=0; uploaded=0;"
-    x-on:livewire-upload-progress="
-        progress=$event.detail.progress;
-        uploaded=Math.round(totalSize*(progress/100));"
-    x-on:livewire-upload-error="isUploading=false; progress=0; uploaded=0"
-    x-on:livewire-upload-finish="progress=100; uploaded=totalSize; setTimeout(()=> isUploading=false, 400);">
-    {{-- Zona de upload minimalista, SEM card/container adicional --}}
-    <div class="upload-zone border border-2 border-dashed rounded-3 p-4 text-center" :class="{ 'drag-over': isDragOver }"
-        @dragover="handleDragOver" @dragenter="handleDragEnter" @dragleave="handleDragLeave" @drop="handleDrop"
-        @click="$refs.fileInput.click()">
+    // Função disparada tanto pelo clique quanto pelo drop
+    uploadFiles(files) {
+        if (!files || files.length === 0) return;
 
+        this.isUploading = true;
+        this.progress = 0;
+        this.totalSize = Array.from(files).reduce((s, f) => s + f.size, 0);
+
+        @this.uploadMultiple('files', files,
+            () => { this.isUploading = false;
+                this.progress = 100; },
+            () => { this.isUploading = false;
+                alert('Erro no upload'); },
+            (e) => { this.progress = e.detail.progress;
+                this.uploaded = Math.round(this.totalSize * (this.progress / 100)); }
+        );
+    }
+}" class="w-100">
+
+    <div class="upload-zone border border-2 border-dashed rounded-3 p-4 text-center position-relative"
+        style="cursor: pointer; background: rgba(13, 110, 253, 0.03);" {{-- Previne comportamento padrão do navegador --}}
+        x-on:dragover.prevent="$el.classList.add('drag-over')" x-on:dragleave.prevent="$el.classList.remove('drag-over')"
+        x-on:drop.prevent="$el.classList.remove('drag-over'); uploadFiles($event.dataTransfer.files)"
+        {{-- Clique abre o seletor --}} x-on:click="$refs.fileInput.click()">
         <div class="mb-2">
             <i class="ri-cloud-line fs-1 text-primary"></i>
         </div>
-        <div class="fw-semibold text-primary mb-1">
-            Arraste evidências aqui ou clique para selecionar
-        </div>
-        <div class="text-muted small mb-2">
-            Tipos: {{ strtoupper(implode(', ', $config['allowed_exts'])) }} — Máx:
-            {{ $config['max_size_mb'] }}MB/arquivo
-        </div>
+        <div class="fw-bold text-primary">Arraste ou Clique para Upload</div>
+        <div class="small text-muted">Limite: {{ $config['max_size_mb'] }}MB por arquivo</div>
 
-        <input type="file" class="d-none" x-ref="fileInput" multiple
-            accept="{{ implode(',', array_map(fn($t) => '.' . $t, $config['allowed_exts'])) }}" wire:model="files">
-
-        @error('files.*')
-            <div class="text-danger small mt-2"><i class="ri-error-warning-line me-1"></i>{{ $message }}</div>
-        @enderror
+        {{-- Input REAL (escondido) --}}
+        <input type="file" x-ref="fileInput" class="d-none" multiple
+            accept=".{{ implode(',.', $config['allowed_exts']) }}" x-on:change="uploadFiles($event.target.files)">
     </div>
 
-    {{-- Barra de progresso --}}
-    <div class="mt-2" x-show="isUploading" style="display:none;">
-        <div class="progress" style="height:6px;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
-                :style="`width:${progress}%`" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100"></div>
+    <div class="mt-3" x-show="isUploading" x-cloak>
+        <div class="progress" style="height: 10px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" :style="`width: ${progress}%`"
+                role="progressbar"></div>
         </div>
-        <div class="d-flex justify-content-between small mt-1">
-            <span class="text-muted"><i class="ri-upload-line me-1"></i>Enviando…</span>
-            <span class="text-primary fw-semibold"
-                x-text="`${progress}% - ${human(uploaded)} de ${human(totalSize)}`"></span>
+        <div class="d-flex justify-content-between mt-1 small">
+            <span class="text-muted">Enviando...</span>
+            <span class="fw-bold" x-text="`${progress}% (${human(uploaded)} / ${human(totalSize)})`"></span>
         </div>
     </div>
 
-    {{-- Lista de arquivos temporários anexados --}}
     @if (count($tempFiles))
-        <div class="mt-3">
-            <div class="d-flex align-items-center gap-2 mb-3">
-                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
-                    {{ count($tempFiles) }} {{ count($tempFiles) === 1 ? 'arquivo' : 'arquivos' }}
-                </span>
-
-                <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="cancelEvidences">
-                    <i class="ri-close-circle-line me-1"></i> Limpar fila
-                </button>
+        <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">{{ count($tempFiles) }} arquivo(s) na fila</h6>
+                <button type="button" class="btn btn-sm btn-link text-danger" wire:click="cancelEvidences">Limpar
+                    Tudo</button>
             </div>
-
-            <ul class="list-unstyled m-0">
+            <ul class="list-group">
                 @foreach ($tempFiles as $i => $t)
-                    <li class="temp-file-item d-flex align-items-center justify-content-between p-3 mb-2 rounded-3">
-                        <div class="d-flex align-items-center gap-3 flex-grow-1 text-truncate">
-                            {{-- Ícone por extensão --}}
-                            <div class="file-icon">
-                                @if (strtolower($t['extension']) === 'pdf')
-                                    <i class="ri-file-pdf-2-fill text-danger fs-3"></i>
-                                @elseif(in_array(strtolower($t['extension']), ['jpg', 'jpeg', 'png']))
-                                    <i class="ri-image-fill text-info fs-3"></i>
-                                @else
-                                    <i class="ri-file-3-fill text-secondary fs-3"></i>
-                                @endif
-                            </div>
-
-                            {{-- Nome + detalhes --}}
-                            <div class="text-truncate">
-                                <div class="fw-semibold text-truncate" title="{{ $t['original_name'] }}">
-                                    {{ $t['original_name'] }}
-                                </div>
-                                <small class="text-muted">
-                                    {{ strtoupper($t['extension']) }} —
-                                    {{ number_format($t['size'] / 1048576, 2) }} MB
-                                </small>
-                            </div>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="text-truncate">
+                            <i class="ri-file-line me-2"></i>
+                            <span class="fw-semibold">{{ $t['original_name'] }}</span>
+                            <small class="text-muted ms-2">{{ number_format($t['size'] / 1024 / 1024, 2) }} MB</small>
                         </div>
-
-                        {{-- Botão remover --}}
-                        <button class="btn btn-outline-danger btn-sm" wire:click="removeTemp({{ $i }})"
-                            title="Remover">
-                            <i class="ri-close-line"></i>
+                        <button type="button" class="btn btn-sm btn-outline-danger border-0"
+                            wire:click="removeTemp({{ $i }})">
+                            <i class="ri-delete-bin-line"></i>
                         </button>
                     </li>
                 @endforeach
             </ul>
         </div>
     @endif
-
     <style>
-        /* Escopo isolado */
-        .temp-file-item {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: .2s ease;
+        [x-cloak] {
+            display: none !important;
         }
 
-        .temp-file-item:hover {
-            background: rgba(59, 130, 246, 0.1);
-            border-color: rgba(59, 130, 246, 0.25);
-        }
-
-        .temp-file-item .file-icon {
-            flex-shrink: 0;
-        }
-    </style>
-
-
-
-    <style>
         .upload-zone {
-            background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.1) 100%);
-            min-height: 140px;
-            cursor: pointer;
-            transition: .25s ease;
+            transition: all 0.2s ease;
+            border-color: #dee2e6 !important;
+        }
+
+        .upload-zone:hover {
+            border-color: #0d6efd !important;
+            background: rgba(13, 110, 253, 0.06) !important;
         }
 
         .upload-zone.drag-over {
-            border-color: var(--bs-success) !important;
-            background: linear-gradient(135deg, rgba(25, 135, 84, 0.1) 0%, rgba(25, 135, 84, 0.15) 100%);
+            border-color: #198754 !important;
+            background: rgba(25, 135, 84, 0.1) !important;
             transform: scale(1.01);
         }
     </style>

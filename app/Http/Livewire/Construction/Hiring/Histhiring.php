@@ -8,6 +8,7 @@ use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Viability;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -26,6 +27,7 @@ class Histhiring extends Component
 
     public $files_selected = [];
     public $hasNoHired = false;
+    public $deleteId;
 
     public $search;
     public $advancedSearch;
@@ -54,6 +56,7 @@ class Histhiring extends Component
         'update_list'     => '$refresh',
         'refresh_list'    => '$refresh',
         'clear_selection' => 'clearSelection',
+        'confirmDeleteViability' => 'deleteViability',
     ];
 
     public function mount()
@@ -171,6 +174,58 @@ class Histhiring extends Component
         ]);
     }
 
+    public function requestDelete(int $id): void
+    {
+        $this->deleteId = $id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Remover viabilidade',
+            'msg'           => 'Confirma remover este registro?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Remova!',
+            'btnCanceltxt'  => 'Nao, Cancele',
+            'action'        => 'confirmDeleteViability',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhum registro foi removido.',
+        ]);
+    }
+
+    public function deleteViability(): void
+    {
+        if (!$this->deleteId) {
+            return;
+        }
+
+        $viability = Viability::find($this->deleteId);
+        if (!$viability) {
+            $this->deleteId = null;
+            return;
+        }
+
+        $user = auth()->user();
+        if (!$user?->superadm) {
+            $limit = Carbon::now()->subHours(24);
+            if (!$viability->created_at || $viability->created_at->lte($limit)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'error',
+                    'title'    => 'Nao permitido',
+                    'text'     => 'Este registro so pode ser excluido em ate 24 horas apos a criacao.',
+                    'timer'    => 5000,
+                ]);
+                return;
+            }
+        }
+
+        $viability->delete();
+        $this->deleteId = null;
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Registro excluido',
+            'timer'    => 3000,
+        ]);
+    }
+
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
@@ -200,8 +255,14 @@ class Histhiring extends Component
         }
 
         if ($this->hasNoHired) {
-            $query->whereRelation('Orders.Operations', function ($q) {
-                $q->where('operacao', '0010')->where('status', 'NOT LIKE', 'CONF%');
+            $query->whereHas('Note.Orders', function ($o) {
+                $o->whereRaw("LTRIM(statusSist) NOT LIKE 'ENT%'")
+                    ->whereRaw("LTRIM(statusSist) NOT LIKE 'ENC%'")
+                    ->whereRaw("LTRIM(statusSist) NOT LIKE 'CANCE%'")
+                    ->whereHas('Operations', function ($op) {
+                        $op->where('operacao', '0010')
+                            ->where('status', 'NOT LIKE', 'CONF%');
+                    });
             });
         }
 
@@ -246,18 +307,14 @@ class Histhiring extends Component
             'Form',
             'Comments.User',
             'Files',
-            'Orders' => function ($q) {
-                $q->where(function ($w) {
-                    $w->where('statusSist', 'NOT LIKE', 'ENT%')
-                        ->where('statusSist', 'NOT LIKE', 'ENC%');
-                });
-            },
             'Note.Orders' => function ($q) {
                 $q->where(function ($w) {
-                    $w->where('statusSist', 'NOT LIKE', 'ENT%')
-                        ->where('statusSist', 'NOT LIKE', 'ENC%');
+                    $w->whereRaw("LTRIM(statusSist) NOT LIKE 'ENT%'")
+                        ->whereRaw("LTRIM(statusSist) NOT LIKE 'ENC%'")
+                        ->whereRaw("LTRIM(statusSist) NOT LIKE 'CANCE%'");
                 });
             },
+            'Note.Orders.Operations',
         ]);
 
         return $query->paginate($this->perPage);

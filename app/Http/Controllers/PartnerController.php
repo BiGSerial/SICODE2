@@ -69,6 +69,11 @@ class PartnerController extends Controller
         return view('partner.adsform');
     }
 
+    public function adsRequests()
+    {
+        return view('partner.ads_requests');
+    }
+
 
     // D5
     public function partner_d5_list()
