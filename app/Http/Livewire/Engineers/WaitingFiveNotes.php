@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Engineers;
 
 use App\Helpers\TextFormatter;
+use App\Jobs\Engineers\ExportWaitingFiveNotesJob;
 use App\Models\FiveNote;
 use App\Traits\AppliesQueryFilters;
 use App\Traits\WildcardFormmater;
@@ -24,9 +25,12 @@ class WaitingFiveNotes extends Component
     public $service;
     public $perPage = 100;
     public $search;
-    public $advanceSearch;
-    public $multisearch = [];
+    public $advanceSearchD5;
+    public $advanceSearchNote;
+    public $multiD5 = [];
+    public $multiNote = [];
     public $type = "";
+    public $statusFilter = '';
 
     public $showDetails = false;
 
@@ -43,6 +47,7 @@ class WaitingFiveNotes extends Component
     protected $queryString = [
         'type' => ['except' => '', 'as' => 'tipo'],
         'search'  => ['except' => '', 'as' => 'buscar'],
+        'statusFilter' => ['except' => '', 'as' => 'status'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
     ];
@@ -58,9 +63,16 @@ class WaitingFiveNotes extends Component
     {
         $this->resetPage();
         if (!$this->search) {
-            $this->multisearch = [];
-            $this->advanceSearch = "";
+            $this->multiD5 = [];
+            $this->multiNote = [];
+            $this->advanceSearchD5 = "";
+            $this->advanceSearchNote = "";
         }
+    }
+
+    public function updatedStatusFilter()
+    {
+        $this->resetPage();
     }
 
 
@@ -68,7 +80,8 @@ class WaitingFiveNotes extends Component
     {
         $this->search = "";
         $this->resetPage();
-        $this->multisearch = $this->formatTextToArray($this->advanceSearch);
+        $this->multiD5 = $this->formatTextToArray($this->advanceSearchD5);
+        $this->multiNote = $this->formatTextToArray($this->advanceSearchNote);
     }
 
     public function onFiltersUpdated($payload = [])
@@ -179,14 +192,37 @@ class WaitingFiveNotes extends Component
         }
     }
 
+    private function applyStatusFilter(Builder $base): void
+    {
+        switch ($this->statusFilter) {
+            case 'aguardando_fornecedor':
+                $base->where('is_completed', false)
+                    ->where('is_archived', false);
+                break;
+            case 'aguardando_fiscalizacao':
+                $base->where('is_completed', true)
+                    ->where('is_supervisioned', false)
+                    ->where('is_archived', false);
+                break;
+            case 'aguardando_pagamento':
+                $base->where('is_supervisioned', true)
+                    ->where('is_archived', false);
+                break;
+            case 'finalizado':
+                $base->where('is_archived', true);
+                break;
+        }
+    }
+
     /**
      * QUERY BASE (reutilizável)
      */
     private function baseQuery(): Builder
     {
         $base = FiveNote::query()
-            ->where('visible_partner', true)
-            ->where('is_completed', false);
+            ->where('visible_partner', true);
+
+        $this->applyStatusFilter($base);
 
         if ($this->search) {
 
@@ -227,6 +263,12 @@ class WaitingFiveNotes extends Component
             });
         }
 
+        if ($this->returnFilterArray('rubrica')) {
+            $base->whereRelation('note', function ($q) {
+                $q->whereIn('rubrica', $this->returnFilterArray('rubrica'));
+            });
+        }
+
         if ($this->returnFilterArray('desired_between')) {
             $dateRange = $this->returnFilterArray('desired_between');
             if (isset($dateRange['start']) && isset($dateRange['end'])) {
@@ -235,18 +277,24 @@ class WaitingFiveNotes extends Component
         }
 
 
-        if (count($this->multisearch) > 0) {
+        $hasNote = count($this->multiNote) > 0;
+        $hasD5 = count($this->multiD5) > 0;
 
-            $base->where(function ($query) {
-                $query->whereHas('note', function ($q) {
-                    $q->whereIn('note', $this->multisearch);
-                })
-                    ->orWhereIn('note_d5', $this->multisearch)
-                    ->orWhereIn('reason', $this->multisearch)
-                    ->orWhereIn('codify', $this->multisearch)
-                    ->orWhereHas('company', function ($q) {
-                        $q->where('name', $this->multisearch);
+        if ($hasNote || $hasD5) {
+            $base->where(function ($query) use ($hasNote, $hasD5) {
+                if ($hasNote) {
+                    $query->whereHas('note', function ($q) {
+                        $q->whereIn('note', $this->multiNote);
                     });
+                }
+
+                if ($hasD5) {
+                    if ($hasNote) {
+                        $query->orWhereIn('note_d5', $this->multiD5);
+                    } else {
+                        $query->whereIn('note_d5', $this->multiD5);
+                    }
+                }
             });
         }
 
@@ -260,6 +308,36 @@ class WaitingFiveNotes extends Component
         $page->load(['note', 'productions', 'company', 'evidenceFiles']);
 
         return $page;
+    }
+
+    public function exportToExcel(): void
+    {
+        $userId = auth()->id();
+
+        if (!$userId) {
+            return;
+        }
+
+        ExportWaitingFiveNotesJob::dispatch($this->exportPayload(), (string) $userId);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTACAO INICIADA',
+            'text'     => 'Voce recebera uma notificacao quando o arquivo estiver pronto.',
+            'timer'    => 5000,
+        ]);
+    }
+
+    protected function exportPayload(): array
+    {
+        return [
+            'search'        => $this->search,
+            'multiD5'       => $this->multiD5,
+            'multiNote'     => $this->multiNote,
+            'statusFilter'  => $this->statusFilter,
+            'filtersState'  => $this->filtersState,
+        ];
     }
 
 

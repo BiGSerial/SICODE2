@@ -157,6 +157,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
+    Route::get('/consulta_d5', 'consulta_d5')->name('consulta_d5');
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
     Route::get('/equipments', 'equipments')->name('equipments');
     Route::get('/historic_reject_reports', 'historicRejectReports')->name('historicRejectReports');
