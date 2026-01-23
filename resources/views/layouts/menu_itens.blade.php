@@ -339,6 +339,9 @@
         <li><a class="dropdown-item" href="{{ route('reports.search') }}"><i
                     class="ri-search-eye-line align-middle text-primary"></i>NOTAS/OVS</a>
         </li>
+        <li><a class="dropdown-item" href="{{ route('reports.consulta_d5') }}"><i
+                    class="ri-search-eye-line align-middle text-primary"></i>CONSULTA D5</a>
+        </li>
 
         @if (
             !Auth()->user()->toServices->contains(function ($service) {
