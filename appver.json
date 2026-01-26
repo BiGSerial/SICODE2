@@ -1,6 +1,11 @@
 {
-    "appver": "1.28.0",
+    "appver": "1.28.1",
     "historic": [
+        {
+            "version": "1.28.1",
+            "description": "Add Export list from Ads Request Historic",
+            "date": "2026-01-26"
+        },
         {
             "version": "1.28.0",
             "description": "D5 List to Mass associate.",
