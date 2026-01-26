@@ -29,6 +29,13 @@
                                 HISTÓRICO</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('services.waiting_d5_create', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark fw-normal"></i>
+                            <span>D5 PENDENTES</span>
+                        </a>
+                    </li>
 
                 </div>
             </ul>
