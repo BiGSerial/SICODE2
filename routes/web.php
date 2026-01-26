@@ -68,6 +68,11 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/notes', 'audit_notes')->name('notes');
     });
 
+    Route::prefix('/control')->name('control.')->middleware('can:superadm')->group(function () {
+        Route::get('/d5', 'control_d5')->name('d5');
+        Route::get('/viability', 'control_viability')->name('viability');
+    });
+
     Route::post('/change_pass', 'change_password')->name('change_pass');
 });
 
@@ -88,10 +93,12 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/production/{prod}')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
+    Route::get('/waiting_d5_create', 'waiting_d5_create')->name('waiting_d5_create');
     Route::get('/waiting_list', 'waiting_list')->name('waiting');
     Route::get('/hiringSurvey', 'hiringsurvey')->name('hiringsurvey');
     Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
     Route::get('/protocolNote/{note}', 'protocolNote')->name('protocolNote');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
 
     Route::prefix('/protests')->name('protests.')->group(function () {
         Route::get('/list', 'protests_list')->name('list');
@@ -151,6 +158,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
+    Route::get('/consulta_d5', 'consulta_d5')->name('consulta_d5');
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
     Route::get('/equipments', 'equipments')->name('equipments');
     Route::get('/historic_reject_reports', 'historicRejectReports')->name('historicRejectReports');
@@ -194,6 +202,7 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
     Route::get('/approval_history', 'approve_hist')->name('approve_hist');
     Route::get('/partial_historic', 'partial_hist')->name('partial_hist');
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
 });
 
 
@@ -211,6 +220,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/waiting_inform_parc', 'waiting_parc')->name('info.parcial');
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
 
     Route::prefix('/analises')->name('analises.')->group(function () {
         Route::get('/dashboard', 'analises_dashboard')->name('dashboard');
@@ -242,6 +252,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/partialreport', 'partialreport')->name('report.partial');
     Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
     Route::get('/send_ads_form', 'sendAdsForm')->name('report.sendAdsForm');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
         Route::get('/list', 'partner_d5_list')->name('list');

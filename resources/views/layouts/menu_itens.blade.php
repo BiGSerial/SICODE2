@@ -45,6 +45,9 @@
             <li><a class="dropdown-item" href="{{ route('admin.audits.notes') }}"><i
                         class="ri-file-search-line align-middle text-primary"></i>AUDITORIA NOTAS</a>
             </li>
+            <li><a class="dropdown-item" href="{{ route('admin.control.d5') }}"><i
+                        class="ri-database-2-line align-middle text-primary"></i>CONTROLE DE DADOS</a>
+            </li>
             @can('superadm')
                 <li><a class="dropdown-item" href="{{ route('admin.company.list') }}"><i
                             class="ri-building-4-fill align-middle text-primary"></i>EMPRESAS</a></li>
@@ -336,6 +339,9 @@
         <li><a class="dropdown-item" href="{{ route('reports.search') }}"><i
                     class="ri-search-eye-line align-middle text-primary"></i>NOTAS/OVS</a>
         </li>
+        <li><a class="dropdown-item" href="{{ route('reports.consulta_d5') }}"><i
+                    class="ri-search-eye-line align-middle text-primary"></i>CONSULTA D5</a>
+        </li>
 
         @if (
             !Auth()->user()->toServices->contains(function ($service) {
@@ -366,4 +372,3 @@
     </ul>
 
 </li>
-

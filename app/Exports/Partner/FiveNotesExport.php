@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Exports\Partner;
 
@@ -37,15 +37,16 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             'PEP',
             'Local',
             'Motivo',
-            'Codificação',
+            'CodificaÃ§Ã£o',
             'Despachado em',
         ];
 
         if ($this->historic) {
-            $columns[] = 'Concluído em';
+            $columns[] = 'ConcluÃ­do em';
             $columns[] = 'Status';
         } else {
             $columns[] = 'Dias em aberto';
+            $columns[] = 'Status';
         }
 
         $columns[] = 'Empresa';
@@ -75,10 +76,11 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             $row[] = $five->dispatch_at instanceof Carbon
                 ? $five->dispatch_at->diffInDays(now())
                 : '';
+            $row[] = $this->resolveStatus($five);
         }
 
         $row[] = optional($five->company)->name;
-        $row[] = $five->isPassive ? 'Sim' : 'Não';
+        $row[] = $five->isPassive ? 'Sim' : 'NÃ£o';
 
         return $row;
     }
@@ -88,8 +90,8 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         return [
             'creator'        => 'SICODE',
             'lastModifiedBy' => 'SICODE',
-            'title'          => $this->historic ? 'Histórico de D5' : 'Lista de D5 pendentes',
-            'description'    => 'Exportação contendo os registros filtrados em tela.',
+            'title'          => $this->historic ? 'HistÃ³rico de D5' : 'Lista de D5 pendentes',
+            'description'    => 'ExportaÃ§Ã£o contendo os registros filtrados em tela.',
             'subject'        => 'FiveNotes',
             'keywords'       => 'five, notas, export, excel',
             'category'       => 'Exports',
@@ -119,18 +121,21 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             }
 
             if ($five->is_supervisioned) {
-                return 'Aguardando Liberação Pagamento';
+                return 'Aguardando LiberaÃ§Ã£o Pagamento';
             }
 
             if ($five->is_completed) {
-                return 'Aguardando Fiscalização';
+                return 'Aguardando FiscalizaÃ§Ã£o';
             }
 
             if ($five->visible_partner) {
-                return 'Aguardando Conclusão Parceira';
+                return 'Aguardando ConclusÃ£o Parceira';
             }
         }
 
         return 'Aguardando Despacho Pagamento';
     }
 }
+
+
+

@@ -98,4 +98,9 @@ class EngineerController extends Controller
     {
         return view('engineers.waitingFiveNotes');
     }
+
+    public function adsRequests()
+    {
+        return view('engineers.ads_requests');
+    }
 }

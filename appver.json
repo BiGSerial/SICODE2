@@ -1,6 +1,11 @@
 {
-    "appver": "1.27.8",
+    "appver": "1.28.0",
     "historic": [
+        {
+            "version": "1.28.0",
+            "description": "D5 List to Mass associate.",
+            "date": "2026-01-26"
+        },
         {
             "version": "1.27.8",
             "description": "Update Protest Hierarquy and Implement upload files to med_protest",

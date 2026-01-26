@@ -34,6 +34,15 @@ class ServicesController extends Controller
         ]);
     }
 
+    public function waiting_d5_create(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.pagamento.pending-d5-create', [
+            'service' => $service,
+        ]);
+    }
+
     public function waiting_list(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();
@@ -68,6 +77,15 @@ class ServicesController extends Controller
         return view('services.' . $service->folder . '.noteprotocol', [
             'service' => $service,
             'note' => $request->route('note'),
+        ]);
+    }
+
+    public function adsRequests(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.' . $service->folder . '.ads_requests', [
+            'service' => $service,
         ]);
     }
 

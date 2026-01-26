@@ -58,4 +58,9 @@ class ReportsController extends Controller
     {
         return view('reports.return-intern-list');
     }
+
+    public function consulta_d5()
+    {
+        return view('reports.consulta_d5');
+    }
 }
