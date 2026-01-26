@@ -14,6 +14,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 class ExportProductionJob implements ShouldQueue
@@ -170,15 +171,22 @@ class ExportProductionJob implements ShouldQueue
                 $serviceLabel = Service::whereIn('uuid', $this->params['service'])->first()?->service ?? '';
             }
 
-            $suffix     = $serviceLabel ? '_' . $serviceLabel : '';
-            $filePath   = 'exports/' . now()->format('YmdHis') . $suffix . '_productions.xlsx';
+            $suffix = '';
+            if ($serviceLabel !== '') {
+                $slug = Str::slug($serviceLabel, '_');
+                if ($slug !== '') {
+                    $suffix = '_' . $slug;
+                }
+            }
+
+            $filePath = 'exports/' . now()->format('YmdHis') . $suffix . '_productions.xlsx';
 
             // Exporta
             $disk->makeDirectory('exports');
-            (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
+            $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
 
             // Notifica sucesso
-            if ($user && $disk->exists($filePath)) {
+            if ($stored && $user && $disk->exists($filePath)) {
                 $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
@@ -198,7 +206,7 @@ class ExportProductionJob implements ShouldQueue
                 'error'   => $e->getMessage(),
             ]);
 
-            if ($filePath && $disk->exists($filePath)) {
+            if ($filePath && isset($disk) && $disk->exists($filePath)) {
                 $disk->delete($filePath);
             }
 

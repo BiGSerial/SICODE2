@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Enum\AdsRequestStatus;
+use App\Jobs\Ads\ExportAdsRequestsHistoryJob;
 use App\Models\AdsRequest;
 use App\Models\Company;
 use App\Models\Note;
@@ -28,6 +29,7 @@ class AdsRequests extends Component
     public $historyEnd;
     public $historyPerPage = 25;
     public $historySearch = '';
+    public $historyCompanyId;
 
     public function mount()
     {
@@ -46,6 +48,11 @@ class AdsRequests extends Component
     }
 
     public function updatedHistoryPerPage()
+    {
+        $this->resetPage('historyPage');
+    }
+
+    public function updatedHistoryCompanyId()
     {
         $this->resetPage('historyPage');
     }
@@ -416,7 +423,26 @@ class AdsRequests extends Component
     {
         $this->historyStart = null;
         $this->historyEnd = null;
+        $this->historySearch = '';
+        $this->historyCompanyId = null;
         $this->resetPage('historyPage');
+    }
+
+    public function exportHistory()
+    {
+        ExportAdsRequestsHistoryJob::dispatch([
+            'start' => $this->historyStart,
+            'end' => $this->historyEnd,
+            'search' => $this->historySearch,
+            'company_id' => $this->historyCompanyId,
+        ], (string) auth()->id(), 'responsible');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportacao solicitada. Aguarde a notificacao.',
+            'timer' => 3000,
+        ]);
     }
 
     public function getCompanyOptionsProperty()
@@ -558,6 +584,10 @@ class AdsRequests extends Component
             $query->whereHas('note', function ($q) use ($search) {
                 $q->where('note', 'like', '%' . $search . '%');
             });
+        }
+
+        if ($this->historyCompanyId) {
+            $query->where('company_id', $this->historyCompanyId);
         }
 
         if ($this->historyStart) {

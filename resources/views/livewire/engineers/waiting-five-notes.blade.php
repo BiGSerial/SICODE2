@@ -544,17 +544,11 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="form-floating mb-3">
-                            <textarea class="form-control" id="advanceSearchD5" style="height: 160px;"
-                                placeholder="Cole aqui varios D5 (virgula ou quebra de linha)"
-                                wire:model.defer="advanceSearchD5"></textarea>
-                            <label for="advanceSearchD5">Numeros D5</label>
-                        </div>
                         <div class="form-floating">
-                            <textarea class="form-control" id="advanceSearchNote" style="height: 160px;"
-                                placeholder="Cole aqui varias notas (virgula ou quebra de linha)"
-                                wire:model.defer="advanceSearchNote"></textarea>
-                            <label for="advanceSearchNote">Numeros de Nota</label>
+                            <textarea class="form-control" id="advanceSearch" style="height: 200px;"
+                                placeholder="Cole aqui varios D5 ou notas (virgula ou quebra de linha)"
+                                wire:model.defer="advanceSearch"></textarea>
+                            <label for="advanceSearch">Numeros D5 ou Nota</label>
                         </div>
                         <div class="form-text">
                             Separe por virgula <strong>,</strong> ou por quebra de linha.

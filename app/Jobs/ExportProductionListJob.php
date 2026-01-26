@@ -14,6 +14,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
 
 class ExportProductionListJob implements ShouldQueue
 {
@@ -124,14 +125,17 @@ class ExportProductionListJob implements ShouldQueue
 
             $fileName = 'exports/' . date('YmdHis') . '-ExportProductionJob.xlsx';
 
-            Excel::store(new ProductionsExportList($query), $fileName, 'public');
+            $disk = Storage::disk('local');
+            $disk->makeDirectory('exports');
+
+            Excel::store(new ProductionsExportList($query), $fileName, 'local');
 
             // Criar uma notificação para o usuário
             Notify::create([
                 'user_id' => $this->userId,  // Ou passe o ID do usuário para o Job
                 'title' => 'Relatório de Produção Concluído',
                 'info' => 'Seu relatório está pronto para download.',
-                'link' => $fileName,
+                'link' => Storage::url($fileName),
                 'status' => 4,
                 'readed' => false,
             ]);

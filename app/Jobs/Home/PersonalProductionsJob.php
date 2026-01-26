@@ -136,11 +136,11 @@ class PersonalProductionsJob implements ShouldQueue
             $serviceSuffix = $serviceLabel ? '_' . preg_replace('/\s+/', '_', $serviceLabel) : '';
             $dir           = "exports/users/{$this->userId}";
             $filePath      = "{$dir}/" . now()->format('YmdHis') . "{$serviceSuffix}_my_productions.xlsx";
-            $disk          = Storage::disk('public');
+            $disk          = Storage::disk('local');
             $disk->makeDirectory($dir);
 
             // Exporta exatamente como na sua chamada de referência
-            $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'public');
+            $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
 
             // Notificação de sucesso
             if ($stored && $user && $disk->exists($filePath)) {
@@ -148,7 +148,7 @@ class PersonalProductionsJob implements ShouldQueue
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório pessoal de Produções' . $serviceText . ' está pronto para download.<br><br>Clique para baixar.',
-                    $disk->url($filePath),
+                    Storage::url($filePath),
                     4,
                     []
                 ));

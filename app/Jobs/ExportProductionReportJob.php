@@ -17,6 +17,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
 
 class ExportProductionReportJob implements ShouldQueue
 {
@@ -113,15 +114,17 @@ class ExportProductionReportJob implements ShouldQueue
 
             $fileName = 'exports/' . date('YmdHis') . '_producao.xlsx';
 
+            $disk = Storage::disk('local');
+            $disk->makeDirectory('exports');
 
-            Excel::store(new ProductionFullExport($reportData, 'SICODE'), $fileName, 'public');
+            Excel::store(new ProductionFullExport($reportData, 'SICODE'), $fileName, 'local');
 
             // Criar uma notificação para o usuário
             Notify::create([
                 'user_id' => $this->user->id,  // Ou passe o ID do usuário para o Job
                 'title' => 'Relatório de Produção Concluído',
                 'info' => 'Seu relatório está pronto para download.',
-                'link' => $fileName,
+                'link' => Storage::url($fileName),
                 'status' => 4,
                 'readed' => false,
             ]);

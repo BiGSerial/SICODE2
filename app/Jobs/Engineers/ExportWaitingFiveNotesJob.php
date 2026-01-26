@@ -28,6 +28,9 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
     public array $params;
     public string $userId;
+    public $tries   = 2;
+    public $backoff = [30, 120];
+    public int $timeout = 1200; // 20 min
 
     public function __construct(array $params, string $userId)
     {

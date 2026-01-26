@@ -1,16 +1,17 @@
-﻿<?php
+<?php
 
 namespace App\Exports\Partner;
 
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Carbon\Carbon;
 
-class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithProperties
+class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithProperties, WithChunkReading
 {
     use Exportable;
 
@@ -98,6 +99,11 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         ];
     }
 
+    public function chunkSize(): int
+    {
+        return 500;
+    }
+
     protected function resolveOrder($five): string
     {
         $workFormOrders = optional($five->note?->WorkForm)->Orders;
@@ -136,6 +142,5 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         return 'Aguardando Despacho Pagamento';
     }
 }
-
 
 

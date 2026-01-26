@@ -25,8 +25,7 @@ class WaitingFiveNotes extends Component
     public $service;
     public $perPage = 100;
     public $search;
-    public $advanceSearchD5;
-    public $advanceSearchNote;
+    public $advanceSearch = '';
     public $multiD5 = [];
     public $multiNote = [];
     public $type = "";
@@ -65,8 +64,7 @@ class WaitingFiveNotes extends Component
         if (!$this->search) {
             $this->multiD5 = [];
             $this->multiNote = [];
-            $this->advanceSearchD5 = "";
-            $this->advanceSearchNote = "";
+            $this->advanceSearch = '';
         }
     }
 
@@ -80,8 +78,9 @@ class WaitingFiveNotes extends Component
     {
         $this->search = "";
         $this->resetPage();
-        $this->multiD5 = $this->formatTextToArray($this->advanceSearchD5);
-        $this->multiNote = $this->formatTextToArray($this->advanceSearchNote);
+        $values = $this->formatTextToArray((string) $this->advanceSearch);
+        $this->multiD5 = $values;
+        $this->multiNote = $values;
     }
 
     public function onFiltersUpdated($payload = [])

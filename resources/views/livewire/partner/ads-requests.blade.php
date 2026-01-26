@@ -166,22 +166,33 @@
                 <div class="col">
                     <h5 class="my-0">Historico de solicitacoes</h5>
                 </div>
-                <div class="col-12 col-lg-8">
+                <div class="col-12 col-lg-10">
                     <div class="row g-2">
-                        <div class="col-6 col-lg-4">
+                        <div class="col-6 col-lg-3">
                             <label class="form-label">De</label>
                             <input type="date" class="form-control border border-secondary"
                                 wire:model="historyStart">
                         </div>
-                        <div class="col-6 col-lg-4">
+                        <div class="col-6 col-lg-3">
                             <label class="form-label">Ate</label>
                             <input type="date" class="form-control border border-secondary" wire:model="historyEnd">
                         </div>
-                        <div class="col-6 col-lg-4">
+                        <div class="col-6 col-lg-3">
                             <label class="form-label">Buscar nota</label>
                             <input type="text" class="form-control border border-secondary"
                                 wire:model.debounce.500ms="historySearch" placeholder="Numero da nota">
                         </div>
+                        @if (auth()->user()?->superadm)
+                            <div class="col-6 col-lg-3">
+                                <label class="form-label">Empresa</label>
+                                <select class="form-select border border-secondary" wire:model="historyCompanyId">
+                                    <option value="">Todas</option>
+                                    @foreach ($historyCompanyOptions as $company)
+                                        <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
                         <div class="col-6 col-lg-2">
                             <label class="form-label">Por pagina</label>
                             <select class="form-select border border-secondary" wire:model="historyPerPage">
@@ -194,6 +205,12 @@
                         <div class="col-6 col-lg-2 d-flex align-items-end">
                             <button class="btn btn-outline-secondary w-100" wire:click.prevent="clearHistoryFilters">
                                 Limpar
+                            </button>
+                        </div>
+                        <div class="col-6 col-lg-2 d-flex align-items-end">
+                            <button class="btn btn-outline-success w-100" wire:click.prevent="exportHistory"
+                                @if ($historyRequests->total() === 0) disabled @endif>
+                                Exportar
                             </button>
                         </div>
                     </div>
