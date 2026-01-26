@@ -156,6 +156,11 @@
             </div>
             <div class="text-lg-end">
                 <div class="meta">Exportacao</div>
+                <button class="btn btn-warning btn-sm mt-2 me-2" data-bs-toggle="modal" data-bs-target="#bulkD5Modal"
+                    wire:click="resetBulkD5">
+                    <i class="ri-link-m me-1"></i>
+                    Associar D5
+                </button>
                 <button class="btn btn-light btn-sm mt-2" wire:click="exportExcel">
                     <i class="ri-file-excel-2-line me-1"></i>
                     Exportar Excel
@@ -305,6 +310,199 @@
         </div>
     </div>
 
+    <div wire:ignore.self class="modal fade" id="bulkD5Modal" tabindex="-1" aria-labelledby="bulkD5ModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content shadow">
+                <div class="modal-header text-bg-dark">
+                    <h5 class="modal-title" id="bulkD5ModalLabel">
+                        <i class="ri-link-m me-2"></i>
+                        Associar D5 em massa
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-6">
+                            <div class="form-floating">
+                                <textarea class="form-control" id="bulkD5Input" style="height: 260px;"
+                                    placeholder="Cole aqui os valores (Nota e D5)"
+                                    wire:model.debounce.500ms="bulkD5Input"></textarea>
+                                <label for="bulkD5Input">Cole os pares (Nota e D5)</label>
+                            </div>
+                            <div class="form-text">
+                                Separe com espaco, virgula, ponto e virgula, quebra de linha ou qualquer separador nao
+                                numerico. A sequencia sempre sera: <strong>Nota</strong> e <strong>Nota D5</strong>.
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="small text-uppercase text-muted mb-2">Resumo do processamento</div>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Prontas</span>
+                                                <strong>{{ count($bulkD5Ready ?? []) }}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Divergentes</span>
+                                                <strong>{{ count($bulkD5Divergent ?? []) }}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Sem solicitacao</span>
+                                                <strong>{{ count($bulkD5Missing ?? []) }}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Ignoradas</span>
+                                                <strong>{{ count($bulkD5Ignored ?? []) }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if ($bulkD5Processed && count($bulkD5Invalid ?? []))
+                                        <div class="alert alert-warning mt-3 mb-0">
+                                            <strong>Aviso:</strong>
+                                            {{ implode(' ', $bulkD5Invalid) }}
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if ($bulkD5Processed)
+                        <div class="row g-3 mt-2">
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header text-bg-success">
+                                        Prontas para atualizar
+                                    </div>
+                                    <div class="card-body p-0">
+                                        @if (count($bulkD5Ready ?? []))
+                                            <ul class="list-group list-group-flush">
+                                                @foreach ($bulkD5Ready as $item)
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <span>Nota {{ $item['note'] }}</span>
+                                                        <span class="badge text-bg-success">D5 {{ $item['d5'] }}</span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="p-3 text-muted">Nenhum registro pronto.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header text-bg-warning">
+                                        Notas D5 divergentes
+                                    </div>
+                                    <div class="card-body p-0">
+                                        @if (count($bulkD5Divergent ?? []))
+                                            <ul class="list-group list-group-flush">
+                                                @foreach ($bulkD5Divergent as $item)
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <div class="fw-semibold">Nota {{ $item['note'] }}</div>
+                                                                <div class="small text-muted">
+                                                                    Atual: {{ $item['current_d5'] }} · Novo:
+                                                                    {{ $item['new_d5'] }}
+                                                                </div>
+                                                                @if (!empty($item['locked']))
+                                                                    <div class="small text-muted">Nao sera alterada (nota despachada).</div>
+                                                                @endif
+                                                            </div>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                @if (!empty($item['locked']))
+                                                                    <span class="badge text-bg-secondary">DESPACHADA</span>
+                                                                @endif
+                                                                <button class="btn btn-outline-danger btn-sm"
+                                                                    wire:click="removeBulkD5Divergent('{{ $item['note'] }}')">
+                                                                    Remover
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="p-3 text-muted">Nenhuma divergencia encontrada.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header text-bg-danger">
+                                        Sem solicitacao de D5
+                                    </div>
+                                    <div class="card-body p-0">
+                                        @if (count($bulkD5Missing ?? []))
+                                            <ul class="list-group list-group-flush">
+                                                @foreach ($bulkD5Missing as $noteNumber)
+                                                    <li class="list-group-item">Nota {{ $noteNumber }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="p-3 text-muted">Nenhuma nota sem solicitacao.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header text-bg-light">
+                                        Ignoradas
+                                    </div>
+                                    <div class="card-body p-0">
+                                        @if (count($bulkD5Ignored ?? []))
+                                            <ul class="list-group list-group-flush">
+                                                @foreach ($bulkD5Ignored as $item)
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <span>Nota {{ $item['note'] }}</span>
+                                                        <span class="small text-muted">
+                                                            {{ $item['reason'] ?? 'Ignorada' }}
+                                                        </span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="p-3 text-muted">Nenhum registro ignorado.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="alert alert-info mt-3 mb-0">
+                            Cole os pares e clique em <strong>Processar</strong> para validar antes de confirmar.
+                        </div>
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary" wire:click="processBulkD5"
+                        @disabled(!trim($bulkD5Input ?? ''))>
+                        <i class="ri-cpu-line me-1"></i>Processar
+                    </button>
+                    <button class="btn btn-success" wire:click="confirmBulkD5"
+                        @disabled(!$bulkD5Processed || (count($bulkD5Ready ?? []) + count($bulkD5Divergent ?? [])) === 0)>
+                        <i class="ri-check-double-line me-1"></i>Confirmar alteracoes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -338,5 +536,27 @@
     </div>
 
     @livewire('components.five-note.edit-d5', key('edit-five-note'))
+
+    <script>
+        const bulkD5ModalEl = document.getElementById('bulkD5Modal');
+
+        if (bulkD5ModalEl) {
+            bulkD5ModalEl.addEventListener('show.bs.modal', () => {
+                Livewire.emit('bulkD5Reset');
+            });
+
+            bulkD5ModalEl.addEventListener('hidden.bs.modal', () => {
+                Livewire.emit('bulkD5Reset');
+            });
+        }
+
+        window.addEventListener('bulk-d5-close', () => {
+            const modalEl = document.getElementById('bulkD5Modal');
+            if (!modalEl) return;
+
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+        });
+    </script>
 
 </div>

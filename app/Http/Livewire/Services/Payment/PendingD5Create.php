@@ -8,6 +8,7 @@ use App\Models\FiveNote;
 use App\Traits\AppliesQueryFilters;
 use App\Traits\WildcardFormmater;
 use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -27,6 +28,14 @@ class PendingD5Create extends Component
     public $advanceSearch;
     public $multiSearch = [];
 
+    public $bulkD5Input = '';
+    public $bulkD5Processed = false;
+    public $bulkD5Ready = [];
+    public $bulkD5Missing = [];
+    public $bulkD5Divergent = [];
+    public $bulkD5Ignored = [];
+    public $bulkD5Invalid = [];
+
     public $filtersState = [];
 
     protected $queryString = [
@@ -39,6 +48,7 @@ class PendingD5Create extends Component
         'refresh_list' => '$refresh',
         'filters.updated' => 'onFiltersUpdated',
         'filters.applied' => 'onFiltersUpdated',
+        'bulkD5Reset' => 'resetBulkD5',
     ];
 
     public function mount($service = null): void
@@ -67,6 +77,200 @@ class PendingD5Create extends Component
     {
         $this->filtersState = $payload ?: [];
         $this->resetPage();
+    }
+
+    public function resetBulkD5(): void
+    {
+        $this->bulkD5Input = '';
+        $this->bulkD5Processed = false;
+        $this->resetBulkD5Results();
+    }
+
+    public function processBulkD5(): void
+    {
+        $this->resetBulkD5Results();
+
+        $numbers = $this->extractBulkNumbers($this->bulkD5Input ?? '');
+
+        if (count($numbers) < 2) {
+            $this->bulkD5Invalid[] = 'Informe ao menos 2 numeros para formar pares (Nota e D5).';
+            $this->bulkD5Processed = true;
+            return;
+        }
+
+        if (count($numbers) % 2 !== 0) {
+            $this->bulkD5Invalid[] = 'Quantidade impar de numeros. O ultimo numero foi ignorado.';
+        }
+
+        $pairs = [];
+        for ($i = 0; $i + 1 < count($numbers); $i += 2) {
+            $pairs[] = [
+                'note' => (string) $numbers[$i],
+                'd5' => (string) $numbers[$i + 1],
+            ];
+        }
+
+        $uniqueNotes = array_values(array_unique(array_column($pairs, 'note')));
+        $fiveNotes = FiveNote::query()
+            ->whereHas('note', function ($q) use ($uniqueNotes) {
+                $q->whereIn('note', $uniqueNotes);
+            })
+            ->with('note')
+            ->get()
+            ->keyBy(function ($five) {
+                return (string) ($five->note?->note ?? '');
+            });
+
+        $seen = [];
+
+        foreach ($pairs as $pair) {
+            $noteNumber = $pair['note'];
+            $d5Number = $pair['d5'];
+
+            if (isset($seen[$noteNumber])) {
+                $this->bulkD5Ignored[] = [
+                    'note' => $noteNumber,
+                    'd5' => $d5Number,
+                    'reason' => 'Duplicada na lista',
+                ];
+                continue;
+            }
+
+            $seen[$noteNumber] = true;
+
+            $fiveNote = $fiveNotes->get($noteNumber);
+
+            if (!$fiveNote) {
+                $this->bulkD5Missing[] = $noteNumber;
+                continue;
+            }
+
+            $currentD5 = trim((string) $fiveNote->note_d5);
+
+            if ($currentD5 === '') {
+                $this->bulkD5Ready[] = [
+                    'five_note_id' => $fiveNote->id,
+                    'note' => $noteNumber,
+                    'd5' => $d5Number,
+                ];
+                continue;
+            }
+
+            if ($currentD5 === $d5Number) {
+                $this->bulkD5Ignored[] = [
+                    'note' => $noteNumber,
+                    'd5' => $d5Number,
+                    'reason' => 'Ja possui o mesmo D5',
+                ];
+                continue;
+            }
+
+            $this->bulkD5Divergent[] = [
+                'five_note_id' => $fiveNote->id,
+                'note' => $noteNumber,
+                'current_d5' => $currentD5,
+                'new_d5' => $d5Number,
+                'locked' => (bool) $fiveNote->is_completed,
+            ];
+        }
+
+        $this->bulkD5Processed = true;
+    }
+
+    public function removeBulkD5Divergent(string $noteNumber): void
+    {
+        $this->bulkD5Divergent = array_values(array_filter(
+            $this->bulkD5Divergent,
+            fn ($item) => (string) ($item['note'] ?? '') !== (string) $noteNumber
+        ));
+    }
+
+    public function confirmBulkD5(): void
+    {
+        $updates = [];
+
+        foreach ($this->bulkD5Ready as $item) {
+            $updates[] = [
+                'id' => $item['five_note_id'],
+                'note_d5' => $item['d5'],
+            ];
+        }
+
+        foreach ($this->bulkD5Divergent as $item) {
+            if (!empty($item['locked'])) {
+                continue;
+            }
+
+            $updates[] = [
+                'id' => $item['five_note_id'],
+                'note_d5' => $item['new_d5'],
+            ];
+        }
+
+        if (empty($updates)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'info',
+                'title' => 'Nenhuma alteracao aplicada',
+                'text' => 'Nao ha registros validos para atualizar.',
+                'timer' => 4000,
+            ]);
+            return;
+        }
+
+        DB::transaction(function () use ($updates) {
+            $updates = collect($updates)
+                ->unique('id')
+                ->values()
+                ->all();
+
+            $ids = array_column($updates, 'id');
+            $cases = collect($updates)->map(function ($item) {
+                $id = (int) $item['id'];
+                $d5 = addslashes((string) $item['note_d5']);
+                return "WHEN {$id} THEN '{$d5}'";
+            })->implode(' ');
+
+            if (!$cases) {
+                return;
+            }
+
+            DB::table('five_notes')
+                ->whereIn('id', $ids)
+                ->update([
+                    'note_d5' => DB::raw("CASE id {$cases} END"),
+                    'updated_at' => now(),
+                ]);
+        });
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'D5 atualizadas com sucesso',
+            'text' => 'As alteracoes foram aplicadas em massa.',
+            'timer' => 5000,
+        ]);
+
+        $this->resetPage();
+        $this->emit('refresh_list');
+        $this->resetBulkD5();
+        $this->dispatchBrowserEvent('bulk-d5-close');
+    }
+
+    private function resetBulkD5Results(): void
+    {
+        $this->bulkD5Ready = [];
+        $this->bulkD5Missing = [];
+        $this->bulkD5Divergent = [];
+        $this->bulkD5Ignored = [];
+        $this->bulkD5Invalid = [];
+    }
+
+    private function extractBulkNumbers(string $input): array
+    {
+        preg_match_all('/\d+/', $input, $matches);
+
+        return $matches[0] ?? [];
     }
 
     private function returnFilterArray($key)
