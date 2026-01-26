@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Enum\AdsRequestStatus;
+use App\Jobs\Ads\ExportAdsRequestsHistoryJob;
 use App\Models\AdsRequest;
 use App\Models\Note;
 use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
@@ -26,6 +27,7 @@ class AdsRequests extends Component
     public $historyEnd;
     public $historyPerPage = 25;
     public $historySearch = '';
+    public $historyCompanyId;
 
     public function mount()
     {
@@ -44,6 +46,11 @@ class AdsRequests extends Component
     }
 
     public function updatedHistoryPerPage()
+    {
+        $this->resetPage('historyPage');
+    }
+
+    public function updatedHistoryCompanyId()
     {
         $this->resetPage('historyPage');
     }
@@ -443,7 +450,39 @@ class AdsRequests extends Component
     {
         $this->historyStart = null;
         $this->historyEnd = null;
+        $this->historySearch = '';
+        $this->historyCompanyId = null;
         $this->resetPage('historyPage');
+    }
+
+    public function exportHistory()
+    {
+        $user = auth()->user();
+
+        ExportAdsRequestsHistoryJob::dispatch([
+            'start' => $this->historyStart,
+            'end' => $this->historyEnd,
+            'search' => $this->historySearch,
+            'company_id' => $user && $user->superadm ? $this->historyCompanyId : null,
+        ], (string) auth()->id(), 'partner');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportacao solicitada. Aguarde a notificacao.',
+            'timer' => 3000,
+        ]);
+    }
+
+    public function getHistoryCompanyOptionsProperty()
+    {
+        $user = auth()->user();
+
+        if (!$user || !$user->superadm) {
+            return collect();
+        }
+
+        return \App\Models\Company::query()->orderBy('name')->get();
     }
 
     public function getActiveRequestsProperty()
@@ -634,6 +673,10 @@ class AdsRequests extends Component
             });
         }
 
+        if ($this->historyCompanyId && auth()->user()?->superadm) {
+            $query->where('company_id', $this->historyCompanyId);
+        }
+
         if ($this->historyStart) {
             $query->whereDate('created_at', '>=', $this->historyStart);
         }
@@ -659,6 +702,7 @@ class AdsRequests extends Component
             'activeRequests' => $activeRequests,
             'sqlStatusBySicodeId' => $sqlStatusBySicodeId,
             'historyRequests' => $this->historyRequests,
+            'historyCompanyOptions' => $this->historyCompanyOptions,
         ]);
     }
 }

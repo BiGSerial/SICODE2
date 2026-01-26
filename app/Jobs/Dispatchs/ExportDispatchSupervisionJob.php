@@ -46,7 +46,7 @@ class ExportDispatchSupervisionJob implements ShouldQueue
             throw new \RuntimeException('Serviço não encontrado para exportação.');
         }
 
-        $disk     = Storage::disk('public');
+        $disk     = Storage::disk('local');
         $filePath = 'exports/' . now()->format('Ymd_His') . '_supervision_' . $service->uuid . '.xlsx';
         $disk->makeDirectory(dirname($filePath));
 
@@ -102,14 +102,14 @@ class ExportDispatchSupervisionJob implements ShouldQueue
 
             // === Executa exportação ===
             $stored = (new DispatchSupervisionStack($builder, $service->uuid))
-                ->store($filePath, 'public');
+                ->store($filePath, 'local');
 
             // === Notificação ===
             if ($stored && $user && $disk->exists($filePath)) {
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório de Fiscalização foi gerado com sucesso.',
-                    $disk->url($filePath),
+                    Storage::url($filePath),
                     4,
                     []
                 ));
