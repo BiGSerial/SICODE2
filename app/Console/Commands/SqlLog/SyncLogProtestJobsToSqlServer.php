@@ -1,6 +1,6 @@
 <?php
 
-
+namespace App\Console\Commands\SqlLog;
 
 use App\Models\ProtestJob;
 use App\Models\SicodeSql\LogProtestJobs;
@@ -58,13 +58,13 @@ class SyncLogProtestJobsToSqlServer extends Command
                 'protest:id,nota',
                 'medProtest:id,med_id,result,protest_type',
 
-                'creator:uuid,id,name,company_id',
+                'creator:id,name,company_id',
                 'creator.Company:id,name',
 
-                'owner:uuid,id,name,company_id',
+                'owner:id,name,company_id',
                 'owner.Company:id,name',
 
-                'closer:uuid,id,name,company_id',
+                'closer:id,name,company_id',
                 'closer.Company:id,name',
             ])
             ->when(!$full, fn ($qq) => $qq->where('updated_at', '>=', $since))
@@ -97,9 +97,14 @@ class SyncLogProtestJobsToSqlServer extends Command
 
             $q->chunkById($chunk, function ($jobs) use (&$sent, &$written, $bar, $dryRun) {
                 $rows = [];
+                $columnsPerRow = 0;
 
                 foreach ($jobs as $job) {
-                    $rows[] = $this->mapJobToSqlRow($job);
+                    $row = $this->mapJobToSqlRow($job);
+                    if ($columnsPerRow === 0) {
+                        $columnsPerRow = count($row);
+                    }
+                    $rows[] = $row;
                     $sent++;
                     $bar->setMessage("Preparando lote... (id_sicode={$job->id})");
                     $bar->advance();
@@ -109,56 +114,65 @@ class SyncLogProtestJobsToSqlServer extends Command
                     return;
                 }
 
-                // Upsert por id_sicode
-                // - uniqueBy: id_sicode
-                // - update columns: tudo que pode mudar
-                LogProtestJobs::query()->upsert(
-                    $rows,
-                    ['id_sicode'],
-                    [
-                        'protest_nota',
-                        'med_id',
-                        'result',
-                        'protest_type',
+                if (!$rows) {
+                    return;
+                }
 
-                        'created_by_name',
-                        'created_by_company',
-                        'owner_name',
-                        'owner_company',
-                        'closed_by_name',
-                        'closed_by_company',
+                $maxRows = $this->maxRowsPerBatch($columnsPerRow);
+                $batches = array_chunk($rows, $maxRows);
 
-                        'priority',
-                        'status',
+                foreach ($batches as $batch) {
+                    // Upsert por id_sicode
+                    // - uniqueBy: id_sicode
+                    // - update columns: tudo que pode mudar
+                    LogProtestJobs::query()->upsert(
+                        $batch,
+                        ['id_sicode'],
+                        [
+                            'protest_nota',
+                            'med_id',
+                            'result',
+                            'protest_type',
 
-                        'sent_at',
-                        'accepted_at',
-                        'started_at',
-                        'finished_at',
-                        'closed_at',
+                            'created_by_name',
+                            'created_by_company',
+                            'owner_name',
+                            'owner_company',
+                            'closed_by_name',
+                            'closed_by_company',
 
-                        'sla_due_at',
-                        'sla_breached_at',
-                        'escalated_at',
-                        'escalation_level',
+                            'priority',
+                            'status',
 
-                        'outcome',
-                        'close_reason',
-                        'notes',
+                            'sent_at',
+                            'accepted_at',
+                            'started_at',
+                            'finished_at',
+                            'closed_at',
 
-                        'need_evidence',
-                        'is_advance',
-                        'confirmed',
-                        'confirmed_at',
-                        'auto',
+                            'sla_due_at',
+                            'sla_breached_at',
+                            'escalated_at',
+                            'escalation_level',
 
-                        'created_at',
-                        'updated_at',
-                        'deleted_at',
-                    ]
-                );
+                            'outcome',
+                            'close_reason',
+                            'notes',
 
-                $written += count($rows);
+                            'need_evidence',
+                            'is_advance',
+                            'confirmed',
+                            'confirmed_at',
+                            'auto',
+
+                            'created_at',
+                            'updated_at',
+                            'deleted_at',
+                        ]
+                    );
+
+                    $written += count($batch);
+                }
             }, 'id');
 
             $bar->finish();
@@ -247,5 +261,18 @@ class SyncLogProtestJobsToSqlServer extends Command
             'updated_at' => $job->updated_at,
             'deleted_at' => $job->deleted_at,
         ];
+    }
+
+    private function maxRowsPerBatch(int $columnsPerRow): int
+    {
+        if ($columnsPerRow <= 0) {
+            return 1;
+        }
+
+        // SQL Server supports a max of 2100 parameters per statement.
+        // Keep a safety margin to avoid driver variations.
+        $maxParams = 2000;
+
+        return max(1, (int) floor($maxParams / $columnsPerRow));
     }
 }
