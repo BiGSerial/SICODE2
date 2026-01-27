@@ -40,9 +40,6 @@ class SupervisionRepository
                                 ->where(function ($sq) {
                                     $sq->where(function ($q1) {
                                         $q1->whereHas('Operations', function ($sq) {
-                                            $sq->where('operacao', '0010')
-                                            ->where('status', 'like', 'CONF%');
-                                        })->whereHas('Operations', function ($sq) {
                                             $sq->where('operacao', '0030')
                                             ->where(function ($sq) {
                                                 $sq->where('status', 'like', 'CNPA%')

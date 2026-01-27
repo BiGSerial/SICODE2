@@ -6,9 +6,12 @@ use App\Models\ProtestJob;
 use App\Models\SicodeSql\LogProtestJobs;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SyncLogProtestJobsToSqlServer extends Command
 {
+    private array $columnLimits = [];
+
     protected $signature = 'sicode:sync-log-protest-jobs
         {--hours=24 : Janela de horas olhando updated_at}
         {--all : Sobe tudo (ignora janela)}
@@ -53,9 +56,11 @@ class SyncLogProtestJobsToSqlServer extends Command
         $this->line('Modo: ' . ($full ? 'FULL (tudo)' : "INCREMENTAL (updated_at >= {$since->toDateTimeString()})"));
         $this->newLine();
 
+        $this->loadColumnLimits();
+
         $q = ProtestJob::query()
             ->with([
-                'protest:id,nota',
+                'protest:id,nota,type',
                 'medProtest:id,med_id,result,protest_type',
 
                 'creator:id,name,company_id',
@@ -197,7 +202,7 @@ class SyncLogProtestJobsToSqlServer extends Command
     private function mapJobToSqlRow(ProtestJob $job): array
     {
         // protest_type pode ser Enum ou string
-        $protestType = $job->medProtest?->protest_type;
+        $protestType = $job->protest?->type;
         if (is_object($protestType)) {
             $protestType = $protestType->value ?? null;
         }
@@ -213,7 +218,7 @@ class SyncLogProtestJobsToSqlServer extends Command
             $priority = $priority->value ?? null;
         }
 
-        return [
+        $row = [
             'id_sicode' => (int) $job->id,
 
             'protest_nota' => $job->protest?->nota ? (int) $job->protest->nota : null,
@@ -261,6 +266,8 @@ class SyncLogProtestJobsToSqlServer extends Command
             'updated_at' => $job->updated_at,
             'deleted_at' => $job->deleted_at,
         ];
+
+        return $this->truncateRow($row);
     }
 
     private function maxRowsPerBatch(int $columnsPerRow): int
@@ -274,5 +281,74 @@ class SyncLogProtestJobsToSqlServer extends Command
         $maxParams = 2000;
 
         return max(1, (int) floor($maxParams / $columnsPerRow));
+    }
+
+    private function loadColumnLimits(): void
+    {
+        try {
+            $rows = DB::connection('sqlsrv2')
+                ->table('INFORMATION_SCHEMA.COLUMNS')
+                ->select([
+                    'COLUMN_NAME as column',
+                    'DATA_TYPE as data_type',
+                    'CHARACTER_MAXIMUM_LENGTH as max_length',
+                ])
+                ->where('TABLE_SCHEMA', 'dbo')
+                ->where('TABLE_NAME', 'log_protest_jobs')
+                ->get();
+
+            foreach ($rows as $row) {
+                $limit = (int) ($row->max_length ?? 0);
+                if ($limit > 0) {
+                    $this->columnLimits[(string) $row->column] = $limit;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Nao foi possivel carregar metadados de tamanho das colunas.', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function truncateRow(array $row): array
+    {
+        if (!$this->columnLimits) {
+            return $row;
+        }
+
+        foreach ($row as $key => $value) {
+            if (!isset($this->columnLimits[$key]) || !is_string($value)) {
+                continue;
+            }
+
+            $limit = $this->columnLimits[$key];
+            if ($limit <= 0) {
+                continue;
+            }
+
+            if ($this->stringLength($value) > $limit) {
+                $row[$key] = $this->stringSubstr($value, 0, $limit);
+            }
+        }
+
+        return $row;
+    }
+
+    private function stringLength(string $value): int
+    {
+        if (function_exists('mb_strlen')) {
+            return mb_strlen($value);
+        }
+
+        return strlen($value);
+    }
+
+    private function stringSubstr(string $value, int $start, int $length): string
+    {
+        if (function_exists('mb_substr')) {
+            return mb_substr($value, $start, $length);
+        }
+
+        return substr($value, $start, $length);
     }
 }
