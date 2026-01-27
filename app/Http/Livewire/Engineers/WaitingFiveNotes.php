@@ -240,13 +240,6 @@ class WaitingFiveNotes extends Component
             });
         }
 
-        if (!auth()->user()->superadm) {
-            $base->where(function ($q) {
-                $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                ->orWhere('company_id', Auth()->user()->Company->id);
-            });
-        }
-
         if ($this->returnFilterArray('company')) {
             $base->whereIn('company_id', $this->returnFilterArray('company'));
         }
