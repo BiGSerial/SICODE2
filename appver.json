@@ -1,6 +1,11 @@
 {
-    "appver": "1.28.1",
+    "appver": "1.28.2",
     "historic": [
+        {
+            "version": "1.28.2",
+            "description": "Bkp",
+            "date": "2026-01-27"
+        },
         {
             "version": "1.28.1",
             "description": "Add Export list from Ads Request Historic",
