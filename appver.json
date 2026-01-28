@@ -1,0 +1,695 @@
+{
+    "appver": "1.28.2",
+    "historic": [
+        {
+            "version": "1.28.2",
+            "description": "Bkp",
+            "date": "2026-01-27"
+        },
+        {
+            "version": "1.28.1",
+            "description": "Add Export list from Ads Request Historic",
+            "date": "2026-01-26"
+        },
+        {
+            "version": "1.28.0",
+            "description": "D5 List to Mass associate.",
+            "date": "2026-01-26"
+        },
+        {
+            "version": "1.27.8",
+            "description": "Update Protest Hierarquy and Implement upload files to med_protest",
+            "date": "2026-01-19"
+        },
+        {
+            "version": "1.27.7",
+            "description": "Atualiza\u00e7\u00e3o de Relatorios e corre\u00e7\u00f5es de bugs.",
+            "date": "2026-01-16"
+        },
+        {
+            "version": "1.27.6",
+            "description": "Fix Report, and major bugs fix",
+            "date": "2026-01-15"
+        },
+        {
+            "version": "1.27.5",
+            "description": "Update",
+            "date": "2026-01-12"
+        },
+        {
+            "version": "1.27.4",
+            "description": "Fix Add coluimn to OE",
+            "date": "2026-01-06"
+        },
+        {
+            "version": "1.27.3",
+            "description": "HotFix protest view download files",
+            "date": "2025-12-23"
+        },
+        {
+            "version": "1.27.2",
+            "description": "Fix View Download Files",
+            "date": "2025-12-22"
+        },
+        {
+            "version": "1.27.1",
+            "description": "Updated Protest Job",
+            "date": "2025-12-02"
+        },
+        {
+            "version": "1.27.0",
+            "description": "Changes Massive Protest Job and Others",
+            "date": "2025-11-25"
+        },
+        {
+            "version": "1.26.0",
+            "description": "Changed FLUX OE, pool payment and other major fixies in other areas",
+            "date": "2025-10-15"
+        },
+        {
+            "version": "1.25.2",
+            "description": "Optmization, D5 Area, and bugFix",
+            "date": "2025-09-30"
+        },
+        {
+            "version": "1.25.1",
+            "description": "Major Fixes, And Visuals themes",
+            "date": "2025-09-16"
+        },
+        {
+            "version": "1.25.0",
+            "description": "Implemented D5 System",
+            "date": "2025-08-27"
+        },
+        {
+            "version": "1.24.0",
+            "description": "Created Protests Area control",
+            "date": "2025-08-14"
+        },
+        {
+            "version": "1.23.0",
+            "description": "Queues, jobs, and Notifications",
+            "date": "2025-08-06"
+        },
+        {
+            "version": "1.22.1",
+            "description": "Fix sicode problemas, and created column ADS date in Payment section.",
+            "date": "2025-08-05"
+        },
+        {
+            "version": "1.22.0",
+            "description": "Protest Implemented and New DashBoard",
+            "date": "2025-07-30"
+        },
+        {
+            "version": "1.21.2",
+            "description": "Adicionado novos SQL Inserts e melhorias",
+            "date": "2025-07-21"
+        },
+        {
+            "version": "1.21.1",
+            "description": "Fix SQL Log Production, Filter on Analise User List",
+            "date": "2025-07-16"
+        },
+        {
+            "version": "1.21.0",
+            "description": "Insert Art90 Notes sign.",
+            "date": "2025-06-10"
+        },
+        {
+            "version": "1.20.3",
+            "description": "Fix, Report on Viability in progress. And fix Analise user block on view.",
+            "date": "2025-06-05"
+        },
+        {
+            "version": "1.20.2",
+            "description": "Atualizado Listas, Exports Viabilidade, Parceira.",
+            "date": "2025-06-03"
+        },
+        {
+            "version": "1.20.1",
+            "description": "Corre\u00e7\u00e3o de Export de PAgamento, Corre\u00e7\u00e3o de Filtros, e outros por menores.",
+            "date": "2025-05-27"
+        },
+        {
+            "version": "1.20.0",
+            "description": "Remodel Extern Organ",
+            "date": "2025-05-20"
+        },
+        {
+            "version": "1.19.4",
+            "description": "Fix att in Payment",
+            "date": "2025-05-20"
+        },
+        {
+            "version": "1.19.3",
+            "description": "Fix Update Base OV and Note",
+            "date": "2025-05-14"
+        },
+        {
+            "version": "1.19.2",
+            "description": "Corrigido Relat\u00f3rio de Pagamento tanto em Lista de controle despacho e servi\u00e7o, lista de transferencia levantamento e fiscaliza\u00e7\u00e3o, e outros bugs gerais",
+            "date": "2025-05-05"
+        },
+        {
+            "version": "1.19.1",
+            "description": "Corre\u00e7\u00e3o de quantitativo pro SQL LOG de Contrata\u00e7\u00e3o",
+            "date": "2025-04-29"
+        },
+        {
+            "version": "1.19.0",
+            "description": "Implemented Automatic Routine in Approval list, Create Routine to Log Hiring Situation, Has Select and All select to mass dispatch in Intern Returnals",
+            "date": "2025-04-08"
+        },
+        {
+            "version": "1.18.2",
+            "description": "Fix SMC lists, and Add column with date on Files list.",
+            "date": "2025-04-07"
+        },
+        {
+            "version": "1.18.1",
+            "description": "Modal Backdrop Fix",
+            "date": "2025-04-03"
+        },
+        {
+            "version": "1.18.0",
+            "description": "Approval, Parcial, Dashboards, and much more",
+            "date": "2025-04-01"
+        },
+        {
+            "version": "1.17.0",
+            "description": "Created ADS FORM uploads",
+            "date": "2025-03-14"
+        },
+        {
+            "version": "1.16.1",
+            "description": "Update and Fix Analises",
+            "date": "2025-03-13"
+        },
+        {
+            "version": "1.16.0",
+            "description": "Created Version Print Form",
+            "date": "2025-03-08"
+        },
+        {
+            "version": "1.15.2",
+            "description": "Created Engineer Approve View",
+            "date": "2025-03-08"
+        },
+        {
+            "version": "1.15.1",
+            "description": "Fix RI responsible, Created Report Export, Create ChangeBox in Draw list Dispatch",
+            "date": "2025-03-06"
+        },
+        {
+            "version": "1.15.0",
+            "description": "Pool Notes in Hiring and Analise Projects",
+            "date": "2025-03-03"
+        },
+        {
+            "version": "1.14.7",
+            "description": "Add return global production in search, and fix filter on Publishing",
+            "date": "2025-02-27"
+        },
+        {
+            "version": "1.14.6",
+            "description": "Filter and GeneralReturn",
+            "date": "2025-02-26"
+        },
+        {
+            "version": "1.14.5",
+            "description": "Fix SMC Send and others major Fixes",
+            "date": "2025-02-26"
+        },
+        {
+            "version": "1.14.4",
+            "description": "fix search on Payment",
+            "date": "2025-02-24"
+        },
+        {
+            "version": "1.14.3",
+            "description": "Add column to Partial At in Producion",
+            "date": "2025-02-20"
+        },
+        {
+            "version": "1.14.2",
+            "description": "Add badge inform reason return work inform",
+            "date": "2025-02-19"
+        },
+        {
+            "version": "1.14.1",
+            "description": "Fix error on Dispatch survey",
+            "date": "2025-02-18"
+        },
+        {
+            "version": "1.14.0",
+            "description": "Created possibility of Partial production.",
+            "date": "2025-02-02"
+        },
+        {
+            "version": "1.13.7",
+            "description": "Removed List Publication from Users",
+            "date": "2025-01-30"
+        },
+        {
+            "version": "1.13.6",
+            "description": "Fix info Error in View Supervision Stack",
+            "date": "2025-01-21"
+        },
+        {
+            "version": "1.13.5",
+            "description": "\"Change Filter Exclude Publication Status complete from Occupation component\"",
+            "date": "2025-01-21"
+        },
+        {
+            "version": "1.13.4",
+            "description": "Fix Report Viability from Query",
+            "date": "2025-01-20"
+        },
+        {
+            "version": "1.13.3",
+            "description": "fix filter supervision",
+            "date": "2025-01-16"
+        },
+        {
+            "version": "1.13.2",
+            "description": "Fix Att Payment",
+            "date": "2025-01-14"
+        },
+        {
+            "version": "1.13.1",
+            "description": "Fix Consult of Publication",
+            "date": "2025-01-14"
+        },
+        {
+            "version": "1.13.0",
+            "description": "Make return SMC inform from Publication. And Major Fixes like Transfer blocked prod in list",
+            "date": "2025-01-08"
+        },
+        {
+            "version": "1.12.1",
+            "description": "Include Edit in To Hiring List",
+            "date": "2024-12-30"
+        },
+        {
+            "version": "1.12.0",
+            "description": "Implement Inform from SMC",
+            "date": "2024-12-30"
+        },
+        {
+            "version": "1.11.6",
+            "description": "Implement Inform from SMC",
+            "date": "2024-12-30"
+        },
+        {
+            "version": "1.11.5",
+            "description": "Update View of Search note",
+            "date": "2024-11-28"
+        },
+        {
+            "version": "1.11.4",
+            "description": "Inserting work reports access in publication dispatch",
+            "date": "2024-11-26"
+        },
+        {
+            "version": "1.11.3",
+            "description": "Update Resume Viability Engineer Vision",
+            "date": "2024-11-04"
+        },
+        {
+            "version": "1.11.2",
+            "description": "Update and Fix somethings",
+            "date": "2024-10-30"
+        },
+        {
+            "version": "1.11.1",
+            "description": "Has Updated Users Permission Selection on Dispatchs",
+            "date": "2024-10-23"
+        },
+        {
+            "version": "1.11.0",
+            "description": "IMPLEMENT: New Hiring situations and ENGINEER and OTHERS UPDATES",
+            "date": "2024-10-20"
+        },
+        {
+            "version": "1.10.11",
+            "description": "Fix: Created script to fix Notes in Local Database with Remote Database",
+            "date": "2024-10-17"
+        },
+        {
+            "version": "1.10.10",
+            "description": "Fix Class conflict in Hiring dispatch directory, and major fixes.",
+            "date": "2024-10-15"
+        },
+        {
+            "version": "1.10.9",
+            "description": "Fixed files and Major bugs reported",
+            "date": "2024-09-23"
+        },
+        {
+            "version": "1.10.8",
+            "description": "Updated Supervision and LogUpdate",
+            "date": "2024-09-19"
+        },
+        {
+            "version": "1.10.7",
+            "description": "Add Export Excel on Intern Return",
+            "date": "2024-09-09"
+        },
+        {
+            "version": "1.10.6",
+            "description": "Updated all files upload components",
+            "date": "2024-09-05"
+        },
+        {
+            "version": "1.10.5",
+            "description": "Updated Files Upload from Survey, Supervision and Drawing",
+            "date": "2024-09-04"
+        },
+        {
+            "version": "1.10.4",
+            "description": "Fix some thigs and Transferprod, Search Bug",
+            "date": "2024-09-03"
+        },
+        {
+            "version": "1.10.3",
+            "description": "Add Comssion options Service",
+            "date": "2024-09-02"
+        },
+        {
+            "version": "1.10.2",
+            "description": "Created Files controller and View about Rejeceted Forms",
+            "date": "2024-08-30"
+        },
+        {
+            "version": "1.10.1",
+            "description": "Fix somethings and add NoteStatus View in All Status exibition",
+            "date": "2024-08-26"
+        },
+        {
+            "version": "1.10.0",
+            "description": "Return WorkForm to Partner, and Major file Fix",
+            "date": "2024-08-26"
+        },
+        {
+            "version": "1.9.14",
+            "description": "Created Files Check",
+            "date": "2024-08-21"
+        },
+        {
+            "version": "1.9.13",
+            "description": "Report on Payments Columns",
+            "date": "2024-08-20"
+        },
+        {
+            "version": "1.9.12",
+            "description": "Fixed search in Payment Dispatch",
+            "date": "2024-08-12"
+        },
+        {
+            "version": "1.9.11",
+            "description": "Changes Export Supervision and Changes on Possibility re-send publication on Confirmed Productions",
+            "date": "2024-08-08"
+        },
+        {
+            "version": "1.9.10",
+            "description": "Fix Bug on Filter in Supervision",
+            "date": "2024-08-07"
+        },
+        {
+            "version": "1.9.9",
+            "description": "Add filter Rules in Publish",
+            "date": "2024-08-06"
+        },
+        {
+            "version": "1.9.8",
+            "description": "Add Column to Publication Dispatch",
+            "date": "2024-08-05"
+        },
+        {
+            "version": "1.9.7",
+            "description": "Inserted numbers of Poles in Supervision Form",
+            "date": "2024-08-05"
+        },
+        {
+            "version": "1.9.6",
+            "description": "Fix Filter Payment add 50 CNPA",
+            "date": "2024-08-02"
+        },
+        {
+            "version": "1.9.5",
+            "description": "SQL Statements Log Created",
+            "date": "2024-07-24"
+        },
+        {
+            "version": "1.9.4",
+            "description": "Fix Dispatch Publication View",
+            "date": "2024-07-22"
+        },
+        {
+            "version": "1.9.3",
+            "description": "Correct Publication List",
+            "date": "2024-07-11"
+        },
+        {
+            "version": "1.9.2",
+            "description": "update Supervision view, Payments, etc",
+            "date": "2024-07-10"
+        },
+        {
+            "version": "1.9.1",
+            "description": "Fix table, add informs and new informer",
+            "date": "2024-07-04"
+        },
+        {
+            "version": "1.9.0",
+            "description": "Implemented, Supervision, Payments and Publication.",
+            "date": "2024-07-02"
+        },
+        {
+            "version": "1.8.9",
+            "description": "Fix Search engine from Hiring page",
+            "date": "2024-06-28"
+        },
+        {
+            "version": "1.8.8",
+            "description": "Fix Export Hiring Accompany List",
+            "date": "2024-06-20"
+        },
+        {
+            "version": "1.8.7",
+            "description": "externals",
+            "date": "2024-06-06"
+        },
+        {
+            "version": "1.8.6",
+            "description": "View Repoorts of Viabilities and some other Fixes",
+            "date": "2024-06-03"
+        },
+        {
+            "version": "1.8.5",
+            "description": "Possibility to Iuncrease Days of Viabilities. And Some Modification on Search Notes",
+            "date": "2024-06-02"
+        },
+        {
+            "version": "1.8.4",
+            "description": "Update requisicion Rodrigo Crocci, about Draw seccion, and fix some problems",
+            "date": "2024-05-28"
+        },
+        {
+            "version": "1.8.3",
+            "description": "Chagend Filter Hiring List",
+            "date": "2024-05-22"
+        },
+        {
+            "version": "1.8.2",
+            "description": "Renew Waiting List to Garantee files before to send",
+            "date": "2024-05-10"
+        },
+        {
+            "version": "1.8.1",
+            "description": "Fix Files Send viability",
+            "date": "2024-05-08"
+        },
+        {
+            "version": "1.8.0",
+            "description": "Construction testes developments Public Tests",
+            "date": "2024-04-09"
+        },
+        {
+            "version": "1.7.13",
+            "description": "Fixed blankscreen on REPORTS PRODUCTIONS VIEW",
+            "date": "2024-04-18"
+        },
+        {
+            "version": "1.7.12",
+            "description": "FIxed Bug on Dreaw Block legend, and Input Actuality name in List View",
+            "date": "2024-04-01"
+        },
+        {
+            "version": "1.7.11",
+            "description": "FIxed Draw Attribuition",
+            "date": "2024-03-22"
+        },
+        {
+            "version": "1.7.10",
+            "description": "Fixed Services Form Problem",
+            "date": "2024-03-20"
+        },
+        {
+            "version": "1.7.9",
+            "description": "Addinting Column in Advanced Search",
+            "date": "2024-03-07"
+        },
+        {
+            "version": "1.7.8",
+            "description": "Fixed Att fail becouse Drawikng Rules",
+            "date": "2024-03-05"
+        },
+        {
+            "version": "1.7.7",
+            "description": "Alter Priority Mass adption",
+            "date": "2024-03-04"
+        },
+        {
+            "version": "1.7.6",
+            "description": "Liberacao de despacho para notas, quando ainda no mesmo status devido a inatividade de interacao com a nota.",
+            "date": "2024-02-26"
+        },
+        {
+            "version": "1.7.5",
+            "description": "Fix Control Default Service",
+            "date": "2024-02-16"
+        },
+        {
+            "version": "1.7.4",
+            "description": "Fixed Dispatch LAG Page",
+            "date": "2024-02-05"
+        },
+        {
+            "version": "1.7.3",
+            "description": "Correcao de BUG nos filtros de munic\u00edpios das lista de controle de despacho",
+            "date": "2024-02-01"
+        },
+        {
+            "version": "1.7.2",
+            "description": "Export Excel Better Info",
+            "date": "2024-01-23"
+        },
+        {
+            "version": "1.7.1",
+            "description": "Correcoes de BuGS e alteracoes pontuais.",
+            "date": "2024-01-23"
+        },
+        {
+            "version": "1.7.0",
+            "description": "Update e outras melhorias, e corre\u00e7\u00f5es de bugs.",
+            "date": "2024-01-18"
+        },
+        {
+            "version": "1.6.0",
+            "description": "Acressimo do WPA Status, e informa\u00e7\u00e3o de produ\u00e7\u00e3o superior ao a sua.",
+            "date": "2023-12-12"
+        },
+        {
+            "version": "1.5.0",
+            "description": "Atualizacoes WPA para log de ssistema, buscas nos search de despacho, melhoria da logica de atribuicao de notas, entre outros.",
+            "date": "2023-12-06"
+        },
+        {
+            "version": "1.4.5",
+            "description": "Corre\u00f3es de Bugs",
+            "date": "2023-12-06"
+        },
+        {
+            "version": "1.4.4",
+            "description": "Bug da Busca em Desenhos.",
+            "date": "2023-10-26"
+        },
+        {
+            "version": "1.4.3",
+            "description": "Melhorias e corre\u00e7\u00f5es de bugs.",
+            "date": "2023-10-24"
+        },
+        {
+            "version": "1.4.2",
+            "description": "Corre\u00e7\u00e3o de Bugs e altera\u00e7\u00e3od e Fluxos.",
+            "date": "2023-10-20"
+        },
+        {
+            "version": "1.4.1",
+            "description": "teste",
+            "date": "2023-10-20"
+        },
+        {
+            "version": "1.4.1",
+            "description": "Corre\u00e7\u00f5es Pontuais e altera\u00e7\u00e3o de Fluxo",
+            "date": "2023-10-20"
+        },
+        {
+            "version": "1.4.1",
+            "description": "Corre\u00e7\u00e3o Pontual - Bloqueio de Notas",
+            "date": "2023-10-19"
+        },
+        {
+            "version": "1.4.0",
+            "description": "Adicionado Controle de Desenhos, corre\u00e7\u00f5es de bugs",
+            "date": "2023-10-18"
+        },
+        {
+            "version": "1.3.0",
+            "description": "Resultado da analise dispon\u00edvel no hist\u00f3rico, corre\u00e7\u00e3o de Bugs, recurso de filtro por atividade melhorado (systema)",
+            "date": "2023-09-29"
+        },
+        {
+            "version": "1.2.1",
+            "description": "Some Fixes, Bug Correnctions",
+            "date": "2023-09-06"
+        },
+        {
+            "version": "1.2.0",
+            "description": "Major Fixes, MMGD to Analises.",
+            "date": "2023-09-06"
+        },
+        {
+            "version": "1.1.0",
+            "description": "Bug Corrections, Increase Stops to 21, ande Others",
+            "date": "2023-09-06"
+        },
+        {
+            "version": "1.0.0",
+            "description": "Production",
+            "date": "2023-09-01"
+        },
+        {
+            "version": "0.3.1",
+            "description": "Some fixes",
+            "date": "2023-08-23"
+        },
+        {
+            "version": "0.3.0",
+            "description": "Update",
+            "date": "2023-08-22"
+        },
+        {
+            "version": "0.2.1",
+            "description": "Update",
+            "date": "2023-08-22"
+        },
+        {
+            "version": "0.2.1",
+            "description": "Corre\u00e7\u00e3o de Bugs e erros conhecidos.",
+            "date": "2023-08-21"
+        },
+        {
+            "version": "0.2.0",
+            "description": "Implementa\u00e7\u00e3o dos Servi\u00e7os de Analise e PreAnalise",
+            "date": "2023-08-21"
+        },
+        {
+            "version": "0.1.0",
+            "description": "Vers\u00e3o Inicial",
+            "date": "2022-09-04"
+        }
+    ]
+}
