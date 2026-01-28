@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET="${1:-}"
+shift || true
+
+if [[ "$TARGET" != "qa" && "$TARGET" != "prod" ]]; then
+  echo "Uso: ./deploy <qa|prod> [--dry] [--full] [--delete]"
+  echo "  padrão: modo rápido (app/resources/database/routes)"
+  exit 1
+fi
+
+HOST="10.162.6.40"
+
+if [[ "$TARGET" == "qa" ]]; then
+  REMOTE_DIR="sicode_es_qa"
+else
+  REMOTE_DIR="sicode_es"
+fi
+
+DRY_RUN="false"
+FULL_SYNC="false"
+DO_DELETE="false"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry|-n)     DRY_RUN="true" ;;
+    --full)       FULL_SYNC="true" ;;
+    --delete)     DO_DELETE="true" ;;
+    *)
+      echo "Opção inválida: $1"
+      echo "Use: --dry | --full | --delete"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+# Segurança: --delete só no full (no modo rápido pode dar ruim)
+if [[ "$DO_DELETE" == "true" && "$FULL_SYNC" != "true" ]]; then
+  echo "Bloqueado: --delete só é permitido com --full (para evitar deletar coisa fora do recorte)."
+  echo "Ex: ./deploy $TARGET --full --delete"
+  exit 1
+fi
+
+# Segurança extra: evitar tragédia em prod com delete
+if [[ "$TARGET" == "prod" && "$DO_DELETE" == "true" && "${ALLOW_DELETE_PROD:-0}" != "1" ]]; then
+  echo "Bloqueado: --delete em prod."
+  echo "Se tiver certeza: ALLOW_DELETE_PROD=1 ./deploy prod --full --delete"
+  exit 1
+fi
+
+# Raiz local = pasta onde está o script (assim você pode rodar de qualquer lugar)
+LOCAL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Flags comuns
+MIRROR_FLAGS=(
+  "-R"
+  "--only-newer"
+  "--verbose"
+  "--parallel=4"
+  "--no-perms"
+  "--no-umask"
+)
+
+if [[ "$DRY_RUN" == "true" ]]; then MIRROR_FLAGS+=("--dry-run"); fi
+if [[ "$DO_DELETE" == "true" ]]; then MIRROR_FLAGS+=("--delete"); fi
+
+# Excludes do full (storage sempre fora, como você pediu)
+FULL_EXCLUDES=(
+  "--exclude-glob=.git*"
+  "--exclude-glob=.env"
+  "--exclude-glob=.idea/**"
+  "--exclude-glob=.vscode/**"
+  "--exclude-glob=node_modules/**"
+  "--exclude-glob=vendor/**"
+  "--exclude-glob=storage/**"
+  "--exclude-glob=tests/**"
+)
+
+# Modo rápido (padrão): só pastas que você falou
+# Observação: diretórios são casados com "/" no final, por isso incluímos "app/" + "app/**"
+FAST_FILTERS=(
+  "--exclude-glob=*"
+  "--include-glob=app/"
+  "--include-glob=app/**"
+  "--include-glob=resources/"
+  "--include-glob=resources/**"
+  "--include-glob=database/"
+  "--include-glob=database/**"
+  "--include-glob=routes/"
+  "--include-glob=routes/**"
+  "--include-glob=appver.json"
+  # storage fica fora automaticamente porque não está incluído
+)
+
+echo "🚀 Deploy: $TARGET"
+echo "Host: $HOST"
+echo "Destino remoto: $REMOTE_DIR"
+echo "Modo: $([[ "$FULL_SYNC" == "true" ]] && echo "FULL" || echo "RÁPIDO (app/resources/database/routes)")"
+echo "Dry-run: $DRY_RUN | Delete: $DO_DELETE"
+echo "Local root: $LOCAL_ROOT"
+echo
+
+lftp -e "
+set ftp:ssl-allow no;
+set ftp:passive-mode true;
+set net:max-retries 2;
+set net:reconnect-interval-base 3;
+set net:reconnect-interval-max 10;
+set cmd:fail-exit true;
+set cmd:interactive false;
+
+open $HOST;
+
+# garante que o local está na raiz do projeto
+lcd $LOCAL_ROOT;
+
+# entra na pasta remota (assim não tenta 'mkdir sicode_es_qa' e evita o 550)
+cd $REMOTE_DIR;
+
+$(if [[ "$FULL_SYNC" == "true" ]]; then
+    echo "mirror ${MIRROR_FLAGS[*]} ${FULL_EXCLUDES[*]} . ."
+  else
+    echo "mirror ${MIRROR_FLAGS[*]} ${FAST_FILTERS[*]} . ."
+  fi)
+
+bye
+"
