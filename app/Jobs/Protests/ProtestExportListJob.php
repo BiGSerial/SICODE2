@@ -28,6 +28,8 @@ class ProtestExportListJob implements ShouldQueue
 
     public $params;
     public $userId;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     public function __construct($params, $userId)
     {
@@ -38,6 +40,8 @@ class ProtestExportListJob implements ShouldQueue
     public function handle(): void
     {
         $user = User::find($this->userId);
+        $filePath = null;
+        $disk = Storage::disk('local');
 
         try {
             $query = Protest::query()
@@ -116,7 +120,6 @@ class ProtestExportListJob implements ShouldQueue
             $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-exportProtestsList.xlsx';
-            $disk = Storage::disk('local');
 
             $disk->makeDirectory('exports');
             (new ProtestsExportList($query))->store($filePath, 'local');
@@ -136,20 +139,28 @@ class ProtestExportListJob implements ShouldQueue
             Log::error('ProtestExportListJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Seu relatório de Reclamação não pôde ser gerado.',
-                    null,
-                    5,
-                    []
-                ));
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
             }
 
             throw $e;
+        }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        if ($user = User::find($this->userId)) {
+            $user->notify(new SystemNotification(
+                'Erro na exportação',
+                'Seu relatório de Reclamação não pôde ser gerado.',
+                null,
+                5,
+                []
+            ));
         }
     }
 
@@ -162,4 +173,3 @@ class ProtestExportListJob implements ShouldQueue
         ];
     }
 }
-

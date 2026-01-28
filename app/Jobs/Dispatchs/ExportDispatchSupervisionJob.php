@@ -121,21 +121,12 @@ class ExportDispatchSupervisionJob implements ShouldQueue
             Log::error('ExportDispatchSupervisionJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
             if ($filePath && $disk->exists($filePath)) {
                 $disk->delete($filePath);
-            }
-
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Não foi possível gerar o relatório de Fiscalização. Tente novamente.',
-                    null,
-                    5,
-                    []
-                ));
             }
 
             throw $e;

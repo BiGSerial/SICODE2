@@ -93,21 +93,12 @@ class ExportHistoricRejectedListJob implements ShouldQueue
             Log::error('ExportHistoricRejectedListJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
             if ($filePath && Storage::disk('local')->exists($filePath)) {
                 Storage::disk('local')->delete($filePath);
-            }
-
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Não foi possível gerar o relatório de Retornos. Tente novamente com um recorte menor.',
-                    null,
-                    5,
-                    []
-                ));
             }
 
             throw $e;

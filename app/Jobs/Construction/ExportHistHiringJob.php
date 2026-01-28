@@ -147,21 +147,12 @@ class ExportHistHiringJob implements ShouldQueue
             Log::error('ExportHistHiringJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
             if ($filePath && Storage::disk('local')->exists($filePath)) {
                 Storage::disk('local')->delete($filePath);
-            }
-
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro na exportacao',
-                    'Nao foi possivel gerar o relatorio de historico. Tente novamente com um recorte menor.',
-                    null,
-                    5,
-                    []
-                ));
             }
 
             throw $e;

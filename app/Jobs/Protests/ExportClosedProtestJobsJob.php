@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ExportClosedProtestJobsJob implements ShouldQueue
@@ -20,6 +21,8 @@ class ExportClosedProtestJobsJob implements ShouldQueue
     use SerializesModels;
 
     public int $timeout = 120;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     public function __construct(
         protected array $filters,
@@ -54,8 +57,18 @@ class ExportClosedProtestJobsJob implements ShouldQueue
                 extras: []
             ));
         } catch (\Throwable $e) {
-            $this->notifyFailure($e->getMessage());
-            report($e);
+            Log::error('ExportClosedProtestJobsJob falhou', [
+                'user_id' => $this->userId,
+                'filters' => $this->filters,
+                'attempt' => $this->attempts(),
+                'error' => $e->getMessage(),
+            ]);
+
+            if ($disk->exists($filePath)) {
+                $disk->delete($filePath);
+            }
+
+            throw $e;
         }
     }
 
