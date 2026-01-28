@@ -203,22 +203,12 @@ class ExportProductionJob implements ShouldQueue
             Log::error('ExportProductionJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
             if ($filePath && isset($disk) && $disk->exists($filePath)) {
                 $disk->delete($filePath);
-            }
-
-            if ($user) {
-                $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Não foi possível gerar o relatório de Produções' . $serviceText . ' no momento. Tente novamente com um filtro menor ou fale com o suporte.',
-                    null,
-                    5,
-                    []
-                ));
             }
 
             throw $e;

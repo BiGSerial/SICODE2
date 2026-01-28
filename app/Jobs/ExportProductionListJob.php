@@ -26,6 +26,8 @@ class ExportProductionListJob implements ShouldQueue
     public $params;
     public $userId;
     public $user;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     /**
      * Create a new job instance.
@@ -51,8 +53,8 @@ class ExportProductionListJob implements ShouldQueue
      */
     public function handle(): void
     {
-
-
+        $filePath = null;
+        $disk = Storage::disk('local');
 
         try {
 
@@ -124,11 +126,14 @@ class ExportProductionListJob implements ShouldQueue
             }
 
             $fileName = 'exports/' . date('YmdHis') . '-ExportProductionJob.xlsx';
+            $filePath = $fileName;
 
-            $disk = Storage::disk('local');
             $disk->makeDirectory('exports');
+            $stored = Excel::store(new ProductionsExportList($query), $fileName, 'local');
 
-            Excel::store(new ProductionsExportList($query), $fileName, 'local');
+            if (!$stored || !$disk->exists($fileName)) {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
+            }
 
             // Criar uma notificação para o usuário
             Notify::create([
@@ -145,16 +150,26 @@ class ExportProductionListJob implements ShouldQueue
                 'error_message' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
                 'params' => $this->params,
+                'attempt' => $this->attempts(),
             ]);
 
-            Notify::create([
-                'user_id' => $this->userId,
-                'title' => 'Erro ao Gerar Relatório',
-                'info' => "Ocorreu um erro ao gerar o relatório. Tente novamente mais tarde.\n".$exception->getMessage(),
-                'link' => '', // Sem link, pois o arquivo não foi gerado
-                'status' => 5,
-                'readed' => false,
-            ]);
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
+            }
+
+            throw $exception;
         }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        Notify::create([
+            'user_id' => $this->userId,
+            'title' => 'Erro ao Gerar Relatório',
+            'info' => "Ocorreu um erro ao gerar o relatório. Tente novamente mais tarde.\n" . $exception->getMessage(),
+            'link' => '',
+            'status' => 5,
+            'readed' => false,
+        ]);
     }
 }

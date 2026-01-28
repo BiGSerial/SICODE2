@@ -252,21 +252,12 @@ class ExportDispatchPaymentJob implements ShouldQueue
             Log::error('ExportDispatchPaymentJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
             if ($filePath && Storage::disk('local')->exists($filePath)) {
                 Storage::disk('local')->delete($filePath);
-            }
-
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Não foi possível gerar o relatório de Pagamentos no momento. Tente novamente com um filtro menor.',
-                    null,
-                    5,
-                    []
-                ));
             }
 
             throw $e;

@@ -108,6 +108,7 @@ class ExportAdsRequestsHistoryJob implements ShouldQueue
             Log::error('ExportAdsRequestsHistoryJob falhou', [
                 'user_id' => $this->userId,
                 'filters' => $this->filters,
+                'attempt' => $this->attempts(),
                 'error' => $e->getMessage(),
             ]);
 
@@ -115,6 +116,13 @@ class ExportAdsRequestsHistoryJob implements ShouldQueue
                 $disk->delete($filePath);
             }
 
+            throw $e;
+        }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        if ($user = User::find($this->userId)) {
             $user->notify(new SystemNotification(
                 'Erro na exportacao',
                 'Nao foi possivel gerar o historico de solicitacoes ADS no momento.',
@@ -122,8 +130,6 @@ class ExportAdsRequestsHistoryJob implements ShouldQueue
                 5,
                 []
             ));
-
-            throw $e;
         }
     }
 }
