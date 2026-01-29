@@ -1,6 +1,11 @@
 {
-    "appver": "1.28.2",
+    "appver": "1.28.3",
     "historic": [
+        {
+            "version": "1.28.3",
+            "description": "Created mass finish to Analise service",
+            "date": "2026-01-29"
+        },
         {
             "version": "1.28.2",
             "description": "Bkp",
