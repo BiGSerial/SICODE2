@@ -191,7 +191,7 @@ class Workreports extends Component
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
         }
-
+        
         return $_SESSION['filter'][$this->filter_group] ?? [];
     }
 
