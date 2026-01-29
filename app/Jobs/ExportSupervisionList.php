@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ExportSupervisionList implements ShouldQueue
@@ -23,6 +24,8 @@ class ExportSupervisionList implements ShouldQueue
     protected $params;
 
     public $timeout = 1800;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     /**
      * Create a new job instance.
@@ -121,36 +124,58 @@ class ExportSupervisionList implements ShouldQueue
         ->orderBy('work_dt_created', 'ASC');
 
 
-        // Aqui você pode chamar sua Export
+        $filePath = null;
+        $disk = Storage::disk('local');
 
-        $filePath = 'exports/' . now()->format('YmdHis') . '-exportSupervisionList.xlsx';
+        try {
+            $stamp = now()->format('YmdHis');
+            $filePath = "exports/{$stamp}-exportSupervisionList.xlsx";
+            $disk->makeDirectory('exports');
 
-        (new \App\Exports\Dispatchs\SupervisionExportList($query, $this->params['serviceUuid']))
-            ->store('exports/' . now()->format('YmdHis') . '-exportSupervisionList.xlsx');
+            $stored = (new \App\Exports\Dispatchs\SupervisionExportList($query, $this->params['serviceUuid']))
+                ->store($filePath, 'local');
 
-        // Notifica o usuário
-        $user = User::find($this->params['user_id']);
-        if ($user) {
-            if (Storage::exists($filePath)) {
-                // ou ajuste para onde o arquivo fica disponível
+            if (!$stored || !$disk->exists($filePath)) {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
+            }
+
+            // Notifica o usuário
+            $user = User::find($this->params['user_id']);
+            if ($user) {
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório de lista de Fiscalização está pronto para download. <br><br> Clique para baixar.',
                     Storage::url($filePath),
-                    4, // ou outro status, se desejar
-                    []
-                ));
-            } else {
-                // ou ajuste para onde o arquivo fica disponível
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Seu relatório de Fiscalização não pôde ser gerado.',
-                    null,
-                    5, // ou outro status, se desejar
+                    4,
                     []
                 ));
             }
+        } catch (\Throwable $exception) {
+            Log::error('ExportSupervisionList falhou', [
+                'params' => $this->params,
+                'attempt' => $this->attempts(),
+                'error_message' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
 
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
+            }
+
+            throw $exception;
+        }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        if ($user = User::find($this->params['user_id'] ?? null)) {
+            $user->notify(new SystemNotification(
+                'Erro na exportação',
+                'Seu relatório de Fiscalização não pôde ser gerado.',
+                null,
+                5,
+                []
+            ));
         }
     }
 }

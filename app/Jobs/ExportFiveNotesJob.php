@@ -49,6 +49,7 @@ class ExportFiveNotesJob implements ShouldQueue
         }
 
         $disk = Storage::disk('local');
+        $filePath = null;
 
         try {
             $query = FiveNote::query();
@@ -86,9 +87,21 @@ class ExportFiveNotesJob implements ShouldQueue
                 'user_id' => $this->userId,
                 'context' => $this->context,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
+            }
+
+            throw $e;
+        }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        if ($user = User::find($this->userId)) {
             $user->notify(new SystemNotification(
                 'Erro na exportação',
                 'Não foi possível gerar o relatório solicitado.',
@@ -96,8 +109,6 @@ class ExportFiveNotesJob implements ShouldQueue
                 5,
                 []
             ));
-
-            throw $e;
         }
     }
 

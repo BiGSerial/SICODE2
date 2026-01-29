@@ -146,21 +146,12 @@ class ExportDispatchSurveyJob implements ShouldQueue
             Log::error('ExportDispatchSurveyJob falhou', [
                 'user_id' => $this->userId,
                 'params' => $this->params,
+                'attempt' => $this->attempts(),
                 'error' => $e->getMessage(),
             ]);
 
             if (Storage::disk('local')->exists($filePath)) {
                 Storage::disk('local')->delete($filePath);
-            }
-
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro na exportação',
-                    'Não foi possível gerar o relatório de levantamento no momento. Tente novamente.',
-                    null,
-                    5,
-                    []
-                ));
             }
 
             throw $e;

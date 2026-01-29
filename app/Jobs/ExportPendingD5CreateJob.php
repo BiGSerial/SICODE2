@@ -28,6 +28,8 @@ class ExportPendingD5CreateJob implements ShouldQueue
 
     public array $params;
     public $userId;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     public function __construct(array $params, $userId)
     {
@@ -44,6 +46,7 @@ class ExportPendingD5CreateJob implements ShouldQueue
         }
 
         $disk = Storage::disk('local');
+        $filePath = null;
 
         try {
             $query = FiveNote::query();
@@ -78,9 +81,21 @@ class ExportPendingD5CreateJob implements ShouldQueue
             Log::error('ExportPendingD5CreateJob falhou', [
                 'user_id' => $this->userId,
                 'params'  => $this->params,
+                'attempt' => $this->attempts(),
                 'error'   => $e->getMessage(),
             ]);
 
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
+            }
+
+            throw $e;
+        }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        if ($user = User::find($this->userId)) {
             $user->notify(new SystemNotification(
                 'Erro na exportacao',
                 'Nao foi possivel gerar o relatorio solicitado.',
@@ -88,8 +103,6 @@ class ExportPendingD5CreateJob implements ShouldQueue
                 5,
                 []
             ));
-
-            throw $e;
         }
     }
 

@@ -16,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 
@@ -33,6 +34,8 @@ class ExportProductionReportJob implements ShouldQueue
     public $user;
 
     public $timeout = 60;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     public function __construct($services, $monthYear, $dt_init, $dt_end, $user)
     {
@@ -45,7 +48,8 @@ class ExportProductionReportJob implements ShouldQueue
 
     public function handle()
     {
-
+        $filePath = null;
+        $disk = Storage::disk('local');
         $reportData = [];
         $startDate = $this->monthYear ? Carbon::parse($this->monthYear)->startOfMonth()->format('Y-m-d 0:00:00') : null;
         $endDate = $this->monthYear ? Carbon::parse($this->monthYear)->endOfMonth()->format('Y-m-d 23:59:59') : null;
@@ -113,11 +117,14 @@ class ExportProductionReportJob implements ShouldQueue
 
 
             $fileName = 'exports/' . date('YmdHis') . '_producao.xlsx';
+            $filePath = $fileName;
 
-            $disk = Storage::disk('local');
             $disk->makeDirectory('exports');
+            $stored = Excel::store(new ProductionFullExport($reportData, 'SICODE'), $fileName, 'local');
 
-            Excel::store(new ProductionFullExport($reportData, 'SICODE'), $fileName, 'local');
+            if (!$stored || !$disk->exists($fileName)) {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
+            }
 
             // Criar uma notificação para o usuário
             Notify::create([
@@ -130,15 +137,21 @@ class ExportProductionReportJob implements ShouldQueue
             ]);
 
         } catch (\Throwable $th) {
-            // Criar notificação de erro para o usuário
-            Notify::create([
-                'user_id' => $this->user->id,
-                'title' => 'Erro ao Gerar Relatório',
-                'info' => 'Ocorreu um erro ao gerar o relatório. Tente novamente mais tarde.',
-                'link' => '', // Sem link, pois o arquivo não foi gerado
-                'status' => 5,
-                'readed' => false,
+            Log::error('ExportProductionReportJob falhou', [
+                'user_id' => $this->user?->id,
+                'services' => $this->services,
+                'monthYear' => $this->monthYear,
+                'dt_init' => $this->dt_init,
+                'dt_end' => $this->dt_end,
+                'attempt' => $this->attempts(),
+                'error' => $th->getMessage(),
             ]);
+
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
+            }
+
+            throw $th;
         }
     }
 

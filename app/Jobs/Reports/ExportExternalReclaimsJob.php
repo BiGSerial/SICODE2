@@ -24,6 +24,8 @@ class ExportExternalReclaimsJob implements ShouldQueue
     public array $params;
     public string $userId;
     public ?User $user;
+    public $tries = 2;
+    public $backoff = [30, 120];
 
     public function __construct(array $params, string $userId)
     {
@@ -43,13 +45,17 @@ class ExportExternalReclaimsJob implements ShouldQueue
     public function handle(): void
     {
         $user = $this->user ?? User::find($this->userId);
+        $filePath = null;
+        $disk = Storage::disk('local');
 
         try {
             $fileName = 'exports/' . date('YmdHis') . '-ExternalReclaims.xlsx';
+            $filePath = $fileName;
+            $disk->makeDirectory('exports');
 
             Excel::store(new ExternalReclaimsExport($this->params), $fileName, 'local');
 
-            if (!Storage::disk('local')->exists($fileName)) {
+            if (!$disk->exists($fileName)) {
                 throw new \RuntimeException('Arquivo nao foi gerado.');
             }
 
@@ -67,17 +73,27 @@ class ExportExternalReclaimsJob implements ShouldQueue
                 'error_message' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
                 'params' => $this->params,
+                'attempt' => $this->attempts(),
             ]);
 
-            if ($user) {
-                $user->notify(new SystemNotification(
-                    'Erro ao gerar exportacao',
-                    "Ocorreu um erro ao gerar o arquivo.\n" . $exception->getMessage(),
-                    null,
-                    5,
-                    []
-                ));
+            if ($filePath && $disk->exists($filePath)) {
+                $disk->delete($filePath);
             }
+
+            throw $exception;
+        }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        if ($user = User::find($this->userId)) {
+            $user->notify(new SystemNotification(
+                'Erro ao gerar exportacao',
+                "Ocorreu um erro ao gerar o arquivo.\n" . $exception->getMessage(),
+                null,
+                5,
+                []
+            ));
         }
     }
 }
