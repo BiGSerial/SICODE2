@@ -54,6 +54,9 @@ class Note extends Model
         'created_at',
         'is45',
         'ma', // New field for MA (Mesalization)
+        'canceled',
+        'canceled_at',
+        'canceled_by',
     ];
 
 
@@ -64,6 +67,8 @@ class Note extends Model
         'mmgd' => 'boolean',
         'doe' => 'boolean',
         'is45' => 'boolean',
+        'canceled' => 'boolean',
+        'canceled_at' => 'datetime',
 
     ];
 
@@ -100,6 +105,11 @@ class Note extends Model
     public function Orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function CancellationRequests()
+    {
+        return $this->hasMany(CancellationRequest::class);
     }
 
     public function Files()

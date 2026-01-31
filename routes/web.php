@@ -64,6 +64,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/', 'category_main')->name('main');
     });
 
+    Route::prefix('/cancellation_categories')->name('cancellation_categories.')->group(function () {
+        Route::get('/', 'cancellation_categories')->name('main');
+    });
+
     Route::prefix('/audits')->name('audits.')->group(function () {
         Route::get('/notes', 'audit_notes')->name('notes');
     });
@@ -100,6 +104,9 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/waiting_return', 'waiting_return')->name('waiting_return');
     Route::get('/protocolNote/{note}', 'protocolNote')->name('protocolNote');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/cancellations/create', 'cancellationCreate')->name('cancellation.create');
+    Route::get('/cancellations/my', 'cancellationMy')->name('cancellation.my');
+    Route::get('/cancellations/{request}', 'cancellationShow')->name('cancellation.show');
 
     Route::prefix('/protests')->name('protests.')->group(function () {
         Route::get('/list', 'protests_list')->name('list');
@@ -141,6 +148,8 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/map_info', 'survey_map')->name('mapinfo');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
+    Route::get('/cancellations/queue', 'cancellationQueue')->name('cancellation.queue');
+    Route::get('/cancellations/{request}', 'cancellationShow')->name('cancellation.show');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {

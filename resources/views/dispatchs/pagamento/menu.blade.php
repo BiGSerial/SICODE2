@@ -50,6 +50,12 @@
                                 D5</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('dispatch.cancellation.queue', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-shield-exclamation fs-5 edp-text-verde-dark fw-normal"></i><span>CONTROLE DE CANCELAMENTOS</span>
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>

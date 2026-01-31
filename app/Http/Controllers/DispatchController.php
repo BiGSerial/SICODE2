@@ -133,4 +133,31 @@ class DispatchController extends Controller
         }
 
     }
+
+    public function cancellationQueue(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-queue')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-queue', [
+                'service' => $service,
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
+
+    public function cancellationShow(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-show')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-show', [
+                'service' => $service,
+                'request' => $request->route('request'),
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
 }
