@@ -1,11 +1,53 @@
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12 col-xl-8">
-            <div class="card mb-3">
-                <div class="card-header">
-                    <strong>Solicitação de Cancelamento</strong>
-                </div>
-                <div class="card-body">
+<div class="oexterno-page">
+    <div class="container-fluid">
+        <x-show-loading />
+        <style>
+            .oexterno-page {
+                --oe-bg: #f6f7fb;
+                --oe-surface: #ffffff;
+                --oe-ink: #1f2933;
+                --oe-muted: #6b7280;
+                --oe-accent: #0f766e;
+                --oe-border: #e5e7eb;
+                background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                    radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                    var(--oe-bg);
+                padding: 1.5rem 0;
+            }
+
+            .oexterno-header {
+                background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+                color: #f8fafc;
+                border-radius: 1rem;
+                padding: 1.5rem 2rem;
+                box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+                margin-bottom: 1.5rem;
+            }
+
+            .oexterno-header h2 {
+                font-weight: 700;
+                letter-spacing: 0.02em;
+                margin: 0;
+            }
+
+            .oexterno-card {
+                background: var(--oe-surface);
+                border: 1px solid var(--oe-border);
+                border-radius: 0.9rem;
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+            }
+        </style>
+
+        <div class="oexterno-header">
+            <div class="d-flex flex-column">
+                <h2>Solicitação de Cancelamento</h2>
+                <span class="meta">Abra a solicitação com evidências e acompanhe o andamento.</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 col-xl-8">
+                <div class="oexterno-card p-3 mb-3">
                     <div class="row g-3 align-items-end">
                         <div class="col-md-6">
                             <label class="form-label">Número da Nota</label>
@@ -128,18 +170,17 @@
                     @endif
                 </div>
             </div>
-        </div>
-
-        <div class="col-12 col-xl-4">
-            <div class="card">
-                <div class="card-header">Regras rápidas</div>
-                <div class="card-body">
-                    <ul class="small mb-0">
-                        <li>Selecione a categoria e o escopo antes de enviar.</li>
-                        <li>Notas canceladas não permitem novas solicitações.</li>
-                        <li>Ordens já canceladas não podem ser selecionadas.</li>
-                        <li>Evidências podem ser obrigatórias conforme categoria.</li>
-                    </ul>
+            <div class="col-12 col-xl-4">
+                <div class="oexterno-card p-3">
+                    <div class="fw-semibold mb-2">Regras rápidas</div>
+                    <div>
+                        <ul class="small mb-0">
+                            <li>Selecione a categoria e o escopo antes de enviar.</li>
+                            <li>Notas canceladas não permitem novas solicitações.</li>
+                            <li>Ordens já canceladas não podem ser selecionadas.</li>
+                            <li>Evidências podem ser obrigatórias conforme categoria.</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

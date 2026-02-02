@@ -1,11 +1,48 @@
-<div class="container-fluid">
-    <div class="row g-3">
-        <div class="col-lg-5">
-            <div class="card">
-                <div class="card-header">
-                    <strong>{{ $editingId ? 'Editar Categoria' : 'Nova Categoria' }}</strong>
-                </div>
-                <div class="card-body">
+<div class="oexterno-page">
+    <div class="container-fluid">
+        <x-show-loading />
+        <style>
+            .oexterno-page {
+                --oe-bg: #f6f7fb;
+                --oe-surface: #ffffff;
+                --oe-ink: #1f2933;
+                --oe-muted: #6b7280;
+                --oe-accent: #0f766e;
+                --oe-border: #e5e7eb;
+                background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                    radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                    var(--oe-bg);
+                padding: 1.5rem 0;
+            }
+
+            .oexterno-header {
+                background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+                color: #f8fafc;
+                border-radius: 1rem;
+                padding: 1.5rem 2rem;
+                box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+                margin-bottom: 1.5rem;
+            }
+
+            .oexterno-card {
+                background: var(--oe-surface);
+                border: 1px solid var(--oe-border);
+                border-radius: 0.9rem;
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+            }
+        </style>
+
+        <div class="oexterno-header">
+            <div class="d-flex flex-column">
+                <h2>Categorias de Cancelamento</h2>
+                <span class="meta">Gerencie motivos e regras de evidência.</span>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <div class="oexterno-card p-3">
+                    <div class="fw-semibold mb-2">{{ $editingId ? 'Editar Categoria' : 'Nova Categoria' }}</div>
                     <div class="mb-2">
                         <label class="form-label">Nome</label>
                         <input type="text" class="form-control" wire:model.defer="name" />
@@ -43,13 +80,9 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-7">
-            <div class="card">
-                <div class="card-header">
-                    <strong>Categorias cadastradas</strong>
-                </div>
-                <div class="card-body">
+            <div class="col-lg-7">
+                <div class="oexterno-card p-3">
+                    <div class="fw-semibold mb-2">Categorias cadastradas</div>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped">
                             <thead>

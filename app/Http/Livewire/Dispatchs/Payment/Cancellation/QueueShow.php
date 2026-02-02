@@ -18,21 +18,21 @@ class QueueShow extends Component
 
     public string $service;
     public int $requestId;
-    public ?CancellationRequest $request = null;
+    public ?CancellationRequest $cancellationRequest = null;
 
     public string $action = 'DONE';
     public ?string $closureNote = null;
 
-    public function mount(string $service, int $request): void
+    public function mount(string $service, $request): void
     {
         $this->service = $service;
-        $this->requestId = $request;
+        $this->requestId = (int) $request;
         $this->loadRequest();
     }
 
     private function loadRequest(): void
     {
-        $this->request = CancellationRequest::with([
+        $this->cancellationRequest = CancellationRequest::with([
             'Note',
             'Orders',
             'Category',
@@ -48,11 +48,11 @@ class QueueShow extends Component
 
     public function claim(CancellationRequestService $service): void
     {
-        $this->authorize('claim', $this->request);
+        $this->authorize('claim', $this->cancellationRequest);
 
         try {
-            $service->claimRequest($this->request, Auth::user());
-            $this->request->refresh();
+            $service->claimRequest($this->cancellationRequest, Auth::user());
+            $this->cancellationRequest->refresh();
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Solicitação assumida.']);
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -61,7 +61,7 @@ class QueueShow extends Component
 
     public function finalize(CancellationRequestService $service): void
     {
-        $this->authorize('finalize', $this->request);
+        $this->authorize('finalize', $this->cancellationRequest);
 
         $this->validate([
             'action' => 'required|in:DONE,REJECTED',
@@ -70,16 +70,16 @@ class QueueShow extends Component
 
         try {
             if ($this->action === 'DONE') {
-                $service->finalizeDone($this->request, Auth::user());
+                $service->finalizeDone($this->cancellationRequest, Auth::user());
             } else {
                 if (!$this->closureNote) {
                     $this->addError('closureNote', 'Informe o motivo da rejeição.');
                     return;
                 }
-                $service->finalizeRejected($this->request, Auth::user(), $this->closureNote);
+                $service->finalizeRejected($this->cancellationRequest, Auth::user(), $this->closureNote);
             }
 
-            $this->request->refresh();
+            $this->cancellationRequest->refresh();
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Solicitação finalizada.']);
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -90,7 +90,7 @@ class QueueShow extends Component
     {
         $file = EvidenceFile::findOrFail($fileId);
 
-        if ($file->evidenciable_type !== CancellationRequest::class || $file->evidenciable_id !== $this->request->id) {
+        if ($file->evidenciable_type !== CancellationRequest::class || $file->evidenciable_id !== $this->cancellationRequest->id) {
             abort(403);
         }
 

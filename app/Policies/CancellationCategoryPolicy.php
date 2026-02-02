@@ -9,6 +9,6 @@ class CancellationCategoryPolicy
 {
     public function manage(User $user): bool
     {
-        return (bool) ($user->superadm || $user->admin || $user->management);
+        return (bool) ($user->superadm || $user->admin || $user->management || $user->can_dispatch || $user->operator);
     }
 }

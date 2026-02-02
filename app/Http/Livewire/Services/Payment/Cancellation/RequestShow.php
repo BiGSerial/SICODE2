@@ -15,18 +15,18 @@ class RequestShow extends Component
 
     public string $service;
     public int $requestId;
-    public ?CancellationRequest $request = null;
+    public ?CancellationRequest $cancellationRequest = null;
 
-    public function mount(string $service, int $request): void
+    public function mount(string $service, $request): void
     {
         $this->service = $service;
-        $this->requestId = $request;
+        $this->requestId = (int) $request;
         $this->loadRequest();
     }
 
     private function loadRequest(): void
     {
-        $this->request = CancellationRequest::with([
+        $this->cancellationRequest = CancellationRequest::with([
             'Note',
             'Orders',
             'Category',
@@ -37,14 +37,14 @@ class RequestShow extends Component
             'Closer',
         ])->findOrFail($this->requestId);
 
-        $this->authorize('view', $this->request);
+        $this->authorize('view', $this->cancellationRequest);
     }
 
     public function downloadEvidence(int $fileId): StreamedResponse
     {
         $file = EvidenceFile::findOrFail($fileId);
 
-        if ($file->evidenciable_type !== CancellationRequest::class || $file->evidenciable_id !== $this->request->id) {
+        if ($file->evidenciable_type !== CancellationRequest::class || $file->evidenciable_id !== $this->cancellationRequest->id) {
             abort(403);
         }
 

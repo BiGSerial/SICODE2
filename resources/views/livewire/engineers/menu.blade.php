@@ -2,6 +2,7 @@
     <aside id="sidebar" class="sidebar edp-bg-sprucegreen-100">
 
         <ul class="sidebar-nav" id="sidebar-nav">
+            @if (!$onlySection || $onlySection === 'analises')
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#analises_nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide"></i><span>VALIDAÇÂO DE PROJETOS</span><i
@@ -40,6 +41,8 @@
                     </div>
                 </ul>
             </li>
+            @endif
+            @if (!$onlySection || $onlySection === 'viabilidade')
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse"
                     href="#">
@@ -101,6 +104,8 @@
                     </div>
                 </ul>
             </li>
+            @endif
+            @if (!$onlySection || $onlySection === 'informes')
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#informes-nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide text-danger"></i><span>INFORMES CONCLUSÃO</span><i
@@ -133,7 +138,9 @@
                         </li>                    </div>
                 </ul>
             </li>
+            @endif
 
+            @if (!$onlySection || $onlySection === 'parciais')
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#informes-parc-nav" data-bs-toggle="collapse"
                     href="#">
@@ -159,7 +166,9 @@
                     </div>
                 </ul>
             </li>
+            @endif
 
+            @if (!$onlySection || $onlySection === 'd5')
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#dfive-nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide text-primary"></i><span>NOTAS D5</span>
@@ -181,10 +190,10 @@
                     </div>
                 </ul>
             </li>
+            @endif
         </ul>
 
 
 
     </aside>
 </div>
-

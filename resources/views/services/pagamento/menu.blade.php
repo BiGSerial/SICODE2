@@ -36,21 +36,6 @@
                             <span>D5 PENDENTES</span>
                         </a>
                     </li>
-                    <li>
-                        <a href="{{ route('services.cancellation.create', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-x-circle fs-5 edp-text-verde-dark fw-normal"></i>
-                            <span>SOLICITAR CANCELAMENTO</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('services.cancellation.my', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-list-check fs-5 edp-text-verde-dark fw-normal"></i>
-                            <span>MINHAS SOLICITAÇÕES</span>
-                        </a>
-                    </li>
-
                 </div>
             </ul>
         </li>

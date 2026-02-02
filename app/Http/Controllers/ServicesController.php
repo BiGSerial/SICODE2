@@ -89,33 +89,6 @@ class ServicesController extends Controller
         ]);
     }
 
-    public function cancellationCreate(Request $request)
-    {
-        $service = Service::where('uuid', $request->route('service'))->first();
-
-        return view('services.' . $service->folder . '.cancellation-create', [
-            'service' => $service,
-        ]);
-    }
-
-    public function cancellationMy(Request $request)
-    {
-        $service = Service::where('uuid', $request->route('service'))->first();
-
-        return view('services.' . $service->folder . '.cancellation-my', [
-            'service' => $service,
-        ]);
-    }
-
-    public function cancellationShow(Request $request)
-    {
-        $service = Service::where('uuid', $request->route('service'))->first();
-
-        return view('services.' . $service->folder . '.cancellation-show', [
-            'service' => $service,
-            'request' => $request->route('request'),
-        ]);
-    }
 
     // Reclamações
     public function protests_list(Request $request)

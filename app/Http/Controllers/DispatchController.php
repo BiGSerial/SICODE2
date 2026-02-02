@@ -160,4 +160,17 @@ class DispatchController extends Controller
 
         abort(403, 'Recurso não implementado.');
     }
+
+    public function cancellationCategories(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-categories')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-categories', [
+                'service' => $service,
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
 }
