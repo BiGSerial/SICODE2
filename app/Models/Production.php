@@ -221,7 +221,7 @@ class Production extends Model
         return $partial;
     }
 
-     public function partialReject($payment = false, string $motivo): ?\App\Models\Partial
+     public function partialReject(string $motivo, bool $payment = false): ?\App\Models\Partial
     {
         $partial = $this->Note->Partials()
             ->orderBy('id', 'desc')
