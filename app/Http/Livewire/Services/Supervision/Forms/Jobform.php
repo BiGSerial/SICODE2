@@ -416,7 +416,7 @@ class Jobform extends Component
                     $text = $partial->engineer_info ?? '';
                     $text .= "\n ------------------------ \n" . "Nota/OV encerrada com rejeição em Fiscalização. \n" . "Motivo: " . $this->analise->info . "\n" . "Fiscal: " . auth()->user()->name;
 
-                    $this->production->partialReject(false, $text);
+                    $this->production->partialReject($text, false);
 
                 } else {
                     $this->production->partialFiscalDone();
