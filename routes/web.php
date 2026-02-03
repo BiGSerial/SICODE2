@@ -71,6 +71,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
     Route::prefix('/control')->name('control.')->middleware('can:superadm')->group(function () {
         Route::get('/d5', 'control_d5')->name('d5');
         Route::get('/viability', 'control_viability')->name('viability');
+        Route::get('/notes', 'control_notes')->name('notes');
     });
 
     Route::post('/change_pass', 'change_password')->name('change_pass');

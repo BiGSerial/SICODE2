@@ -8,7 +8,7 @@
         }
 
         /* Para contêineres muito estreitos, permita colunas ainda menores */
-        @container (min-width: 0px)
+        @@container (min-width: 0px)
 
             {
 

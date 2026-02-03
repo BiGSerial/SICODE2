@@ -143,4 +143,3 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
     }
 }
 
-

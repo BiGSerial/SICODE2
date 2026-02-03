@@ -45,4 +45,9 @@ class AdminController extends Controller
     {
         return view('admin.control.viability');
     }
+
+    public function control_notes()
+    {
+        return view('admin.control.notes');
+    }
 }

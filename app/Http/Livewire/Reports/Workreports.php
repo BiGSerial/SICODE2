@@ -6,6 +6,8 @@ use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
+use App\Jobs\Reports\ExportWorkreportsJob;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -31,7 +33,7 @@ class Workreports extends Component
     // search by date
     public $date_in;
     public $date_out;
-    // public $dateBy = 'sended_at';
+    public $dateBy = 'first_informed';
 
     // Filters
     private $filter_group = 'reports_worklist';
@@ -71,6 +73,47 @@ class Workreports extends Component
         $this->multiSearch = [];
         $this->date_in = '';
         $this->date_out = '';
+        $this->dateBy = 'first_informed';
+    }
+
+    public function updated($propertyName)
+    {
+        $paginationSensitive = [
+            'search',
+            'advanceSearch',
+            'date_in',
+            'date_out',
+            'dateBy',
+            'perPage',
+        ];
+
+        if (in_array($propertyName, $paginationSensitive, true)) {
+            $this->resetPage();
+        }
+    }
+
+    public function exportReport(): void
+    {
+        $filters = $this->loadFilters();
+
+        $params = [
+            'date_in' => $this->date_in,
+            'date_out' => $this->date_out,
+            'dateBy' => $this->dateBy,
+            'search' => $this->search,
+            'multiSearch' => $this->multiSearch,
+            'filters' => $filters,
+        ];
+
+        ExportWorkreportsJob::dispatch($params, (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'EXPORTACAO EM ANDAMENTO',
+            'html' => "<div class='card'><div class='card-body'><p>Seu arquivo esta sendo gerado.</p><p class='fw-bold'>Voce sera notificado quando estiver pronto.</p></div></div>",
+            'timer' => 5000,
+        ]);
     }
 
     public function downloadFile($id)
@@ -85,13 +128,7 @@ class Workreports extends Component
 
     public function getListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filter = $this->loadFilters();
 
         $query = WorkReport::Query();
 
@@ -99,18 +136,15 @@ class Workreports extends Component
         // $query->where('company_id', Auth()->User()->Employee->Contract->company->id);
 
 
-        if (($this->date_in || $this->date_out)) {
+        if ($this->date_in || $this->date_out) {
+            $dateColumn = $this->resolveDateColumn();
 
-            if ($this->date_in && !$this->date_out) {
-                $query->whereDate('created_at', '>=', $this->date_in);
+            if ($this->date_in) {
+                $query->whereDate($dateColumn, '>=', $this->date_in);
             }
 
-            if (!$this->date_in && $this->date_out) {
-                $query->whereDate('created_at', '<=', $this->date_out);
-            }
-
-            if ($this->date_in && $this->date_out) {
-                $query->whereBetween('created_at', [$this->date_in, $this->date_out]);
+            if ($this->date_out) {
+                $query->whereDate($dateColumn, '<=', $this->date_out);
             }
         }
 
@@ -150,6 +184,24 @@ class Workreports extends Component
         $query->orderBy('created_at', 'DESC');
 
         return $query;
+    }
+
+    private function loadFilters(): array
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            session_start();
+        }
+        
+        return $_SESSION['filter'][$this->filter_group] ?? [];
+    }
+
+    private function resolveDateColumn()
+    {
+        if ($this->dateBy === 'informed_at' || $this->dateBy === 'created_at') {
+            return $this->dateBy;
+        }
+
+        return DB::raw('COALESCE(informed_at, created_at)');
     }
 
     public function render()
