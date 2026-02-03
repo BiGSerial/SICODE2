@@ -144,8 +144,10 @@
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
             style="background-color: #dbd8d8; width: 300px;">
             @include('components.menu.partials.services-dropdown-style')
-            <li><a class="menu-link" href="{{ route('btzero.main') }}"><i
-                        class="ri-eye-fill align-middle text-info"></i> INFORME SMC</a>
+            <li>
+                <a class="menu-single" href="{{ route('btzero.main') }}">
+                    <i class="ri-eye-fill align-middle text-info"></i> INFORME SMC
+                </a>
             </li>
 
         </ul>

@@ -127,11 +127,26 @@
                         {{-- ORDENS (já vêm com Operations) --}}
                         @if ($lists->Orders->count())
                             @foreach ($lists->Orders as $order)
+                                @php
+                                    $orderCancellation = $lists->CancellationRequests
+                                        ->filter(fn($req) => $req->Orders->contains('id', $order->id))
+                                        ->sortByDesc('created_at')
+                                        ->first();
+                                @endphp
                                 <div class="card border-0 shadow mb-3">
-                                    <div class="card-header edp-bg-sprucegreen-100 text-white">
-                                        <span class="text-edp-verde">ORDEM:</span>
-                                        {{ $order->ordem }}
-                                        ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
+                                    <div class="card-header edp-bg-sprucegreen-100 text-white d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="text-edp-verde">ORDEM:</span>
+                                            {{ $order->ordem }}
+                                            ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
+                                        </div>
+                                        @if ($orderCancellation)
+                                            <a class="btn btn-sm btn-outline-light"
+                                                href="{{ route('cancellations.show', ['request' => $orderCancellation->id]) }}"
+                                                target="_blank" rel="noopener">
+                                                <i class="ri-file-search-line me-1"></i> Cancelamento
+                                            </a>
+                                        @endif
                                     </div>
 
                                     @php

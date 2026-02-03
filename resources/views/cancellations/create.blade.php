@@ -13,6 +13,7 @@
 @endsection
 
 @section('menu')
+    @include('cancellations.menu')
 @endsection
 
 @section('content')

@@ -46,6 +46,33 @@
         color: inherit;
     }
 
+    .services-dropdown .menu-single {
+        padding: 0.5rem 0.85rem;
+        margin: 0.35rem 0.6rem;
+        border-radius: 0.5rem;
+        background: #ffffff;
+        border: 2px solid #d1d5db;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.04em;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .services-dropdown .menu-single i {
+        font-size: 1rem;
+    }
+
+    .services-dropdown .menu-single:hover {
+        background: #f3f4f6;
+        color: inherit;
+    }
+
     .services-dropdown .menu-item:hover {
         background: #f3f4f6;
     }

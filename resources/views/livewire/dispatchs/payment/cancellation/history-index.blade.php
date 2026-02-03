@@ -64,112 +64,82 @@
 
         <div class="oexterno-header">
             <div class="d-flex flex-column">
-                <h2>Minhas Solicitações</h2>
-                <span class="meta">Acompanhe o andamento das suas solicitações de cancelamento.</span>
+                <h2>Histórico de Cancelamentos</h2>
+                <span class="meta">Consulta e exportação das solicitações finalizadas.</span>
             </div>
-        </div>
-
-        <div class="oexterno-card p-3 mb-4">
-            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                <strong class="me-auto">Solicitações em Andamento</strong>
-                <select class="form-select w-auto" wire:model="status">
-                    <option value="">Todos status</option>
-                    <option value="SUBMITTED">SUBMITTED</option>
-                    <option value="ASSIGNED">ASSIGNED</option>
-                    <option value="PAUSED">PAUSED</option>
-                </select>
-                <input type="text" class="form-control w-auto" placeholder="Buscar nota" wire:model.debounce.500ms="search" />
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Nota</th>
-                            <th>Categoria</th>
-                            <th>Status</th>
-                            <th>Assumido por</th>
-                            <th>Enviado em</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($ongoing as $request)
-                            <tr>
-                                <td>{{ $request->id }}</td>
-                                <td>{{ $request->Note->note ?? '-' }}</td>
-                                <td>{{ $request->Category->name ?? '-' }}</td>
-                                <td>
-                                    <span class="badge {{ $request->status?->badgeClass() ?? 'bg-secondary' }}">
-                                        {{ $request->status?->label() ?? $request->status?->value ?? $request->status }}
-                                    </span>
-                                </td>
-                                <td>{{ $request->Assignee->name ?? '-' }}</td>
-                                <td>{{ optional($request->submitted_at)->format('d/m/Y H:i') }}</td>
-                                <td>
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('cancellations.show', ['request' => $request->id]) }}">Ver</a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="7" class="text-center">Nenhuma solicitação em andamento.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            {{ $ongoing->links() }}
         </div>
 
         <div class="oexterno-card p-3">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                <strong class="me-auto">Histórico de Solicitações</strong>
-                <select class="form-select w-auto" wire:model="historyPeriod">
-                    <option value="">Período</option>
-                    <option value="7">Últimos 7 dias</option>
-                    <option value="30">Últimos 30 dias</option>
-                    <option value="90">Últimos 90 dias</option>
+                <strong class="me-auto">Filtros</strong>
+                <select class="form-select w-auto" wire:model="status">
+                    <option value="">Todos status</option>
+                    <option value="DONE">DONE</option>
+                    <option value="REJECTED">REJECTED</option>
+                    <option value="ABORTED">ABORTED</option>
                 </select>
-                <input type="date" class="form-control w-auto" wire:model="historyStart" />
-                <input type="date" class="form-control w-auto" wire:model="historyEnd" />
-                <input type="text" class="form-control w-auto" placeholder="Notas: 123, 456"
-                    wire:model.debounce.500ms="historyNotes" />
+                <input type="date" class="form-control w-auto" wire:model="dateFrom" />
+                <input type="date" class="form-control w-auto" wire:model="dateTo" />
+                <button class="btn btn-outline-primary btn-sm" wire:click="exportToExcel" wire:loading.attr="disabled">
+                    <i class="ri-file-excel-2-line align-middle"></i> Exportar
+                </button>
             </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Notas ou Ordens (separe por vírgula, espaço ou linha)</label>
+                <textarea class="form-control" rows="2" wire:model.debounce.600ms="multiSearch"></textarea>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-sm table-striped">
                     <thead>
                         <tr>
                             <th>#</th>
                             <th>Nota</th>
+                            <th>Ordens</th>
                             <th>Categoria</th>
+                            <th>Solicitante</th>
+                            <th>Executor</th>
                             <th>Status</th>
+                            <th>Solicitado em</th>
                             <th>Encerrado em</th>
+                            <th>Tempo</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($history as $request)
+                            @php
+                                $start = $request->submitted_at ?? $request->created_at;
+                                $end = $request->closed_at;
+                                $minutes = $start && $end ? $start->diffInMinutes($end) : null;
+                            @endphp
                             <tr>
                                 <td>{{ $request->id }}</td>
                                 <td>{{ $request->Note->note ?? '-' }}</td>
+                                <td>{{ $request->Orders->pluck('ordem')->implode(', ') }}</td>
                                 <td>{{ $request->Category->name ?? '-' }}</td>
+                                <td>{{ $request->Requester->name ?? '-' }}</td>
+                                <td>{{ $request->Closer->name ?? ($request->Assignee->name ?? '-') }}</td>
                                 <td>
                                     <span class="badge {{ $request->status?->badgeClass() ?? 'bg-secondary' }}">
                                         {{ $request->status?->label() ?? $request->status?->value ?? $request->status }}
                                     </span>
                                 </td>
+                                <td>{{ optional($request->submitted_at)->format('d/m/Y H:i') }}</td>
                                 <td>{{ optional($request->closed_at)->format('d/m/Y H:i') }}</td>
+                                <td>{{ $minutes !== null ? $minutes . ' min' : '-' }}</td>
                                 <td>
                                     <button type="button" class="btn btn-sm btn-outline-secondary"
                                         wire:click="openNoteDetail({{ $request->id }})">
                                         Nota
                                     </button>
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('cancellations.show', ['request' => $request->id]) }}">Ver</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('dispatch.cancellation.show', ['service' => $service, 'request' => $request->id]) }}">Ver</a>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center">Nenhuma solicitação encontrada.</td>
+                                <td colspan="11" class="text-center">Nenhum registro encontrado.</td>
                             </tr>
                         @endforelse
                     </tbody>

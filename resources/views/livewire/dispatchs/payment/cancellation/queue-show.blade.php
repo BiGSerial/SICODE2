@@ -30,19 +30,86 @@
                 border-radius: 0.9rem;
                 box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
             }
+
+            .evidence-name {
+                display: block;
+                max-width: 100%;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         </style>
+
+        @php
+            $imageExts = ['jpg','jpeg','png','gif','bmp','svg','tiff','webp'];
+            $imageFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
+                $ext = strtolower((string) $file->extension);
+                return in_array($ext, $imageExts, true) || str_starts_with((string) $file->mime, 'image/');
+            });
+            $otherFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
+                $ext = strtolower((string) $file->extension);
+                return !in_array($ext, $imageExts, true) && !str_starts_with((string) $file->mime, 'image/');
+            });
+        @endphp
 
         <div class="oexterno-header d-flex align-items-center">
             <div class="me-auto">
                 <h2>Solicitação #{{ $cancellationRequest->id }}</h2>
                 <span class="meta">Execução do cancelamento conforme escopo.</span>
             </div>
-            @if($cancellationRequest->status === 'SUBMITTED' && !$cancellationRequest->assigned_to)
+            <a class="btn btn-outline-light me-2" href="{{ url()->previous() }}">Voltar</a>
+            @if($cancellationRequest->status === \App\Enum\CancellationRequestStatus::SUBMITTED && !$cancellationRequest->assigned_to)
                 <button class="btn btn-outline-light" wire:click="claim">Assumir</button>
             @endif
         </div>
 
         <div class="oexterno-card p-3 mb-3">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @can('edit', $cancellationRequest)
+                    @if(!$editing)
+                        <button class="btn btn-outline-primary" wire:click="startEdit">Editar</button>
+                    @else
+                        <button class="btn btn-outline-secondary" wire:click="cancelEdit">Cancelar edição</button>
+                    @endif
+                @endcan
+
+                @can('transfer', $cancellationRequest)
+                    <div class="d-flex align-items-center gap-2">
+                        <select class="form-select form-select-sm w-auto" wire:model="transferUserId">
+                            <option value="">Transferir para...</option>
+                            @foreach($paymentUsers as $user)
+                                <option value="{{ $user->id }}">{{ $user->name }}</option>
+                            @endforeach
+                        </select>
+                        <button class="btn btn-outline-warning btn-sm"
+                            onclick="if(!confirm('Confirmar transferência da solicitação?')){event.stopImmediatePropagation();}"
+                            wire:click="transfer">
+                            Transferir
+                        </button>
+                    </div>
+                @endcan
+
+                @can('abort', $cancellationRequest)
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" class="form-control form-control-sm w-auto" placeholder="Motivo do cancelamento"
+                            wire:model.defer="abortReason">
+                        <button class="btn btn-outline-danger btn-sm"
+                            onclick="if(!confirm('Confirmar cancelamento da solicitação?')){event.stopImmediatePropagation();}"
+                            wire:click="abort">
+                            Cancelar solicitação
+                        </button>
+                    </div>
+                @endcan
+
+                @can('delete', $cancellationRequest)
+                    <button class="btn btn-danger btn-sm"
+                        onclick="if(!confirm('Remover definitivamente esta solicitação?')){event.stopImmediatePropagation();}"
+                        wire:click="deleteRequest">
+                        Remover
+                    </button>
+                @endcan
+            </div>
+
             <div class="row g-3">
                 <div class="col-md-4">
                     <div class="border rounded p-3 h-100">
@@ -57,7 +124,12 @@
                         <h6>Solicitação</h6>
                         <p class="mb-1"><strong>Categoria:</strong> {{ $cancellationRequest->Category->name ?? '-' }}</p>
                         <p class="mb-1"><strong>Escopo:</strong> {{ $cancellationRequest->scope }}</p>
-                        <p class="mb-1"><strong>Status:</strong> {{ $cancellationRequest->status }}</p>
+                        <p class="mb-1">
+                            <strong>Status:</strong>
+                            <span class="badge {{ $cancellationRequest->status?->badgeClass() ?? 'bg-secondary' }}">
+                                {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
+                            </span>
+                        </p>
                         <p class="mb-1"><strong>Solicitante:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
                     </div>
                 </div>
@@ -107,16 +179,58 @@
             <div class="row mt-3">
                 <div class="col-md-6">
                     <h6>Anexos</h6>
-                    <ul class="list-group">
-                        @forelse($cancellationRequest->EvidenceFiles as $file)
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>{{ $file->original_name }}</span>
-                                <button class="btn btn-sm btn-outline-primary" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
-                            </li>
-                        @empty
-                            <li class="list-group-item">Nenhum anexo.</li>
-                        @endforelse
-                    </ul>
+                    @if($imageFiles->isNotEmpty())
+                        <div class="row g-2 mb-3">
+                            @foreach($imageFiles as $file)
+                                <div class="col-6 col-md-4 col-lg-3">
+                                    <div class="border rounded p-2 text-center h-100">
+                                        <img
+                                            src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                            class="img-fluid rounded mb-2"
+                                            style="max-height: 140px; object-fit: cover; width: 100%;"
+                                            alt="{{ $file->original_name }}"
+                                            data-evidence-src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                            data-evidence-name="{{ $file->original_name }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#evidenceModal"
+                                        />
+                                        <div class="small text-muted evidence-name" title="{{ $file->original_name }}">
+                                            {{ $file->original_name }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            Origem:
+                                            @if($file->origin === 'CANCELLATION_CONTROL')
+                                                Controle
+                                            @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
+                                                Execução
+                                            @else
+                                                Solicitação
+                                            @endif
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @if($otherFiles->isNotEmpty())
+                        <ul class="list-group">
+                            @foreach($otherFiles as $file)
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div class="d-flex flex-column">
+                                        <span class="evidence-name" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
+                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }}</small>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+
+                    @if($imageFiles->isEmpty() && $otherFiles->isEmpty())
+                        <div class="text-muted">Nenhum anexo.</div>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <h6>Linha do tempo</h6>
@@ -136,7 +250,7 @@
                 </div>
             </div>
 
-            @if(in_array($cancellationRequest->status, ['SUBMITTED', 'ASSIGNED'], true))
+            @if(in_array($cancellationRequest->status, [\App\Enum\CancellationRequestStatus::SUBMITTED, \App\Enum\CancellationRequestStatus::ASSIGNED], true))
                 <div class="row mt-4">
                     <div class="col-md-6">
                         <label class="form-label">Ação</label>
@@ -151,10 +265,158 @@
                         @error('closureNote')<span class="text-danger small">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-12 mt-3">
-                        <button class="btn btn-success" wire:click="finalize">Finalizar</button>
+                        <button class="btn btn-success"
+                            onclick="if(!confirm('Confirmar finalização da solicitação?')){event.stopImmediatePropagation();}"
+                            wire:click="finalize">
+                            Finalizar
+                        </button>
                     </div>
                 </div>
             @endif
         </div>
+
+        @if($editing)
+            <div class="oexterno-card p-3">
+                <h5 class="mb-3">Editar Solicitação</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Categoria</label>
+                        <select class="form-select" wire:model="editCategoryId">
+                            <option value="">Selecione</option>
+                            @foreach(\App\Models\CancellationCategory::orderBy('display_order')->orderBy('name')->get() as $cat)
+                                <option value="{{ $cat->id }}">{{ $cat->name }}{{ $cat->active ? '' : ' (inativa)' }}</option>
+                            @endforeach
+                        </select>
+                        @error('editCategoryId')<span class="text-danger small">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Escopo</label>
+                        <select class="form-select" wire:model="editScope">
+                            <option value="NOTE_FULL">CANCELAR NOTA INTEIRA</option>
+                            <option value="ORDERS_PARTIAL">CANCELAR ORDENS ESPECÍFICAS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Descrição</label>
+                        <input type="text" class="form-control" wire:model.defer="editDescription" />
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <h6>Ordens</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Ordem</th>
+                                    <th>Status</th>
+                                    <th>Cancelada</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($editOrders as $order)
+                                    <tr>
+                                        <td>
+                                            <input class="form-check-input"
+                                                type="checkbox"
+                                                wire:model="editSelectedOrders"
+                                                value="{{ $order['id'] }}"
+                                                {{ $editScope === 'NOTE_FULL' ? 'disabled' : '' }}
+                                                {{ $order['canceled'] ? 'disabled' : '' }}>
+                                        </td>
+                                        <td>{{ $order['ordem'] }}</td>
+                                        <td>{{ $order['status'] ?? '-' }}</td>
+                                        <td>{{ $order['canceled'] ? 'Sim' : 'Não' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        @error('editSelectedOrders')<span class="text-danger small">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <h6>Remover evidências</h6>
+                        <ul class="list-group">
+                            @forelse($cancellationRequest->EvidenceFiles as $file)
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div>{{ $file->original_name }}</div>
+                                        <small class="text-muted">
+                                            Origem:
+                                            @if($file->origin === 'CANCELLATION_CONTROL')
+                                                Controle
+                                            @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
+                                                Execução
+                                            @else
+                                                Solicitação
+                                            @endif
+                                        </small>
+                                    </div>
+                                    <button class="btn btn-sm {{ in_array($file->id, $removeEvidenceIds, true) ? 'btn-danger' : 'btn-outline-secondary' }}"
+                                        wire:click="toggleRemoveEvidence({{ $file->id }})">
+                                        {{ in_array($file->id, $removeEvidenceIds, true) ? 'Remover' : 'Marcar' }}
+                                    </button>
+                                </li>
+                            @empty
+                                <li class="list-group-item">Nenhum anexo.</li>
+                            @endforelse
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Adicionar evidências</h6>
+                        <input type="file" class="form-control mb-2" wire:model="files" multiple />
+                        <ul class="list-group">
+                            @foreach($tempFiles as $index => $file)
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>{{ $file['original_name'] }}</span>
+                                    <button class="btn btn-sm btn-outline-danger" wire:click="removeTempFile({{ $index }})">Remover</button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button class="btn btn-primary"
+                        onclick="if(!confirm('Confirmar edição da solicitação?')){event.stopImmediatePropagation();}"
+                        wire:click="saveEdit">
+                        Salvar alterações
+                    </button>
+                </div>
+            </div>
+        @endif
     </div>
 </div>
+
+<div class="modal fade" id="evidenceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="evidenceModalTitle">Evidência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="evidenceModalImage" src="" class="img-fluid rounded" alt="Evidência">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modalImg = document.getElementById('evidenceModalImage');
+        const modalTitle = document.getElementById('evidenceModalTitle');
+        document.querySelectorAll('[data-evidence-src]').forEach((img) => {
+            img.addEventListener('click', () => {
+                modalImg.src = img.dataset.evidenceSrc;
+                modalTitle.textContent = img.dataset.evidenceName || 'Evidência';
+            });
+        });
+    });
+</script>

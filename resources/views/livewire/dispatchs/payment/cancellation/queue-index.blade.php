@@ -46,8 +46,10 @@
                     <option value="">Todos status</option>
                     <option value="SUBMITTED">SUBMITTED</option>
                     <option value="ASSIGNED">ASSIGNED</option>
+                    <option value="PAUSED">PAUSED</option>
                     <option value="DONE">DONE</option>
                     <option value="REJECTED">REJECTED</option>
+                    <option value="ABORTED">ABORTED</option>
                 </select>
                 <select class="form-select w-auto" wire:model="categoryId">
                     <option value="">Todas categorias</option>
@@ -79,12 +81,13 @@
                             <th>Nota</th>
                             <th>Ordens</th>
                             <th>Categoria</th>
-                            <th>Motivo</th>
                             <th>Solicitante</th>
+                            <th>Executando</th>
                             <th>Status</th>
-                            <th>Assumido por</th>
-                            <th>Enviado em</th>
-                            <th>Tempo</th>
+                            <th>Solicitado em</th>
+                            <th>Assumido em</th>
+                            <th>Tempo assumido</th>
+                            <th>Tempo total</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -94,6 +97,7 @@
                                 $start = $request->submitted_at ?? $request->created_at;
                                 $end = $request->closed_at ?? now();
                                 $minutes = $start ? $start->diffInMinutes($end) : null;
+                                $assignedMinutes = $request->assigned_at ? $request->assigned_at->diffInMinutes($request->closed_at ?? now()) : null;
                             @endphp
                             <tr>
                                 <td>{{ $request->id }}</td>
@@ -102,15 +106,20 @@
                                     {{ $request->Orders->pluck('ordem')->implode(', ') }}
                                 </td>
                                 <td>{{ $request->Category->name ?? '-' }}</td>
-                                <td>{{ $request->description ?? '-' }}</td>
                                 <td>{{ $request->Requester->name ?? '-' }}</td>
-                                <td>{{ $request->status }}</td>
                                 <td>{{ $request->Assignee->name ?? '-' }}</td>
+                                <td>
+                                    <span class="badge {{ $request->status?->badgeClass() ?? 'bg-secondary' }}">
+                                        {{ $request->status?->label() ?? $request->status?->value ?? $request->status }}
+                                    </span>
+                                </td>
                                 <td>{{ optional($request->submitted_at)->format('d/m/Y H:i') }}</td>
+                                <td>{{ optional($request->assigned_at)->format('d/m/Y H:i') }}</td>
+                                <td>{{ $assignedMinutes !== null ? $assignedMinutes . ' min' : '-' }}</td>
                                 <td>{{ $minutes !== null ? $minutes . ' min' : '-' }}</td>
                                 <td class="d-flex gap-1">
                                     <a class="btn btn-sm btn-outline-primary" href="{{ route('dispatch.cancellation.show', ['service' => $service, 'request' => $request->id]) }}">Ver</a>
-                                    @if($request->status === 'SUBMITTED' && !$request->assigned_to)
+                                    @if($request->status === \App\Enum\CancellationRequestStatus::SUBMITTED && !$request->assigned_to)
                                         <button class="btn btn-sm btn-outline-success" wire:click="claim({{ $request->id }})">Assumir</button>
                                     @endif
                                 </td>

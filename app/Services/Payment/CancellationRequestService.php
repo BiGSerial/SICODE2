@@ -2,7 +2,9 @@
 
 namespace App\Services\Payment;
 
+use App\Enum\CancellationRequestStatus;
 use App\Models\CancellationCategory;
+use App\Models\Comment;
 use App\Models\CancellationRequest;
 use App\Models\CancellationRequestEvent;
 use App\Models\Note;
@@ -48,7 +50,7 @@ class CancellationRequestService
                 'category_id' => $category->id,
                 'requested_by' => $requestedBy->id,
                 'description' => $description,
-                'status' => CancellationRequest::STATUS_SUBMITTED,
+                'status' => CancellationRequestStatus::SUBMITTED,
                 'submitted_at' => now(),
             ]);
 
@@ -69,12 +71,12 @@ class CancellationRequestService
     public function submitRequest(CancellationRequest $request, User $actor): CancellationRequest
     {
         return DB::transaction(function () use ($request, $actor) {
-            if ($request->status !== CancellationRequest::STATUS_DRAFT) {
+            if ($request->status !== CancellationRequestStatus::DRAFT) {
                 throw new RuntimeException('Solicitação não está em rascunho.');
             }
 
             $request->update([
-                'status' => CancellationRequest::STATUS_SUBMITTED,
+                'status' => CancellationRequestStatus::SUBMITTED,
                 'submitted_at' => now(),
             ]);
 
@@ -89,11 +91,11 @@ class CancellationRequestService
         $updated = DB::table('cancellation_requests')
             ->where('id', $request->id)
             ->whereNull('assigned_to')
-            ->where('status', CancellationRequest::STATUS_SUBMITTED)
+            ->where('status', CancellationRequestStatus::SUBMITTED->value)
             ->update([
                 'assigned_to' => $user->id,
                 'assigned_at' => now(),
-                'status' => CancellationRequest::STATUS_ASSIGNED,
+                'status' => CancellationRequestStatus::ASSIGNED->value,
                 'updated_at' => now(),
             ]);
 
@@ -107,16 +109,44 @@ class CancellationRequestService
         return $request;
     }
 
+    public function pauseRequest(CancellationRequest $request, User $user, string $reason): CancellationRequest
+    {
+        return DB::transaction(function () use ($request, $user, $reason) {
+            $request->refresh();
+
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED], true)) {
+                throw new RuntimeException('Solicitação não está disponível para pausar.');
+            }
+
+            if ($request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+                throw new RuntimeException('Somente o responsável pode pausar.');
+            }
+
+            if (!trim($reason)) {
+                throw new RuntimeException('Informe o motivo da pausa.');
+            }
+
+            $request->update([
+                'status' => CancellationRequestStatus::PAUSED,
+            ]);
+
+            $this->logEvent($request, $user, 'paused', ['reason' => $reason]);
+
+            return $request;
+        });
+    }
+
     public function finalizeDone(CancellationRequest $request, User $user): CancellationRequest
     {
         return DB::transaction(function () use ($request, $user) {
             $request->refresh();
 
-            if (!in_array($request->status, [CancellationRequest::STATUS_ASSIGNED, CancellationRequest::STATUS_SUBMITTED], true)) {
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED, CancellationRequestStatus::PAUSED], true)) {
                 throw new RuntimeException('Solicitação não está disponível para finalização.');
             }
 
-            if ($request->status === CancellationRequest::STATUS_ASSIGNED && $request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+            if (in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::PAUSED], true)
+                && $request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
                 throw new RuntimeException('Somente o responsável pode finalizar.');
             }
 
@@ -154,7 +184,7 @@ class CancellationRequestService
             }
 
             $request->update([
-                'status' => CancellationRequest::STATUS_DONE,
+                'status' => CancellationRequestStatus::DONE,
                 'closed_by' => $user->id,
                 'closed_at' => now(),
                 'closure_type' => CancellationRequest::CLOSURE_DONE,
@@ -171,16 +201,17 @@ class CancellationRequestService
         return DB::transaction(function () use ($request, $user, $reason) {
             $request->refresh();
 
-            if (!in_array($request->status, [CancellationRequest::STATUS_ASSIGNED, CancellationRequest::STATUS_SUBMITTED], true)) {
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED, CancellationRequestStatus::PAUSED], true)) {
                 throw new RuntimeException('Solicitação não está disponível para rejeição.');
             }
 
-            if ($request->status === CancellationRequest::STATUS_ASSIGNED && $request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+            if (in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::PAUSED], true)
+                && $request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
                 throw new RuntimeException('Somente o responsável pode rejeitar.');
             }
 
             $request->update([
-                'status' => CancellationRequest::STATUS_REJECTED,
+                'status' => CancellationRequestStatus::REJECTED,
                 'closed_by' => $user->id,
                 'closed_at' => now(),
                 'closure_type' => CancellationRequest::CLOSURE_REJECTED,
@@ -190,6 +221,137 @@ class CancellationRequestService
             $this->logEvent($request, $user, 'rejected', ['reason' => $reason]);
 
             return $request;
+        });
+    }
+
+    public function abortRequest(CancellationRequest $request, User $user, ?string $reason = null): CancellationRequest
+    {
+        return DB::transaction(function () use ($request, $user, $reason) {
+            $request->refresh();
+
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED, CancellationRequestStatus::PAUSED], true)) {
+                throw new RuntimeException('Solicitação não está disponível para cancelamento.');
+            }
+
+            if (in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::PAUSED], true)
+                && $request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+                throw new RuntimeException('Somente o responsável pode cancelar.');
+            }
+
+            if (!trim((string) $reason)) {
+                throw new RuntimeException('Informe o motivo do cancelamento.');
+            }
+
+            $request->update([
+                'status' => CancellationRequestStatus::ABORTED,
+                'closed_by' => $user->id,
+                'closed_at' => now(),
+                'closure_type' => CancellationRequest::CLOSURE_ABORTED,
+                'closure_note' => $reason,
+            ]);
+
+            $this->logEvent($request, $user, 'aborted', ['reason' => $reason]);
+
+            return $request;
+        });
+    }
+
+    public function transferRequest(CancellationRequest $request, User $actor, User $target): CancellationRequest
+    {
+        return DB::transaction(function () use ($request, $actor, $target) {
+            $request->refresh();
+
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED], true)) {
+                throw new RuntimeException('Solicitação não está disponível para transferência.');
+            }
+
+            $request->update([
+                'assigned_to' => $target->id,
+                'assigned_at' => now(),
+                'status' => CancellationRequestStatus::ASSIGNED,
+            ]);
+
+            $this->logEvent($request, $actor, 'transferred', [
+                'from' => $actor->id,
+                'to' => $target->id,
+            ]);
+
+            return $request;
+        });
+    }
+
+    public function updateRequest(
+        CancellationRequest $request,
+        User $user,
+        string $scope,
+        CancellationCategory $category,
+        array $orders,
+        array $attachments,
+        array $removeEvidenceIds = [],
+        ?string $description = null
+    ): CancellationRequest {
+        return DB::transaction(function () use ($request, $user, $scope, $category, $orders, $attachments, $removeEvidenceIds, $description) {
+            $request->refresh();
+
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED], true)) {
+                throw new RuntimeException('Solicitação não está disponível para edição.');
+            }
+
+            if ($request->status === CancellationRequestStatus::ASSIGNED && $request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+                throw new RuntimeException('Somente o responsável pode editar.');
+            }
+
+            if ($request->Note->canceled) {
+                throw new RuntimeException('Nota já cancelada.');
+            }
+
+            $ordersCollection = $this->resolveOrders($request->Note, $scope, $orders);
+
+            if ($ordersCollection->isEmpty()) {
+                throw new RuntimeException('Selecione ao menos uma ordem válida.');
+            }
+
+            $existingCount = $request->EvidenceFiles()->whereNotIn('id', $removeEvidenceIds)->count();
+            $incomingCount = count($attachments);
+            $totalCount = $existingCount + $incomingCount;
+
+            if ($category->require_evidence && $totalCount < max(1, (int) $category->min_evidence_files)) {
+                throw new RuntimeException('Quantidade mínima de evidências não atendida.');
+            }
+
+            $request->update([
+                'scope' => $scope,
+                'category_id' => $category->id,
+                'description' => $description,
+            ]);
+
+            $request->Orders()->sync($ordersCollection->pluck('id')->all());
+
+            if (!empty($removeEvidenceIds)) {
+                $this->removeEvidenceFiles($request, $removeEvidenceIds, $user);
+            }
+
+            $this->storeEvidenceFiles($request, $attachments, $user, 'CANCELLATION_CONTROL');
+
+            $this->logEvent($request, $user, 'updated', [
+                'scope' => $scope,
+                'category_id' => $category->id,
+                'orders' => $ordersCollection->pluck('id')->all(),
+            ]);
+
+            return $request;
+        });
+    }
+
+    public function deleteRequest(CancellationRequest $request, User $user): void
+    {
+        DB::transaction(function () use ($request, $user) {
+            $request->refresh();
+
+            $this->removeEvidenceFiles($request, $request->EvidenceFiles()->pluck('id')->all(), $user);
+            $request->Events()->delete();
+            $request->Orders()->detach();
+            $request->delete();
         });
     }
 
@@ -211,13 +373,32 @@ class CancellationRequestService
             ->get();
     }
 
-    private function storeEvidenceFiles(CancellationRequest $request, array $attachments, User $user): void
+    public function addEvidenceFiles(CancellationRequest $request, User $user, array $attachments, string $origin): void
+    {
+        $this->storeEvidenceFiles($request, $attachments, $user, $origin);
+    }
+
+    public function addComment(CancellationRequest $request, User $user, string $message): Comment
+    {
+        $comment = $request->Comments()->create([
+            'user_id' => $user->id,
+            'message' => $message,
+            'restrict' => false,
+        ]);
+
+        $this->logEvent($request, $user, 'comment', ['message' => $message]);
+
+        return $comment;
+    }
+
+    private function storeEvidenceFiles(CancellationRequest $request, array $attachments, User $user, string $origin = 'CANCELLATION_REQUEST'): void
     {
         if (empty($attachments)) {
             return;
         }
 
         $dir = 'evidences/CANCELLATION_REQUEST/' . $request->id;
+        $noteRef = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($request->Note?->note ?? 'nota'));
 
         foreach ($attachments as $file) {
             if (!$file instanceof UploadedFile) {
@@ -225,7 +406,8 @@ class CancellationRequestService
             }
 
             $extension = strtolower($file->getClientOriginalExtension());
-            $storedName = Str::uuid()->toString();
+            $hash = Str::lower(Str::random(6));
+            $storedName = "evidencia-{$noteRef}-{$hash}";
             $path = $file->storeAs($dir, $storedName . '.' . $extension, 'public');
 
             $request->EvidenceFiles()->create([
@@ -239,12 +421,32 @@ class CancellationRequestService
                 'size' => $file->getSize(),
                 'sha256' => hash('sha256', Storage::disk('public')->get($path)),
                 'uploaded_at' => now(),
-                'origin' => 'CANCELLATION_REQUEST',
+                'origin' => $origin,
             ]);
 
             $this->logEvent($request, $user, 'attachment_added', [
                 'name' => $file->getClientOriginalName(),
                 'path' => $path,
+            ]);
+        }
+    }
+
+    private function removeEvidenceFiles(CancellationRequest $request, array $ids, User $user): void
+    {
+        if (empty($ids)) {
+            return;
+        }
+
+        $files = $request->EvidenceFiles()->whereIn('id', $ids)->get();
+
+        foreach ($files as $file) {
+            if (Storage::disk($file->disk)->exists($file->path)) {
+                Storage::disk($file->disk)->delete($file->path);
+            }
+            $file->delete();
+            $this->logEvent($request, $user, 'attachment_removed', [
+                'name' => $file->original_name,
+                'path' => $file->path,
             ]);
         }
     }

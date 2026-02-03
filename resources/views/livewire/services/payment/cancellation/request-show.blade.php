@@ -30,12 +30,35 @@
                 border-radius: 0.9rem;
                 box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
             }
+
+            .evidence-name {
+                display: block;
+                max-width: 100%;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         </style>
+
+        @php
+            $imageExts = ['jpg','jpeg','png','gif','bmp','svg','tiff','webp'];
+            $imageFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
+                $ext = strtolower((string) $file->extension);
+                return in_array($ext, $imageExts, true) || str_starts_with((string) $file->mime, 'image/');
+            });
+            $otherFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
+                $ext = strtolower((string) $file->extension);
+                return !in_array($ext, $imageExts, true) && !str_starts_with((string) $file->mime, 'image/');
+            });
+        @endphp
 
         <div class="oexterno-header">
             <div class="d-flex flex-column">
                 <h2>Solicitação #{{ $cancellationRequest->id }}</h2>
                 <span class="meta">Detalhe completo da solicitação de cancelamento.</span>
+            </div>
+            <div class="mt-3">
+                <a class="btn btn-outline-light" href="{{ url()->previous() }}">Voltar</a>
             </div>
         </div>
 
@@ -54,7 +77,12 @@
                         <h6>Solicitação</h6>
                         <p class="mb-1"><strong>Categoria:</strong> {{ $cancellationRequest->Category->name ?? '-' }}</p>
                         <p class="mb-1"><strong>Escopo:</strong> {{ $cancellationRequest->scope }}</p>
-                        <p class="mb-1"><strong>Status:</strong> {{ $cancellationRequest->status }}</p>
+                        <p class="mb-1">
+                            <strong>Status:</strong>
+                            <span class="badge {{ $cancellationRequest->status?->badgeClass() ?? 'bg-secondary' }}">
+                                {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
+                            </span>
+                        </p>
                         <p class="mb-1"><strong>Criada por:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
                     </div>
                 </div>
@@ -104,16 +132,58 @@
             <div class="row mt-3">
                 <div class="col-md-6">
                     <h6>Anexos</h6>
-                    <ul class="list-group">
-                        @forelse($cancellationRequest->EvidenceFiles as $file)
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>{{ $file->original_name }}</span>
-                                <button class="btn btn-sm btn-outline-primary" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
-                            </li>
-                        @empty
-                            <li class="list-group-item">Nenhum anexo.</li>
-                        @endforelse
-                    </ul>
+                    @if($imageFiles->isNotEmpty())
+                        <div class="row g-2 mb-3">
+                            @foreach($imageFiles as $file)
+                                <div class="col-6 col-md-4 col-lg-3">
+                                    <div class="border rounded p-2 text-center h-100">
+                                        <img
+                                            src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                            class="img-fluid rounded mb-2"
+                                            style="max-height: 140px; object-fit: cover; width: 100%;"
+                                            alt="{{ $file->original_name }}"
+                                            data-evidence-src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                            data-evidence-name="{{ $file->original_name }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#evidenceModal"
+                                        />
+                                        <div class="small text-muted evidence-name" title="{{ $file->original_name }}">
+                                            {{ $file->original_name }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            Origem:
+                                            @if($file->origin === 'CANCELLATION_CONTROL')
+                                                Controle
+                                            @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
+                                                Execução
+                                            @else
+                                                Solicitação
+                                            @endif
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @if($otherFiles->isNotEmpty())
+                        <ul class="list-group">
+                            @foreach($otherFiles as $file)
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div class="d-flex flex-column">
+                                        <span class="evidence-name" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
+                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }}</small>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+
+                    @if($imageFiles->isEmpty() && $otherFiles->isEmpty())
+                        <div class="text-muted">Nenhum anexo.</div>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <h6>Linha do tempo</h6>
@@ -135,3 +205,33 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="evidenceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="evidenceModalTitle">Evidência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="evidenceModalImage" src="" class="img-fluid rounded" alt="Evidência">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modalImg = document.getElementById('evidenceModalImage');
+        const modalTitle = document.getElementById('evidenceModalTitle');
+        document.querySelectorAll('[data-evidence-src]').forEach((img) => {
+            img.addEventListener('click', () => {
+                modalImg.src = img.dataset.evidenceSrc;
+                modalTitle.textContent = img.dataset.evidenceName || 'Evidência';
+            });
+        });
+    });
+</script>

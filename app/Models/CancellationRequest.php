@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\CancellationRequestStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,6 +13,7 @@ class CancellationRequest extends Model
     public const STATUS_DRAFT = 'DRAFT';
     public const STATUS_SUBMITTED = 'SUBMITTED';
     public const STATUS_ASSIGNED = 'ASSIGNED';
+    public const STATUS_PAUSED = 'PAUSED';
     public const STATUS_DONE = 'DONE';
     public const STATUS_REJECTED = 'REJECTED';
     public const STATUS_ABORTED = 'ABORTED';
@@ -40,6 +42,7 @@ class CancellationRequest extends Model
     ];
 
     protected $casts = [
+        'status' => CancellationRequestStatus::class,
         'submitted_at' => 'datetime',
         'assigned_at' => 'datetime',
         'closed_at' => 'datetime',
@@ -83,5 +86,10 @@ class CancellationRequest extends Model
     public function EvidenceFiles()
     {
         return $this->morphMany(EvidenceFile::class, 'evidenciable');
+    }
+
+    public function Comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable')->orderBy('created_at');
     }
 }

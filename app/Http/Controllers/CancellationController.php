@@ -6,12 +6,12 @@ use Illuminate\Http\Request;
 
 class CancellationController extends Controller
 {
-    public function create(Request $request)
+    public function index(Request $request)
     {
         return view('cancellations.create');
     }
 
-    public function my(Request $request)
+    public function history(Request $request)
     {
         return view('cancellations.my');
     }

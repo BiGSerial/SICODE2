@@ -13,7 +13,6 @@
 @endsection
 
 @section('menu')
-    @include('services.pagamento.menu')
 @endsection
 
 @section('content')

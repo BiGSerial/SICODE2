@@ -13,30 +13,24 @@
         @include('components.menu.partials.services-dropdown-style')
 
         <li class="dropdown-header" style="background-color: #ffffff;">SERVIÇOS GERAIS</li>
-            <li><a class="dropdown-item" href="{{ route('cancellations.create') }}"><i
-                        class="ri-close-circle-line align-middle text-primary"></i>CANCELAMENTO DE NOTAS</a>
-            </li>
-            <li><a class="dropdown-item" href="{{ route('cancellations.my') }}"><i
-                        class="ri-folder-user-line align-middle text-primary"></i>MINHAS SOLICITAÇÕES</a>
-            </li>
+        <li>
+            <a class="menu-link" href="{{ route('cancellations.index') }}">
+                <span><i class="ri-close-circle-line align-middle text-primary"></i>CANCELAMENTO DE NOTAS</span>
+                <i class="ri-arrow-right-s-line"></i>
+            </a>
+        </li>
 
         @if (count($reportsLinks))
-            <li class="menu-item js-menu-toggle" data-target="#panel-relatorios">
-                RELATÓRIOS <i class="ri-arrow-right-s-line"></i>
-            </li>
-            <div id="panel-relatorios" class="menu-panel">
-                <div class="submenu">
-                    <button class="submenu-toggle js-submenu-toggle" data-target="#submenu-relatorios"
-                        type="button">
-                        RELATÓRIOS <i class="ri-arrow-right-s-line"></i>
-                    </button>
-                    <div id="submenu-relatorios" class="submenu-panel">
-                        @foreach ($reportsLinks as $report)
-                            <a class="dropdown-item" href="{{ route($report['route']) }}">
-                                <i class="ri-file-chart-line align-middle text-primary"></i>{{ $report['label'] }}
-                            </a>
-                        @endforeach
-                    </div>
+            <div class="submenu mb-2">
+                <button class="submenu-toggle js-submenu-toggle" data-target="#submenu-relatorios" type="button">
+                    RELATÓRIOS <i class="ri-arrow-right-s-line"></i>
+                </button>
+                <div id="submenu-relatorios" class="submenu-panel">
+                    @foreach ($reportsLinks as $report)
+                        <a class="dropdown-item" href="{{ route($report['route']) }}">
+                            <i class="ri-file-chart-line align-middle text-primary"></i>{{ $report['label'] }}
+                        </a>
+                    @endforeach
                 </div>
             </div>
         @endif

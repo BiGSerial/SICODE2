@@ -111,6 +111,12 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
         Route::get('/view/{protest}', 'protests_view')->name('view');
     });
 
+    Route::prefix('/cancellations')->name('cancellations.')->group(function () {
+        Route::get('/queue', 'cancellation_exec_queue')->name('queue');
+        Route::get('/ongoing', 'cancellation_exec_ongoing')->name('ongoing');
+        Route::get('/history', 'cancellation_exec_history')->name('history');
+    });
+
     Route::prefix('/externo')->name('oexterno.')->group(function () {
         Route::get('/undefined', 'oexterno_undefined')->name('undefined');
         Route::get('/waiting_payment', 'oexterno_waiting_payment')->name('waiting_payment');
@@ -147,6 +153,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
     Route::get('/cancellations/queue', 'cancellationQueue')->name('cancellation.queue');
     Route::get('/cancellations/categories', 'cancellationCategories')->name('cancellation.categories');
+    Route::get('/cancellations/history', 'cancellationHistory')->name('cancellation.history');
     Route::get('/cancellations/{request}', 'cancellationShow')->whereNumber('request')->name('cancellation.show');
 });
 
@@ -194,8 +201,8 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::prefix('/cancelamentos')->controller(CancellationController::class)->middleware('auth')->name('cancellations.')->group(function () {
-    Route::get('/novo', 'create')->name('create');
-    Route::get('/minhas', 'my')->name('my');
+    Route::get('/', 'index')->name('index');
+    Route::get('/historico', 'history')->name('history');
     Route::get('/{request}', 'show')->whereNumber('request')->name('show');
 });
 
