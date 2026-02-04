@@ -300,12 +300,12 @@ class Main extends Component
 
 
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         // RuleBuilder::applyRules($query, $this->service->Status);
 
         // if ($this->protocolar || $this->waiting) {
-        //     // $query = Note::query();
+        //     // $query = Note::query()->excludeCanceledFullDone();
         //     $query->when($this->protocolar, function ($q) {
         //         return $q->where('nstats', 20);
         //     })->when($this->waiting, function ($q) {

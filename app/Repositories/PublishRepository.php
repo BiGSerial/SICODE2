@@ -14,7 +14,7 @@ class PublishRepository
      */
     public function getBaseQuery(bool $all_services = false): Builder
     {
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         if (!$all_services) {
             $query->whereHas('Orders', function ($q) {

@@ -208,7 +208,7 @@ class Main extends Component
         }
         $this->filter = session("filter.{$this->filter_group}", []);
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
 
 

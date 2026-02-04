@@ -14,7 +14,7 @@ class ApprovalsRepository
      */
     public function getBaseQuery(): Builder
     {
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         $query->where(function ($query) {
             $query->where(function ($qq) {

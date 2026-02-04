@@ -15,6 +15,7 @@ class SurveyRepository
     public function getBaseQuery(): Builder
     {
         return Note::query()
+            ->excludeCanceledFullDone()
             ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id')
             ->where(function ($q) {
                 $q->orwhere(function ($sq) {

@@ -949,7 +949,7 @@ class Main extends Component
     {
         // dd($this->base);
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
         RuleBuilder::applyRules($query, $this->service->Status);
 
 

@@ -480,7 +480,7 @@ class Main extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         RuleBuilder::applyRules($query, $this->service->Status);
 
