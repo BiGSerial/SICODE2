@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Payment\Cancellation;
 use App\Models\CancellationCategory;
 use App\Models\CancellationRequest;
 use App\Models\Note;
+use App\Enum\CancellationRequestScope;
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +22,7 @@ class RequestCreate extends Component
     public string $noteSearch = '';
     public ?Note $note = null;
     public array $orders = [];
-    public string $scope = CancellationRequest::SCOPE_NOTE_FULL;
+    public string $scope = CancellationRequestScope::NOTE_FULL->value;
     public array $selectedOrders = [];
     public ?int $categoryId = null;
     public ?string $description = null;
@@ -98,7 +99,7 @@ class RequestCreate extends Component
         })->toArray();
 
         if ($note->canceled || $note->Orders->where('canceled', true)->count() > 0) {
-            $this->scope = CancellationRequest::SCOPE_ORDERS_PARTIAL;
+            $this->scope = CancellationRequestScope::ORDERS_PARTIAL->value;
         }
     }
 
@@ -153,7 +154,7 @@ class RequestCreate extends Component
 
         $rules = [
             'noteSearch' => 'required|string',
-            'scope' => 'required|in:' . CancellationRequest::SCOPE_NOTE_FULL . ',' . CancellationRequest::SCOPE_ORDERS_PARTIAL,
+            'scope' => 'required|in:' . implode(',', CancellationRequestScope::values()),
             'categoryId' => 'required|integer',
             'description' => 'nullable|string|max:2000',
             'selectedOrders' => 'array',
@@ -161,7 +162,7 @@ class RequestCreate extends Component
             'files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}",
         ];
 
-        if ($this->scope === CancellationRequest::SCOPE_ORDERS_PARTIAL) {
+        if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
             $rules['selectedOrders'] = 'required|array|min:1';
         }
 
@@ -173,7 +174,7 @@ class RequestCreate extends Component
         $this->noteSearch = '';
         $this->note = null;
         $this->orders = [];
-        $this->scope = CancellationRequest::SCOPE_NOTE_FULL;
+        $this->scope = CancellationRequestScope::NOTE_FULL->value;
         $this->selectedOrders = [];
         $this->categoryId = null;
         $this->description = null;

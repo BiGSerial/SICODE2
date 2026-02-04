@@ -1,4 +1,4 @@
-@extends('layouts.padrao')
+@extends('layouts.padrao_ext')
 
 @section('breadcrumb')
     <nav aria-label="breadcrumb" class="py-0 my-0">

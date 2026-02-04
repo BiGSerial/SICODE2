@@ -3,6 +3,7 @@
 namespace App\Services\Payment;
 
 use App\Enum\CancellationRequestStatus;
+use App\Enum\CancellationRequestScope;
 use App\Models\CancellationCategory;
 use App\Models\Comment;
 use App\Models\CancellationRequest;
@@ -10,12 +11,13 @@ use App\Models\CancellationRequestEvent;
 use App\Models\Note;
 use App\Models\Order;
 use App\Models\User;
+use App\Models\EvidenceFile;
+use App\Support\EvidenceFileUploader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class CancellationRequestService
@@ -36,7 +38,7 @@ class CancellationRequestService
 
             $ordersCollection = $this->resolveOrders($note, $scope, $orders);
 
-            if ($ordersCollection->isEmpty()) {
+            if ($ordersCollection->isEmpty() && $scope !== CancellationRequestScope::NOTE_FULL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
             }
 
@@ -150,7 +152,7 @@ class CancellationRequestService
                 throw new RuntimeException('Somente o responsável pode finalizar.');
             }
 
-            if ($request->scope === CancellationRequest::SCOPE_NOTE_FULL) {
+            if ($request->scope === CancellationRequestScope::NOTE_FULL) {
                 if ($request->Note->canceled) {
                     throw new RuntimeException('Nota já cancelada.');
                 }
@@ -261,7 +263,7 @@ class CancellationRequestService
         return DB::transaction(function () use ($request, $actor, $target) {
             $request->refresh();
 
-            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED], true)) {
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED, CancellationRequestStatus::DONE], true)) {
                 throw new RuntimeException('Solicitação não está disponível para transferência.');
             }
 
@@ -269,9 +271,13 @@ class CancellationRequestService
                 'assigned_to' => $target->id,
                 'assigned_at' => now(),
                 'status' => CancellationRequestStatus::ASSIGNED,
+                'closed_by' => $request->status === CancellationRequestStatus::DONE ? null : $request->closed_by,
+                'closed_at' => $request->status === CancellationRequestStatus::DONE ? null : $request->closed_at,
+                'closure_type' => $request->status === CancellationRequestStatus::DONE ? null : $request->closure_type,
+                'closure_note' => $request->status === CancellationRequestStatus::DONE ? null : $request->closure_note,
             ]);
 
-            $this->logEvent($request, $actor, 'transferred', [
+            $this->logEvent($request, $actor, $request->status === CancellationRequestStatus::DONE ? 'reopened' : 'transferred', [
                 'from' => $actor->id,
                 'to' => $target->id,
             ]);
@@ -307,7 +313,7 @@ class CancellationRequestService
 
             $ordersCollection = $this->resolveOrders($request->Note, $scope, $orders);
 
-            if ($ordersCollection->isEmpty()) {
+            if ($ordersCollection->isEmpty() && $scope !== CancellationRequestScope::NOTE_FULL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
             }
 
@@ -359,7 +365,7 @@ class CancellationRequestService
     {
         $orders = array_filter(Arr::flatten($orders));
 
-        if ($scope === CancellationRequest::SCOPE_NOTE_FULL) {
+        if ($scope === CancellationRequestScope::NOTE_FULL->value) {
             if ($note->Orders()->where('canceled', true)->exists()) {
                 throw new RuntimeException('Nota possui ordens já canceladas. Selecione ordens específicas.');
             }
@@ -397,38 +403,28 @@ class CancellationRequestService
             return;
         }
 
-        $dir = 'evidences/CANCELLATION_REQUEST/' . $request->id;
-        $noteRef = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($request->Note?->note ?? 'nota'));
+        (new EvidenceFileUploader())->storeCancellationEvidence($request, $attachments, $user, $origin);
 
         foreach ($attachments as $file) {
             if (!$file instanceof UploadedFile) {
                 continue;
             }
 
-            $extension = strtolower($file->getClientOriginalExtension());
-            $hash = Str::lower(Str::random(6));
-            $storedName = "evidencia-{$noteRef}-{$hash}";
-            $path = $file->storeAs($dir, $storedName . '.' . $extension, 'public');
-
-            $request->EvidenceFiles()->create([
-                'user_id' => $user->id,
-                'original_name' => $file->getClientOriginalName(),
-                'stored_name' => $storedName,
-                'disk' => 'public',
-                'path' => $path,
-                'mime' => $file->getMimeType(),
-                'extension' => $extension,
-                'size' => $file->getSize(),
-                'sha256' => hash('sha256', Storage::disk('public')->get($path)),
-                'uploaded_at' => now(),
-                'origin' => $origin,
-            ]);
-
             $this->logEvent($request, $user, 'attachment_added', [
                 'name' => $file->getClientOriginalName(),
-                'path' => $path,
             ]);
         }
+    }
+
+    public function attachSharedEvidence(CancellationRequest $request, User $user, array $data, string $origin): EvidenceFile
+    {
+        $file = (new EvidenceFileUploader())->attachEvidence($request, $user, $data, $origin);
+
+        $this->logEvent($request, $user, 'attachment_added', [
+            'name' => $data['original_name'] ?? $file->original_name,
+        ]);
+
+        return $file;
     }
 
     private function removeEvidenceFiles(CancellationRequest $request, array $ids, User $user): void
@@ -440,7 +436,13 @@ class CancellationRequestService
         $files = $request->EvidenceFiles()->whereIn('id', $ids)->get();
 
         foreach ($files as $file) {
-            if (Storage::disk($file->disk)->exists($file->path)) {
+            $sharedCount = EvidenceFile::query()
+                ->where('disk', $file->disk)
+                ->where('path', $file->path)
+                ->whereNull('deleted_at')
+                ->count();
+
+            if ($sharedCount <= 1 && Storage::disk($file->disk)->exists($file->path)) {
                 Storage::disk($file->disk)->delete($file->path);
             }
             $file->delete();

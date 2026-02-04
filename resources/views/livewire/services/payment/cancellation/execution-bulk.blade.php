@@ -31,28 +31,6 @@
                 box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
             }
 
-            .evidence-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                gap: 12px;
-            }
-
-            .evidence-card {
-                border: 1px solid var(--oe-border);
-                border-radius: 0.75rem;
-                background: #fff;
-                padding: 0.6rem;
-                text-align: center;
-                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
-            }
-
-            .evidence-thumb {
-                width: 100%;
-                height: 110px;
-                object-fit: cover;
-                border-radius: 0.6rem;
-            }
-
             .evidence-name {
                 display: block;
                 max-width: 100%;
@@ -60,62 +38,39 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-
-            .comment-text {
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
         </style>
 
-        <div class="oexterno-header">
-            <div class="d-flex flex-column">
-                <h2>Em Andamento</h2>
-                <span class="meta">Solicitações atribuídas a você.</span>
+        <div class="oexterno-header d-flex align-items-center">
+            <div class="me-auto">
+                <h2>Cancelamento em massa</h2>
+                <span class="meta">Revise antes de executar.</span>
             </div>
+            <a class="btn btn-outline-light" href="{{ route('services.cancellations.ongoing', ['service' => $service]) }}">Voltar</a>
         </div>
 
-        <div class="oexterno-card p-3 mb-4">
-            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                <strong class="me-auto">Consulta em massa</strong>
-                <button class="btn btn-outline-secondary btn-sm" wire:click="exportUserList">
-                    Exportar lista
-                </button>
-                <button class="btn btn-outline-primary btn-sm" wire:click="goBulkReview"
-                    @disabled(count($selected) < 2)>
-                    Revisar seleção
+        <div class="oexterno-card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <strong class="me-auto">Ações</strong>
+                <button class="btn btn-outline-primary btn-sm" wire:click="exportOrders">
+                    <i class="ri-file-excel-2-line align-middle"></i> Exportar por ordem
                 </button>
             </div>
-            <textarea class="form-control mb-3" rows="2"
-                placeholder="Notas/Ordens (separe por vírgula, espaço ou linha)"
-                wire:model.debounce.600ms="multiSearch"></textarea>
 
             <div class="table-responsive">
                 <table class="table table-sm table-striped">
                     <thead>
                         <tr>
-                            <th>
-                                <input type="checkbox" class="form-check-input"
-                                    wire:model="selectAll"
-                                    wire:change="setSelectAll(@json($requests->pluck('id')->all()))">
-                            </th>
                             <th>#</th>
                             <th>Nota</th>
                             <th>Ordens</th>
                             <th>Categoria</th>
                             <th>Status</th>
                             <th>Assumido em</th>
-                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($requests as $request)
                             <tr>
-                                <td>
-                                    <input type="checkbox" class="form-check-input" value="{{ $request->id }}"
-                                        wire:model="selected">
-                                </td>
                                 <td>{{ $request->id }}</td>
                                 <td>{{ $request->Note->note ?? '-' }}</td>
                                 <td>{{ $request->Orders->pluck('ordem')->implode(', ') }}</td>
@@ -126,23 +81,59 @@
                                     </span>
                                 </td>
                                 <td>{{ optional($request->assigned_at)->format('d/m/Y H:i') }}</td>
-                                <td>
-                                    <a class="btn btn-sm btn-outline-primary"
-                                        href="{{ route('services.cancellations.ongoing.show', ['service' => $service, 'request' => $request->id]) }}">
-                                        Detalhar
-                                    </a>
-                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">Nenhuma solicitação atribuída.</td>
+                                <td colspan="6" class="text-center">Nenhuma solicitação para revisão.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            {{ $requests->links() }}
         </div>
 
+        <div class="oexterno-card p-3">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Ação</label>
+                    <select class="form-select" wire:model="action">
+                        <option value="DONE">Finalizar</option>
+                        <option value="PAUSED">Pausar</option>
+                        <option value="ABORTED">Cancelar</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Comentário (obrigatório p/ pausar ou cancelar)</label>
+                    <textarea class="form-control" rows="4" wire:model.defer="comment"></textarea>
+                    @error('comment')<span class="text-danger small">{{ $message }}</span>@enderror
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Evidências (1x para todos)</label>
+                    <input type="file" class="form-control" multiple wire:model="files" />
+                    <ul class="list-group mt-2">
+                        @foreach($tempFiles as $index => $file)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span class="evidence-name">{{ $file['original_name'] }}</span>
+                                <button class="btn btn-sm btn-outline-danger" wire:click="removeTempFile({{ $index }})">Remover</button>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-info h-100 mb-0">
+                        Os anexos enviados aqui serão referenciados por todas as solicitações selecionadas.
+                        O arquivo é armazenado uma única vez no sistema.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <button class="btn btn-success"
+                    onclick="if(!confirm('Confirmar ação em massa?')){event.stopImmediatePropagation();}"
+                    wire:click="runBulkAction">
+                    Executar
+                </button>
+            </div>
+        </div>
     </div>
 </div>

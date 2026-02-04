@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enum\CancellationRequestStatus;
+use App\Enum\CancellationRequestScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,9 +18,6 @@ class CancellationRequest extends Model
     public const STATUS_DONE = 'DONE';
     public const STATUS_REJECTED = 'REJECTED';
     public const STATUS_ABORTED = 'ABORTED';
-
-    public const SCOPE_NOTE_FULL = 'NOTE_FULL';
-    public const SCOPE_ORDERS_PARTIAL = 'ORDERS_PARTIAL';
 
     public const CLOSURE_DONE = 'DONE';
     public const CLOSURE_REJECTED = 'REJECTED';
@@ -43,6 +41,7 @@ class CancellationRequest extends Model
 
     protected $casts = [
         'status' => CancellationRequestStatus::class,
+        'scope' => CancellationRequestScope::class,
         'submitted_at' => 'datetime',
         'assigned_at' => 'datetime',
         'closed_at' => 'datetime',

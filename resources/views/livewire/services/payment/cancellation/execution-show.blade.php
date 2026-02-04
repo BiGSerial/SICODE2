@@ -79,7 +79,7 @@
                 text-overflow: ellipsis;
             }
 
-            .timeline-meta {
+            .comment-text {
                 display: -webkit-box;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
@@ -104,17 +104,15 @@
             });
         @endphp
 
-        <div class="oexterno-header">
-            <div class="d-flex flex-column">
-                <h2>Solicitação #{{ $cancellationRequest->id }}</h2>
-                <span class="meta">Detalhe completo da solicitação de cancelamento.</span>
+        <div class="oexterno-header d-flex align-items-center">
+            <div class="me-auto">
+                <h2>Execução #{{ $cancellationRequest->id }}</h2>
+                <span class="meta">Tudo à vista para executar a solicitação.</span>
             </div>
-            <div class="mt-3">
-                <a class="btn btn-outline-light" href="{{ url()->previous() }}">Voltar</a>
-            </div>
+            <a class="btn btn-outline-light" href="{{ route('services.cancellations.ongoing', ['service' => $service]) }}">Voltar</a>
         </div>
 
-        <div class="oexterno-card p-3 mb-3">
+        <div class="oexterno-card p-3">
             <div class="row g-3">
                 <div class="col-md-4">
                     <div class="oexterno-subcard">
@@ -140,15 +138,14 @@
                                 {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
                             </span>
                         </p>
-                        <p class="mb-1"><strong>Criada por:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
+                        <p class="mb-1"><strong>Solicitante:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="oexterno-subcard">
                         <div class="section-title">Execução</div>
-                        <p class="mb-1"><strong>Assumido:</strong> {{ $cancellationRequest->Assignee->name ?? '-' }}</p>
-                        <p class="mb-1"><strong>Finalizado por:</strong> {{ $cancellationRequest->Closer->name ?? '-' }}</p>
-                        <p class="mb-1"><strong>Encerrado em:</strong> {{ optional($cancellationRequest->closed_at)->format('d/m/Y H:i') }}</p>
+                        <p class="mb-1"><strong>Assumido em:</strong> {{ optional($cancellationRequest->assigned_at)->format('d/m/Y H:i') }}</p>
+                        <p class="mb-1"><strong>Última atualização:</strong> {{ optional($cancellationRequest->updated_at)->format('d/m/Y H:i') }}</p>
                     </div>
                 </div>
             </div>
@@ -182,45 +179,50 @@
             </div>
 
             <div class="row mt-3">
-                <div class="col-12">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Descrição</div>
-                        <p class="mb-0">{{ $cancellationRequest->description ?? '-' }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-3">
                 <div class="col-md-6">
                     <div class="oexterno-subcard">
-                        <div class="section-title">Anexos</div>
-                    @if($imageFiles->isNotEmpty())
+                        <div class="section-title">Comentários</div>
+                        <ul class="list-group">
+                        @forelse($cancellationRequest->Comments as $commentItem)
+                            <li class="list-group-item">
+                                <strong>{{ $commentItem->User->name ?? '-' }}</strong>
+                                <div class="small text-muted">{{ optional($commentItem->created_at)->format('d/m/Y H:i') }}</div>
+                                <div class="comment-text">{{ $commentItem->message }}</div>
+                                <button class="btn btn-link btn-sm p-0"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#comment-full-{{ $commentItem->id }}">
+                                    Ver comentário
+                                </button>
+                                <div class="collapse mt-1" id="comment-full-{{ $commentItem->id }}">
+                                    <div class="small">{{ $commentItem->message }}</div>
+                                </div>
+                            </li>
+                        @empty
+                            <li class="list-group-item">Sem comentários.</li>
+                        @endforelse
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Evidências</div>
+                    @if($imageFiles->count())
                         <div class="evidence-grid mb-3">
                             @foreach($imageFiles as $file)
                                 <div class="evidence-card">
-                                    <img
-                                        src="{{ Storage::disk($file->disk)->url($file->path) }}"
-                                        class="evidence-thumb mb-2"
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk($file->disk)->url($file->path) }}"
+                                        class="evidence-thumb"
                                         alt="{{ $file->original_name }}"
-                                        data-evidence-src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                        data-evidence-src="{{ \Illuminate\Support\Facades\Storage::disk($file->disk)->url($file->path) }}"
                                         data-evidence-name="{{ $file->original_name }}"
                                         data-bs-toggle="modal"
-                                        data-bs-target="#evidenceModal"
-                                    />
-                                    <div class="small text-muted evidence-name" title="{{ $file->original_name }}">
+                                        data-bs-target="#evidenceModal">
+                                    <div class="small text-muted evidence-name mt-2" title="{{ $file->original_name }}">
                                         {{ $file->original_name }}
                                     </div>
-                                    <div class="small text-muted">
-                                        Origem:
-                                        @if($file->origin === 'CANCELLATION_CONTROL')
-                                            Controle
-                                        @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
-                                            Execução
-                                        @else
-                                            Solicitação
-                                        @endif
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary mt-2" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                    <div class="small text-muted">Origem: {{ $file->origin }}</div>
+                                    <button class="btn btn-sm btn-outline-primary mt-2"
+                                        wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
                                     <button class="btn btn-link btn-sm p-0 mt-1"
                                         data-bs-toggle="collapse"
                                         data-bs-target="#evidence-name-{{ $file->id }}">
@@ -234,21 +236,13 @@
                         </div>
                     @endif
 
-                    @if($otherFiles->isNotEmpty())
+                    @if($otherFiles->count())
                         <ul class="list-group">
                             @foreach($otherFiles as $file)
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <div class="d-flex flex-column flex-grow-1 me-2">
                                         <span class="evidence-name" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
-                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }} | Origem:
-                                            @if($file->origin === 'CANCELLATION_CONTROL')
-                                                Controle
-                                            @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
-                                                Execução
-                                            @else
-                                                Solicitação
-                                            @endif
-                                        </small>
+                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }} | Origem: {{ $file->origin }}</small>
                                         <button class="btn btn-link btn-sm p-0"
                                             data-bs-toggle="collapse"
                                             data-bs-target="#evidence-full-{{ $file->id }}">
@@ -258,7 +252,8 @@
                                             <div class="small text-muted">{{ $file->original_name }}</div>
                                         </div>
                                     </div>
-                                    <button class="btn btn-sm btn-outline-primary" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
                                 </li>
                             @endforeach
                         </ul>
@@ -269,8 +264,11 @@
                     @endif
                     </div>
                 </div>
-                @can('admin')
-                    <div class="col-md-6">
+            </div>
+
+            @can('admin')
+                <div class="row mt-3">
+                    <div class="col-12">
                         <div class="oexterno-subcard">
                             <div class="section-title">Linha do tempo</div>
                             <div class="accordion" id="timelineAccordion">
@@ -291,15 +289,7 @@
                                                             <strong>{{ strtoupper($event->type) }}</strong>
                                                             <div class="small text-muted">{{ optional($event->created_at)->format('d/m/Y H:i') }} - {{ $event->Actor->name ?? 'Sistema' }}</div>
                                                             @if(!empty($event->meta))
-                                                                <div class="small timeline-meta">{{ json_encode($event->meta) }}</div>
-                                                                <button class="btn btn-link btn-sm p-0"
-                                                                    data-bs-toggle="collapse"
-                                                                    data-bs-target="#event-meta-{{ $event->id }}">
-                                                                    Ver detalhes
-                                                                </button>
-                                                                <div class="collapse mt-1" id="event-meta-{{ $event->id }}">
-                                                                    <div class="small">{{ json_encode($event->meta) }}</div>
-                                                                </div>
+                                                                <div class="small">{{ json_encode($event->meta) }}</div>
                                                             @endif
                                                         </li>
                                                     @empty
@@ -313,24 +303,65 @@
                             </div>
                         </div>
                     </div>
-                @endcan
-            </div>
+                </div>
+            @endcan
+
+            @if(in_array($cancellationRequest->status, [\App\Enum\CancellationRequestStatus::ASSIGNED, \App\Enum\CancellationRequestStatus::PAUSED], true))
+                <div class="row mt-4 g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Ação</label>
+                        <select class="form-select" wire:model="action">
+                            <option value="DONE">Finalizar</option>
+                            <option value="PAUSED">Pausar</option>
+                            <option value="ABORTED">Cancelar</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Comentário</label>
+                        <textarea class="form-control" rows="2" wire:model.defer="comment"></textarea>
+                        @error('comment')<span class="text-danger small">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+
+                <div class="row mt-3 g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Anexar evidências</label>
+                        <input type="file" class="form-control" multiple wire:model="files" />
+                        <ul class="list-group mt-2">
+                            @foreach($tempFiles as $index => $file)
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span class="evidence-name">{{ $file['original_name'] }}</span>
+                                    <button class="btn btn-sm btn-outline-danger" wire:click="removeTempFile({{ $index }})">Remover</button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button class="btn btn-success"
+                        onclick="if(!confirm('Confirmar ação na solicitação?')){event.stopImmediatePropagation();}"
+                        wire:click="runAction">
+                        Executar
+                    </button>
+                </div>
+            @endif
         </div>
     </div>
-</div>
 
-<div class="modal fade" id="evidenceModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="evidenceModalTitle">Evidência</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body text-center">
-                <img id="evidenceModalImage" src="" class="img-fluid rounded" alt="Evidência">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+    <div class="modal fade" id="evidenceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="evidenceModalTitle">Evidência</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="evidenceModalImage" src="" class="img-fluid rounded" alt="Evidência">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
         </div>
     </div>

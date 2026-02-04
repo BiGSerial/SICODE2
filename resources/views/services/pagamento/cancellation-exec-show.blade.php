@@ -5,8 +5,9 @@
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                <li class="breadcrumb-item">Despachos</li>
-                <li class="breadcrumb-item active" aria-current="page">Detalhe Cancelamento</li>
+                <li class="breadcrumb-item">Serviços</li>
+                <li class="breadcrumb-item">Pagamento</li>
+                <li class="breadcrumb-item active" aria-current="page">Execução Cancelamento</li>
             </ol>
         </ol>
     </nav>
@@ -16,5 +17,5 @@
 @endsection
 
 @section('content')
-    @livewire('dispatchs.payment.cancellation.queue-show', ['service' => $service->uuid, 'request' => $request])
+    @livewire('services.payment.cancellation.execution-show', ['service' => $service->uuid, 'request' => $request])
 @endsection

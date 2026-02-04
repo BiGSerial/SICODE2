@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Dispatchs\Payment\Cancellation;
 
 use App\Models\CancellationRequest;
+use App\Enum\CancellationRequestScope;
 use App\Models\EvidenceFile;
 use App\Models\ServiceUser;
 use App\Models\User;
@@ -29,7 +30,7 @@ class QueueShow extends Component
     public ?string $abortReason = null;
 
     public bool $editing = false;
-    public string $editScope = CancellationRequest::SCOPE_NOTE_FULL;
+    public string $editScope = CancellationRequestScope::NOTE_FULL->value;
     public ?int $editCategoryId = null;
     public ?string $editDescription = null;
     public array $editSelectedOrders = [];
@@ -118,7 +119,7 @@ class QueueShow extends Component
         $this->authorize('edit', $this->cancellationRequest);
 
         $this->editing = true;
-        $this->editScope = $this->cancellationRequest->scope;
+        $this->editScope = $this->cancellationRequest->scope?->value ?? CancellationRequestScope::NOTE_FULL->value;
         $this->editCategoryId = $this->cancellationRequest->category_id;
         $this->editDescription = $this->cancellationRequest->description;
         $this->editSelectedOrders = $this->cancellationRequest->Orders->pluck('id')->all();
@@ -135,7 +136,7 @@ class QueueShow extends Component
     public function cancelEdit(): void
     {
         $this->editing = false;
-        $this->editScope = CancellationRequest::SCOPE_NOTE_FULL;
+        $this->editScope = CancellationRequestScope::NOTE_FULL->value;
         $this->editCategoryId = null;
         $this->editDescription = null;
         $this->editSelectedOrders = [];
@@ -149,11 +150,11 @@ class QueueShow extends Component
     {
         $this->authorize('edit', $this->cancellationRequest);
 
-        if ($this->editScope === CancellationRequest::SCOPE_NOTE_FULL) {
+        if ($this->editScope === CancellationRequestScope::NOTE_FULL->value) {
             $this->editSelectedOrders = collect($this->editOrders)->pluck('id')->all();
         }
 
-        if ($this->editScope === CancellationRequest::SCOPE_ORDERS_PARTIAL && empty($this->editSelectedOrders)) {
+        if ($this->editScope === CancellationRequestScope::ORDERS_PARTIAL->value && empty($this->editSelectedOrders)) {
             $this->addError('editSelectedOrders', 'Selecione ao menos uma ordem.');
             return;
         }

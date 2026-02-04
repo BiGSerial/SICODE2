@@ -90,11 +90,11 @@
                             <div class="col-md-6">
                                 <label class="form-label">Escopo</label>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" wire:model="scope" value="NOTE_FULL" id="scopeFull" @if($noteCanceled || $hasCanceledOrders) disabled @endif>
+                                    <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::NOTE_FULL->value }}" id="scopeFull" @if($noteCanceled || $hasCanceledOrders) disabled @endif>
                                     <label class="form-check-label" for="scopeFull">Cancelar nota inteira</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" wire:model="scope" value="ORDERS_PARTIAL" id="scopePartial">
+                                    <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::ORDERS_PARTIAL->value }}" id="scopePartial">
                                     <label class="form-check-label" for="scopePartial">Cancelar ordens específicas</label>
                                 </div>
                                 @error('scope')<span class="text-danger small">{{ $message }}</span>@enderror
@@ -119,7 +119,7 @@
                                                 <tr>
                                                     <td>
                                                         @if(!$order['canceled'])
-                                                            <input class="form-check-input" type="checkbox" value="{{ $order['id'] }}" wire:model="selectedOrders" @if($scope !== 'ORDERS_PARTIAL') disabled @endif>
+                                                            <input class="form-check-input" type="checkbox" value="{{ $order['id'] }}" wire:model="selectedOrders" @if($scope !== \App\Enum\CancellationRequestScope::ORDERS_PARTIAL->value) disabled @endif>
                                                         @endif
                                                     </td>
                                                     <td>{{ $order['ordem'] }}</td>

@@ -114,6 +114,8 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::prefix('/cancellations')->name('cancellations.')->group(function () {
         Route::get('/queue', 'cancellation_exec_queue')->name('queue');
         Route::get('/ongoing', 'cancellation_exec_ongoing')->name('ongoing');
+        Route::get('/ongoing/{request}', 'cancellation_exec_show')->whereNumber('request')->name('ongoing.show');
+        Route::get('/ongoing-bulk', 'cancellation_exec_bulk')->name('ongoing.bulk');
         Route::get('/history', 'cancellation_exec_history')->name('history');
     });
 

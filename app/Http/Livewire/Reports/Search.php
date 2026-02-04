@@ -62,7 +62,7 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                     ])->select([
-                        'id','note_id','created_at'
+                        'id','note_id','scope','status','closed_at','created_at'
                     ]);
                 },
 
