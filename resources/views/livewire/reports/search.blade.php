@@ -21,17 +21,81 @@
 
     @if ($lists)
         {{-- DADOS DA NOTA --}}
+        @php
+            $cancellationRequests = $lists->CancellationRequests ?? collect();
+            $validStatuses = [
+                \App\Enum\CancellationRequestStatus::SUBMITTED->value,
+                \App\Enum\CancellationRequestStatus::ASSIGNED->value,
+                \App\Enum\CancellationRequestStatus::PAUSED->value,
+                \App\Enum\CancellationRequestStatus::DONE->value,
+            ];
+
+            $noteCancel = $cancellationRequests
+                ->filter(function ($req) use ($validStatuses) {
+                    $status = $req->status?->value ?? $req->status;
+                    $isValid = in_array($status, $validStatuses, true);
+                    $isNoteScope = ($req->scope?->value ?? $req->scope) === \App\Enum\CancellationRequestScope::NOTE_FULL->value;
+                    $noOrders = $req->Orders->isEmpty();
+                    return $isValid && ($isNoteScope || $noOrders);
+                })
+                ->sortByDesc('created_at')
+                ->first();
+
+            $noteCancelStatus = $noteCancel?->status?->value ?? $noteCancel?->status;
+            $noteCancelLabel = null;
+            $noteCancelClass = 'btn-outline-secondary';
+
+            if ($noteCancelStatus === \App\Enum\CancellationRequestStatus::SUBMITTED->value) {
+                $noteCancelLabel = 'Solicitado Cancelamento';
+                $noteCancelClass = 'btn-outline-info';
+            } elseif (in_array($noteCancelStatus, [
+                \App\Enum\CancellationRequestStatus::ASSIGNED->value,
+                \App\Enum\CancellationRequestStatus::PAUSED->value,
+            ], true)) {
+                $noteCancelLabel = 'Em Cancelamento';
+                $noteCancelClass = 'btn-outline-warning';
+            } elseif ($noteCancelStatus === \App\Enum\CancellationRequestStatus::DONE->value) {
+                $noteCancelLabel = 'Cancelado';
+                $noteCancelClass = 'btn-outline-success';
+            }
+
+            $hasSapCancel = $lists->Orders->contains(function ($order) {
+                return \Illuminate\Support\Str::startsWith($order->statusSist ?? '', ['CANC', 'ENTE', 'ENCE']);
+            });
+
+            $noteCancelDoneAt = $noteCancel?->closed_at;
+            $noteCancelInconsistent = false;
+            if ($noteCancelStatus === \App\Enum\CancellationRequestStatus::DONE->value
+                && $noteCancelDoneAt
+                && $noteCancelDoneAt->diffInHours(now()) >= 24
+                && !$hasSapCancel) {
+                $noteCancelInconsistent = true;
+            }
+        @endphp
+
         <div class="card border-0 mt-4 shadow edp-bg-sprucegreen-70 edp-text-verde-dark">
             <div class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h4 class="mb-0">
                     NOTA/OV: <strong class="text-uppercase">{{ $lists->note }}</strong>
                 </h4>
-                @if ($hasProtestOverview)
-                    <a href="{{ route('protests.common.note', ['note' => $lists->id]) }}" target="_blank" class="btn btn-outline-light btn-sm">
-                        <i class="ri-external-link-line me-1"></i>
-                        Detalhes do Protesto
-                    </a>
-                @endif
+                <div class="d-flex flex-wrap gap-2">
+                    @if ($noteCancel && $noteCancelLabel)
+                        <a href="{{ route('cancellations.show', ['request' => $noteCancel->id]) }}"
+                            class="btn btn-sm {{ $noteCancelClass }} {{ $noteCancelInconsistent ? 'border-danger text-danger' : '' }}"
+                            target="_blank" rel="noopener">
+                            {{ $noteCancelLabel }}
+                            @if ($noteCancelInconsistent)
+                                <span class="ms-1">• Inconsistente</span>
+                            @endif
+                        </a>
+                    @endif
+                    @if ($hasProtestOverview)
+                        <a href="{{ route('protests.common.note', ['note' => $lists->id]) }}" target="_blank" class="btn btn-outline-light btn-sm">
+                            <i class="ri-external-link-line me-1"></i>
+                            Detalhes do Protesto
+                        </a>
+                    @endif
+                </div>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -127,11 +191,45 @@
                         {{-- ORDENS (já vêm com Operations) --}}
                         @if ($lists->Orders->count())
                             @foreach ($lists->Orders as $order)
+                                @php
+                                    $orderCancellation = $lists->CancellationRequests
+                                        ->filter(fn($req) => $req->Orders->contains('id', $order->id))
+                                        ->filter(fn($req) => in_array($req->status?->value ?? $req->status, $validStatuses, true))
+                                        ->sortByDesc('created_at')
+                                        ->first();
+
+                                    $orderCancelStatus = $orderCancellation?->status?->value ?? $orderCancellation?->status;
+                                    $orderCancelLabel = null;
+                                    $orderCancelClass = 'btn-outline-secondary';
+
+                                    if ($orderCancelStatus === \App\Enum\CancellationRequestStatus::SUBMITTED->value) {
+                                        $orderCancelLabel = 'Solicitado Cancelamento';
+                                        $orderCancelClass = 'btn-outline-info';
+                                    } elseif (in_array($orderCancelStatus, [
+                                        \App\Enum\CancellationRequestStatus::ASSIGNED->value,
+                                        \App\Enum\CancellationRequestStatus::PAUSED->value,
+                                    ], true)) {
+                                        $orderCancelLabel = 'Em Cancelamento';
+                                        $orderCancelClass = 'btn-outline-warning';
+                                    } elseif ($orderCancelStatus === \App\Enum\CancellationRequestStatus::DONE->value) {
+                                        $orderCancelLabel = 'Cancelado';
+                                        $orderCancelClass = 'btn-outline-success';
+                                    }
+                                @endphp
                                 <div class="card border-0 shadow mb-3">
-                                    <div class="card-header edp-bg-sprucegreen-100 text-white">
-                                        <span class="text-edp-verde">ORDEM:</span>
-                                        {{ $order->ordem }}
-                                        ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
+                                    <div class="card-header edp-bg-sprucegreen-100 text-white d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="text-edp-verde">ORDEM:</span>
+                                            {{ $order->ordem }}
+                                            ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
+                                        </div>
+                                        @if ($orderCancellation && $orderCancelLabel)
+                                            <a class="btn btn-sm {{ $orderCancelClass }}"
+                                                href="{{ route('cancellations.show', ['request' => $orderCancellation->id]) }}"
+                                                target="_blank" rel="noopener">
+                                                {{ $orderCancelLabel }}
+                                            </a>
+                                        @endif
                                     </div>
 
                                     @php

@@ -27,6 +27,14 @@ class Order extends Model
         'conjunto',
         'denConjunto',
         'dtEntrada',
+        'canceled',
+        'canceled_at',
+        'canceled_by',
+    ];
+
+    protected $casts = [
+        'canceled' => 'boolean',
+        'canceled_at' => 'datetime',
     ];
 
     public function Note()
@@ -57,5 +65,10 @@ class Order extends Model
     public function Partials()
     {
         return $this->belongsToMany(Partial::class, 'order_partial');
+    }
+
+    public function CancellationRequests()
+    {
+        return $this->belongsToMany(CancellationRequest::class, 'cancellation_request_orders')->withTimestamps();
     }
 }

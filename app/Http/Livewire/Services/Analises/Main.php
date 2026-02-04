@@ -208,7 +208,7 @@ class Main extends Component
     public function getListsProperty()
     {
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         RuleBuilder::applyRules($query, $this->service->Status);
 

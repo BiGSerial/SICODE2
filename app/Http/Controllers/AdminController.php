@@ -50,4 +50,9 @@ class AdminController extends Controller
     {
         return view('admin.control.notes');
     }
+
+    public function cancellation_categories()
+    {
+        return view('admin.cancellation_categories');
+    }
 }

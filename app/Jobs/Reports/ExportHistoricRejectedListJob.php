@@ -47,6 +47,8 @@ class ExportHistoricRejectedListJob implements ShouldQueue
             $dtIn  = Carbon::parse($this->params['dt_in'])->startOfDay();
             $dtOut = Carbon::parse($this->params['dt_out'])->endOfDay();
             $searchNote = $this->params['searchNote'] ?? null;
+            $reason = $this->params['reason'] ?? null;
+            $companyIds = $this->params['companyIds'] ?? [];
 
             // ===== Builder com filtros e joins =====
             /** @var BaseBuilder $builder */
@@ -57,6 +59,15 @@ class ExportHistoricRejectedListJob implements ShouldQueue
                 ->whereBetween('rw.created_at', [$dtIn, $dtOut])
                 ->when(!empty($searchNote), function ($q) use ($searchNote) {
                     $q->where('n.note', 'like', '%' . $searchNote . '%');
+                })
+                ->when(!empty($reason), function ($q) use ($reason) {
+                    $q->where(function ($sq) use ($reason) {
+                        $sq->where('rw.category', 'like', '%' . $reason . '%')
+                            ->orWhere('rw.text_obs', 'like', '%' . $reason . '%');
+                    });
+                })
+                ->when(!empty($companyIds), function ($q) use ($companyIds) {
+                    $q->whereIn('wr.company_id', $companyIds);
                 })
                 ->select([
                     'rw.created_at as opened_at',

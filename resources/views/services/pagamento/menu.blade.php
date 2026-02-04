@@ -36,7 +36,36 @@
                             <span>D5 PENDENTES</span>
                         </a>
                     </li>
-
+                </div>
+            </ul>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#cancelamentos-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-menu-button-wide"></i><span>CANCELAMENTO</span><i
+                    class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="cancelamentos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <div class="border-start border-3 mb-1 py-0">
+                    <li>
+                        <a href="{{ route('services.cancellations.queue', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-list-ul fs-5 edp-text-verde-dark fw-normal"></i><span>LISTA PARA CANCELAMENTO</span>
+                            @livewire('components.count.cancellation-requests', ['mode' => 'unassigned'])
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('services.cancellations.ongoing', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i><span>EM ANDAMENTO</span>
+                            @livewire('components.count.cancellation-requests', ['mode' => 'in_progress', 'userId' => Auth()->id()])
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('services.cancellations.history', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i><span>HISTÓRICO</span>
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>

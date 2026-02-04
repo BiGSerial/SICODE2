@@ -183,7 +183,7 @@ class Main extends Component
         //         ->orderBy('dt_status')
         //         ->paginate($this->perPage);
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         RuleBuilder::applyRules($query, $this->service->Status);
 

@@ -438,7 +438,7 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         RuleBuilder::applyRules($query, $this->service->Status);
 
@@ -475,7 +475,7 @@ class Main extends Component
             ->orderBy('dt_status');
 
         if (count($this->multiSearch)) {
-            $query = Note::query();
+            $query = Note::query()->excludeCanceledFullDone();
             $query->when($this->multiSearch, function ($q) {
                 return $q->WhereIn('note', $this->multiSearch);
             })

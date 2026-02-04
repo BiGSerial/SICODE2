@@ -516,7 +516,7 @@ class Main extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         if (!$this->search && !count($this->multiSearch)) {
             RuleBuilder::applyRules($query, $this->service->Status);

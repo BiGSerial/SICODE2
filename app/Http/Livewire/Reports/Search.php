@@ -57,6 +57,15 @@ class Search extends Component
                 'Orders:id,note_id,ordem,statusSist',
                 'Orders.Operations:id,order_id,operacao,descOperacao,status,cenTrab,inicioPlanejado,fimPlanejado,inicioReal,fimReal',
 
+                // Cancelamentos
+                'CancellationRequests' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                    ])->select([
+                        'id','note_id','scope','status','closed_at','created_at'
+                    ]);
+                },
+
                 // Projeto (Productions)
                 'Productions' => function ($q) {
                     $q->where('rejected', false)

@@ -124,7 +124,9 @@ class Rejectedworkreports extends Component
         if ($this->search) {
             $query->where(function ($q) {
                 $q->whereRelation('Note', 'note', 'like', "%$this->search%")
-                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%")
+                    ->orWhereRelation('Returnwork', 'category', 'like', "%$this->search%")
+                    ->orWhereRelation('Returnwork', 'text_obs', 'like', "%$this->search%");
             });
         }
 
@@ -153,6 +155,11 @@ class Rejectedworkreports extends Component
         if (isset($this->filter['rubrica'])) {
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('rubrica', $this->filter['rubrica']);
+            });
+        }
+        if (isset($this->filter['category'])) {
+            $query->whereRelation('Returnwork', function ($q) {
+                $q->whereIn('category', $this->filter['category']);
             });
         }
 

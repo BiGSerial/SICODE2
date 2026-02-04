@@ -460,7 +460,7 @@ class Dashboard extends Component
 
     public function getStackOvproperty()
     {
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
         RuleBuilder::applyRules($query, $this->service->Status);
         $query->where('type_note', 2);
 

@@ -19,6 +19,7 @@ class HistoricRejectedReports extends Component
     public $dt_in;
     public $dt_out;
     public $searchNote;
+    public $reason;
 
     /** @var array<int> */
     public array $companyIds = [];
@@ -31,6 +32,7 @@ class HistoricRejectedReports extends Component
         'dt_in'     => ['except' => '', 'as' => 'dtin'],
         'dt_out'    => ['except' => '', 'as' => 'dtout'],
         'searchNote' => ['except' => '', 'as' => 'nota'],
+        'reason' => ['except' => '', 'as' => 'motivo'],
         'companyIds' => ['except' => [], 'as' => 'company'],
     ];
 
@@ -53,6 +55,8 @@ class HistoricRejectedReports extends Component
             'dt_in'      => $this->dt_in,
             'dt_out'     => $this->dt_out,
             'searchNote' => $this->searchNote,
+            'reason' => $this->reason,
+            'companyIds' => $this->companyIds,
         ];
 
         ExportHistoricRejectedListJob::dispatch($params, (string)auth()->id());
@@ -85,6 +89,12 @@ class HistoricRejectedReports extends Component
                 },
             ])
             ->whereBetween('created_at', [$start, $end])
+            ->when($this->reason, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('category', 'like', '%' . $this->reason . '%')
+                        ->orWhere('text_obs', 'like', '%' . $this->reason . '%');
+                });
+            })
             ->when(!empty($this->companyIds), function ($q) {
                 $q->whereHas('Workreport', function ($wr) {
                     $wr->whereIn('company_id', $this->companyIds);
@@ -144,6 +154,12 @@ class HistoricRejectedReports extends Component
             $rows = \App\Models\ReturnWork::query()
                 ->join('work_reports as wr', 'wr.id', '=', 'return_works.work_report_id')
                 ->when(!empty($this->companyIds), fn ($q) => $q->whereIn('wr.company_id', $this->companyIds))
+                ->when($this->reason, function ($q) {
+                    $q->where(function ($sq) {
+                        $sq->where('return_works.category', 'like', '%' . $this->reason . '%')
+                            ->orWhere('return_works.text_obs', 'like', '%' . $this->reason . '%');
+                    });
+                })
                 ->whereBetween('return_works.created_at', [$finalStart, $finalEnd])
                 ->selectRaw('YEAR(return_works.created_at) as y, MONTH(return_works.created_at) as m, COUNT(*) as total')
                 ->groupBy('y', 'm')
@@ -236,6 +252,12 @@ class HistoricRejectedReports extends Component
             ->join('work_reports as wr', 'wr.id', '=', 'return_works.work_report_id')
             ->leftJoin('companies as c', 'c.id', '=', 'wr.company_id')
             ->whereBetween('return_works.created_at', [$start, $end])
+            ->when($this->reason, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('return_works.category', 'like', '%' . $this->reason . '%')
+                        ->orWhere('return_works.text_obs', 'like', '%' . $this->reason . '%');
+                });
+            })
             ->when(!empty($this->companyIds), fn ($q) => $q->whereIn('wr.company_id', $this->companyIds)) // 🔹 filtro
             ->selectRaw('COALESCE(c.name, "Sem empreiteira") as company_name, COUNT(*) as total')
             ->groupBy('company_name')
@@ -285,6 +307,12 @@ class HistoricRejectedReports extends Component
         $rows = ReturnWork::query()
             ->join('work_reports as wr', 'wr.id', '=', 'return_works.work_report_id')
             ->whereBetween('return_works.created_at', [$start, $end])
+            ->when($this->reason, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('return_works.category', 'like', '%' . $this->reason . '%')
+                        ->orWhere('return_works.text_obs', 'like', '%' . $this->reason . '%');
+                });
+            })
             ->when(!empty($this->companyIds), fn ($q) => $q->whereIn('wr.company_id', $this->companyIds)) // 🔹 filtro
             ->selectRaw('COALESCE(return_works.category, "Sem categoria") as cat, COUNT(*) as total')
             ->groupBy('cat')
@@ -371,6 +399,10 @@ class HistoricRejectedReports extends Component
     {
         $this->resetPage();
     }
+    public function updatingReason()
+    {
+        $this->resetPage();
+    }
     public function updatingDtIn()
     {
         $this->resetPage();
@@ -402,6 +434,10 @@ class HistoricRejectedReports extends Component
     }
 
     public function updatedCompanyIds()
+    {
+        $this->dispatchCharts();
+    }
+    public function updatedReason()
     {
         $this->dispatchCharts();
     }

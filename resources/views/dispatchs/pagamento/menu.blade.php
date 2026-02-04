@@ -53,6 +53,36 @@
                 </div>
             </ul>
         </li>
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#cancelamentos-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-menu-button-wide"></i><span>CANCELAMENTO</span><i
+                    class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="cancelamentos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <div class="border-start border-3 mb-1 py-0">
+                    <li>
+                        <a href="{{ route('dispatch.cancellation.categories', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-tags fs-5 edp-text-verde-dark fw-normal"></i><span>CATEGORIAS DE CANCELAMENTO</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('dispatch.cancellation.queue', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-shield-exclamation fs-5 edp-text-verde-dark fw-normal"></i><span>CONTROLE DE CANCELAMENTO</span>
+                            @livewire('components.count.cancellation-requests', ['mode' => 'unassigned'])
+                            @livewire('components.count.cancellation-requests', ['mode' => 'in_progress'])
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('dispatch.cancellation.history', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i><span>HISTÓRICO</span>
+                        </a>
+                    </li>
+                </div>
+            </ul>
+        </li>
     </ul>
 
     <div class="col-12">

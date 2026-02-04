@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Models\CancellationRequest;
+use App\Models\CancellationCategory;
+use App\Policies\CancellationRequestPolicy;
+use App\Policies\CancellationCategoryPolicy;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -15,7 +19,8 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        //
+        CancellationRequest::class => CancellationRequestPolicy::class,
+        CancellationCategory::class => CancellationCategoryPolicy::class,
     ];
 
     /**

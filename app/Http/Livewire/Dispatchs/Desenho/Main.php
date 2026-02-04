@@ -569,7 +569,7 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        $query = Note::query();
+        $query = Note::query()->excludeCanceledFullDone();
 
         if (count($this->multiSearch)) {
             $query->whereIn('note', $this->multiSearch);
