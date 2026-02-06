@@ -29,13 +29,20 @@ class WorkReport extends Model
         'retry',
         'dd',
         'informer',
-        'informed_at'
+        'informed_at',
+        'acceptance_accepted',
+        'acceptance_at',
+        'acceptance_name',
+        'acceptance_meta',
     ];
 
     protected $casts = [
         'approved' => 'boolean',
         'rejected' => 'boolean',
         'informed_at' => 'datetime',
+        'acceptance_accepted' => 'boolean',
+        'acceptance_at' => 'datetime',
+        'acceptance_meta' => 'array',
         'retry' => 'boolean',
         'date' => 'date',
     ];

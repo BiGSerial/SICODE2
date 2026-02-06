@@ -19,6 +19,7 @@ class Workreports extends Component
     public $s_order;
     public bool $hasFiles = false;
     public $hasPartial;
+    public $acceptance_meta_json;
 
 
     public $equipment;
@@ -49,7 +50,9 @@ class Workreports extends Component
         'damage' => null,
         'description' => '',
         'team' => null,
-        'responsible' => null
+        'responsible' => null,
+        'acceptance_accepted' => false,
+        'acceptance_name' => null,
     ];
 
     public $temp_orders = [];
@@ -75,6 +78,8 @@ class Workreports extends Component
         'form.dd' => 'required|string|max:255',
         'form.responsible' => 'required|string|max:255',
         'form.informer' => 'required|string|max:255',
+        'form.acceptance_accepted' => 'accepted',
+        'form.acceptance_name' => 'required|string|max:255',
 
     ];
 
@@ -105,6 +110,9 @@ class Workreports extends Component
             'form.responsible.string' => 'O campo [Encarregado Responsável] deve ser uma string.',
             'form.informer.required' => 'O campo [Informante Responsável] é obrigatório.',
             'form.informer.string' => 'O campo [Informante Responsável] deve ser uma string.',
+            'form.acceptance_accepted.accepted' => 'Você precisa aceitar o termo de responsabilidade do informe.',
+            'form.acceptance_name.required' => 'Informe o nome completo para o aceite do termo.',
+            'form.acceptance_name.string' => 'O campo [Nome do Aceite] deve ser uma string.',
         ];
     }
 
@@ -212,6 +220,8 @@ class Workreports extends Component
         $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
         $this->form['user_id'] = Auth()->User()->id;
         $this->form['informed_at'] = date('Y-m-d H:i:s');
+        $this->form['acceptance_at'] = date('Y-m-d H:i:s');
+        $this->form['acceptance_meta'] = $this->buildAcceptanceMeta();
 
         if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
             $this->dispatchBrowserEvent('swal', [
@@ -610,7 +620,9 @@ class Workreports extends Component
             'damage' => null,
             'description' => null,
             'team' => null,
-            'responsible' => null
+            'responsible' => null,
+            'acceptance_accepted' => false,
+            'acceptance_name' => null,
         ];
         $this->model_equipment = [
             'type' => null,
@@ -627,6 +639,23 @@ class Workreports extends Component
         ];
 
 
+    }
+
+    private function buildAcceptanceMeta(): array
+    {
+        $meta = [];
+
+        if (is_string($this->acceptance_meta_json) && trim($this->acceptance_meta_json) !== '') {
+            $decoded = json_decode($this->acceptance_meta_json, true);
+            if (is_array($decoded)) {
+                $meta = $decoded;
+            }
+        }
+
+        $meta['server_ip'] = request()->ip();
+        $meta['server_host'] = request()->getHost();
+
+        return $meta;
     }
 
 

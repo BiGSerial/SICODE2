@@ -51,9 +51,18 @@
                                     if (!$tNote->WorkForm) {
                                         $block = true;
                                         $reason = 'SEM INFORME DE OBRA';
-                                    } elseif ($tNote->Adsform || $tNote->OldAds->isNotEmpty()) {
+                                    } elseif ($tNote->WorkForm->rejected) {
                                         $block = true;
-                                        $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
+                                        $reason = 'INFORME REJEITADO';
+                                    } else {
+                                        $adsForm = $tNote->WorkForm->Adsform;
+                                        $hasOldAds = $tNote->OldAds->isNotEmpty();
+                                        $isTacitOpen = $adsForm && $adsForm->tacit && !$adsForm->tacit_delivered_at;
+
+                                        if (($adsForm && !$isTacitOpen) || $hasOldAds) {
+                                            $block = true;
+                                            $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
+                                        }
                                     }
 
                                 @endphp
@@ -100,6 +109,11 @@
                     <h4>ENTREGA DE ADS</h4>
                 </div>
                 <div class="card-body">
+                    @if ($tacitWarning)
+                        <div class="alert alert-warning">
+                            {{ $tacitWarning }}
+                        </div>
+                    @endif
                     <div class="card mb-3 mx-auto" style="max-width: 600px;">
                         <h5 class="card-header edp-bg-sprucegreen-70 text-edp-verde">DADOS DA NOTA</h5>
                         <table class="table table-condensed table-sm table-striped-columns">

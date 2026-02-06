@@ -83,11 +83,24 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
         $wf = $row->note->workForm;
 
         $supervisioned = '';
-        $ads = '';
+        $ads = null;
+        $adsDeliveredAt = null;
+        $adsDueAt = null;
+        $adsType = null;
         $orderWhere = '';
 
         if ($wf) {
             $ads = $wf->Adsform;
+            if ($ads) {
+                if ($ads->tacit) {
+                    $adsType = 'TACITA';
+                    $adsDueAt = $ads->tacit_due_at;
+                    $adsDeliveredAt = $ads->tacit_delivered_at;
+                } else {
+                    $adsType = 'NORMAL';
+                    $adsDeliveredAt = $ads->created_at;
+                }
+            }
 
             // 1) Opção preferida: pega os IDs relacionados sem ambiguidade
             $ops = collect($wf->Orders ?? [])->pluck('id'); // Collection<int>
@@ -157,7 +170,9 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
             ($row->note->workForm && $row->note->workForm->rejected) ? 'REJEITADO' : 'NORMAL',
             $ads ? 'SIM' : 'NÃO',
-            $ads ? $ads?->created_at?->format('d/m/Y H:i:s') : '',
+            $adsDeliveredAt?->format('d/m/Y H:i:s') ?? '',
+            $adsType ?? '',
+            $adsDueAt?->format('d/m/Y H:i:s') ?? '',
             $supervisioned ?? '',
             $dateFinal == '---' ? '---' : $dateFinal,
             $d5 ? 'SIM' : 'NÃO',
@@ -221,6 +236,8 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Status Informe Final',
             'Entrega ADS',
             'Data Entrega ADS',
+            'Tipo ADS',
+            'Prazo ADS',
             'Ultima Fiscalização',
             'Dt Final Obra',
             'Existe D5',

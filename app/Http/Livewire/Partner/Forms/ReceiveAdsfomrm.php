@@ -32,6 +32,7 @@ class ReceiveAdsfomrm extends Component
     public $observation;
     public $amount;
     public $hasFile = false;
+    public $tacitWarning = null;
 
     // Serialized state for $theAds
     public $theAdsPath = null;
@@ -114,6 +115,7 @@ class ReceiveAdsfomrm extends Component
         $this->file = null;
         $this->theAdsPath = null;
         $this->theAds = null;
+        $this->tacitWarning = null;
 
         $this->notes = Note::where(function ($q) {
             $q->where('note', trim($this->search))
@@ -125,6 +127,7 @@ class ReceiveAdsfomrm extends Component
     public function getNote($id)
     {
         $this->note = Note::find($id);
+        $this->tacitWarning = $this->buildTacitWarning();
     }
 
     public function removeTempFile($path)
@@ -195,6 +198,26 @@ class ReceiveAdsfomrm extends Component
 
     public function toSave()
     {
+        if (!$this->note?->WorkForm || $this->note->WorkForm->rejected) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'INFORME INVÁLIDO',
+                'html' => "Esta obra não possui Informe de Obra válido para entrega da ADS.",
+            ]);
+            return;
+        }
+
+        if ($this->isAdsClosed()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'ADS BLOQUEADA',
+                'html' => "Esta obra já possui ADS entregue e não pode ser reenviada.",
+            ]);
+            return;
+        }
+
         if (trim($this->responsible) == '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -242,14 +265,7 @@ class ReceiveAdsfomrm extends Component
 
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENVIAR ADS FINAL',
-            'msg' => "
-            Você deseja informar o ADS da obra {$this->note->note} Final?</br></br>
-            <div class='card card-light'>
-            <div class='card-body'>
-            <p>Uma vez enviado, não será mais possível re-submeter. Confira se toda documentação Necessária está presente.</p>
-            </div>
-            </div>
-            ",
+            'msg' => $this->buildConfirmMessage(),
             'icon' => 'warning',
             'btnOktxt' => 'Sim, Envie!',
             'btnCanceltxt' => 'Não, Cancele!',
@@ -268,20 +284,39 @@ class ReceiveAdsfomrm extends Component
         DB::beginTransaction();
 
         try {
-            $adsForm = $this->note->WorkForm->Adsform()->create(
-                [
-                    'note_id' => $this->note->id,
-                    'name' => Auth()->User()->Employee->Contract->company_id,
-                    'user_id' => Auth()->User()->id,
-                    'obs' => $this->observation,
-                    'name' => $this->responsible,
-                    'amount' => $this->amount ? $this->amount : 0.00,
-                    'contract' => $this->theAds->getContract(),
-                    'center' => $this->theAds->getCenter(),
-                    'deposit' => $this->theAds->getDeposit(),
-                    'partial' => $this->theAds->getPartial(),
-                ]
-            );
+            $adsForm = $this->note->WorkForm->Adsform;
+
+            if ($adsForm && $this->isAdsClosed()) {
+                DB::rollBack();
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'error',
+                    'title' => 'ADS BLOQUEADA',
+                    'html' => 'Esta ADS já foi entregue e não pode ser reenviada.',
+                ]);
+                return;
+            }
+
+            $payload = [
+                'note_id' => $this->note->id,
+                'name' => $this->responsible,
+                'user_id' => Auth()->User()->id,
+                'obs' => $this->observation,
+                'amount' => $this->amount ? $this->amount : 0.00,
+                'contract' => $this->theAds->getContract(),
+                'center' => $this->theAds->getCenter(),
+                'deposit' => $this->theAds->getDeposit(),
+                'partial' => $this->theAds->getPartial(),
+            ];
+
+            if ($adsForm) {
+                if ($adsForm->tacit && !$adsForm->tacit_delivered_at) {
+                    $payload['tacit_delivered_at'] = now();
+                }
+                $adsForm->update($payload);
+            } else {
+                $adsForm = $this->note->WorkForm->Adsform()->create($payload);
+            }
 
             if ($adsForm) {
                 $caminho = $this->file->storeAs('/arquivos/ADS_FINAL/', $newName . '.' . $this->file->getClientOriginalExtension());
@@ -360,6 +395,55 @@ class ReceiveAdsfomrm extends Component
         $this->responsible = '';
         $this->amount = '';
         $this->theAdsPath = null;
+        $this->tacitWarning = null;
+    }
+
+    private function isAdsClosed(): bool
+    {
+        if (!$this->note?->WorkForm?->Adsform) {
+            return false;
+        }
+
+        $adsForm = $this->note->WorkForm->Adsform;
+
+        if ($adsForm->tacit && !$adsForm->tacit_delivered_at) {
+            return false;
+        }
+
+        return $adsForm->files()->exists() || (bool) $adsForm->tacit_delivered_at;
+    }
+
+    private function buildTacitWarning(): ?string
+    {
+        $adsForm = $this->note?->WorkForm?->Adsform;
+        if (!$adsForm || !$adsForm->tacit || $adsForm->tacit_delivered_at) {
+            return null;
+        }
+
+        $dueAt = $adsForm->tacit_due_at;
+        if (!$dueAt) {
+            return null;
+        }
+
+        return "A ADS desta obra venceu em {$dueAt->format('d/m/Y H:i:s')}. A entrega está em atraso e pode estar sujeita a penalidades previstas em contrato.";
+    }
+
+    private function buildConfirmMessage(): string
+    {
+        $warningHtml = '';
+        if ($this->tacitWarning) {
+            $warningHtml = "<div class='alert alert-warning mb-2'><strong>Entrega em atraso:</strong><br>{$this->tacitWarning}</div>";
+        }
+
+        return "
+            {$warningHtml}
+            Você deseja informar o ADS da obra {$this->note->note} Final?</br></br>
+            <div class='card card-light'>
+            <div class='card-body'>
+            <p>Uma vez enviado, não será mais possível re-submeter. Confira se toda documentação Necessária está presente.</p>
+            </div>
+            </div>
+            ";
     }
 
     public function render()

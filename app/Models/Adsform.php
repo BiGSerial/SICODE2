@@ -20,11 +20,17 @@ class Adsform extends Model
         'deposit',
         'amount',
         'partial',
+        'tacit',
+        'tacit_due_at',
+        'tacit_delivered_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'partial' => 'boolean',
+        'tacit' => 'boolean',
+        'tacit_due_at' => 'datetime',
+        'tacit_delivered_at' => 'datetime',
         'user_id' => 'string',
     ];
 

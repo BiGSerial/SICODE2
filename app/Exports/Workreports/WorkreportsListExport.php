@@ -102,7 +102,8 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
         $note = $row->Note;
 
         if ($note?->Adsform) {
-            $ads = $note->Adsform->created_at->format('d/m/Y');
+            $adsForm = $note->Adsform;
+            $ads = ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y');
         } elseif ($note?->OldAds?->isNotEmpty()) {
             $ads = $note->OldAds->last()->date->format('d/m/Y');
         }
