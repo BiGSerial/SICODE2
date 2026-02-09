@@ -13,53 +13,49 @@
 
                     {{-- FILES --}}
                     <div class="card mb-3">
-                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-start">
-                            <h6 class="my-auto">USUARIO DE DESTINO</h6>
+                        <div class="card-header edp-bg-sprucegreen-70 text-edp-verde d-flex justify-content-between">
+                            <h6 class="my-auto fw-bold">USUARIO DE DESTINO</h6>
+                            <span class="badge text-bg-light my-auto">
+                                {{ $companies->count() }} empresa(s) elegível(is)
+                            </span>
                         </div>
-                        <div class="card-body justify-content-between">
-                            <div class="clear-fix">
-                                <div class="row">
-                                    <div class="mb-3 col-6">
-                                        <label for="form-label" class="text-secondary">Selecione a Empresa</label>
-                                        <select class="form-select" wire:model="companySelected">
-                                            <option>----</option>
-                                            @if ($companies)
-                                                @foreach ($companies as $company)
-                                                    <option value="{{ $company->id }}">{{ $company->name }}
-                                                    </option>
-                                                @endforeach
-                                            @endif
-
-                                        </select>
-
-
-                                    </div>
-                                    <div class="mb-3 col-6">
-                                        <label for="form-label" class="text-secondary">Buscar Usuario</label>
-                                        <input class="form-control" type="text" wire:model="search" />
-
-
-
-                                    </div>
-
-                                    <div class="mb-3 col-6 offset-md-6">
-                                        <label for="form-label" class="text-secondary">Selecione o Usuario</label>
-                                        <select class="form-select" wire:model="userSelected">
-
-                                            @if ($users)
-                                                <option selected>Selecione um usuário</option>
-                                                @foreach ($users as $usr)
-                                                    <option value="{{ $usr->id }}">{{ $usr->name }}</option>
-                                                @endforeach
-                                            @else
-                                                <option selected>----</option>
-                                            @endif
-
-                                        </select>
-
-
-                                    </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6">
+                                    <label for="form-label" class="text-secondary">Selecione a Empresa</label>
+                                    <select class="form-select" wire:model="companySelected">
+                                        <option value="">Selecione uma empresa</option>
+                                        @foreach ($companies as $company)
+                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="form-label" class="text-secondary">Buscar Usuário</label>
+                                    <input class="form-control" type="text" wire:model.debounce.300ms="search"
+                                        placeholder="Digite o nome do usuário" @disabled(!$companySelected) />
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="form-label" class="text-secondary">Selecione o Usuário</label>
+                                    <select class="form-select" wire:model="userSelected" @disabled(!$companySelected)>
+                                        <option value="">
+                                            {{ $companySelected ? 'Selecione um usuário' : 'Selecione uma empresa primeiro' }}
+                                        </option>
+                                        @foreach ($users as $usr)
+                                            <option value="{{ $usr->id }}">{{ $usr->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                @if ($companySelected && $users->isEmpty())
+                                    <div class="col-12">
+                                        <div class="alert alert-warning py-2 mb-0">
+                                            Nenhum usuário disponível para esta empresa neste serviço.
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>

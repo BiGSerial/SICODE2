@@ -2,13 +2,20 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\{Bancoupdate, Note, Service};
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class Integridade extends Command
 {
+    private const POST_INTEGRITY_COMMANDS = [
+        'sicode:confirm-manual',
+        'sicode:confirm_prod',
+    ];
+
     /**
      * The name and signature of the console command.
      *
@@ -28,37 +35,39 @@ class Integridade extends Command
      */
     public function handle()
     {
+        $log = null;
 
-        $tries = 0;
+        try {
+            $tries = 0;
+            $log = new RegistroJson('check_integridade', $this->options());
 
-        retry:
+            retry:
 
-       // Executar o comando de limpar terminal
-       if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-           // Se for Windows
-           system('cls');
-       } else {
-           // Se for Unix (Linux, macOS)
-           system('clear');
-       }
+            // Executar o comando de limpar terminal
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                system('cls');
+            } else {
+                system('clear');
+            }
 
-        $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHEKING INTEGRITY DB...</>');
+            $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold>CHEKING INTEGRITY DB...</>');
 
         // $status = Service::orderBy('status')->get();
 
-        $this->info('<bg=blue;fg=white> INFO </>  READING ORIGIN DB...');
+            $this->info('<bg=blue;fg=white> INFO </>  READING ORIGIN DB...');
 
-        $origins = BaseOV::Where('ultimoStatus', 1)
+            $origins = BaseOV::Where('ultimoStatus', 1)
             ->select('numStat', DB::raw('count(*) as count'))
             ->groupBy('numStat')
             ->get();
-        $this->info('<bg=green;fg=white> DONE </> ORIGIN DB DONE...');
+            $log->setTotal($origins->count());
+            $this->info('<bg=green;fg=white> DONE </> ORIGIN DB DONE...');
 
-        $error = 0;
+            $error = 0;
 
-        $this->info('<bg=blue;fg=white> INFO </> INIT COMPARING DBs ORIGIN WITH DESTINY...');
+            $this->info('<bg=blue;fg=white> INFO </> INIT COMPARING DBs ORIGIN WITH DESTINY...');
 
-        foreach ($origins as $origin) {
+            foreach ($origins as $origin) {
 
             $destiny = Note::where('nstats', $origin->numStat)->where('type_note', 2)->count();
 
@@ -68,8 +77,10 @@ class Integridade extends Command
 
                 if ($origin->numStat < 98) {
                     $error++;
+                    $log->setErrorMessage("Divergencia status={$origin->numStat} origin={$origin->count} destiny={$destiny}");
                 } elseif ($tries <= 1) {
                     $error++;
+                    $log->setErrorMessage("Divergencia status={$origin->numStat} origin={$origin->count} destiny={$destiny}");
                 } elseif ($tries > 1) {
                     $this->comment('<bg=yellow;fg=black> WARNING </> IGNORING ERROR STATS EXISTS IN ' . $origin->numStat);
                 }
@@ -78,8 +89,10 @@ class Integridade extends Command
             } else {
                 if ($origin->numStat < 98) {
                     $error++;
+                    $log->setErrorMessage("Status {$origin->numStat} nao encontrado no destino.");
                 } elseif ($tries <= 1) {
                     $error++;
+                    $log->setErrorMessage("Status {$origin->numStat} nao encontrado no destino.");
                 } elseif ($tries > 1) {
                     $this->comment('<bg=yellow;fg=black> WRNG </> IGNORING ERROR STATS EXISTS IN ' . $origin->numStat);
                 } else {
@@ -87,53 +100,67 @@ class Integridade extends Command
                 }
 
             }
-        }
-
-        if ($error && $tries <= 3) {
-
-            $days = 0;
-
-            if ($tries === 1) {
-                $days = 30;
-            } elseif ($tries === 2) {
-                $days = 90;
-            } elseif ($tries === 3) {
-                $this->call('sicode:upd_baseov', ['--full' => true]);
             }
 
-            if ($days) {
-                $this->call('sicode:upd_baseov', ['--days' => $days]);
+            if ($error && $tries <= 3) {
+
+                $days = 0;
+
+                if ($tries === 1) {
+                    $days = 30;
+                } elseif ($tries === 2) {
+                    $days = 90;
+                } elseif ($tries === 3) {
+                    $this->call('sicode:upd_baseov', ['--full' => true]);
+                }
+
+                if ($days) {
+                    $this->call('sicode:upd_baseov', ['--days' => $days]);
+                } else {
+                    $this->call('sicode:upd_baseov');
+                }
+
+                $tries++;
+                goto retry;
+
+            } elseif ($error) {
+                $this->info('<bg=blue;fg=white> INFO </>  WE FOUNDED PROBLEMS WITH A INTEGRITY OF INFORMATION IN DATABASE, WE WILL TRY AGAIN LATER.');
+
+                // Registra atualizações
+                Bancoupdate::Create([
+                    'last_update' => date('Y-m-d H:i:s'),
+                    'error'       => 1,
+                    'inserts'     => -1,
+                    'updates'     => -1,
+                ]);
+
             } else {
-                $this->call('sicode:upd_baseov');
+                $this->info('<bg=green;fg=white> DONE </> HASN´T INTEGRITY PROBLEMS WITH DATABASE INFORMATION.');
+                $this->runPostIntegrityCommands();
             }
 
-            $tries++;
-            goto retry;
+            if (env('APP_ENV') === 'production') {
+                $this->call('sicode:expurgo_sql_prod');
+                $this->call('sicode:upd_wpa');
+            }
+            $log->setUpdated($tries);
+            $log->save();
+            return self::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
 
-        } elseif ($error) {
-            $this->info('<bg=blue;fg=white> INFO </>  WE FOUNDED PROBLEMS WITH A INTEGRITY OF INFORMATION IN DATABASE, WE WILL TRY AGAIN LATER.');
-
-            // Registra atualizações
-            Bancoupdate::Create([
-                'last_update' => date('Y-m-d H:i:s'),
-                'error'       => 1,
-                'inserts'     => -1,
-                'updates'     => -1,
-            ]);
-
-        } else {
-            $this->info('<bg=green;fg=white> DONE </> HASN´T INTEGRITY PROBLEMS WITH DATABASE INFORMATION.');
-
-            $this->call('sicode:confirm-manual');
-
-            $this->call('sicode:confirm_prod');
-
+            return self::FAILURE;
         }
 
-        if (env('APP_ENV') === 'production') {
-            $this->call('sicode:expurgo_sql_prod');
-            $this->call('sicode:upd_wpa');
-        }
+    }
 
+    private function runPostIntegrityCommands(): void
+    {
+        foreach (self::POST_INTEGRITY_COMMANDS as $command) {
+            $this->call($command);
+        }
     }
 }

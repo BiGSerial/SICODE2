@@ -1,30 +1,21 @@
-<li class="nav-item dropdown mx-2">
-    <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
-        data-bs-auto-close="outside" aria-expanded="false">
-        ENGENHARIA
-    </a>
-    <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
-        style="background-color: #dbd8d8; width: 320px;">
-        @include('components.menu.partials.services-dropdown-style')
+@php
+    $sections = [
+        [
+            'label' => 'ENGENHARIA',
+            'items' => [
+                ['label' => 'VALIDAÇÃO DE PROJETOS', 'route' => 'engineers.validation'],
+                ['label' => 'VIABILIDADE', 'route' => 'engineers.viability'],
+                ['label' => 'INFORMES CONCLUSÃO', 'route' => 'engineers.informes'],
+                ['label' => 'INFORMES PARCIAIS', 'route' => 'engineers.parciais'],
+                ['label' => 'NOTAS D5', 'route' => 'engineers.d5'],
+            ],
+        ],
+    ];
+@endphp
 
-        <li class="dropdown-header" style="background-color: #ffffff;">ENGENHARIA</li>
-
-        <a class="menu-link" href="{{ route('engineers.validation') }}">
-            VALIDAÇÃO DE PROJETOS <i class="ri-arrow-right-s-line"></i>
-        </a>
-        <a class="menu-link" href="{{ route('engineers.viability') }}">
-            VIABILIDADE <i class="ri-arrow-right-s-line"></i>
-        </a>
-        <a class="menu-link" href="{{ route('engineers.informes') }}">
-            INFORMES CONCLUSÃO <i class="ri-arrow-right-s-line"></i>
-        </a>
-        <a class="menu-link" href="{{ route('engineers.parciais') }}">
-            INFORMES PARCIAIS <i class="ri-arrow-right-s-line"></i>
-        </a>
-        <a class="menu-link" href="{{ route('engineers.d5') }}">
-            NOTAS D5 <i class="ri-arrow-right-s-line"></i>
-        </a>
-
-        @include('components.menu.partials.services-dropdown-script')
-    </ul>
-</li>
+<x-menu.dynamic-dropdown
+    title="ENGENHARIA"
+    :sections="$sections"
+    width="320px"
+    id-prefix="engenharia"
+/>

@@ -11,6 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class BaseOrder extends Command
 {
@@ -33,6 +34,9 @@ class BaseOrder extends Command
      */
     public function handle(): int
     {
+        $log = null;
+
+        try {
         $this->info('Starting Orders upsert {note_id, ordem}…');
 
         // 1) CONTAGEM TOTAL (para o início do log)
@@ -200,6 +204,14 @@ class BaseOrder extends Command
         $this->info("\nAtualização concluída.");
 
         return 0; // Success exit code
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 
     /** Normaliza a ordem numérica para string estável (aqui só trim). */

@@ -78,7 +78,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Data ADS', 'Informado Em', 'Prazo ADS', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
+            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Tipo ADS', 'Data ADS', 'Prazo ADS', 'Informado Em', 'Prazo Informe', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
         ];
     }
 
@@ -147,9 +147,16 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         $usuario = $production && $production->User ? $production->User->name : '---';
 
 
+        $adsType = null;
         if ($row->adsform) {
             $ads_origin = 'NOVO';
-            $ads = $row->adsform->created_at;
+            if ($row->adsform->tacit) {
+                $adsType = 'TACITA';
+                $ads = $row->adsform->tacit_delivered_at ?? $row->adsform->created_at;
+            } else {
+                $adsType = 'NORMAL';
+                $ads = $row->adsform->created_at;
+            }
         } elseif ($row->OldAds->isNotEmpty()) {
             $ads_origin = 'ANTIGO';
             $ads =  $row->OldAds->last()->date;
@@ -161,13 +168,17 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         $inPrazo = null;
 
 
+        $prazoAds = $row->adsform?->tacit_due_at ?? ($row->work_dt_created ? Carbon::parse($row->work_dt_created)->endOfDay()->addDays(6) : null);
+
         if ($row->work_dt_created) {
+            $refDate = $prazoAds ?? $row->work_dt_created;
+
             if ($ads) {
-                $diff = Carbon::parse($row->work_dt_created)->diffInDays(Carbon::parse($ads), false);
-                $inPrazo = $diff > 7 ? 'FORA DO PRAZO' : 'DENTRO DO PRAZO';
+                $diff = Carbon::parse($refDate)->diffInDays(Carbon::parse($ads), false);
+                $inPrazo = $diff > 6 ? 'FORA DO PRAZO' : 'DENTRO DO PRAZO';
             } else {
-                $diff = Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false);
-                $inPrazo = $diff > 7 ? 'ATRASADO' : 'EM PRAZO';
+                $diff = Carbon::parse($refDate)->diffInDays(Carbon::now(), false);
+                $inPrazo = $diff > 6 ? 'ATRASADO' : 'EM PRAZO';
             }
         } else {
             $inPrazo = '---';
@@ -182,7 +193,9 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $dd,
             $ads ? 'SIM' : 'NÃO',
             $ads_origin,
+            $adsType ?? '---',
             $ads ? $ads->format('d/m/Y') : '---',
+            $prazoAds ? $prazoAds->format('d/m/Y') : '---',
             $row->work_dt_informed ? Carbon::parse($row->work_dt_informed)->format('d/m/Y') : '---',
             $inPrazo,
             $userInform,

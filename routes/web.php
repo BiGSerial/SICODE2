@@ -84,6 +84,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
 Route::prefix('/config')->controller(ConfigController::class)->name('config.')->middleware('auth')->middleware('can:admin')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/services', 'services')->name('services');
+    Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
         Route::post('/jobs_view/restart', function (Request $request) {
@@ -153,6 +154,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/map_info', 'survey_map')->name('mapinfo');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
     Route::get('/cancellations/queue', 'cancellationQueue')->name('cancellation.queue');
     Route::get('/cancellations/categories', 'cancellationCategories')->name('cancellation.categories');
     Route::get('/cancellations/history', 'cancellationHistory')->name('cancellation.history');

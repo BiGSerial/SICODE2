@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\ConsoleOutput;
+use Throwable;
 
 class BaseCostsUpd extends Command
 {
@@ -31,54 +32,64 @@ class BaseCostsUpd extends Command
      */
     public function handle()
     {
-        // Obtém todas as ordens únicas
-        $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem')->toArray();
+        $log = null;
 
-        if (count($ordens) > 0) {
+        try {
+            // Obtém todas as ordens únicas
+            $ordens = BaseCosts::select('ordem')->distinct()->pluck('ordem')->toArray();
 
             $log = new RegistroJson('upd_costs_mot', $this->option());
             $log->setTotal(count($ordens));
+            $updated = 0;
 
+            if (count($ordens) > 0) {
+                $output = new ConsoleOutput();
+                $progressBar = new ProgressBar($output, count($ordens));
+                $progressBar->start();
 
-            $output = new ConsoleOutput();
-            $progressBar = new ProgressBar($output, count($ordens));
-            $progressBar->start();
+                // Processa as ordens em chunks de 500
+                Order::whereIn('ordem', $ordens)->chunk(500, function ($orders) use ($progressBar, &$log, &$updated) {
+                    // Obtém todas as ordens atuais do chunk
+                    $orderOrdens = $orders->pluck('ordem')->toArray();
 
+                    // Calcula os custos para as ordens atuais do chunk
+                    $costs = BaseCosts::whereIn('ordem', $orderOrdens)
+                        ->select('ordem', DB::raw('SUM((qtdNecessaria - qtdRetirada) * preco) AS MOAberta'))
+                        ->groupBy('ordem')
+                        ->get();
 
+                    // Atualiza cada ordem com o custo calculado
+                    foreach ($costs as $cost) {
+                        $order = $orders->where('ordem', $cost->ordem)->first();
 
-            // Processa as ordens em chunks de 500
-            Order::whereIn('ordem', $ordens)->chunk(500, function ($orders) use ($progressBar, &$log) {
-                // Obtém todas as ordens atuais do chunk
-                $orderOrdens = $orders->pluck('ordem')->toArray();
-
-                // Calcula os custos para as ordens atuais do chunk
-                $costs = BaseCosts::whereIn('ordem', $orderOrdens)
-                    ->select('ordem', DB::raw('SUM((qtdNecessaria - qtdRetirada) * preco) AS MOAberta'))
-                    ->groupBy('ordem')
-                    ->get();
-
-                // Atualiza cada ordem com o custo calculado
-                foreach ($costs as $cost) {
-                    $order = $orders->where('ordem', $cost->ordem)->first();
-
-                    if ($order) {
-                        try {
-                            $order->moaberto = $cost->MOAberta;
-                            $order->save(); // Sa
-                        } catch (\Throwable $th) {
-                            $log->setErrorMessage($th->getMessage());
+                        if ($order) {
+                            try {
+                                $order->moaberto = $cost->MOAberta;
+                                $order->save();
+                                $updated++;
+                            } catch (Throwable $th) {
+                                $log->setErrorMessage($th->getMessage());
+                            }
                         }
+
+                        $progressBar->advance();
                     }
+                });
 
-                    $progressBar->advance();
-                }
+                $progressBar->finish();
+                $this->info('Atualização de ordens concluída!');
+            }
 
-                // Avança a barra de progresso
+            $log->setUpdated($updated);
+            $log->save();
+            return self::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
 
-            });
-
-            $progressBar->finish();
-            $this->info('Atualização de ordens concluída!');
+            return self::FAILURE;
         }
     }
 }

@@ -57,7 +57,10 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
             $informed_at = $row->Note->Partials?->where('supervision_id', $row->user_id)->last()?->supervision_at ?? '';
         } else {
             $informed_at = $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i') ?? '';
-            $adsInfomed = $row->Note->WorkForm?->Adsform?->created_at?->format('d/m/Y H:i') ?? '';
+            $adsForm = $row->Note->WorkForm?->Adsform;
+            $adsInfomed = $adsForm
+                ? ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y H:i')
+                : '';
         }
 
 

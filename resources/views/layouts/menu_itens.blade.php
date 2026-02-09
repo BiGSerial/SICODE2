@@ -32,90 +32,76 @@
 </style>
 
 @can('admin')
-    <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            ADMINISTRAÇÃO
-        </a>
-        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
-            style="background-color: #dbd8d8">
-            @include('components.menu.partials.services-dropdown-style')
-            <li><a class="menu-link" href="{{ route('admin.user.list') }}"><i
-                        class="ri-account-pin-box-fill align-middle text-primary"></i>USUÁRIOS</a>
-            </li>
-            @can('superadm')
-                <li><a class="menu-link" href="{{ route('admin.company.list') }}"><i
-                            class="ri-building-4-fill align-middle text-primary"></i>EMPRESAS</a></li>
-                <li><a class="menu-link" href="{{ route('admin.category.main') }}"><i
-                            class="ri-price-tag-3-fill align-middle text-primary"></i>CATEGORIAS</a></li>
-                <li><a class="menu-link" href="{{ route('config.main') }}"><i
-                            class="ri-home-gear-fill align-middle text-dark"></i>CONFIGURAÇÕES</a></li>
-            @endcan
-            <li>
-                <hr class="dropdown-divider">
-            </li>
-            <li><a class="menu-link" href="{{ route('admin.audits.notes') }}"><i
-                        class="ri-file-search-line align-middle text-primary"></i>AUDITORIA NOTAS</a>
-            </li>
-            <li><a class="menu-link" href="{{ route('admin.control.d5') }}"><i
-                        class="ri-database-2-line align-middle text-primary"></i>CONTROLE DE DADOS</a>
-            </li>
-            <li><a class="menu-link" href="{{ route('monitor.services') }}"><i
-                        class="ri-computer-line align-middle text-dark"></i>MONITOR - ATIVIDADE</a></li>
-            <li><a class="menu-link" href="{{ route('monitor.analises') }}"><i
-                        class="ri-computer-line align-middle text-dark"></i>GRAFICO - ATIVIDADE</a></li>
-            @if (!Auth()->User()->contract)
-                <li><a class="menu-link" href="{{ route('monitor.inconsistency') }}"><i
-                            class="ri-alert-line align-middle text-danger"></i>INCONSISTÊNCIAS</a></li>
-                @can('superadm')
-                    <li><a class="menu-link" href="{{ route('tests.page') }}"><i
-                                class="ri-computer-line align-middle text-danger"></i>COMMANDOS DIRETO</a></li>
-                    <li><a class="menu-link" href="{{ route('monitor.logsupdate') }}"><i
-                                class="ri-computer-line align-middle text-danger"></i>LOGGER UDATES</a></li>
-                @endcan
-            @endif
-
-        </ul>
-    </li>
+    @php
+        $admin_sections = [
+            [
+                'label' => 'SICODE',
+                'items' => [
+                    ['label' => 'USUÁRIOS', 'route' => 'admin.user.list', 'icon' => 'ri-account-pin-box-fill'],
+                    ['label' => 'EMPRESAS', 'route' => 'admin.company.list', 'icon' => 'ri-building-4-fill', 'can' => 'superadm'],
+                    ['label' => 'CATEGORIAS', 'route' => 'admin.category.main', 'icon' => 'ri-price-tag-3-fill', 'can' => 'superadm'],
+                ],
+            ],
+            [
+                'label' => 'GERENCIAMENTO',
+                'children' => [
+                    [
+                        'label' => 'AUDITORIA',
+                        'items' => [
+                            ['label' => 'AUDITORIA NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
+                        ],
+                    ],
+                    [
+                        'label' => 'CONTROLE',
+                        'items' => [
+                            ['label' => 'CONTROLE DE DADOS', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
+                            ['label' => 'GERENCIAMENTO DE ARQUIVOS', 'route' => 'files.main', 'icon' => 'ri-folder-2-line'],
+                            ['label' => 'MONITOR ATIVIDADE', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
+                            ['label' => 'PAINEL CONFIGURAÇÕES', 'route' => 'config.main', 'icon' => 'ri-home-gear-fill'],
+                            ['label' => 'STATUS SERVER', 'route' => 'config.system.jobs_view', 'icon' => 'ri-server-line'],
+                            ['label' => 'LOG LOG', 'route' => 'config.main', 'icon' => 'ri-file-list-3-line'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    @endphp
+    <x-menu.dynamic-dropdown title="ADMINISTRAÇÃO" :sections="$admin_sections" id-prefix="administracao" />
 @endcan
 
-<li class="nav-item dropdown mx-2 position-relative">
-    <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
-        data-bs-auto-close="outside" aria-expanded="false">
-        RECLAMAÇÕES
-
-    </a>
-    @livewire('components.count.protest.has-protests', key('menu_protests'))
-    <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
-        style="background-color: #dbd8d8">
-        @include('components.menu.partials.services-dropdown-style')
-        @can('can_dispatch')
-            <div class="submenu mb-2">
-                <button class="submenu-toggle js-submenu-toggle" data-target="#submenu-protests-despachos"
-                    type="button">
-                    DESPACHOS <i class="ri-arrow-right-s-line"></i>
-                </button>
-                <div id="submenu-protests-despachos" class="submenu-panel">
-                    <a class="dropdown-item" href="{{ route('protests.dispatch.lists') }}"><i
-                            class="ri-account-pin-box-fill align-middle text-danger"></i>RECLAMAÇÕES</a>
-                </div>
-            </div>
-        @endcan
-
-        <div class="submenu">
-            <button class="submenu-toggle js-submenu-toggle" data-target="#submenu-protests-servicos"
-                type="button">
-                SERVIÇOS <i class="ri-arrow-right-s-line"></i>
-            </button>
-            <div id="submenu-protests-servicos" class="submenu-panel">
-                <a class="dropdown-item" href="{{ route('protests.services.main') }}"><i
-                        class="ri-account-pin-box-fill align-middle text-primary"></i>RECLAMAÇÕES @livewire('components.count.protest.count-protests', key('menu_protests_count'))</a>
-            </div>
-        </div>
-
-        @include('components.menu.partials.services-dropdown-script')
-    </ul>
-</li>
+@php
+    $protests_sections = [
+        [
+            'label' => 'GERAL',
+            'children' => [
+                [
+                    'label' => 'DESPACHOS',
+                    'can' => 'can_dispatch',
+                    'items' => [
+                        ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill'],
+                    ],
+                ],
+                [
+                    'label' => 'SERVIÇOS',
+                    'items' => [
+                        [
+                            'label' => 'RECLAMAÇÕES',
+                            'route' => 'protests.services.main',
+                            'icon' => 'ri-account-pin-box-fill',
+                            'countComponent' => 'components.count.protest.count-protests',
+                            'countKey' => 'menu_protests_count',
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+@endphp
+<x-menu.dynamic-dropdown title="RECLAMAÇÕES" :sections="$protests_sections" id-prefix="reclamacoes" item-class="mx-2 position-relative">
+    <x-slot:triggerAppend>
+        @livewire('components.count.protest.has-protests', key('menu_protests'))
+    </x-slot:triggerAppend>
+</x-menu.dynamic-dropdown>
 
 @php
     $reports_links = [
@@ -123,7 +109,6 @@
         ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE'],
         ['route' => 'reports.return_intern_dashboard', 'label' => 'RELATORIO RETORNO INTERNO'],
         ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA'],
-        ['route' => 'files.main', 'label' => 'GERENCIAMENTO DE ARQUIVOS'],
     ];
 @endphp
 
@@ -136,22 +121,17 @@
 @endcan
 
 @can('btzero')
-    <li class="nav-item dropdown mx-2">
-        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            SMC
-        </a>
-        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
-            style="background-color: #dbd8d8; width: 300px;">
-            @include('components.menu.partials.services-dropdown-style')
-            <li>
-                <a class="menu-single" href="{{ route('btzero.main') }}">
-                    <i class="ri-eye-fill align-middle text-info"></i> INFORME SMC
-                </a>
-            </li>
-
-        </ul>
-    </li>
+    @php
+        $smc_sections = [
+            [
+                'label' => 'SMC',
+                'items' => [
+                    ['label' => 'INFORME SMC', 'route' => 'btzero.main', 'icon' => 'ri-eye-fill'],
+                ],
+            ],
+        ];
+    @endphp
+    <x-menu.dynamic-dropdown title="SMC" :sections="$smc_sections" width="300px" id-prefix="smc" />
 @endcan
 
 
@@ -200,47 +180,28 @@
 
 
 
-<li class="nav-item dropdown mx-2">
-    <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button"
-        data-bs-toggle="dropdown" aria-expanded="false">
-        BUSCAR
-    </a>
+@php
+    $can_view_workreports = !Auth()->user()->toServices->contains(function ($service) {
+        return $service->service && isset($service->Service) && $service->Service->service === 'Publicação';
+    }) || (Auth()->user()->operator ||
+        Auth()->user()->responsible ||
+        Auth()->user()->engineer ||
+        Auth()->user()->management ||
+        Auth()->user()->admin ||
+        Auth()->user()->superadm);
 
-    <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 services-dropdown services-dropdown-menu" style="background-color: #dbd8d8">
-        @include('components.menu.partials.services-dropdown-style')
-        <li><a class="menu-link" href="{{ route('reports.search') }}"><i
-                    class="ri-search-eye-line align-middle text-primary"></i>NOTAS/OVS</a>
-        </li>
-        <li><a class="menu-link" href="{{ route('reports.consulta_d5') }}"><i
-                    class="ri-search-eye-line align-middle text-primary"></i>CONSULTA D5</a>
-        </li>
-
-        @if (
-            !Auth()->user()->toServices->contains(function ($service) {
-                    return $service->service && isset($service->Service) && $service->Service->service === 'Publicação';
-                }) ||
-                (Auth()->user()->operator ||
-                    Auth()->user()->responsible ||
-                    Auth()->user()->engineer ||
-                    Auth()->user()->management ||
-                    Auth()->user()->admin ||
-                    Auth()->user()->superadm))
-            <li><a class="menu-link" href="{{ route('reports.workreport') }}"><i
-                        class="ri-search-eye-line align-middle text-primary"></i>INFORMES</a>
-            </li>
-
-            <li><a class="menu-link" href="{{ route('reports.lookatnotes') }}"><i
-                        class="ri-search-eye-line align-middle text-primary"></i>SITUAÇÃO DE CONTRATAÇÃO</a>
-            </li>
-            @if (!Auth()->User()->onlyparner)
-                <li><a class="menu-link" href="{{ route('reports.rejecetedWorkreport') }}"><i
-                            class="ri-search-eye-line align-middle text-primary"></i>INFORMES REJEITADOS</a>
-                </li>
-            @endif
-            <li><a class="menu-link" href="{{ route('reports.equipments') }}"><i
-                        class="ri-tools-line align-middle text-primary"></i>EQUIPAMENTOS DECLARADOS</a>
-            </li>
-        @endif
-    </ul>
-
-</li>
+    $search_sections = [
+        [
+            'label' => 'CONSULTAS',
+            'items' => [
+                ['label' => 'NOTAS/OVS', 'route' => 'reports.search', 'icon' => 'ri-search-eye-line'],
+                ['label' => 'CONSULTA D5', 'route' => 'reports.consulta_d5', 'icon' => 'ri-search-eye-line'],
+                ['label' => 'INFORMES', 'route' => 'reports.workreport', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports],
+                ['label' => 'SITUAÇÃO DE CONTRATAÇÃO', 'route' => 'reports.lookatnotes', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports],
+                ['label' => 'INFORMES REJEITADOS', 'route' => 'reports.rejecetedWorkreport', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports && !Auth()->user()->onlyparner],
+                ['label' => 'EQUIPAMENTOS DECLARADOS', 'route' => 'reports.equipments', 'icon' => 'ri-tools-line', 'visible' => $can_view_workreports],
+            ],
+        ],
+    ];
+@endphp
+<x-menu.dynamic-dropdown title="BUSCAR" :sections="$search_sections" id-prefix="buscar" />

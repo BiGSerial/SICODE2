@@ -8,6 +8,7 @@ use App\Models\Viability;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class TacitLogic extends Command
 {
@@ -30,22 +31,23 @@ class TacitLogic extends Command
      */
     public function handle()
     {
-        $sevenDaysAgo = Carbon::now()->subDays(7)->startOfDay();
+        $log = null;
+
+        try {
+            $sevenDaysAgo = Carbon::now()->subDays(7)->startOfDay();
 
         // dd($sevenDaysAgo, $sevenDaysAgo->copy()->subDays(-10));
 
 
-        $viabilitiesToUpdate = Viability::where('sended_at', '<', $sevenDaysAgo)
-                            ->where('tacit', false)
-                            ->where('rejected', false)
-                            ->where('approved', false)
-                            // ->where('completed', false)
-                            ->get();
-
-        if ($viabilitiesToUpdate) {
+            $viabilitiesToUpdate = Viability::where('sended_at', '<', $sevenDaysAgo)
+                ->where('tacit', false)
+                ->where('rejected', false)
+                ->where('approved', false)
+                ->get();
 
             $log = new RegistroJson('check_tacit', $this->options());
             $log->setTotal($viabilitiesToUpdate->count());
+            $updatedCount = 0;
 
             $progressBar = new ProgressBar($this->output, $viabilitiesToUpdate->count());
             $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%%');
@@ -73,6 +75,7 @@ class TacitLogic extends Command
                         'status' => $viability->hired ? 9 : 15,
                         'approved' => true,
                     ]);
+                    $updatedCount++;
 
                     $viability->Comments()->create([
                         'user_id' => User::first()->id,
@@ -102,6 +105,7 @@ class TacitLogic extends Command
                         'approved' => true,
                         'rejected' => false,
                     ]);
+                    $updatedCount++;
                 }
             }
 
@@ -116,12 +120,21 @@ class TacitLogic extends Command
                         'completed_at' => date('Y-m-d H:i:s'),
                         'status' => 9,
                     ]);
+                    $updatedCount++;
                 }
             }
 
+            $log->setUpdated($updatedCount);
             $log->save();
 
-            return;
+            return self::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
         }
 
     }

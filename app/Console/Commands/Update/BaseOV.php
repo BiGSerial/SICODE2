@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class BaseOV extends Command
 {
@@ -31,6 +32,9 @@ class BaseOV extends Command
      */
     public function handle(): void
     {
+        $log = null;
+
+        try {
         // Banner com fundo azul e texto branco
         $this->line('<options=bold;fg=white;bg=blue> BaseOV </>');
 
@@ -167,5 +171,13 @@ class BaseOV extends Command
         Bancoupdate::whereDate('created_at', '<', now()->subDays(30))->delete();
 
         $this->info('Data transfer completed: '.($count['ins'] + $count['upd']).' records processed.');
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            throw $e;
+        }
     }
 }

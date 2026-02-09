@@ -20,4 +20,9 @@ class ConfigController extends Controller
     {
         return view('config.jobs');
     }
+
+    public function adsRequestRecipients()
+    {
+        return view('config.ads_request_recipients');
+    }
 }
