@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\Wpaupdstatus;
 use App\Models\Wpa;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class Wpaupd extends Command
 {
@@ -15,27 +17,32 @@ class Wpaupd extends Command
 
     public function handle()
     {
-        // Ajuste conforme seu volume
-        $chunkSize = 1_000;
+        $log = null;
 
-        // Total para a barra
-        $total = Wpaupdstatus::count();
+        try {
+            // Ajuste conforme seu volume
+            $chunkSize = 1_000;
 
-        if ($total === 0) {
-            $this->info('Nenhum registro encontrado em Wpaupdstatus.');
-            return Command::SUCCESS;
-        }
+            // Total para a barra
+            $total = Wpaupdstatus::count();
+            $log = new RegistroJson('upd_wpa', $this->options(), $total);
 
-        $progressBar = new ProgressBar($this->output, $total);
-        $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s%');
-        $progressBar->start();
+            if ($total === 0) {
+                $this->info('Nenhum registro encontrado em Wpaupdstatus.');
+                $log->save();
+                return Command::SUCCESS;
+            }
+
+            $progressBar = new ProgressBar($this->output, $total);
+            $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s%');
+            $progressBar->start();
 
         // Dica: upsert não dispara eventos de model. Se precisar, considere processar diferentemente.
         // Em MySQL, upsert exige índice UNIQUE/PK na coluna de conflito (production_id).
         // Veja a nota de migration ao final.
 
         // Para manter a ordem estável durante a paginação
-        Wpaupdstatus::orderBy('production_id')->chunk($chunkSize, function ($wpas) use ($progressBar) {
+            Wpaupdstatus::orderBy('production_id')->chunk($chunkSize, function ($wpas) use ($progressBar) {
 
             // Monte o payload a partir dos campos vindos da base SQL
             $now = Carbon::now();
@@ -65,13 +72,23 @@ class Wpaupd extends Command
             );
 
             $progressBar->advance(count($rows));
-        });
+            });
 
-        $progressBar->finish();
-        $this->newLine(2);
-        $this->info('Upsert concluído com sucesso.');
+            $progressBar->finish();
+            $this->newLine(2);
+            $this->info('Upsert concluído com sucesso.');
+            $log->setUpdated($total);
+            $log->save();
 
-        return Command::SUCCESS;
+            return Command::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 
     private function castNullFloat($value)

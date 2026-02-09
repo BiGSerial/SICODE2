@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\{City};
 use App\Models\Edp_depc\City as OriginCity;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class CityUpdate extends Command
 {
@@ -28,16 +30,22 @@ class CityUpdate extends Command
      */
     public function handle()
     {
+        $log = null;
+
+        try {
         $this->info('INIT UPDATE CITIES BD');
         $origin_count         = OriginCity::count();
+        $log = new RegistroJson('upd_cities', $this->options(), $origin_count);
         $progressBar    = new ProgressBar($this->output, $origin_count);
+        $updated = 0;
+        $created = 0;
 
         if ($origin_count) {
 
             $progressBar->start();
 
             foreach (OriginCity::all() as $city) {
-                City::updateOrCreate(
+                $chk = City::updateOrCreate(
                     [
                         'rdMunicipio' => $city->rdMunicipio
                     ],
@@ -57,11 +65,28 @@ class CityUpdate extends Command
                         'centroHana' => $city->centroHana,
                     ]
                 );
+                if ($chk->wasRecentlyCreated) {
+                    $created++;
+                } else {
+                    $updated++;
+                }
 
                 $progressBar->advance();
             }
 
             $progressBar->finish();
+        }
+        $log->setCreated($created);
+        $log->setUpdated($updated);
+        $log->save();
+        return self::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
         }
 
     }

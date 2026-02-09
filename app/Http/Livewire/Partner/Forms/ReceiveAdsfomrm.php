@@ -32,7 +32,7 @@ class ReceiveAdsfomrm extends Component
     public $observation;
     public $amount;
     public $hasFile = false;
-    public $tacitWarning = null;
+    public $lateDeliveryAfterSubmit = null;
 
     // Serialized state for $theAds
     public $theAdsPath = null;
@@ -98,11 +98,17 @@ class ReceiveAdsfomrm extends Component
 
     public function savedFiles()
     {
+        $html = null;
+        if ($this->lateDeliveryAfterSubmit) {
+            $html = "<div class='alert alert-warning text-start mb-0'><strong>Entrega em atraso:</strong><br>{$this->lateDeliveryAfterSubmit}</div>";
+        }
+
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
             'title'    => 'ENVIADO COM SUCESSO',
-            'timer'    => 2500,
+            'html'     => $html,
+            'confirmButtonText' => 'OK',
         ]);
 
         $this->cleanAll();
@@ -115,7 +121,6 @@ class ReceiveAdsfomrm extends Component
         $this->file = null;
         $this->theAdsPath = null;
         $this->theAds = null;
-        $this->tacitWarning = null;
 
         $this->notes = Note::where(function ($q) {
             $q->where('note', trim($this->search))
@@ -127,7 +132,6 @@ class ReceiveAdsfomrm extends Component
     public function getNote($id)
     {
         $this->note = Note::find($id);
-        $this->tacitWarning = $this->buildTacitWarning();
     }
 
     public function removeTempFile($path)
@@ -204,6 +208,16 @@ class ReceiveAdsfomrm extends Component
                 'icon' => 'error',
                 'title' => 'INFORME INVÁLIDO',
                 'html' => "Esta obra não possui Informe de Obra válido para entrega da ADS.",
+            ]);
+            return;
+        }
+
+        if (!$this->isEligibleByOrderStatusRule()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'OBRA NAO ELEGIVEL',
+                'html' => 'Para envio da ADS e obrigatorio existir ORDER ativa (status diferente de ENT/ENC).',
             ]);
             return;
         }
@@ -285,6 +299,7 @@ class ReceiveAdsfomrm extends Component
 
         try {
             $adsForm = $this->note->WorkForm->Adsform;
+            $lateDeliveryMessage = null;
 
             if ($adsForm && $this->isAdsClosed()) {
                 DB::rollBack();
@@ -312,11 +327,16 @@ class ReceiveAdsfomrm extends Component
             if ($adsForm) {
                 if ($adsForm->tacit && !$adsForm->tacit_delivered_at) {
                     $payload['tacit_delivered_at'] = now();
+                    if ($adsForm->tacit_due_at && now()->greaterThan($adsForm->tacit_due_at)) {
+                        $lateDeliveryMessage = 'A ADS está sendo entregue em atraso. Prazo vencido em ' . $adsForm->tacit_due_at->format('d/m/Y H:i:s') . '. Penalidades contratuais podem ser aplicadas.';
+                    }
                 }
                 $adsForm->update($payload);
             } else {
                 $adsForm = $this->note->WorkForm->Adsform()->create($payload);
             }
+
+            $this->lateDeliveryAfterSubmit = $lateDeliveryMessage;
 
             if ($adsForm) {
                 $caminho = $this->file->storeAs('/arquivos/ADS_FINAL/', $newName . '.' . $this->file->getClientOriginalExtension());
@@ -395,7 +415,7 @@ class ReceiveAdsfomrm extends Component
         $this->responsible = '';
         $this->amount = '';
         $this->theAdsPath = null;
-        $this->tacitWarning = null;
+        $this->lateDeliveryAfterSubmit = null;
     }
 
     private function isAdsClosed(): bool
@@ -413,30 +433,9 @@ class ReceiveAdsfomrm extends Component
         return $adsForm->files()->exists() || (bool) $adsForm->tacit_delivered_at;
     }
 
-    private function buildTacitWarning(): ?string
-    {
-        $adsForm = $this->note?->WorkForm?->Adsform;
-        if (!$adsForm || !$adsForm->tacit || $adsForm->tacit_delivered_at) {
-            return null;
-        }
-
-        $dueAt = $adsForm->tacit_due_at;
-        if (!$dueAt) {
-            return null;
-        }
-
-        return "A ADS desta obra venceu em {$dueAt->format('d/m/Y H:i:s')}. A entrega está em atraso e pode estar sujeita a penalidades previstas em contrato.";
-    }
-
     private function buildConfirmMessage(): string
     {
-        $warningHtml = '';
-        if ($this->tacitWarning) {
-            $warningHtml = "<div class='alert alert-warning mb-2'><strong>Entrega em atraso:</strong><br>{$this->tacitWarning}</div>";
-        }
-
         return "
-            {$warningHtml}
             Você deseja informar o ADS da obra {$this->note->note} Final?</br></br>
             <div class='card card-light'>
             <div class='card-body'>
@@ -444,6 +443,25 @@ class ReceiveAdsfomrm extends Component
             </div>
             </div>
             ";
+    }
+
+    private function isEligibleByOrderStatusRule(): bool
+    {
+        if (!$this->note) {
+            return false;
+        }
+
+        $hasOrders = $this->note->Orders()->exists();
+        if (!$hasOrders) {
+            return false;
+        }
+
+        return $this->note->Orders()
+            ->where(function ($query) {
+                $query->where('statusSist', 'not like', 'ENT%')
+                    ->where('statusSist', 'not like', 'ENC%');
+            })
+            ->exists();
     }
 
     public function render()

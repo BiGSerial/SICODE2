@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\{Model, SoftDeletes};
@@ -55,5 +56,12 @@ class Company extends Model
     public function WorkReports()
     {
         return $this->hasMany(WorkReport::class);
+    }
+
+    public function scopeLinkedToService(Builder $query, string $serviceUuid): Builder
+    {
+        return $query->whereHas('contracts.services', function (Builder $serviceQuery) use ($serviceUuid) {
+            $serviceQuery->where('services.uuid', $serviceUuid);
+        });
     }
 }

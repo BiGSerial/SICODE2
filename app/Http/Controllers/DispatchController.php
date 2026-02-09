@@ -134,6 +134,15 @@ class DispatchController extends Controller
 
     }
 
+    public function adsRequests(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('dispatchs.ads_requests', [
+            'service' => $service,
+        ]);
+    }
+
     public function cancellationQueue(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();

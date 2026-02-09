@@ -8,6 +8,7 @@ use App\Models\OperationResp;
 use App\Models\Order;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
+use Throwable;
 
 class OperationRespUpd extends Command
 {
@@ -30,6 +31,8 @@ class OperationRespUpd extends Command
      */
     public function handle()
     {
+        $log = null;
+        try {
         $operation = BaseOperationResp::where("operacao", "0040")
         // ->where('confFinal', '!=', 'X')
         // ->where('fimLancado', '>=', Carbon::now()->subDays(7))
@@ -105,6 +108,7 @@ class OperationRespUpd extends Command
 
             $log->setUpdated($count['upd']);
             $log->setCreated($count['ins']);
+            $log->setNoteUpdated($count['nf']);
             $log->save();
 
         }
@@ -112,6 +116,14 @@ class OperationRespUpd extends Command
 
 
         $progressbar->finish();
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
 
     }
 }

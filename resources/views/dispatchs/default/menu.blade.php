@@ -21,7 +21,8 @@
                             <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i><span>ACOMPANHAMENTO</span>
                         </a>
                     </li>
-                </div>
+                                    
+</div>
             </ul>
         </li>
     </ul>

@@ -14,11 +14,10 @@ class ReturnInMass extends Component
 {
     public $reclaims;
     public $service;
-    public $companies;
     public $companySelected;
     public $userSelected;
     public $user;
-    public $search;
+    public $search = '';
 
     protected $listeners = [
         'goOpenMassAtt',
@@ -29,12 +28,16 @@ class ReturnInMass extends Component
     public function mount(Service $service)
     {
         $this->service = $service;
-        $this->companies = Company::whereHas('Users', function ($query) {
-            $query->whereRelation('ToServices', 'service_id', $this->service->uuid);
-        })->get();
     }
 
-
+    public function getCompaniesProperty()
+    {
+        return Company::query()
+            ->linkedToService($this->service->uuid)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
 
     public function updatedUserSelected($user_id)
     {
@@ -69,11 +72,20 @@ class ReturnInMass extends Component
 
     public function getUsersProperty()
     {
+        if (!$this->companySelected) {
+            return collect();
+        }
+
         return User::where('company_id', $this->companySelected)
-                    ->whereRelation('ToServices', 'service_id', $this->service->uuid)
+                    ->whereRelation('ToServices', function ($q) {
+                        $q->where('service_id', $this->service->uuid)
+                            ->where('service', true);
+                    })
                     ->when(trim($this->search), function ($q) {
                         $q->where('name', 'like', "%".trim($this->search)."%");
                     })
+                    ->select('id', 'name', 'company_id')
+                    ->orderBy('name')
                     ->get();
     }
 
@@ -261,6 +273,7 @@ class ReturnInMass extends Component
 
 
         return view('livewire.dispatchs.common.return-in-mass', [
+            'companies' => $this->companies,
             'users' => $this->users,
         ]);
     }

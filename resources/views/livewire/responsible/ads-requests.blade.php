@@ -1,6 +1,12 @@
 <div>
     <x-show-loading />
 
+    @if (!$sqlSyncEnabled)
+        <div class="alert alert-warning">
+            Modo teste sem envio para SQL Server está habilitado. As solicitações serão registradas apenas localmente.
+        </div>
+    @endif
+
     <div class="card mb-3">
         <div class="card-header edp-bg-seoweedgreen-100 text-white">
             <h4 class="my-0">Solicitacao de pedidos ADS</h4>
@@ -112,9 +118,18 @@
                     <input type="text" class="form-control border border-secondary"
                         wire:model.debounce.500ms="activeSearch" placeholder="Numero da nota">
                 </div>
+                <div class="col-6 col-lg-2">
+                    <label class="form-label">Por pagina</label>
+                    <select class="form-select border border-secondary" wire:model="activePerPage">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
                 <div class="col-12 col-lg-2 d-flex align-items-end">
                     <button class="btn btn-outline-primary w-100" wire:click.prevent="syncAllRequests"
-                        @if ($activeRequests->isEmpty()) disabled @endif>
+                        @if ($activeRequests->isEmpty() || !$sqlSyncEnabled) disabled @endif>
                         Sincronizar todos
                     </button>
                 </div>
@@ -148,6 +163,9 @@
                             <td>{{ $request->description ?? '-' }}</td>
                             <td class="text-center">{{ $request->version }}</td>
                             <td class="text-center">
+                                @if (!$sqlSyncEnabled)
+                                    <span class="badge text-bg-secondary">Modo teste</span>
+                                @else
                                 @php
                                     $sqlStatus = $sqlStatusBySicodeId->get($request->id)?->status;
                                     $isSynced = $sqlStatus && $sqlStatus === $request->status?->value;
@@ -159,6 +177,7 @@
                                 @else
                                     <span class="badge text-bg-danger">Diferente</span>
                                 @endif
+                                @endif
                             </td>
                             <td class="text-center">{{ $request->created_at?->format('d/m/Y H:i') }}</td>
                         </tr>
@@ -169,6 +188,9 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+        <div class="card-footer py-2">
+            {{ $activeRequests->links() }}
         </div>
     </div>
 

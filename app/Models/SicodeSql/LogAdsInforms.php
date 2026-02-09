@@ -25,10 +25,16 @@ class LogAdsInforms extends Model
         'center',
         'deposit',
         'amount',
+        'tacit',
+        'tacit_due_at',
+        'tacit_delivered_at',
         'date',
     ];
 
     protected $casts = [
+        'tacit' => 'boolean',
+        'tacit_due_at' => 'datetime',
+        'tacit_delivered_at' => 'datetime',
         'date' => 'datetime',
     ];
 }

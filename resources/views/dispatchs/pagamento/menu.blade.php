@@ -61,23 +61,28 @@
             <ul id="cancelamentos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('dispatch.cancellation.categories', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-tags fs-5 edp-text-verde-dark fw-normal"></i><span>CATEGORIAS DE CANCELAMENTO</span>
-                        </a>
-                    </li>
-                    <li>
                         <a href="{{ route('dispatch.cancellation.queue', ['service' => $service->uuid]) }}"
                             class="nav-item text-white fw-normal">
-                            <i class="bi bi-shield-exclamation fs-5 edp-text-verde-dark fw-normal"></i><span>CONTROLE DE CANCELAMENTO</span>
+                            <i class="ri-inbox-archive-line fs-5 edp-text-verde-dark fw-normal"></i><span>CONTROLE
+                                CANCELAMENTO</span>
                             @livewire('components.count.cancellation-requests', ['mode' => 'unassigned'])
                             @livewire('components.count.cancellation-requests', ['mode' => 'in_progress'])
                         </a>
                     </li>
+
+                    <li>
+                        <a href="{{ route('dispatch.cancellation.categories', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-settings-3-line fs-5 edp-text-verde-dark fw-normal"></i><span>CONFIGURAÇÃO
+                                DE CATEGORIAS</span>
+                        </a>
+                    </li>
+
                     <li>
                         <a href="{{ route('dispatch.cancellation.history', ['service' => $service->uuid]) }}"
                             class="nav-item text-white fw-normal">
-                            <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i><span>HISTÓRICO</span>
+                            <i class="ri-history-line fs-5 edp-text-verde-dark fw-normal"></i><span>HISTÓRICO
+                                DE CANCELAMENTO</span>
                         </a>
                     </li>
                 </div>

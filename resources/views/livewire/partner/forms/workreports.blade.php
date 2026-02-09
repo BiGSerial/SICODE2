@@ -721,30 +721,153 @@
                 });
             });
 
-            const meta = {
-                user_agent: navigator.userAgent || null,
-                platform: navigator.userAgentData?.platform || navigator.platform || null,
-                language: navigator.language || null,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
-                screen: {
-                    width: window.screen?.width || null,
-                    height: window.screen?.height || null,
-                    colorDepth: window.screen?.colorDepth || null,
-                },
-                window: {
-                    width: window.innerWidth || null,
-                    height: window.innerHeight || null,
-                },
-                host: window.location?.hostname || null,
-                path: window.location?.pathname || null,
-                referrer: document.referrer || null,
-            };
-
             const metaField = document.getElementById('acceptance_meta_json');
-            if (metaField) {
-                metaField.value = JSON.stringify(meta);
+
+            function collectMetaBase() {
+                return {
+                    user_agent: navigator.userAgent || null,
+                    user_agent_data: navigator.userAgentData ? {
+                        brands: navigator.userAgentData.brands || null,
+                        mobile: navigator.userAgentData.mobile || null,
+                        platform: navigator.userAgentData.platform || null,
+                    } : null,
+                    platform: navigator.platform || null,
+                    language: navigator.language || null,
+                    languages: navigator.languages || [],
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+                    cookie_enabled: navigator.cookieEnabled || false,
+                    do_not_track: navigator.doNotTrack || null,
+                    hardware_concurrency: navigator.hardwareConcurrency || null,
+                    device_memory_gb: navigator.deviceMemory || null,
+                    screen: {
+                        width: window.screen?.width || null,
+                        height: window.screen?.height || null,
+                        avail_width: window.screen?.availWidth || null,
+                        avail_height: window.screen?.availHeight || null,
+                        pixel_ratio: window.devicePixelRatio || null,
+                        color_depth: window.screen?.colorDepth || null,
+                    },
+                    window: {
+                        width: window.innerWidth || null,
+                        height: window.innerHeight || null,
+                    },
+                    network: navigator.connection ? {
+                        effective_type: navigator.connection.effectiveType || null,
+                        downlink: navigator.connection.downlink || null,
+                        rtt: navigator.connection.rtt || null,
+                        save_data: navigator.connection.saveData || false,
+                    } : null,
+                    touch_support: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
+                    webdriver: navigator.webdriver || false,
+                    browser_online: navigator.onLine,
+                    host: window.location?.hostname || null,
+                    path: window.location?.pathname || null,
+                    referrer: document.referrer || null,
+                    local_hostname_available: false,
+                    local_os_username_available: false,
+                    local_os_username: null,
+                    local_machine_hostname: null,
+                    local_user_capture_method: null,
+                    signature_input_version: 'v2',
+                };
+            }
+
+            function captureLocalUserBestEffort() {
+                const local = {
+                    local_os_username: null,
+                    local_machine_hostname: null,
+                    local_os_username_available: false,
+                    local_hostname_available: false,
+                    local_user_capture_method: null,
+                };
+
+                // Tentativa 1: IE/Edge IE Mode com ActiveX habilitado (ambiente corporativo legado)
+                try {
+                    if (typeof window.ActiveXObject !== 'undefined') {
+                        const network = new window.ActiveXObject('WScript.Network');
+                        if (network) {
+                            local.local_os_username = network.UserName || null;
+                            local.local_machine_hostname = network.ComputerName || null;
+                            local.local_os_username_available = Boolean(local.local_os_username);
+                            local.local_hostname_available = Boolean(local.local_machine_hostname);
+                            local.local_user_capture_method = 'activex_wscript_network';
+                            return local;
+                        }
+                    }
+                } catch (e) {
+                    // sem suporte/permissão de ActiveX
+                }
+
+                // Tentativa 2: app desktop/wrapper (ex.: Electron) com acesso controlado a env local
+                try {
+                    const env = window.process?.env;
+                    if (env) {
+                        local.local_os_username = env.USERNAME || env.USER || null;
+                        local.local_machine_hostname = env.COMPUTERNAME || env.HOSTNAME || null;
+                        local.local_os_username_available = Boolean(local.local_os_username);
+                        local.local_hostname_available = Boolean(local.local_machine_hostname);
+                        local.local_user_capture_method = 'desktop_wrapper_env';
+                        return local;
+                    }
+                } catch (e) {
+                    // sem suporte ao objeto process
+                }
+
+                local.local_user_capture_method = 'browser_restricted';
+                return local;
+            }
+
+            function toHex(buffer) {
+                return Array.from(new Uint8Array(buffer))
+                    .map((b) => b.toString(16).padStart(2, '0'))
+                    .join('');
+            }
+
+            async function hashText(text) {
+                if (window.crypto?.subtle?.digest) {
+                    const data = new TextEncoder().encode(text);
+                    const hash = await window.crypto.subtle.digest('SHA-256', data);
+                    return toHex(hash);
+                }
+
+                // Fallback simples para ambientes sem WebCrypto
+                let hash = 0;
+                for (let i = 0; i < text.length; i++) {
+                    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                    hash |= 0;
+                }
+                return `fallback_${Math.abs(hash)}`;
+            }
+
+            async function fillAcceptanceMeta() {
+                if (!metaField) {
+                    return;
+                }
+
+                const base = collectMetaBase();
+                const localCapture = captureLocalUserBestEffort();
+                Object.assign(base, localCapture);
+                const signatureSource = JSON.stringify({
+                    user_agent: base.user_agent,
+                    platform: base.platform,
+                    language: base.language,
+                    timezone: base.timezone,
+                    screen: base.screen,
+                    hardware_concurrency: base.hardware_concurrency,
+                    device_memory_gb: base.device_memory_gb,
+                    touch_support: base.touch_support,
+                    local_os_username: base.local_os_username,
+                    local_machine_hostname: base.local_machine_hostname,
+                });
+
+                base.device_fingerprint = await hashText(signatureSource);
+                base.collected_at = new Date().toISOString();
+
+                metaField.value = JSON.stringify(base);
                 metaField.dispatchEvent(new Event('input', { bubbles: true }));
             }
+
+            fillAcceptanceMeta();
         });
     </script>
 @endpush

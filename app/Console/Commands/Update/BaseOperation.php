@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class BaseOperation extends Command
 {
@@ -28,6 +29,9 @@ class BaseOperation extends Command
 
     public function handle()
     {
+        $log = null;
+
+        try {
         // ===== TOTAL (para o log inicial)
         $totalRecords = Order::where('statusSist', 'Not Like', 'ENT%')
             ->where('statusSist', 'Not Like', 'ENC%')
@@ -214,6 +218,15 @@ class BaseOperation extends Command
         $log->save();
 
         $this->info("\nBaseOperation finalizada. C={$count['ctd']} U={$count['upd']} NF={$count['nf']}");
+        return self::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 
     private function parseDateTime($v): ?string

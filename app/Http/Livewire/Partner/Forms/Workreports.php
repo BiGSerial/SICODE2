@@ -654,6 +654,13 @@ class Workreports extends Component
 
         $meta['server_ip'] = request()->ip();
         $meta['server_host'] = request()->getHost();
+        $meta['server_user_agent'] = request()->userAgent();
+        $meta['captured_at'] = now()->toDateTimeString();
+        $meta['app_user'] = [
+            'id' => auth()->id(),
+            'name' => auth()->user()?->name,
+            'email' => auth()->user()?->email,
+        ];
 
         return $meta;
     }

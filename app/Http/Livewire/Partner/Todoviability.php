@@ -228,11 +228,11 @@ class Todoviability extends Component
         $user = Auth::user();
 
         $query = Viability::query()
-            ->where('canceled', false)
-            ->where('completed', false)
-            ->where('tacit', false)
-            ->where('rejected', false)
-            ->where('visible_partner', false); // regra original mantida
+            ->where('viabilities.canceled', false)
+            ->where('viabilities.completed', false)
+            ->where('viabilities.tacit', false)
+            ->where('viabilities.rejected', false)
+            ->where('viabilities.visible_partner', false); // regra original mantida
 
         // Se não é superadm, restringe por empresa:
         if (!$user->superadm) {
@@ -241,10 +241,10 @@ class Todoviability extends Component
 
             $query->where(function ($q) use ($companyIds, $ownCompany) {
                 if (!empty($companyIds)) {
-                    $q->whereIn('company_id', $companyIds);
+                    $q->whereIn('viabilities.company_id', $companyIds);
                 }
                 if ($ownCompany) {
-                    $q->orWhere('company_id', $ownCompany);
+                    $q->orWhere('viabilities.company_id', $ownCompany);
                 }
             });
         }

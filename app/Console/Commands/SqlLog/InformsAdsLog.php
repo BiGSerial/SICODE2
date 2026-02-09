@@ -8,6 +8,8 @@ use Illuminate\Console\Command;
 
 class InformsAdsLog extends Command
 {
+    private const SQLSERVER_BIND_LIMIT = 2100;
+
     /**
      * The name and signature of the console command.
      *
@@ -28,7 +30,27 @@ class InformsAdsLog extends Command
     public function handle()
     {
         $full = !(LogAdsInforms::count() > 0);
-        $limitBatch = 100;
+        $now = now();
+        $basePayload = [
+            'adsform_id' => null,
+            'work_report_id' => null,
+            'note_id' => null,
+            'note' => null,
+            'user_name' => null,
+            'name' => null,
+            'obs' => null,
+            'contract' => null,
+            'center' => null,
+            'deposit' => null,
+            'amount' => null,
+            'tacit' => null,
+            'tacit_due_at' => null,
+            'tacit_delivered_at' => null,
+            'date' => null,
+            'created_at' => null,
+            'updated_at' => null,
+        ];
+        $limitBatch = $this->safeBatchSizeForSqlServer(count($basePayload), 100);
 
         $totalSteps = Adsform::count();
 
@@ -47,67 +69,84 @@ class InformsAdsLog extends Command
         $bar->start();
 
 
-        Adsform::when(!$full, function ($query) {
-            return $query->where('updated_at', '>=', now()->subDays(1));
-        })->chunk(1000, function ($adsforms) use ($bar, $full, $limitBatch) {
+        Adsform::query()
+            ->with(['note:id,note', 'user:id,name'])
+            ->when(!$full, function ($query) {
+                return $query->where('updated_at', '>=', now()->subDays(1));
+            })
+            ->chunk(1000, function ($adsforms) use ($bar, $full, $limitBatch, $now) {
 
-            $dataBatch = [];
-            foreach ($adsforms as $adsform) {
-
-                if ($full) {
-
+                $dataBatch = [];
+                foreach ($adsforms as $adsform) {
                     $dataBatch[] = [
                         'adsform_id' => $adsform->id,
                         'work_report_id' => $adsform->work_report_id,
                         'note_id' => $adsform->note_id,
-                        'note' => $adsform->Note->note,
-                        'user_name' => mb_strtoupper($adsform->user->name),
-                        'name' => strtoupper($adsform->name),
+                        'note' => $adsform->note?->note,
+                        'user_name' => mb_strtoupper($adsform->user?->name ?? ''),
+                        'name' => strtoupper($adsform->name ?? ''),
                         'obs' => $adsform->obs,
                         'contract' => $adsform->contract,
                         'center' => $adsform->center,
                         'deposit' => $adsform->deposit,
                         'amount' => $adsform->amount,
+                        'tacit' => (bool) $adsform->tacit,
+                        'tacit_due_at' => $adsform->tacit_due_at,
+                        'tacit_delivered_at' => $adsform->tacit_delivered_at,
                         'date' => $adsform->created_at,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
 
-                    if (count($dataBatch) >= $limitBatch) {
-                        LogAdsInforms::insert($dataBatch);
-                        $dataBatch = [];
-                    }
-
-                } else {
-
-                    LogAdsInforms::updateOrCreate(
-                        [
-                            'adsform_id' => $adsform->id,
-                            'work_report_id' => $adsform->work_report_id,
-                            'note_id' => $adsform->note_id,
-                        ],
-                        [
-                            'note' => $adsform->Note->note,
-                            'user_name' => $adsform->user->name,
-                            'name' => $adsform->name,
-                            'obs' => $adsform->obs,
-                            'contract' => $adsform->contract,
-                            'center' => $adsform->center,
-                            'deposit' => $adsform->deposit,
-                            'amount' => $adsform->amount,
-                            'date' => $adsform->created_at,
-                        ]
-                    );
+                    // Atualiza a barra de progresso
+                    $bar->setMessage('Processando...');
+                    $bar->advance();
                 }
 
-                // Atualiza a barra de progresso
-                $bar->setMessage('Processando...'); // Mensagem de progresso
-                $bar->advance();
-            }
-            if (count($dataBatch) > 0) {
-                // Insere os dados restantes
-                LogAdsInforms::insert($dataBatch);
-            }
-        });
+                if ($full) {
+                    foreach (array_chunk($dataBatch, $limitBatch) as $batch) {
+                        LogAdsInforms::insert($batch);
+                    }
+                } else {
+                    foreach (array_chunk($dataBatch, $limitBatch) as $batch) {
+                        $upsertRows = array_map(function (array $row) {
+                            unset($row['created_at']);
+                            return $row;
+                        }, $batch);
+
+                        LogAdsInforms::upsert(
+                            $upsertRows,
+                            ['adsform_id', 'work_report_id', 'note_id'],
+                            [
+                                'note',
+                                'user_name',
+                                'name',
+                                'obs',
+                                'contract',
+                                'center',
+                                'deposit',
+                                'amount',
+                                'tacit',
+                                'tacit_due_at',
+                                'tacit_delivered_at',
+                                'date',
+                                'updated_at',
+                            ]
+                        );
+                    }
+                }
+            });
+    }
+
+    private function safeBatchSizeForSqlServer(int $columnsPerRow, int $defaultBatch): int
+    {
+        if ($columnsPerRow <= 0) {
+            return 1;
+        }
+
+        $maxByBinds = (int) floor((self::SQLSERVER_BIND_LIMIT - 50) / $columnsPerRow);
+        $maxByBinds = max(1, $maxByBinds);
+
+        return min($defaultBatch, $maxByBinds);
     }
 }

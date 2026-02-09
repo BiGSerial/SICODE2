@@ -60,6 +60,16 @@
 @endonce
 
 @if ($files?->isNotEmpty())
+    @php
+        $adsTacitFileIds = \Illuminate\Support\Facades\DB::table('adsforms_files as af')
+            ->join('adsforms as a', 'a.id', '=', 'af.adsform_id')
+            ->whereIn('af.file_id', $files->pluck('id')->all())
+            ->where('a.tacit', true)
+            ->whereNotNull('a.work_report_id')
+            ->pluck('af.file_id')
+            ->unique()
+            ->all();
+    @endphp
     <!-- Alteramos o container para não ter restrição de posicionamento -->
     <div class="dropdown d-inline file-dropdown" style="position: inherit;">
         <i class="ri-file-3-line fs-4 file-dropdown-toggle-icon text-danger" type="button" data-bs-toggle="dropdown"
@@ -112,12 +122,22 @@
             @endif
             @php
                 $icon = \App\Helpers\FileIcon::getIcon($file->ext)->icon;
+                $isTacitAdsFile = in_array($file->id, $adsTacitFileIds, true);
             @endphp
             <li wire:key="file-{{ $file->id }}" class="text-center py-1">
-                <a class="file-dropdown-item text-center" href="#"
-                    wire:click.prevent="downloadFile({{ $file->id }})" onclick="event.stopPropagation();">
-                    <i class="{{ $icon }}"></i> {{ $file->file_name }}
-                </a>
+                @if ($isTacitAdsFile)
+                    <span class="file-dropdown-item text-center text-muted d-inline-flex align-items-center gap-1"
+                        title="Arquivo de ADS tácita. Download bloqueado nesta tela.">
+                        <i class="{{ $icon }}"></i> {{ $file->file_name }}
+                        <span class="badge bg-warning text-dark">TÁCITO</span>
+                        <i class="ri-lock-line"></i>
+                    </span>
+                @else
+                    <a class="file-dropdown-item text-center" href="#"
+                        wire:click.prevent="downloadFile({{ $file->id }})" onclick="event.stopPropagation();">
+                        <i class="{{ $icon }}"></i> {{ $file->file_name }}
+                    </a>
+                @endif
             </li>
             @endforeach
         </div>
