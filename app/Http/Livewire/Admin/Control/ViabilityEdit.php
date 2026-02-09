@@ -13,6 +13,13 @@ use Livewire\Component;
 class ViabilityEdit extends Component
 {
     public ?Viability $viability = null;
+    public ?string $initAt = null;
+    public ?string $sendedAt = null;
+    public ?string $returnedAt = null;
+    public ?string $tacitAt = null;
+    public ?string $completedAt = null;
+    public ?string $engineerAt = null;
+    public ?string $hiredAt = null;
     public $companies = [];
     public $companyUsers = [];
     public $engineers = [];
@@ -38,13 +45,13 @@ class ViabilityEdit extends Component
             'viability.company_id' => ['nullable', 'uuid'],
             'viability.user_id' => ['nullable', 'uuid'],
             'viability.engineer_id' => ['nullable', 'uuid'],
-            'viability.init_at' => ['nullable', 'date'],
-            'viability.sended_at' => ['nullable', 'date'],
-            'viability.returned_at' => ['nullable', 'date'],
-            'viability.tacit_at' => ['nullable', 'date'],
-            'viability.completed_at' => ['nullable', 'date'],
-            'viability.engineer_at' => ['nullable', 'date'],
-            'viability.hired_at' => ['nullable', 'date'],
+            'initAt' => ['nullable', 'date'],
+            'sendedAt' => ['nullable', 'date'],
+            'returnedAt' => ['nullable', 'date'],
+            'tacitAt' => ['nullable', 'date'],
+            'completedAt' => ['nullable', 'date'],
+            'engineerAt' => ['nullable', 'date'],
+            'hiredAt' => ['nullable', 'date'],
             'viability.tacit' => ['nullable', 'boolean'],
             'viability.completed' => ['nullable', 'boolean'],
             'viability.canceled' => ['nullable', 'boolean'],
@@ -74,13 +81,13 @@ class ViabilityEdit extends Component
         // Nao carregar a relacao Engineer aqui para evitar conflito com o campo booleano `engineer`.
         $this->viability = $viability->load(['Note', 'Company', 'User', 'Orders', 'Files']);
 
-        $this->viability->init_at = $this->formatDateTimeLocal($this->viability->init_at);
-        $this->viability->sended_at = $this->formatDateTimeLocal($this->viability->sended_at);
-        $this->viability->returned_at = $this->formatDateTimeLocal($this->viability->returned_at);
-        $this->viability->tacit_at = $this->formatDateTimeLocal($this->viability->tacit_at);
-        $this->viability->completed_at = $this->formatDateTimeLocal($this->viability->completed_at);
-        $this->viability->engineer_at = $this->formatDateTimeLocal($this->viability->engineer_at);
-        $this->viability->hired_at = $this->formatDateTimeLocal($this->viability->hired_at);
+        $this->initAt = $this->formatDateTimeLocal($this->viability->init_at);
+        $this->sendedAt = $this->formatDateTimeLocal($this->viability->sended_at);
+        $this->returnedAt = $this->formatDateTimeLocal($this->viability->returned_at);
+        $this->tacitAt = $this->formatDateTimeLocal($this->viability->tacit_at);
+        $this->completedAt = $this->formatDateTimeLocal($this->viability->completed_at);
+        $this->engineerAt = $this->formatDateTimeLocal($this->viability->engineer_at);
+        $this->hiredAt = $this->formatDateTimeLocal($this->viability->hired_at);
 
         $this->refreshCompanyUsers($this->viability->company_id);
         $this->refreshOrders();
@@ -155,13 +162,13 @@ class ViabilityEdit extends Component
         try {
             $this->validate();
 
-            $this->viability->init_at = $this->normalizeDateTime($this->viability->init_at);
-            $this->viability->sended_at = $this->normalizeDateTime($this->viability->sended_at);
-            $this->viability->returned_at = $this->normalizeDateTime($this->viability->returned_at);
-            $this->viability->tacit_at = $this->normalizeDateTime($this->viability->tacit_at);
-            $this->viability->completed_at = $this->normalizeDateTime($this->viability->completed_at);
-            $this->viability->engineer_at = $this->normalizeDateTime($this->viability->engineer_at);
-            $this->viability->hired_at = $this->normalizeDateTime($this->viability->hired_at);
+            $this->viability->init_at = $this->normalizeDateTime($this->initAt);
+            $this->viability->sended_at = $this->normalizeDateTime($this->sendedAt);
+            $this->viability->returned_at = $this->normalizeDateTime($this->returnedAt);
+            $this->viability->tacit_at = $this->normalizeDateTime($this->tacitAt);
+            $this->viability->completed_at = $this->normalizeDateTime($this->completedAt);
+            $this->viability->engineer_at = $this->normalizeDateTime($this->engineerAt);
+            $this->viability->hired_at = $this->normalizeDateTime($this->hiredAt);
 
             $this->viability->save();
 
@@ -261,6 +268,13 @@ class ViabilityEdit extends Component
     {
         $this->resetErrorBag();
         $this->viability = null;
+        $this->initAt = null;
+        $this->sendedAt = null;
+        $this->returnedAt = null;
+        $this->tacitAt = null;
+        $this->completedAt = null;
+        $this->engineerAt = null;
+        $this->hiredAt = null;
         $this->companyUsers = [];
         $this->availableOrders = [];
         $this->linkedOrders = [];

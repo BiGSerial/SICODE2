@@ -101,37 +101,37 @@
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Inicio</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.init_at">
+                                                wire:model.defer="initAt">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Enviado</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.sended_at">
+                                                wire:model.defer="sendedAt">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Retornado</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.returned_at">
+                                                wire:model.defer="returnedAt">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Tacito</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.tacit_at">
+                                                wire:model.defer="tacitAt">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Concluido</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.completed_at">
+                                                wire:model.defer="completedAt">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Engenheiro em</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.engineer_at">
+                                                wire:model.defer="engineerAt">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Contratado em</label>
                                             <input type="datetime-local" class="form-control fivefx-control"
-                                                wire:model.defer="viability.hired_at">
+                                                wire:model.defer="hiredAt">
                                         </div>
                                     </div>
                                 </div>
