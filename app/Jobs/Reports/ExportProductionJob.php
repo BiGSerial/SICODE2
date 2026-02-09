@@ -29,6 +29,7 @@ class ExportProductionJob implements ShouldQueue
 
     public $tries   = 2;
     public $backoff = [30, 120];
+    public int $timeout = 1800; // 30 min para exportacoes grandes
 
     public function __construct(array $params, string $userId)
     {

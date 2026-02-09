@@ -89,6 +89,73 @@ class ServicesController extends Controller
         ]);
     }
 
+    public function cancellation_exec_queue(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.cancellation-exec-queue', [
+            'service' => $service,
+        ]);
+    }
+
+    public function cancellation_exec_ongoing(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.cancellation-exec-ongoing', [
+            'service' => $service,
+        ]);
+    }
+
+    public function cancellation_exec_history(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.cancellation-exec-history', [
+            'service' => $service,
+        ]);
+    }
+
+    public function cancellation_exec_show(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.cancellation-exec-show', [
+            'service' => $service,
+            'request' => $request->route('request'),
+        ]);
+    }
+
+    public function cancellation_exec_bulk(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.cancellation-exec-bulk', [
+            'service' => $service,
+        ]);
+    }
+
+
     // Reclamações
     public function protests_list(Request $request)
     {

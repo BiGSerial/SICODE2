@@ -1,21 +1,26 @@
 @php
     use App\Helpers\SelectOptions;
 @endphp
-<div class="workreports-container">
+<div class="workreports-container modern-informe">
     <x-show-loading />
 
     <!-- Search Note Section -->
     @if (!$this->note)
-        <div class="card shadow-sm rounded-3 mx-auto" style="max-width: 30rem;">
+        <div class="card shadow-sm rounded-4 mx-auto glass-card" style="max-width: 34rem;">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <h5 class="fw-bold">BUSCAR OBRA</h5>
-                    <div class="input-group mb-3">
-                        <input class="form-control form-control-lg border-primary" type="text"
-                            placeholder="Digite Nota, OV, Ordem ou Diagrama" aria-label="Search Note"
+                    <span class="badge badge-soft">Informe de Obra</span>
+                    <h5 class="fw-bold mt-2">BUSCAR OBRA</h5>
+                    <p class="text-muted small mb-3">Localize por Nota, OV, Ordem ou Diagrama.</p>
+                    <div class="input-group input-group-lg mb-3">
+                        <span class="input-group-text bg-transparent border-0">
+                            <i class="ri-search-line"></i>
+                        </span>
+                        <input class="form-control border-0 bg-transparent" type="text"
+                            placeholder="Ex.: 123456 / OV / Ordem / Diagrama" aria-label="Search Note"
                             wire:model.defer="search">
                         <button type="button" class="btn btn-primary" wire:click.prevent="search()">
-                            <i class="ri-search-line me-1"></i>BUSCAR
+                            Buscar
                         </button>
                     </div>
                 </div>
@@ -24,7 +29,7 @@
                     <div class="search-results">
                         <h6 class="fw-bold mb-3">SELECIONE UMA OBRA PARA INFORMAR</h6>
                         <div class="table-responsive">
-                            <table class="table table-hover">
+                            <table class="table table-hover modern-table">
                                 <thead>
                                     <tr class="table-light">
                                         <th>Nota</th>
@@ -81,15 +86,22 @@
     @if ($this->note)
         <form wire:submit.prevent="submit">
             <div class="container">
-                <div class="card shadow-sm">
-                    <div class="card-header edp-bg-sprucegreen-70 text-edp-verde py-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h4 class="mb-0"><i class="ri-file-list-3-line me-2"></i>INFORME DE ENTREGA DE OBRA</h4>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="calcelForm()">
+                <div class="card shadow-sm modern-hero">
+                    <div class="card-body p-4 p-md-5">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+                            <div>
+                                <span class="badge badge-soft">Entrega oficial</span>
+                                <h3 class="fw-bold mb-1">Informe de Entrega de Obra</h3>
+                                <p class="text-muted mb-0">Confirme as informações com atenção.</p>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                wire:click="calcelForm()">
                                 <i class="ri-arrow-left-line"></i> Voltar
                             </button>
                         </div>
                     </div>
+                </div>
+                <div class="card shadow-sm mt-3">
                     <div class="card-body p-4">
                         <!-- Note Data Card -->
                         <div class="card mb-4 shadow-sm">
@@ -625,6 +637,59 @@
                                 </div>
                             </div>
 
+                            <!-- Acceptance Term -->
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="ri-shield-check-line me-2"></i>Termo de Aceite</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="term-box">
+                                        <div class="term-icon">
+                                            <i class="ri-shield-check-line"></i>
+                                        </div>
+                                        <div>
+                                            <p class="mb-2 fw-semibold">Declaração de responsabilidade</p>
+                                            <p class="text-muted mb-0">
+                                                Ao informar a obra no sistema, o usuário está em acordo que as informações
+                                                passadas nesse Informe de Conclusão são verdadeiras e não existem divergências.
+                                                Tendo ciência que existe um prazo para entrega da ADS conforme previsto em
+                                                contrato, que a data do prazo será considerado o momento do envio deste
+                                                informe, e não poderá ser contestado posteriormente. Você confirma o
+                                                entendimento e ciência dessa informação?
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3 mt-2">
+                                        <div class="col-md-7">
+                                            <div class="form-floating">
+                                                <input type="text"
+                                                    class="form-control @error('form.acceptance_name') is-invalid @enderror"
+                                                    id="acceptance_name" wire:model.defer="form.acceptance_name"
+                                                    placeholder="Nome completo">
+                                                <label for="acceptance_name">Nome completo do aceite <span
+                                                        class="text-danger">*</span></label>
+                                                @error('form.acceptance_name')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5 d-flex align-items-center">
+                                            <label class="check-pill @error('form.acceptance_accepted') is-invalid @enderror">
+                                                <input type="checkbox" id="acceptance_accepted"
+                                                    wire:model.defer="form.acceptance_accepted">
+                                                <span>Confirmo o aceite do termo</span>
+                                            </label>
+                                            @error('form.acceptance_accepted')
+                                                <div class="invalid-feedback d-block ms-2">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <input type="hidden" wire:model.defer="acceptance_meta_json" id="acceptance_meta_json">
+                                </div>
+                            </div>
+
                             <!-- Form Buttons -->
                             <div class="d-flex gap-2 mb-4">
                                 <button class="btn btn-primary" type="submit">
@@ -655,11 +720,238 @@
                     event.preventDefault();
                 });
             });
+
+            const metaField = document.getElementById('acceptance_meta_json');
+
+            function collectMetaBase() {
+                return {
+                    user_agent: navigator.userAgent || null,
+                    user_agent_data: navigator.userAgentData ? {
+                        brands: navigator.userAgentData.brands || null,
+                        mobile: navigator.userAgentData.mobile || null,
+                        platform: navigator.userAgentData.platform || null,
+                    } : null,
+                    platform: navigator.platform || null,
+                    language: navigator.language || null,
+                    languages: navigator.languages || [],
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+                    cookie_enabled: navigator.cookieEnabled || false,
+                    do_not_track: navigator.doNotTrack || null,
+                    hardware_concurrency: navigator.hardwareConcurrency || null,
+                    device_memory_gb: navigator.deviceMemory || null,
+                    screen: {
+                        width: window.screen?.width || null,
+                        height: window.screen?.height || null,
+                        avail_width: window.screen?.availWidth || null,
+                        avail_height: window.screen?.availHeight || null,
+                        pixel_ratio: window.devicePixelRatio || null,
+                        color_depth: window.screen?.colorDepth || null,
+                    },
+                    window: {
+                        width: window.innerWidth || null,
+                        height: window.innerHeight || null,
+                    },
+                    network: navigator.connection ? {
+                        effective_type: navigator.connection.effectiveType || null,
+                        downlink: navigator.connection.downlink || null,
+                        rtt: navigator.connection.rtt || null,
+                        save_data: navigator.connection.saveData || false,
+                    } : null,
+                    touch_support: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
+                    webdriver: navigator.webdriver || false,
+                    browser_online: navigator.onLine,
+                    host: window.location?.hostname || null,
+                    path: window.location?.pathname || null,
+                    referrer: document.referrer || null,
+                    local_hostname_available: false,
+                    local_os_username_available: false,
+                    local_os_username: null,
+                    local_machine_hostname: null,
+                    local_user_capture_method: null,
+                    signature_input_version: 'v2',
+                };
+            }
+
+            function captureLocalUserBestEffort() {
+                const local = {
+                    local_os_username: null,
+                    local_machine_hostname: null,
+                    local_os_username_available: false,
+                    local_hostname_available: false,
+                    local_user_capture_method: null,
+                };
+
+                // Tentativa 1: IE/Edge IE Mode com ActiveX habilitado (ambiente corporativo legado)
+                try {
+                    if (typeof window.ActiveXObject !== 'undefined') {
+                        const network = new window.ActiveXObject('WScript.Network');
+                        if (network) {
+                            local.local_os_username = network.UserName || null;
+                            local.local_machine_hostname = network.ComputerName || null;
+                            local.local_os_username_available = Boolean(local.local_os_username);
+                            local.local_hostname_available = Boolean(local.local_machine_hostname);
+                            local.local_user_capture_method = 'activex_wscript_network';
+                            return local;
+                        }
+                    }
+                } catch (e) {
+                    // sem suporte/permissão de ActiveX
+                }
+
+                // Tentativa 2: app desktop/wrapper (ex.: Electron) com acesso controlado a env local
+                try {
+                    const env = window.process?.env;
+                    if (env) {
+                        local.local_os_username = env.USERNAME || env.USER || null;
+                        local.local_machine_hostname = env.COMPUTERNAME || env.HOSTNAME || null;
+                        local.local_os_username_available = Boolean(local.local_os_username);
+                        local.local_hostname_available = Boolean(local.local_machine_hostname);
+                        local.local_user_capture_method = 'desktop_wrapper_env';
+                        return local;
+                    }
+                } catch (e) {
+                    // sem suporte ao objeto process
+                }
+
+                local.local_user_capture_method = 'browser_restricted';
+                return local;
+            }
+
+            function toHex(buffer) {
+                return Array.from(new Uint8Array(buffer))
+                    .map((b) => b.toString(16).padStart(2, '0'))
+                    .join('');
+            }
+
+            async function hashText(text) {
+                if (window.crypto?.subtle?.digest) {
+                    const data = new TextEncoder().encode(text);
+                    const hash = await window.crypto.subtle.digest('SHA-256', data);
+                    return toHex(hash);
+                }
+
+                // Fallback simples para ambientes sem WebCrypto
+                let hash = 0;
+                for (let i = 0; i < text.length; i++) {
+                    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                    hash |= 0;
+                }
+                return `fallback_${Math.abs(hash)}`;
+            }
+
+            async function fillAcceptanceMeta() {
+                if (!metaField) {
+                    return;
+                }
+
+                const base = collectMetaBase();
+                const localCapture = captureLocalUserBestEffort();
+                Object.assign(base, localCapture);
+                const signatureSource = JSON.stringify({
+                    user_agent: base.user_agent,
+                    platform: base.platform,
+                    language: base.language,
+                    timezone: base.timezone,
+                    screen: base.screen,
+                    hardware_concurrency: base.hardware_concurrency,
+                    device_memory_gb: base.device_memory_gb,
+                    touch_support: base.touch_support,
+                    local_os_username: base.local_os_username,
+                    local_machine_hostname: base.local_machine_hostname,
+                });
+
+                base.device_fingerprint = await hashText(signatureSource);
+                base.collected_at = new Date().toISOString();
+
+                metaField.value = JSON.stringify(base);
+                metaField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            fillAcceptanceMeta();
         });
     </script>
 @endpush
 @push('css')
     <style>
+        :root {
+            --informe-bg: #f2f5f9;
+            --informe-card: #ffffff;
+            --informe-ink: #0f172a;
+            --informe-muted: #64748b;
+            --informe-accent: #0b7285;
+            --informe-accent-2: #0ea5a4;
+            --informe-border: rgba(15, 23, 42, 0.08);
+        }
+
+        .modern-informe {
+            background: radial-gradient(1000px 400px at 10% 0%, #eaf3ff 0%, transparent 65%),
+                        radial-gradient(900px 500px at 90% 10%, #e7fff6 0%, transparent 60%),
+                        var(--informe-bg);
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid var(--informe-border);
+            backdrop-filter: blur(6px);
+        }
+
+        .badge-soft {
+            background: rgba(14, 165, 164, 0.15);
+            color: #0f766e;
+            border: 1px solid rgba(14, 165, 164, 0.3);
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .modern-hero {
+            border: 1px solid var(--informe-border);
+            background: linear-gradient(135deg, rgba(11, 114, 133, 0.12), rgba(14, 165, 164, 0.06));
+        }
+
+        .modern-table tbody tr:hover {
+            background-color: rgba(14, 165, 164, 0.08);
+        }
+
+        .term-box {
+            display: grid;
+            grid-template-columns: 52px 1fr;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px dashed rgba(14, 165, 164, 0.5);
+            background: rgba(14, 165, 164, 0.08);
+        }
+
+        .term-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: rgba(14, 165, 164, 0.2);
+            display: grid;
+            place-items: center;
+            color: #0f766e;
+            font-size: 24px;
+        }
+
+        .check-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .check-pill input {
+            width: 18px;
+            height: 18px;
+        }
         .cursor-pointer {
             cursor: pointer;
         }

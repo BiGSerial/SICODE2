@@ -133,4 +133,66 @@ class DispatchController extends Controller
         }
 
     }
+
+    public function adsRequests(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('dispatchs.ads_requests', [
+            'service' => $service,
+        ]);
+    }
+
+    public function cancellationQueue(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-queue')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-queue', [
+                'service' => $service,
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
+
+    public function cancellationShow(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-show')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-show', [
+                'service' => $service,
+                'request' => $request->route('request'),
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
+
+    public function cancellationHistory(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-history')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-history', [
+                'service' => $service,
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
+
+    public function cancellationCategories(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.cancellation-categories')) {
+            return view('dispatchs.' . $service->folder . '.cancellation-categories', [
+                'service' => $service,
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
+    }
 }

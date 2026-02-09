@@ -42,7 +42,13 @@
                                 {{ mb_strtoupper($service->service) }}</span> @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
                         </a>
                     </li>
-                </div>
+                                    <li>
+                        <a href="{{ route('dispatch.ads.requests', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-file-add-line fs-5 edp-text-verde-dark fw-normal"></i><span>SOLICITACOES ADS</span>
+                        </a>
+                    </li>
+</div>
             </ul>
         </li>
     </ul>

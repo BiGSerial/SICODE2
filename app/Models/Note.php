@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Http\Livewire\Construction\Hiring\Actions\Hiring;
 use App\Models\Edp_cipqa\TempAdsInfo;
+use App\Enum\CancellationRequestStatus;
+use App\Enum\CancellationRequestScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -54,6 +56,9 @@ class Note extends Model
         'created_at',
         'is45',
         'ma', // New field for MA (Mesalization)
+        'canceled',
+        'canceled_at',
+        'canceled_by',
     ];
 
 
@@ -64,6 +69,8 @@ class Note extends Model
         'mmgd' => 'boolean',
         'doe' => 'boolean',
         'is45' => 'boolean',
+        'canceled' => 'boolean',
+        'canceled_at' => 'datetime',
 
     ];
 
@@ -100,6 +107,11 @@ class Note extends Model
     public function Orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function CancellationRequests()
+    {
+        return $this->hasMany(CancellationRequest::class);
     }
 
     public function Files()
@@ -187,6 +199,26 @@ class Note extends Model
     public function currentPartial()
     {
         return $this->hasMany(Partial::class)->latestOfMany();
+    }
+
+    public function scopeExcludeCanceledFullDone($query)
+    {
+        return $query->whereDoesntHave('CancellationRequests', function ($q) {
+            $q->where('status', CancellationRequestStatus::DONE->value)
+              ->where('scope', CancellationRequestScope::NOTE_FULL->value);
+        });
+    }
+
+    public function scopeExcludeCanceledAllOrdersDone($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereDoesntHave('CancellationRequests', function ($sub) {
+                $sub->where('status', CancellationRequestStatus::DONE->value);
+            })
+            ->orWhereHas('Orders', function ($order) {
+                $order->where('canceled', false);
+            });
+        });
     }
 
 

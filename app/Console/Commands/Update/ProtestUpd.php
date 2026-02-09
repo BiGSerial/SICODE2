@@ -7,6 +7,7 @@ use App\Models\Edp_depc\BaseProtest;
 use App\Models\Protest;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class ProtestUpd extends Command
 {
@@ -29,6 +30,9 @@ class ProtestUpd extends Command
      */
     public function handle()
     {
+        $log = null;
+
+        try {
         $this->info('Iniciando atualização dos protestos no sistema SICODE...');
 
         $log = new RegistroJson('upd_protest', $this->options());
@@ -154,7 +158,18 @@ class ProtestUpd extends Command
         $this->newLine(2);
         $this->info('Atualização concluída com sucesso!');
         $this->info("Inseridos: {$count['ins']} | Atualizados: {$count['upd']}");
+        $log->setCreated($count['ins']);
+        $log->setUpdated($count['upd']);
+        $log->save();
 
         return 0;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 }

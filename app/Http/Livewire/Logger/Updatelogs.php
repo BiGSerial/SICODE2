@@ -2,18 +2,17 @@
 
 namespace App\Http\Livewire\Logger;
 
-use App\Custom\RegistroJson;
+use App\Models\UpdateExecutionLog;
 use Livewire\Component;
 
 class Updatelogs extends Component
 {
     public function getListsProperty()
     {
-        $json = new RegistroJson(base_path('registroUpdate.json'));
-
-        return $json->orderBy('date', 'DESC')
+        return UpdateExecutionLog::query()
+            ->orderByDesc('date_inicio')
+            ->limit(200)
             ->get();
-
     }
 
     public function render()

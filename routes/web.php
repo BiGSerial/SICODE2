@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -64,6 +64,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/', 'category_main')->name('main');
     });
 
+    Route::prefix('/cancellation_categories')->name('cancellation_categories.')->group(function () {
+        Route::get('/', 'cancellation_categories')->name('main');
+    });
+
     Route::prefix('/audits')->name('audits.')->group(function () {
         Route::get('/notes', 'audit_notes')->name('notes');
     });
@@ -80,6 +84,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
 Route::prefix('/config')->controller(ConfigController::class)->name('config.')->middleware('auth')->middleware('can:admin')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/services', 'services')->name('services');
+    Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
         Route::post('/jobs_view/restart', function (Request $request) {
@@ -105,6 +110,14 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
         Route::get('/list', 'protests_list')->name('list');
         Route::get('/closed', 'protests_closed')->name('closed');
         Route::get('/view/{protest}', 'protests_view')->name('view');
+    });
+
+    Route::prefix('/cancellations')->name('cancellations.')->group(function () {
+        Route::get('/queue', 'cancellation_exec_queue')->name('queue');
+        Route::get('/ongoing', 'cancellation_exec_ongoing')->name('ongoing');
+        Route::get('/ongoing/{request}', 'cancellation_exec_show')->whereNumber('request')->name('ongoing.show');
+        Route::get('/ongoing-bulk', 'cancellation_exec_bulk')->name('ongoing.bulk');
+        Route::get('/history', 'cancellation_exec_history')->name('history');
     });
 
     Route::prefix('/externo')->name('oexterno.')->group(function () {
@@ -141,6 +154,11 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/map_info', 'survey_map')->name('mapinfo');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
+    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/cancellations/queue', 'cancellationQueue')->name('cancellation.queue');
+    Route::get('/cancellations/categories', 'cancellationCategories')->name('cancellation.categories');
+    Route::get('/cancellations/history', 'cancellationHistory')->name('cancellation.history');
+    Route::get('/cancellations/{request}', 'cancellationShow')->whereNumber('request')->name('cancellation.show');
 });
 
 Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.')->middleware('auth')->middleware('can:management')->group(function () {
@@ -186,9 +204,21 @@ Route::middleware('auth')->group(function () {
     Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
 });
 
+Route::prefix('/cancelamentos')->controller(CancellationController::class)->middleware('auth')->name('cancellations.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/historico', 'history')->name('history');
+    Route::get('/{request}', 'show')->whereNumber('request')->name('show');
+});
+
 
 Route::prefix('/responsible')->controller(ResponsibleController::class)->middleware(['can:responsible'])->name('responsible.')->group(function () {
     Route::get('/', 'main')->name('main');
+
+    Route::get('/validacao', 'approve_list')->name('validation');
+    Route::get('/viabilidade', 'viability_waiting')->name('viability');
+    Route::get('/informes', 'inform_obra')->name('informes');
+    Route::get('/informes_parciais', 'partial_hist')->name('parciais');
+    Route::get('/notas_d5', 'waiting_dfive')->name('d5');
 
     Route::get('/viab_list', 'viab_list')->name('viab_list');
     Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');
@@ -209,6 +239,12 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
 
 Route::prefix('/engineers')->controller(EngineerController::class)->middleware(['can:engineer'])->name('engineers.')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::get('/validacao', 'analises_toAnalise')->name('validation');
+    Route::get('/viabilidade', 'viability_waiting')->name('viability');
+    Route::get('/informes', 'inform_obra')->name('informes');
+    Route::get('/informes_parciais', 'waiting_parc')->name('parciais');
+    Route::get('/notas_d5', 'waiting_dfive')->name('d5');
+
     Route::get('/viab_list', 'viab_list')->name('viab_list');
     Route::get('/viability_waiting', 'viability_waiting')->name('viability_waiting');
     Route::get('/reject_viab', 'viab_reject')->name('rejecte_viab');

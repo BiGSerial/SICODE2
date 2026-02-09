@@ -2,9 +2,14 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Models\FiveNote;
+use App\Models\Reclaim;
 use App\Models\ReturnWork;
 use App\Models\Viability;
+use App\Models\WorkReport;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -12,10 +17,15 @@ class Main extends Component
 {
     public $pizza1;
     public $pizza2;
+    public $backlogChart;
+    public $dailyViabilityChart;
 
     public $month;
     public $dt_ini;
     public $dt_fim;
+
+    public int $daysAhead = 3;
+    public array $kpis = [];
 
     public $dadospizza1 = [
         'labels' => ['A', 'B', 'C'],
@@ -27,25 +37,37 @@ class Main extends Component
         'data' => [10, 20, 70],
     ];
 
+    public $dadosBacklog = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
+
+    public $dadosDailyViability = [
+        'labels' => ['A', 'B', 'C'],
+        'data' => [10, 20, 70],
+    ];
+
     public function mount()
     {
-        $this->pizza1 = 'chart-' . StR::random(8);
-        $this->pizza2 = 'chart-' . StR::random(8);
+        $this->pizza1 = 'chart-' . Str::random(8);
+        $this->pizza2 = 'chart-' . Str::random(8);
+        $this->backlogChart = 'chart-' . Str::random(8);
+        $this->dailyViabilityChart = 'chart-' . Str::random(8);
 
-        $this->month =  now()->format('Y-m');
+        $this->month = now()->format('Y-m');
         $this->dt_ini = now()->startOfMonth()->format('Y-m-d');
         $this->dt_fim = now()->endOfMonth()->format('Y-m-d');
 
-        // Inicializar Graficos
-        $this->atualizarViabilityCounts();
-        $this->atualizaReturnWorkReports();
-
+        $this->toUpdateGraphs();
     }
 
     public function toUpdateGraphs()
     {
         $this->atualizarViabilityCounts();
         $this->atualizaReturnWorkReports();
+        $this->kpis = $this->getDashboardKpis();
+        $this->atualizaBacklogChart();
+        $this->atualizaDailyViability();
     }
 
     public function updatedMonth()
@@ -58,161 +80,222 @@ class Main extends Component
 
     public function updatedDtIni()
     {
-        $this->month =  Carbon::parse($this->dt_ini)->format('Y-m');
+        $this->month = Carbon::parse($this->dt_ini)->format('Y-m');
 
         $this->toUpdateGraphs();
     }
 
     public function updatedDtFim()
     {
-
-
         $this->toUpdateGraphs();
     }
 
-    public function getViabilityDueDate()
+    protected function companyIds(): array
+    {
+        $user = auth()->user();
+
+        if ($user->superadm) {
+            return [];
+        }
+
+        $ids = [];
+        if ($user->Companies->isNotEmpty()) {
+            $ids = $user->Companies->pluck('id')->toArray();
+        }
+
+        if ($user->Company?->id) {
+            $ids[] = $user->Company->id;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    protected function scopeByCompany(Builder $query, string $column = 'company_id'): Builder
+    {
+        if (auth()->user()->superadm) {
+            return $query;
+        }
+
+        $companyIds = $this->companyIds();
+
+        if (!empty($companyIds)) {
+            $query->whereIn($column, $companyIds);
+        }
+
+        return $query;
+    }
+
+    public function getViabilityDueDate(): Collection
     {
         $today = Carbon::today();
-        $threeDaysFromNow = Carbon::today()->addDays(3);
+        $dueLimit = Carbon::today()->addDays($this->daysAhead);
 
         $query = Viability::query()
             ->where('approved', false)
             ->where('rejected', false)
             ->where('completed', false)
-            ->whereNotNull('sended_at');
+            ->where('canceled', false)
+            ->whereNotNull('sended_at')
+            ->with(['Note:id,note', 'Company:id,name']);
 
-        if (!auth()->user()->superadm) {
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->where(function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                        ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-        }
+        $this->scopeByCompany($query);
 
-        $viabilities = $query->get();
-        $dueSoon = [];
-
-        foreach ($viabilities as $viability) {
-            $dueDate = Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays());
-
-            if ($dueDate->gte($today) && $dueDate->lte($threeDaysFromNow)) {
-                $dueSoon[] = $viability;
-            }
-        }
-        return $dueSoon;
+        return $query->get()
+            ->filter(function ($viability) use ($today, $dueLimit) {
+                $dueDate = Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays());
+                return $dueDate->betweenIncluded($today, $dueLimit);
+            })
+            ->sortBy(function ($viability) {
+                return Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays())->timestamp;
+            })
+            ->values();
     }
 
+    public function getWorkReportsWithoutAdsDueSoon(): Collection
+    {
+        $today = Carbon::today();
+        $dueLimit = Carbon::today()->addDays($this->daysAhead);
+
+        $from = $today->copy()->subDays(7)->startOfDay();
+        $to = $dueLimit->copy()->subDays(7)->endOfDay();
+
+        $query = WorkReport::query()
+            ->where('rejected', false)
+            ->whereNotNull('informed_at')
+            ->whereBetween('informed_at', [$from, $to])
+            ->whereDoesntHave('Note.Adsform')
+            ->whereDoesntHave('Note.OldAds')
+            ->with(['Note:id,note', 'Company:id,name'])
+            ->orderBy('informed_at');
+
+        $this->scopeByCompany($query);
+
+        return $query->get();
+    }
+
+    public function getDashboardKpis(): array
+    {
+        $baseViability = Viability::query()->where('canceled', false);
+        $this->scopeByCompany($baseViability);
+
+        $baseWorkReport = WorkReport::query();
+        $this->scopeByCompany($baseWorkReport);
+
+        $rejectedViabilityBase = Viability::query()
+            ->where('rejected', true)
+            ->where('completed', false)
+            ->where('status', 5);
+        $this->scopeByCompany($rejectedViabilityBase);
+
+        $d5PendingBase = FiveNote::query()
+            ->where('visible_partner', true)
+            ->where('is_completed', false)
+            ->where('returned', false);
+        $this->scopeByCompany($d5PendingBase);
+
+        $d5ReturnedBase = FiveNote::query()
+            ->where('visible_partner', true)
+            ->where('is_completed', false)
+            ->where('returned', true);
+        $this->scopeByCompany($d5ReturnedBase);
+
+        $reclaimsBase = Reclaim::query()
+            ->where('completed', false)
+            ->whereHas('Viabilities', function ($q) {
+                $this->scopeByCompany($q);
+            });
+
+        $workReportsWithoutAdsOverdueBase = WorkReport::query()
+            ->where('rejected', false)
+            ->whereNotNull('informed_at')
+            ->where('informed_at', '<=', now()->subDays(7))
+            ->whereDoesntHave('Note.Adsform')
+            ->whereDoesntHave('Note.OldAds');
+        $this->scopeByCompany($workReportsWithoutAdsOverdueBase);
+
+        return [
+            'pending_viability' => (clone $baseViability)
+                ->where('completed', false)
+                ->where('status', 1)
+                ->count(),
+            'viability_due_soon' => $this->getViabilityDueDate()->count(),
+            'work_without_ads_due_soon' => $this->getWorkReportsWithoutAdsDueSoon()->count(),
+            'work_without_ads_overdue' => $workReportsWithoutAdsOverdueBase->count(),
+            'd5_pending' => $d5PendingBase->count(),
+            'd5_returned' => $d5ReturnedBase->count(),
+            'viability_rejected_waiting' => $rejectedViabilityBase->count(),
+            'reclaims_pending' => $reclaimsBase->distinct('reclaims.id')->count('reclaims.id'),
+            'informs_rejected' => (clone $baseWorkReport)->where('rejected', true)->count(),
+        ];
+    }
 
     public function getViabilityCounts()
     {
-        $user = auth()->user();
-        $companyIds = [];
+        $baseQuery = Viability::query()->where('canceled', false);
 
-        if (!$user->superadm) {
-            if ($user->Companies->isNotEmpty()) {
-                $companyIds = $user->Companies->pluck('id')->toArray();
-                $companyIds[] = $user->Company->id; // Adiciona a própria empresa do usuário
-                $companyIds = array_unique($companyIds); // Remove duplicatas
-            } else {
-                $companyIds = [$user->Company->id];
-            }
-        }
-
-        $baseQuery = Viability::query();
-
-        // Add date conditionals for sended_at if dt_ini and dt_fim exist
         if (!empty($this->dt_ini)) {
             $baseQuery->whereDate('sended_at', '>=', $this->dt_ini);
         }
+
         if (!empty($this->dt_fim)) {
             $baseQuery->whereDate('sended_at', '<=', $this->dt_fim);
         }
 
+        $this->scopeByCompany($baseQuery);
 
-        if (!empty($companyIds)) {
-            $baseQuery->where(function ($q) use ($companyIds) {
-                $q->whereIn('company_id', $companyIds);
-            });
-        }
-
-        $counts = [
+        return [
             'inViability' => (clone $baseQuery)->where('approved', false)
                 ->where('rejected', false)
                 ->where('completed', false)
                 ->where('tacit', false)
                 ->count(),
 
-            'realized' => (clone $baseQuery)->where(
-                function ($q) {
-                    $q->where('approved', true)
-                        ->orWhere('rejected', true);
-                }
-            )
+            'realized' => (clone $baseQuery)->where(function ($q) {
+                $q->where('approved', true)
+                    ->orWhere('rejected', true);
+            })
                 ->where('tacit', false)
                 ->count(),
 
             'notRealized' => (clone $baseQuery)->where('tacit', true)
                 ->count(),
         ];
-
-        return $counts;
     }
-
 
     public function atualizarViabilityCounts()
     {
         $counts = $this->getViabilityCounts();
 
-        $this->dadospizza1 = [
-            'labels' => ['Em Viabilidade', 'Realizadas', 'Não Realizadas'],
-            'data' => [
-                $counts['inViability'],
-                $counts['realized'],
-                $counts['notRealized'],
-            ],
-        ];
-
-        $this->updateDataPizza($this->pizza1, ['Em Viabilidade', 'Realizadas', 'Não Realizadas'], [
+        $labels = ['Em Viabilidade', 'Realizadas', 'Não Realizadas'];
+        $data = [
             $counts['inViability'],
             $counts['realized'],
             $counts['notRealized'],
-        ]);
-    }
+        ];
 
+        $this->dadospizza1 = [
+            'labels' => $labels,
+            'data' => $data,
+        ];
+
+        $this->updateDataPizza($this->pizza1, $labels, $data);
+    }
 
     public function getReturnWorkReports()
     {
-
-
-        $user = auth()->user();
-        $companyIds = [];
-
-        if (!$user->superadm) {
-            if ($user->Companies->isNotEmpty()) {
-                $companyIds = $user->Companies->pluck('id')->toArray();
-                $companyIds[] = $user->Company->id; // Adiciona a própria empresa do usuário
-                $companyIds = array_unique($companyIds); // Remove duplicatas
-            } else {
-                $companyIds = [$user->Company->id];
-            }
-        }
-
-
         $baseQuery = ReturnWork::query();
 
-        if ($companyIds) {
+        $companyIds = $this->companyIds();
+        if (!empty($companyIds)) {
             $baseQuery->whereRelation('Workreport', function ($q) use ($companyIds) {
                 $q->whereIn('company_id', $companyIds);
             });
         }
 
-        // Add date conditionals if provided. Assuming you have a 'created_at' column
         if ($this->dt_ini) {
             $baseQuery->whereDate('created_at', '>=', $this->dt_ini);
         }
+
         if ($this->dt_fim) {
             $baseQuery->whereDate('created_at', '<=', $this->dt_fim);
         }
@@ -231,6 +314,7 @@ class Main extends Component
                 'labels' => [],
                 'data' => [],
             ];
+
             $this->updateDataPizza($this->pizza2, [], []);
             return;
         }
@@ -246,6 +330,144 @@ class Main extends Component
         $this->updateDataPizza($this->pizza2, $labels, $data);
     }
 
+    public function atualizaBacklogChart(): void
+    {
+        $kpis = $this->kpis ?: $this->getDashboardKpis();
+
+        $labels = [
+            'Viabilidade pendente',
+            'Viabilidade a vencer',
+            'Informe sem ADS a vencer',
+            'D5 pendente',
+            'Viabilidade rejeitada',
+            'Reclamações pendentes',
+            'Informes rejeitados',
+        ];
+
+        $data = [
+            (int) ($kpis['pending_viability'] ?? 0),
+            (int) ($kpis['viability_due_soon'] ?? 0),
+            (int) ($kpis['work_without_ads_due_soon'] ?? 0),
+            (int) ($kpis['d5_pending'] ?? 0),
+            (int) ($kpis['viability_rejected_waiting'] ?? 0),
+            (int) ($kpis['reclaims_pending'] ?? 0),
+            (int) ($kpis['informs_rejected'] ?? 0),
+        ];
+
+        $this->dadosBacklog = [
+            'labels' => $labels,
+            'data' => $data,
+        ];
+
+        $this->updateDataPizza($this->backlogChart, $labels, $data);
+    }
+
+    public function atualizaDailyViability(): void
+    {
+        $baseQuery = Viability::query()
+            ->where('canceled', false)
+            ->whereNotNull('sended_at');
+
+        if (!empty($this->dt_ini)) {
+            $baseQuery->whereDate('sended_at', '>=', $this->dt_ini);
+        }
+
+        if (!empty($this->dt_fim)) {
+            $baseQuery->whereDate('sended_at', '<=', $this->dt_fim);
+        }
+
+        $this->scopeByCompany($baseQuery);
+
+        $data = $baseQuery
+            ->selectRaw('DATE(sended_at) as raw_date, DATE_FORMAT(MIN(sended_at), "%d/%m") as ref_date, COUNT(*) as total')
+            ->groupBy('raw_date')
+            ->orderBy('raw_date')
+            ->get();
+
+        $labels = $data->pluck('ref_date')->toArray();
+        $series = $data->pluck('total')->toArray();
+
+        $this->dadosDailyViability = [
+            'labels' => $labels,
+            'data' => $series,
+        ];
+
+        $this->updateDataPizza($this->dailyViabilityChart, $labels, $series);
+    }
+
+    public function exportSummaryCsv()
+    {
+        $kpis = $this->kpis ?: $this->getDashboardKpis();
+        $fileName = now()->format('YmdHis') . '-partner-dashboard-resumo.csv';
+
+        return response()->streamDownload(function () use ($kpis) {
+            $out = fopen('php://output', 'w');
+
+            fputcsv($out, ['Periodo inicial', $this->dt_ini]);
+            fputcsv($out, ['Periodo final', $this->dt_fim]);
+            fputcsv($out, []);
+            fputcsv($out, ['Indicador', 'Quantidade']);
+            fputcsv($out, ['Viabilidade pendente', $kpis['pending_viability'] ?? 0]);
+            fputcsv($out, ['Viabilidades a vencer', $kpis['viability_due_soon'] ?? 0]);
+            fputcsv($out, ['Informes sem ADS a vencer', $kpis['work_without_ads_due_soon'] ?? 0]);
+            fputcsv($out, ['Informes sem ADS vencidos', $kpis['work_without_ads_overdue'] ?? 0]);
+            fputcsv($out, ['D5 pendentes', $kpis['d5_pending'] ?? 0]);
+            fputcsv($out, ['D5 devolvidos', $kpis['d5_returned'] ?? 0]);
+            fputcsv($out, ['Viabilidades rejeitadas aguardando resposta', $kpis['viability_rejected_waiting'] ?? 0]);
+            fputcsv($out, ['Reclamacoes pendentes', $kpis['reclaims_pending'] ?? 0]);
+            fputcsv($out, ['Informes rejeitados', $kpis['informs_rejected'] ?? 0]);
+
+            fclose($out);
+        }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function exportPendenciesCsv()
+    {
+        $fileName = now()->format('YmdHis') . '-partner-dashboard-pendencias.csv';
+
+        $viabilityDueSoon = $this->getViabilityDueDate();
+        $workWithoutAdsDueSoon = $this->getWorkReportsWithoutAdsDueSoon();
+
+        return response()->streamDownload(function () use ($viabilityDueSoon, $workWithoutAdsDueSoon) {
+            $out = fopen('php://output', 'w');
+
+            fputcsv($out, ['Tipo', 'Nota', 'Empresa', 'Recebido em', 'Vence em', 'Dias restantes']);
+
+            foreach ($viabilityDueSoon as $item) {
+                $dueDate = $item->sended_at?->copy()->addDays(7 + $item->getDays());
+                $daysLeft = $dueDate
+                    ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false)
+                    : null;
+
+                fputcsv($out, [
+                    'Viabilidade',
+                    $item->note->note ?? '',
+                    $item->company->name ?? '',
+                    optional($item->sended_at)->format('d/m/Y H:i'),
+                    optional($dueDate)->format('d/m/Y H:i'),
+                    $daysLeft,
+                ]);
+            }
+
+            foreach ($workWithoutAdsDueSoon as $item) {
+                $dueDate = $item->informed_at?->copy()->addDays(7);
+                $daysLeft = $dueDate
+                    ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false)
+                    : null;
+
+                fputcsv($out, [
+                    'Informe sem ADS',
+                    $item->note->note ?? '',
+                    $item->company->name ?? '',
+                    optional($item->informed_at)->format('d/m/Y H:i'),
+                    optional($dueDate)->format('d/m/Y H:i'),
+                    $daysLeft,
+                ]);
+            }
+
+            fclose($out);
+        }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
 
     private function updateDataPizza(string $chartId = null, array $labels = [], array $data = [])
     {
@@ -255,12 +477,11 @@ class Main extends Component
         ]);
     }
 
-
-
     public function render()
     {
         return view('livewire.partner.main', [
             'dueSoon' => $this->getViabilityDueDate(),
+            'workReportsWithoutAdsDueSoon' => $this->getWorkReportsWithoutAdsDueSoon(),
         ]);
     }
 }

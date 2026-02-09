@@ -1,6 +1,11 @@
 {
-    "appver": "1.28.4",
+    "appver": "1.29.0",
     "historic": [
+        {
+            "version": "1.29.0",
+            "description": "Include Cancel Notes and ADS Tacit logic, and major fix",
+            "date": "2026-02-09"
+        },
         {
             "version": "1.28.4",
             "description": "Update Mjor Fixes",

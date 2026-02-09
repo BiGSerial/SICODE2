@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\{Bancoupdate, HistoricNote, Note};
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class LoteBaseOV extends Command
 {
@@ -29,22 +31,26 @@ class LoteBaseOV extends Command
      */
     public function handle()
     {
-        $DaysAgo      = date('Y-m-d 0:00:00', strtotime('-7 days'));
-        $chunkSize    = 500;
-        $totalRecords = BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->count();
-        $totalInserts = ceil($totalRecords / $chunkSize);
+        $log = null;
 
-        $progressBar = new ProgressBar($this->output, $totalRecords);
-        $progressBar->setFormat('%current%/%max% Chunks: [%tins%/%itotal%] [I: %ins%/U: %upd%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
-        $progressBar->setMessage($totalInserts, 'itotal');
-        $progressBar->setMessage('Inserting in bulk');
-        $progressBar->start();
+        try {
+            $DaysAgo      = date('Y-m-d 0:00:00', strtotime('-7 days'));
+            $chunkSize    = 500;
+            $totalRecords = BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->count();
+            $log = new RegistroJson('upd_baseOV_lote', $this->options(), $totalRecords);
+            $totalInserts = ceil($totalRecords / $chunkSize);
 
-        $count = ['upd' => 0, 'ins' => 0, 'tins' => 0, 'errors' => 0];
+            $progressBar = new ProgressBar($this->output, $totalRecords);
+            $progressBar->setFormat('%current%/%max% Chunks: [%tins%/%itotal%] [I: %ins%/U: %upd%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
+            $progressBar->setMessage($totalInserts, 'itotal');
+            $progressBar->setMessage('Inserting in bulk');
+            $progressBar->start();
 
-        $progressBar->setMessage('Inserting in bulk');
+            $count = ['upd' => 0, 'ins' => 0, 'tins' => 0, 'errors' => 0];
 
-        BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
+            $progressBar->setMessage('Inserting in bulk');
+
+            BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
 
             $recordsToInsert  = [];
             $recordsToUpdate  = [];
@@ -115,21 +121,36 @@ class LoteBaseOV extends Command
                 HistoricNote::insert($recordsToHistory);
             }
 
-        });
+            });
 
-        $progressBar->finish();
+            $progressBar->finish();
 
         // Registra atualizações
-        Bancoupdate::Create([
-            'last_update' => date('Y-m-d H:i:s'),
-            'error'       => $count['errors'],
-            'inserts'     => $count['ins'],
-            'updates'     => $count['upd'],
-        ]);
+            Bancoupdate::Create([
+                'last_update' => date('Y-m-d H:i:s'),
+                'error'       => $count['errors'],
+                'inserts'     => $count['ins'],
+                'updates'     => $count['upd'],
+            ]);
 
-        Bancoupdate::whereDate('created_at', '<', Carbon::now()->subDays(30))->delete();
+            Bancoupdate::whereDate('created_at', '<', Carbon::now()->subDays(30))->delete();
 
-        $this->info('Data transfer completed.');
+            $this->info('Data transfer completed.');
+            $log->setCreated($count['ins']);
+            $log->setUpdated($count['upd']);
+            if ($count['errors'] > 0) {
+                $log->setErrorMessage("Erros durante processamento: {$count['errors']}");
+            }
+            $log->save();
+            return self::SUCCESS;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 
     private function prepareRecordForUpdate($record)

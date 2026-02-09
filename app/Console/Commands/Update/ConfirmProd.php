@@ -8,6 +8,7 @@ use App\Models\Production;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class ConfirmProd extends Command
 {
@@ -30,7 +31,9 @@ class ConfirmProd extends Command
      */
     public function handle()
     {
+        $log = null;
 
+        try {
         $prazo = 20;
         $this->info('CHECKING PRODS COMPLETEDS FROM BASE ... ');
 
@@ -40,6 +43,7 @@ class ConfirmProd extends Command
 
         $log = new RegistroJson('confirm_prod', $this->option());
         $log->setTotal($productions->count());
+        $updatedCount = 0;
 
         if ($productions->count()) {
             // $progressBar->setFormat('%current%/%max% [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
@@ -54,9 +58,11 @@ class ConfirmProd extends Command
                 // Confirma Nota/OV por expiração de prazo de verificação.
                 if (Carbon::parse($production->completed_at)->diffInDays(Carbon::now()) >= 1) {
                     $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
+                    $updatedCount++;
 
                     if ($production->User->bypassprod) {
                         $production->update(['noinconsistency' => true]);
+                        $updatedCount++;
                     }
 
                     $this->info('<bg=blue;fg=white> DONE </> <fg=white;options=bold> NOTE/OV CONFIRMED BY EXPIRATION </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
@@ -95,9 +101,11 @@ class ConfirmProd extends Command
                         if ($ok || $production->User->bypassprod) {
 
                             $production->update(['noinconsistency' => true]);
+                            $updatedCount++;
 
                             if (!$production->confirmed) {
                                 $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
+                                $updatedCount++;
                             }
                             $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> OV CONFIRMED </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
                         }
@@ -111,10 +119,12 @@ class ConfirmProd extends Command
                         if ($production->User->bypassprod || ($verificar && ($verificar->statusUsuario && $production->status_note)) || (($verificar && $production->centroTrab) && ($production->centroTrab != $verificar->cenTrabResp))) {
 
                             $production->update(['noinconsistency' => true]);
+                            $updatedCount++;
 
                             if (!$production->confirmed) {
 
                                 $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
+                                $updatedCount++;
                             }
 
                             $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> NOTE CONFIRMED </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
@@ -129,6 +139,15 @@ class ConfirmProd extends Command
             $this->info('FINISHED CHECK... ' . Production::where('completed', true)->where('confirmed', false)->with('Note', 'Service')->count());
         }
 
+        $log->setUpdated($updatedCount);
         $log->save();
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 }

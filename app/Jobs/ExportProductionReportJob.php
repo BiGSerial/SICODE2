@@ -33,7 +33,7 @@ class ExportProductionReportJob implements ShouldQueue
     protected $dt_end;
     public $user;
 
-    public $timeout = 60;
+    public int $timeout = 1800; // 30 min para evitar estouro em selecoes amplas
     public $tries = 2;
     public $backoff = [30, 120];
 

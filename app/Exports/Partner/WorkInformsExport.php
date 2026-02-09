@@ -61,8 +61,11 @@ class WorkInformsExport implements FromQuery, WithMapping, WithHeadings, WithPro
             $row->informed_at?->format('d/m/Y'),
             $row->informed_at?->format('H:i'),
             $row->adsform ? 'SIM' : 'NÃO',
-            $row->adsform?->created_at?->format('d/m/Y'),
-            $row->adsform?->created_at?->format('H:i'),
+            $row->adsform ? ($row->adsform->tacit ? 'TACITA' : 'NORMAL') : '',
+            $row->adsform?->tacit_due_at?->format('d/m/Y'),
+            $row->adsform?->tacit_due_at?->format('H:i'),
+            ($row->adsform?->tacit ? $row->adsform?->tacit_delivered_at : $row->adsform?->created_at)?->format('d/m/Y'),
+            ($row->adsform?->tacit ? $row->adsform?->tacit_delivered_at : $row->adsform?->created_at)?->format('H:i'),
             $row->company?->name,
             $row->rejected ? 'SIM' : 'NÃO',
             $row->rejected ? $row->Returnwork?->last()->Service?->service : '',
@@ -92,6 +95,9 @@ class WorkInformsExport implements FromQuery, WithMapping, WithHeadings, WithPro
             'Data da informação',
             'Hora da informação',
             'Entrega ADS',
+            'Tipo ADS',
+            'Prazo ADS (Data)',
+            'Prazo ADS (Hora)',
             'Data do ADS',
             'Hora do ADS',
             'Empresa',
@@ -149,16 +155,20 @@ class WorkInformsExport implements FromQuery, WithMapping, WithHeadings, WithPro
                 $sheet->getStyle("A1:B{$lastRow}")->getNumberFormat()->setFormatCode('0');
 
                 $sheet->getStyle("H2:I{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
-                $sheet->getStyle("T2:T{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
+                $sheet->getStyle("M2:M{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
+                $sheet->getStyle("O2:O{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
+                $sheet->getStyle("W2:W{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
 
                 $sheet->getStyle("J1:J{$lastRow}")->getNumberFormat()->setFormatCode('hh:mm');
-                $sheet->getStyle("U1:U{$lastRow}")->getNumberFormat()->setFormatCode('hh:mm');
+                $sheet->getStyle("N1:N{$lastRow}")->getNumberFormat()->setFormatCode('hh:mm');
+                $sheet->getStyle("P1:P{$lastRow}")->getNumberFormat()->setFormatCode('hh:mm');
+                $sheet->getStyle("X1:X{$lastRow}")->getNumberFormat()->setFormatCode('hh:mm');
+
+                $sheet->getColumnDimension("V")->setWidth(50);
+                $sheet->getStyle("V1:V{$lastRow}")->getAlignment()->setWrapText(true);
 
                 $sheet->getColumnDimension("S")->setWidth(50);
                 $sheet->getStyle("S1:S{$lastRow}")->getAlignment()->setWrapText(true);
-
-                $sheet->getColumnDimension("Q")->setWidth(50);
-                $sheet->getStyle("Q1:Q{$lastRow}")->getAlignment()->setWrapText(true);
 
                 $sheet->getColumnDimension("F")->setWidth(50);
                 $sheet->getColumnDimension("G")->setWidth(50);

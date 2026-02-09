@@ -44,7 +44,8 @@ class HistListExport implements FromQuery, WithEvents, WithProperties, WithHeadi
 
 
         if ($row->Note->Adsform) {
-            $ads = $row->Note->Adsform->created_at->format('d/m/Y');
+            $adsForm = $row->Note->Adsform;
+            $ads = ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y');
         } elseif ($row->Note->OldAds->isNotEmpty()) {
             $ads = $row->Note->OldAds->last()->date->format('d/m/Y');
         } else {

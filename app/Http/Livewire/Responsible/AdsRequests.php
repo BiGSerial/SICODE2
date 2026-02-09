@@ -8,6 +8,7 @@ use App\Models\AdsRequest;
 use App\Models\Company;
 use App\Models\Note;
 use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -23,6 +24,7 @@ class AdsRequests extends Component
     public $notesInput = '';
     public $previewItems = [];
     public $activeSearch = '';
+    public $activePerPage = 25;
     public $companyId;
 
     public $historyStart;
@@ -30,11 +32,13 @@ class AdsRequests extends Component
     public $historyPerPage = 25;
     public $historySearch = '';
     public $historyCompanyId;
+    public bool $sqlSyncEnabled = true;
 
     public function mount()
     {
         $this->historyStart = now()->subDays(30)->toDateString();
         $this->historyEnd = now()->toDateString();
+        $this->sqlSyncEnabled = !SystemSetting::getBool('ads_auto_test_mode', false);
     }
 
     public function updatedHistoryStart()
@@ -60,6 +64,16 @@ class AdsRequests extends Component
     public function updatedHistorySearch()
     {
         $this->resetPage('historyPage');
+    }
+
+    public function updatedActiveSearch()
+    {
+        $this->resetPage('activePage');
+    }
+
+    public function updatedActivePerPage()
+    {
+        $this->resetPage('activePage');
     }
 
     public function analyzeNotes()
@@ -268,7 +282,9 @@ class AdsRequests extends Component
                         'superseded_by_id' => null,
                     ]);
 
-                    $this->syncCanceledToSqlServer($previousRequest);
+                    if ($this->sqlSyncEnabled) {
+                        $this->syncCanceledToSqlServer($previousRequest);
+                    }
                 }
 
                 $request = AdsRequest::query()->create([
@@ -297,9 +313,11 @@ class AdsRequests extends Component
             }
         });
 
-        foreach ($toMirror as $payload) {
-            if (!$this->mirrorToSqlServer($payload['request'], $payload['note_number'])) {
-                $mirrorFailures[] = $payload['note_number'];
+        if ($this->sqlSyncEnabled) {
+            foreach ($toMirror as $payload) {
+                if (!$this->mirrorToSqlServer($payload['request'], $payload['note_number'])) {
+                    $mirrorFailures[] = $payload['note_number'];
+                }
             }
         }
 
@@ -491,11 +509,16 @@ class AdsRequests extends Component
             });
         }
 
-        return $query->get();
+        return $query->paginate($this->activePerPage, ['*'], 'activePage');
     }
 
     public function syncAllRequests()
     {
+        if (!$this->sqlSyncEnabled) {
+            $this->notifyTestMode();
+            return;
+        }
+
         $requests = $this->activeRequests;
 
         if ($requests->isEmpty()) {
@@ -508,10 +531,7 @@ class AdsRequests extends Component
             return;
         }
 
-        $sqlRows = SqlAdsRequest::query()
-            ->whereIn('sicode_id', $requests->pluck('id'))
-            ->get()
-            ->keyBy('sicode_id');
+        $sqlRows = $this->loadSqlStatusBySicodeIds($requests->pluck('id'));
 
         $updated = 0;
         $resent = 0;
@@ -540,7 +560,7 @@ class AdsRequests extends Component
 
             $request->fill([
                 'status' => $sqlRow->status,
-                'attempts' => $sqlRow->attempts,
+                'attempts' => (int) ($sqlRow->attempts ?? 0),
                 'description' => $sqlRow->description,
                 'url' => $sqlRow->url,
                 'completed_at' => $sqlRow->completed_at,
@@ -606,17 +626,46 @@ class AdsRequests extends Component
     public function render()
     {
         $activeRequests = $this->activeRequests;
-        $sqlStatusBySicodeId = SqlAdsRequest::query()
-            ->whereIn('sicode_id', $activeRequests->pluck('id'))
-            ->get(['sicode_id', 'status'])
-            ->keyBy('sicode_id');
+        $sqlStatusBySicodeId = $this->sqlSyncEnabled
+            ? $this->loadSqlStatusBySicodeIds($activeRequests->pluck('id'))
+            : collect();
 
         return view('livewire.responsible.ads-requests', [
             'activeRequests' => $activeRequests,
             'sqlStatusBySicodeId' => $sqlStatusBySicodeId,
             'historyRequests' => $this->historyRequests,
             'companyOptions' => $this->companyOptions,
+            'sqlSyncEnabled' => $this->sqlSyncEnabled,
         ]);
+    }
+
+    protected function notifyTestMode(): void
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'info',
+            'title' => 'Modo teste sem envio para SQL Server está habilitado.',
+            'timer' => 3200,
+        ]);
+    }
+
+    protected function loadSqlStatusBySicodeIds($ids)
+    {
+        $ids = collect($ids)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $rows = collect();
+        foreach ($ids->chunk(1800) as $chunk) {
+            $rows = $rows->merge(
+                SqlAdsRequest::query()
+                    ->whereIn('sicode_id', $chunk->all())
+                    ->get(['id', 'sicode_id', 'status', 'attempts', 'description', 'url', 'completed_at', 'updated_at'])
+            );
+        }
+
+        return $rows->keyBy('sicode_id');
     }
 
     protected function visibleUserIds(): ?\Illuminate\Support\Collection

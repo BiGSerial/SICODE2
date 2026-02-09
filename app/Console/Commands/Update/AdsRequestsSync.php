@@ -3,9 +3,11 @@
 namespace App\Console\Commands\Update;
 
 use App\Enum\AdsRequestStatus;
+use App\Custom\RegistroJson;
 use App\Models\AdsRequest;
 use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
 use Illuminate\Console\Command;
+use Throwable;
 
 class AdsRequestsSync extends Command
 {
@@ -15,6 +17,9 @@ class AdsRequestsSync extends Command
 
     public function handle(): int
     {
+        $log = null;
+
+        try {
         $since = $this->option('since') ?: now()->subDay()->toDateTimeString();
         $chunkSize = (int) $this->option('chunk') ?: 1000;
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
@@ -29,6 +34,7 @@ class AdsRequestsSync extends Command
         }
 
         $total = $query->count();
+        $log = new RegistroJson('sync_ads_requests', $this->options(), $total);
         $this->info('Sync ADS requests from SQL Server...');
         $this->info('Total rows: ' . $total);
 
@@ -128,7 +134,21 @@ class AdsRequestsSync extends Command
         $this->info('Skipped: ' . $skipped);
         $this->info('Conflicts: ' . $conflicts);
         $this->info('Missing local: ' . $missing);
+        $log->setUpdated($updatedLocal + $updatedSql);
+        $log->setNoteUpdated($skipped);
+        if ($conflicts > 0 || $missing > 0) {
+            $log->setErrorMessage("Conflitos={$conflicts}; MissingLocal={$missing}");
+        }
+        $log->save();
 
         return 0;
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            return self::FAILURE;
+        }
     }
 }

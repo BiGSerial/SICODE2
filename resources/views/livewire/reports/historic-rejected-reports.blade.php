@@ -89,6 +89,8 @@
                             <h6 class="mb-2 text-muted"><i class="ri-search-line me-1"></i>Pesquisa</h6>
                             <input type="text" wire:model.debounce.500ms="searchNote"
                                 class="form-control form-control-sm mb-3" placeholder="Número da nota">
+                            <input type="text" wire:model.debounce.500ms="reason"
+                                class="form-control form-control-sm mb-3" placeholder="Motivo ou observação">
 
                             <div class="d-grid gap-2">
                                 <button type="button"

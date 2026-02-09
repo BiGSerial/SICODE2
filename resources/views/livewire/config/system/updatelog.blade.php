@@ -29,6 +29,13 @@
                 @php
                     $id = $log['id'] ?? '—';
                     $tarefa = $log['tarefa'] ?? 'N/A';
+                    $status = strtoupper((string) ($log['status'] ?? 'DONE'));
+
+                    $statusClass = match ($status) {
+                        'RUNNING' => 'text-bg-warning',
+                        'FAIL' => 'text-bg-danger',
+                        default => 'text-bg-success',
+                    };
 
                     $start = !empty($log['date_inicio'] ?? null) ? Carbon::parse($log['date_inicio']) : null;
                     $end = !empty($log['date_fim'] ?? null) ? Carbon::parse($log['date_fim']) : null;
@@ -55,6 +62,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge bg-secondary">#{{ $id }}</span>
                             <span class="badge text-bg-primary">{{ $tarefa }}</span>
+                            <span class="badge {{ $statusClass }}">{{ $status }}</span>
                             <small class="text-muted">{{ $start ? $start->format('d/m/Y H:i') : 'N/A' }}</small>
                         </div>
 
@@ -91,6 +99,12 @@
                                     <strong>Note Updated:</strong> {{ $log['noteupdated'] ?? 'N/A' }}
                                 </div>
 
+                                @if (!empty($log['fail_reason'] ?? null))
+                                    <div class="col-12 text-danger">
+                                        <strong>Falha:</strong> {{ $log['fail_reason'] }}
+                                    </div>
+                                @endif
+
                                 <div class="col-12">
                                     <strong>Opções:</strong>
                                     <pre class="mb-0" style="white-space:pre-wrap">{{ json_encode($log['options'] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
@@ -125,6 +139,39 @@
             @else
                 <span class="text-muted small">Fim do histórico</span>
             @endif
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mt-3" wire:poll.10000ms="refreshRunningLogs">
+        <div class="card-header bg-warning-subtle d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">
+                <i class="bi bi-play-circle me-2"></i>Execuções em andamento
+            </h6>
+            <span class="badge text-bg-warning">{{ count($runningLogs ?? []) }}</span>
+        </div>
+
+        <div class="list-group list-group-flush">
+            @forelse ($runningLogs as $run)
+                @php
+                    $runStart = !empty($run['date_inicio'] ?? null) ? Carbon::parse($run['date_inicio']) : null;
+                    $elapsed = $runStart ? $runStart->diffForHumans(null, true) : 'N/A';
+                @endphp
+                <div class="list-group-item d-flex justify-content-between align-items-center"
+                    wire:key="running-{{ $run['id'] }}">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary">#{{ $run['id'] }}</span>
+                        <span class="badge text-bg-primary">{{ $run['tarefa'] }}</span>
+                        <span class="badge text-bg-warning">RUNNING</span>
+                    </div>
+                    <div class="small text-muted">
+                        início: {{ $runStart ? $runStart->format('d/m/Y H:i:s') : 'N/A' }} | rodando há {{ $elapsed }}
+                    </div>
+                </div>
+            @empty
+                <div class="list-group-item text-center text-muted py-3">
+                    Nenhuma execução em andamento no momento.
+                </div>
+            @endforelse
         </div>
     </div>
 

@@ -100,7 +100,11 @@ class ReturnD5 extends Component
 
 
         $this->service   = Service::where('uuid', $service)->first();
-        $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
+        $this->companies = Company::query()
+            ->linkedToService($this->service->uuid)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
         // $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
         $this->services  = Service::orderBy('service')->get();
     }
@@ -274,6 +278,7 @@ class ReturnD5 extends Component
                 'Approvals',
                 'Viabilities',
                 'Waiting',
+                'Externals',
             ])
             ->orderBy($this->sortField, $this->sortDirection);
 
