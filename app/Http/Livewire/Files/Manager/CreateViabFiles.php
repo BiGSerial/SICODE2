@@ -60,6 +60,20 @@ class CreateViabFiles extends Component
         'cleanFiles' => 'closeAll',
     ];
 
+    protected function rules(): array
+    {
+        return [
+            'uploadType' => ['nullable', 'string', 'max:50'],
+            'files' => ['nullable', 'array'],
+            'files.*' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimes:jpg,jpeg,png,gif,bmp,svg,tiff,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp',
+            ],
+        ];
+    }
+
     public function mount(Viability $viability, string $service)
     {
         $this->viability = $viability;

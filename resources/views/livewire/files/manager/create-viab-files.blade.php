@@ -17,13 +17,12 @@
                 <!-- Tipo de Envio -->
                 <div class="row">
                     <div class="mb-3 col-md-6 col-xl-4">
-                        <label for="upload_type" class="form-label">Tipo de Envio <span
-                                class="text-danger fw-bold">*</span>
+                        <label for="upload_type" class="form-label">Tipo de Envio
                             <i class="ri-question-fill text-primary fs-4 align-middle" style="cursor: pointer;"
                                 data-bs-toggle="collapse" data-bs-target="#showUseType" aria-expanded="false"
                                 aria-controls="showUseType"></i></label>
                         <select class="form-select border-secondary @error('uploadType') is-invalid @enderror"
-                            id="upload_type" wire:model="uploadType" required style="max-width: 350px;">
+                            id="upload_type" wire:model="uploadType" style="max-width: 350px;">
                             <option value="" selected>Selecione o tipo de envio</option>
                             @foreach (SelectOptions::getFilesType() as $fileType)
                                 <option value="{{ $fileType->value }}">{{ $fileType->reason }}</option>

@@ -471,12 +471,12 @@
 
                                                     <div class="form-floating mb-3">
                                                         <select class="form-select" id="finishResult" wire:model="result">
-                                                            <option value="">Nao informado</option>
+                                                            <option value="">Selecione</option>
                                                             @foreach ($resultOptions as $opt)
                                                                 <option value="{{ $opt }}">{{ ucfirst($opt) }}</option>
                                                             @endforeach
                                                         </select>
-                                                        <label for="finishResult">Resultado da medida (opcional)</label>
+                                                        <label for="finishResult">Resultado da medida (obrigatório)</label>
                                                     </div>
                                                     @error('result')
                                                         <small

@@ -418,12 +418,18 @@ class ProtestJob extends Model
     public function confirmJob(?string $actorUuid = null, ?string $result = null): void
     {
         DB::transaction(function () use ($actorUuid, $result) {
+            $normalizedResult = MedProtest::normalizeResult($result)
+                ?? MedProtest::normalizeResult($this->medProtest?->result);
+
+            if ($this->status === ProtestJobStatus::DONE && !$normalizedResult) {
+                throw new \DomainException('É obrigatório informar o resultado da medida (procedente ou improcedente) para confirmar a resolução.');
+            }
+
             $this->update([
                 'confirmed' => true,
                 'confirmed_at' => now(),
             ]);
 
-            $normalizedResult = MedProtest::normalizeResult($result);
             if ($normalizedResult && $this->medProtest) {
                 $this->medProtest->update([
                     'result' => $normalizedResult,

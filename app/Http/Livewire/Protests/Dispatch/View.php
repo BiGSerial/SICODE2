@@ -11,6 +11,7 @@ use App\Models\Protest;
 use App\Models\ProtestJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class View extends Component
@@ -269,6 +270,11 @@ class View extends Component
             return;
         }
 
+        $options = [];
+        foreach (MedProtest::resultOptions() as $opt) {
+            $options[$opt] = ucfirst($opt);
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Deseja Encerrar a Medida?',
             'msg'           => "Você está preste de encerrar a medida?",
@@ -278,12 +284,22 @@ class View extends Component
             'action'        => 'FinishMedProtest172030',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma medida encerrada.',
+            'inputType'     => 'select',
+            'inputOptions'  => $options,
+            'inputValue'    => $this->protestTemp->result,
+            'inputPlaceholder' => 'Selecione o resultado',
         ]);
     }
 
-    public function finishMedProtes(): void
+    public function finishMedProtes(?string $result = null): void
     {
         if (!$this->protestTemp) {
+            return;
+        }
+
+        $selectedResult = MedProtest::normalizeResult($result);
+        if (!$selectedResult) {
+            $this->toast('danger', 'Selecione o resultado da medida: procedente ou improcedente.');
             return;
         }
 
@@ -291,6 +307,7 @@ class View extends Component
             $this->protestTemp->update([
                 'completed'    => true,
                 'completed_at' => now(),
+                'result'       => $selectedResult,
             ]);
 
             $this->protestTemp->comments()->create([
@@ -392,7 +409,7 @@ class View extends Component
             'cancel_msg'    => 'Nenhuma acao realizada.',
             'inputType'     => 'select',
             'inputOptions'  => $options,
-            'inputPlaceholder' => 'Nao informado',
+            'inputPlaceholder' => 'Selecione o resultado',
         ]);
     }
 
@@ -405,13 +422,17 @@ class View extends Component
         }
 
         try {
-            $this->validate([
-                'jobTemp.id' => 'required',
-                'result' => 'nullable|in:' . implode(',', MedProtest::resultOptions()),
-            ]);
+            $this->validate(['jobTemp.id' => 'required']);
+
+            $selectedResult = MedProtest::normalizeResult($result);
+            if (!$selectedResult) {
+                throw ValidationException::withMessages([
+                    'result' => 'Selecione o resultado da medida: procedente ou improcedente.',
+                ]);
+            }
 
             // metodo do modelo ja registra evento
-            $this->jobTemp->confirmJob(null, $result);
+            $this->jobTemp->confirmJob(null, $selectedResult);
 
             $this->toast('success', 'Tarefa confirmada com sucesso!');
             $this->jobTemp = null;

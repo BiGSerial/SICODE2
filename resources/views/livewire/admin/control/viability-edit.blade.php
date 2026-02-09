@@ -15,6 +15,17 @@
                     </div>
 
                     <div class="modal-body fivefx-body">
+                        @if ($errors->any())
+                            <div class="alert alert-danger py-2">
+                                <strong>Erros de validacao:</strong>
+                                <ul class="mb-0 mt-1">
+                                    @foreach ($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
                         <div class="row g-4">
                             <div class="col-12 col-xl-7">
                                 <div class="fivefx-section mb-4">

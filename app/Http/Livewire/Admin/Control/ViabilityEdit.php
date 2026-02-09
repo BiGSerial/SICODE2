@@ -35,28 +35,28 @@ class ViabilityEdit extends Component
     {
         return [
             'viability.order_id' => ['nullable', 'integer'],
-            'viability.company_id' => ['nullable', 'integer'],
-            'viability.user_id' => ['nullable', 'integer'],
-            'viability.engineer_id' => ['nullable', 'integer'],
-            'viability.init_at' => ['nullable'],
-            'viability.sended_at' => ['nullable'],
-            'viability.returned_at' => ['nullable'],
-            'viability.tacit_at' => ['nullable'],
-            'viability.completed_at' => ['nullable'],
-            'viability.engineer_at' => ['nullable'],
-            'viability.hired_at' => ['nullable'],
-            'viability.tacit' => ['boolean'],
-            'viability.completed' => ['boolean'],
-            'viability.canceled' => ['boolean'],
-            'viability.rejected' => ['boolean'],
-            'viability.approved' => ['boolean'],
-            'viability.engineer' => ['boolean'],
-            'viability.hired' => ['boolean'],
-            'viability.replica' => ['boolean'],
-            'viability.treplica' => ['boolean'],
-            'viability.inActivity' => ['boolean'],
-            'viability.visible_partner' => ['boolean'],
-            'viability.rehired' => ['boolean'],
+            'viability.company_id' => ['nullable', 'uuid'],
+            'viability.user_id' => ['nullable', 'uuid'],
+            'viability.engineer_id' => ['nullable', 'uuid'],
+            'viability.init_at' => ['nullable', 'date'],
+            'viability.sended_at' => ['nullable', 'date'],
+            'viability.returned_at' => ['nullable', 'date'],
+            'viability.tacit_at' => ['nullable', 'date'],
+            'viability.completed_at' => ['nullable', 'date'],
+            'viability.engineer_at' => ['nullable', 'date'],
+            'viability.hired_at' => ['nullable', 'date'],
+            'viability.tacit' => ['nullable', 'boolean'],
+            'viability.completed' => ['nullable', 'boolean'],
+            'viability.canceled' => ['nullable', 'boolean'],
+            'viability.rejected' => ['nullable', 'boolean'],
+            'viability.approved' => ['nullable', 'boolean'],
+            'viability.engineer' => ['nullable', 'boolean'],
+            'viability.hired' => ['nullable', 'boolean'],
+            'viability.replica' => ['nullable', 'boolean'],
+            'viability.treplica' => ['nullable', 'boolean'],
+            'viability.inActivity' => ['nullable', 'boolean'],
+            'viability.visible_partner' => ['nullable', 'boolean'],
+            'viability.rehired' => ['nullable', 'boolean'],
             'viability.status' => ['nullable', 'integer'],
             'viability.value' => ['nullable', 'numeric'],
         ];
@@ -71,7 +71,8 @@ class ViabilityEdit extends Component
     public function getInfoResponse(Viability $viability): void
     {
         $this->resetForm(false);
-        $this->viability = $viability->load(['Note', 'Company', 'User', 'Engineer', 'Orders', 'Files']);
+        // Nao carregar a relacao Engineer aqui para evitar conflito com o campo booleano `engineer`.
+        $this->viability = $viability->load(['Note', 'Company', 'User', 'Orders', 'Files']);
 
         $this->viability->init_at = $this->formatDateTimeLocal($this->viability->init_at);
         $this->viability->sended_at = $this->formatDateTimeLocal($this->viability->sended_at);
@@ -151,20 +152,34 @@ class ViabilityEdit extends Component
             return;
         }
 
-        $this->validate();
+        try {
+            $this->validate();
 
-        $this->viability->init_at = $this->normalizeDateTime($this->viability->init_at);
-        $this->viability->sended_at = $this->normalizeDateTime($this->viability->sended_at);
-        $this->viability->returned_at = $this->normalizeDateTime($this->viability->returned_at);
-        $this->viability->tacit_at = $this->normalizeDateTime($this->viability->tacit_at);
-        $this->viability->completed_at = $this->normalizeDateTime($this->viability->completed_at);
-        $this->viability->engineer_at = $this->normalizeDateTime($this->viability->engineer_at);
-        $this->viability->hired_at = $this->normalizeDateTime($this->viability->hired_at);
+            $this->viability->init_at = $this->normalizeDateTime($this->viability->init_at);
+            $this->viability->sended_at = $this->normalizeDateTime($this->viability->sended_at);
+            $this->viability->returned_at = $this->normalizeDateTime($this->viability->returned_at);
+            $this->viability->tacit_at = $this->normalizeDateTime($this->viability->tacit_at);
+            $this->viability->completed_at = $this->normalizeDateTime($this->viability->completed_at);
+            $this->viability->engineer_at = $this->normalizeDateTime($this->viability->engineer_at);
+            $this->viability->hired_at = $this->normalizeDateTime($this->viability->hired_at);
 
-        $this->viability->save();
+            $this->viability->save();
 
-        $this->pendingFileSave = true;
-        $this->emitTo('files.manager.create-viab-files', 'saveFiles');
+            if (!$this->hasFile) {
+                $this->onFilesSaved();
+                return;
+            }
+
+            $this->pendingFileSave = true;
+            $this->emitTo('files.manager.create-viab-files', 'saveFiles');
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao salvar viabilidade',
+                'text'     => $e->getMessage(),
+            ]);
+        }
     }
 
     public function hasFile(bool $has): void
@@ -174,7 +189,7 @@ class ViabilityEdit extends Component
 
     public function onFilesSaved(): void
     {
-        if (!$this->pendingFileSave) {
+        if (!$this->pendingFileSave && $this->hasFile) {
             return;
         }
 
@@ -265,10 +280,16 @@ class ViabilityEdit extends Component
             return null;
         }
 
+        if (in_array((string) $value, ['0000-00-00', '0000-00-00 00:00:00'], true)) {
+            return null;
+        }
+
         try {
-            return $value instanceof \DateTimeInterface
-                ? $value->format('Y-m-d\\TH:i')
-                : \Carbon\Carbon::parse($value)->format('Y-m-d\\TH:i');
+            $date = $value instanceof \DateTimeInterface
+                ? $value
+                : \Carbon\Carbon::make($value);
+
+            return $date ? $date->format('Y-m-d\\TH:i') : null;
         } catch (\Throwable $e) {
             return null;
         }
@@ -281,7 +302,8 @@ class ViabilityEdit extends Component
         }
 
         try {
-            return \Carbon\Carbon::parse($value)->format('Y-m-d H:i:s');
+            $date = \Carbon\Carbon::make($value);
+            return $date ? $date->format('Y-m-d H:i:s') : null;
         } catch (\Throwable $e) {
             return null;
         }
