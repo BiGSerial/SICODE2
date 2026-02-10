@@ -7,7 +7,6 @@ use App\Models\Edp_depc\{BaseEP, BaseOV};
 use App\Models\Production;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class ConfirmProd extends Command
@@ -34,113 +33,161 @@ class ConfirmProd extends Command
         $log = null;
 
         try {
-        $prazo = 20;
-        $this->info('CHECKING PRODS COMPLETEDS FROM BASE ... ');
+            $expirationDays = (int) $this->option('days');
+            $manualDays = 5;
+            $now = Carbon::now();
+            $nowFormatted = $now->toDateTimeString();
 
-        $productions = Production::where('completed', true)->where('noinconsistency', false)->where('confirmed', false)->with('Note', 'Service', 'User')->get();
+            $this->info('CHECKING PRODS COMPLETEDS FROM BASE ... ');
 
-        // $progressBar = new ProgressBar($this->output);
+            $productions = Production::query()
+                ->where('completed', true)
+                ->where('noinconsistency', false)
+                ->where('confirmed', false)
+                ->with(['Note', 'Service', 'User'])
+                ->get();
 
-        $log = new RegistroJson('confirm_prod', $this->option());
-        $log->setTotal($productions->count());
-        $updatedCount = 0;
+            $log = new RegistroJson('confirm_prod', $this->option());
+            $log->setTotal($productions->count());
 
-        if ($productions->count()) {
-            // $progressBar->setFormat('%current%/%max% [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
+            if ($productions->isEmpty()) {
+                $log->setUpdated(0);
+                $log->save();
 
-            // $progressBar->start($productions->count());
-
-            $this->info('INITIALIZING UPDATE... ' . $productions->count());
-            // $progressBar->setMessage('Verifing...');
-
-            foreach ($productions as $production) {
-
-                // Confirma Nota/OV por expiração de prazo de verificação.
-                if (Carbon::parse($production->completed_at)->diffInDays(Carbon::now()) >= 1) {
-                    $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
-                    $updatedCount++;
-
-                    if ($production->User->bypassprod) {
-                        $production->update(['noinconsistency' => true]);
-                        $updatedCount++;
-                    }
-
-                    $this->info('<bg=blue;fg=white> DONE </> <fg=white;options=bold> NOTE/OV CONFIRMED BY EXPIRATION </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
-                } elseif (Carbon::parse($production->completed_at)->diffInDays(Carbon::now()) >= 5) {
-                    $production->update(['conf_manual' => true]);
-                }
-
-                if ($production->Note->type_note == 2) {
-
-                    $verificar = BaseOV::where('OV', $production->Note->note)
-                        ->where(function ($q) use ($production) {
-                            return $q->where('transicao', 'LIKE', $production->status_note . ' para%')
-                                ->orWhere('transicao', 'LIKE', $production->Service->status . ' para%');
-                        })
-                        ->orderBy('dhStat', 'DESC')
-                        ->get();
-
-                    if ($verificar->count()) {
-
-                        $ok = false;
-
-                        $this->info('<bg=blue;fg=white> COMPARING </> <fg=yellow;options=bold>' . $verificar->count() . ' FOUNDERED REGISTERS </>');
-
-                        foreach ($verificar as $verificando) {
-
-                            $completedAt     = Carbon::parse($production->completed_at);
-                            $dhStat          = Carbon::parse($verificando->dhStat);
-                            $diferencaEmDias = $completedAt->diffInDays($dhStat);
-
-                            if (($diferencaEmDias >= -2 && $diferencaEmDias <= 2)) {
-                                $ok = true;
-                            }
-
-                        }
-
-                        if ($ok || $production->User->bypassprod) {
-
-                            $production->update(['noinconsistency' => true]);
-                            $updatedCount++;
-
-                            if (!$production->confirmed) {
-                                $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
-                                $updatedCount++;
-                            }
-                            $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> OV CONFIRMED </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
-                        }
-
-                    }
-
-                    if ($production->Note->type_note == 1) {
-
-                        $verificar = BaseEP::where('nota', $production->Note->note)->first();
-
-                        if ($production->User->bypassprod || ($verificar && ($verificar->statusUsuario && $production->status_note)) || (($verificar && $production->centroTrab) && ($production->centroTrab != $verificar->cenTrabResp))) {
-
-                            $production->update(['noinconsistency' => true]);
-                            $updatedCount++;
-
-                            if (!$production->confirmed) {
-
-                                $production->update(['confirmed' => true, 'confirmed_at' => date('Y-m-d H:i:s')]);
-                                $updatedCount++;
-                            }
-
-                            $this->info('<bg=green;fg=white> DONE </> <fg=white;options=bold> NOTE CONFIRMED </> <fg=yellow;options=bold>' . $production->Note->note . ' </>');
-                        }
-                    }
-
-                }
-
+                return self::SUCCESS;
             }
 
+            $this->info('INITIALIZING UPDATE... ' . $productions->count());
 
-            $this->info('FINISHED CHECK... ' . Production::where('completed', true)->where('confirmed', false)->with('Note', 'Service')->count());
-        }
+            $ovProductions = $productions->filter(fn ($p) => optional($p->Note)->type_note == 2)->values();
+            $noteProductions = $productions->filter(fn ($p) => optional($p->Note)->type_note == 1)->values();
 
-        $log->setUpdated($updatedCount);
-        $log->save();
+            $ovNotes = $ovProductions->pluck('Note.note')->filter()->unique()->values();
+            $noteNumbers = $noteProductions->pluck('Note.note')->filter()->unique()->values();
+
+            $baseOvByOv = BaseOV::query()
+                ->select(['OV', 'transicao', 'dhStat'])
+                ->whereIn('OV', $ovNotes)
+                ->orderBy('dhStat', 'DESC')
+                ->get()
+                ->groupBy('OV');
+
+            $baseEpByNote = BaseEP::query()
+                ->whereIn('nota', $noteNumbers)
+                ->get()
+                ->keyBy('nota');
+
+            $confirmByExpiration = [];
+            $manualConfirm = [];
+            $noInconsistency = [];
+            $confirmByMatch = [];
+
+            foreach ($productions as $production) {
+                $completedAt = $production->completed_at ? Carbon::parse($production->completed_at) : null;
+
+                if ($completedAt) {
+                    $daysFromCompletion = $completedAt->diffInDays($now);
+
+                    if ($daysFromCompletion >= $expirationDays) {
+                        $confirmByExpiration[] = $production->id;
+
+                        if (optional($production->User)->bypassprod) {
+                            $noInconsistency[] = $production->id;
+                        }
+
+                        continue;
+                    }
+
+                    if ($daysFromCompletion >= $manualDays) {
+                        $manualConfirm[] = $production->id;
+                    }
+                }
+
+                if (optional($production->User)->bypassprod) {
+                    $noInconsistency[] = $production->id;
+                    $confirmByMatch[] = $production->id;
+                    continue;
+                }
+
+                $note = optional($production->Note)->note;
+                $typeNote = optional($production->Note)->type_note;
+
+                if (!$note || !$typeNote) {
+                    continue;
+                }
+
+                if ((int) $typeNote === 2) {
+                    $registers = $baseOvByOv->get($note, collect());
+
+                    if ($registers->isEmpty()) {
+                        continue;
+                    }
+
+                    $transitionA = trim((string) $production->status_note);
+                    $transitionB = trim((string) optional($production->Service)->status);
+                    $completedAtCarbon = Carbon::parse($production->completed_at);
+
+                    $matchFound = $registers->contains(function ($row) use ($transitionA, $transitionB, $completedAtCarbon) {
+                        $transition = (string) $row->transicao;
+                        $validTransition = str_starts_with($transition, $transitionA . ' para')
+                            || str_starts_with($transition, $transitionB . ' para');
+
+                        if (!$validTransition) {
+                            return false;
+                        }
+
+                        $dhStat = Carbon::parse($row->dhStat);
+                        return $completedAtCarbon->diffInDays($dhStat) <= 2;
+                    });
+
+                    if ($matchFound) {
+                        $noInconsistency[] = $production->id;
+                        $confirmByMatch[] = $production->id;
+                    }
+                }
+
+                if ((int) $typeNote === 1) {
+                    $verificar = $baseEpByNote->get($note);
+
+                    if (
+                        ($verificar && ($verificar->statusUsuario && $production->status_note))
+                        || (($verificar && $production->centroTrab) && ($production->centroTrab != $verificar->cenTrabResp))
+                    ) {
+                        $noInconsistency[] = $production->id;
+                        $confirmByMatch[] = $production->id;
+                    }
+                }
+            }
+
+            $noInconsistency = array_values(array_unique($noInconsistency));
+            $confirmByExpiration = array_values(array_unique($confirmByExpiration));
+            $confirmByMatch = array_values(array_unique($confirmByMatch));
+            $manualConfirm = array_values(array_unique($manualConfirm));
+
+            if ($manualConfirm) {
+                Production::whereIn('id', $manualConfirm)->update(['conf_manual' => true]);
+            }
+
+            if ($noInconsistency) {
+                Production::whereIn('id', $noInconsistency)->update(['noinconsistency' => true]);
+            }
+
+            $confirmIds = array_values(array_unique(array_merge($confirmByExpiration, $confirmByMatch)));
+            if ($confirmIds) {
+                Production::whereIn('id', $confirmIds)->update([
+                    'confirmed' => true,
+                    'confirmed_at' => $nowFormatted,
+                ]);
+            }
+
+            $updatedCount = count($manualConfirm) + count($noInconsistency) + count($confirmIds);
+
+            $this->info('FINISHED CHECK... ' . Production::where('completed', true)->where('confirmed', false)->count());
+
+            $log->setUpdated($updatedCount);
+            $log->save();
+
+            return self::SUCCESS;
         } catch (Throwable $e) {
             if ($log instanceof RegistroJson) {
                 $log->setErrorMessage($e->getMessage());
