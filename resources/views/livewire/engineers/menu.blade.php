@@ -178,8 +178,8 @@
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.cancellations.index') }}" class="nav-item text-white fw-normal">
-                                <i class="ri-check-double-line text-white fw-light fs-5"></i>
-                                <span>APROVAÇÃO DE CANCELAMENTO</span>
+                                <i class="ri-timer-line text-white fw-light fs-5"></i>
+                                <span>CANCELAMENTO</span>
                                 @livewire('components.count.cancellation-requests', ['mode' => 'engineer_pending', 'userId' => Auth()->id()])
                             </a>
                         </li>

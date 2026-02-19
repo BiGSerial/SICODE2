@@ -51,6 +51,16 @@ class CancellationRequests extends Component
                 ->count();
         }
 
+        if ($this->mode === 'engineer_history') {
+            if ($this->userId) {
+                $query->where('engineer_approver_id', $this->userId);
+            }
+
+            return $query
+                ->whereIn('engineer_approval_status', ['APPROVED', 'REJECTED', 'CANCELED'])
+                ->count();
+        }
+
         return 0;
     }
 

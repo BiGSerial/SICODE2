@@ -30,6 +30,17 @@
                 border-radius: 0.9rem;
                 box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
             }
+
+            .order-actions {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+                white-space: nowrap;
+            }
+
+            .order-btn {
+                line-height: 1;
+            }
         </style>
 
         <div class="oexterno-header">
@@ -63,10 +74,6 @@
                         <label class="form-label">Descrição</label>
                         <textarea class="form-control" rows="3" wire:model.defer="description"></textarea>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label">Ordem de exibição</label>
-                        <input type="number" class="form-control" wire:model.defer="display_order" />
-                    </div>
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" wire:model.defer="active" id="catActive">
                         <label class="form-check-label" for="catActive">Ativa</label>
@@ -93,6 +100,7 @@
                         <table class="table table-sm table-striped">
                             <thead>
                                 <tr>
+                                    <th class="text-center" style="width: 120px;">Ordem</th>
                                     <th>Nome</th>
                                     <th>Slug</th>
                                     <th>Ativa</th>
@@ -101,9 +109,27 @@
                                     <th></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="cancellation-categories-sortable-{{ $this->id }}">
                                 @forelse($categories as $cat)
-                                    <tr>
+                                    <tr data-id="{{ $cat->id }}" wire:key="cat-row-{{ $cat->id }}">
+                                        <td class="text-center align-middle">
+                                            <div class="order-actions">
+                                                <span class="text-muted drag-handle" style="cursor: grab;" title="Arraste para reordenar">
+                                                    <i class="ri-drag-move-2-line"></i>
+                                                </span>
+                                                @if(!$loop->first)
+                                                    <button class="btn btn-sm btn-light px-2 py-1 order-btn" wire:click="moveUp({{ $cat->id }})" title="Subir">
+                                                        <i class="ri-arrow-up-s-line"></i>
+                                                    </button>
+                                                @endif
+                                                @if(!$loop->last)
+                                                    <button class="btn btn-sm btn-light px-2 py-1 order-btn"
+                                                        wire:click="moveDown({{ $cat->id }})" title="Descer">
+                                                        <i class="ri-arrow-down-s-line"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </td>
                                         <td>{{ $cat->name }}</td>
                                         <td>{{ $cat->slug }}</td>
                                         <td>{{ $cat->active ? 'Sim' : 'Não' }}</td>
@@ -118,7 +144,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center">Nenhuma categoria cadastrada.</td>
+                                        <td colspan="7" class="text-center">Nenhuma categoria cadastrada.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -129,3 +155,61 @@
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        function ensureSortableLoaded(callback) {
+            if (window.Sortable) {
+                callback();
+                return;
+            }
+
+            const existing = document.getElementById('sortablejs-cdn');
+            if (existing) {
+                existing.addEventListener('load', callback, { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.id = 'sortablejs-cdn';
+            script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js';
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
+
+        function initCancellationCategoriesSortable() {
+            const tbody = document.getElementById('cancellation-categories-sortable-{{ $this->id }}');
+            if (!tbody || tbody.dataset.sortableInit === '1') {
+                return;
+            }
+
+            tbody.dataset.sortableInit = '1';
+            ensureSortableLoaded(() => {
+                if (!window.Sortable) return;
+                new Sortable(tbody, {
+                    animation: 140,
+                    ghostClass: 'table-warning',
+                    handle: '.drag-handle',
+                    onEnd: () => {
+                        const orderedIds = Array.from(tbody.querySelectorAll('tr[data-id]'))
+                            .map(row => Number(row.dataset.id))
+                            .filter(Boolean);
+                        const componentEl = tbody.closest('[wire\\:id]');
+                        if (!componentEl) return;
+                        const component = window.Livewire.find(componentEl.getAttribute('wire:id'));
+                        if (!component) return;
+                        component.call('reorder', orderedIds);
+                    }
+                });
+            });
+        }
+
+        document.addEventListener('livewire:load', initCancellationCategoriesSortable);
+        document.addEventListener('livewire:update', initCancellationCategoriesSortable);
+        document.addEventListener('livewire:load', () => {
+            if (window.Livewire && typeof window.Livewire.hook === 'function') {
+                window.Livewire.hook('message.processed', () => initCancellationCategoriesSortable());
+            }
+        });
+    })();
+</script>

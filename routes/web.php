@@ -259,6 +259,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
     Route::get('/cancelamentos/aprovacoes', 'cancellationApprovals')->name('cancellations.index');
+    Route::get('/cancelamentos/aprovacoes/historico', 'cancellationApprovalsHistory')->name('cancellations.history');
     Route::get('/cancelamentos/aprovacoes/{request}', 'cancellationApprovalShow')->whereNumber('request')->name('cancellations.show');
 
     Route::prefix('/analises')->name('analises.')->group(function () {

@@ -115,4 +115,9 @@ class EngineerController extends Controller
             'request' => $request->route('request'),
         ]);
     }
+
+    public function cancellationApprovalsHistory()
+    {
+        return view('engineers.cancellation_approvals_history');
+    }
 }

@@ -18,7 +18,6 @@ class CancellationCategories extends Component
     public bool $active = true;
     public bool $require_evidence = true;
     public int $min_evidence_files = 1;
-    public ?int $display_order = null;
 
     public function save(): void
     {
@@ -30,7 +29,6 @@ class CancellationCategories extends Component
             'active' => 'boolean',
             'require_evidence' => 'boolean',
             'min_evidence_files' => 'integer|min:0',
-            'display_order' => 'nullable|integer|min:1',
         ]);
 
         if ($this->editingId) {
@@ -42,7 +40,6 @@ class CancellationCategories extends Component
                 'active' => $this->active,
                 'require_evidence' => $this->require_evidence,
                 'min_evidence_files' => $this->min_evidence_files,
-                'display_order' => $this->display_order,
             ]);
         } else {
             $slug = Str::slug($this->name);
@@ -64,7 +61,7 @@ class CancellationCategories extends Component
                 'active' => $this->active,
                 'require_evidence' => $this->require_evidence,
                 'min_evidence_files' => $this->min_evidence_files,
-                'display_order' => $this->display_order,
+                'display_order' => ((int) CancellationCategory::max('display_order')) + 1,
             ]);
         }
 
@@ -84,7 +81,6 @@ class CancellationCategories extends Component
         $this->active = (bool) $category->active;
         $this->require_evidence = (bool) $category->require_evidence;
         $this->min_evidence_files = (int) $category->min_evidence_files;
-        $this->display_order = $category->display_order;
     }
 
     public function toggleActive(int $id): void
@@ -104,14 +100,70 @@ class CancellationCategories extends Component
         $this->active = true;
         $this->require_evidence = true;
         $this->min_evidence_files = 1;
-        $this->display_order = null;
+    }
+
+    public function moveUp(int $id): void
+    {
+        $this->authorize('manage', CancellationCategory::class);
+
+        $ordered = CancellationCategory::query()
+            ->orderByRaw('COALESCE(display_order, 999999), name')
+            ->get();
+
+        $index = $ordered->search(fn ($item) => (int) $item->id === $id);
+        if ($index === false || $index === 0) {
+            return;
+        }
+
+        $current = $ordered[$index];
+        $previous = $ordered[$index - 1];
+        $this->swapDisplayOrder($current, $previous);
+    }
+
+    public function moveDown(int $id): void
+    {
+        $this->authorize('manage', CancellationCategory::class);
+
+        $ordered = CancellationCategory::query()
+            ->orderByRaw('COALESCE(display_order, 999999), name')
+            ->get()
+            ->values();
+
+        $index = $ordered->search(fn ($item) => (int) $item->id === $id);
+        if ($index === false || $index === ($ordered->count() - 1)) {
+            return;
+        }
+
+        $current = $ordered[$index];
+        $next = $ordered[$index + 1];
+        $this->swapDisplayOrder($current, $next);
+    }
+
+    public function reorder(array $orderedIds): void
+    {
+        $this->authorize('manage', CancellationCategory::class);
+
+        $position = 1;
+        foreach ($orderedIds as $id) {
+            CancellationCategory::whereKey((int) $id)->update(['display_order' => $position]);
+            $position++;
+        }
+    }
+
+    private function swapDisplayOrder(CancellationCategory $a, CancellationCategory $b): void
+    {
+        $orderA = $a->display_order ?? 999999;
+        $orderB = $b->display_order ?? 999999;
+
+        $a->update(['display_order' => $orderB]);
+        $b->update(['display_order' => $orderA]);
     }
 
     public function render()
     {
         $this->authorize('manage', CancellationCategory::class);
 
-        $categories = CancellationCategory::orderBy('display_order')
+        $categories = CancellationCategory::orderByRaw('COALESCE(display_order, 999999)')
             ->orderBy('name')
             ->get();
 
