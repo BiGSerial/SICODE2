@@ -2,8 +2,10 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
+use App\Enum\CancellationEngineerApprovalStatus;
 use App\Models\CancellationRequest;
 use App\Models\EvidenceFile;
+use App\Models\User;
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +26,8 @@ class ExecutionShow extends Component
 
     public string $action = 'DONE';
     public string $comment = '';
+    public ?string $engineerId = null;
+    public string $engineerReason = '';
 
     public $files = [];
     public array $tempFiles = [];
@@ -57,11 +61,29 @@ class ExecutionShow extends Component
             'Comments.User',
             'Requester',
             'Assignee',
+            'EngineerApprover',
+            'EngineerApprovalRequester',
+            'EngineerApprovalDecider',
         ])->findOrFail($this->requestId);
 
         if ((int) $this->cancellationRequest->assigned_to !== (int) Auth::id()) {
             abort(403);
         }
+
+        $this->engineerId = $this->cancellationRequest->engineer_approver_id;
+        $engineerRejected = $this->cancellationRequest->engineer_approval_status === CancellationEngineerApprovalStatus::REJECTED;
+        $canFinalize = !$this->cancellationRequest->requires_engineer_approval
+            || in_array($this->cancellationRequest->engineer_approval_status?->value, ['APPROVED', 'CANCELED'], true);
+
+        if ($engineerRejected) {
+            $this->action = 'ABORTED';
+            if (!trim($this->comment)) {
+                $this->comment = 'Não autorizado pelo engenheiro.';
+            }
+            return;
+        }
+
+        $this->action = $canFinalize ? 'DONE' : 'PAUSED';
     }
 
     public function updatedFiles(): void
@@ -128,6 +150,57 @@ class ExecutionShow extends Component
         }
     }
 
+    public function requestEngineerApproval(CancellationRequestService $service): void
+    {
+        if (!$this->engineerId) {
+            $this->addError('engineerId', 'Selecione um engenheiro.');
+            return;
+        }
+
+        try {
+            $engineer = User::query()->where('engineer', true)->findOrFail($this->engineerId);
+            $service->requestEngineerApproval($this->cancellationRequest, Auth::user(), $engineer, $this->engineerReason);
+
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Aprovação enviada para o engenheiro.']);
+            $this->engineerReason = '';
+            $this->loadRequest();
+        } catch (RuntimeException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
+        }
+    }
+
+    public function changeEngineer(CancellationRequestService $service): void
+    {
+        if (!$this->engineerId) {
+            $this->addError('engineerId', 'Selecione um engenheiro.');
+            return;
+        }
+
+        try {
+            $engineer = User::query()->where('engineer', true)->findOrFail($this->engineerId);
+            $service->changeEngineerApprover($this->cancellationRequest, Auth::user(), $engineer, $this->engineerReason);
+
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Engenheiro alterado com sucesso.']);
+            $this->engineerReason = '';
+            $this->loadRequest();
+        } catch (RuntimeException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
+        }
+    }
+
+    public function cancelEngineerApproval(CancellationRequestService $service): void
+    {
+        try {
+            $service->cancelEngineerApproval($this->cancellationRequest, Auth::user(), $this->engineerReason);
+
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Solicitação ao engenheiro cancelada.']);
+            $this->engineerReason = '';
+            $this->loadRequest();
+        } catch (RuntimeException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
+        }
+    }
+
     public function downloadEvidence(int $fileId): StreamedResponse
     {
         $file = EvidenceFile::findOrFail($fileId);
@@ -140,6 +213,16 @@ class ExecutionShow extends Component
 
     public function render()
     {
-        return view('livewire.services.payment.cancellation.execution-show');
+        $engineers = User::query()
+            ->where('engineer', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $approvalPending = $this->cancellationRequest->engineer_approval_status === CancellationEngineerApprovalStatus::PENDING;
+
+        return view('livewire.services.payment.cancellation.execution-show', [
+            'engineers' => $engineers,
+            'approvalPending' => $approvalPending,
+        ]);
     }
 }

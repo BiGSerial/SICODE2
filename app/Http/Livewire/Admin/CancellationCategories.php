@@ -26,7 +26,6 @@ class CancellationCategories extends Component
 
         $this->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'active' => 'boolean',
             'require_evidence' => 'boolean',
@@ -34,20 +33,40 @@ class CancellationCategories extends Component
             'display_order' => 'nullable|integer|min:1',
         ]);
 
-        $slug = $this->slug ? Str::slug($this->slug) : Str::slug($this->name);
+        if ($this->editingId) {
+            $category = CancellationCategory::findOrFail($this->editingId);
 
-        CancellationCategory::updateOrCreate(
-            ['id' => $this->editingId],
-            [
+            $category->update([
                 'name' => $this->name,
+                'description' => $this->description,
+                'active' => $this->active,
+                'require_evidence' => $this->require_evidence,
+                'min_evidence_files' => $this->min_evidence_files,
+                'display_order' => $this->display_order,
+            ]);
+        } else {
+            $slug = Str::slug($this->name);
+            if ($slug === '') {
+                $this->addError('name', 'Não foi possível gerar slug a partir do nome.');
+                return;
+            }
+
+            if (CancellationCategory::query()->where('slug', $slug)->exists()) {
+                $this->addError('name', 'Já existe uma categoria com este slug. Altere o nome.');
+                return;
+            }
+
+            CancellationCategory::create([
+                'name' => $this->name,
+                // o model também força slug automático e imutável
                 'slug' => $slug,
                 'description' => $this->description,
                 'active' => $this->active,
                 'require_evidence' => $this->require_evidence,
                 'min_evidence_files' => $this->min_evidence_files,
                 'display_order' => $this->display_order,
-            ]
-        );
+            ]);
+        }
 
         $this->resetForm();
     }
@@ -98,6 +117,7 @@ class CancellationCategories extends Component
 
         return view('livewire.admin.cancellation-categories', [
             'categories' => $categories,
+            'slugPreview' => Str::slug($this->name),
         ]);
     }
 }

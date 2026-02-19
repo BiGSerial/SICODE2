@@ -15,7 +15,11 @@ class CancellationRequestPolicy
 
     public function view(User $user, CancellationRequest $request): bool
     {
-        return $request->requested_by === $user->id || $this->isTeam($user) || $this->isSupervisor($user);
+        if ($request->requested_by === $user->id || $this->isTeam($user) || $this->isSupervisor($user)) {
+            return true;
+        }
+
+        return (bool) ($user->engineer && (string) $request->engineer_approver_id === (string) $user->id);
     }
 
     public function viewQueue(User $user): bool

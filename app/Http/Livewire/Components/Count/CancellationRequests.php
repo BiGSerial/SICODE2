@@ -41,6 +41,16 @@ class CancellationRequests extends Component
             return $query->count();
         }
 
+        if ($this->mode === 'engineer_pending') {
+            if ($this->userId) {
+                $query->where('engineer_approver_id', $this->userId);
+            }
+
+            return $query
+                ->where('engineer_approval_status', 'PENDING')
+                ->count();
+        }
+
         return 0;
     }
 

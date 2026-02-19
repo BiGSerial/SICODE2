@@ -35,6 +35,9 @@ class RequestShow extends Component
             'Assignee',
             'Requester',
             'Closer',
+            'EngineerApprover',
+            'EngineerApprovalRequester',
+            'EngineerApprovalDecider',
         ])->findOrFail($this->requestId);
 
         $this->authorize('view', $this->cancellationRequest);

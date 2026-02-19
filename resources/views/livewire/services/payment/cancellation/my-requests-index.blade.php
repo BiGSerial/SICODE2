@@ -88,6 +88,7 @@
                             <th>Nota</th>
                             <th>Categoria</th>
                             <th>Status</th>
+                            <th>Aprovação Eng.</th>
                             <th>Assumido por</th>
                             <th>Enviado em</th>
                             <th></th>
@@ -104,6 +105,15 @@
                                         {{ $request->status?->label() ?? $request->status?->value ?? $request->status }}
                                     </span>
                                 </td>
+                                <td>
+                                    @if($request->engineer_approval_status)
+                                        <span class="badge {{ $request->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
+                                            {{ $request->engineer_approval_status?->label() ?? $request->engineer_approval_status }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-secondary">Não</span>
+                                    @endif
+                                </td>
                                 <td>{{ $request->Assignee->name ?? '-' }}</td>
                                 <td>{{ optional($request->submitted_at)->format('d/m/Y H:i') }}</td>
                                 <td>
@@ -112,7 +122,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center">Nenhuma solicitação em andamento.</td>
+                                <td colspan="8" class="text-center">Nenhuma solicitação em andamento.</td>
                             </tr>
                         @endforelse
                     </tbody>

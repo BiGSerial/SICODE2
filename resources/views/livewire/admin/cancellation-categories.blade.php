@@ -50,8 +50,14 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Slug/Código</label>
-                        <input type="text" class="form-control" wire:model.defer="slug" />
-                        @error('slug')<span class="text-danger small">{{ $message }}</span>@enderror
+                        <input type="text" class="form-control" value="{{ $editingId ? $slug : ($slugPreview ?: '-') }}" readonly />
+                        <small class="text-muted">
+                            @if($editingId)
+                                O slug é imutável após criação.
+                            @else
+                                Gerado automaticamente a partir do nome.
+                            @endif
+                        </small>
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Descrição</label>
