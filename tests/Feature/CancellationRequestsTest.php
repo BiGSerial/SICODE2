@@ -7,6 +7,8 @@ use App\Models\CancellationRequest;
 use App\Models\Note;
 use App\Models\Order;
 use App\Models\User;
+use App\Enum\CancellationRequestScope;
+use App\Enum\CancellationEngineerApprovalStatus;
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -57,7 +59,7 @@ class CancellationRequestsTest extends TestCase
 
         $request = $service->createRequest(
             $note,
-            CancellationRequest::SCOPE_ORDERS_PARTIAL,
+            CancellationRequestScope::ORDERS_PARTIAL->value,
             $category,
             [$orders[0]->id],
             [$file],
@@ -87,7 +89,7 @@ class CancellationRequestsTest extends TestCase
         $this->expectException(RuntimeException::class);
         $service->createRequest(
             $note,
-            CancellationRequest::SCOPE_NOTE_FULL,
+            CancellationRequestScope::NOTE_FULL->value,
             $category,
             [],
             [],
@@ -108,7 +110,7 @@ class CancellationRequestsTest extends TestCase
 
         $request = $service->createRequest(
             $note,
-            CancellationRequest::SCOPE_ORDERS_PARTIAL,
+            CancellationRequestScope::ORDERS_PARTIAL->value,
             $category,
             [$orders[1]->id],
             [],
@@ -134,7 +136,7 @@ class CancellationRequestsTest extends TestCase
 
         $request = $service->createRequest(
             $note,
-            CancellationRequest::SCOPE_ORDERS_PARTIAL,
+            CancellationRequestScope::ORDERS_PARTIAL->value,
             $category,
             [$orders[0]->id],
             [],
@@ -158,7 +160,7 @@ class CancellationRequestsTest extends TestCase
 
         $request = $service->createRequest(
             $note,
-            CancellationRequest::SCOPE_NOTE_FULL,
+            CancellationRequestScope::NOTE_FULL->value,
             $category,
             [],
             [],
@@ -187,7 +189,7 @@ class CancellationRequestsTest extends TestCase
 
         $request = $service->createRequest(
             $note,
-            CancellationRequest::SCOPE_ORDERS_PARTIAL,
+            CancellationRequestScope::ORDERS_PARTIAL->value,
             $category,
             [$orders[0]->id],
             [],
@@ -204,6 +206,64 @@ class CancellationRequestsTest extends TestCase
             'id' => $request->id,
             'status' => CancellationRequest::STATUS_REJECTED,
             'closure_note' => 'Motivo de rejeição',
+        ]);
+    }
+
+    public function test_finalize_done_requires_engineer_approval_when_requested(): void
+    {
+        [$note, $orders] = $this->makeNoteWithOrders(1);
+        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $executor = User::factory()->create(['can_dispatch' => true]);
+        $engineer = User::factory()->create(['engineer' => true]);
+
+        $service = new CancellationRequestService();
+
+        $request = $service->createRequest(
+            $note,
+            CancellationRequestScope::ORDERS_PARTIAL->value,
+            $category,
+            [$orders[0]->id],
+            [],
+            $executor,
+            null
+        );
+
+        $service->claimRequest($request, $executor);
+        $service->requestEngineerApproval($request, $executor, $engineer, 'Precisa validar regra técnica');
+
+        $this->expectException(RuntimeException::class);
+        $service->finalizeDone($request, $executor);
+    }
+
+    public function test_finalize_done_after_engineer_approval(): void
+    {
+        [$note, $orders] = $this->makeNoteWithOrders(1);
+        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $executor = User::factory()->create(['can_dispatch' => true]);
+        $engineer = User::factory()->create(['engineer' => true]);
+
+        $service = new CancellationRequestService();
+
+        $request = $service->createRequest(
+            $note,
+            CancellationRequestScope::ORDERS_PARTIAL->value,
+            $category,
+            [$orders[0]->id],
+            [],
+            $executor,
+            null
+        );
+
+        $service->claimRequest($request, $executor);
+        $service->requestEngineerApproval($request, $executor, $engineer, 'Precisa validar regra técnica');
+        $service->decideEngineerApproval($request, $engineer, CancellationEngineerApprovalStatus::APPROVED->value, 'Autorizado.');
+        $service->finalizeDone($request, $executor);
+
+        $this->assertTrue($orders[0]->fresh()->canceled);
+        $this->assertDatabaseHas('cancellation_requests', [
+            'id' => $request->id,
+            'status' => CancellationRequest::STATUS_DONE,
+            'engineer_approval_status' => CancellationEngineerApprovalStatus::APPROVED->value,
         ]);
     }
 }

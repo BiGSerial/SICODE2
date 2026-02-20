@@ -118,10 +118,11 @@ class Dashboard extends Component
     {
         return $this->getBaseProperty()
             ->selectRaw("work_reports.*, COALESCE(
-                (SELECT DATEDIFF(adsforms.created_at, work_reports.informed_at)
+                (SELECT DATEDIFF(COALESCE(adsforms.tacit_delivered_at, adsforms.created_at), work_reports.informed_at)
                     FROM adsforms
                     WHERE adsforms.work_report_id = work_reports.id
-                    AND adsforms.created_at > work_reports.informed_at
+                    AND COALESCE(adsforms.tacit_delivered_at, adsforms.created_at) > work_reports.informed_at
+                    AND (adsforms.tacit = 0 OR adsforms.tacit_delivered_at IS NOT NULL)
                     LIMIT 1),
                 (SELECT DATEDIFF(old_ads_informs.date, work_reports.informed_at)
                     FROM old_ads_informs
@@ -132,7 +133,11 @@ class Dashboard extends Component
             ->where('rejected', false)
             ->where(function ($query) {
                 $query->whereHas('Adsform', function ($q) {
-                    $q->whereRaw('DATEDIFF(adsforms.created_at, work_reports.informed_at) > ?', [6]);
+                    $q->whereRaw('DATEDIFF(COALESCE(adsforms.tacit_delivered_at, adsforms.created_at), work_reports.informed_at) > ?', [6])
+                        ->where(function ($sub) {
+                            $sub->where('adsforms.tacit', false)
+                                ->orWhereNotNull('adsforms.tacit_delivered_at');
+                        });
                 })
                 ->orWhereHas('Note.OldAds', function ($q) {
                     $q->whereRaw('DATEDIFF(old_ads_informs.date, work_reports.informed_at) > ?', [6]);
@@ -147,12 +152,42 @@ class Dashboard extends Component
 
         return $this->getBaseProperty()
             ->where('rejected', false)
-            ->whereDoesntHave('note.adsform')
+            ->whereDoesntHave('adsform')
             ->whereDoesntHave('note.oldAds')
             ->where(function ($query) use ($sevenDaysAgo) {
                 $query->where('informed_at', '<=', $sevenDaysAgo);
             })
             ->paginate(15, ['*'], 'workReportsWithoutAdsPage');
+    }
+
+    public function getTacitOpenOverdueRelation()
+    {
+        return $this->getBaseProperty()
+            ->where('rejected', false)
+            ->whereHas('Adsform', function ($q) {
+                $q->where('tacit', true)
+                    ->whereNull('tacit_delivered_at')
+                    ->whereNotNull('tacit_due_at')
+                    ->where('tacit_due_at', '<', now());
+            })
+            ->with(['Note:id,note', 'Company:id,name', 'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at'])
+            ->orderBy('informed_at', 'asc')
+            ->paginate(10, ['*'], 'tacitOpenOverduePage');
+    }
+
+    public function getTacitDeliveredLateRelation()
+    {
+        return $this->getBaseProperty()
+            ->where('rejected', false)
+            ->whereHas('Adsform', function ($q) {
+                $q->where('tacit', true)
+                    ->whereNotNull('tacit_delivered_at')
+                    ->whereNotNull('tacit_due_at')
+                    ->whereRaw('tacit_delivered_at > tacit_due_at');
+            })
+            ->with(['Note:id,note', 'Company:id,name', 'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at'])
+            ->orderBy('informed_at', 'asc')
+            ->paginate(10, ['*'], 'tacitDeliveredLatePage');
     }
 
     public function getReturnbaseProperty()
@@ -390,6 +425,8 @@ class Dashboard extends Component
         return view('livewire.engineers.ads.dashboard', [
             'workReportsVencidos' => $this->getWorkReportsWithoutAdsRelation(),
             'workReportsAdsVencidos' => $this->getWorkReportsRelation(),
+            'tacitOpenOverdue' => $this->getTacitOpenOverdueRelation(),
+            'tacitDeliveredLate' => $this->getTacitDeliveredLateRelation(),
         ]);
     }
 }

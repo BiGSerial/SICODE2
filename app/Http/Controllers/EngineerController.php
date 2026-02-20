@@ -103,4 +103,21 @@ class EngineerController extends Controller
     {
         return view('engineers.ads_requests');
     }
+
+    public function cancellationApprovals()
+    {
+        return view('engineers.cancellation_approvals');
+    }
+
+    public function cancellationApprovalShow(Request $request)
+    {
+        return view('engineers.cancellation_approval_show', [
+            'request' => $request->route('request'),
+        ]);
+    }
+
+    public function cancellationApprovalsHistory()
+    {
+        return view('engineers.cancellation_approvals_history');
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Payment;
 
+use App\Enum\CancellationEngineerApprovalStatus;
 use App\Enum\CancellationRequestStatus;
 use App\Enum\CancellationRequestScope;
 use App\Models\CancellationCategory;
@@ -12,6 +13,7 @@ use App\Models\Note;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\EvidenceFile;
+use App\Notifications\SystemNotification;
 use App\Support\EvidenceFileUploader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -152,6 +154,16 @@ class CancellationRequestService
                 throw new RuntimeException('Somente o responsável pode finalizar.');
             }
 
+            if ($request->requires_engineer_approval) {
+                if ($request->engineer_approval_status === CancellationEngineerApprovalStatus::PENDING) {
+                    throw new RuntimeException('Aguardando aprovação do engenheiro. Cancele a solicitação ao engenheiro para continuar.');
+                }
+
+                if ($request->engineer_approval_status !== CancellationEngineerApprovalStatus::APPROVED) {
+                    throw new RuntimeException('Cancelamento exige aprovação do engenheiro antes da finalização.');
+                }
+            }
+
             if ($request->scope === CancellationRequestScope::NOTE_FULL) {
                 if ($request->Note->canceled) {
                     throw new RuntimeException('Nota já cancelada.');
@@ -193,6 +205,187 @@ class CancellationRequestService
             ]);
 
             $this->logEvent($request, $user, 'done');
+            $this->notifyRequesterRequestDone($request, $user);
+
+            return $request;
+        });
+    }
+
+    public function requestEngineerApproval(
+        CancellationRequest $request,
+        User $actor,
+        User $engineer,
+        string $reason
+    ): CancellationRequest {
+        return DB::transaction(function () use ($request, $actor, $engineer, $reason) {
+            $request->refresh();
+
+            if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::PAUSED], true)) {
+                throw new RuntimeException('Solicitação não está disponível para aprovação de engenheiro.');
+            }
+
+            if ($request->assigned_to !== $actor->id && !$this->isSupervisor($actor)) {
+                throw new RuntimeException('Somente o executante pode solicitar aprovação ao engenheiro.');
+            }
+
+            if (!$engineer->engineer) {
+                throw new RuntimeException('Usuário selecionado não é engenheiro.');
+            }
+
+            if (!trim($reason)) {
+                throw new RuntimeException('Informe o motivo para solicitar aprovação do engenheiro.');
+            }
+
+            $eventType = $request->engineer_approval_status === CancellationEngineerApprovalStatus::REJECTED
+                ? 'engineer_approval_reopened'
+                : 'engineer_approval_requested';
+
+            $request->update([
+                'requires_engineer_approval' => true,
+                'engineer_approval_status' => CancellationEngineerApprovalStatus::PENDING,
+                'engineer_approval_requested_by' => $actor->id,
+                'engineer_approval_requested_at' => now(),
+                'engineer_approver_id' => $engineer->id,
+                'engineer_approval_decided_by' => null,
+                'engineer_approval_decided_at' => null,
+                'engineer_approval_reason' => $reason,
+            ]);
+
+            $this->logEvent($request, $actor, $eventType, [
+                'engineer_id' => $engineer->id,
+                'reason' => $reason,
+            ]);
+
+            $this->notifyEngineerApprovalRequested($request, $actor, $engineer, $reason);
+
+            return $request;
+        });
+    }
+
+    public function changeEngineerApprover(
+        CancellationRequest $request,
+        User $actor,
+        User $engineer,
+        string $reason
+    ): CancellationRequest {
+        return DB::transaction(function () use ($request, $actor, $engineer, $reason) {
+            $request->refresh();
+
+            if (!$request->requires_engineer_approval || $request->engineer_approval_status !== CancellationEngineerApprovalStatus::PENDING) {
+                throw new RuntimeException('Troca de engenheiro disponível apenas para solicitações pendentes.');
+            }
+
+            if ($request->assigned_to !== $actor->id && !$this->isSupervisor($actor)) {
+                throw new RuntimeException('Somente o executante pode trocar o engenheiro.');
+            }
+
+            if (!$engineer->engineer) {
+                throw new RuntimeException('Usuário selecionado não é engenheiro.');
+            }
+
+            if (!trim($reason)) {
+                throw new RuntimeException('Informe o motivo da troca de engenheiro.');
+            }
+
+            $previousEngineerId = $request->engineer_approver_id;
+
+            $request->update([
+                'engineer_approver_id' => $engineer->id,
+                'engineer_approval_reason' => $reason,
+            ]);
+
+            $this->logEvent($request, $actor, 'engineer_approval_engineer_changed', [
+                'from_engineer_id' => $previousEngineerId,
+                'to_engineer_id' => $engineer->id,
+                'reason' => $reason,
+            ]);
+
+            $this->notifyEngineerApprovalRequested($request, $actor, $engineer, $reason);
+
+            return $request;
+        });
+    }
+
+    public function cancelEngineerApproval(CancellationRequest $request, User $actor, string $reason): CancellationRequest
+    {
+        return DB::transaction(function () use ($request, $actor, $reason) {
+            $request->refresh();
+
+            if (!$request->requires_engineer_approval || $request->engineer_approval_status !== CancellationEngineerApprovalStatus::PENDING) {
+                throw new RuntimeException('Não há solicitação de aprovação pendente para cancelar.');
+            }
+
+            if ($request->assigned_to !== $actor->id && !$this->isSupervisor($actor)) {
+                throw new RuntimeException('Somente o executante pode cancelar a solicitação ao engenheiro.');
+            }
+
+            if (!trim($reason)) {
+                throw new RuntimeException('Informe o motivo do cancelamento da solicitação ao engenheiro.');
+            }
+
+            $request->update([
+                'requires_engineer_approval' => false,
+                'engineer_approval_status' => CancellationEngineerApprovalStatus::CANCELED,
+                'engineer_approval_decided_by' => $actor->id,
+                'engineer_approval_decided_at' => now(),
+                'engineer_approval_reason' => $reason,
+            ]);
+
+            $this->logEvent($request, $actor, 'engineer_approval_canceled', [
+                'reason' => $reason,
+            ]);
+
+            return $request;
+        });
+    }
+
+    public function decideEngineerApproval(
+        CancellationRequest $request,
+        User $engineer,
+        string $decision,
+        string $reason
+    ): CancellationRequest {
+        return DB::transaction(function () use ($request, $engineer, $decision, $reason) {
+            $request->refresh();
+
+            if ($request->engineer_approval_status !== CancellationEngineerApprovalStatus::PENDING) {
+                throw new RuntimeException('Solicitação não está pendente para decisão.');
+            }
+
+            if ((string) $request->engineer_approver_id !== (string) $engineer->id && !$this->isSupervisor($engineer)) {
+                throw new RuntimeException('Somente o engenheiro designado pode decidir.');
+            }
+
+            if (!$engineer->engineer && !$this->isSupervisor($engineer)) {
+                throw new RuntimeException('Apenas engenheiros podem decidir.');
+            }
+
+            if (!in_array($decision, [CancellationEngineerApprovalStatus::APPROVED->value, CancellationEngineerApprovalStatus::REJECTED->value], true)) {
+                throw new RuntimeException('Decisão de aprovação inválida.');
+            }
+
+            if (!trim($reason)) {
+                throw new RuntimeException('Informe a justificativa da decisão.');
+            }
+
+            $approved = $decision === CancellationEngineerApprovalStatus::APPROVED->value;
+            $approvalStatus = $approved
+                ? CancellationEngineerApprovalStatus::APPROVED
+                : CancellationEngineerApprovalStatus::REJECTED;
+
+            $request->update([
+                'requires_engineer_approval' => true,
+                'engineer_approval_status' => $approvalStatus,
+                'engineer_approval_decided_by' => $engineer->id,
+                'engineer_approval_decided_at' => now(),
+                'engineer_approval_reason' => $reason,
+            ]);
+
+            $this->logEvent($request, $engineer, $approved ? 'engineer_approval_approved' : 'engineer_approval_rejected', [
+                'reason' => $reason,
+            ]);
+
+            $this->notifyEngineerDecision($request, $engineer, $approved, $reason);
 
             return $request;
         });
@@ -212,15 +405,20 @@ class CancellationRequestService
                 throw new RuntimeException('Somente o responsável pode rejeitar.');
             }
 
+            $rejectedReason = trim((string) $reason);
+            if ($rejectedReason === '') {
+                throw new RuntimeException('Informe o motivo da rejeição.');
+            }
+
             $request->update([
                 'status' => CancellationRequestStatus::REJECTED,
                 'closed_by' => $user->id,
                 'closed_at' => now(),
                 'closure_type' => CancellationRequest::CLOSURE_REJECTED,
-                'closure_note' => $reason,
+                'closure_note' => $rejectedReason,
             ]);
 
-            $this->logEvent($request, $user, 'rejected', ['reason' => $reason]);
+            $this->logEvent($request, $user, 'rejected', ['reason' => $rejectedReason]);
 
             return $request;
         });
@@ -240,7 +438,9 @@ class CancellationRequestService
                 throw new RuntimeException('Somente o responsável pode cancelar.');
             }
 
-            if (!trim((string) $reason)) {
+            $abortReason = trim((string) $reason);
+
+            if ($abortReason === '') {
                 throw new RuntimeException('Informe o motivo do cancelamento.');
             }
 
@@ -249,10 +449,10 @@ class CancellationRequestService
                 'closed_by' => $user->id,
                 'closed_at' => now(),
                 'closure_type' => CancellationRequest::CLOSURE_ABORTED,
-                'closure_note' => $reason,
+                'closure_note' => $abortReason,
             ]);
 
-            $this->logEvent($request, $user, 'aborted', ['reason' => $reason]);
+            $this->logEvent($request, $user, 'aborted', ['reason' => $abortReason]);
 
             return $request;
         });
@@ -461,6 +661,66 @@ class CancellationRequestService
             'type' => $type,
             'meta' => $meta ?: null,
         ]);
+    }
+
+    private function notifyEngineerApprovalRequested(
+        CancellationRequest $request,
+        User $actor,
+        User $engineer,
+        string $reason
+    ): void {
+        $engineer->notify(new SystemNotification(
+            titulo: 'Nova aprovação de cancelamento',
+            mensagem: "A solicitação #{$request->id} foi encaminhada por {$actor->name}. Motivo: {$reason}",
+            link: route('engineers.cancellations.show', ['request' => $request->id]),
+            status: 'warning'
+        ));
+    }
+
+    private function notifyEngineerDecision(
+        CancellationRequest $request,
+        User $engineer,
+        bool $approved,
+        string $reason
+    ): void {
+        $title = $approved ? 'Cancelamento autorizado pelo engenheiro' : 'Cancelamento rejeitado pelo engenheiro';
+        $message = $approved
+            ? "O engenheiro {$engineer->name} autorizou a solicitação #{$request->id}. Justificativa: {$reason}"
+            : "O engenheiro {$engineer->name} rejeitou a solicitação #{$request->id}. Motivo: {$reason}";
+
+        $users = collect([
+            $request->assigned_to,
+            $request->engineer_approval_requested_by,
+            $request->requested_by,
+        ])->filter()->unique()->all();
+
+        User::query()->whereIn('id', $users)->get()->each(function (User $user) use ($title, $message, $request) {
+            $user->notify(new SystemNotification(
+                titulo: $title,
+                mensagem: $message,
+                link: route('cancellations.show', ['request' => $request->id]),
+                status: 'info'
+            ));
+        });
+    }
+
+    private function notifyRequesterRequestDone(CancellationRequest $request, User $actor): void
+    {
+        if (!$request->requested_by || (string) $request->requested_by === (string) $actor->id) {
+            return;
+        }
+
+        $requester = User::find($request->requested_by);
+        if (!$requester) {
+            return;
+        }
+
+        $requester->notify(new SystemNotification(
+            titulo: 'Cancelamento concluído',
+            mensagem: "A solicitação #{$request->id} foi concluída por {$actor->name}.",
+            link: route('cancellations.show', ['request' => $request->id]),
+            status: 'success'
+        ));
     }
 
     private function isSupervisor(User $user): bool

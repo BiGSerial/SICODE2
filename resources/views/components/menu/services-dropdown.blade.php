@@ -15,18 +15,24 @@
 
     $sections = [
         [
-            'label' => 'SERVIÇOS GERAIS',
             'items' => [
                 [
                     'label' => 'CANCELAMENTO DE NOTAS',
                     'route' => 'cancellations.index',
                     'icon' => 'ri-close-circle-line',
                 ],
+                [
+                    'label' => 'OCORRÊNCIAS',
+                    'route' => 'occurrences.index',
+                    'icon' => 'ri-alarm-warning-line',
+                    'can' => 'occ.access',
+                ],
             ],
             'children' => [
                 [
                     'label' => 'RELATÓRIOS',
                     'can' => 'management',
+                    'open' => 'side',
                     'items' => $reportItems,
                 ],
             ],
@@ -39,4 +45,5 @@
     :sections="$sections"
     width="340px"
     id-prefix="servicos"
+    layout="inline"
 />

@@ -4,7 +4,6 @@ namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Enum\ProtestJobPriority;
 use App\Enum\ProtestJobStatus;
-use App\Enum\ProtestType;
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ProtestExportListJob;
 use App\Models\MedProtest;
@@ -96,10 +95,19 @@ class Lists extends Component
         ];
     }
 
-    public function mount()
+    public function mount($showOnlyBtzero = null, $hideBtzero = null)
     {
-        // O mount fica vazio ou apenas com inicializações simples.
-        // O carregamento de dados agora é feito nas Computed Properties.
+        if (!is_null($showOnlyBtzero)) {
+            $this->showOnlyBtzero = (bool) $showOnlyBtzero;
+        }
+
+        if (!is_null($hideBtzero)) {
+            $this->hideBtzero = (bool) $hideBtzero;
+        }
+
+        if ($this->showOnlyBtzero) {
+            $this->hideBtzero = false;
+        }
     }
 
     public function setStatusCardFilter(?string $filter = null): void
@@ -165,19 +173,15 @@ class Lists extends Component
 
     protected function applyBtzeroVisibilityFilter(Builder $query, bool $includeNullWhenHiding = true): void
     {
+        unset($includeNullWhenHiding);
+
         if ($this->showOnlyBtzero) {
-            $query->where('protest_type', ProtestType::BTZERO->value);
+            $query->identifiedAsBtzero();
             return;
         }
 
         if ($this->hideBtzero) {
-            $query->where(function (Builder $sub) use ($includeNullWhenHiding) {
-                $sub->where('protest_type', '!=', ProtestType::BTZERO->value);
-
-                if ($includeNullWhenHiding) {
-                    $sub->orWhereNull('protest_type');
-                }
-            });
+            $query->notIdentifiedAsBtzero();
         }
     }
 
@@ -235,6 +239,8 @@ class Lists extends Component
             'filtersState' => $this->filtersState,
             'search'       => $this->search,
             'multisearch'  => $this->multisearch,
+            'showOnlyBtzero' => $this->showOnlyBtzero,
+            'hideBtzero' => $this->hideBtzero,
         ];
 
         ProtestExportListJob::dispatch($params, auth()->id());
@@ -387,7 +393,16 @@ class Lists extends Component
             ")
             ->with([
                 'medProtests' => function ($q) {
-                    $q->orderByDesc('dtCriacaoMedida')
+                    $q->where('statusSist', 'MEDA')
+                        ->whereDoesntHave('ProtestJobs')
+                        ->when($this->showOnlyBtzero, function ($typeQuery) {
+                            $typeQuery->identifiedAsBtzero();
+                        }, function ($typeQuery) {
+                            if ($this->hideBtzero) {
+                                $typeQuery->notIdentifiedAsBtzero();
+                            }
+                        })
+                        ->orderByDesc('dtCriacaoMedida')
                         ->with(['ProtestJobs' => fn ($job) => $job->orderByDesc('created_at')]);
                 },
                 'Notes',
@@ -396,17 +411,19 @@ class Lists extends Component
         $query->whereHas('medProtests', function ($q) {
             $q->where('statusSist', 'MEDA')
                 ->whereDoesntHave('ProtestJobs');
+
+            if ($this->showOnlyBtzero) {
+                $q->identifiedAsBtzero();
+            } elseif ($this->hideBtzero) {
+                $q->notIdentifiedAsBtzero();
+            }
         });
 
-        if ($this->showOnlyBtzero) {
-            $query->whereHas('medProtests', function ($q) {
-                $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
-            });
-        } elseif ($this->hideBtzero) {
+        if (!$this->showOnlyBtzero && $this->hideBtzero) {
             $query->whereDoesntHave('medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+                    ->whereDoesntHave('ProtestJobs')
+                    ->identifiedAsBtzero();
             });
         }
 

@@ -17,6 +17,9 @@ class Menu extends Component
             'engineers.informes' => 'informes',
             'engineers.parciais' => 'parciais',
             'engineers.d5' => 'd5',
+            'engineers.cancellations.index' => 'cancellations',
+            'engineers.cancellations.history' => 'cancellations',
+            'engineers.cancellations.show' => 'cancellations',
         ];
 
         $this->onlySection = $map[$route] ?? null;

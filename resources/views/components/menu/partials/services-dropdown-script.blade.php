@@ -38,16 +38,42 @@
 
                 const target = root.querySelector(btn.dataset.target);
                 if (!target) return;
+                const mode = btn.dataset.openMode || 'side';
+                const currentSubmenu = btn.closest('.submenu');
+                const scope = currentSubmenu?.parentElement || root;
 
-                root.querySelectorAll('.submenu-panel').forEach((panel) => {
-                    if (panel !== target) panel.classList.remove('is-open');
-                });
-                root.querySelectorAll('.js-submenu-toggle').forEach((toggle) => {
-                    if (toggle !== btn) toggle.classList.remove('is-active');
+                const closeSubtree = (container) => {
+                    if (!container) return;
+                    container.querySelectorAll('.submenu-panel').forEach((panel) => panel.classList.remove('is-open'));
+                    container.querySelectorAll('.js-submenu-toggle').forEach((toggle) => toggle.classList.remove('is-active'));
+                };
+
+                Array.from(scope.children).forEach((child) => {
+                    if (!(child instanceof HTMLElement) || !child.classList.contains('submenu') || child === currentSubmenu) {
+                        return;
+                    }
+
+                    const siblingToggle = child.querySelector(':scope > .js-submenu-toggle');
+                    const siblingMode = siblingToggle?.dataset.openMode || 'side';
+
+                    // Keep independent levels/modes isolated; only close siblings of the same behavior.
+                    if (mode === 'down' && siblingMode !== 'down') {
+                        return;
+                    }
+                    if (mode === 'side' && siblingMode !== 'side') {
+                        return;
+                    }
+
+                    closeSubtree(child);
                 });
 
-                const open = target.classList.toggle('is-open');
-                btn.classList.toggle('is-active', open);
+                if (target.classList.contains('is-open')) {
+                    closeSubtree(currentSubmenu);
+                    return;
+                }
+
+                target.classList.add('is-open');
+                btn.classList.add('is-active');
             });
         });
 

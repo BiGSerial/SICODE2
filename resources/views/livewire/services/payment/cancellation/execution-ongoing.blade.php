@@ -105,6 +105,7 @@
                             <th>Ordens</th>
                             <th>Categoria</th>
                             <th>Status</th>
+                            <th>Aprovação Eng.</th>
                             <th>Assumido em</th>
                             <th></th>
                         </tr>
@@ -125,6 +126,15 @@
                                         {{ $request->status?->label() ?? $request->status?->value ?? $request->status }}
                                     </span>
                                 </td>
+                                <td>
+                                    @if($request->engineer_approval_status)
+                                        <span class="badge {{ $request->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
+                                            {{ $request->engineer_approval_status?->label() ?? $request->engineer_approval_status }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-secondary">Não</span>
+                                    @endif
+                                </td>
                                 <td>{{ optional($request->assigned_at)->format('d/m/Y H:i') }}</td>
                                 <td>
                                     <a class="btn btn-sm btn-outline-primary"
@@ -135,7 +145,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">Nenhuma solicitação atribuída.</td>
+                                <td colspan="9" class="text-center">Nenhuma solicitação atribuída.</td>
                             </tr>
                         @endforelse
                     </tbody>

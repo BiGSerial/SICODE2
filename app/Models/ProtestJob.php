@@ -61,7 +61,7 @@ class ProtestJob extends Model
 
         'need_evidence'     => 'boolean',
         'is_advance'        => 'boolean',
-        'confirm'           => 'boolean',
+        'confirmed'         => 'boolean',
         'auto'              => 'boolean',
         'confirmed_at'      => 'datetime',
     ];

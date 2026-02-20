@@ -141,12 +141,26 @@
                             </span>
                         </p>
                         <p class="mb-1"><strong>Criada por:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
+                        <p class="mb-1">
+                            <strong>Aprovação Eng.:</strong>
+                            @if($cancellationRequest->engineer_approval_status)
+                                <span class="badge {{ $cancellationRequest->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
+                                    {{ $cancellationRequest->engineer_approval_status?->label() ?? $cancellationRequest->engineer_approval_status }}
+                                </span>
+                            @else
+                                <span class="badge bg-secondary">Não solicitada</span>
+                            @endif
+                        </p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="oexterno-subcard">
                         <div class="section-title">Execução</div>
                         <p class="mb-1"><strong>Assumido:</strong> {{ $cancellationRequest->Assignee->name ?? '-' }}</p>
+                        <p class="mb-1"><strong>Engenheiro:</strong> {{ $cancellationRequest->EngineerApprover->name ?? '-' }}</p>
+                        <p class="mb-1"><strong>Solicitado por:</strong> {{ $cancellationRequest->EngineerApprovalRequester->name ?? '-' }}</p>
+                        <p class="mb-1"><strong>Decidido por:</strong> {{ $cancellationRequest->EngineerApprovalDecider->name ?? '-' }}</p>
+                        <p class="mb-1"><strong>Justificativa Eng.:</strong> {{ $cancellationRequest->engineer_approval_reason ?? '-' }}</p>
                         <p class="mb-1"><strong>Finalizado por:</strong> {{ $cancellationRequest->Closer->name ?? '-' }}</p>
                         <p class="mb-1"><strong>Encerrado em:</strong> {{ optional($cancellationRequest->closed_at)->format('d/m/Y H:i') }}</p>
                     </div>
@@ -216,6 +230,8 @@
                                             Controle
                                         @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
                                             Execução
+                                        @elseif($file->origin === 'ENGINEER_APPROVAL')
+                                            Aprovação Engenheiro
                                         @else
                                             Solicitação
                                         @endif
@@ -245,6 +261,8 @@
                                                 Controle
                                             @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
                                                 Execução
+                                            @elseif($file->origin === 'ENGINEER_APPROVAL')
+                                                Aprovação Engenheiro
                                             @else
                                                 Solicitação
                                             @endif

@@ -1,4 +1,36 @@
-<div>
+@push('css')
+    <style>
+        .protest-page {
+            --pp-bg: #f6f7fb;
+            --pp-surface: #ffffff;
+            --pp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--pp-bg);
+            padding: 1.5rem 0;
+        }
+
+        .protest-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .protest-filter-shell {
+            background: var(--pp-surface);
+            border: 1px solid var(--pp-border);
+            border-radius: 1rem;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+@endpush
+
+<div class="protest-page">
     @php
         use Illuminate\Support\Str;
 
@@ -26,8 +58,20 @@
 
     <x-show-loading />
 
+    <div class="container-fluid">
+        <div class="protest-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2">
+            <div>
+                <h4 class="mb-0">Reclamações do Parceiro</h4>
+                <small class="text-white-50">Demandas destinadas ao usuário logado</small>
+            </div>
+            <button wire:click="exportToExcel" type="button" class="btn btn-light btn-sm text-dark">
+                <i class="ri-file-excel-2-line me-1"></i> Exportar em tela
+            </button>
+        </div>
+
     {{-- Filtros / topo --}}
-    <div class="row g-3 mb-4 align-items-end">
+    <div class="protest-filter-shell">
+        <div class="row g-3 align-items-end">
         {{-- Registros por página --}}
         <div class="col-md-2">
             <div class="form-floating">
@@ -55,6 +99,7 @@
             <button wire:click="clearFilters" type="button" class="btn btn-outline-secondary w-100">
                 <i class="ri-eraser-line me-1"></i> Limpar
             </button>
+        </div>
         </div>
     </div>
 
@@ -327,6 +372,7 @@
 
     {{-- Modal de visualização do job (mesmo usado no Monitoring) --}}
 
+    </div>
 </div>
 
 @livewire('protests.common.messages', key('partner-main-messages-modal'))
