@@ -405,15 +405,20 @@ class CancellationRequestService
                 throw new RuntimeException('Somente o responsável pode rejeitar.');
             }
 
+            $rejectedReason = trim((string) $reason);
+            if ($rejectedReason === '') {
+                throw new RuntimeException('Informe o motivo da rejeição.');
+            }
+
             $request->update([
                 'status' => CancellationRequestStatus::REJECTED,
                 'closed_by' => $user->id,
                 'closed_at' => now(),
                 'closure_type' => CancellationRequest::CLOSURE_REJECTED,
-                'closure_note' => $reason,
+                'closure_note' => $rejectedReason,
             ]);
 
-            $this->logEvent($request, $user, 'rejected', ['reason' => $reason]);
+            $this->logEvent($request, $user, 'rejected', ['reason' => $rejectedReason]);
 
             return $request;
         });
@@ -434,13 +439,6 @@ class CancellationRequestService
             }
 
             $abortReason = trim((string) $reason);
-
-            if ($request->engineer_approval_status === CancellationEngineerApprovalStatus::REJECTED && $abortReason === '') {
-                $engineerReason = trim((string) $request->engineer_approval_reason);
-                $abortReason = $engineerReason !== ''
-                    ? "Não autorizado pelo engenheiro. Motivo: {$engineerReason}"
-                    : 'Não autorizado pelo engenheiro.';
-            }
 
             if ($abortReason === '') {
                 throw new RuntimeException('Informe o motivo do cancelamento.');

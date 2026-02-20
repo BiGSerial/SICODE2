@@ -36,7 +36,39 @@
                 padding: 1rem;
                 height: 100%;
             }
+
+            .section-title {
+                font-weight: 700;
+                letter-spacing: 0.02em;
+                font-size: 0.95rem;
+                color: #0f172a;
+                margin-bottom: 0.65rem;
+                text-transform: uppercase;
+            }
+
+            .text-block {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 0.75rem;
+                padding: 0.75rem;
+                min-height: 120px;
+                white-space: pre-wrap;
+            }
         </style>
+
+        @php
+            $latestApprovalRequestEvent = $cancellationRequest->Events
+                ->whereIn('type', ['engineer_approval_requested', 'engineer_approval_reopened', 'engineer_approval_engineer_changed'])
+                ->sortByDesc('created_at')
+                ->first();
+            $executantApprovalRequestText = data_get($latestApprovalRequestEvent, 'meta.reason');
+
+            $latestApprovalDecisionEvent = $cancellationRequest->Events
+                ->whereIn('type', ['engineer_approval_approved', 'engineer_approval_rejected', 'engineer_approval_canceled'])
+                ->sortByDesc('created_at')
+                ->first();
+            $approvalConclusionText = data_get($latestApprovalDecisionEvent, 'meta.reason') ?: $cancellationRequest->engineer_approval_reason;
+        @endphp
 
         <div class="oexterno-header d-flex align-items-center">
             <div class="me-auto">
@@ -50,6 +82,7 @@
             <div class="row g-3 mb-3">
                 <div class="col-md-4">
                     <div class="oexterno-subcard">
+                        <div class="section-title">Dados da nota</div>
                         <div><strong>Nota:</strong> {{ $cancellationRequest->Note->note ?? '-' }}</div>
                         <div><strong>Cliente:</strong> {{ $cancellationRequest->Note->client ?? '-' }}</div>
                         <div><strong>Categoria:</strong> {{ $cancellationRequest->Category->name ?? '-' }}</div>
@@ -57,20 +90,44 @@
                 </div>
                 <div class="col-md-4">
                     <div class="oexterno-subcard">
-                        <div><strong>Solicitante inicial:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</div>
-                        <div><strong>Executante:</strong> {{ $cancellationRequest->Assignee->name ?? '-' }}</div>
+                        <div class="section-title">Pessoas</div>
+                        <div><strong>Solicitante:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</div>
+                        <div><strong>Executante:</strong> {{ $cancellationRequest->EngineerApprovalRequester->name ?? '-' }}</div>
+                        <div><strong>Engenheiro:</strong> {{ $cancellationRequest->EngineerApprover->name ?? '-' }}</div>
                         <div><strong>Solicitação ao engenheiro:</strong> {{ optional($cancellationRequest->engineer_approval_requested_at)->format('d/m/Y H:i') ?? '-' }}</div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="oexterno-subcard">
+                        <div class="section-title">Status</div>
                         <div><strong>Status da solicitação:</strong> {{ $cancellationRequest->status?->label() ?? '-' }}</div>
                         <div><strong>Status da aprovação:</strong>
                             <span class="badge {{ $cancellationRequest->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
                                 {{ $cancellationRequest->engineer_approval_status?->label() ?? '-' }}
                             </span>
                         </div>
-                        <div><strong>Motivo informado:</strong> {{ $cancellationRequest->engineer_approval_reason ?? '-' }}</div>
+                        <div><strong>Conclusão da aprovação:</strong> {{ $approvalConclusionText ?? '-' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Pedido do solicitante</div>
+                        <div class="mb-2 text-muted small">
+                            Texto original da solicitação de cancelamento.
+                        </div>
+                        <div class="text-block">{{ $cancellationRequest->description ?: 'Sem descrição informada.' }}</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Pedido do executante</div>
+                        <div class="mb-2 text-muted small">
+                            Texto enviado pelo executante para solicitar aprovação ao engenheiro.
+                        </div>
+                        <div class="text-block">{{ $executantApprovalRequestText ?: 'Sem justificativa do executante.' }}</div>
                     </div>
                 </div>
             </div>
@@ -78,7 +135,7 @@
             <div class="row g-3 mb-3">
                 <div class="col-12">
                     <div class="oexterno-subcard">
-                        <h6>Ordens</h6>
+                        <h6 class="section-title mb-3">Ordens</h6>
                         <div class="table-responsive">
                             <table class="table table-sm table-striped mb-0">
                                 <thead>
@@ -106,7 +163,7 @@
             <div class="row g-3 mb-3">
                 <div class="col-12">
                     <div class="oexterno-subcard">
-                        <h6>Evidências</h6>
+                        <h6 class="section-title mb-3">Evidências</h6>
                         <ul class="list-group">
                             @forelse($cancellationRequest->EvidenceFiles as $file)
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -135,7 +192,7 @@
                     </div>
                     <div class="col-md-8">
                         <label class="form-label">Justificativa</label>
-                        <textarea class="form-control" rows="3" wire:model.defer="reason"></textarea>
+                        <textarea class="form-control" rows="5" wire:model.defer="reason"></textarea>
                         @error('reason')<span class="text-danger small">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-12">

@@ -50,6 +50,8 @@
                             <th>Status da aprovação</th>
                             <th>Solicitante</th>
                             <th>Executante</th>
+                            <th>Engenheiro</th>
+                            <th>Conclusão da aprovação</th>
                             <th>Decidido em</th>
                             <th></th>
                         </tr>
@@ -65,7 +67,9 @@
                                     </span>
                                 </td>
                                 <td>{{ $item->Requester->name ?? '-' }}</td>
-                                <td>{{ $item->Assignee->name ?? '-' }}</td>
+                                <td>{{ $item->EngineerApprovalRequester->name ?? '-' }}</td>
+                                <td>{{ $item->EngineerApprover->name ?? '-' }}</td>
+                                <td>{{ $item->engineer_approval_reason ?? '-' }}</td>
                                 <td>{{ optional($item->engineer_approval_decided_at)->format('d/m/Y H:i') ?? '-' }}</td>
                                 <td>
                                     <a class="btn btn-sm btn-outline-primary"
@@ -76,7 +80,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center">Nenhuma aprovação concluída.</td>
+                                <td colspan="9" class="text-center">Nenhuma aprovação concluída.</td>
                             </tr>
                         @endforelse
                     </tbody>

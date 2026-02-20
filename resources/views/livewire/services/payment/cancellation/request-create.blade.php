@@ -136,8 +136,9 @@
 
                         <div class="row mt-3">
                             <div class="col-12">
-                                <label class="form-label">Descrição complementar</label>
-                                <textarea class="form-control" rows="3" wire:model.defer="description"></textarea>
+                                <label class="form-label">Justificativa do solicitante *</label>
+                                <textarea class="form-control" rows="3" wire:model.defer="description"
+                                    placeholder="Descreva claramente o motivo do cancelamento para o executante."></textarea>
                                 @error('description')<span class="text-danger small">{{ $message }}</span>@enderror
                             </div>
                         </div>

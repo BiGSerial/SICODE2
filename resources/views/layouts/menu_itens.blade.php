@@ -35,25 +35,21 @@
     @php
         $admin_sections = [
             [
-                'label' => 'SICODE',
-                'items' => [
-                    ['label' => 'USUÁRIOS', 'route' => 'admin.user.list', 'icon' => 'ri-account-pin-box-fill'],
-                    ['label' => 'EMPRESAS', 'route' => 'admin.company.list', 'icon' => 'ri-building-4-fill', 'can' => 'superadm'],
-                    ['label' => 'CATEGORIAS', 'route' => 'admin.category.main', 'icon' => 'ri-price-tag-3-fill', 'can' => 'superadm'],
-                ],
-            ],
-            [
-                'label' => 'GERENCIAMENTO',
                 'children' => [
                     [
-                        'label' => 'AUDITORIA',
+                        'label' => 'SICODE',
+                        'open' => 'side',
                         'items' => [
-                            ['label' => 'AUDITORIA NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
+                            ['label' => 'USUÁRIOS', 'route' => 'admin.user.list', 'icon' => 'ri-account-pin-box-fill'],
+                            ['label' => 'EMPRESAS', 'route' => 'admin.company.list', 'icon' => 'ri-building-4-fill', 'can' => 'superadm'],
+                            ['label' => 'CATEGORIAS', 'route' => 'admin.category.main', 'icon' => 'ri-price-tag-3-fill', 'can' => 'superadm'],
                         ],
                     ],
                     [
-                        'label' => 'CONTROLE',
+                        'label' => 'GERENCIAMENTO',
+                        'open' => 'side',
                         'items' => [
+                            ['label' => 'AUDITORIA NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
                             ['label' => 'CONTROLE DE DADOS', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
                             ['label' => 'GERENCIAMENTO DE ARQUIVOS', 'route' => 'files.main', 'icon' => 'ri-folder-2-line'],
                             ['label' => 'MONITOR ATIVIDADE', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
@@ -66,38 +62,37 @@
             ],
         ];
     @endphp
-    <x-menu.dynamic-dropdown title="ADMINISTRAÇÃO" :sections="$admin_sections" id-prefix="administracao" />
+    <x-menu.dynamic-dropdown title="ADMINISTRAÇÃO" :sections="$admin_sections" id-prefix="administracao" layout="inline" panel-title="ADMINISTRAÇÃO" />
 @endcan
 
 @php
-    $protests_sections = [
+    $protests_nodes = [
         [
-            'label' => 'GERAL',
-            'children' => [
+            'kind' => 'group',
+            'label' => 'DESPACHO',
+            'open' => 'side',
+            'can' => 'can_dispatch',
+            'nodes' => [
+                ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill'],
+            ],
+        ],
+        [
+            'kind' => 'group',
+            'label' => 'SERVIÇO',
+            'open' => 'side',
+            'nodes' => [
                 [
-                    'label' => 'DESPACHOS',
-                    'can' => 'can_dispatch',
-                    'items' => [
-                        ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill'],
-                    ],
-                ],
-                [
-                    'label' => 'SERVIÇOS',
-                    'items' => [
-                        [
-                            'label' => 'RECLAMAÇÕES',
-                            'route' => 'protests.services.main',
-                            'icon' => 'ri-account-pin-box-fill',
-                            'countComponent' => 'components.count.protest.count-protests',
-                            'countKey' => 'menu_protests_count',
-                        ],
-                    ],
+                    'label' => 'RECLAMAÇÕES',
+                    'route' => 'protests.services.main',
+                    'icon' => 'ri-account-pin-box-fill',
+                    'countComponent' => 'components.count.protest.count-protests',
+                    'countKey' => 'menu_protests_count',
                 ],
             ],
         ],
     ];
 @endphp
-<x-menu.dynamic-dropdown title="RECLAMAÇÕES" :sections="$protests_sections" id-prefix="reclamacoes" item-class="mx-2 position-relative">
+<x-menu.dynamic-dropdown title="RECLAMAÇÕES" :nodes="$protests_nodes" id-prefix="reclamacoes" item-class="mx-2 position-relative" layout="inline">
     <x-slot:triggerAppend>
         @livewire('components.count.protest.has-protests', key('menu_protests'))
     </x-slot:triggerAppend>
@@ -131,7 +126,7 @@
             ],
         ];
     @endphp
-    <x-menu.dynamic-dropdown title="SMC" :sections="$smc_sections" width="300px" id-prefix="smc" />
+    <x-menu.dynamic-dropdown title="SMC" :sections="$smc_sections" width="300px" id-prefix="smc" layout="inline" />
 @endcan
 
 
@@ -192,7 +187,6 @@
 
     $search_sections = [
         [
-            'label' => 'CONSULTAS',
             'items' => [
                 ['label' => 'NOTAS/OVS', 'route' => 'reports.search', 'icon' => 'ri-search-eye-line'],
                 ['label' => 'CONSULTA D5', 'route' => 'reports.consulta_d5', 'icon' => 'ri-search-eye-line'],
@@ -204,4 +198,4 @@
         ],
     ];
 @endphp
-<x-menu.dynamic-dropdown title="BUSCAR" :sections="$search_sections" id-prefix="buscar" />
+<x-menu.dynamic-dropdown title="BUSCAR" :sections="$search_sections" id-prefix="buscar" layout="inline" />

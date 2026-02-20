@@ -183,6 +183,12 @@
                                 @livewire('components.count.cancellation-requests', ['mode' => 'engineer_pending', 'userId' => Auth()->id()])
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('engineers.cancellations.history') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-history-line text-white fw-light fs-5"></i>
+                                <span>HISTÓRICO DE APROVAÇÃO</span>
+                            </a>
+                        </li>
                     </div>
                 </ul>
             </li>

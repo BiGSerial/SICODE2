@@ -20,6 +20,13 @@ class ExecutionShow extends Component
     use WithFileUploads;
     use AuthorizesRequests;
 
+    protected $listeners = [
+        'confirm_cancellation_execution_run_action' => 'confirmRunAction',
+        'confirm_cancellation_execution_request_engineer' => 'confirmRequestEngineerApproval',
+        'confirm_cancellation_execution_change_engineer' => 'confirmChangeEngineer',
+        'confirm_cancellation_execution_cancel_engineer' => 'confirmCancelEngineerApproval',
+    ];
+
     public string $service;
     public int $requestId;
     public CancellationRequest $cancellationRequest;
@@ -114,7 +121,28 @@ class ExecutionShow extends Component
         }
     }
 
-    public function runAction(CancellationRequestService $service): void
+    public function runAction(): void
+    {
+        $actionLabel = match ($this->action) {
+            'DONE' => 'finalizar',
+            'PAUSED' => 'pausar',
+            'ABORTED' => 'cancelar',
+            default => 'executar',
+        };
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Confirmar ação',
+            'msg' => "Deseja {$actionLabel} esta solicitação?",
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, confirmar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_execution_run_action',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'Nenhuma ação foi executada.',
+        ]);
+    }
+
+    public function confirmRunAction(CancellationRequestService $service): void
     {
         if (in_array($this->action, ['PAUSED', 'ABORTED'], true) && !trim($this->comment)) {
             $this->addError('comment', 'Comentário obrigatório.');
@@ -150,7 +178,21 @@ class ExecutionShow extends Component
         }
     }
 
-    public function requestEngineerApproval(CancellationRequestService $service): void
+    public function requestEngineerApproval(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Solicitar aprovação',
+            'msg' => 'Deseja enviar esta solicitação para aprovação do engenheiro?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, solicitar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_execution_request_engineer',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A aprovação não foi solicitada.',
+        ]);
+    }
+
+    public function confirmRequestEngineerApproval(CancellationRequestService $service): void
     {
         if (!$this->engineerId) {
             $this->addError('engineerId', 'Selecione um engenheiro.');
@@ -169,7 +211,21 @@ class ExecutionShow extends Component
         }
     }
 
-    public function changeEngineer(CancellationRequestService $service): void
+    public function changeEngineer(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Alterar engenheiro',
+            'msg' => 'Deseja alterar o engenheiro responsável por esta aprovação?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, alterar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_execution_change_engineer',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'O engenheiro não foi alterado.',
+        ]);
+    }
+
+    public function confirmChangeEngineer(CancellationRequestService $service): void
     {
         if (!$this->engineerId) {
             $this->addError('engineerId', 'Selecione um engenheiro.');
@@ -188,7 +244,21 @@ class ExecutionShow extends Component
         }
     }
 
-    public function cancelEngineerApproval(CancellationRequestService $service): void
+    public function cancelEngineerApproval(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Cancelar solicitação ao engenheiro',
+            'msg' => 'Deseja cancelar a solicitação de aprovação do engenheiro?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, cancelar',
+            'btnCanceltxt' => 'Não, manter',
+            'action' => 'confirm_cancellation_execution_cancel_engineer',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação ao engenheiro foi mantida.',
+        ]);
+    }
+
+    public function confirmCancelEngineerApproval(CancellationRequestService $service): void
     {
         try {
             $service->cancelEngineerApproval($this->cancellationRequest, Auth::user(), $this->engineerReason);
@@ -215,7 +285,7 @@ class ExecutionShow extends Component
     {
         $engineers = User::query()
             ->where('engineer', true)
-            ->orderBy('name')
+            ->orderByRaw('LOWER(name)')
             ->get(['id', 'name']);
 
         $approvalPending = $this->cancellationRequest->engineer_approval_status === CancellationEngineerApprovalStatus::PENDING;

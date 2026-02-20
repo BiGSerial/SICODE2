@@ -24,7 +24,7 @@ class History extends Component
     public function render()
     {
         $items = CancellationRequest::query()
-            ->with(['Note', 'Requester', 'Assignee', 'EngineerApprovalRequester', 'EngineerApprovalDecider'])
+            ->with(['Note', 'Requester', 'Assignee', 'EngineerApprovalRequester', 'EngineerApprover', 'EngineerApprovalDecider'])
             ->where('engineer_approver_id', Auth::id())
             ->whereIn('engineer_approval_status', [
                 CancellationEngineerApprovalStatus::APPROVED->value,

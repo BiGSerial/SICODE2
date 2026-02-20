@@ -18,4 +18,5 @@
     :sections="$sections"
     width="320px"
     id-prefix="responsavel"
+    layout="inline"
 />

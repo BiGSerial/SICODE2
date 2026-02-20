@@ -41,7 +41,10 @@ class RequestCreate extends Component
         ],
     ];
 
-    protected $listeners = ['resetCancellationForm' => 'resetForm'];
+    protected $listeners = [
+        'resetCancellationForm' => 'resetForm',
+        'confirm_cancellation_request_submit' => 'confirmSubmit',
+    ];
 
     public function mount(string $service): void
     {
@@ -103,7 +106,45 @@ class RequestCreate extends Component
         }
     }
 
-    public function submit(CancellationRequestService $service): void
+    public function submit(): void
+    {
+        $categoryName = CancellationCategory::query()
+            ->where('active', true)
+            ->whereKey($this->categoryId)
+            ->value('name') ?? 'categoria não selecionada';
+
+        $noteLabel = $this->note?->note ?: ($this->noteSearch ?: 'não informada');
+        $scopeDescription = $this->scope === CancellationRequestScope::NOTE_FULL->value
+            ? 'da nota'
+            : 'de ordens específicas da';
+
+        $ordersSuffix = '';
+        if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
+            $selectedOrderLabels = collect($this->orders)
+                ->filter(fn ($order) => in_array($order['id'], $this->selectedOrders, true))
+                ->pluck('ordem')
+                ->filter()
+                ->values()
+                ->all();
+
+            $ordersSuffix = empty($selectedOrderLabels)
+                ? ' (OV não selecionada)'
+                : ' (OV: ' . e(implode(', ', $selectedOrderLabels)) . ')';
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Confirmar envio',
+            'msg' => 'Você está solicitando <strong>' . e($categoryName) . '</strong>, o cancelamento ' . $scopeDescription . ' Nota/OV <strong>' . e($noteLabel) . '</strong>' . $ordersSuffix . '. Deseja continuar com a solicitação?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, enviar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_request_submit',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação não foi enviada.',
+        ]);
+    }
+
+    public function confirmSubmit(CancellationRequestService $service): void
     {
         $this->authorize('create', CancellationRequest::class);
 
@@ -156,7 +197,7 @@ class RequestCreate extends Component
             'noteSearch' => 'required|string',
             'scope' => 'required|in:' . implode(',', CancellationRequestScope::values()),
             'categoryId' => 'required|integer',
-            'description' => 'nullable|string|max:2000',
+            'description' => 'required|string|max:2000',
             'selectedOrders' => 'array',
             'selectedOrders.*' => 'integer',
             'files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}",

@@ -6,7 +6,12 @@
                 ['label' => 'VALIDAÇÃO DE PROJETOS', 'route' => 'engineers.validation'],
                 ['label' => 'VIABILIDADE', 'route' => 'engineers.viability'],
                 ['label' => 'INFORMES CONCLUSÃO', 'route' => 'engineers.informes'],
-                ['label' => 'INFORMES PARCIAIS', 'route' => 'engineers.parciais'],
+                [
+                    'label' => 'INFORMES PARCIAIS',
+                    'route' => 'engineers.parciais',
+                    'countComponent' => 'engineers.counts.count-parcial',
+                    'countKey' => 'engineer-parciais-awaiting-top',
+                ],
                 ['label' => 'NOTAS D5', 'route' => 'engineers.d5'],
                 [
                     'label' => 'CANCELAMENTO',
@@ -25,4 +30,5 @@
     :sections="$sections"
     width="320px"
     id-prefix="engenharia"
+    layout="inline"
 />

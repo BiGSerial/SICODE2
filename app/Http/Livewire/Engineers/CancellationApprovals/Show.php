@@ -17,6 +17,10 @@ class Show extends Component
 {
     use WithFileUploads;
 
+    protected $listeners = [
+        'confirm_engineer_cancellation_decide' => 'confirmDecide',
+    ];
+
     public int $requestId;
     public CancellationRequest $cancellationRequest;
     public string $decision = CancellationEngineerApprovalStatus::APPROVED->value;
@@ -47,9 +51,12 @@ class Show extends Component
             'Category',
             'EvidenceFiles',
             'Events.Actor',
+            'Comments.User',
             'Requester',
             'Assignee',
             'EngineerApprovalRequester',
+            'EngineerApprover',
+            'EngineerApprovalDecider',
         ])->findOrFail($this->requestId);
 
         if ((string) $this->cancellationRequest->engineer_approver_id !== (string) Auth::id()) {
@@ -83,7 +90,21 @@ class Show extends Component
         }
     }
 
-    public function decide(CancellationRequestService $service): void
+    public function decide(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Confirmar decisão',
+            'msg' => 'Deseja salvar esta decisão de aprovação de cancelamento?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, salvar decisão',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_engineer_cancellation_decide',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A decisão não foi salva.',
+        ]);
+    }
+
+    public function confirmDecide(CancellationRequestService $service): void
     {
         if (!trim($this->reason)) {
             $this->addError('reason', 'A justificativa é obrigatória.');
