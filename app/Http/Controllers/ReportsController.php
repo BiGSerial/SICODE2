@@ -63,4 +63,9 @@ class ReportsController extends Controller
     {
         return view('reports.consulta_d5');
     }
+
+    public function returnWorkReports()
+    {
+        return view('reports.return-work-reports');
+    }
 }

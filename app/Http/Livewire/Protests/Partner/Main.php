@@ -2,9 +2,11 @@
 
 namespace App\Http\Livewire\Protests\Partner;
 
+use App\Exports\Protests\OpenProtestJobsExport;
 use App\Models\ProtestJob;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Main extends Component
 {
@@ -97,6 +99,16 @@ class Main extends Component
     {
         $this->reset(['search', 'perPage']);
         $this->resetPage();
+    }
+
+    public function exportToExcel()
+    {
+        $file = 'protestos_partner_' . now()->format('YmdHis') . '.xlsx';
+
+        return Excel::download(
+            new OpenProtestJobsExport(clone $this->baseQuery(), includeOwner: false),
+            $file
+        );
     }
 
     public function render()

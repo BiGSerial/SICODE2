@@ -2,7 +2,6 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
-use App\Enum\ProtestType;
 use App\Models\Protest;
 use Livewire\Component;
 
@@ -29,12 +28,9 @@ class MenuOpenBadge extends Component
                 $q->where('statusSist', 'MEDA')
                     ->whereDoesntHave('ProtestJobs')
                     ->when($this->type === 'btzero', function ($typeQuery) {
-                        $typeQuery->where('protest_type', ProtestType::BTZERO->value);
+                        $typeQuery->identifiedAsBtzero();
                     }, function ($typeQuery) {
-                        $typeQuery->where(function ($sub) {
-                            $sub->whereNull('protest_type')
-                                ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
-                        });
+                        $typeQuery->notIdentifiedAsBtzero();
                     });
             })
             ->count();

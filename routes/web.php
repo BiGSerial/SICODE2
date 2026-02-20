@@ -181,6 +181,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
     Route::get('/equipments', 'equipments')->name('equipments');
     Route::get('/historic_reject_reports', 'historicRejectReports')->name('historicRejectReports');
+    Route::get('/return_work_reports', 'returnWorkReports')->middleware('can:management')->name('return_work_reports');
 });
 
 

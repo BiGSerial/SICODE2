@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enum\ProtestType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -128,6 +129,39 @@ class MedProtest extends Model
     public function LastProtestJob()
     {
         return $this->hasOne(ProtestJob::class)->latestOfMany();
+    }
+
+    /**
+     * Identifica registros BTZERO com fallback textual:
+     * - protest_type = BTZERO
+     * - txtCodMedida contendo "btzero" (normalizado)
+     * - protest.txtGrpCodificacao contendo "btzero" (normalizado)
+     */
+    public function scopeIdentifiedAsBtzero(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->where('protest_type', ProtestType::BTZERO->value)
+                ->orWhereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtCodMedida), '-', ''), ' ', ''), '') LIKE '%btzero%'")
+                ->orWhereHas('protest', function (Builder $protestQuery) {
+                    $protestQuery->whereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtGrpCodificacao), '-', ''), ' ', ''), '') LIKE '%btzero%'");
+                });
+        });
+    }
+
+    /**
+     * Registros não classificados como BTZERO pelos mesmos critérios.
+     */
+    public function scopeNotIdentifiedAsBtzero(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $q) {
+                $q->whereNull('protest_type')
+                    ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
+            })
+            ->whereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtCodMedida), '-', ''), ' ', ''), '') NOT LIKE '%btzero%'")
+            ->whereDoesntHave('protest', function (Builder $protestQuery) {
+                $protestQuery->whereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtGrpCodificacao), '-', ''), ' ', ''), '') LIKE '%btzero%'");
+            });
     }
 
 }
