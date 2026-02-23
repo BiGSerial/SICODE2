@@ -7,6 +7,7 @@ use App\Enum\AdsRequestStatus;
 use App\Models\AdsRequest;
 use App\Models\AdsRequestDefaultUser;
 use App\Models\Adsform;
+use App\Models\Edp_depc\BaseCosts;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkReport;
@@ -68,6 +69,7 @@ class GenerateTacitAds extends Command
             $skippedNoUser = 0;
             $skippedNoCompany = 0;
             $candidates = 0;
+            $orderCostCache = [];
 
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
@@ -83,6 +85,7 @@ class GenerateTacitAds extends Command
                 &$skippedNoUser,
                 &$skippedNoCompany,
                 &$candidates,
+                &$orderCostCache,
                 $defaultRecipients,
                 $testMode,
                 $dryRun,
@@ -122,6 +125,7 @@ class GenerateTacitAds extends Command
 
                     $batchId = (string) Str::uuid();
                     $createdRequests = [];
+                    $orderCostsByOrderId = $this->resolveOrderCostsForWorkReport($workReport->id, $orderCostCache);
 
                     DB::transaction(function () use (
                         $workReport,
@@ -131,10 +135,22 @@ class GenerateTacitAds extends Command
                         $defaultRecipients,
                         &$adsCreated,
                         &$requestsCreated,
-                        &$createdRequests
+                        &$createdRequests,
+                        $orderCostsByOrderId
                     ) {
                         if ($workReport->adsform()->exists()) {
                             return;
+                        }
+
+                        if (!empty($orderCostsByOrderId)) {
+                            foreach ($orderCostsByOrderId as $orderId => $serviceCost) {
+                                DB::table('orders')
+                                    ->where('id', $orderId)
+                                    ->update([
+                                        'service_cost' => round((float) $serviceCost, 2),
+                                        'updated_at' => now(),
+                                    ]);
+                            }
                         }
 
                         Adsform::create([
@@ -236,6 +252,49 @@ class GenerateTacitAds extends Command
 
             return Command::FAILURE;
         }
+    }
+
+    /**
+     * @param array<string,float> $orderCostCache
+     * @return array<int,float>
+     */
+    private function resolveOrderCostsForWorkReport(int $workReportId, array &$orderCostCache): array
+    {
+        $orders = DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
+            ->where('owr.work_report_id', $workReportId)
+            ->where('o.canceled', false)
+            ->where('o.statusSist', 'not like', 'CANC%')
+            ->where('o.statusSist', 'not like', 'ENT%')
+            ->where('o.statusSist', 'not like', 'ENC%')
+            ->select('o.id', 'o.ordem')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return [];
+        }
+
+        $orderNumbers = $orders->pluck('ordem')->filter()->unique()->values()->all();
+        $missingOrders = array_values(array_diff($orderNumbers, array_keys($orderCostCache)));
+
+        if (!empty($missingOrders)) {
+            $loadedCosts = BaseCosts::query()
+                ->whereIn('ordem', $missingOrders)
+                ->select('ordem', DB::raw('SUM(qtdNecessaria * preco) as base_cost'))
+                ->groupBy('ordem')
+                ->pluck('base_cost', 'ordem');
+
+            foreach ($missingOrders as $orderNumber) {
+                $orderCostCache[$orderNumber] = round((float) ($loadedCosts[$orderNumber] ?? 0), 2);
+            }
+        }
+
+        $costsByOrderId = [];
+        foreach ($orders as $order) {
+            $costsByOrderId[(int) $order->id] = (float) ($orderCostCache[$order->ordem] ?? 0);
+        }
+
+        return $costsByOrderId;
     }
 
     private function mirrorToSqlServer(AdsRequest $request, string $noteNumber): bool

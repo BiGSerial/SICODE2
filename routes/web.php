@@ -174,6 +174,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
     Route::get('/return_intern/list', 'return_intern_list')->middleware('can:management')->name('return_intern_list');
     Route::get('/workreports', 'workreports')->name('workreport');
+    Route::get('/informe_ads_tacita', 'informeAdsTacita')->name('informe_ads_tacita');
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
