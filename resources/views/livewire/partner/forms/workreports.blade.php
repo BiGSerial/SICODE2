@@ -649,7 +649,7 @@
                                         </div>
                                         <div>
                                             <p class="mb-2 fw-semibold">Declaração de responsabilidade</p>
-                                            <p class="text-muted mb-0">
+                                            <p class="text-muted mb-2">
                                                 Ao informar a obra no sistema, o usuário está em acordo que as informações
                                                 passadas nesse Informe de Conclusão são verdadeiras e não existem divergências.
                                                 Tendo ciência que existe um prazo para entrega da ADS conforme previsto em
@@ -657,6 +657,17 @@
                                                 informe, e não poderá ser contestado posteriormente. Você confirma o
                                                 entendimento e ciência dessa informação?
                                             </p>
+                                            <div class="term-quote mt-3">
+                                                <div class="term-quote-icon">
+                                                    <i class="ri-double-quotes-l"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="small text-uppercase fw-semibold mb-2">Citação contratual</p>
+                                                    <p class="text-muted mb-0"><em>
+                                                        "Conforme estabelecido na Especificação Técnica corporativa <strong>ES.DT.PDN.02.01.006 – Construção e Manutenção em Redes Aéreas de Distribuição – Condições Específicas</strong>, em especial no item <strong>6.3 – Medição dos Serviços e Inventário de Materiais</strong>, a comunicação de conclusão da obra, acompanhada da documentação pertinente, é condição necessária para viabilizar a fiscalização, o aceite dos serviços e o faturamento. Adicionalmente, de acordo com o <strong>item 6.3.4.d</strong>, para a EDP ES, a CONTRATADA dispõe do <strong>prazo de 6 (seis) dias</strong>, contados a partir da conclusão da obra ou serviços, para a entrega do inventário, sendo que, expirado esse prazo,  <strong>prevalecerá o inventário elaborado pela CONTRATANTE</strong>".
+                                                    </em></p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -934,6 +945,33 @@
             place-items: center;
             color: #0f766e;
             font-size: 24px;
+        }
+
+        .term-quote {
+            display: grid;
+            grid-template-columns: 44px 1fr;
+            gap: 12px;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px dashed rgba(14, 165, 164, 0.65);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(14, 165, 164, 0.1));
+            box-shadow: inset 0 0 0 1px rgba(14, 165, 164, 0.15);
+        }
+
+        .term-quote-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: rgba(14, 165, 164, 0.2);
+            display: grid;
+            place-items: center;
+            color: #0f766e;
+            font-size: 20px;
+        }
+
+        .term-quote .small {
+            color: #0f766e;
+            letter-spacing: 0.04em;
         }
 
         .check-pill {
