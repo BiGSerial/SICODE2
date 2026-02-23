@@ -1,12 +1,12 @@
 @push('css')
     <style>
         .medprotest-header {
-            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            background: linear-gradient(120deg, #0f172a 0%, #0f766e 100%);
             border-radius: 18px;
             color: #fff;
             padding: 2rem 2rem 1.2rem 2rem;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 114, 255, .08);
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.2);
             position: relative;
             overflow: hidden;
         }
@@ -81,7 +81,7 @@
             height: 310px;
             overflow-y: auto;
             scrollbar-width: thin;
-            scrollbar-color: #0072ff #f8f9fa;
+            scrollbar-color: #0f766e #f8f9fa;
         }
 
         .chat-container::-webkit-scrollbar {
@@ -89,11 +89,11 @@
         }
 
         .chat-container::-webkit-scrollbar-thumb {
-            background: #0072ff;
+            background: #0f766e;
         }
 
         .chat-container::-webkit-scrollbar-thumb:hover {
-            background: #0051a2;
+            background: #115e59;
         }
 
         .table th,

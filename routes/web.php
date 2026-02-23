@@ -181,6 +181,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
     Route::get('/equipments', 'equipments')->name('equipments');
     Route::get('/historic_reject_reports', 'historicRejectReports')->name('historicRejectReports');
+    Route::get('/return_work_reports', 'returnWorkReports')->middleware('can:management')->name('return_work_reports');
 });
 
 
@@ -258,6 +259,9 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/cancelamentos/aprovacoes', 'cancellationApprovals')->name('cancellations.index');
+    Route::get('/cancelamentos/aprovacoes/historico', 'cancellationApprovalsHistory')->name('cancellations.history');
+    Route::get('/cancelamentos/aprovacoes/{request}', 'cancellationApprovalShow')->whereNumber('request')->name('cancellations.show');
 
     Route::prefix('/analises')->name('analises.')->group(function () {
         Route::get('/dashboard', 'analises_dashboard')->name('dashboard');

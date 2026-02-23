@@ -2,10 +2,12 @@
 
 namespace App\Http\Livewire\Protests\Services;
 
+use App\Exports\Protests\OpenProtestJobsExport;
 use App\Models\ProtestJob;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Accompany extends Component
 {
@@ -176,6 +178,16 @@ class Accompany extends Component
     {
         $this->reset(['search', 'selectedUserId', 'perPage', 'onlySelectedUser']);
         $this->resetPage();
+    }
+
+    public function exportToExcel()
+    {
+        $file = 'protestos_servicos_acompanhamento_' . now()->format('YmdHis') . '.xlsx';
+
+        return Excel::download(
+            new OpenProtestJobsExport(clone $this->baseQuery(), includeOwner: true),
+            $file
+        );
     }
 
     public function render()

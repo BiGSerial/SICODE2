@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enum\CancellationEngineerApprovalStatus;
 use App\Enum\CancellationRequestStatus;
 use App\Enum\CancellationRequestScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,6 +31,14 @@ class CancellationRequest extends Model
         'requested_by',
         'description',
         'status',
+        'requires_engineer_approval',
+        'engineer_approval_status',
+        'engineer_approval_requested_by',
+        'engineer_approval_requested_at',
+        'engineer_approver_id',
+        'engineer_approval_decided_by',
+        'engineer_approval_decided_at',
+        'engineer_approval_reason',
         'submitted_at',
         'assigned_to',
         'assigned_at',
@@ -42,6 +51,10 @@ class CancellationRequest extends Model
     protected $casts = [
         'status' => CancellationRequestStatus::class,
         'scope' => CancellationRequestScope::class,
+        'requires_engineer_approval' => 'boolean',
+        'engineer_approval_status' => CancellationEngineerApprovalStatus::class,
+        'engineer_approval_requested_at' => 'datetime',
+        'engineer_approval_decided_at' => 'datetime',
         'submitted_at' => 'datetime',
         'assigned_at' => 'datetime',
         'closed_at' => 'datetime',
@@ -65,6 +78,21 @@ class CancellationRequest extends Model
     public function Assignee()
     {
         return $this->belongsTo(User::class, 'assigned_to')->withTrashed();
+    }
+
+    public function EngineerApprovalRequester()
+    {
+        return $this->belongsTo(User::class, 'engineer_approval_requested_by')->withTrashed();
+    }
+
+    public function EngineerApprover()
+    {
+        return $this->belongsTo(User::class, 'engineer_approver_id')->withTrashed();
+    }
+
+    public function EngineerApprovalDecider()
+    {
+        return $this->belongsTo(User::class, 'engineer_approval_decided_by')->withTrashed();
     }
 
     public function Closer()

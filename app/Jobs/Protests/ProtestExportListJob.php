@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Protests;
 
+use App\Enum\ProtestType;
 use App\Exports\Protests\ProtestsExportList;
 use App\Models\Protest;
 use App\Models\User;
@@ -44,6 +45,12 @@ class ProtestExportListJob implements ShouldQueue
         $disk = Storage::disk('local');
 
         try {
+            $showOnlyBtzero = (bool) ($this->params['showOnlyBtzero'] ?? false);
+            $hideBtzero = (bool) ($this->params['hideBtzero'] ?? true);
+            if ($showOnlyBtzero) {
+                $hideBtzero = false;
+            }
+
             $query = Protest::query()
                 ->select('protests.*')
                 ->selectRaw("
@@ -71,8 +78,20 @@ class ProtestExportListJob implements ShouldQueue
                     END AS abertura
                 ")
                 ->with([
-                    'medProtests' => function ($q) {
-                        $q->orderByDesc('dtCriacaoMedida')
+                    'medProtests' => function ($q) use ($showOnlyBtzero, $hideBtzero) {
+                        $q->where('statusSist', 'MEDA')
+                            ->whereDoesntHave('ProtestJobs')
+                            ->when($showOnlyBtzero, function ($typeQuery) {
+                                $typeQuery->where('protest_type', ProtestType::BTZERO->value);
+                            }, function ($typeQuery) use ($hideBtzero) {
+                                if ($hideBtzero) {
+                                    $typeQuery->where(function ($sub) {
+                                        $sub->whereNull('protest_type')
+                                            ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
+                                    });
+                                }
+                            })
+                            ->orderByDesc('dtCriacaoMedida')
                             ->with(['ProtestJobs' => fn ($job) => $job->orderByDesc('created_at')]);
                     },
                     'Notes',
@@ -89,9 +108,27 @@ class ProtestExportListJob implements ShouldQueue
             $isSearching = filled($this->params['search'] ?? null) || !empty($this->params['multisearch']);
 
             if (!$isSearching) {
-                $query->whereHas('medProtests', function ($q) {
+                $query->whereHas('medProtests', function ($q) use ($showOnlyBtzero, $hideBtzero) {
                     $q->where('statusSist', 'MEDA')
-                        ->whereDoesntHave('ProtestJobs');
+                        ->whereDoesntHave('ProtestJobs')
+                        ->when($showOnlyBtzero, function ($typeQuery) {
+                            $typeQuery->where('protest_type', ProtestType::BTZERO->value);
+                        }, function ($typeQuery) use ($hideBtzero) {
+                            if ($hideBtzero) {
+                                $typeQuery->where(function ($sub) {
+                                    $sub->whereNull('protest_type')
+                                        ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
+                                });
+                            }
+                        });
+                });
+            }
+
+            if (!$showOnlyBtzero && $hideBtzero) {
+                $query->whereDoesntHave('medProtests', function ($q) {
+                    $q->where('statusSist', 'MEDA')
+                        ->whereDoesntHave('ProtestJobs')
+                        ->where('protest_type', ProtestType::BTZERO->value);
                 });
             }
 

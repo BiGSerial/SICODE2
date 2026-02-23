@@ -49,8 +49,41 @@
     }
 @endphp
 
-<div>
+@push('css')
+    <style>
+        .protest-page {
+            --pp-bg: #f6f7fb;
+            --pp-surface: #ffffff;
+            --pp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--pp-bg);
+            padding: 1.5rem 0;
+        }
+
+        .protest-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1rem;
+        }
+    </style>
+@endpush
+
+<div class="protest-page">
     <x-show-loading />
+    <div class="container-fluid">
+        <div class="protest-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0">Histórico de Reclamações</h4>
+                <small class="text-white-50">Dispatch - atividades finalizadas e confirmadas</small>
+            </div>
+            <button wire:click="exportToExcel" class="btn btn-light btn-sm text-dark">
+                <i class="ri-file-excel-2-line me-1"></i> Exportar
+            </button>
+        </div>
 
     {{-- ================== TOP: BUSCA E FILTROS ================== --}}
     <div class="card mb-3 shadow-sm border-0">
@@ -350,8 +383,9 @@
                     Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }}
                     de {{ $lists->total() }} registros.
                 </span>
-            @endif
-        </div>
+    @endif
+</div>
+</div>
     </div>
 
     {{-- ================== TABELA DE JOBS FECHADOS ================== --}}
@@ -559,4 +593,5 @@
 
     {{-- Drawer/modal compartilhado com Monitoring --}}
     @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
+</div>
 </div>

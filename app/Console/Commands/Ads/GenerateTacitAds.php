@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Ads;
 
+use App\Custom\RegistroJson;
 use App\Enum\AdsRequestStatus;
 use App\Models\AdsRequest;
 use App\Models\AdsRequestDefaultUser;
@@ -11,128 +12,230 @@ use App\Models\User;
 use App\Models\WorkReport;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Helper\ProgressBar;
+use Throwable;
 
 class GenerateTacitAds extends Command
 {
-    protected $signature = 'ads:generate-tacit';
+    protected $signature = 'ads:generate-tacit {--dry : Simula a execução sem criar/espelhar registros}';
 
     protected $description = 'Cria ADS tácita automaticamente para WorkReports vencidos sem ADS.';
 
     public function handle(): int
     {
-        $startAt = Carbon::parse('2026-02-01 00:00:00');
-        $cutoff = now()->subDays(6)->startOfDay();
-        $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
-        $defaultRecipients = AdsRequestDefaultUser::query()
-            ->where('active', true)
-            ->pluck('user_id')
-            ->filter()
-            ->values();
+        $log = null;
 
-        $query = WorkReport::query()
-            ->where('rejected', false)
-            ->where('created_at', '>=', $startAt)
-            ->where('created_at', '<=', $cutoff)
-            ->whereHas('Note.Orders', function ($orderQuery) {
-                $orderQuery->where('statusSist', 'like', 'ABER%');
-            })
-            ->whereDoesntHave('Adsform');
+        try {
+            $dryRun = (bool) $this->option('dry');
 
-        $adsCreated = 0;
-        $requestsCreated = 0;
-        $sqlMirrored = 0;
-        $sqlMirrorFailures = 0;
+            $this->info('Starting GenerateTacitAds...');
+            if ($dryRun) {
+                $this->warn('DRY RUN ATIVO: nada será gravado (nem ADS, nem AdsRequest, nem espelhamento).');
+            }
 
-        $query->chunkById(200, function ($workReports) use (&$adsCreated, &$requestsCreated, &$sqlMirrored, &$sqlMirrorFailures, $defaultRecipients, $testMode) {
-            foreach ($workReports as $workReport) {
-                $userId = $workReport->user_id ?: User::query()->value('id');
-                if (!$userId) {
-                    $this->warn("WorkReport {$workReport->id} sem user_id e nenhum usuário disponível.");
-                    continue;
-                }
+            // Log no mesmo padrão do seu BaseEP
+            $log = new RegistroJson('ads_generate_tacit', $this->options());
 
-                if (!$workReport->company_id) {
-                    $this->warn("WorkReport {$workReport->id} sem company_id. ADS tácita não processada.");
-                    continue;
-                }
+            // Regra: 6 dias corridos; às 00:00 do 7º dia já está vencido
+            $startAt = Carbon::parse('2026-02-01 00:00:00');
+            $cutoff  = now()->subDays(6)->startOfDay(); // tudo criado até aqui já está vencido na virada
 
-                $dueAt = Carbon::parse($workReport->created_at)->endOfDay()->addDays(6);
-                $batchId = (string) Str::uuid();
-                $createdRequests = [];
+            $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
 
-                DB::transaction(function () use ($workReport, $userId, $dueAt, $batchId, $defaultRecipients, &$adsCreated, &$requestsCreated, &$createdRequests) {
-                    if ($workReport->Adsform()->exists()) {
-                        return;
+            $defaultRecipients = AdsRequestDefaultUser::query()
+                ->where('active', true)
+                ->pluck('user_id')
+                ->filter()
+                ->values();
+
+            $query = WorkReport::query()
+                ->where('rejected', false)
+                ->where('created_at', '>=', $startAt)
+                ->where('created_at', '<=', $cutoff)
+                ->whereHas('note.orders', function ($orderQuery) {
+                    $orderQuery->where('statusSist', 'like', 'ABER%')
+                        ->orWhere('statusSist', 'like', 'LIB%');
+                })
+                ->whereDoesntHave('adsform');
+
+            $adsCreated = 0;
+            $requestsCreated = 0;
+            $sqlMirrored = 0;
+            $sqlMirrorFailures = 0;
+            $skippedNoUser = 0;
+            $skippedNoCompany = 0;
+            $candidates = 0;
+
+            $total = (clone $query)->count();
+            $this->info("WorkReports elegíveis: {$total}");
+
+            $bar = new ProgressBar($this->output, $total);
+            $bar->start();
+
+            $query->orderBy('id')->chunkById(200, function (Collection $workReports) use (
+                &$adsCreated,
+                &$requestsCreated,
+                &$sqlMirrored,
+                &$sqlMirrorFailures,
+                &$skippedNoUser,
+                &$skippedNoCompany,
+                &$candidates,
+                $defaultRecipients,
+                $testMode,
+                $dryRun,
+                $bar
+            ) {
+                foreach ($workReports as $workReport) {
+                    $bar->advance();
+                    $candidates++;
+
+                    $userId = $workReport->user_id ?: User::query()->value('id');
+                    if (!$userId) {
+                        $skippedNoUser++;
+                        continue;
                     }
 
-                    Adsform::create([
-                        'work_report_id' => $workReport->id,
-                        'note_id' => $workReport->note_id,
-                        'user_id' => $userId,
-                        'name' => null,
-                        'obs' => 'ADS tácita criada automaticamente pelo sistema.',
-                        'contract' => null,
-                        'center' => null,
-                        'deposit' => null,
-                        'amount' => 0.00,
-                        'partial' => false,
-                        'tacit' => true,
-                        'tacit_due_at' => $dueAt,
-                        'tacit_delivered_at' => null,
-                    ]);
+                    if (!$workReport->company_id) {
+                        $skippedNoCompany++;
+                        continue;
+                    }
 
-                    $adsCreated++;
+                    // Regra do prazo: 00:00 do 7º dia (criado no dia D => vence D+6 às 00:00)
+                    $dueAt = Carbon::parse($workReport->created_at)
+                        ->startOfDay()
+                        ->addDays(6);
 
-                    foreach ($defaultRecipients as $recipientUserId) {
+                    // --- DRY RUN: simula contagens e mostra amostras, mas não grava nada ---
+                    if ($dryRun) {
+                        $adsCreated++; // simulado
+                        $requestsCreated += $defaultRecipients->count(); // simulado
+                        // espelhamento não roda em dry
+                        // Exibe algumas amostras pra conferir se o filtro tá correto
+                        if ($candidates <= 10) {
+                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt}");
+                        }
+                        continue;
+                    }
+
+                    $batchId = (string) Str::uuid();
+                    $createdRequests = [];
+
+                    DB::transaction(function () use (
+                        $workReport,
+                        $userId,
+                        $dueAt,
+                        $batchId,
+                        $defaultRecipients,
+                        &$adsCreated,
+                        &$requestsCreated,
+                        &$createdRequests
+                    ) {
+                        if ($workReport->adsform()->exists()) {
+                            return;
+                        }
+
+                        Adsform::create([
+                            'work_report_id' => $workReport->id,
+                            'note_id' => $workReport->note_id,
+                            'user_id' => $userId,
+                            'name' => null,
+                            'obs' => 'ADS tácita criada automaticamente pelo sistema.',
+                            'contract' => null,
+                            'center' => null,
+                            'deposit' => null,
+                            'amount' => 0.00,
+                            'partial' => false,
+                            'tacit' => true,
+                            'tacit_due_at' => $dueAt,
+                            'tacit_delivered_at' => null,
+                        ]);
+
+                        $adsCreated++;
+
+                        // Corrige version: calcula uma vez e incrementa por destinatário
                         $version = (int) AdsRequest::query()
                             ->where('note_id', $workReport->note_id)
                             ->max('version');
 
-                        $request = AdsRequest::query()->create([
-                            'requested_by' => $recipientUserId,
-                            'company_id' => $workReport->company_id,
-                            'note_id' => $workReport->note_id,
-                            'batch_id' => $batchId,
-                            'partner' => true,
-                            'completed' => false,
-                            'status' => AdsRequestStatus::QUEUED,
-                            'version' => $version + 1,
-                            'description' => 'Solicitação automática gerada por ADS tácita.',
-                        ]);
+                        foreach ($defaultRecipients as $recipientUserId) {
+                            $version++;
 
-                        $createdRequests[] = $request;
-                        $requestsCreated++;
-                    }
-                });
+                            $request = AdsRequest::query()->create([
+                                'requested_by' => $recipientUserId,
+                                'company_id' => $workReport->company_id,
+                                'note_id' => $workReport->note_id,
+                                'batch_id' => $batchId,
+                                'partner' => true,
+                                'completed' => false,
+                                'status' => AdsRequestStatus::QUEUED,
+                                'version' => $version,
+                                'description' => 'Solicitação automática gerada por ADS tácita.',
+                            ]);
 
-                if (!$testMode) {
-                    foreach ($createdRequests as $request) {
-                        if ($this->mirrorToSqlServer($request, (string) $workReport->Note?->note)) {
-                            $sqlMirrored++;
-                        } else {
-                            $sqlMirrorFailures++;
+                            $createdRequests[] = $request;
+                            $requestsCreated++;
+                        }
+                    });
+
+                    if (!$testMode) {
+                        foreach ($createdRequests as $request) {
+                            if ($this->mirrorToSqlServer($request, (string) $workReport->note?->note)) {
+                                $sqlMirrored++;
+                            } else {
+                                $sqlMirrorFailures++;
+                            }
                         }
                     }
                 }
+            });
+
+            $bar->finish();
+            $this->newLine();
+
+            if ($defaultRecipients->isEmpty()) {
+                $this->warn('Nenhum destinatário padrão configurado em ADS automática. Apenas ADS tácita seria criada.');
             }
-        });
 
-        if ($defaultRecipients->isEmpty()) {
-            $this->warn('Nenhum destinatário padrão configurado em ADS automática. Apenas ADS tácita foi criada.');
+            $this->info("Candidatos processados: {$candidates}");
+            $this->info("ADS tácitas " . ($dryRun ? 'SIMULADAS' : 'criadas') . ": {$adsCreated}");
+            $this->info("Solicitações ADS " . ($dryRun ? 'SIMULADAS' : 'criadas') . ": {$requestsCreated}");
+            $this->info("Pulos (sem user): {$skippedNoUser}");
+            $this->info("Pulos (sem company): {$skippedNoCompany}");
+
+            if ($dryRun) {
+                $this->warn('DRY RUN: espelhamento no SQL Server não foi executado.');
+            } else {
+                if ($testMode) {
+                    $this->warn('MODO TESTE ATIVO: espelhamento no SQL Server está desabilitado por configuração.');
+                } else {
+                    $this->info("Solicitações espelhadas no SQL Server: {$sqlMirrored}");
+                    $this->info("Falhas de espelhamento no SQL Server: {$sqlMirrorFailures}");
+                }
+            }
+
+            // --- RegistroJson ---
+            // Em dry run, ainda registra execução (útil pra auditoria), mas sem "criados" reais.
+            // Se você preferir, pode setar 0 em dry.
+            $log->setCreated($adsCreated);
+            $log->setUpdated($requestsCreated);
+            $log->save();
+
+            return Command::SUCCESS;
+
+        } catch (Throwable $e) {
+            if ($log instanceof RegistroJson) {
+                $log->setErrorMessage($e->getMessage());
+                $log->fail($e->getMessage());
+            }
+
+            report($e);
+            $this->error($e->getMessage());
+
+            return Command::FAILURE;
         }
-
-        $this->info("ADS tácitas criadas: {$adsCreated}");
-        $this->info("Solicitações ADS automáticas criadas: {$requestsCreated}");
-        if ($testMode) {
-            $this->warn('MODO TESTE ATIVO: espelhamento no SQL Server está desabilitado por configuração.');
-        } else {
-            $this->info("Solicitações espelhadas no SQL Server: {$sqlMirrored}");
-            $this->info("Falhas de espelhamento no SQL Server: {$sqlMirrorFailures}");
-        }
-
-        return Command::SUCCESS;
     }
 
     private function mirrorToSqlServer(AdsRequest $request, string $noteNumber): bool
@@ -161,9 +264,8 @@ class GenerateTacitAds extends Command
                 ]);
 
             return true;
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             report($exception);
-
             return false;
         }
     }

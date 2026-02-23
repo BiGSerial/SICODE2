@@ -43,11 +43,21 @@
                 reverseButtons: true
             };
 
-            if (e.detail.inputOptions) {
+            const hasInputType = Object.prototype.hasOwnProperty.call(e.detail, 'inputType');
+            if (hasInputType) {
                 swalConfig.input = e.detail.inputType || 'select';
-                swalConfig.inputOptions = e.detail.inputOptions;
+                swalConfig.inputOptions = e.detail.inputOptions || {};
                 swalConfig.inputValue = e.detail.inputValue || '';
                 swalConfig.inputPlaceholder = e.detail.inputPlaceholder || 'Nao informado';
+                swalConfig.inputLabel = e.detail.inputLabel || '';
+
+                if (e.detail.requireInput) {
+                    swalConfig.inputValidator = (value) => {
+                        if (!value) {
+                            return 'Selecione uma opção para continuar.';
+                        }
+                    };
+                }
             }
 
             Swal.fire(swalConfig).then((result) => {

@@ -90,10 +90,29 @@
                 max-height: 280px;
                 overflow: auto;
             }
+
+            .control-panel {
+                border: 1px dashed #cbd5e1;
+                border-radius: 0.75rem;
+                background: #f8fafc;
+                padding: 0.85rem;
+            }
+
+            .text-block {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 0.75rem;
+                padding: 0.75rem;
+                min-height: 120px;
+                white-space: pre-wrap;
+            }
         </style>
 
         @php
             $imageExts = ['jpg','jpeg','png','gif','bmp','svg','tiff','webp'];
+            $engineerRejected = $cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::REJECTED;
+            $canFinalizeCancellation = !$cancellationRequest->requires_engineer_approval
+                || in_array($cancellationRequest->engineer_approval_status?->value, ['APPROVED', 'CANCELED'], true);
             $imageFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
                 $ext = strtolower((string) $file->extension);
                 return in_array($ext, $imageExts, true) || str_starts_with((string) $file->mime, 'image/');
@@ -139,6 +158,17 @@
                             </span>
                         </p>
                         <p class="mb-1"><strong>Solicitante:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
+                        <p class="mb-1">
+                            <strong>Aprovação Eng.:</strong>
+                            @if($cancellationRequest->engineer_approval_status)
+                                <span class="badge {{ $cancellationRequest->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
+                                    {{ $cancellationRequest->engineer_approval_status?->label() ?? $cancellationRequest->engineer_approval_status }}
+                                </span>
+                            @else
+                                <span class="badge bg-secondary">Não solicitada</span>
+                            @endif
+                        </p>
+                        <p class="mb-1"><strong>Engenheiro:</strong> {{ $cancellationRequest->EngineerApprover->name ?? '-' }}</p>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -146,6 +176,85 @@
                         <div class="section-title">Execução</div>
                         <p class="mb-1"><strong>Assumido em:</strong> {{ optional($cancellationRequest->assigned_at)->format('d/m/Y H:i') }}</p>
                         <p class="mb-1"><strong>Última atualização:</strong> {{ optional($cancellationRequest->updated_at)->format('d/m/Y H:i') }}</p>
+                        <p class="mb-1"><strong>Solicitada em:</strong> {{ optional($cancellationRequest->engineer_approval_requested_at)->format('d/m/Y H:i') ?? '-' }}</p>
+                        <p class="mb-1"><strong>Decidida em:</strong> {{ optional($cancellationRequest->engineer_approval_decided_at)->format('d/m/Y H:i') ?? '-' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Pedido do solicitante</div>
+                        <div class="mb-2 text-muted small">
+                            Texto original informado pelo solicitante ao abrir o cancelamento.
+                        </div>
+                        <div class="text-block">{{ $cancellationRequest->description ?: 'Sem descrição informada pelo solicitante.' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Painel de Controle da Aprovação de Engenheiro</div>
+                        @if($approvalPending)
+                            <div class="alert alert-warning py-2">
+                                Aguardando decisão do engenheiro. Use os controles abaixo para trocar o engenheiro ou cancelar a solicitação de aprovação.
+                            </div>
+                        @elseif($cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::REJECTED)
+                            <div class="alert alert-danger py-2">
+                                Solicitação rejeitada pelo engenheiro. Reenvie para aprovação ou cancele a exigência para continuar.
+                            </div>
+                        @elseif($cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::APPROVED)
+                            <div class="alert alert-success py-2">
+                                Aprovação do engenheiro concluída. Você já pode finalizar o cancelamento.
+                            </div>
+                        @endif
+
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <label class="form-label">Engenheiro</label>
+                                <select class="form-select" wire:model="engineerId">
+                                    <option value="">Selecione</option>
+                                    @foreach($engineers as $engineer)
+                                        <option value="{{ $engineer->id }}">{{ \Illuminate\Support\Str::title(\Illuminate\Support\Str::lower($engineer->name)) }}</option>
+                                    @endforeach
+                                </select>
+                                @error('engineerId')<span class="text-danger small">{{ $message }}</span>@enderror
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label">Motivo / justificativa da ação</label>
+                                <textarea class="form-control" rows="5" wire:model.defer="engineerReason"></textarea>
+                                @if($cancellationRequest->engineer_approval_reason)
+                                    <div class="small text-muted mt-1">
+                                        Último motivo: {{ $cancellationRequest->engineer_approval_reason }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="control-panel mt-3">
+                            <div class="fw-semibold mb-2">Ações disponíveis</div>
+                            <div class="small text-muted mb-3">
+                                Escolha uma ação e informe a justificativa acima para registrar o histórico de forma clara.
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                @if(!$cancellationRequest->engineer_approval_status || in_array($cancellationRequest->engineer_approval_status?->value, ['REJECTED', 'CANCELED'], true))
+                                    <button class="btn btn-outline-primary" wire:click="requestEngineerApproval">
+                                        Solicitar Aprovação
+                                    </button>
+                                @endif
+                                @if($approvalPending)
+                                    <button class="btn btn-outline-warning" wire:click="changeEngineer">
+                                        Alterar Engenheiro
+                                    </button>
+                                    <button class="btn btn-outline-danger" wire:click="cancelEngineerApproval">
+                                        Cancelar Solicitação ao Engenheiro
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -179,31 +288,7 @@
             </div>
 
             <div class="row mt-3">
-                <div class="col-md-6">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Comentários</div>
-                        <ul class="list-group">
-                        @forelse($cancellationRequest->Comments as $commentItem)
-                            <li class="list-group-item">
-                                <strong>{{ $commentItem->User->name ?? '-' }}</strong>
-                                <div class="small text-muted">{{ optional($commentItem->created_at)->format('d/m/Y H:i') }}</div>
-                                <div class="comment-text">{{ $commentItem->message }}</div>
-                                <button class="btn btn-link btn-sm p-0"
-                                    data-bs-toggle="collapse"
-                                    data-bs-target="#comment-full-{{ $commentItem->id }}">
-                                    Ver comentário
-                                </button>
-                                <div class="collapse mt-1" id="comment-full-{{ $commentItem->id }}">
-                                    <div class="small">{{ $commentItem->message }}</div>
-                                </div>
-                            </li>
-                        @empty
-                            <li class="list-group-item">Sem comentários.</li>
-                        @endforelse
-                        </ul>
-                    </div>
-                </div>
-                <div class="col-md-6">
+                <div class="col-12">
                     <div class="oexterno-subcard">
                         <div class="section-title">Evidências</div>
                     @if($imageFiles->count())
@@ -220,7 +305,18 @@
                                     <div class="small text-muted evidence-name mt-2" title="{{ $file->original_name }}">
                                         {{ $file->original_name }}
                                     </div>
-                                    <div class="small text-muted">Origem: {{ $file->origin }}</div>
+                                    <div class="small text-muted">
+                                        Origem:
+                                        @if($file->origin === 'CANCELLATION_CONTROL')
+                                            Controle
+                                        @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
+                                            Execução
+                                        @elseif($file->origin === 'ENGINEER_APPROVAL')
+                                            Aprovação Engenheiro
+                                        @else
+                                            Solicitação
+                                        @endif
+                                    </div>
                                     <button class="btn btn-sm btn-outline-primary mt-2"
                                         wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
                                     <button class="btn btn-link btn-sm p-0 mt-1"
@@ -242,7 +338,17 @@
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <div class="d-flex flex-column flex-grow-1 me-2">
                                         <span class="evidence-name" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
-                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }} | Origem: {{ $file->origin }}</small>
+                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }} | Origem:
+                                            @if($file->origin === 'CANCELLATION_CONTROL')
+                                                Controle
+                                            @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
+                                                Execução
+                                            @elseif($file->origin === 'ENGINEER_APPROVAL')
+                                                Aprovação Engenheiro
+                                            @else
+                                                Solicitação
+                                            @endif
+                                        </small>
                                         <button class="btn btn-link btn-sm p-0"
                                             data-bs-toggle="collapse"
                                             data-bs-target="#evidence-full-{{ $file->id }}">
@@ -266,59 +372,26 @@
                 </div>
             </div>
 
-            @can('admin')
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="oexterno-subcard">
-                            <div class="section-title">Linha do tempo</div>
-                            <div class="accordion" id="timelineAccordion">
-                                <div class="accordion-item">
-                                    <h2 class="accordion-header" id="timelineHeading">
-                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#timelineCollapse" aria-expanded="false" aria-controls="timelineCollapse">
-                                            Ver eventos
-                                        </button>
-                                    </h2>
-                                    <div id="timelineCollapse" class="accordion-collapse collapse" aria-labelledby="timelineHeading"
-                                        data-bs-parent="#timelineAccordion">
-                                        <div class="accordion-body p-0">
-                                            <div class="timeline-box">
-                                                <ul class="list-group list-group-flush">
-                                                    @forelse($cancellationRequest->Events as $event)
-                                                        <li class="list-group-item">
-                                                            <strong>{{ strtoupper($event->type) }}</strong>
-                                                            <div class="small text-muted">{{ optional($event->created_at)->format('d/m/Y H:i') }} - {{ $event->Actor->name ?? 'Sistema' }}</div>
-                                                            @if(!empty($event->meta))
-                                                                <div class="small">{{ json_encode($event->meta) }}</div>
-                                                            @endif
-                                                        </li>
-                                                    @empty
-                                                        <li class="list-group-item">Sem eventos.</li>
-                                                    @endforelse
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            @endcan
-
             @if(in_array($cancellationRequest->status, [\App\Enum\CancellationRequestStatus::ASSIGNED, \App\Enum\CancellationRequestStatus::PAUSED], true))
                 <div class="row mt-4 g-3">
                     <div class="col-md-4">
                         <label class="form-label">Ação</label>
                         <select class="form-select" wire:model="action">
-                            <option value="DONE">Finalizar</option>
-                            <option value="PAUSED">Pausar</option>
-                            <option value="ABORTED">Cancelar</option>
+                            @if($engineerRejected)
+                                <option value="ABORTED">Cancelar solicitação</option>
+                            @elseif($canFinalizeCancellation)
+                                <option value="DONE">Finalizar</option>
+                                <option value="PAUSED">Pausar</option>
+                                <option value="ABORTED">Cancelar</option>
+                            @else
+                                <option value="PAUSED">Pausar</option>
+                                <option value="ABORTED">Cancelar</option>
+                            @endif
                         </select>
                     </div>
                     <div class="col-md-8">
                         <label class="form-label">Comentário</label>
-                        <textarea class="form-control" rows="2" wire:model.defer="comment"></textarea>
+                        <textarea class="form-control" rows="5" wire:model.defer="comment"></textarea>
                         @error('comment')<span class="text-danger small">{{ $message }}</span>@enderror
                     </div>
                 </div>
@@ -339,9 +412,7 @@
                 </div>
 
                 <div class="mt-3">
-                    <button class="btn btn-success"
-                        onclick="if(!confirm('Confirmar ação na solicitação?')){event.stopImmediatePropagation();}"
-                        wire:click="runAction">
+                    <button class="btn btn-success" wire:click="runAction">
                         Executar
                     </button>
                 </div>

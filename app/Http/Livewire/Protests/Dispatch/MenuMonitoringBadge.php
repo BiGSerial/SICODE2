@@ -3,7 +3,6 @@
 namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Enum\ProtestJobStatus;
-use App\Enum\ProtestType;
 use App\Models\ProtestJob;
 use Livewire\Component;
 
@@ -29,14 +28,13 @@ class MenuMonitoringBadge extends Component
         return ProtestJob::query()
             ->when($this->type === 'btzero', function ($q) {
                 $q->whereHas('medProtest', function ($sub) {
-                    $sub->where('protest_type', ProtestType::BTZERO->value);
+                    $sub->identifiedAsBtzero();
                 });
             }, function ($q) {
                 $q->where(function ($sub) {
                     $sub->whereNull('med_protest_id')
                         ->orWhereHas('medProtest', function ($inner) {
-                            $inner->whereNull('protest_type')
-                                ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
+                            $inner->notIdentifiedAsBtzero();
                         });
                 });
             });
@@ -45,7 +43,10 @@ class MenuMonitoringBadge extends Component
     public function getOpenCountProperty(): int
     {
         return (clone $this->baseQuery())
-            ->open()
+            ->where(function ($q) {
+                $q->whereNull('confirmed')
+                    ->orWhere('confirmed', false);
+            })
             ->count();
     }
 

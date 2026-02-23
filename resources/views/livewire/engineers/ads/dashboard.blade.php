@@ -5,7 +5,7 @@
     <x-show-loading />
     <div class="card">
         <div class="card-header edp-bg-seoweedgreen-100 text-white">
-            <h4 class="my-1">DASHBOARD INFORMES DE CONCLUSÃO</h4">
+            <h4 class="my-1">DASHBOARD INFORMES DE CONCLUSÃO</h4>
         </div>
         <div class="card-body">
             <form class="form-inline">
@@ -140,10 +140,10 @@
                     <div class="card" wire:ignore.self>
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="mb-0">Proporção de Origem ADS</h3>
-                            <button class="btn btn-sm btn-secondary ml-auto" wire:click="getRejectionReason"
+                            <button class="btn btn-sm btn-secondary ml-auto" wire:click="getTotalInformAdsOrigin"
                                 wire:loading.attr="disabled">
                                 <i class="ri-refresh-line" wire:loading.remove></i>
-                                <span wire:loading wire:target="getRejectionReason"
+                                <span wire:loading wire:target="getTotalInformAdsOrigin"
                                     class="spinner-border spinner-border-sm" role="status"
                                     aria-hidden="true"></span>
                             </button>
@@ -273,6 +273,83 @@
                     <h5 class="card-header card-title">ADS ENTREGUE FORA DO PRAZO</h5>
                     <div class="card-body">
                         <h5 class="text-center fw-bold">SEM ADS ENTREGUE FORA DO PRAZO</h5>
+                    </div>
+                @endif
+            </div>
+
+            <div class="card">
+                @if ($tacitOpenOverdue->isNotEmpty())
+                    <h5 class="card-header card-title">ADS TÁCITA VENCIDA (SEM ENTREGA)</h5>
+                    <table class="table table-sm table-condensed table-striped">
+                        <thead>
+                            <tr class="table-dark text-center">
+                                <th>Obra</th>
+                                <th>Empreiteira</th>
+                                <th>Vencimento Tácito</th>
+                                <th>Dias em atraso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tacitOpenOverdue as $ad)
+                                @php
+                                    $dueAt = $ad->adsform?->tacit_due_at;
+                                    $lateDays = $dueAt ? $dueAt->diffInDays(now()) : null;
+                                @endphp
+                                <tr class="text-center align-middle">
+                                    <td>{{ $ad->note->note ?? '-' }}</td>
+                                    <td>{{ $ad->company->name ?? '-' }}</td>
+                                    <td>{{ $dueAt?->format('d/m/Y H:i:s') ?? '-' }}</td>
+                                    <td class="text-bg-danger">{{ $lateDays ?? '-' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    <div class="card-footer text-center">
+                        {{ $tacitOpenOverdue->onEachSide(1)->links() }}
+                    </div>
+                @else
+                    <h5 class="card-header card-title">ADS TÁCITA VENCIDA (SEM ENTREGA)</h5>
+                    <div class="card-body">
+                        <h5 class="text-center fw-bold">SEM ADS TÁCITA VENCIDA</h5>
+                    </div>
+                @endif
+            </div>
+
+            <div class="card">
+                @if ($tacitDeliveredLate->isNotEmpty())
+                    <h5 class="card-header card-title">ADS TÁCITA ENTREGUE EM ATRASO</h5>
+                    <table class="table table-sm table-condensed table-striped">
+                        <thead>
+                            <tr class="table-dark text-center">
+                                <th>Obra</th>
+                                <th>Empreiteira</th>
+                                <th>Entregue em</th>
+                                <th>Dias após vencimento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tacitDeliveredLate as $ad)
+                                @php
+                                    $dueAt = $ad->adsform?->tacit_due_at;
+                                    $deliveredAt = $ad->adsform?->tacit_delivered_at;
+                                    $lateDays = $dueAt && $deliveredAt ? $dueAt->diffInDays($deliveredAt) : null;
+                                @endphp
+                                <tr class="text-center align-middle">
+                                    <td>{{ $ad->note->note ?? '-' }}</td>
+                                    <td>{{ $ad->company->name ?? '-' }}</td>
+                                    <td>{{ $deliveredAt?->format('d/m/Y H:i:s') ?? '-' }}</td>
+                                    <td class="text-bg-warning">{{ $lateDays ?? '-' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    <div class="card-footer text-center">
+                        {{ $tacitDeliveredLate->onEachSide(1)->links() }}
+                    </div>
+                @else
+                    <h5 class="card-header card-title">ADS TÁCITA ENTREGUE EM ATRASO</h5>
+                    <div class="card-body">
+                        <h5 class="text-center fw-bold">SEM ADS TÁCITA ENTREGUE EM ATRASO</h5>
                     </div>
                 @endif
             </div>

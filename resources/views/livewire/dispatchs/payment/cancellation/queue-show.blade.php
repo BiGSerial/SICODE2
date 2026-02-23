@@ -90,6 +90,21 @@
                 max-height: 280px;
                 overflow: auto;
             }
+
+            .action-board {
+                border: 1px solid #dbe4ef;
+                border-radius: 0.85rem;
+                background: #f8fafc;
+                padding: 0.9rem;
+            }
+
+            .action-card {
+                border: 1px solid #dbe4ef;
+                border-radius: 0.75rem;
+                background: #ffffff;
+                padding: 0.85rem;
+                height: 100%;
+            }
         </style>
 
         @php
@@ -116,49 +131,63 @@
         </div>
 
         <div class="oexterno-card p-3 mb-3">
-            <div class="d-flex flex-wrap gap-2 mb-3">
-                @can('edit', $cancellationRequest)
-                    @if(!$editing)
-                        <button class="btn btn-outline-primary" wire:click="startEdit">Editar</button>
-                    @else
-                        <button class="btn btn-outline-secondary" wire:click="cancelEdit">Cancelar edição</button>
-                    @endif
-                @endcan
+            <div class="action-board mb-3">
+                <div class="section-title mb-3">Comandos de Controle</div>
+                <div class="row g-3">
+                    @can('edit', $cancellationRequest)
+                        <div class="col-md-3">
+                            <div class="action-card">
+                                <div class="fw-semibold mb-2">Edição da solicitação</div>
+                                <div class="small text-muted mb-3">Atualize escopo, descrição e evidências desta solicitação.</div>
+                                @if(!$editing)
+                                    <button class="btn btn-outline-primary w-100" wire:click="startEdit">Editar solicitação</button>
+                                @else
+                                    <button class="btn btn-outline-secondary w-100" wire:click="cancelEdit">Cancelar edição</button>
+                                @endif
+                            </div>
+                        </div>
+                    @endcan
 
-                @can('transfer', $cancellationRequest)
-                    <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm w-auto" wire:model="transferUserId">
-                            <option value="">Transferir para...</option>
-                            @foreach($paymentUsers as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
-                        </select>
-                        <button class="btn btn-outline-warning btn-sm"
-                            onclick="if(!confirm('Confirmar transferência da solicitação?')){event.stopImmediatePropagation();}"
-                            wire:click="transfer">
-                            Transferir
-                        </button>
-                    </div>
-                @endcan
+                    @can('transfer', $cancellationRequest)
+                        <div class="col-md-4">
+                            <div class="action-card">
+                                <div class="fw-semibold mb-2">Alterar executante</div>
+                                <div class="small text-muted mb-2">Selecione o novo executante responsável pela execução.</div>
+                                <select class="form-select mb-2" wire:model="transferUserId">
+                                    <option value="">Selecione o executante...</option>
+                                    @foreach($paymentUsers as $user)
+                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                    @endforeach
+                                </select>
+                                <button class="btn btn-outline-warning w-100" wire:click="transfer">
+                                    Confirmar alteração de executante
+                                </button>
+                            </div>
+                        </div>
+                    @endcan
 
-                @can('abort', $cancellationRequest)
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="text" class="form-control form-control-sm w-auto" placeholder="Motivo do cancelamento"
-                            wire:model.defer="abortReason">
-                        <button class="btn btn-outline-danger btn-sm"
-                            onclick="if(!confirm('Confirmar cancelamento da solicitação?')){event.stopImmediatePropagation();}"
-                            wire:click="abort">
-                            Cancelar solicitação
-                        </button>
-                    </div>
-                @endcan
+                    @can('abort', $cancellationRequest)
+                        <div class="col-md-5">
+                            <div class="action-card">
+                                <div class="fw-semibold mb-2">Cancelar solicitação</div>
+                                <div class="small text-muted mb-2">Informe o motivo do cancelamento para histórico e auditoria.</div>
+                                <textarea class="form-control mb-2" rows="5" placeholder="Descreva o motivo do cancelamento..."
+                                    wire:model.defer="abortReason"></textarea>
+                                @error('abortReason')<span class="text-danger small">{{ $message }}</span>@enderror
+                                <button class="btn btn-outline-danger w-100" wire:click="abort">
+                                    Cancelar solicitação
+                                </button>
+                            </div>
+                        </div>
+                    @endcan
+                </div>
 
                 @can('delete', $cancellationRequest)
-                    <button class="btn btn-danger btn-sm"
-                        onclick="if(!confirm('Remover definitivamente esta solicitação?')){event.stopImmediatePropagation();}"
-                        wire:click="deleteRequest">
-                        Remover
-                    </button>
+                    <div class="mt-3 d-flex justify-content-end">
+                        <button class="btn btn-danger" wire:click="deleteRequest">
+                            Remover definitivamente
+                        </button>
+                    </div>
                 @endcan
             </div>
 
@@ -378,9 +407,7 @@
                         @error('closureNote')<span class="text-danger small">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-12 mt-3">
-                        <button class="btn btn-success"
-                            onclick="if(!confirm('Confirmar finalização da solicitação?')){event.stopImmediatePropagation();}"
-                            wire:click="finalize">
+                        <button class="btn btn-success" wire:click="finalize">
                             Finalizar
                         </button>
                     </div>
@@ -493,9 +520,7 @@
                 </div>
 
                 <div class="mt-3">
-                    <button class="btn btn-primary"
-                        onclick="if(!confirm('Confirmar edição da solicitação?')){event.stopImmediatePropagation();}"
-                        wire:click="saveEdit">
+                    <button class="btn btn-primary" wire:click="saveEdit">
                         Salvar alterações
                     </button>
                 </div>

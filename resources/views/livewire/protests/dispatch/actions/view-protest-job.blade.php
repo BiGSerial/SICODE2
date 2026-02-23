@@ -17,6 +17,46 @@
             height: 100%;
             object-fit: cover;
         }
+
+        .result-highlight {
+            border-width: 2px;
+            border-style: solid;
+            border-radius: .75rem;
+            padding: .65rem .8rem;
+            font-weight: 700;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+        }
+
+        .result-highlight.is-procedente {
+            background: #eafaf1;
+            border-color: #198754;
+            color: #146c43;
+        }
+
+        .result-highlight.is-improcedente {
+            background: #fdecec;
+            border-color: #dc3545;
+            color: #b02a37;
+        }
+
+        .result-highlight.is-empty {
+            background: #f1f3f5;
+            border-color: #6c757d;
+            color: #495057;
+        }
+
+        .confirm-result-card {
+            border: 2px solid #0d6efd;
+            border-radius: .8rem;
+            background: #f8fbff;
+            padding: .9rem;
+            min-width: 360px;
+        }
     </style>
 
     @php
@@ -220,28 +260,22 @@
                                         <strong>Resultado</strong>
 
                                     </div>
-                                                                        <div class="card-body small">
-                                        <div class="text-muted mb-2">{{ $job->close_reason ?? 'Sem resultado informado.' }}
-                                        </div>
-                                        <div class="small">
-                                            <strong>Resultado da medida:</strong>
-                                            <span>{{ $medProtest?->result ? ucfirst($medProtest->result) : 'Nao informado' }}</span>
+                                    <div class="card-body small">
+                                        @php
+                                            $activeResult = $result ?? $medProtest?->result;
+                                            $resultClass = $activeResult === 'procedente'
+                                                ? 'is-procedente'
+                                                : ($activeResult === 'improcedente' ? 'is-improcedente' : 'is-empty');
+                                        @endphp
+
+                                        <div class="result-highlight {{ $resultClass }} mb-3">
+                                            <span>Resultado da medida</span>
+                                            <span>{{ strtoupper($activeResult ?? 'nao informada') }}</span>
                                         </div>
 
-                                        @if ($job && !$job->confirmed && $job->status->value === 'done')
-                                            <div class="mt-2">
-                                                <label class="form-label small">Selecionar resultado (opcional)</label>
-                                                <select class="form-select form-select-sm" wire:model="result">
-                                                    <option value="">Nao informado</option>
-                                                    @foreach ($resultOptions as $opt)
-                                                        <option value="{{ $opt }}">{{ ucfirst($opt) }}</option>
-                                                    @endforeach
-                                                </select>
-                                                @error('result')
-                                                    <small class="text-danger">{{ $message }}</small>
-                                                @enderror
-                                            </div>
-                                        @endif
+                                        <div class="text-muted mb-2">{{ $job->close_reason ?? 'Sem resultado informado.' }}
+                                        </div>
+
                                     </div>
 
                                 </div>
@@ -697,7 +731,48 @@
 
                 <div class="modal-footer bg-light border-0 d-flex justify-content-between">
                     @if ($job && !$job->confirmed)
-                        <div class="d-flex align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            @if ($showConfirmCard && $job->status->value === 'done')
+                                <div class="confirm-result-card me-2">
+                                    <div class="fw-semibold mb-2">Confirmar conclusão da atividade</div>
+                                    <div class="small text-muted mb-2">Escolha a procedência e confirme.</div>
+
+                                    <div class="d-flex gap-2 mb-2">
+                                        <button type="button"
+                                            class="btn btn-sm flex-fill {{ $result === 'procedente' ? 'btn-success' : 'btn-outline-success' }}"
+                                            wire:click="$set('result', 'procedente')">
+                                            Procedente
+                                        </button>
+                                        <button type="button"
+                                            class="btn btn-sm flex-fill {{ $result === 'improcedente' ? 'btn-danger' : 'btn-outline-danger' }}"
+                                            wire:click="$set('result', 'improcedente')">
+                                            Improcedente
+                                        </button>
+                                    </div>
+                                    @error('result')
+                                        <small class="text-danger d-block mb-2">{{ $message }}</small>
+                                    @enderror
+
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-primary btn-sm flex-fill"
+                                            wire:click="doConfirm" @disabled(!$result)>
+                                            Confirmar produção
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            wire:click="cancelConfirmCard">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            @endif
+
+                            @if ($job->status->value === 'done')
+                                <span
+                                    class="badge {{ ($result ?? $medProtest?->result) === 'procedente' ? 'bg-success' : (($result ?? $medProtest?->result) === 'improcedente' ? 'bg-danger' : 'bg-secondary') }}">
+                                    Procedência: {{ strtoupper($result ?? $medProtest?->result ?? 'nao informada') }}
+                                </span>
+                            @endif
+
                             {{-- Reescalar --}}
                             <button class="btn btn-sm btn-warning" title="Reescalar" wire:click="askEscalate"
                                 @disabled(!$this->canEscalate)>

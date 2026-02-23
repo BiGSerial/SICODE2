@@ -21,6 +21,15 @@ class QueueShow extends Component
     use AuthorizesRequests;
     use WithFileUploads;
 
+    protected $listeners = [
+        'confirm_cancellation_queue_claim' => 'confirmClaim',
+        'confirm_cancellation_queue_transfer' => 'confirmTransfer',
+        'confirm_cancellation_queue_abort' => 'confirmAbort',
+        'confirm_cancellation_queue_finalize' => 'confirmFinalize',
+        'confirm_cancellation_queue_save_edit' => 'confirmSaveEdit',
+        'confirm_cancellation_queue_delete' => 'confirmDeleteRequest',
+    ];
+
     public string $service;
     public int $requestId;
     public ?CancellationRequest $cancellationRequest = null;
@@ -146,7 +155,21 @@ class QueueShow extends Component
         $this->files = [];
     }
 
-    public function saveEdit(CancellationRequestService $service): void
+    public function saveEdit(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Salvar alterações',
+            'msg' => 'Deseja salvar as alterações desta solicitação?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, salvar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_queue_save_edit',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'As alterações não foram salvas.',
+        ]);
+    }
+
+    public function confirmSaveEdit(CancellationRequestService $service): void
     {
         $this->authorize('edit', $this->cancellationRequest);
 
@@ -186,7 +209,21 @@ class QueueShow extends Component
         }
     }
 
-    public function claim(CancellationRequestService $service): void
+    public function claim(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Assumir solicitação',
+            'msg' => 'Deseja assumir esta solicitação agora?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, assumir',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_queue_claim',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação não foi assumida.',
+        ]);
+    }
+
+    public function confirmClaim(CancellationRequestService $service): void
     {
         $this->authorize('claim', $this->cancellationRequest);
 
@@ -199,7 +236,21 @@ class QueueShow extends Component
         }
     }
 
-    public function finalize(CancellationRequestService $service): void
+    public function finalize(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Finalizar solicitação',
+            'msg' => 'Deseja confirmar a finalização desta solicitação?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, finalizar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_queue_finalize',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação não foi finalizada.',
+        ]);
+    }
+
+    public function confirmFinalize(CancellationRequestService $service): void
     {
         $this->authorize('finalize', $this->cancellationRequest);
 
@@ -212,7 +263,7 @@ class QueueShow extends Component
             if ($this->action === 'DONE') {
                 $service->finalizeDone($this->cancellationRequest, Auth::user());
             } else {
-                if (!$this->closureNote) {
+                if (!trim((string) $this->closureNote)) {
                     $this->addError('closureNote', 'Informe o motivo da rejeição.');
                     return;
                 }
@@ -226,9 +277,28 @@ class QueueShow extends Component
         }
     }
 
-    public function abort(CancellationRequestService $service): void
+    public function abort(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Cancelar solicitação',
+            'msg' => 'Deseja cancelar esta solicitação?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, cancelar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_queue_abort',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação não foi cancelada.',
+        ]);
+    }
+
+    public function confirmAbort(CancellationRequestService $service): void
     {
         $this->authorize('abort', $this->cancellationRequest);
+
+        if (!trim((string) $this->abortReason)) {
+            $this->addError('abortReason', 'Informe o motivo do cancelamento.');
+            return;
+        }
 
         try {
             $service->abortRequest($this->cancellationRequest, Auth::user(), $this->abortReason);
@@ -239,7 +309,21 @@ class QueueShow extends Component
         }
     }
 
-    public function transfer(CancellationRequestService $service): void
+    public function transfer(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Transferir solicitação',
+            'msg' => 'Deseja transferir esta solicitação para o executante selecionado?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, transferir',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_queue_transfer',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação não foi transferida.',
+        ]);
+    }
+
+    public function confirmTransfer(CancellationRequestService $service): void
     {
         $this->authorize('transfer', $this->cancellationRequest);
 
@@ -258,7 +342,21 @@ class QueueShow extends Component
         }
     }
 
-    public function deleteRequest(CancellationRequestService $service): void
+    public function deleteRequest(): void
+    {
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Remover solicitação',
+            'msg' => 'Deseja remover definitivamente esta solicitação?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, remover',
+            'btnCanceltxt' => 'Não, manter',
+            'action' => 'confirm_cancellation_queue_delete',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'A solicitação não foi removida.',
+        ]);
+    }
+
+    public function confirmDeleteRequest(CancellationRequestService $service): void
     {
         $this->authorize('delete', $this->cancellationRequest);
 

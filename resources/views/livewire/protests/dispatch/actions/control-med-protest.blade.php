@@ -484,6 +484,18 @@
                                                 @error('reason_close')
                                                     <small class="text-danger d-block mb-2">{{ $message }}</small>
                                                 @enderror
+                                                <div class="form-floating mb-3">
+                                                    <select class="form-select" id="closeResult" wire:model="result">
+                                                        <option value="">Selecione</option>
+                                                        @foreach ($resultOptions as $opt)
+                                                            <option value="{{ $opt }}">{{ ucfirst($opt) }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    <label for="closeResult">Resultado da medida (obrigatório)</label>
+                                                </div>
+                                                @error('result')
+                                                    <small class="text-danger d-block mb-2">{{ $message }}</small>
+                                                @enderror
                                                 <div class="d-flex flex-wrap gap-2">
                                                     <button type="button" class="btn btn-danger flex-fill"
                                                         wire:click="doCloseMeasureNow">

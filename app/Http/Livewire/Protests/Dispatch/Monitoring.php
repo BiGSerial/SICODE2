@@ -3,7 +3,6 @@
 namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Enum\ProtestJobStatus;
-use App\Enum\ProtestType;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -174,13 +173,14 @@ class Monitoring extends Component
 
         if ($this->showOnlyBtzero) {
             $query->whereHas('medProtest', function ($q) {
-                $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+                $q->identifiedAsBtzero();
             });
         } elseif ($this->hideBtzero) {
-            $query->whereDoesntHave('medProtest', function ($q) {
-                $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+            $query->where(function ($sub) {
+                $sub->whereNull('med_protest_id')
+                    ->orWhereHas('medProtest', function ($q) {
+                        $q->notIdentifiedAsBtzero();
+                    });
             });
         }
 

@@ -270,7 +270,7 @@ class EditControlMedProtest extends Component
         ]);
 
         $this->validate([
-            'result' => 'nullable|in:' . implode(',', MedProtest::resultOptions()),
+            'result' => 'required|in:' . implode(',', MedProtest::resultOptions()),
         ]);
 
         try {

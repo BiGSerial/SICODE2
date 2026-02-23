@@ -203,7 +203,7 @@
                         ondblclick="window.location.href='{{ route('protests.dispatch.view', ['protest' => $protest->nota]) }}'"
                         class="align-middle text-center">
                         {{-- <td>{{ $protest->medProtests->count() }}</td> --}}
-                        <td>{{ $activeMed->med_id }}</td>
+                        <td>{{ $activeMed?->med_id ?? '—' }}</td>
                         <td class="fw-semibold">{{ $protest->nota }}</td>
                         <td>{{ $protest->tipoNota }}</td>
                         <td>{{ $activeMed?->codMedida ?? '—' }}</td>

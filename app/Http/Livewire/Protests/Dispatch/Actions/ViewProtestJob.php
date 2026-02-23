@@ -26,6 +26,7 @@ class ViewProtestJob extends Component
 
     public ?string $result = null;
     public array $resultOptions = [];
+    public bool $showConfirmCard = false;
 
     // Exibição
     public array $outcome = [];
@@ -173,29 +174,19 @@ class ViewProtestJob extends Component
 
     public function askConfirm(): void
     {
-        if (!$this->job) {
+        if (!$this->job || $this->job->status->value !== 'done' || $this->job->confirmed) {
             return;
         }
 
-        $options = [];
-        foreach (MedProtest::resultOptions() as $opt) {
-            $options[$opt] = ucfirst($opt);
-        }
+        $this->result = MedProtest::normalizeResult($this->result ?? $this->medProtest?->result);
+        $this->showConfirmCard = true;
+        $this->resetErrorBag('result');
+    }
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmar atividade?',
-            'msg'           => 'Isso ira confirmar a atividade do usuario.',
-            'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Confirmar!',
-            'btnCanceltxt'  => 'Nao, Cancelar',
-            'action'        => 'confirmConfirm',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma alteracao realizada.',
-            'inputType'     => 'select',
-            'inputOptions'  => $options,
-            'inputValue'    => $this->result,
-            'inputPlaceholder' => 'Nao informado',
-        ]);
+    public function cancelConfirmCard(): void
+    {
+        $this->showConfirmCard = false;
+        $this->resetErrorBag('result');
     }
 
     public function askCancel(): void
@@ -295,10 +286,12 @@ class ViewProtestJob extends Component
             }
 
             $this->validate([
-                'result' => 'nullable|in:' . implode(',', MedProtest::resultOptions()),
+                'result' => 'required|in:' . implode(',', MedProtest::resultOptions()),
             ]);
 
             $this->job->confirmJob(null, $this->result);
+            $this->showConfirmCard = false;
+            $this->open($this->jobId);
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',
@@ -532,7 +525,7 @@ class ViewProtestJob extends Component
             'jobId','job','protest','medProtest',
             'outcome','timeline','commentsByOrigin',
             'newMessage','restrict',
-            'result','resultOptions',
+            'result','resultOptions','showConfirmCard',
         ]);
         $this->restrict = false;
         $this->messageTarget = 'med';

@@ -34,6 +34,8 @@ class ControlMedProtest extends Component
     public ?string $sla_due_at = null;        // prazo de retorno (SLA)
     public string $notes = '';                // instrução/comentário inicial para o executor
     public string $reason_close = '';
+    public ?string $result = null;
+    public array $resultOptions = [];
 
     // suporte UI
     public string $userSearch = '';
@@ -90,6 +92,7 @@ class ControlMedProtest extends Component
 
         // prioridade padrão
         $this->priority = ProtestJobPriority::NORMAL->value;
+        $this->resultOptions = MedProtest::resultOptions();
     }
 
 
@@ -178,6 +181,7 @@ class ControlMedProtest extends Component
         $this->deleteCommentId  = null;
         $this->reason_close     = '';
         $this->showReasonClose  = false;
+        $this->result           = null;
         $this->resetFileUploads();
     }
 
@@ -377,7 +381,9 @@ class ControlMedProtest extends Component
         $this->validateJobForm(false);
 
         $this->reason_close = '';
+        $this->result = $this->modProtest?->result;
         $this->resetErrorBag('reason_close');
+        $this->resetErrorBag('result');
         $this->showReasonClose = true;
     }
 
@@ -385,7 +391,9 @@ class ControlMedProtest extends Component
     {
         $this->showReasonClose = false;
         $this->reason_close = '';
+        $this->result = null;
         $this->resetErrorBag('reason_close');
+        $this->resetErrorBag('result');
     }
 
     public function doCloseMeasureNow()
@@ -398,6 +406,7 @@ class ControlMedProtest extends Component
 
         $this->validate([
             'reason_close' => 'required|string|max:5000',
+            'result' => 'required|in:' . implode(',', MedProtest::resultOptions()),
         ]);
 
         DB::transaction(function () use ($data) {
@@ -431,7 +440,7 @@ class ControlMedProtest extends Component
                 'reason'      => 'Concluído manualmente por ' . auth()->user()->name,
             ], $this->reason_close);
 
-            $job->confirmJob();
+            $job->confirmJob(null, $this->result);
 
             // marca a medida como concluída
             $this->modProtest->update([
