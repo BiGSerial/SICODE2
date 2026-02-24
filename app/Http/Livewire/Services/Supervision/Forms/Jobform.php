@@ -17,6 +17,7 @@ class Jobform extends Component
 {
     public ?Production $production = null;
     public ?Analise $analise = null;
+    public $lastReturnwork = null;
     public $five;
     public $origin = 'FISCALIZACAO';
 
@@ -138,11 +139,18 @@ class Jobform extends Component
     {
 
         $this->five = null;
-        $this->production = $production->load('Note.WorkForm.Company', 'Note.WorkForm.Orders', 'Note.fiveNote');
+        $this->lastReturnwork = null;
+        $this->production = $production->load(
+            'Note.WorkForm.Company',
+            'Note.WorkForm.Orders',
+            'Note.WorkForm.LatestReturnwork.User',
+            'Note.fiveNote'
+        );
 
 
 
         if ($this->production) {
+            $this->lastReturnwork = $this->production->Note->WorkForm?->LatestReturnwork;
 
             $this->return['loc_install'] = $this->production->Note->WorkForm?->Orders?->sortBy('ordem')->first()?->loc_install ?? '';
 
@@ -321,6 +329,8 @@ class Jobform extends Component
 
 
 
+        $reviewAlert = $this->buildRevisionAlert();
+
         if ($this->production->partial) {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENCERRAMENTO DE SERVIÇO PARCIAL',
@@ -332,7 +342,7 @@ class Jobform extends Component
                             <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                         </div>
                     </div>
-                ".$alert,
+                ".$reviewAlert.$alert,
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Continue!',
                 'btnCanceltxt'  => 'Não, Cancele',
@@ -353,7 +363,7 @@ class Jobform extends Component
                             <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                         </div>
                     </div>
-                ".$alert,
+                ".$reviewAlert.$alert,
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Continue!',
                 'btnCanceltxt'  => 'Não, Cancele',
@@ -374,7 +384,7 @@ class Jobform extends Component
                             <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
                         </div>
                     </div>
-                ".$alert,
+                ".$reviewAlert.$alert,
                 'icon'          => 'warning',
                 'btnOktxt'      => 'Sim, Continue!',
                 'btnCanceltxt'  => 'Não, Cancele',
@@ -386,6 +396,29 @@ class Jobform extends Component
         }
 
 
+    }
+
+    private function buildRevisionAlert(): string
+    {
+        $workForm = $this->production?->Note?->WorkForm;
+        if (!$workForm || !$workForm->rejected) {
+            return '';
+        }
+
+        $latestReturn = $workForm->LatestReturnwork ?? $workForm->Returnwork()->latest('id')->first();
+        $category = e($latestReturn?->category ?? 'Não informado');
+        $reason = nl2br(e($latestReturn?->text_obs ?? 'Não informado'));
+
+        return "
+            <div class='card border-warning my-2'>
+                <div class='card-body text-start'>
+                    <h5 class='mb-2 text-warning'>Informe em revisão</h5>
+                    <p class='mb-1'><strong>Por quê:</strong> {$category}</p>
+                    <p class='mb-1'><strong>Motivo:</strong></p>
+                    <div class='bg-light border rounded p-2'>{$reason}</div>
+                </div>
+            </div>
+        ";
     }
 
     public function save()
@@ -587,6 +620,7 @@ class Jobform extends Component
         $this->analise = null;
         $this->five = null;
         $this->production = null;
+        $this->lastReturnwork = null;
         $this->return = [
             'reason' => '',
             'description' => '',

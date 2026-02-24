@@ -2,34 +2,113 @@
     use App\Custom\Notestatus;
 @endphp
 
-<div>
+<div class="service-page">
     <x-show-loading />
 
-    <div class="row justify-content-between">
-        <div class="mb-3 col-3">
-            <label for="search" class="form-label">Buscar</label>
-            <input wire:model.debounce.500ms="search" type="text" class="form-control border border-2 border-secondary"
-                id="search" placeholder="Buscar por Nota ou Material">
+    <style>
+        .service-page {
+            --sp-bg: #f6f7fb;
+            --sp-surface: #ffffff;
+            --sp-muted: #6b7280;
+            --sp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%), var(--sp-bg);
+            padding: 1.5rem 0;
+        }
+
+        .service-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1.5rem;
+        }
+
+        .service-header h2 {
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .service-header .meta {
+            color: rgba(248, 250, 252, 0.75);
+            font-size: 0.95rem;
+        }
+
+        .filters-grid .filter-card {
+            background: var(--sp-surface);
+            border: 1px solid var(--sp-border);
+            border-radius: 0.9rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+            height: 100%;
+        }
+
+        .filters-grid .filter-card h6 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            color: var(--sp-muted);
+        }
+    </style>
+
+    <div class="container-fluid">
+        <div class="service-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>{{ mb_strtoupper($service->service) }}</h2>
+                <div class="meta">Gestao de acompanhamento de supervisao</div>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1"
-                    id="nt1">
-                <label class="form-check-label" for="nt1">Nota</label>
+        <div class="row g-3 filters-grid mb-3">
+            <div class="col-12 col-lg-5">
+                <div class="filter-card">
+                    <h6>Pesquisa</h6>
+                    <label for="search" class="form-label">Buscar</label>
+                    <input wire:model.debounce.500ms="search" type="text"
+                        class="form-control border border-2 border-secondary" id="search"
+                        placeholder="Buscar por Nota ou Material">
+                </div>
             </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2"
-                    id="nt2">
-                <label class="form-check-label" for="nt2">OV</label>
+
+            <div class="col-12 col-lg-4">
+                <div class="filter-card">
+                    <h6>Tipo de nota</h6>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
+                            value="1" id="nt1">
+                        <label class="form-check-label" for="nt1">Nota</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
+                            value="2" id="nt2">
+                        <label class="form-check-label" for="nt2">OV</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
+                            value="" id="nt3">
+                        <label class="form-check-label" for="nt3">Ambos</label>
+                    </div>
+                </div>
             </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value=""
-                    id="nt3">
-                <label class="form-check-label" for="nt3">Ambos</label>
+
+            <div class="col-12 col-lg-3">
+                <div class="filter-card d-flex flex-column justify-content-end">
+                    <h6>Acoes</h6>
+                    <button class="btn btn-success" wire:click.prevent="exportToExcel" wire:loading.attr="disabled"
+                        wire:target="exportToExcel">
+                        <span wire:loading.remove wire:target="exportToExcel">
+                            <i class="ri-file-excel-2-line me-2"></i>Exportar
+                        </span>
+                        <span wire:loading wire:target="exportToExcel">
+                            <i class="ri-loader-4-line me-2"></i>Enfileirando...
+                        </span>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -91,11 +170,6 @@
                                         ({{ $statusBadges }})
                                     @endif
                                 </h4>
-                            </div>
-                            <div class="col-4 d-flex justify-content-end">
-                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'>
-                                    <i class="ri-file-excel-2-line"></i> Exportar
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -250,7 +324,7 @@
                                         </td>
 
                                         <td class="fw-bold fs-5">
-                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status) && !($workForm && $workForm->rejected))
+                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status))
                                                 @if (!$list->completed)
                                                     <i class="ri-play-circle-line m-0 align-middle text-success"
                                                         style="cursor:pointer;"
@@ -304,6 +378,7 @@
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
     @livewire('components.five-note.view-d5', key('ViewD5'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
+    </div>
 </div>
 
 @push('script')
