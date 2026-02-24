@@ -116,7 +116,7 @@
     <x-menu.engineer-dropdown />
 @endcan
 
-@can('btzero')
+@can('superadm')
     @php
         $smc_sections = [
             [

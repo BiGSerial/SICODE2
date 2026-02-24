@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Services\Levantamento;
 
-use App\Exports\ProductionServiceExport;
+use App\Jobs\Services\ExportLevantamentoProductionListJob;
 use App\Models\{File, Production, Service};
 use Illuminate\Support\Facades\{Storage, Auth, DB};
 use Livewire\{Component, WithPagination};
@@ -38,10 +38,25 @@ class Main extends Component
     /** =====================
      * 🔹 EXPORTAÇÃO
      * ===================== */
+    public function exportToExcel()
+    {
+        ExportLevantamentoProductionListJob::dispatch([
+            'service_uuid' => $this->service->uuid,
+            'user_id'      => Auth::id(),
+            'search'       => $this->search,
+        ]);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'info',
+            'title'    => 'Exportação iniciada!',
+            'text'     => 'Você será notificado quando o arquivo estiver pronto.',
+        ]);
+    }
+
     public function export_excel()
     {
-        return (new ProductionServiceExport($this->lists->get()))
-            ->download(now()->format('YmdHis') . '-production_services.xlsx');
+        return $this->exportToExcel();
     }
 
     /** =====================
