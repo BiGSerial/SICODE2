@@ -82,6 +82,11 @@ class WorkReport extends Model
         return $this->hasMany(ReturnWork::class);
     }
 
+    public function LatestReturnwork()
+    {
+        return $this->hasOne(ReturnWork::class)->latestOfMany();
+    }
+
     public function Adsform()
     {
         return $this->hasOne(Adsform::class);

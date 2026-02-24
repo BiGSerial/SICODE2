@@ -15,7 +15,7 @@ class ReturnInternCount extends Component
         ->where('viabilities.rejected', true)
         ->where('viabilities.status', 13);
         if (!auth()->user()->superadm) {
-            $query->where('engineer_id', auth()->user()->id);
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         return $query->count();

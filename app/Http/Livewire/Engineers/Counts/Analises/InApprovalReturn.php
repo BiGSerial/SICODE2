@@ -21,7 +21,7 @@ class InApprovalReturn extends Component
         $query = ViabilityApproval::query();
 
         if (!$this->engineer) {
-            $query->where('user_id', auth()->id());
+            $query->whereIn('user_id', auth()->user()->visibleUserIdsForWork());
         }
 
         $query->where('approved', false);

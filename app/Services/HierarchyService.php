@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Audit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
@@ -70,6 +71,13 @@ class HierarchyService
         DB::transaction(function () use ($userId, $newManagerId) {
             if ($newManagerId === $userId) {
                 throw new \InvalidArgumentException('Um usuário não pode gerenciar a si mesmo.');
+            }
+
+            $oldManagerId = DB::table('users')->where('id', $userId)->value('manager_id');
+
+            // Sem mudança efetiva de vínculo hierárquico.
+            if ((string) $oldManagerId === (string) $newManagerId) {
+                return;
             }
 
             // Evita ciclo: newManager não pode estar na subárvore de $userId
@@ -151,6 +159,13 @@ class HierarchyService
                     DB::table('user_closure')->insertOrIgnore($batch);
                 }
             }
+
+            $this->logHierarchyChange(
+                userId: $userId,
+                oldManagerId: $oldManagerId,
+                newManagerId: $newManagerId,
+                context: 'move_subtree'
+            );
         });
     }
 
@@ -211,6 +226,38 @@ class HierarchyService
                     DB::table('user_closure')->insertOrIgnore($rows);
                 }
             }
+
+            $this->logHierarchyChange(
+                userId: $newUserId,
+                oldManagerId: null,
+                newManagerId: $managerId,
+                context: 'attach_new_user'
+            );
         });
+    }
+
+    private function logHierarchyChange(string $userId, ?string $oldManagerId, ?string $newManagerId, string $context): void
+    {
+        $action = match (true) {
+            $oldManagerId === null && $newManagerId !== null => 'hierarchy_assigned',
+            $oldManagerId !== null && $newManagerId === null => 'hierarchy_unassigned',
+            default => 'hierarchy_reassigned',
+        };
+
+        Audit::create([
+            'user_id' => auth()->id(),
+            'model_class' => 'App\\Models\\User',
+            'action' => $action,
+            'before' => json_encode([
+                'id' => $userId,
+                'manager_id' => $oldManagerId,
+                'context' => $context,
+            ]),
+            'after' => json_encode([
+                'id' => $userId,
+                'manager_id' => $newManagerId,
+                'context' => $context,
+            ]),
+        ]);
     }
 }

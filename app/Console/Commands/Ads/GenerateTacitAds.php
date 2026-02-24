@@ -7,6 +7,8 @@ use App\Enum\AdsRequestStatus;
 use App\Models\AdsRequest;
 use App\Models\AdsRequestDefaultUser;
 use App\Models\Adsform;
+use App\Models\Edp_depc\BaseCosts;
+use App\Models\Production;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkReport;
@@ -39,11 +41,13 @@ class GenerateTacitAds extends Command
             // Log no mesmo padrão do seu BaseEP
             $log = new RegistroJson('ads_generate_tacit', $this->options());
 
-            // Regra: 6 dias corridos; às 00:00 do 7º dia já está vencido
+            // Regra: vence na virada para o 8º dia contado da data D (D+7 às 00:00).
+            // Ex.: criado em 16/02 -> vence em 23/02 00:00.
             $startAt = Carbon::parse('2026-02-01 00:00:00');
-            $cutoff  = now()->subDays(6)->startOfDay(); // tudo criado até aqui já está vencido na virada
+            $cutoffDate = now()->subDays(7)->toDateString();
 
             $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
+            $defaultServiceId = SystemSetting::getValue('ads_auto_default_service_id');
 
             $defaultRecipients = AdsRequestDefaultUser::query()
                 ->where('active', true)
@@ -54,7 +58,7 @@ class GenerateTacitAds extends Command
             $query = WorkReport::query()
                 ->where('rejected', false)
                 ->where('created_at', '>=', $startAt)
-                ->where('created_at', '<=', $cutoff)
+                ->whereDate('created_at', '<=', $cutoffDate)
                 ->whereHas('note.orders', function ($orderQuery) {
                     $orderQuery->where('statusSist', 'like', 'ABER%')
                         ->orWhere('statusSist', 'like', 'LIB%');
@@ -68,6 +72,7 @@ class GenerateTacitAds extends Command
             $skippedNoUser = 0;
             $skippedNoCompany = 0;
             $candidates = 0;
+            $orderCostCache = [];
 
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
@@ -83,6 +88,7 @@ class GenerateTacitAds extends Command
                 &$skippedNoUser,
                 &$skippedNoCompany,
                 &$candidates,
+                &$orderCostCache,
                 $defaultRecipients,
                 $testMode,
                 $dryRun,
@@ -103,38 +109,61 @@ class GenerateTacitAds extends Command
                         continue;
                     }
 
-                    // Regra do prazo: 00:00 do 7º dia (criado no dia D => vence D+6 às 00:00)
+                    // Regra do prazo: criado no dia D => vence em D+7 às 00:00
                     $dueAt = Carbon::parse($workReport->created_at)
                         ->startOfDay()
-                        ->addDays(6);
+                        ->addDays(7);
+
+                    $recipientIds = $this->resolveRecipientsForNote(
+                        noteId: (int) $workReport->note_id,
+                        serviceId: $defaultServiceId,
+                        defaultRecipients: $defaultRecipients
+                    );
+
+                    if ($recipientIds->isEmpty()) {
+                        continue;
+                    }
 
                     // --- DRY RUN: simula contagens e mostra amostras, mas não grava nada ---
                     if ($dryRun) {
                         $adsCreated++; // simulado
-                        $requestsCreated += $defaultRecipients->count(); // simulado
+                        $requestsCreated += $recipientIds->count(); // simulado
                         // espelhamento não roda em dry
                         // Exibe algumas amostras pra conferir se o filtro tá correto
                         if ($candidates <= 10) {
-                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt}");
+                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt} recipients={$recipientIds->count()}");
                         }
                         continue;
                     }
 
                     $batchId = (string) Str::uuid();
                     $createdRequests = [];
+                    $orderCostsByOrderId = $this->resolveOrderCostsForWorkReport($workReport->id, $orderCostCache);
 
                     DB::transaction(function () use (
                         $workReport,
                         $userId,
                         $dueAt,
                         $batchId,
-                        $defaultRecipients,
+                        $recipientIds,
                         &$adsCreated,
                         &$requestsCreated,
-                        &$createdRequests
+                        &$createdRequests,
+                        $orderCostsByOrderId
                     ) {
                         if ($workReport->adsform()->exists()) {
                             return;
+                        }
+
+                        if (!empty($orderCostsByOrderId)) {
+                            foreach ($orderCostsByOrderId as $orderId => $serviceCost) {
+                                DB::table('orders')
+                                    ->where('id', $orderId)
+                                    ->update([
+                                        'service_cost' => round((float) $serviceCost, 2),
+                                        'updated_at' => now(),
+                                    ]);
+                            }
                         }
 
                         Adsform::create([
@@ -160,7 +189,7 @@ class GenerateTacitAds extends Command
                             ->where('note_id', $workReport->note_id)
                             ->max('version');
 
-                        foreach ($defaultRecipients as $recipientUserId) {
+                        foreach ($recipientIds as $recipientUserId) {
                             $version++;
 
                             $request = AdsRequest::query()->create([
@@ -195,8 +224,8 @@ class GenerateTacitAds extends Command
             $bar->finish();
             $this->newLine();
 
-            if ($defaultRecipients->isEmpty()) {
-                $this->warn('Nenhum destinatário padrão configurado em ADS automática. Apenas ADS tácita seria criada.');
+            if ($defaultRecipients->isEmpty() && !$defaultServiceId) {
+                $this->warn('Nenhum destinatário padrão configurado e nenhum serviço padrão definido para roteamento por produção. Apenas ADS tácita seria criada.');
             }
 
             $this->info("Candidatos processados: {$candidates}");
@@ -238,6 +267,49 @@ class GenerateTacitAds extends Command
         }
     }
 
+    /**
+     * @param array<string,float> $orderCostCache
+     * @return array<int,float>
+     */
+    private function resolveOrderCostsForWorkReport(int $workReportId, array &$orderCostCache): array
+    {
+        $orders = DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
+            ->where('owr.work_report_id', $workReportId)
+            ->where('o.canceled', false)
+            ->where('o.statusSist', 'not like', 'CANC%')
+            ->where('o.statusSist', 'not like', 'ENT%')
+            ->where('o.statusSist', 'not like', 'ENC%')
+            ->select('o.id', 'o.ordem')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return [];
+        }
+
+        $orderNumbers = $orders->pluck('ordem')->filter()->unique()->values()->all();
+        $missingOrders = array_values(array_diff($orderNumbers, array_keys($orderCostCache)));
+
+        if (!empty($missingOrders)) {
+            $loadedCosts = BaseCosts::query()
+                ->whereIn('ordem', $missingOrders)
+                ->select('ordem', DB::raw('SUM(qtdNecessaria * preco) as base_cost'))
+                ->groupBy('ordem')
+                ->pluck('base_cost', 'ordem');
+
+            foreach ($missingOrders as $orderNumber) {
+                $orderCostCache[$orderNumber] = round((float) ($loadedCosts[$orderNumber] ?? 0), 2);
+            }
+        }
+
+        $costsByOrderId = [];
+        foreach ($orders as $order) {
+            $costsByOrderId[(int) $order->id] = (float) ($orderCostCache[$order->ordem] ?? 0);
+        }
+
+        return $costsByOrderId;
+    }
+
     private function mirrorToSqlServer(AdsRequest $request, string $noteNumber): bool
     {
         try {
@@ -268,5 +340,28 @@ class GenerateTacitAds extends Command
             report($exception);
             return false;
         }
+    }
+
+    private function resolveRecipientsForNote(int $noteId, ?string $serviceId, \Illuminate\Support\Collection $defaultRecipients): \Illuminate\Support\Collection
+    {
+        if (!$serviceId) {
+            return $defaultRecipients;
+        }
+
+        $assignedUserId = Production::query()
+            ->where('note_id', $noteId)
+            ->where('service_id', $serviceId)
+            ->where('status', 2)
+            ->where('completed', false)
+            ->whereNotNull('user_id')
+            ->orderByDesc('att_at')
+            ->orderByDesc('id')
+            ->value('user_id');
+
+        if ($assignedUserId) {
+            return collect([$assignedUserId]);
+        }
+
+        return $defaultRecipients;
     }
 }

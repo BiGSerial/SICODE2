@@ -83,6 +83,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
 
 Route::prefix('/config')->controller(ConfigController::class)->name('config.')->middleware('auth')->middleware('can:admin')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::prefix('/system')->name('system.')->group(function () {
+        Route::get('/status', 'systemStatus')->name('status');
+        Route::get('/history', 'systemHistory')->name('history');
+    });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
     Route::prefix('/system')->name('system.')->group(function () {
@@ -174,6 +178,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
     Route::get('/return_intern/list', 'return_intern_list')->middleware('can:management')->name('return_intern_list');
     Route::get('/workreports', 'workreports')->name('workreport');
+    Route::get('/informe_ads_tacita', 'informeAdsTacita')->name('informe_ads_tacita');
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');

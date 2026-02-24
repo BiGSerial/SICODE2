@@ -173,18 +173,18 @@ class User extends Authenticatable
         bool $includeDelegations = true,
         bool $includeDelegatesTreesForPrincipal = false
     ): Collection {
-        $ancestorIds = static::visibleAncestorIdsFor(
+        $viewerIds = static::visibleAncestorIdsFor(
             $viewerIdOrAncestorId,
             $includeDelegations,
             $includeDelegatesTreesForPrincipal
         );
 
-        return DB::table('user_closure as uc')
-            ->whereIn('uc.ancestor_id', $ancestorIds)
-            ->when(!$includeSelf, fn ($q) => $q->where('uc.depth', '>', 0))
+        return DB::table('user_visibility_current as uv')
+            ->whereIn('uv.viewer_id', $viewerIds)
+            ->when(!$includeSelf, fn ($q) => $q->where('uv.depth', '>', 0))
             ->distinct()
-            ->orderBy('uc.depth')
-            ->pluck('uc.depth')
+            ->orderBy('uv.depth')
+            ->pluck('uv.depth')
             ->map(fn ($d) => (int) $d)
             ->values();
     }
@@ -196,16 +196,16 @@ class User extends Authenticatable
         bool $includeDelegations = true,
         bool $includeDelegatesTreesForPrincipal = false
     ): Builder {
-        $ancestorIds = static::visibleAncestorIdsFor(
+        $viewerIds = static::visibleAncestorIdsFor(
             $viewerIdOrAncestorId,
             $includeDelegations,
             $includeDelegatesTreesForPrincipal
         );
 
         return static::query()
-            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
-            ->whereIn('uc.ancestor_id', $ancestorIds)
-            ->where('uc.depth', $depth)
+            ->join('user_visibility_current as uv', 'uv.descendant_id', '=', 'users.id')
+            ->whereIn('uv.viewer_id', $viewerIds)
+            ->where('uv.depth', $depth)
             ->when(
                 in_array(SoftDeletes::class, class_uses_recursive(static::class)),
                 fn ($q) => $q->whereNull('users.deleted_at')
@@ -296,6 +296,16 @@ class User extends Authenticatable
         return $this->hasMany(UserDelegation::class, 'delegate_id');
     }
 
+    public function observationsGiven(): HasMany
+    {
+        return $this->hasMany(UserObservation::class, 'observer_id');
+    }
+
+    public function observationsReceived(): HasMany
+    {
+        return $this->hasMany(UserObservation::class, 'target_id');
+    }
+
     public function getAvatarUrlAttribute(): string
     {
         if ($this->avatar) {
@@ -334,14 +344,14 @@ class User extends Authenticatable
         bool $includeDelegations = false,
         bool $includeDelegatesTreesForPrincipal = false
     ): Builder {
-        $ancestorIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
+        $viewerIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
 
         $q = static::query()
-            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
-            ->whereIn('uc.ancestor_id', $ancestorIds)
-            ->when(!$includeSelf, fn ($q2) => $q2->where('uc.depth', '>', 0))
+            ->join('user_visibility_current as uv', 'uv.descendant_id', '=', 'users.id')
+            ->whereIn('uv.viewer_id', $viewerIds)
+            ->when(!$includeSelf, fn ($q2) => $q2->where('uv.depth', '>', 0))
             ->when(in_array(SoftDeletes::class, class_uses_recursive(static::class)), fn ($q2) => $q2->whereNull('users.deleted_at'))
-            ->select('users.*', 'uc.depth')
+            ->select('users.*', 'uv.depth')
             ->distinct();
 
         return $q;
@@ -372,24 +382,24 @@ class User extends Authenticatable
 
     public function depthsAvailable(bool $includeSelf = false, bool $includeDelegations = true, bool $includeDelegatesTreesForPrincipal = false): Collection
     {
-        $ancestorIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
+        $viewerIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
 
-        return DB::table('user_closure as uc')
-            ->whereIn('uc.ancestor_id', $ancestorIds)
-            ->when(!$includeSelf, fn ($q) => $q->where('uc.depth', '>', 0))
+        return DB::table('user_visibility_current as uv')
+            ->whereIn('uv.viewer_id', $viewerIds)
+            ->when(!$includeSelf, fn ($q) => $q->where('uv.depth', '>', 0))
             ->distinct()
-            ->orderBy('uc.depth')
-            ->pluck('uc.depth');
+            ->orderBy('uv.depth')
+            ->pluck('uv.depth');
     }
 
     public function descendantsAtLevel(int $depth, bool $includeDelegations = true, bool $includeDelegatesTreesForPrincipal = false): Builder
     {
-        $ancestorIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
+        $viewerIds = $this->visibleAncestorIds($includeDelegations, $includeDelegatesTreesForPrincipal);
 
         return static::query()
-            ->join('user_closure as uc', 'uc.descendant_id', '=', 'users.id')
-            ->whereIn('uc.ancestor_id', $ancestorIds)
-            ->where('uc.depth', $depth)
+            ->join('user_visibility_current as uv', 'uv.descendant_id', '=', 'users.id')
+            ->whereIn('uv.viewer_id', $viewerIds)
+            ->where('uv.depth', $depth)
             ->when(in_array(SoftDeletes::class, class_uses_recursive(static::class)), fn ($q) => $q->whereNull('users.deleted_at'))
             ->select('users.*')
             ->distinct();
@@ -401,10 +411,27 @@ class User extends Authenticatable
      */
     public function canSeeUser(string $targetUserId): bool
     {
+        $viewerIds = $this->visibleAncestorIds(true, false);
+
         return DB::table('user_visibility_current')
-            ->where('viewer_id', $this->id)
+            ->whereIn('viewer_id', $viewerIds)
             ->where('descendant_id', $targetUserId)
             ->exists();
+    }
+
+    /**
+     * IDs de usuários que este usuário pode operar (si + hierarquia + delegações + observações vigentes).
+     */
+    public function visibleUserIdsForWork(): Collection
+    {
+        return $this->descendantsQuery(
+            includeSelf: true,
+            includeDelegations: true,
+            includeDelegatesTreesForPrincipal: false
+        )
+            ->pluck('users.id')
+            ->unique()
+            ->values();
     }
 
 }

@@ -5,8 +5,10 @@ namespace App\Http\Livewire\Admin\Hierarchy;
 use App\Models\Company;
 use App\Models\User;
 use App\Models\UserDelegation;
+use App\Models\UserObservation;
 use App\Services\HierarchyService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -39,6 +41,17 @@ class Board extends Component
 
     public ?string $delegationId = null;
 
+    // Modal observação
+    public ?string $obs_observer_id = null;
+    public ?string $obs_target_id = null;
+    public string $obs_mode = 'subtree';
+    public ?string $obs_from = null;
+    public ?string $obs_to = null;
+    public string $obs_reason = '';
+    public string $obsTargetSearch = '';
+
+    public ?string $observationId = null;
+
     protected $queryString = [
         'leftSearch'        => ['except' => ''],
         'treeSearch'        => ['except' => ''],
@@ -49,6 +62,8 @@ class Board extends Component
     protected $listeners = [
         '000_finalizeDelegation' => 'finalizeDelegation',
         '000_removeDelegation'   => 'deleteDelegation',
+        '000_finalizeObservation' => 'finalizeObservation',
+        '000_removeObservation'   => 'deleteObservation',
     ];
 
     public function updated($propertyName)
@@ -282,13 +297,14 @@ class Board extends Component
 
         // índice de delegações ativas por titular
         $delegIdx = $this->activeDelegationsIndex;
+        $observationCounts = $this->activeObservationCounts;
 
         $byManager = [];
         foreach ($allActiveUsers as $u) {
             $byManager[$u->manager_id ?? 'ROOT'][] = $u;
         }
 
-        $buildSubtree = function ($parentId) use (&$buildSubtree, &$byManager, $delegIdx, $allActiveUsers) {
+        $buildSubtree = function ($parentId) use (&$buildSubtree, &$byManager, $delegIdx, $allActiveUsers, $observationCounts) {
             $nodes = [];
             foreach ($byManager[$parentId] ?? [] as $u) {
                 // overlay de delegação (se o "u" estiver delegando sua função)
@@ -303,6 +319,7 @@ class Board extends Component
                     'name'         => $displayName,       // mostra o delegado ocupando a função
                     'email'        => $displayEmail,
                     'company_name' => $u->company->name ?? null,
+                    'observing_count' => (int) ($observationCounts[(string) $u->id] ?? 0),
                     'delegation'   => ($deleg && $delegateUser) ? [
                         'principal' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
                         'delegate'  => ['id' => $delegateUser->id, 'name' => $delegateUser->name, 'email' => $delegateUser->email],
@@ -333,6 +350,7 @@ class Board extends Component
                     'name'         => $delegateM->name  ?? $manager->name,
                     'email'        => $delegateM->email ?? $manager->email,
                     'company_name' => $manager->company->name ?? null,
+                    'observing_count' => (int) ($observationCounts[(string) $manager->id] ?? 0),
                     'delegation'   => ($delegM && $delegateM) ? [
                         'principal' => ['id' => $manager->id, 'name' => $manager->name, 'email' => $manager->email],
                         'delegate'  => ['id' => $delegateM->id, 'name' => $delegateM->name, 'email' => $delegateM->email],
@@ -352,6 +370,7 @@ class Board extends Component
             'name'         => $delegateF->name  ?? $focusedUser->name,
             'email'        => $delegateF->email ?? $focusedUser->email,
             'company_name' => $focusedUser->company->name ?? null,
+            'observing_count' => (int) ($observationCounts[(string) $focusedUser->id] ?? 0),
             'delegation'   => ($delegF && $delegateF) ? [
                 'principal' => ['id' => $focusedUser->id, 'name' => $focusedUser->name, 'email' => $focusedUser->email],
                 'delegate'  => ['id' => $delegateF->id, 'name' => $delegateF->name, 'email' => $delegateF->email],
@@ -379,13 +398,14 @@ class Board extends Component
 
         $allActiveUsers = $q->get();
         $delegIdx = $this->activeDelegationsIndex;
+        $observationCounts = $this->activeObservationCounts;
 
         $byManager = [];
         foreach ($allActiveUsers as $u) {
             $byManager[$u->manager_id ?? 'ROOT'][] = $u;
         }
 
-        $buildTree = function ($parentId) use (&$buildTree, &$byManager, $delegIdx, $allActiveUsers) {
+        $buildTree = function ($parentId) use (&$buildTree, &$byManager, $delegIdx, $allActiveUsers, $observationCounts) {
             $nodes = [];
             foreach ($byManager[$parentId] ?? [] as $u) {
                 $deleg = $delegIdx[(string)$u->id] ?? null;
@@ -399,6 +419,7 @@ class Board extends Component
                     'name'         => $displayName,
                     'email'        => $displayEmail,
                     'company_name' => $u->company->name ?? null,
+                    'observing_count' => (int) ($observationCounts[(string) $u->id] ?? 0),
                     'delegation'   => ($deleg && $delegateUser) ? [
                         'principal' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
                         'delegate'  => ['id' => $delegateUser->id, 'name' => $delegateUser->name, 'email' => $delegateUser->email],
@@ -533,6 +554,206 @@ class Board extends Component
         return $map;
     }
 
+    public function getActiveObservationCountsProperty(): array
+    {
+        return UserObservation::query()
+            ->active()
+            ->select('observer_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('observer_id')
+            ->pluck('total', 'observer_id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+    }
+
+    public function getActiveObservationsProperty(): Collection
+    {
+        if (!$this->selectedManagerId) {
+            return collect();
+        }
+
+        return UserObservation::query()
+            ->where('observer_id', $this->selectedManagerId)
+            ->active()
+            ->with('target:id,name,email')
+            ->orderByDesc('valid_from')
+            ->get();
+    }
+
+    public function openObservation(): void
+    {
+        if (!$this->selectedManagerId) {
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'warning',
+                'msg' => 'Selecione um usuário para criar uma observação.',
+            ]);
+            return;
+        }
+
+        $this->obs_observer_id = $this->selectedManagerId;
+        $this->obs_target_id = null;
+        $this->obs_mode = 'subtree';
+        $this->obs_from = now()->toDateString();
+        $this->obs_to = null;
+        $this->obs_reason = '';
+        $this->obsTargetSearch = '';
+
+        $this->dispatchBrowserEvent('show-observation-modal');
+    }
+
+    public function saveObservation(): void
+    {
+        $this->resetValidation();
+
+        $this->validate([
+            'obs_observer_id' => ['required', 'exists:users,id', 'different:obs_target_id'],
+            'obs_target_id' => ['required', 'exists:users,id', 'different:obs_observer_id'],
+            'obs_mode' => ['required', 'in:subtree,node_only'],
+            'obs_from' => ['required', 'date'],
+            'obs_to' => ['nullable', 'date', 'after_or_equal:obs_from'],
+        ], [
+            'obs_observer_id.required' => 'O usuário observador é obrigatório.',
+            'obs_observer_id.different' => 'O observador não pode observar a si mesmo.',
+            'obs_target_id.required' => 'O usuário alvo é obrigatório.',
+            'obs_target_id.different' => 'O alvo não pode ser o próprio observador.',
+            'obs_mode.required' => 'O modo de observação é obrigatório.',
+            'obs_mode.in' => 'Modo de observação inválido.',
+            'obs_from.required' => 'A data de início é obrigatória.',
+            'obs_to.after_or_equal' => 'A data de fim deve ser igual ou posterior à data de início.',
+        ]);
+
+        UserObservation::updateOrCreate(
+            [
+                'observer_id' => (string) $this->obs_observer_id,
+                'target_id' => (string) $this->obs_target_id,
+                'mode' => $this->obs_mode,
+                'valid_from' => $this->obs_from . ' 00:00:00',
+            ],
+            [
+                'valid_to' => $this->obs_to ? ($this->obs_to . ' 23:59:59') : null,
+                'reason' => $this->obs_reason ?: 'Observação de equipe',
+            ]
+        );
+
+        $this->dispatchBrowserEvent('hide-observation-modal');
+        $this->dispatchBrowserEvent('toast', ['type' => 'success', 'msg' => 'Observação registrada.']);
+        $this->emit('$refresh');
+    }
+
+    public function getObservationTargetsProperty()
+    {
+        $q = User::query()
+            ->select('id', 'name', 'email')
+            ->whereNull('deleted_at');
+
+        if ($this->obs_observer_id) {
+            $q->where('id', '!=', $this->obs_observer_id);
+        }
+
+        if ($s = trim($this->obsTargetSearch)) {
+            $terms = preg_split('/[\s,;\n\r]+/', $s, -1, PREG_SPLIT_NO_EMPTY);
+            $q->where(function ($w) use ($terms) {
+                foreach ($terms as $t) {
+                    $w->orWhere('name', 'like', "%{$t}%")
+                        ->orWhere('email', 'like', "%{$t}%");
+                }
+            });
+        }
+
+        return $q->orderBy('name')->limit(30)->get();
+    }
+
+    public function toFinalizeObservation(string $observationId): void
+    {
+        $this->observationId = $observationId;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Finalizar Observação',
+            'msg' => 'Você deseja finalizar esta observação agora?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, Finalizar!',
+            'btnCanceltxt' => 'Não, Cancele',
+            'action' => '000_finalizeObservation',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg' => 'Nenhuma observação foi finalizada.',
+        ]);
+    }
+
+    public function finalizeObservation(): void
+    {
+        if (!$this->observationId) {
+            return;
+        }
+
+        try {
+            $obs = UserObservation::findOrFail($this->observationId);
+
+            if ($obs->valid_to && $obs->valid_to->lt(now())) {
+                $this->dispatchBrowserEvent('toast', [
+                    'type' => 'info',
+                    'msg' => 'Esta observação já está finalizada.',
+                ]);
+                return;
+            }
+
+            $obs->valid_to = now()->subSecond();
+            $obs->save();
+
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'success',
+                'msg' => 'Observação finalizada.',
+            ]);
+            $this->emit('$refresh');
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'error',
+                'msg' => 'Não foi possível finalizar a observação: ' . $e->getMessage(),
+            ]);
+        }
+
+        $this->observationId = null;
+    }
+
+    public function toDeleteObservation(string $observationId): void
+    {
+        $this->observationId = $observationId;
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Remover Observação',
+            'msg' => 'Você deseja remover esta observação definitivamente?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, Remover!',
+            'btnCanceltxt' => 'Não, Cancele',
+            'action' => '000_removeObservation',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg' => 'Nenhuma observação foi removida.',
+        ]);
+    }
+
+    public function deleteObservation(): void
+    {
+        if (!$this->observationId) {
+            return;
+        }
+
+        try {
+            $obs = UserObservation::findOrFail($this->observationId);
+            $obs->delete();
+
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'success',
+                'msg' => 'Observação removida.',
+            ]);
+            $this->emit('$refresh');
+        } catch (\Throwable $e) {
+            $this->dispatchBrowserEvent('toast', [
+                'type' => 'error',
+                'msg' => 'Não foi possível remover a observação: ' . $e->getMessage(),
+            ]);
+        }
+
+        $this->observationId = null;
+    }
+
     public function toFinalizeDelegation(string $delegationId): void
     {
         $this->delegationId = $delegationId;
@@ -635,7 +856,9 @@ class Board extends Component
             'fullHierarchy'     => $this->fullHierarchy,
             'breadcrumb'        => $this->breadcrumb,
             'moveTargets'       => $this->moveTargets,
+            'observationTargets'=> $this->observationTargets,
             'delegations'       => $this->activeDelegations,
+            'observations'      => $this->activeObservations,
             'companies'         => Company::orderBy('name')->get(['id', 'name']),
         ]);
     }

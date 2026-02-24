@@ -13,16 +13,7 @@ class ViabInWaitingCount extends Component
         ->where('visible_partner', true);
 
         if (!auth()->user()->superadm) {
-
-
-            if (Auth()->user()->Companies->isNotEmpty() && Auth()->user()->engineer) {
-                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-
-            // $query->where('engineer_id', Auth()->user()->id);
-
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         return $query->count();

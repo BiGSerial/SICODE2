@@ -23,6 +23,14 @@
             color: #161718;
         }
 
+        .file-dropdown-item.blocked {
+            opacity: 0.55;
+            filter: grayscale(100%);
+            cursor: not-allowed;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
         .file-dropdown-item:hover {
             color: rgba(214, 43, 21, 0.979) !important;
             font-weight: bold;
@@ -61,6 +69,7 @@
 
 @if ($files?->isNotEmpty())
     @php
+        $isSuperAdm = auth()->user()?->superadm ?? false;
         $adsTacitFileIds = \Illuminate\Support\Facades\DB::table('adsforms_files as af')
             ->join('adsforms as a', 'a.id', '=', 'af.adsform_id')
             ->whereIn('af.file_id', $files->pluck('id')->all())
@@ -125,9 +134,10 @@
                 $isTacitAdsFile = in_array($file->id, $adsTacitFileIds, true);
             @endphp
             <li wire:key="file-{{ $file->id }}" class="text-center py-1">
-                @if ($isTacitAdsFile)
-                    <span class="file-dropdown-item text-center text-muted d-inline-flex align-items-center gap-1"
-                        title="Arquivo de ADS tácita. Download bloqueado nesta tela.">
+                @if ($isTacitAdsFile && !$isSuperAdm)
+                    <span
+                        class="file-dropdown-item blocked text-center text-muted d-inline-flex align-items-center gap-1"
+                        title="Arquivo de ADS tácita. Download bloqueado para usuário comum.">
                         <i class="{{ $icon }}"></i> {{ $file->file_name }}
                         <span class="badge bg-warning text-dark">TÁCITO</span>
                         <i class="ri-lock-line"></i>
@@ -136,6 +146,9 @@
                     <a class="file-dropdown-item text-center" href="#"
                         wire:click.prevent="downloadFile({{ $file->id }})" onclick="event.stopPropagation();">
                         <i class="{{ $icon }}"></i> {{ $file->file_name }}
+                        @if ($isTacitAdsFile && $isSuperAdm)
+                            <span class="badge bg-warning text-dark ms-1">TÁCITO</span>
+                        @endif
                     </a>
                 @endif
             </li>

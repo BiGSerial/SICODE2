@@ -70,4 +70,12 @@ class File extends Model
     {
         return $this->morphedByMany(External::class, 'fileable');
     }
+
+    public function isTacitAdsRestricted(): bool
+    {
+        return $this->Adsforms()
+            ->where('tacit', true)
+            ->whereNotNull('work_report_id')
+            ->exists();
+    }
 }

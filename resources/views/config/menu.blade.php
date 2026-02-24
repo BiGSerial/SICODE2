@@ -18,6 +18,16 @@
                             <i class="bi bi-circle"></i> <span>ADS AUTO DESTINATÁRIOS</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('config.system.status') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-circle"></i> <span>STATUS DO SERVIDOR</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('config.system.history') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-circle"></i> <span>HISTÓRICO DE CONFIGURAÇÕES</span>
+                        </a>
+                    </li>
 
 
                 </div>

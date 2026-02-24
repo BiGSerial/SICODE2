@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Services\Supervision;
 
-use App\Exports\ProductionServiceExport;
+use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
@@ -46,12 +46,26 @@ class Main extends Component
             ->firstOrFail();
     }
 
+    public function exportToExcel()
+    {
+        ExportSupervisionProductionListJob::dispatch([
+            'service_uuid'    => $this->service->uuid,
+            'request_user_id' => auth()->id(),
+            'target_user_id'  => $this->user_s ?: auth()->id(),
+            'search'          => $this->search,
+        ]);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'info',
+            'title'    => 'Exportação iniciada!',
+            'text'     => 'Você será notificado quando o arquivo estiver pronto.',
+        ]);
+    }
+
     public function export_excel()
     {
-        // Reaproveita a mesma query (sem paginação)
-        $rows = $this->baseQuery()->get();
-        return (new ProductionServiceExport($rows))
-            ->download(now()->format('YmdHis-') . 'production_services.xlsx');
+        return $this->exportToExcel();
     }
 
     public function goTransferProd($prod_id)
@@ -205,6 +219,7 @@ class Main extends Component
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('att_at', 'DESC')
             ->orderBy('status', 'ASC')
+            ->orderBy('productions.id', 'DESC')
 
             ->select([
                 'productions.id',

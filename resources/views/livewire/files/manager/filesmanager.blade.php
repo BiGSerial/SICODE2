@@ -2,6 +2,9 @@
     use Illuminate\Support\Facades\Storage;
 @endphp
 <div>
+    @php
+        $isSuperAdm = (bool) auth()->user()?->superadm;
+    @endphp
 
     <!-- Formulário de Busca e Seleção de Quantidade por Página -->
     <div class="row mb-3">
@@ -130,16 +133,20 @@
                         @foreach ($lists as $list)
                             @php
                                 $f_exists = Storage::exists($list->path);
+                                $isTacitRestricted = (bool) ($list->has_tacit_ads_restriction ?? false);
+                                $isBlockedForUser = !$isSuperAdm && $isTacitRestricted;
                             @endphp
                             <tr wire:key="fileRow-{{ $list->id }}"
                                 class="
                                 text-center align-middle
                                 @if (!$f_exists) table-warning @endif
-
-                            ">
+                                @if ($isBlockedForUser) table-secondary @endif
+                            "
+                                @if ($isBlockedForUser) style="opacity: .6;" @endif>
                                 <td class="text-center align-middle">
                                     <input type="checkbox" class="form-check-input" wire:model.defer="selectedFiles"
-                                        value="{{ $list->id }}">
+                                        value="{{ $list->id }}" @disabled($isBlockedForUser)
+                                        title="{{ $isBlockedForUser ? 'ADS tácita: seleção bloqueada para usuário comum.' : '' }}">
                                 </td>
                                 <td class="text-center align-middle">{{ $list->Note->note }}</td>
                                 <td class="text-center align-middle">{{ $list->file_name }}</td>
@@ -163,8 +170,13 @@
                                     <i class="ri-pencil-fill text-primary fs-5" style="cursor: pointer;"
                                         wire:click.prevent="$emitTo('files.manager.fileedit', 'editFile', {{ $list }})"></i>
                                     @if ($f_exists)
-                                        <i class="ri-download-cloud-2-line text-primary fs-5" style="cursor: pointer;"
-                                            wire:click.prevent="downloadFile({{ $list }})"></i>
+                                        @if ($isBlockedForUser)
+                                            <i class="ri-lock-2-line text-muted fs-5"
+                                                title="Download bloqueado para usuário comum (ADS tácita)."></i>
+                                        @else
+                                            <i class="ri-download-cloud-2-line text-primary fs-5" style="cursor: pointer;"
+                                                wire:click.prevent="downloadFile({{ $list }})"></i>
+                                        @endif
                                     @endif
                                     <i class="ri-upload-cloud-2-fill text-primary fs-5" style="cursor: pointer;"
                                         wire:click.prevent="$emitTo('files.manager.createfiles', 'createFile', {{ $list->Note }})"></i>

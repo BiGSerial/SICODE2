@@ -29,6 +29,11 @@ class ReportsController extends Controller
         return view('reports.workreports');
     }
 
+    public function informeAdsTacita()
+    {
+        return view('reports.informe-ads-tacita');
+    }
+
     public function rejectedWorkReports()
     {
         return view('reports.rejectedworkedreports');

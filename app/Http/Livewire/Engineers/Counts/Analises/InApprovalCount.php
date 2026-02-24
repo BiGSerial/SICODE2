@@ -21,7 +21,7 @@ class InApprovalCount extends Component
         $query->whereHas('Approval', function ($q) {
             $q->where('approved', false);
             if (!$this->engineer) {
-                $q->where('user_id', auth()->id());
+                $q->whereIn('user_id', auth()->user()->visibleUserIdsForWork());
             }
         });
 

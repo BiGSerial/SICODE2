@@ -59,7 +59,9 @@ class Show extends Component
             'EngineerApprovalDecider',
         ])->findOrFail($this->requestId);
 
-        if ((string) $this->cancellationRequest->engineer_approver_id !== (string) Auth::id()) {
+        $visibleUserIds = Auth::user()?->visibleUserIdsForWork() ?? collect();
+
+        if (!$visibleUserIds->contains((string) $this->cancellationRequest->engineer_approver_id)) {
             abort(403);
         }
     }

@@ -27,6 +27,7 @@ class Order extends Model
         'conjunto',
         'denConjunto',
         'dtEntrada',
+        'service_cost',
         'canceled',
         'canceled_at',
         'canceled_by',
@@ -35,6 +36,7 @@ class Order extends Model
     protected $casts = [
         'canceled' => 'boolean',
         'canceled_at' => 'datetime',
+        'service_cost' => 'decimal:2',
     ];
 
     public function Note()

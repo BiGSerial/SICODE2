@@ -106,7 +106,7 @@ class ReturnInternList extends Component
         }
 
         if (!auth()->user()->superadm) {
-            $query->where('engineer_id', auth()->user()->id);
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         // Eager load do último Reclaim

@@ -19,7 +19,7 @@ class ViabJustifyCount extends Component
 
         if (!auth()->user()->superadm) {
 
-            $query->where('engineer_id', Auth()->user()->id);
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         return $query->count();

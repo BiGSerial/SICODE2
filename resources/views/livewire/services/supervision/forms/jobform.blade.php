@@ -13,7 +13,7 @@
                 $hasD5Reason = !empty($return['reason'] ?? null);
                 $hasConclusion = !empty($analise['conclusion'] ?? null);
                 $canFinish = ($d5Selected && $hasConclusion && (!$needD5Reason || $hasD5Reason)) || $production->dfive;
-
+                $isInRevision = (bool) ($production->Note->WorkForm?->rejected);
             @endphp
 
             <div class="modal-content">
@@ -569,6 +569,31 @@
                                 }
                             </style>
 
+                        @endif
+
+                        @if ($isInRevision)
+                            <div class="alert alert-warning shadow-sm border-0 rounded-3 mb-3">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="ri-error-warning-line fs-5 mt-1"></i>
+                                    <div class="w-100">
+                                        <h6 class="mb-2">Informe em revisão</h6>
+                                        <p class="mb-2">Este informe foi retornado e está em revisão. A finalização permanece liberada.</p>
+
+                                        <div class="small">
+                                            <div><strong>Por quê:</strong> {{ $lastReturnwork->category ?? 'Não informado' }}</div>
+                                            <div class="mt-1"><strong>Motivo:</strong></div>
+                                            <div class="p-2 bg-light rounded border mt-1">
+                                                {!! nl2br(e($lastReturnwork->text_obs ?? 'Não informado')) !!}
+                                            </div>
+                                            <div class="mt-2 text-muted">
+                                                Último retorno:
+                                                {{ optional($lastReturnwork->created_at)->format('d/m/Y H:i') ?? '-' }}
+                                                por {{ $lastReturnwork->User->name ?? 'Sistema' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         @endif
 
                         {{-- BLOCO: Encerramento / Métricas --}}

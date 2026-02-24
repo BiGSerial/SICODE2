@@ -390,6 +390,7 @@ class ApprovalList extends Component
         return $query
             ->orderBy('is45', 'DESC')
             ->orderBy('dt_status', 'ASC')
+            ->orderBy('id', 'ASC')
             ->paginate(50);
     }
 

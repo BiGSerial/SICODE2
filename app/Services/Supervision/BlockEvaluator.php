@@ -34,7 +34,7 @@ class BlockEvaluator
 
         // ===== 0) SEM PRODUÇÃO NO BANCO =====
         if (!$prod) {
-            if ($wf && ($wf->reject ?? false)) {
+            if ($wf && ($wf->rejected ?? false)) {
                 return $this->res(self::HOLD_YELLOW, false, 'workform_rejeitado');
             }
             if ($validPartial) {
@@ -71,11 +71,18 @@ class BlockEvaluator
 
         // --- Regras para WorkForm ---
         if ($wf) {
-            if ($wf->reject ?? false) {
+            if ($wf->rejected ?? false) {
                 return $this->res(self::HOLD_YELLOW, false, 'workform_rejeitado_producao_concluida', $prod);
             }
 
             $wfMark = $wf->informed_at ?? $wf->created_at;
+            $prodMark = $prod->completed_at ?? $prod->created_at;
+
+            // Se o informe foi reenviado após a última produção finalizada,
+            // libera nova fiscalização.
+            if ($wfMark && $prodMark && $wfMark > $prodMark) {
+                return $this->res(self::FREE, true, 'workform_reinformado_pos_producao_concluida', $prod);
+            }
 
             if ($wfMark && !$prod->partial) {
                 // Caso específico de OV (tipo 2)
