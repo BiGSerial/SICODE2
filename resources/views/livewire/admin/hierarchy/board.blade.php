@@ -183,7 +183,13 @@
                                                     @else
                                                         <span></span>
                                                     @endif
-                                                    <span></span>
+                                                    @if (($mgr['observing_count'] ?? 0) > 0)
+                                                        <span class="badge bg-info text-dark small-badge">
+                                                            OBS: {{ $mgr['observing_count'] }}
+                                                        </span>
+                                                    @else
+                                                        <span></span>
+                                                    @endif
                                                 </div>
                                                 <div class="node-body">
                                                     <div class="node-title">{{ $mgr['name'] }}</div>
@@ -207,6 +213,14 @@
                                                                 {{ data_get($mgrDeleg, 'principal.name') }}</span>
                                                         </div>
                                                     @endif
+
+                                                    @if (($mgr['observing_count'] ?? 0) > 0)
+                                                        <div class="mt-1">
+                                                            <span class="chip-with">
+                                                                Observa {{ $mgr['observing_count'] }} vínculo(s)
+                                                            </span>
+                                                        </div>
+                                                    @endif
                                                 </div>
 
                                             </div>
@@ -228,8 +242,15 @@
                                                 @else
                                                     <span></span>
                                                 @endif
-                                                <span
-                                                    class="badge bg-primary px-2 py-1 shadow-sm small-badge">FOCO</span>
+                                                <span class="d-inline-flex gap-1">
+                                                    @if (($focusedHierarchy['focusedUser']['observing_count'] ?? 0) > 0)
+                                                        <span class="badge bg-info text-dark small-badge">
+                                                            OBS: {{ $focusedHierarchy['focusedUser']['observing_count'] }}
+                                                        </span>
+                                                    @endif
+                                                    <span
+                                                        class="badge bg-primary px-2 py-1 shadow-sm small-badge">FOCO</span>
+                                                </span>
                                             </div>
                                             <div class="node-body">
                                                 <div class="node-title">{{ $focusedHierarchy['focusedUser']['name'] }}
@@ -262,6 +283,16 @@
                                                                 <span class="chip-with"> de {{ $fuOther }}</span>
                                                             @endif
                                                         @endif
+                                                    </div>
+                                                @endif
+
+                                                @if (($focusedHierarchy['focusedUser']['observing_count'] ?? 0) > 0)
+                                                    <div class="mt-1">
+                                                        <span class="chip-with">
+                                                            Observa
+                                                            {{ $focusedHierarchy['focusedUser']['observing_count'] }}
+                                                            vínculo(s)
+                                                        </span>
                                                     </div>
                                                 @endif
                                             </div>
@@ -414,6 +445,10 @@
                             <button class="btn btn-success btn-sm" wire:click="openDelegation">
                                 <i class="bi bi-person-check-fill me-2"></i> Criar Nova Delegação...
                             </button>
+
+                            <button class="btn btn-info btn-sm text-dark" wire:click="openObservation">
+                                <i class="bi bi-eye-fill me-2"></i> Criar Nova Observação...
+                            </button>
                         </div>
                     @else
                         <div class="text-white-50 text-center p-3">Detalhes do usuário selecionado não encontrados.
@@ -427,7 +462,7 @@
         </div>
 
         {{-- Card de Delegações Ativas --}}
-        <div class="card bg-secondary text-white flex-grow-1 overflow-auto">
+        <div class="card bg-secondary text-white mb-3 flex-grow-1 overflow-auto">
             <div class="card-header bg-secondary border-bottom border-light-subtle">
                 <h6 class="mb-0">Delegações Ativas</h6>
             </div>
@@ -470,6 +505,55 @@
                         </div>
                     @empty
                         <div class="text-white-50 text-center p-2">Nenhuma delegação ativa para este usuário.</div>
+                    @endforelse
+                @endif
+            </div>
+        </div>
+
+        {{-- Card de Observações Ativas --}}
+        <div class="card bg-secondary text-white flex-grow-1 overflow-auto">
+            <div class="card-header bg-secondary border-bottom border-light-subtle">
+                <h6 class="mb-0">Observações Ativas do Focado</h6>
+            </div>
+            <div class="card-body p-2">
+                @if (!$selectedManagerId)
+                    <div class="text-white-50 text-center p-2">Selecione um usuário para ver as observações.</div>
+                @else
+                    @forelse($observations as $o)
+                        <div class="bg-dark border border-primary rounded p-2 mb-2 text-white shadow-sm">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                <div>
+                                    <div class="small">Alvo: <strong>{{ data_get($o, 'target.name') }}</strong></div>
+                                    <div class="small text-muted">{{ data_get($o, 'target.email') }}</div>
+                                    <div class="small mt-1">
+                                        Modo:
+                                        <span class="badge {{ $o->mode === 'subtree' ? 'bg-primary' : 'bg-warning text-dark' }}">
+                                            {{ $o->mode === 'subtree' ? 'Subárvore' : 'Somente Nó' }}
+                                        </span>
+                                    </div>
+                                    <div class="small text-muted">
+                                        {{ $o->valid_from->format('d/m/Y') }} —
+                                        {{ $o->valid_to ? $o->valid_to->format('d/m/Y') : 'sem fim' }}
+                                    </div>
+                                    <div class="small text-muted">Motivo: {{ $o->reason ?: '—' }}</div>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-warning btn-sm"
+                                        wire:click="toFinalizeObservation('{{ $o->id }}')"
+                                        title="Finalizar agora esta observação">
+                                        Finalizar
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm"
+                                        wire:click="toDeleteObservation('{{ $o->id }}')"
+                                        title="Remover esta observação definitivamente">
+                                        Remover
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-white-50 text-center p-2">Nenhuma observação ativa para este usuário.</div>
                     @endforelse
                 @endif
             </div>
@@ -588,6 +672,99 @@
                 <button class="btn btn-sm btn-success" wire:click="saveDelegation" wire:loading.attr="disabled"
                     wire:target="saveDelegation" @disabled(!$dlg_principal_id || !$dlg_delegate_id || !$dlg_from)>
                     Salvar Delegação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Modal Observação --}}
+<div class="modal fade" id="obsModal" tabindex="-1" wire:ignore.self>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-dark">
+                <h6 class="modal-title"><i class="bi bi-eye-fill me-2"></i> Registrar Nova Observação</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light text-dark">
+                <div class="mb-2">
+                    <label class="form-label small">Observador</label>
+                    <select
+                        class="form-select form-select-sm bg-white text-dark @error('obs_observer_id') is-invalid @enderror"
+                        wire:model="obs_observer_id" disabled>
+                        <option value="{{ $obs_observer_id }}">
+                            {{ \App\Models\User::find($obs_observer_id)?->name ?? 'Nenhum selecionado' }}
+                        </option>
+                    </select>
+                    @error('obs_observer_id')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small">Buscar alvo</label>
+                    <input class="form-control form-control-sm bg-white text-dark" wire:model.debounce.300ms="obsTargetSearch"
+                        placeholder="Nome ou e-mail do alvo...">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small">Alvo observado</label>
+                    <select class="form-select form-select-sm bg-white text-dark @error('obs_target_id') is-invalid @enderror"
+                        wire:model="obs_target_id">
+                        <option value="">— selecione o alvo —</option>
+                        @foreach ($observationTargets as $u)
+                            <option value="{{ $u->id }}">{{ $u->name }} — {{ $u->email }}</option>
+                        @endforeach
+                    </select>
+                    @error('obs_target_id')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small">Modo de observação</label>
+                    <select class="form-select form-select-sm bg-white text-dark @error('obs_mode') is-invalid @enderror"
+                        wire:model="obs_mode">
+                        <option value="subtree">Subárvore (alvo + abaixo dele)</option>
+                        <option value="node_only">Somente o alvo</option>
+                    </select>
+                    @error('obs_mode')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="row g-2">
+                    <div class="col">
+                        <label class="form-label small">Início</label>
+                        <input type="date"
+                            class="form-control form-control-sm bg-white text-dark @error('obs_from') is-invalid @enderror"
+                            wire:model="obs_from">
+                        @error('obs_from')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col">
+                        <label class="form-label small">Fim (Opcional)</label>
+                        <input type="date"
+                            class="form-control form-control-sm bg-white text-dark @error('obs_to') is-invalid @enderror"
+                            wire:model="obs_to">
+                        @error('obs_to')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="mt-2">
+                    <label class="form-label small">Motivo</label>
+                    <input class="form-control form-control-sm bg-white text-dark" wire:model="obs_reason"
+                        placeholder="Ex: suporte temporário, cobertura de equipe...">
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0">
+                <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-sm btn-info text-dark" wire:click="saveObservation" wire:loading.attr="disabled"
+                    wire:target="saveObservation" @disabled(!$obs_observer_id || !$obs_target_id || !$obs_from)>
+                    Salvar Observação
                 </button>
             </div>
         </div>
@@ -835,6 +1012,28 @@
         line-height: 1.2;
     }
 
+    .chip-delegate {
+        display: inline-block;
+        background: #d1ecf1;
+        border: 1px solid #0dcaf0;
+        color: #0a4d57;
+        border-radius: 10rem;
+        padding: 2px 8px;
+        font-size: .72rem;
+        line-height: 1.2;
+    }
+
+    .chip-with {
+        display: inline-block;
+        background: #e2e3e5;
+        border: 1px solid #adb5bd;
+        color: #495057;
+        border-radius: 10rem;
+        padding: 2px 8px;
+        font-size: .72rem;
+        line-height: 1.2;
+    }
+
     /* Camada SVG */
     .org-lines {
         position: absolute;
@@ -977,9 +1176,11 @@
     document.addEventListener('livewire:load', () => {
         const mvModalEl = document.getElementById('mvModal');
         const dlgDelegationEl = document.getElementById('dlgDelegation');
+        const obsModalEl = document.getElementById('obsModal');
 
         const mvModal = new bootstrap.Modal(mvModalEl);
         const dlgDelegationModal = new bootstrap.Modal(dlgDelegationEl);
+        const obsModal = new bootstrap.Modal(obsModalEl);
 
         const leftOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('leftOffcanvas'));
         const rightOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(document.getElementById(
@@ -999,6 +1200,8 @@
         window.addEventListener('hide-move-modal', () => mvModal.hide());
         window.addEventListener('show-delegation-modal', () => dlgDelegationModal.show());
         window.addEventListener('hide-delegation-modal', () => dlgDelegationModal.hide());
+        window.addEventListener('show-observation-modal', () => obsModal.show());
+        window.addEventListener('hide-observation-modal', () => obsModal.hide());
 
         window.addEventListener('hide-left-offcanvas', () => leftOffcanvas.hide());
         window.addEventListener('hide-right-offcanvas', () => rightOffcanvas.hide());

@@ -152,17 +152,7 @@ class ViabList extends Component
             ->where('visible_partner', false);
 
         if (!auth()->user()->superadm) {
-
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->where(function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            } else {
-                $query->where('engineer_id', Auth()->user()->id);
-            }
-
-            // $query->where('engineer_id', Auth()->user()->id);
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         $query->with(['Note', 'Files', 'Engineer']);

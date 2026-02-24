@@ -6,9 +6,19 @@ use App\Http\Controllers\Controller;
 
 class ConfigController extends Controller
 {
+    public function systemStatus()
+    {
+        return view('config.system_status');
+    }
+
+    public function systemHistory()
+    {
+        return view('config.system_history');
+    }
+
     public function main()
     {
-        return view('config.main');
+        return redirect()->route('config.system.status');
     }
 
     public function services()

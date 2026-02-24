@@ -6,6 +6,8 @@ use Livewire\Component;
 
 class Sysspecs extends Component
 {
+    public int $maxPoints = 30; // limite de pontos historicos mantidos para os graficos
+
     // Discos
     public array $disks = [];
 
@@ -35,6 +37,13 @@ class Sysspecs extends Component
     // PHP atual
     public float $phpMemUsed = 0.0;
     public float $phpMemPeak = 0.0;
+
+    // Series para graficos realtime
+    public array $chartLabels = [];
+    public array $cpuSeries = [];
+    public array $memorySeries = [];
+    public array $swapSeries = [];
+    public array $loadSeries = [];
 
     // SO
     public string $osFamily = 'linux';
@@ -66,6 +75,8 @@ class Sysspecs extends Component
         $this->updateTopProcs();
         $this->updatePhpProcess();
         $this->updateCpuTempIfAvailable();
+        $this->updateRealtimeSeries();
+        $this->dispatchRealtimeCharts();
     }
 
     /* ===================== Sistema ===================== */
@@ -286,5 +297,39 @@ class Sysspecs extends Component
     {
         $ratio = $this->cpuCores > 0 ? ($load / $this->cpuCores) * 100 : 0;
         return $this->badgeClass($ratio);
+    }
+
+    private function updateRealtimeSeries(): void
+    {
+        $this->pushSeriesValue($this->chartLabels, now()->format('H:i:s'));
+        $this->pushSeriesValue($this->cpuSeries, round($this->cpuUsage, 1));
+
+        $memPct = $this->memTotal > 0 ? round(($this->memUsed / max(1, $this->memTotal)) * 100, 1) : 0;
+        $swapPct = $this->swapTotal > 0 ? round(($this->swapUsed / max(1, $this->swapTotal)) * 100, 1) : 0;
+
+        $this->pushSeriesValue($this->memorySeries, $memPct);
+        $this->pushSeriesValue($this->swapSeries, $swapPct);
+        $this->pushSeriesValue($this->loadSeries, round((float) ($this->load['1min'] ?? 0), 2));
+    }
+
+    private function pushSeriesValue(array &$series, float|int|string $value): void
+    {
+        $series[] = $value;
+        if (count($series) > $this->maxPoints) {
+            array_shift($series);
+        }
+    }
+
+    private function dispatchRealtimeCharts(): void
+    {
+        $this->dispatchBrowserEvent('config-sysspecs-realtime', [
+            'labels' => $this->chartLabels,
+            'cpu' => $this->cpuSeries,
+            'memory' => $this->memorySeries,
+            'swap' => $this->swapSeries,
+            'load' => $this->loadSeries,
+            'maxLoadScale' => max(1, round((float) ($this->cpuCores * 1.5), 1)),
+            'pointLimit' => $this->maxPoints,
+        ]);
     }
 }

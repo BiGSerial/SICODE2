@@ -157,10 +157,10 @@ class ViabList extends Component
             //         ->orWhere('company_id', Auth()->user()->Company->id);
             //     });
             // } else {
-            //     $query->where('engineer_id', Auth()->user()->id);
+            //     $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
             // }
 
-            $query->where('engineer_id', Auth()->user()->id);
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         $query->with(['Note', 'Files']);

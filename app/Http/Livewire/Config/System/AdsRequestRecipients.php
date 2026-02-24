@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Config\System;
 
 use App\Models\AdsRequestDefaultUser;
+use App\Models\Service;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Livewire\Component;
@@ -11,11 +12,13 @@ class AdsRequestRecipients extends Component
 {
     public string $search = '';
     public ?string $selectedUserId = null;
+    public ?string $selectedServiceId = null;
     public bool $testMode = false;
 
     public function mount(): void
     {
         $this->testMode = SystemSetting::getBool('ads_auto_test_mode', false);
+        $this->selectedServiceId = SystemSetting::getValue('ads_auto_default_service_id');
     }
 
     public function addRecipient(): void
@@ -58,6 +61,19 @@ class AdsRequestRecipients extends Component
         SystemSetting::setValue('ads_auto_test_mode', $value ? '1' : '0');
     }
 
+    public function updatedSelectedServiceId($value): void
+    {
+        $value = $value ?: null;
+
+        if ($value !== null && !Service::query()->where('uuid', $value)->exists()) {
+            $this->selectedServiceId = null;
+            SystemSetting::setValue('ads_auto_default_service_id', null);
+            return;
+        }
+
+        SystemSetting::setValue('ads_auto_default_service_id', $value);
+    }
+
     public function getCandidatesProperty()
     {
         $search = trim($this->search);
@@ -82,11 +98,19 @@ class AdsRequestRecipients extends Component
             ->get();
     }
 
+    public function getServiceOptionsProperty()
+    {
+        return Service::query()
+            ->orderBy('service')
+            ->get(['uuid', 'service']);
+    }
+
     public function render()
     {
         return view('livewire.config.system.ads-request-recipients', [
             'candidates' => $this->candidates,
             'recipients' => $this->recipients,
+            'serviceOptions' => $this->serviceOptions,
         ]);
     }
 }

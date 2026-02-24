@@ -83,7 +83,7 @@ class JustifyViab extends Component
             //     $query->where('company_id', Auth()->user()->Company->id);
             // }
 
-            $query->where('engineer_id', Auth()->user()->id);
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
 
         }
 

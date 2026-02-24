@@ -8,6 +8,7 @@ use App\Models\AdsRequest;
 use App\Models\AdsRequestDefaultUser;
 use App\Models\Adsform;
 use App\Models\Edp_depc\BaseCosts;
+use App\Models\Production;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkReport;
@@ -46,6 +47,7 @@ class GenerateTacitAds extends Command
             $cutoffDate = now()->subDays(7)->toDateString();
 
             $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
+            $defaultServiceId = SystemSetting::getValue('ads_auto_default_service_id');
 
             $defaultRecipients = AdsRequestDefaultUser::query()
                 ->where('active', true)
@@ -112,14 +114,24 @@ class GenerateTacitAds extends Command
                         ->startOfDay()
                         ->addDays(7);
 
+                    $recipientIds = $this->resolveRecipientsForNote(
+                        noteId: (int) $workReport->note_id,
+                        serviceId: $defaultServiceId,
+                        defaultRecipients: $defaultRecipients
+                    );
+
+                    if ($recipientIds->isEmpty()) {
+                        continue;
+                    }
+
                     // --- DRY RUN: simula contagens e mostra amostras, mas não grava nada ---
                     if ($dryRun) {
                         $adsCreated++; // simulado
-                        $requestsCreated += $defaultRecipients->count(); // simulado
+                        $requestsCreated += $recipientIds->count(); // simulado
                         // espelhamento não roda em dry
                         // Exibe algumas amostras pra conferir se o filtro tá correto
                         if ($candidates <= 10) {
-                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt}");
+                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt} recipients={$recipientIds->count()}");
                         }
                         continue;
                     }
@@ -133,7 +145,7 @@ class GenerateTacitAds extends Command
                         $userId,
                         $dueAt,
                         $batchId,
-                        $defaultRecipients,
+                        $recipientIds,
                         &$adsCreated,
                         &$requestsCreated,
                         &$createdRequests,
@@ -177,7 +189,7 @@ class GenerateTacitAds extends Command
                             ->where('note_id', $workReport->note_id)
                             ->max('version');
 
-                        foreach ($defaultRecipients as $recipientUserId) {
+                        foreach ($recipientIds as $recipientUserId) {
                             $version++;
 
                             $request = AdsRequest::query()->create([
@@ -212,8 +224,8 @@ class GenerateTacitAds extends Command
             $bar->finish();
             $this->newLine();
 
-            if ($defaultRecipients->isEmpty()) {
-                $this->warn('Nenhum destinatário padrão configurado em ADS automática. Apenas ADS tácita seria criada.');
+            if ($defaultRecipients->isEmpty() && !$defaultServiceId) {
+                $this->warn('Nenhum destinatário padrão configurado e nenhum serviço padrão definido para roteamento por produção. Apenas ADS tácita seria criada.');
             }
 
             $this->info("Candidatos processados: {$candidates}");
@@ -328,5 +340,28 @@ class GenerateTacitAds extends Command
             report($exception);
             return false;
         }
+    }
+
+    private function resolveRecipientsForNote(int $noteId, ?string $serviceId, \Illuminate\Support\Collection $defaultRecipients): \Illuminate\Support\Collection
+    {
+        if (!$serviceId) {
+            return $defaultRecipients;
+        }
+
+        $assignedUserId = Production::query()
+            ->where('note_id', $noteId)
+            ->where('service_id', $serviceId)
+            ->where('status', 2)
+            ->where('completed', false)
+            ->whereNotNull('user_id')
+            ->orderByDesc('att_at')
+            ->orderByDesc('id')
+            ->value('user_id');
+
+        if ($assignedUserId) {
+            return collect([$assignedUserId]);
+        }
+
+        return $defaultRecipients;
     }
 }

@@ -14,16 +14,7 @@ class InWorkCount extends Component
         ->where('status', 4);
 
         if (!auth()->user()->superadm) {
-
-
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-
-
-
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         return $query->count();
