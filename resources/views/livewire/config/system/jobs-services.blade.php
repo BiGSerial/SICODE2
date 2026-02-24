@@ -1,5 +1,52 @@
 <div class="jobs-monitor" wire:poll.3000ms="refreshData">
     <style>
+        .jobs-monitor {
+            --jm-bg: #f6f7fb;
+            --jm-surface: #ffffff;
+            --jm-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--jm-bg);
+            padding: 1.5rem 0;
+        }
+
+        .jobs-monitor .page-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .jobs-monitor .page-header h2 {
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        .jobs-monitor .page-header .meta {
+            color: rgba(248, 250, 252, 0.75);
+            font-size: 0.95rem;
+        }
+
+        .jobs-monitor .summary-bar {
+            background: var(--jm-surface);
+            border: 1px solid var(--jm-border);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1.25rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+            margin-bottom: 1rem;
+        }
+
+        .jobs-monitor .table-card {
+            background: var(--jm-surface);
+            border: 1px solid var(--jm-border);
+            border-radius: 1rem;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
         /* Escopo do componente para evitar conflito com outras telas (ex.: specs) */
         .jobs-monitor .jobs-auto-grid {
             display: grid;
@@ -38,29 +85,41 @@
         }
     </style>
 
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h6 class="mb-0"><i class="bi bi-collection-play me-2"></i>Monitor de Fila</h6>
-            <div class="d-flex align-items-center gap-2">
-                @php
-                    $statusClass = $workerActive ? 'text-bg-success' : 'text-bg-danger';
-                    $statusText = $workerActive ? 'Worker ATIVO' : 'Worker PARADO';
-                @endphp
-                <span class="badge {{ $statusClass }}">{{ $statusText }}</span>
-                <span class="badge text-bg-light">Fonte: {{ $workerSource }}</span>
-                <button id="btn-queue-restart" class="btn btn-sm btn-warning text-dark" type="button"
-                    title="Reiniciar workers">
-                    <span class="d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-power"></i>
-                        <span>Reiniciar</span>
-                        <span id="queue-restart-spinner" class="spinner-border spinner-border-sm ms-1 d-none"
-                            role="status" aria-hidden="true"></span>
-                    </span>
-                </button>
+    @php
+        $statusClass = $workerActive ? 'text-bg-success' : 'text-bg-danger';
+        $statusText = $workerActive ? 'Worker ATIVO' : 'Worker PARADO';
+    @endphp
+
+    <div class="container-fluid">
+        <div class="page-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>Monitor de Fila</h2>
+                <div class="meta">Acompanhamento de pendencias, execucao, falhas e historico</div>
+            </div>
+            <div class="text-lg-end">
+                <div class="meta">Origem do monitor</div>
+                <div><strong>{{ $workerSource }}</strong></div>
             </div>
         </div>
 
-        <div class="card-body">
+        <div class="summary-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge {{ $statusClass }}">{{ $statusText }}</span>
+                <span class="badge text-bg-secondary">Fonte: {{ $workerSource }}</span>
+            </div>
+            <button id="btn-queue-restart" class="btn btn-sm btn-warning text-dark" type="button"
+                title="Reiniciar workers">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-power"></i>
+                    <span>Reiniciar</span>
+                    <span id="queue-restart-spinner" class="spinner-border spinner-border-sm ms-1 d-none"
+                        role="status" aria-hidden="true"></span>
+                </span>
+            </button>
+        </div>
+
+        <div class="table-card">
+            <div class="card-body">
             <div id="jobs-restart-alert" class="alert d-none mb-3"></div>
             {{-- KPIs por fila (grid fluido, sem conflito com specs) --}}
             <div class="jobs-auto-grid">
@@ -370,8 +429,8 @@
             @if (session()->has('error'))
                 <div class="alert alert-danger mt-3 mb-0">{{ session('error') }}</div>
             @endif
+            </div>
         </div>
-        <div id="jobs-restart-alert" class="alert d-none mb-3"></div>
     </div>
     @push('scripts')
         <script>

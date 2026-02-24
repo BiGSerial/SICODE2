@@ -4,7 +4,6 @@ namespace App\Http\Livewire\Engineers\CancellationApprovals;
 
 use App\Enum\CancellationEngineerApprovalStatus;
 use App\Models\CancellationRequest;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,7 +24,7 @@ class Index extends Component
     {
         $items = CancellationRequest::query()
             ->with(['Note', 'Requester', 'Assignee', 'EngineerApprovalRequester'])
-            ->where('engineer_approver_id', Auth::id())
+            ->whereIn('engineer_approver_id', auth()->user()->visibleUserIdsForWork())
             ->where('engineer_approval_status', CancellationEngineerApprovalStatus::PENDING->value)
             ->when($this->search, function ($q) {
                 $q->whereHas('Note', function ($note) {

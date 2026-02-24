@@ -84,16 +84,7 @@ class ReturnInternList extends Component
 
 
         if (!auth()->user()->superadm) {
-
-
-            if (Auth()->user()->Companies->isNotEmpty() && Auth()->user()->engineer) {
-                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-
-            // $query->where('engineer_id', Auth()->user()->id);
-
+            $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
         }
 
         if (isset($this->filter['responsible']) && $this->filter['responsible']) {

@@ -12,6 +12,7 @@
 
     $hasDeleg = !empty($node['delegation']);
     $principalName = $hasDeleg ? $node['delegation']['principal']['name'] ?? null : null;
+    $observingCount = (int) ($node['observing_count'] ?? 0);
 @endphp
 
 <li class="mb-1" @isset($wireKey) wire:key="{{ $wireKey }}" @endisset>
@@ -28,6 +29,8 @@
 
             @if ($hasDeleg)
                 <span class="badge badge-delegacao small-badge">EM DELEGAÇÃO</span>
+            @elseif ($observingCount > 0)
+                <span class="badge bg-info text-dark small-badge">OBS: {{ $observingCount }}</span>
             @elseif ($isSelected)
                 <span class="badge bg-primary px-2 py-1 shadow-sm small-badge">FOCO</span>
             @else
@@ -43,6 +46,14 @@
                 <div class="mt-1">
                     <span class="chip-principal" title="Titular desta função">
                         Titular: {{ $principalName }}
+                    </span>
+                </div>
+            @endif
+
+            @if ($observingCount > 0)
+                <div class="mt-1">
+                    <span class="chip-with" title="Quantidade de vínculos de observação ativos">
+                        Observa {{ $observingCount }} vínculo(s)
                     </span>
                 </div>
             @endif

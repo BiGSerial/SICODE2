@@ -289,7 +289,7 @@ class ApprovalControl extends Component
                 ->where('tacit', false);
 
             if (!auth()->user()->superadm) {
-                $q->where('user_id', auth()->id());
+                $q->whereIn('user_id', auth()->user()->visibleUserIdsForWork());
             }
 
             if ($this->onlyFinished) {

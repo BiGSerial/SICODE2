@@ -83,6 +83,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
 
 Route::prefix('/config')->controller(ConfigController::class)->name('config.')->middleware('auth')->middleware('can:admin')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::prefix('/system')->name('system.')->group(function () {
+        Route::get('/status', 'systemStatus')->name('status');
+        Route::get('/history', 'systemHistory')->name('history');
+    });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
     Route::prefix('/system')->name('system.')->group(function () {

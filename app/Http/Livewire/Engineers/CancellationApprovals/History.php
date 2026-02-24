@@ -4,7 +4,6 @@ namespace App\Http\Livewire\Engineers\CancellationApprovals;
 
 use App\Enum\CancellationEngineerApprovalStatus;
 use App\Models\CancellationRequest;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,7 +24,7 @@ class History extends Component
     {
         $items = CancellationRequest::query()
             ->with(['Note', 'Requester', 'Assignee', 'EngineerApprovalRequester', 'EngineerApprover', 'EngineerApprovalDecider'])
-            ->where('engineer_approver_id', Auth::id())
+            ->whereIn('engineer_approver_id', auth()->user()->visibleUserIdsForWork())
             ->whereIn('engineer_approval_status', [
                 CancellationEngineerApprovalStatus::APPROVED->value,
                 CancellationEngineerApprovalStatus::REJECTED->value,
