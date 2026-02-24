@@ -335,7 +335,7 @@
                                                         wire:click.prevent="goTransferProd({{ $list->id }})"></i>
                                                 @endif
 
-                                                @if ($workForm)
+                                                @if ($workForm && !$workForm->rejected && !$list->dfive)
                                                     <i class="ri-delete-back-2-fill m-0 align-middle text-danger ms-2"
                                                         style="cursor:pointer;"
                                                         wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
