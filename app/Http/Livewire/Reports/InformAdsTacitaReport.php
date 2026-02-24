@@ -100,18 +100,13 @@ class InformAdsTacitaReport extends Component
     public function render()
     {
         $rows = $this->rows;
-        $pageRows = collect($rows->items());
+        $summary = app(InformAdsTacitReportService::class)
+            ->summarize($this->mode, $this->filters());
 
         return view('livewire.reports.inform-ads-tacita-report', [
             'rows' => $rows,
             'modeLabel' => $this->mode === 'order' ? 'Por ORDEM' : 'Por NOTA',
-            'summary' => [
-                'screen_count' => $pageRows->count(),
-                'screen_open_count' => $pageRows->where('fine_status', 'EM ABERTO')->count(),
-                'screen_base_sum' => (float) $pageRows->sum('base_amount'),
-                'screen_daily_fine_sum' => (float) $pageRows->sum('daily_fine_amount'),
-                'screen_total_fine_sum' => (float) $pageRows->sum('total_fine_amount'),
-            ],
+            'summary' => $summary,
         ]);
     }
 }

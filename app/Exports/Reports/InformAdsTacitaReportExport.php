@@ -24,13 +24,16 @@ class InformAdsTacitaReportExport implements FromCollection, WithHeadings, Shoul
             return [
                 $row['mode_label'],
                 $row['note_number'],
+                $row['company_name'],
                 $row['order_numbers'],
                 $this->formatDateTime($row['informed_delivery_at']),
                 $this->formatDateTime($row['tacit_due_at']),
-                $row['tacit_delivered_at']
-                    ? $this->formatDateTime($row['tacit_delivered_at'])
-                    : 'EM ABERTO (Ref.: ' . $this->formatDateTime($row['fine_reference_at']) . ')',
+                $this->formatDateTime($row['tacit_delivered_at']),
+                $row['fine_status'] === 'EM ABERTO'
+                    ? 'EM ABERTO (Ref.: ' . $this->formatDateTime($row['fine_reference_at']) . ')'
+                    : 'ENTREGUE',
                 $row['delay_days'],
+                $row['applied_percentage'] . '%',
                 $row['base_amount'],
                 $row['daily_fine_amount'],
                 $row['total_fine_amount'],
@@ -43,11 +46,14 @@ class InformAdsTacitaReportExport implements FromCollection, WithHeadings, Shoul
         return [
             'Modo de listagem',
             'Número da NOTA',
+            'Empreiteira',
             'Número(s) da ORDEM',
             'Data de entrega do informe',
             'Data de vencimento tácito da ADS',
             'Data de envio da ADS de forma tácita',
+            'Status ADS',
             'Dias para multa',
+            'Percentual aplicado',
             'Custo de serviço / valor da obra',
             'Valor de multa diária prevista',
             'Valor de multa total prevista',

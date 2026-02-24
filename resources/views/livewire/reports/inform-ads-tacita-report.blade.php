@@ -154,32 +154,32 @@
         <div class="row g-3 mb-3">
             <div class="col-12 col-md-6 col-xl">
                 <div class="iat-summary-card">
-                    <div class="label">Registros em tela</div>
-                    <div class="value">{{ $summary['screen_count'] }}</div>
+                    <div class="label">Registros filtrados</div>
+                    <div class="value">{{ $summary['total_count'] }}</div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
                 <div class="iat-summary-card">
-                    <div class="label">Em aberto em tela</div>
-                    <div class="value">{{ $summary['screen_open_count'] }}</div>
+                    <div class="label">Em aberto (total)</div>
+                    <div class="value">{{ $summary['total_open_count'] }}</div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
                 <div class="iat-summary-card">
-                    <div class="label">Base monetária em tela</div>
-                    <div class="value">R$ {{ number_format($summary['screen_base_sum'], 2, ',', '.') }}</div>
+                    <div class="label">Base monetária (total)</div>
+                    <div class="value">R$ {{ number_format($summary['total_base_sum'], 2, ',', '.') }}</div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
                 <div class="iat-summary-card">
-                    <div class="label">Multa diária em tela</div>
-                    <div class="value">R$ {{ number_format($summary['screen_daily_fine_sum'], 2, ',', '.') }}</div>
+                    <div class="label">Multa diária (total)</div>
+                    <div class="value">R$ {{ number_format($summary['total_daily_fine_sum'], 2, ',', '.') }}</div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
                 <div class="iat-summary-card">
-                    <div class="label">Multa total em tela</div>
-                    <div class="value">R$ {{ number_format($summary['screen_total_fine_sum'], 2, ',', '.') }}</div>
+                    <div class="label">Multa total (total)</div>
+                    <div class="value">R$ {{ number_format($summary['total_fine_sum'], 2, ',', '.') }}</div>
                 </div>
             </div>
         </div>
@@ -211,13 +211,16 @@
                             <tr>
                                 <th>Modo</th>
                                 <th>Número da NOTA</th>
+                                <th>Empreiteira</th>
                                 <th>{{ $modeLabel === 'Por NOTA' ? 'Ordens agrupadas' : 'Número da ORDEM' }}</th>
                                 <th>Entrega do informe</th>
                                 <th>Vencimento tácito</th>
                                 <th>Envio tácita</th>
+                                <th>Status ADS</th>
                                 <th>Dias multa</th>
+                                <th>Percentual aplicado</th>
                                 <th>Base monetária</th>
-                                <th>Multa diária (5%)</th>
+                                <th>Multa diária (0,5%)</th>
                                 <th>Multa total prevista</th>
                             </tr>
                         </thead>
@@ -226,18 +229,21 @@
                                 <tr wire:key="iat-{{ $row['mode'] }}-{{ $row['work_report_id'] }}-{{ $loop->index }}">
                                     <td><span class="badge bg-secondary">{{ $row['mode_label'] }}</span></td>
                                     <td class="fw-semibold">{{ $row['note_number'] }}</td>
+                                    <td>{{ $row['company_name'] }}</td>
                                     <td>{{ $row['order_numbers'] }}</td>
                                     <td>{{ $row['informed_delivery_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['tacit_due_at']?->format('d/m/Y H:i') ?? '—' }}</td>
+                                    <td>{{ $row['tacit_delivered_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>
-                                        @if ($row['tacit_delivered_at'])
-                                            {{ $row['tacit_delivered_at']?->format('d/m/Y H:i') }}
-                                        @else
+                                        @if ($row['fine_status'] === 'EM ABERTO')
                                             <span class="badge bg-warning text-dark">EM ABERTO</span><br>
                                             <small class="text-muted">Ref.: {{ $row['fine_reference_at']?->format('d/m/Y H:i') }}</small>
+                                        @else
+                                            <span class="badge bg-success">ENTREGUE</span>
                                         @endif
                                     </td>
                                     <td class="text-center">{{ $row['delay_days'] }}</td>
+                                    <td class="text-center">{{ number_format($row['applied_percentage'], 2, ',', '.') }}%</td>
                                     <td>R$ {{ number_format($row['base_amount'], 2, ',', '.') }}</td>
                                     <td>R$ {{ number_format($row['daily_fine_amount'], 2, ',', '.') }}</td>
                                     <td class="fw-semibold">R$ {{ number_format($row['total_fine_amount'], 2, ',', '.') }}</td>

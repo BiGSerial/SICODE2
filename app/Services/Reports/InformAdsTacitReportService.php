@@ -33,6 +33,44 @@ class InformAdsTacitReportService
             ->map(fn ($row) => $this->enrichRow($row, $mode));
     }
 
+    /**
+     * @return array{
+     *   total_count:int,
+     *   total_open_count:int,
+     *   total_base_sum:float,
+     *   total_daily_fine_sum:float,
+     *   total_fine_sum:float
+     * }
+     */
+    public function summarize(string $mode, array $filters): array
+    {
+        $summary = [
+            'total_count' => 0,
+            'total_open_count' => 0,
+            'total_base_sum' => 0.0,
+            'total_daily_fine_sum' => 0.0,
+            'total_fine_sum' => 0.0,
+        ];
+
+        foreach ($this->buildQuery($mode, $filters)->cursor() as $row) {
+            $enriched = $this->enrichRow($row, $mode);
+
+            $summary['total_count']++;
+            if ($enriched['fine_status'] === 'EM ABERTO') {
+                $summary['total_open_count']++;
+            }
+            $summary['total_base_sum'] += (float) $enriched['base_amount'];
+            $summary['total_daily_fine_sum'] += (float) $enriched['daily_fine_amount'];
+            $summary['total_fine_sum'] += (float) $enriched['total_fine_amount'];
+        }
+
+        $summary['total_base_sum'] = round($summary['total_base_sum'], 2);
+        $summary['total_daily_fine_sum'] = round($summary['total_daily_fine_sum'], 2);
+        $summary['total_fine_sum'] = round($summary['total_fine_sum'], 2);
+
+        return $summary;
+    }
+
     public function buildQuery(string $mode, array $filters)
     {
         $mode = $this->normalizeMode($mode);
@@ -43,8 +81,9 @@ class InformAdsTacitReportService
                 ->select([
                     'wr.id as work_report_id',
                     'n.note as note_number',
+                    DB::raw('COALESCE(c.name, "—") as company_name'),
                     DB::raw($this->ordersAggregationExpression() . ' as order_numbers'),
-                    DB::raw('COALESCE(wr.informed_at, wr.created_at) as informed_delivery_at'),
+                    'wr.created_at as informed_delivery_at',
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                     DB::raw('SUM(COALESCE(o.service_cost, 0)) as base_amount'),
@@ -52,7 +91,7 @@ class InformAdsTacitReportService
                 ->groupBy([
                     'wr.id',
                     'n.note',
-                    'wr.informed_at',
+                    'c.name',
                     'wr.created_at',
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
@@ -64,8 +103,9 @@ class InformAdsTacitReportService
             ->select([
                 'wr.id as work_report_id',
                 'n.note as note_number',
+                DB::raw('COALESCE(c.name, "—") as company_name'),
                 'o.ordem as order_numbers',
-                DB::raw('COALESCE(wr.informed_at, wr.created_at) as informed_delivery_at'),
+                'wr.created_at as informed_delivery_at',
                 'af.tacit_due_at',
                 'af.tacit_delivered_at',
                 DB::raw('COALESCE(o.service_cost, 0) as base_amount'),
@@ -94,6 +134,7 @@ class InformAdsTacitReportService
             'mode_label' => $mode === 'note' ? 'Por NOTA' : 'Por ORDEM',
             'work_report_id' => $row->work_report_id,
             'note_number' => (string) ($row->note_number ?? '—'),
+            'company_name' => (string) ($row->company_name ?? '—'),
             'order_numbers' => (string) ($row->order_numbers ?? '—'),
             'informed_delivery_at' => $informedAt,
             'tacit_due_at' => $dueAt,
@@ -102,6 +143,7 @@ class InformAdsTacitReportService
             'fine_status' => $isOpen ? 'EM ABERTO' : 'ENTREGUE',
             'delay_days' => $delayDays,
             'base_amount' => round($baseAmount, 2),
+            'applied_percentage' => $fine['percentual_aplicado'],
             'daily_fine_amount' => $fine['valor_diario'],
             'total_fine_amount' => $fine['valor_total'],
         ];
@@ -121,6 +163,7 @@ class InformAdsTacitReportService
 
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
+            ->leftJoin('companies as c', 'c.id', '=', 'wr.company_id')
             ->join('adsforms as af', function ($join) {
                 $join->on('af.work_report_id', '=', 'wr.id')
                     ->where('af.tacit', '=', true);
@@ -134,11 +177,11 @@ class InformAdsTacitReportService
             ->where('o.statusSist', 'not like', 'ENC%');
 
         if ($dateIn) {
-            $query->whereDate(DB::raw('COALESCE(wr.informed_at, wr.created_at)'), '>=', $dateIn);
+            $query->whereDate('wr.created_at', '>=', $dateIn);
         }
 
         if ($dateOut) {
-            $query->whereDate(DB::raw('COALESCE(wr.informed_at, wr.created_at)'), '<=', $dateOut);
+            $query->whereDate('wr.created_at', '<=', $dateOut);
         }
 
         if ($search !== '') {

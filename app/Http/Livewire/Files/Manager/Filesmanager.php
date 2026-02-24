@@ -48,7 +48,16 @@ class Filesmanager extends Component
 
     public function selectAll()
     {
-        $this->selectedFiles = $this->lists->pluck('id')->toArray();
+        $query = $this->lists;
+
+        if (!$this->isSuperAdm()) {
+            $query->whereDoesntHave('Adsforms', function ($q) {
+                $q->where('tacit', true)
+                    ->whereNotNull('work_report_id');
+            });
+        }
+
+        $this->selectedFiles = $query->pluck('id')->toArray();
     }
 
     public function deselectAll()
@@ -59,6 +68,37 @@ class Filesmanager extends Component
     public function updatingSearch()
     {
         $this->resetPage();
+    }
+
+    public function updatedSelectedFiles($value)
+    {
+        if ($this->isSuperAdm()) {
+            return;
+        }
+
+        $selected = collect((array) $value)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($selected->isEmpty()) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $restrictedIds = File::whereIn('id', $selected->all())
+            ->whereHas('Adsforms', function ($q) {
+                $q->where('tacit', true)
+                    ->whereNotNull('work_report_id');
+            })
+            ->pluck('id')
+            ->all();
+
+        $this->selectedFiles = $selected
+            ->reject(fn ($id) => in_array($id, $restrictedIds, true))
+            ->values()
+            ->all();
     }
 
     public function export_excel()
@@ -123,6 +163,17 @@ class Filesmanager extends Component
     public function downloadFile(File $file)
     {
         if ($file) {
+            if ($file->isTacitAdsRestricted() && !auth()->user()?->superadm) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'DOWNLOAD BLOQUEADO',
+                    'html'     => 'Arquivo de ADS tácita disponível apenas para SUPERADM.',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
 
             if (Storage::disk('local')->exists($file->path)) {
                 return Storage::download($file->path, $file->file_name);
@@ -160,6 +211,17 @@ class Filesmanager extends Component
             'icon'     => 'error',
             'title'    => 'Arquivos não encontrados!',
             'timer'    => 3000,
+            ]);
+            return;
+        }
+
+        if (!auth()->user()?->superadm && $files->contains(fn (File $file) => $file->isTacitAdsRestricted())) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'DOWNLOAD ZIP BLOQUEADO',
+                'html'     => 'O lote contém ADS tácita. Apenas SUPERADM pode baixar.',
+                'timer'    => 5000,
             ]);
             return;
         }
@@ -237,6 +299,12 @@ class Filesmanager extends Component
         return File::when($this->noFile, function ($q) {
             $q->where('noexists', true);
         })
+        ->withExists([
+            'Adsforms as has_tacit_ads_restriction' => function ($q) {
+                $q->where('tacit', true)
+                    ->whereNotNull('work_report_id');
+            },
+        ])
         ->when(trim($this->search), function ($q) {
             $q->where(function ($sq) {
                 $sq->where('file_name', 'like', '%'.trim($this->search).'%')
@@ -257,6 +325,11 @@ class Filesmanager extends Component
              });
          })
         ->orderBy('file_name');
+    }
+
+    private function isSuperAdm(): bool
+    {
+        return (bool) auth()->user()?->superadm;
     }
 
 

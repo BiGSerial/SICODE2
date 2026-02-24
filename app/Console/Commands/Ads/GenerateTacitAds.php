@@ -40,9 +40,10 @@ class GenerateTacitAds extends Command
             // Log no mesmo padrão do seu BaseEP
             $log = new RegistroJson('ads_generate_tacit', $this->options());
 
-            // Regra: 6 dias corridos; às 00:00 do 7º dia já está vencido
+            // Regra: vence na virada para o 8º dia contado da data D (D+7 às 00:00).
+            // Ex.: criado em 16/02 -> vence em 23/02 00:00.
             $startAt = Carbon::parse('2026-02-01 00:00:00');
-            $cutoff  = now()->subDays(6)->startOfDay(); // tudo criado até aqui já está vencido na virada
+            $cutoffDate = now()->subDays(7)->toDateString();
 
             $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
 
@@ -55,7 +56,7 @@ class GenerateTacitAds extends Command
             $query = WorkReport::query()
                 ->where('rejected', false)
                 ->where('created_at', '>=', $startAt)
-                ->where('created_at', '<=', $cutoff)
+                ->whereDate('created_at', '<=', $cutoffDate)
                 ->whereHas('note.orders', function ($orderQuery) {
                     $orderQuery->where('statusSist', 'like', 'ABER%')
                         ->orWhere('statusSist', 'like', 'LIB%');
@@ -106,10 +107,10 @@ class GenerateTacitAds extends Command
                         continue;
                     }
 
-                    // Regra do prazo: 00:00 do 7º dia (criado no dia D => vence D+6 às 00:00)
+                    // Regra do prazo: criado no dia D => vence em D+7 às 00:00
                     $dueAt = Carbon::parse($workReport->created_at)
                         ->startOfDay()
-                        ->addDays(6);
+                        ->addDays(7);
 
                     // --- DRY RUN: simula contagens e mostra amostras, mas não grava nada ---
                     if ($dryRun) {

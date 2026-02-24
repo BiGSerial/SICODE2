@@ -11,6 +11,16 @@ use ZipArchive;
 
 class FilesController extends Controller
 {
+    private function ensureTacitDownloadPermission(File $file): void
+    {
+        $user = auth()->user();
+        abort_if(!$user, 403, 'Não autorizado.');
+
+        if ($file->isTacitAdsRestricted() && !$user->superadm) {
+            abort(403, 'Download bloqueado: ADS tácita disponível apenas para SUPERADM.');
+        }
+    }
+
     public function main()
     {
         return view('files.managerfiles');
@@ -20,6 +30,8 @@ class FilesController extends Controller
     {
         // Autorização (ajuste Gate/policy conforme seu app)
         // abort_if(Gate::denies('view-file', $file), 403);
+
+        $this->ensureTacitDownloadPermission($file);
 
         if (!Storage::exists($file->path)) {
             abort(404, 'Arquivo não encontrado.');
@@ -42,6 +54,12 @@ class FilesController extends Controller
         $files = File::whereIn('id', $ids)->get();
         if ($files->isEmpty()) {
             abort(404, 'Arquivos não encontrados.');
+        }
+
+        $user = auth()->user();
+        abort_if(!$user, 403, 'Não autorizado.');
+        if (!$user->superadm && $files->contains(fn (File $file) => $file->isTacitAdsRestricted())) {
+            abort(403, 'Download ZIP bloqueado: contém ADS tácita (apenas SUPERADM).');
         }
 
         $zipFile = 'Arquivos-' . $note . '-' . hash('crc32', microtime(true)) . '.zip';

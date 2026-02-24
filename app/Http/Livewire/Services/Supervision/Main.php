@@ -205,6 +205,7 @@ class Main extends Component
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('att_at', 'DESC')
             ->orderBy('status', 'ASC')
+            ->orderBy('productions.id', 'DESC')
 
             ->select([
                 'productions.id',

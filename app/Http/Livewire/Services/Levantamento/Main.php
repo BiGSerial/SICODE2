@@ -213,6 +213,7 @@ class Main extends Component
             ->addSelect('n.dt_created as dt_created')
             ->orderByDesc('productions.priority')
             ->orderBy('n.dt_created')
+            ->orderBy('productions.id', 'DESC')
             ->with([
                 'Wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                 'Service:id,uuid,service',
