@@ -477,9 +477,14 @@
                     <div class="pd-legal-note-title">Base contratual</div>
                     <p>
                         <strong>ES.DT.PDN.02.01.006 - item 6.3.4.d</strong>: para a EDP ES, a CONTRATADA dispõe do
-                        <strong>prazo de 6 (seis) dias</strong>, contados a partir da conclusão da obra ou serviços,
-                        para a entrega do inventário; <strong>expirado esse prazo, prevalecerá o inventário elaborado
-                            pela CONTRATANTE</strong>.
+                        <strong>prazo de 6 (seis) dias</strong>, contados da conclusão da obra ou serviço, para a
+                        entrega do inventário; <strong>expirado esse prazo, prevalecerá o inventário elaborado pela
+                            CONTRATANTE</strong>.
+                    </p>
+                    <p>
+                        <strong>Observação: a adoção do inventário da CONTRATANTE não exime a CONTRATADA da obrigação
+                            de entrega, permanecendo a contagem do prazo até a regularização integral da
+                            pendência.</strong>
                     </p>
                 </div>
             </div>
@@ -525,8 +530,8 @@
                 <div class="pd-legal-note">
                     <div class="pd-legal-note-title">Base contratual</div>
                     <p>
-                        <strong>Item 6.8 - Penalidades</strong>: incluindo, quando aplicável, <strong>glosa de
-                            medições</strong>, <strong>impedimento de faturamento</strong> e
+                        <strong>ES.DT.PDN.02.01.006 - item 6.8 (Penalidades)</strong>: inclui, quando aplicável,
+                        <strong>glosa de medições</strong>, <strong>impedimento de faturamento</strong> e
                         <strong>bloqueio de pagamento das obras correntes</strong>, nos termos do
                         <strong>item 6.3.5</strong>, até a completa regularização das pendências.
                     </p>

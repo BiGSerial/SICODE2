@@ -64,7 +64,8 @@ class GenerateTacitAds extends Command
                     $orderQuery->where('statusSist', 'like', 'ABER%')
                         ->orWhere('statusSist', 'like', 'LIB%');
                 })
-                ->whereDoesntHave('adsform');
+                ->whereDoesntHave('adsform')
+                ->with(['note:id,note']);
 
             $adsCreated = 0;
             $requestsCreated = 0;
@@ -74,6 +75,7 @@ class GenerateTacitAds extends Command
             $skippedNoCompany = 0;
             $candidates = 0;
             $orderCostCache = [];
+            $dryPreviewRows = [];
 
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
@@ -90,7 +92,9 @@ class GenerateTacitAds extends Command
                 &$skippedNoCompany,
                 &$candidates,
                 &$orderCostCache,
+                &$dryPreviewRows,
                 $defaultRecipients,
+                $defaultServiceId,
                 $testMode,
                 $dryRun,
                 $bar
@@ -129,11 +133,12 @@ class GenerateTacitAds extends Command
                     if ($dryRun) {
                         $adsCreated++; // simulado
                         $requestsCreated += $recipientIds->count(); // simulado
-                        // espelhamento não roda em dry
-                        // Exibe algumas amostras pra conferir se o filtro tá correto
-                        if ($candidates <= 10) {
-                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt} recipients={$recipientIds->count()}");
-                        }
+                        $dryPreviewRows[] = [
+                            'nota' => (string) ($workReport->note?->note ?? $workReport->note_id),
+                            'criado_em' => optional($workReport->created_at)->format('d/m/Y H:i:s'),
+                            'venceu_em' => $dueAt->format('d/m/Y H:i:s'),
+                            'destinatarios' => (string) $recipientIds->count(),
+                        ];
                         continue;
                     }
 
@@ -237,6 +242,19 @@ class GenerateTacitAds extends Command
 
             if ($dryRun) {
                 $this->warn('DRY RUN: espelhamento no SQL Server não foi executado.');
+                if (!empty($dryPreviewRows)) {
+                    $this->newLine();
+                    $this->info('Lista simulada (nota, criado em, venceu em):');
+                    $this->table(
+                        ['Nota', 'Criado em', 'Venceu em', 'Destinatários'],
+                        array_map(fn ($row) => [
+                            $row['nota'],
+                            $row['criado_em'],
+                            $row['venceu_em'],
+                            $row['destinatarios'],
+                        ], $dryPreviewRows)
+                    );
+                }
             } else {
                 if ($testMode) {
                     $this->warn('MODO TESTE ATIVO: espelhamento no SQL Server está desabilitado por configuração.');

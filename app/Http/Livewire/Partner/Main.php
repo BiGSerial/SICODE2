@@ -184,11 +184,13 @@ class Main extends Component
                     ->whereNotNull('tacit_due_at')
                     ->where('tacit_due_at', '<', now());
             })
+            ->join('adsforms', 'adsforms.work_report_id', '=', 'work_reports.id')
             ->with([
                 'Note:id,note',
                 'Adsform:id,work_report_id,tacit_due_at,tacit_delivered_at',
             ])
-            ->orderByDesc('informed_at');
+            ->orderBy('adsforms.tacit_due_at')
+            ->select('work_reports.*');
 
         $this->scopeByCompany($query);
 
