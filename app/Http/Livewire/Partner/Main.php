@@ -15,6 +15,8 @@ use Livewire\Component;
 
 class Main extends Component
 {
+    private const ADS_TACIT_DAYS = 6;
+
     public $pizza1;
     public $pizza2;
     public $backlogChart;
@@ -156,8 +158,8 @@ class Main extends Component
         $today = Carbon::today();
         $dueLimit = Carbon::today()->addDays($this->daysAhead);
 
-        $from = $today->copy()->subDays(7)->startOfDay();
-        $to = $dueLimit->copy()->subDays(7)->endOfDay();
+        $from = $today->copy()->subDays(self::ADS_TACIT_DAYS)->startOfDay();
+        $to = $dueLimit->copy()->subDays(self::ADS_TACIT_DAYS)->endOfDay();
 
         $query = WorkReport::query()
             ->where('rejected', false)
@@ -167,6 +169,26 @@ class Main extends Component
             ->whereDoesntHave('Note.OldAds')
             ->with(['Note:id,note', 'Company:id,name'])
             ->orderBy('informed_at');
+
+        $this->scopeByCompany($query);
+
+        return $query->get();
+    }
+
+    public function getTacitAdsOverdueWithoutDelivery(): Collection
+    {
+        $query = WorkReport::query()
+            ->whereHas('Adsform', function ($q) {
+                $q->where('tacit', true)
+                    ->whereNull('tacit_delivered_at')
+                    ->whereNotNull('tacit_due_at')
+                    ->where('tacit_due_at', '<', now());
+            })
+            ->with([
+                'Note:id,note',
+                'Adsform:id,work_report_id,tacit_due_at,tacit_delivered_at',
+            ])
+            ->orderByDesc('informed_at');
 
         $this->scopeByCompany($query);
 
@@ -208,7 +230,7 @@ class Main extends Component
         $workReportsWithoutAdsOverdueBase = WorkReport::query()
             ->where('rejected', false)
             ->whereNotNull('informed_at')
-            ->where('informed_at', '<=', now()->subDays(7))
+            ->where('informed_at', '<', $this->getAdsTacitOverdueThreshold())
             ->whereDoesntHave('Note.Adsform')
             ->whereDoesntHave('Note.OldAds');
         $this->scopeByCompany($workReportsWithoutAdsOverdueBase);
@@ -337,7 +359,7 @@ class Main extends Component
         $labels = [
             'Viabilidade pendente',
             'Viabilidade a vencer',
-            'Informe sem ADS a vencer',
+            'ADS tacita a vencer',
             'D5 pendente',
             'Viabilidade rejeitada',
             'Reclamações pendentes',
@@ -409,8 +431,8 @@ class Main extends Component
             fputcsv($out, ['Indicador', 'Quantidade']);
             fputcsv($out, ['Viabilidade pendente', $kpis['pending_viability'] ?? 0]);
             fputcsv($out, ['Viabilidades a vencer', $kpis['viability_due_soon'] ?? 0]);
-            fputcsv($out, ['Informes sem ADS a vencer', $kpis['work_without_ads_due_soon'] ?? 0]);
-            fputcsv($out, ['Informes sem ADS vencidos', $kpis['work_without_ads_overdue'] ?? 0]);
+            fputcsv($out, ['ADS tacita a vencer', $kpis['work_without_ads_due_soon'] ?? 0]);
+            fputcsv($out, ['ADS tacita vencida', $kpis['work_without_ads_overdue'] ?? 0]);
             fputcsv($out, ['D5 pendentes', $kpis['d5_pending'] ?? 0]);
             fputcsv($out, ['D5 devolvidos', $kpis['d5_returned'] ?? 0]);
             fputcsv($out, ['Viabilidades rejeitadas aguardando resposta', $kpis['viability_rejected_waiting'] ?? 0]);
@@ -450,13 +472,13 @@ class Main extends Component
             }
 
             foreach ($workWithoutAdsDueSoon as $item) {
-                $dueDate = $item->informed_at?->copy()->addDays(7);
+                $dueDate = $this->getAdsTacitDueAt($item->informed_at);
                 $daysLeft = $dueDate
                     ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false)
                     : null;
 
                 fputcsv($out, [
-                    'Informe sem ADS',
+                    'ADS tacita',
                     $item->note->note ?? '',
                     $item->company->name ?? '',
                     optional($item->informed_at)->format('d/m/Y H:i'),
@@ -477,11 +499,23 @@ class Main extends Component
         ]);
     }
 
+    private function getAdsTacitDueAt(?Carbon $informedAt): ?Carbon
+    {
+        return $informedAt?->copy()->addDays(self::ADS_TACIT_DAYS)->endOfDay();
+    }
+
+    private function getAdsTacitOverdueThreshold(): Carbon
+    {
+        // Vence no fim do 6o dia; a partir de 00:00 do dia seguinte ja esta vencido.
+        return now()->subDays(self::ADS_TACIT_DAYS)->startOfDay();
+    }
+
     public function render()
     {
         return view('livewire.partner.main', [
             'dueSoon' => $this->getViabilityDueDate(),
             'workReportsWithoutAdsDueSoon' => $this->getWorkReportsWithoutAdsDueSoon(),
+            'tacitAdsOverdueWithoutDelivery' => $this->getTacitAdsOverdueWithoutDelivery(),
         ]);
     }
 }
