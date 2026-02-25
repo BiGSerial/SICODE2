@@ -107,6 +107,7 @@ class Search extends Component
 
                         // CORRETO: devoluções também usam work_report_id
                         'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
@@ -212,8 +213,27 @@ class Search extends Component
             return;
         }
 
+        $allowedIds = $this->lists->Files->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $selectedIds = collect($this->selectedFiles)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => in_array($id, $allowedIds, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($selectedIds)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SELEÇÃO INVÁLIDA OU EXPIRADA',
+                'text'     => 'Atualize a lista de arquivos e selecione novamente.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
         return redirect()->route('files.zip', [
-            'ids'  => implode(',', $this->selectedFiles),
+            'ids'  => implode(',', $selectedIds),
             'note' => $this->lists->note,
         ]);
     }

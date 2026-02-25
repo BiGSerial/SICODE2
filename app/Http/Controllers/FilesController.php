@@ -6,6 +6,7 @@ use App\Models\File;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use ZipArchive;
 
@@ -42,6 +43,59 @@ class FilesController extends Controller
         return Storage::download($file->path, $name);
     }
 
+    public function preview(File $file)
+    {
+        $this->ensureTacitDownloadPermission($file);
+
+        $rawPath = ltrim((string) $file->path, '/');
+        $name = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
+
+        $storageCandidates = array_values(array_unique(array_filter([
+            $rawPath,
+            Str::startsWith($rawPath, 'storage/') ? Str::after($rawPath, 'storage/') : null,
+        ])));
+
+        foreach ($storageCandidates as $candidate) {
+            if (Storage::exists($candidate)) {
+                $mime = Storage::mimeType($candidate) ?: 'application/octet-stream';
+                return response(Storage::get($candidate), 200, [
+                    'Content-Type' => $mime,
+                    'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+                    'Cache-Control' => 'private, max-age=300',
+                ]);
+            }
+
+            if (Storage::disk('public')->exists($candidate)) {
+                $mime = Storage::disk('public')->mimeType($candidate) ?: 'application/octet-stream';
+                return response(Storage::disk('public')->get($candidate), 200, [
+                    'Content-Type' => $mime,
+                    'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+                    'Cache-Control' => 'private, max-age=300',
+                ]);
+            }
+        }
+
+        $fsCandidates = array_values(array_unique(array_filter([
+            public_path($rawPath),
+            public_path('storage/' . $rawPath),
+            storage_path('app/public/' . $rawPath),
+            storage_path('app/' . $rawPath),
+        ])));
+
+        foreach ($fsCandidates as $candidate) {
+            if (is_file($candidate)) {
+                $mime = @mime_content_type($candidate) ?: 'application/octet-stream';
+                return response()->file($candidate, [
+                    'Content-Type' => $mime,
+                    'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+                    'Cache-Control' => 'private, max-age=300',
+                ]);
+            }
+        }
+
+        abort(404, 'Arquivo não encontrado para visualização.');
+    }
+
     public function zipSelected(Request $request)
     {
         $ids  = collect(explode(',', (string) $request->query('ids', '')))->filter()->map('intval')->all();
@@ -62,20 +116,46 @@ class FilesController extends Controller
             abort(403, 'Download ZIP bloqueado: contém ADS tácita (apenas SUPERADM).');
         }
 
-        $zipFile = 'Arquivos-' . $note . '-' . hash('crc32', microtime(true)) . '.zip';
-        $zip     = new ZipArchive();
+        $safeNote = preg_replace('/[^A-Za-z0-9_\-]/', '_', $note) ?: 'Arquivos';
+        $zipFile = storage_path('app/tmp/Arquivos-' . $safeNote . '-' . hash('crc32', microtime(true)) . '.zip');
+        if (!Storage::exists('tmp')) {
+            Storage::makeDirectory('tmp');
+        }
 
-        $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip = new ZipArchive();
+        if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            abort(500, 'Não foi possível criar o arquivo ZIP.');
+        }
+
+        $usedNames = [];
+        $added = 0;
 
         foreach ($files as $file) {
             if (Storage::exists($file->path)) {
                 $content = Storage::get($file->path);
-                $name    = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
+                $baseName = pathinfo($file->file_name, PATHINFO_FILENAME);
+                $ext = $file->ext ? '.' . $file->ext : '';
+                $name = $baseName . $ext;
+
+                // Evita sobrescrever arquivos com o mesmo nome dentro do ZIP.
+                if (isset($usedNames[$name])) {
+                    $usedNames[$name]++;
+                    $name = $baseName . ' (' . $usedNames[$name] . ')' . $ext;
+                } else {
+                    $usedNames[$name] = 1;
+                }
+
                 $zip->addFromString($name, $content);
+                $added++;
             }
         }
 
         $zip->close();
+
+        if ($added === 0) {
+            @unlink($zipFile);
+            abort(404, 'Nenhum arquivo disponível para compactação.');
+        }
 
         return response()->download($zipFile)->deleteFileAfterSend(true);
     }

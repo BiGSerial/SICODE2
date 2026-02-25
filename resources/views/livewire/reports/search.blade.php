@@ -1,10 +1,227 @@
-<div>
+<div class="report-search-page">
     {{-- Loading --}}
     <x-show-loading />
 
+    <style>
+        .report-search-page {
+            --rs-bg: #f6f7fb;
+            --rs-surface: #ffffff;
+            --rs-ink: #1f2933;
+            --rs-muted: #6b7280;
+            --rs-border: #e5e7eb;
+            --rs-accent: #0f766e;
+            --rs-accent-dark: #0f172a;
+            background: transparent;
+            padding: 1.5rem 0;
+        }
+
+        .report-search-page .rs-shell {
+            max-width: 100%;
+            background: transparent !important;
+        }
+
+        .report-search-page .rs-hero {
+            background: linear-gradient(120deg, var(--rs-accent-dark), var(--rs-accent) 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.4rem 1.5rem;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .report-search-page .rs-hero .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-size: .72rem;
+            margin-bottom: .35rem;
+            opacity: .75;
+            font-weight: 600;
+        }
+
+        .report-search-page .rs-hero h2 {
+            margin: 0;
+            font-size: 1.55rem;
+            line-height: 1.2;
+            font-weight: 700;
+        }
+
+        .report-search-page .rs-hero p {
+            margin: .45rem 0 0;
+            opacity: .86;
+        }
+
+        .report-search-page .rs-hero-chip {
+            background: rgba(248, 250, 252, .12);
+            border: 1px solid rgba(248, 250, 252, .3);
+            border-radius: .65rem;
+            padding: .5rem .75rem;
+            font-size: .8rem;
+            min-width: 170px;
+        }
+
+        .report-search-page .rs-hero-chip strong {
+            display: block;
+            font-size: .94rem;
+            color: #fff;
+        }
+
+        .report-search-page .card {
+            background: rgba(255, 255, 255, .82);
+            border: 1px solid var(--rs-border) !important;
+            border-radius: .7rem !important;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .report-search-page .card-header {
+            padding: .75rem 1rem;
+            background: transparent;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .report-search-page .card-body {
+            padding: 1.1rem 1.15rem;
+        }
+
+        .report-search-page .row+.card {
+            margin-top: 1rem;
+        }
+
+        .report-search-page .table {
+            margin-bottom: 0;
+        }
+
+        .report-search-page .table thead th {
+            font-size: .73rem;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .report-search-page .table tbody td {
+            font-size: .88rem;
+            vertical-align: middle;
+        }
+
+        .report-search-page .table-responsive {
+            border-top: 1px solid #f1f5f9;
+            border-radius: 0 !important;
+        }
+
+        .report-search-page .rs-section-title {
+            margin: 0;
+            color: #f8fafc;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .report-search-page .rs-search-card .card-body {
+            padding-top: .95rem;
+        }
+
+        .report-search-page .rs-note-card.edp-bg-sprucegreen-70 {
+            background: transparent !important;
+        }
+
+        .report-search-page .rs-head-unified {
+            background: linear-gradient(120deg, #0f172a, #0f766e 80%) !important;
+            border-bottom: 0 !important;
+        }
+
+        .report-search-page .table,
+        .report-search-page .table thead,
+        .report-search-page .table tbody,
+        .report-search-page .table tr,
+        .report-search-page .table th,
+        .report-search-page .table td {
+            border-radius: 0 !important;
+        }
+
+        .report-search-page .rs-order-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 80%) !important;
+            color: #f8fafc !important;
+            border-bottom: 0 !important;
+        }
+
+        .report-search-page .rs-order-header .order-label {
+            color: #86efac;
+            font-weight: 700;
+        }
+
+        .report-search-page .rs-note-header h4,
+        .report-search-page .rs-note-header h4 strong {
+            color: #f8fafc !important;
+            font-weight: 700;
+        }
+
+        .report-search-page .rs-note-card dt.edp-bg-sprucegreen-100 {
+            background: #e7f5f2 !important;
+            color: #0f766e !important;
+            border-radius: .45rem;
+            padding: .28rem .55rem;
+            font-size: .78rem;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+        }
+
+        .report-search-page .rs-note-card dd.text-white {
+            color: #0f172a !important;
+            margin-bottom: .55rem;
+            font-weight: 500;
+        }
+
+        .report-search-page .rs-note-card .text-warning {
+            color: #ca8a04 !important;
+        }
+
+        .report-search-page .rs-note-card .btn-outline-light {
+            border-color: #0f766e;
+            color: #0f766e;
+        }
+
+        .report-search-page .rs-note-card .btn-outline-light:hover {
+            background: #0f766e;
+            color: #fff;
+        }
+
+        @media (max-width: 991px) {
+            .report-search-page .rs-hero {
+                padding: 1.2rem;
+            }
+        }
+    </style>
+
+    <div class="container-fluid rs-shell">
+        <div class="rs-hero d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <div class="eyebrow">Central de Consulta</div>
+                <h2>Buscar Nota / OV</h2>
+                <p>Visão consolidada de progresso, informes, ADS e documentos por serviço.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <div class="rs-hero-chip">
+                    Referência
+                    <strong>{{ $lists?->note ?? 'Sem Nota Selecionada' }}</strong>
+                </div>
+                @if ($lists)
+                    <div class="rs-hero-chip">
+                        Data de Criação
+                        <strong>{{ optional($lists->created_at)->format('d/m/Y H:i') }}</strong>
+                    </div>
+                    <div class="rs-hero-chip">
+                        Última Atualização
+                        <strong>{{ optional($lists->updated_at)->format('d/m/Y H:i') }}</strong>
+                    </div>
+                @endif
+            </div>
+        </div>
+
     {{-- BUSCAR NOTA/OV --}}
-    <div class="card border-0 shadow">
-        <h4 class="card-header edp-bg-sprucegreen-70 text-edp-verde">BUSCAR NOTA/OV</h4>
+    <div class="card border-0 shadow rs-search-card">
+        <div class="card-header rs-head-unified">
+            <h4 class="rs-section-title">BUSCAR NOTA/OV</h4>
+        </div>
         <div class="card-body">
             <div class="row align-items-end g-2">
                 <div class="col-md-3">
@@ -73,8 +290,8 @@
             }
         @endphp
 
-        <div class="card border-0 mt-4 shadow edp-bg-sprucegreen-70 edp-text-verde-dark">
-            <div class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card border-0 mt-4 shadow edp-bg-sprucegreen-70 edp-text-verde-dark rs-note-card">
+            <div class="card-header rs-head-unified rs-note-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h4 class="mb-0">
                     NOTA/OV: <strong class="text-uppercase">{{ $lists->note }}</strong>
                 </h4>
@@ -217,9 +434,9 @@
                                     }
                                 @endphp
                                 <div class="card border-0 shadow mb-3">
-                                    <div class="card-header edp-bg-sprucegreen-100 text-white d-flex justify-content-between align-items-center">
+                                    <div class="card-header rs-order-header d-flex justify-content-between align-items-center">
                                         <div>
-                                            <span class="text-edp-verde">ORDEM:</span>
+                                            <span class="order-label">ORDEM:</span>
                                             {{ $order->ordem }}
                                             ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
                                         </div>
@@ -295,26 +512,10 @@
 
                     {{-- COLUNA DIREITA --}}
                     <div class="col-md-5">
-                        {{-- REGISTRO SICODE --}}
-                        <div class="card border-0 mb-3 shadow">
-                            <h5 class="card-header edp-bg-sprucegreen-100 text-edp-verde">REGISTRO SICODE</h5>
-                            <div class="card-body">
-                                <dl class="row">
-                                    <dt class="col-6 fw-bold">ENTRADA NO SICODE</dt>
-                                    <dd class="col-6">
-                                        {{ \Carbon\Carbon::parse($lists->created_at)->format('d/m/Y H:i:s') }}</dd>
-                                    <dt class="col-6 fw-bold">ÚLTIMA ATUALIZAÇÃO</dt>
-                                    <dd class="col-6">
-                                        {{ \Carbon\Carbon::parse($lists->updated_at)->format('d/m/Y H:i:s') }}</dd>
-                                </dl>
-                            </div>
-                        </div>
-
                         {{-- ARQUIVOS (download/zip via HTTP) --}}
-                        <div class="card edp-bg-sprucegreen-50 border-0 mb-3 shadow">
-                            <div
-                                class="card-header edp-bg-sprucegreen-100 text-edp-verde d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">ARQUIVOS</h5>
+                        <div class="card border-0 mb-3 shadow">
+                            <div class="card-header rs-head-unified d-flex justify-content-between align-items-center">
+                                <h5 class="rs-section-title">ARQUIVOS</h5>
                                 <div>
                                     @can('admin')
                                         <button class="btn btn-sm btn-primary"
@@ -329,116 +530,17 @@
                             </div>
 
                             @if ($lists->Files->count())
-                                @php
-                                    $grouped = $lists->Files
-                                        ->sortBy('file_name')
-                                        ->groupBy(fn($f) => $f->Service->service ?? 'Outros');
-                                    $services = $grouped
-                                        ->keys()
-                                        ->filter(fn($k) => $k !== 'Outros')
-                                        ->sort()
-                                        ->values()
-                                        ->all();
-                                    if ($grouped->has('Outros')) {
-                                        $services[] = 'Outros';
-                                    }
-                                @endphp
-
-                                <div class="accordion" id="filesByServiceAccordion">
-                                    @foreach ($services as $service)
-                                        @php
-                                            $files = $grouped[$service];
-                                            $slug = \Illuminate\Support\Str::slug($service);
-                                        @endphp
-
-                                        <div class="accordion-item border-secondary"
-                                            wire:key="service-{{ $slug }}">
-                                            <h2 class="accordion-header" id="heading{{ $slug }}">
-                                                <button
-                                                    class="accordion-button edp-bg-sprucegreen-20 text-white {{ $openServiceId !== $slug ? 'collapsed' : '' }}"
-                                                    type="button" data-bs-toggle="collapse"
-                                                    data-bs-target="#collapse{{ $slug }}"
-                                                    aria-expanded="{{ $openServiceId === $slug }}"
-                                                    aria-controls="collapse{{ $slug }}">
-                                                    {{ $service }}
-                                                </button>
-                                            </h2>
-
-                                            <div id="collapse{{ $slug }}"
-                                                class="accordion-collapse collapse {{ $openServiceId === $slug ? 'show' : '' }}"
-                                                aria-labelledby="heading{{ $slug }}"
-                                                data-bs-parent="#filesByServiceAccordion" x-data
-                                                x-init="$el.addEventListener('shown.bs.collapse', () => Livewire.emit('setOpenService', '{{ $slug }}'))">
-
-                                                <div class="accordion-body p-0">
-                                                    <div class="table-responsive">
-                                                        <table class="table table-sm table-striped table-hover mb-0">
-                                                            <thead class="table-dark">
-                                                                <tr>
-                                                                    <th class="text-center">
-                                                                        <input
-                                                                            class="form-check-input border border-1 border-secondary"
-                                                                            type="checkbox"
-                                                                            wire:click="toggleGroup('{{ $slug }}')">
-                                                                    </th>
-                                                                    <th class="text-center">Arquivo</th>
-                                                                    <th class="text-center">Data</th>
-                                                                    <th class="text-center">Tam</th>
-                                                                    <th></th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                @foreach ($files as $file)
-                                                                    @php $exists = \Storage::exists($file->path); @endphp
-                                                                    <tr
-                                                                        wire:key="file-{{ $file->id }}-{{ $lists->note }}">
-                                                                        <td class="text-center align-middle">
-                                                                            <input
-                                                                                class="form-check-input border border-1 border-secondary"
-                                                                                type="checkbox"
-                                                                                value="{{ $file->id }}"
-                                                                                wire:model.defer="selectedFiles">
-                                                                        </td>
-                                                                        <td class="text-start align-middle">
-                                                                            <i
-                                                                                class="{{ \App\Helpers\FileIcon::getIcon($file->ext)->icon }} me-1"></i>
-                                                                            <a class="text-dark"
-                                                                                href="{{ route('files.download', $file->id) }}">
-                                                                                {{ $file->file_name }}
-                                                                            </a>
-                                                                        </td>
-                                                                        <td class="text-center align-middle">
-                                                                            {{ $file->created_at->format('d/m/Y H:i:s') }}
-                                                                        </td>
-                                                                        <td class="text-center align-middle">
-                                                                            {{ $exists ? number_format(\Storage::size($file->path) / 1024, 0) . ' KB' : '---' }}
-                                                                        </td>
-                                                                        <td class="text-center align-middle">
-                                                                            @can('admin')
-                                                                                <i class="ri-pencil-fill text-primary fs-5"
-                                                                                    style="cursor:pointer;"
-                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit','editFile',{{ $file->id }})"></i>
-                                                                                <i class="ri-delete-bin-2-line text-danger fs-5"
-                                                                                    style="cursor:pointer;"
-                                                                                    wire:click.prevent="$emitTo('files.manager.fileedit','deleteFile',{{ $file->id }})"></i>
-                                                                            @endcan
-                                                                        </td>
-                                                                    </tr>
-                                                                @endforeach
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-
-                                                    <div class="p-2 text-end">
-                                                        <button class="btn btn-sm btn-primary"
-                                                            wire:click.prevent="zipFiles">
-                                                            <i class="bx bxs-cloud-download"></i> Baixar Selecionados
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
+                                <x-files.note-attachments :files="$lists->Files" selectionModel="selectedFiles" />
+                                <div class="d-flex justify-content-end gap-2 p-2 border-top bg-light-subtle">
+                                    <span class="small text-muted align-self-center">
+                                        Selecionados: <strong>{{ count($selectedFiles) }}</strong>
+                                    </span>
+                                    <button class="btn btn-sm btn-outline-secondary" wire:click="$set('selectedFiles', [])">
+                                        Limpar seleção
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles">
+                                        <i class="bx bxs-cloud-download"></i> Baixar Selecionados
+                                    </button>
                                 </div>
                             @else
                                 <div class="card-body">
@@ -449,9 +551,8 @@
 
                         {{-- STATUS HISTÓRICO (único sob demanda; outro banco) --}}
                         <div class="card border-0 shadow">
-                            <div
-                                class="card-header py-1 edp-bg-sprucegreen-100 edp-text-verde-dark d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0 edp-text-verde-dark">STATUS HISTÓRICO</h5>
+                            <div class="card-header rs-head-unified py-1 d-flex justify-content-between align-items-center">
+                                <h5 class="rs-section-title">STATUS HISTÓRICO</h5>
                                 <button class="btn btn-sm btn-primary" wire:click="loadHistorico">Carregar</button>
                             </div>
                             @if ($historico && $historico->count())
@@ -492,7 +593,9 @@
         {{-- PROJETO --}}
         @if ($lists->Productions->count())
             <div class="card border-0 mt-3 shadow">
-                <h5 class="card-header edp-bg-sprucegreen-100 text-edp-verde">PROJETO</h5>
+                <div class="card-header rs-head-unified">
+                    <h5 class="rs-section-title">PROJETO</h5>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
                         <thead class="table-dark">
@@ -580,7 +683,9 @@
         {{-- CONTRATAÇÃO --}}
         @if ($lists->Viabilities->count())
             <div class="card border-0 mt-3 shadow">
-                <h5 class="card-header edp-bg-sprucegreen-100 text-edp-verde">CONTRATAÇÃO</h5>
+                <div class="card-header rs-head-unified">
+                    <h5 class="rs-section-title">CONTRATAÇÃO</h5>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
                         <thead class="table-dark">
@@ -655,7 +760,9 @@
         {{-- INFORMES DE OBRA (Parciais, Ramal, Work) --}}
         @if ($lists->WorkForm || $lists->RamalForm || $lists->Partials->isNotEmpty())
             <div class="card border-0 mt-3 shadow">
-                <h5 class="card-header edp-bg-sprucegreen-100 text-edp-verde">INFORMES DE OBRA</h5>
+                <div class="card-header rs-head-unified">
+                    <h5 class="rs-section-title">INFORMES DE OBRA</h5>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
                         <thead class="table-dark">
@@ -672,6 +779,7 @@
                                 <th class="text-center">Rejeições</th>
                                 <th class="text-center">Última Devolução</th>
                                 <th class="text-center">Status Atual</th>
+                                <th class="text-center">ADS</th>
                                 <th class="text-center">Entregue Em</th>
                             </tr>
                         </thead>
@@ -713,6 +821,7 @@
                                                 <span class="badge bg-secondary text-white">DESCONHECIDO</span>
                                             @endif
                                         </td>
+                                        <td class="text-center align-middle">---</td>
                                         <td class="text-center align-middle">
                                             {{ $partial->created_at ? date('d/m/Y', strtotime($partial->created_at)) : 'Desconhecido' }}
                                         </td>
@@ -766,6 +875,7 @@
                                             {{ $lists->RamalForm?->rejected ? 'Informe em Revisão' : 'Normal' }}
                                         </span>
                                     </td>
+                                    <td class="text-center align-middle">---</td>
                                     <td class="text-center align-middle">
                                         {{ $lists->RamalForm?->created_at ? date('d/m/Y', strtotime($lists->RamalForm?->created_at)) : 'Desconhecido' }}
                                     </td>
@@ -825,6 +935,25 @@
                                         </span>
                                     </td>
                                     <td class="text-center align-middle">
+                                        @php
+                                            $workAds = $lists->WorkForm->Adsform;
+                                        @endphp
+                                        @if ($workAds)
+                                            @if ($workAds->tacit)
+                                                <div class="d-grid gap-1">
+                                                    <span class="badge text-bg-dark">ADS TÁCITA</span>
+                                                    <span class="badge {{ $workAds->tacit_delivered_at ? 'bg-success' : 'bg-danger' }}">
+                                                        {{ $workAds->tacit_delivered_at ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <span class="badge bg-success">ADS NORMAL</span>
+                                            @endif
+                                        @else
+                                            <span class="badge bg-secondary">SEM ADS</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center align-middle">
                                         {{ $lists->WorkForm?->informed_at ? date('d/m/Y', strtotime($lists->WorkForm?->informed_at)) : 'Desconhecido' }}
                                     </td>
                                 </tr>
@@ -840,13 +969,14 @@
                 </div>
             </div>
         @endif
-    @else
-        <div class="card border-0 mt-4 shadow">
-            <div class="card-body">
-                <h6 class="text-center text-muted">NADA PARA EXIBIR</h6>
+        @else
+            <div class="card border-0 mt-4 shadow">
+                <div class="card-body">
+                    <h6 class="text-center text-muted">NADA PARA EXIBIR</h6>
+                </div>
             </div>
-        </div>
-    @endif
+        @endif
+    </div>
 
     {{-- Modals --}}
     @livewire('partner.show.show-work-form', key('FormModalShow'))
