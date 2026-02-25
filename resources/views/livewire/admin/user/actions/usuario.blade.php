@@ -1,429 +1,238 @@
 @php
     use App\Models\Service;
 @endphp
+
 <div>
     <x-show-loading />
-    <!-- Modal para Criar/Editar Usuário -->
 
-    <div wire:ignore.self class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel"
-        aria-hidden="true">
-
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content edp-bg-gray">
-                <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                    <h5 class="modal-title" id="userModalLabel">Criar/Editar Usuário</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div wire:ignore.self class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header text-white" style="background: linear-gradient(130deg, #0f172a 0%, #0f766e 80%);">
+                    <h5 class="modal-title" id="userModalLabel">Cadastro de Usuario</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+
+                <div class="modal-body bg-light">
                     @if ($this->user)
-                        <div class="mb-3">
-                            <h6 class="text-primary">Dados do Usuário</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="email"
-                                        wire:model.defer="user.email" required>
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <img src="{{ $this->user->avatar_url }}" alt="Avatar" class="rounded-circle border" style="width: 62px; height: 62px; object-fit: cover;">
+                                <div>
+                                    <h6 class="mb-1">{{ $this->user->name ?: 'Novo usuario' }}</h6>
+                                    <div class="text-muted small">{{ $this->user->email ?: 'Sem e-mail cadastrado' }}</div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label for="matricula" class="form-label">Matrícula</label>
-                                    <input type="text" class="form-control" id="matricula"
-                                        wire:model.defer="user.Registration">
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    <label for="nome" class="form-label">Nome</label>
-                                    <input type="text" class="form-control" id="nome"
-                                        wire:model.defer="user.name" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="empresa" class="form-label">Empresa</label>
-                                    <select class="form-select" id="empresa" wire:model="user.company_id" required>
-                                        <option value="" selected>Selecione a Empresa</option>
-                                        @if ($companyList)
-                                            @foreach ($companyList as $cList)
-                                                <option wire:key='listCompany_{{ $cList->id }}'
-                                                    value="{{ $cList->id }}">{{ $cList->name }}</option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    <label for="contrato" class="form-label">Contrato</label>
-                                    <select class="form-select" id="contrato" wire:model="contract" required>
-                                        <option selected>Selecione o Contrato</option>
-                                        @if ($contractList)
-                                            @foreach ($contractList as $cList)
-                                                <option value="{{ $cList->id }}">{{ $cList->number }}</option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                </div>
-                                <div class="col-md-6 d-flex align-items-center">
-                                    <div class="form-check mt-4">
-                                        <input class="form-check-input" type="checkbox" id="contratado"
-                                            wire:model.defer="user.contract">
-                                        <label class="form-check-label" for="contratado">
-                                            Contratado (Terceirizado)
-                                        </label>
-                                    </div>
+                                <div class="ms-auto text-end">
+                                    <span class="badge text-bg-secondary">ID {{ $this->user->id ?: 'novo' }}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Seção 2: Permissões de Usuário -->
-                        <div class="mb-3">
-                            <h6 class="text-primary">Permissões de Usuário</h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <input type="hidden" wire:model="user.superadm" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="superAdmin"
-                                            wire:model="user.superadm" value="1" @disabled(!Auth()->User()->superadm)>
-                                        <label class="form-check-label" for="superAdmin">Super Admin</label>
-                                    </div>
-
-                                    <input type="hidden" wire:model="user.admin" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="admin"
-                                            wire:model="user.admin" value="1">
-                                        <label class="form-check-label" for="admin">Admin</label>
-                                    </div>
-
-                                    <input type="hidden" wire:model="user.management" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="gerente"
-                                            wire:model="user.management" value="1">
-                                        <label class="form-check-label" for="gerente">Gerente</label>
-                                    </div>
-                                </div>
-
-                                <!-- Coluna 2 -->
-                                <div class="col-md-4">
-                                    <input type="hidden" wire:model="user.engineer" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="engenheiro"
-                                            wire:model="user.engineer" value="1">
-                                        <label class="form-check-label" for="engenheiro">Engenheiro</label>
-                                    </div>
-
-                                    <input type="hidden" wire:model="user.responsible" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="responsavel"
-                                            wire:model="user.responsible" value="1">
-                                        <label class="form-check-label" for="responsavel">Responsável</label>
-                                    </div>
-
-                                    <input type="hidden" wire:model="user.operator" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="operador"
-                                            wire:model="user.operator" value="1">
-                                        <label class="form-check-label" for="operador">Operador</label>
-                                    </div>
-                                </div>
-
-                                <!-- Coluna 3 -->
-                                <div class="col-md-4">
-                                    <input type="hidden" wire:model="user.user" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="user"
-                                            wire:model="user.user" value="1">
-                                        <label class="form-check-label" for="user">Usuário</label>
-                                    </div>
-
-                                    <input type="hidden" wire:model="user.btzero" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="btzero"
-                                            wire:model="user.btzero" value="1">
-                                        <label class="form-check-label" for="btzero">BTZero</label>
-                                    </div>
-
-                                    <input type="hidden" wire:model="user.onlyparner" value="0">
-                                    <!-- Campo hidden para garantir o envio de 0 -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="empreiteira"
-                                            wire:model="user.onlyparner" value="1">
-                                        <label class="form-check-label" for="empreiteira">Empreiteira (Visão
-                                            Exclusiva)</label>
-                                    </div>
-
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="dispatch"
-                                            wire:model="user.can_dispatch" value="1">
-                                        <label class="form-check-label" for="dispatch">Pode Despachar</label>
-                                    </div>
-                                </div>
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-white">
+                                <strong>Dados principais</strong>
                             </div>
-                        </div>
-
-                        <!-- Seção 3: Adicionar Serviços -->
-                        <div class="mb-3">
-                            <h6 class="text-primary">Adicionar Atividade</h6>
-                            <div class="row">
-                                <div class="col-md-10">
-                                    <select class="form-select" id="servicosDisponiveis"
-                                        wire:model.defer="serviceSelect">
-                                        <option value="" selected>Selecione Atividade</option>
-                                        @if ($this->serviceList)
-                                            @foreach ($this->serviceList as $sList)
-                                                <option value="{{ $sList->uuid }}">{{ $sList->service }}</option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                </div>
-                                <div class="col-md-2 d-flex align-items-center">
-                                    <button type="button" class="btn btn-success" id="addServico"
-                                        wire:click="addService"><i class="ri-add-line"></i> Adicionar</button>
-                                </div>
-                            </div>
-                            <div class="mt-3 col-sm-6">
-
-                                <div class="card edp-bg-gray">
-                                    <div class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                                        Atividades Liberadas
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" wire:model.defer="user.email" required>
                                     </div>
-                                    <table class="table table-sm table-condensed table-striped">
-                                        <tbody>
-                                            @if ($this->user->ToServices->count())
-                                                @foreach ($this->user->ToServices as $toService)
-                                                    <tr wire:key='service_single_{{ $toService->id }}'>
-                                                        <td>{{ $toService->Service->service }}</td>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input
-                                                                    class="form-check-input border border-1 border-secondary"
-                                                                    type="checkbox" id="service"
-                                                                    wire:click.prevent="ServiceOption({{ $toService->id }}, 'service')"
-                                                                    @checked($toService->service)>
-                                                                <label class="form-check-label"
-                                                                    for="engenheiro">Serviço</label>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input
-                                                                    class="form-check-input  border border-1 border-secondary"
-                                                                    type="checkbox" id="dispatch"t
-                                                                    wire:click.prevent="ServiceOption({{ $toService->id }}, 'dispatch')"
-                                                                    @checked($toService->dispatch)>
-                                                                <label class="form-check-label"
-                                                                    for="engenheiro">Despacho</label>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <i class="ri-delete-bin-line fs-5 text-danger cursor-pointer"
-                                                                wire:click="removeService({{ $toService->id }})"
-                                                                title="Excluir" style="cursor: pointer;"></i>
-                                                        </td>
-                                                    </tr>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Matrícula</label>
+                                        <input type="text" class="form-control" wire:model.defer="user.Registration">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Nome</label>
+                                        <input type="text" class="form-control" wire:model.defer="user.name" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Empresa</label>
+                                        <select class="form-select" wire:model="user.company_id" required>
+                                            <option value="">Selecione a empresa</option>
+                                            @if ($companyList)
+                                                @foreach ($companyList as $cList)
+                                                    <option wire:key="listCompany_{{ $cList->id }}" value="{{ $cList->id }}">{{ $cList->name }}</option>
                                                 @endforeach
-                                            @elseif(count($this->temporaryServices))
-                                                @foreach ($this->temporaryServices as $index => $tempService)
-                                                    @php
-                                                        $service = Service::where(
-                                                            'uuid',
-                                                            $tempService['service_id'],
-                                                        )->first();
-                                                    @endphp
-                                                    @if ($service)
-                                                        <tr wire:key='service_single_{{ $index }}'>
-                                                            <td>{{ $service->service }}</td>
-                                                            <td>
-                                                                <div class="form-check">
-                                                                    <input
-                                                                        class="form-check-input border border-1 border-secondary"
-                                                                        type="checkbox" id="service"
-                                                                        wire:model.defer="temporaryServices.{{ $index }}.service">
-                                                                    <label class="form-check-label"
-                                                                        for="engenheiro">Serviço</label>
-                                                                </div>
-                                                            </td>
-                                                            <td>
-                                                                <div class="form-check">
-                                                                    <input
-                                                                        class="form-check-input border border-1 border-secondary"
-                                                                        type="checkbox" id="dispatch"
-                                                                        wire:model.defer="temporaryServices.{{ $index }}.dispatch">
-                                                                    <label class="form-check-label"
-                                                                        for="engenheiro">Despacho</label>
-                                                                </div>
-                                                            </td>
-                                                            <td>
-                                                                <i class="ri-delete-bin-line fs-5 text-danger cursor-pointer"
-                                                                    wire:click="removeService({{ $index }})"
-                                                                    title="Excluir" style="cursor: pointer;"></i>
-                                                            </td>
+                                            @endif
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Contrato</label>
+                                        <select class="form-select" wire:model="contract" required>
+                                            <option value="">Selecione o contrato</option>
+                                            @if ($contractList)
+                                                @foreach ($contractList as $cList)
+                                                    <option value="{{ $cList->id }}">{{ $cList->number }}</option>
+                                                @endforeach
+                                            @endif
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="contractUser" wire:model.defer="user.contract">
+                                            <label class="form-check-label" for="contractUser">Terceirizado</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-white">
+                                <strong>Permissoes</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-2">
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="superAdmin" wire:model="user.superadm" @disabled(!Auth()->User()->superadm)><label class="form-check-label" for="superAdmin">Super Admin</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="admin" wire:model="user.admin"><label class="form-check-label" for="admin">Admin</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="management" wire:model="user.management"><label class="form-check-label" for="management">Gerente</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="engineer" wire:model="user.engineer"><label class="form-check-label" for="engineer">Engenheiro</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="responsible" wire:model="user.responsible"><label class="form-check-label" for="responsible">Responsável</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="operator" wire:model="user.operator"><label class="form-check-label" for="operator">Operador</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="basicUser" wire:model="user.user"><label class="form-check-label" for="basicUser">Usuario</label></div></div>
+                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="btzero" wire:model="user.btzero"><label class="form-check-label" for="btzero">BTZero</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="onlyparner" wire:model="user.onlyparner"><label class="form-check-label" for="onlyparner">Empreiteira (visão exclusiva)</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="dispatch" wire:model="user.can_dispatch"><label class="form-check-label" for="dispatch">Pode despachar</label></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-lg-7">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-white">
+                                        <strong>Atividades liberadas</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-9">
+                                                <select class="form-select" wire:model.defer="serviceSelect">
+                                                    <option value="">Selecione atividade</option>
+                                                    @if ($this->serviceList)
+                                                        @foreach ($this->serviceList as $sList)
+                                                            <option value="{{ $sList->uuid }}">{{ $sList->service }}</option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                            <div class="col-3 d-grid">
+                                                <button type="button" class="btn btn-success" wire:click="addService"><i class="ri-add-line"></i> Adicionar</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle">
+                                                <tbody>
+                                                    @if ($this->user->ToServices->count())
+                                                        @foreach ($this->user->ToServices as $toService)
+                                                            <tr wire:key="service_single_{{ $toService->id }}">
+                                                                <td>{{ $toService->Service->service }}</td>
+                                                                <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:click.prevent="ServiceOption({{ $toService->id }}, 'service')" @checked($toService->service)> <label class="form-check-label">Serviço</label></div></td>
+                                                                <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:click.prevent="ServiceOption({{ $toService->id }}, 'dispatch')" @checked($toService->dispatch)> <label class="form-check-label">Despacho</label></div></td>
+                                                                <td class="text-end"><i class="ri-delete-bin-line text-danger" style="cursor: pointer;" wire:click="removeService({{ $toService->id }})"></i></td>
+                                                            </tr>
+                                                        @endforeach
+                                                    @elseif(count($this->temporaryServices))
+                                                        @foreach ($this->temporaryServices as $index => $tempService)
+                                                            @php
+                                                                $service = Service::where('uuid', $tempService['service_id'])->first();
+                                                            @endphp
+                                                            @if ($service)
+                                                                <tr wire:key="service_single_{{ $index }}">
+                                                                    <td>{{ $service->service }}</td>
+                                                                    <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.service"> <label class="form-check-label">Serviço</label></div></td>
+                                                                    <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.dispatch"> <label class="form-check-label">Despacho</label></div></td>
+                                                                    <td class="text-end"><i class="ri-delete-bin-line text-danger" style="cursor: pointer;" wire:click="removeService({{ $index }})"></i></td>
+                                                                </tr>
+                                                            @endif
+                                                        @endforeach
+                                                    @else
+                                                        <tr>
+                                                            <td colspan="4" class="text-center text-muted">Sem atividade liberada</td>
                                                         </tr>
                                                     @endif
-                                                @endforeach
-                                            @else
-                                                <div class="card-body py-2">
-                                                    <h5 class="text-center my-0 py-0">SEM ATIVIDADE LIBERADA</h5>
-                                                </div>
-                                            @endif
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <!-- Seção 4: Região de Controle -->
-                        {{-- @if ($this->user->engineer)
-                            <div class="mb-3">
-                                <h6 class="text-primary">Região de Controle (Engenheiro)</h6>
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="norte">
-                                            <label class="form-check-label" for="norte">Norte</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="centroNorte">
-                                            <label class="form-check-label" for="centroNorte">Centro Norte</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="centroSul">
-                                            <label class="form-check-label" for="centroSul">Centro Sul</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="regiaoControle"
-                                                id="sul">
-                                            <label class="form-check-label" for="sul">Sul</label>
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        @endif --}}
 
-
-                        <div class="mb-3">
-                            <h6 class="text-primary">Adicionar Empresas de Responsabilidade</h6>
-                            <div class="row">
-                                <div class="col-md-10">
-                                    <select class="form-select" id="servicosDisponiveis"
-                                        wire:model.defer="companySelect">
-                                        <option value="" selected>Selecione Atividade</option>
-                                        @if ($companyList && $companyList->count())
-                                            @foreach ($companyList as $cList)
-                                                <option value="{{ $cList->id }}">{{ $cList->name }}
-                                                </option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                </div>
-                                <div class="col-md-2 d-flex align-items-center">
-                                    <button type="button" class="btn btn-success" id="addServico"
-                                        wire:click="addCompany"><i class="ri-add-line"></i> Adicionar</button>
-                                </div>
-                            </div>
-                            <div class="mt-3 col-sm-6">
-
-                                <div class="card edp-bg-gray">
-                                    <div class="card-header edp-bg-sprucegreen-100 edp-text-verde-dark">
-                                        Empresas sob Responsabilidade
+                            <div class="col-lg-5">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-white">
+                                        <strong>Empresas sob responsabilidade</strong>
                                     </div>
-                                    <table class="table table-sm table-condensed table-striped">
-                                        <tbody>
-                                            @if ($user->Companies->count())
-                                                @foreach ($user->Companies as $toCompany)
-                                                    <tr wire:key='company-list-{{ $toCompany->id }}'
-                                                        class="text-center align-middle">
-                                                        @php
-                                                            if ($toCompany->name) {
-                                                                $name = explode(' ', $toCompany->name);
-                                                                $name = $name[0] . ' ' . end($name);
-                                                            } else {
-                                                                $name = 'Desconhecido';
-                                                            }
-                                                        @endphp
-                                                        <td>{{ $name }}</td>
-                                                        {{-- <td>
-                                                    <div class="form-check">
-                                                        <input
-                                                            class="form-check-input border border-1 border-secondary"
-                                                            type="checkbox" id="service"
-                                                            wire:click.prevent="ServiceOption({{ $toCompany->id }}, 'service')"
-                                                            @checked($toCompany->service)>
-                                                        <label class="form-check-label"
-                                                            for="engenheiro">Serviço</label>
-                                                    </div>
-                                                </td> --}}
-                                                        {{-- <td>
-                                                    <div class="form-check">
-                                                        <input
-                                                            class="form-check-input  border border-1 border-secondary"
-                                                            type="checkbox" id="dispatch"t
-                                                            wire:click.prevent="ServiceOption({{ $toCompany->id }}, 'dispatch')"
-                                                            @checked($toCompany->dispatch)>
-                                                        <label class="form-check-label"
-                                                            for="engenheiro">Despacho</label>
-                                                    </div>
-                                                </td> --}}
-                                                        <td>
-                                                            <i class="ri-delete-bin-line fs-5 text-danger cursor-pointer"
-                                                                wire:click="removeCompany('{{ $toCompany->id }}')"
-                                                                title="Excluir" style="cursor: pointer;"></i>
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            @else
-                                                <div class="card-body py-2">
-                                                    <h5 class="text-center my-0 py-0">NENHUMA EMPRESA RESPONSAVEL</h5>
-                                                </div>
-                                            @endif
-                                        </tbody>
-                                    </table>
-                                </div>
+                                    <div class="card-body">
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-9">
+                                                <select class="form-select" wire:model.defer="companySelect">
+                                                    <option value="">Selecione empresa</option>
+                                                    @if ($companyList && $companyList->count())
+                                                        @foreach ($companyList as $cList)
+                                                            <option value="{{ $cList->id }}">{{ $cList->name }}</option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                            <div class="col-3 d-grid">
+                                                <button type="button" class="btn btn-success" wire:click="addCompany"><i class="ri-add-line"></i> Add</button>
+                                            </div>
+                                        </div>
 
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle">
+                                                <tbody>
+                                                    @if ($user->Companies->count())
+                                                        @foreach ($user->Companies as $toCompany)
+                                                            @php
+                                                                $name = $toCompany->name ? collect(explode(' ', $toCompany->name))->filter()->values() : collect();
+                                                                $prettyName = $name->count() > 1 ? $name->first().' '.$name->last() : ($name->first() ?: 'Desconhecido');
+                                                            @endphp
+                                                            <tr wire:key="company-list-{{ $toCompany->id }}">
+                                                                <td>{{ $prettyName }}</td>
+                                                                <td class="text-end">
+                                                                    <i class="ri-delete-bin-line text-danger" style="cursor: pointer;" wire:click="removeCompany('{{ $toCompany->id }}')"></i>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    @else
+                                                        <tr>
+                                                            <td colspan="2" class="text-center text-muted">Nenhuma empresa vinculada</td>
+                                                        </tr>
+                                                    @endif
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     @endif
                 </div>
 
-                <div class="modal-footer edp-bg-sprucegreen-100">
-                    {{-- @if ($this->user)
-                        @livewire('admin.user.actions.user-access-info', ['email' => $this->user->email, 'password' => '123456', 'url' => 'http//edpbr1204/es/'], key('user-Copy-' . $this->user->id))
-                    @endif --}}
-                    <button type="button" class="btn btn-primary" wire:click="copyClipboarder"><i
-                            class="ri-lock-password-line align-middle"></i> Copiar Acessos</button>
-                    <button type="button" class="btn btn-warning" wire:click.prevent="resetPassword"><i
-                            class="ri-lock-password-line align-middle"></i> Resetar Senha</button>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-outline-primary" wire:click="copyClipboarder"><i class="ri-file-copy-line align-middle"></i> Copiar acessos</button>
+                    <button type="button" class="btn btn-warning" wire:click.prevent="resetPassword"><i class="ri-lock-password-line align-middle"></i> Resetar senha</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="saveUser"
-                        wire:click.prevent='Save'>Salvar</button>
+                    <button type="button" class="btn btn-primary" wire:click.prevent="Save">Salvar</button>
                 </div>
             </div>
         </div>
-
     </div>
 
-
     <script>
-        // Capturando o evento de fechamento do modal
-        document.getElementById('userModal').addEventListener('hidden.bs.modal', () => {
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalEl = document.getElementById('userModal');
+            if (!modalEl || modalEl.dataset.closeBound === '1') {
+                return;
+            }
 
-            Livewire.emitTo('admin.user.actions.usuario', 'closeAll');
+            modalEl.dataset.closeBound = '1';
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                Livewire.emitTo('admin.user.actions.usuario', 'closeAll');
+            });
         });
     </script>
-
 </div>

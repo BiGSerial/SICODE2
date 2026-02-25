@@ -28,8 +28,10 @@ class UsuarioMass extends Component
         'admin' => false,
         'management' => false,
         'engineer' => false,
+        'responsible' => false,
         'operator' => false,
         'user' => false,
+        'btzero' => false,
         'onlyparner' => false,
         'contract' => false,
     ];
@@ -137,12 +139,8 @@ class UsuarioMass extends Component
 
     public function removeService($index)
     {
-        if ($this->user->ToServices->count()) {
-            ServiceUser::find($index)->delete();
-        } else {
-            unset($this->temporaryServices[$index]);
-            $this->temporaryServices = array_values($this->temporaryServices);
-        }
+        unset($this->temporaryServices[$index]);
+        $this->temporaryServices = array_values($this->temporaryServices);
 
         $this->emitSelf('refreshuser');
     }
@@ -214,8 +212,10 @@ class UsuarioMass extends Component
                     $user->admin = $this->permissions['admin'];
                     $user->management = $this->permissions['management'];
                     $user->engineer = $this->permissions['engineer'];
+                    $user->responsible = $this->permissions['responsible'];
                     $user->operator = $this->permissions['operator'];
                     $user->user = $this->permissions['user'];
+                    $user->btzero = $this->permissions['btzero'];
                     $user->contract = $this->permissions['contract'];
                     $user->onlyparner = $this->permissions['onlyparner'];
                 }
@@ -314,8 +314,10 @@ class UsuarioMass extends Component
             'admin' => false,
             'management' => false,
             'engineer' => false,
+            'responsible' => false,
             'operator' => false,
             'user' => false,
+            'btzero' => false,
             'onlyparner' => false,
             'contract' => false,
         ];

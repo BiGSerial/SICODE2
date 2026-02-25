@@ -61,6 +61,15 @@
                 </div>
             </div>
         </div>
+        @php
+            $blockedItems = collect($previewItems)->where('can_process', false);
+        @endphp
+        @if ($blockedItems->count())
+            <div class="alert alert-warning mx-3 mt-3 mb-0">
+                <strong>{{ $blockedItems->count() }} nota(s) bloqueada(s).</strong>
+                Verifique a coluna detalhe para o motivo de cada bloqueio.
+            </div>
+        @endif
         <div class="table-responsible">
             <table class="table table-sm table-striped table-hover align-middle">
                 <thead>
@@ -74,12 +83,19 @@
                 </thead>
                 <tbody>
                     @forelse ($previewItems as $item)
-                        <tr wire:key="preview_{{ $item['note_number'] }}">
+                        <tr wire:key="preview_{{ $item['note_number'] }}" @class(['table-danger' => !$item['can_process']])>
                             <td class="text-center fw-bold">{{ $item['note_number'] }}</td>
                             <td>
                                 <span class="badge {{ $item['status_class'] }}">{{ $item['status_label'] }}</span>
                             </td>
-                            <td>{{ $item['message'] }}</td>
+                            <td>
+                                @if (!$item['can_process'])
+                                    <div class="text-danger fw-semibold">
+                                        <i class="ri-error-warning-line align-middle"></i> Bloqueado
+                                    </div>
+                                @endif
+                                <div>{{ $item['message'] }}</div>
+                            </td>
                             <td class="text-center">
                                 @if ($item['previous_request_id'])
                                     #{{ $item['previous_request_id'] }}

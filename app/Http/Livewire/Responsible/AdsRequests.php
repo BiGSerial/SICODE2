@@ -243,6 +243,20 @@ class AdsRequests extends Component
             return;
         }
 
+        $processableCount = collect($this->previewItems)
+            ->where('can_process', true)
+            ->count();
+
+        if ($processableCount === 0) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Nao foi possivel concluir a solicitacao',
+                'html' => $this->buildBlockedPreviewHtml(),
+            ]);
+            return;
+        }
+
         if (!$force && $this->getCancelablePreviewNotes()) {
             return;
         }
@@ -424,6 +438,32 @@ class AdsRequests extends Component
 
         return 'Existem solicitacoes em andamento que serao canceladas e reagendadas para as notas: <strong>' .
             implode(', ', $list) . $extra . '</strong>. Deseja continuar?';
+    }
+
+    protected function buildBlockedPreviewHtml(): string
+    {
+        $blocked = collect($this->previewItems)
+            ->filter(fn ($item) => empty($item['can_process']))
+            ->values();
+
+        if ($blocked->isEmpty()) {
+            return '<p class="mb-0">Nenhuma nota apta para processamento.</p>';
+        }
+
+        $items = $blocked
+            ->take(12)
+            ->map(function ($item) {
+                $note = e((string) ($item['note_number'] ?? '-'));
+                $message = e((string) ($item['message'] ?? 'Sem detalhe.'));
+                return "<li><strong>{$note}:</strong> {$message}</li>";
+            })
+            ->implode('');
+
+        $extra = $blocked->count() > 12
+            ? '<p class="mt-2 mb-0 text-muted">E mais '.($blocked->count() - 12).' nota(s) bloqueada(s).</p>'
+            : '';
+
+        return "<div class='text-start'><p class='mb-2'>Nenhuma nota da lista está apta. Motivos:</p><ul class='mb-0'>{$items}</ul>{$extra}</div>";
     }
 
     protected function parseNotesInput(): array
