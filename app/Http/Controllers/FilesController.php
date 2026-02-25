@@ -98,14 +98,25 @@ class FilesController extends Controller
 
     public function zipSelected(Request $request)
     {
-        $ids  = collect(explode(',', (string) $request->query('ids', '')))->filter()->map('intval')->all();
+        $ids  = collect(explode(',', (string) $request->query('ids', '')))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
         $note = (string) $request->query('note', 'Arquivos');
+        $noteId = (int) $request->query('note_id', 0);
 
         if (empty($ids)) {
             return back()->with('error', 'Nenhum arquivo selecionado.');
         }
+        if ($noteId <= 0) {
+            abort(422, 'Contexto da nota inválido para gerar ZIP.');
+        }
 
-        $files = File::whereIn('id', $ids)->get();
+        $files = File::where('note_id', $noteId)
+            ->whereIn('id', $ids)
+            ->get();
         if ($files->isEmpty()) {
             abort(404, 'Arquivos não encontrados.');
         }

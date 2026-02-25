@@ -198,6 +198,35 @@ class Search extends Component
         return redirect()->route('files.download', ['file' => $file->id]);
     }
 
+    public function updatedSelectedFiles($value)
+    {
+        if (!$this->lists) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $ids = collect(is_array($value) ? $value : $this->selectedFiles)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $validIds = File::query()
+            ->where('note_id', (int) $this->lists->id)
+            ->whereIn('id', $ids->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $this->selectedFiles = $validIds;
+    }
+
     /**
      * Download ZIP via HTTP
      */
@@ -213,13 +242,32 @@ class Search extends Component
             return;
         }
 
-        $allowedIds = $this->lists->Files->pluck('id')->map(fn ($id) => (int) $id)->all();
         $selectedIds = collect($this->selectedFiles)
             ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => in_array($id, $allowedIds, true))
+            ->filter(fn ($id) => $id > 0)
             ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SELEÇÃO INVÁLIDA OU EXPIRADA',
+                'text'     => 'Atualize a lista de arquivos e selecione novamente.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
+        $selectedIds = File::query()
+            ->where('note_id', (int) $this->lists->id)
+            ->whereIn('id', $selectedIds->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
+
+        $this->selectedFiles = $selectedIds;
 
         if (empty($selectedIds)) {
             $this->dispatchBrowserEvent('swal', [
@@ -235,6 +283,7 @@ class Search extends Component
         return redirect()->route('files.zip', [
             'ids'  => implode(',', $selectedIds),
             'note' => $this->lists->note,
+            'note_id' => (int) $this->lists->id,
         ]);
     }
 

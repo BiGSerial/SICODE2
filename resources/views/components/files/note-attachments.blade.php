@@ -5,29 +5,37 @@
 
 @php
     use Illuminate\Support\Facades\Storage;
+    use Illuminate\Support\Str;
     use App\Models\Service;
 
     $allFiles = collect($files ?? []);
     $imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
     $isSuperAdm = (bool) auth()->user()?->superadm;
+    $tacitRestrictedById = $allFiles
+        ->mapWithKeys(fn ($f) => [(int) $f->id => (bool) $f->isTacitAdsRestricted()])
+        ->all();
 
-    $serviceMap = [];
+    $serviceUuidMap = [];
+    $serviceIdMap = [];
     Service::query()
-        ->select('uuid', 'service')
+        ->select('id', 'uuid', 'service')
         ->get()
-        ->each(function ($svc) use (&$serviceMap) {
+        ->each(function ($svc) use (&$serviceUuidMap, &$serviceIdMap) {
             if ($svc->uuid) {
-                $serviceMap[(string) $svc->uuid] = $svc->service;
+                $serviceUuidMap[(string) $svc->uuid] = $svc->service;
             }
+            $serviceIdMap[(string) $svc->id] = $svc->service;
         });
 
-    $grouped = $allFiles->sortBy('file_name')->groupBy(function ($f) use ($serviceMap) {
+    $grouped = $allFiles->sortBy('file_name')->groupBy(function ($f) use ($serviceUuidMap, $serviceIdMap) {
         $serviceKey = trim((string) ($f->service_id ?? ''));
         if ($serviceKey === '') {
             return 'Outros';
         }
-
-        return $serviceMap[$serviceKey] ?? 'Outros';
+        if (Str::isUuid($serviceKey)) {
+            return $serviceUuidMap[$serviceKey] ?? 'Outros';
+        }
+        return $serviceIdMap[$serviceKey] ?? 'Outros';
     });
     $orderedKeys = $grouped->keys()->filter(fn ($k) => $k !== 'Outros')->sort()->values()->all();
     if ($grouped->has('Outros')) {
@@ -36,32 +44,46 @@
     $servicesCount = count($orderedKeys);
     $filesCount = $allFiles->count();
     $defaultSelectedService = $orderedKeys[0] ?? 'all';
-    $allFileIds = $allFiles->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+    $allFileIds = $allFiles
+        ->filter(fn ($f) => $isSuperAdm || !($tacitRestrictedById[(int) $f->id] ?? false))
+        ->pluck('id')
+        ->map(fn ($id) => (int) $id)
+        ->values()
+        ->all();
     $idsByService = collect($orderedKeys)
         ->mapWithKeys(fn ($serviceName) => [
-            $serviceName => $grouped->get($serviceName, collect())->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
+            $serviceName => $grouped
+                ->get($serviceName, collect())
+                ->filter(fn ($f) => $isSuperAdm || !($tacitRestrictedById[(int) $f->id] ?? false))
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all(),
         ])
         ->toArray();
     $globalImages = $allFiles
         ->filter(fn ($f) => in_array(strtolower((string) $f->ext), $imageExt, true))
         ->sortBy('file_name')
         ->values();
+    $globalImageIds = $globalImages->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
     $imageItems = $globalImages
-        ->map(function ($f) {
+        ->map(function ($f) use ($isSuperAdm, $tacitRestrictedById) {
             $nameWithExt = pathinfo($f->file_name, PATHINFO_FILENAME) . '.' . $f->ext;
             return [
                 'id' => (int) $f->id,
                 'name' => $nameWithExt,
                 'url' => route('files.preview', ['file' => $f->id, 'v' => optional($f->updated_at)->timestamp]),
-                'download' => route('files.download', $f->id),
+                'download' => ($isSuperAdm || !($tacitRestrictedById[(int) $f->id] ?? false))
+                    ? route('files.download', $f->id)
+                    : '',
+                'restricted' => (bool) ($tacitRestrictedById[(int) $f->id] ?? false),
             ];
         })
-        ->values()
-        ->all();
-    $imageIndexById = [];
-    foreach ($globalImages as $index => $img) {
-        $imageIndexById[(int) $img->id] = (int) $index;
-    }
+        ->values();
+    $previewModalId = 'nsPreviewModal_' . uniqid();
+    $previewCarouselId = 'nsPreviewCarousel_' . uniqid();
+    $previewTitleId = 'nsPreviewTitle_' . uniqid();
+    $previewDownloadId = 'nsPreviewDownload_' . uniqid();
 
     $fmtSize = function (?string $path): string {
         if (!$path || !Storage::exists($path)) {
@@ -87,8 +109,6 @@
     selectedService: @js($defaultSelectedService),
     allFileIds: @js($allFileIds),
     idsByService: @js($idsByService),
-    imageItems: @js($imageItems),
-    activeImageIndex: null,
     applySelectAll() {
         const ids = this.selectedService === 'all'
             ? this.allFileIds
@@ -110,21 +130,6 @@
                 this.selectedService = saved;
             }
         } catch (e) {}
-    },
-    openImage(index) {
-        if (!this.imageItems.length) return;
-        this.activeImageIndex = index;
-    },
-    closeImage() {
-        this.activeImageIndex = null;
-    },
-    prevImage() {
-        if (this.activeImageIndex === null || this.imageItems.length <= 1) return;
-        this.activeImageIndex = (this.activeImageIndex - 1 + this.imageItems.length) % this.imageItems.length;
-    },
-    nextImage() {
-        if (this.activeImageIndex === null || this.imageItems.length <= 1) return;
-        this.activeImageIndex = (this.activeImageIndex + 1) % this.imageItems.length;
     }
 }" x-init="restoreSelectedService()">
     <style>
@@ -313,52 +318,74 @@
             flex-wrap: wrap;
         }
 
-        .ns-image-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(2, 6, 23, .85);
-            z-index: 2000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .ns-image-modal-card {
-            width: min(92vw, 1100px);
-            max-height: 92vh;
+        .ns-modal-dark .modal-content {
             background: #0f172a;
             border: 1px solid #334155;
-            box-shadow: 0 24px 48px rgba(2, 6, 23, .55);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
         }
 
-        .ns-image-modal-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: .75rem;
-            padding: .55rem .75rem;
+        .ns-modal-dark .modal-header,
+        .ns-modal-dark .modal-footer {
+            border-color: #334155;
             color: #e2e8f0;
-            border-bottom: 1px solid #334155;
-            background: #111827;
         }
 
-        .ns-image-modal-body {
-            flex: 1;
+        .ns-modal-dark .btn-close {
+            filter: invert(1) grayscale(1);
+        }
+
+        .ns-modal-dark .modal-body {
+            min-height: 320px;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 300px;
             background: #020617;
+            position: relative;
+            padding: 0;
         }
 
-        .ns-image-modal-body img {
-            max-width: 100%;
-            max-height: calc(92vh - 110px);
+        .ns-modal-dark .modal-body img {
+            width: 100%;
+            max-height: 76vh;
             object-fit: contain;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .ns-carousel-zone {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 14%;
+            min-width: 68px;
+            border: 0;
+            background: transparent;
+            color: rgba(255, 255, 255, .92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color .2s ease;
+        }
+
+        .ns-carousel-zone i {
+            font-size: 1.9rem;
+            opacity: .4;
+            transition: opacity .2s ease;
+        }
+
+        .ns-carousel-zone:hover {
+            background: rgba(2, 6, 23, .35);
+        }
+
+        .ns-carousel-zone:hover i {
+            opacity: 1;
+        }
+
+        .ns-carousel-zone-prev {
+            left: 0;
+        }
+
+        .ns-carousel-zone-next {
+            right: 0;
         }
     </style>
 
@@ -428,17 +455,26 @@
                         @php
                             $nameWithExt = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
                             $previewImageUrl = route('files.preview', ['file' => $file->id, 'v' => optional($file->updated_at)->timestamp]);
-                            $globalImageIndex = $imageIndexById[(int) $file->id] ?? 0;
+                            $currentIndex = array_search((int) $file->id, $globalImageIds, true);
+                            $globalImageIndex = $currentIndex === false ? 0 : $currentIndex;
                         @endphp
                         <div class="ns-attach-thumb" wire:key="img-{{ $file->id }}">
                             <img src="{{ $previewImageUrl }}" alt="{{ $nameWithExt }}" style="cursor:pointer;"
-                                x-on:click.prevent="openImage({{ $globalImageIndex }})">
+                                data-ns-preview-modal="{{ $previewModalId }}"
+                                data-preview-index="{{ $globalImageIndex }}">
                             <div class="ns-attach-meta">
                                 <div class="name" title="{{ $nameWithExt }}">{{ $nameWithExt }}</div>
+                                @if ($isSuperAdm && ($tacitRestrictedById[(int) $file->id] ?? false))
+                                    <div class="mb-1">
+                                        <span class="badge text-bg-dark">ADS TÁCITA</span>
+                                    </div>
+                                @endif
                                 <div class="mb-1">{{ $fmtSize($file->path) }} · {{ optional($file->created_at)->format('d/m/Y') }}</div>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <label class="form-check m-0">
-                                        <input class="form-check-input border border-secondary" type="checkbox" value="{{ $file->id }}" wire:model.defer="{{ $selectionModel }}">
+                                        @if ($isSuperAdm || !($tacitRestrictedById[(int) $file->id] ?? false))
+                                            <input class="form-check-input border border-secondary" type="checkbox" value="{{ $file->id }}" wire:key="chk-img-{{ $file->id }}" wire:model="{{ $selectionModel }}">
+                                        @endif
                                     </label>
                                     <div class="actions">
                                         @if ($isSuperAdm)
@@ -453,9 +489,11 @@
                                                 <i class="ri-delete-bin-2-line"></i>
                                             </button>
                                         @endif
-                                        <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ route('files.download', $file->id) }}" title="Baixar arquivo">
-                                            <i class="ri-download-line"></i>
-                                        </a>
+                                        @if ($isSuperAdm || !($tacitRestrictedById[(int) $file->id] ?? false))
+                                            <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ route('files.download', $file->id) }}" title="Baixar arquivo">
+                                                <i class="ri-download-line"></i>
+                                            </a>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -482,9 +520,16 @@
                                 @php $nameWithExt = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext; @endphp
                                 <tr wire:key="doc-{{ $file->id }}">
                                     <td class="text-center align-middle">
-                                        <input class="form-check-input border border-secondary" type="checkbox" value="{{ $file->id }}" wire:model.defer="{{ $selectionModel }}">
+                                        @if ($isSuperAdm || !($tacitRestrictedById[(int) $file->id] ?? false))
+                                            <input class="form-check-input border border-secondary" type="checkbox" value="{{ $file->id }}" wire:key="chk-doc-{{ $file->id }}" wire:model="{{ $selectionModel }}">
+                                        @endif
                                     </td>
-                                    <td class="align-middle">{{ $nameWithExt }}</td>
+                                    <td class="align-middle">
+                                        {{ $nameWithExt }}
+                                        @if ($isSuperAdm && ($tacitRestrictedById[(int) $file->id] ?? false))
+                                            <span class="badge text-bg-dark ms-1">ADS TÁCITA</span>
+                                        @endif
+                                    </td>
                                     <td class="text-center align-middle">{{ optional($file->created_at)->format('d/m/Y H:i') }}</td>
                                     <td class="text-center align-middle">{{ $fmtSize($file->path) }}</td>
                                     <td class="text-center align-middle">
@@ -501,9 +546,11 @@
                                                     <i class="ri-delete-bin-2-line"></i>
                                                 </button>
                                             @endif
-                                            <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ route('files.download', $file->id) }}" title="Baixar arquivo">
-                                                <i class="ri-download-line"></i>
-                                            </a>
+                                            @if ($isSuperAdm || !($tacitRestrictedById[(int) $file->id] ?? false))
+                                                <a class="btn btn-sm btn-outline-primary py-0 px-2" href="{{ route('files.download', $file->id) }}" title="Baixar arquivo">
+                                                    <i class="ri-download-line"></i>
+                                                </a>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -517,34 +564,98 @@
         <div class="p-3 text-center text-muted">Sem arquivos anexados.</div>
     @endforelse
 
-    <template x-if="activeImageIndex !== null && imageItems[activeImageIndex]">
-        <div class="ns-image-modal" x-on:keydown.escape.window="closeImage()">
-            <div class="ns-image-modal-card" x-on:click.outside="closeImage()">
-                <div class="ns-image-modal-head">
-                    <div class="small text-truncate" x-text="imageItems[activeImageIndex]?.name"></div>
-                    <div class="d-flex align-items-center gap-2">
-                        <template x-if="imageItems.length > 1">
-                            <div class="d-flex align-items-center gap-1">
-                                <button type="button" class="btn btn-sm btn-outline-light" x-on:click="prevImage()">
+    @if ($imageItems->isNotEmpty())
+        <div class="modal fade ns-modal-dark" id="{{ $previewModalId }}" tabindex="-1" aria-hidden="true" wire:ignore.self>
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title text-truncate pe-3" id="{{ $previewTitleId }}"></h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="{{ $previewCarouselId }}" class="carousel slide w-100" data-bs-interval="false" data-bs-touch="true" data-bs-wrap="true">
+                            <div class="carousel-inner">
+                                @foreach ($imageItems as $idx => $img)
+                                    <div class="carousel-item {{ $idx === 0 ? 'active' : '' }}"
+                                        data-name="{{ $img['name'] }}"
+                                        data-download="{{ $img['download'] }}">
+                                        <img src="{{ $img['url'] }}" alt="{{ $img['name'] }}">
+                                    </div>
+                                @endforeach
+                            </div>
+                            @if ($imageItems->count() > 1)
+                                <button class="ns-carousel-zone ns-carousel-zone-prev" type="button"
+                                    data-bs-target="#{{ $previewCarouselId }}" data-bs-slide="prev" aria-label="Imagem anterior">
                                     <i class="ri-arrow-left-s-line"></i>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-light" x-on:click="nextImage()">
+                                <button class="ns-carousel-zone ns-carousel-zone-next" type="button"
+                                    data-bs-target="#{{ $previewCarouselId }}" data-bs-slide="next" aria-label="Próxima imagem">
                                     <i class="ri-arrow-right-s-line"></i>
                                 </button>
-                            </div>
-                        </template>
-                        <a class="btn btn-sm btn-primary" x-bind:href="imageItems[activeImageIndex]?.download">
-                            <i class="ri-download-line"></i>
-                        </a>
-                        <button type="button" class="btn btn-sm btn-outline-light" x-on:click="closeImage()">
-                            <i class="ri-close-line"></i>
-                        </button>
+                            @endif
+                        </div>
                     </div>
-                </div>
-                <div class="ns-image-modal-body">
-                    <img x-bind:src="imageItems[activeImageIndex]?.url" x-bind:alt="imageItems[activeImageIndex]?.name">
+                    <div class="modal-footer justify-content-between">
+                        <div></div>
+                        <a class="btn btn-sm btn-primary" id="{{ $previewDownloadId }}" href="#" target="_blank" rel="noopener">
+                            <i class="ri-download-line me-1"></i>Baixar
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </template>
+        <script>
+            (function() {
+                const modalId = @js($previewModalId);
+                const carouselId = @js($previewCarouselId);
+                const titleId = @js($previewTitleId);
+                const downloadId = @js($previewDownloadId);
+                const bindKey = 'nsPreviewBound_' + modalId;
+                if (window[bindKey]) return;
+                window[bindKey] = true;
+
+                const modalEl = document.getElementById(modalId);
+                const carouselEl = document.getElementById(carouselId);
+                const titleEl = document.getElementById(titleId);
+                const downloadEl = document.getElementById(downloadId);
+                if (!modalEl || !carouselEl || !window.bootstrap) return;
+
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                const carousel = bootstrap.Carousel.getOrCreateInstance(carouselEl, {
+                    interval: false,
+                    ride: false,
+                    wrap: true,
+                    touch: true
+                });
+
+                const syncMeta = () => {
+                    const active = carouselEl.querySelector('.carousel-item.active');
+                    if (!active) return;
+                    const name = active.getAttribute('data-name') || '';
+                    const download = active.getAttribute('data-download') || '#';
+                    if (titleEl) titleEl.textContent = name;
+                    if (downloadEl) {
+                        if (download && download !== '#') {
+                            downloadEl.setAttribute('href', download);
+                            downloadEl.classList.remove('d-none');
+                        } else {
+                            downloadEl.setAttribute('href', '#');
+                            downloadEl.classList.add('d-none');
+                        }
+                    }
+                };
+
+                carouselEl.addEventListener('slid.bs.carousel', syncMeta);
+                modalEl.addEventListener('shown.bs.modal', syncMeta);
+
+                document.addEventListener('click', function(e) {
+                    const trigger = e.target.closest('[data-ns-preview-modal="' + modalId + '"]');
+                    if (!trigger) return;
+                    const index = parseInt(trigger.getAttribute('data-preview-index') || '0', 10);
+                    carousel.to(Number.isNaN(index) ? 0 : index);
+                    modal.show();
+                });
+            })();
+        </script>
+    @endif
 </div>

@@ -530,7 +530,9 @@
                             </div>
 
                             @if ($lists->Files->count())
-                                <x-files.note-attachments :files="$lists->Files" selectionModel="selectedFiles" />
+                                <div wire:key="attachments-note-{{ $lists?->id ?? 'empty' }}">
+                                    <x-files.note-attachments :files="$lists->Files" selectionModel="selectedFiles" />
+                                </div>
                                 <div class="d-flex justify-content-end gap-2 p-2 border-top bg-light-subtle">
                                     <span class="small text-muted align-self-center">
                                         Selecionados: <strong>{{ count($selectedFiles) }}</strong>

@@ -36,7 +36,7 @@ class Waitinghiring extends Component
     protected $rules = [
         'company_id' => 'required',
         'responsible_id' => 'required',
-        'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+        'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,webp,gif,bmp,tiff',
     ];
 
     protected $messages = [
@@ -44,7 +44,7 @@ class Waitinghiring extends Component
         'responsible_id.required' => 'Selecione o responsável',
         'toViabilities.*.temp_files.files.*.file' => 'O arquivo deve ser um documento',
         'toViabilities.*.temp_files.files.*.max' => 'O arquivo deve ter no máximo 10MB',
-        'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+        'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,webp,gif,bmp,tiff',
     ];
 
     public function mount()
