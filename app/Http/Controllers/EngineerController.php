@@ -104,6 +104,11 @@ class EngineerController extends Controller
         return view('engineers.ads_requests');
     }
 
+    public function adsSituation()
+    {
+        return view('engineers.ads_situation');
+    }
+
     public function cancellationApprovals()
     {
         return view('engineers.cancellation_approvals');
