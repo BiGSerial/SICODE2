@@ -14,6 +14,7 @@
             ]],
         ],
         'options' => [
+            'cutout' => '62%',
             'plugins' => [
                 'legend' => ['position' => 'bottom'],
             ],
@@ -31,6 +32,7 @@
             ]],
         ],
         'options' => [
+            'cutout' => '62%',
             'plugins' => [
                 'legend' => ['position' => 'bottom'],
             ],
@@ -72,6 +74,7 @@
             ]],
         ],
         'options' => [
+            'cutout' => '62%',
             'plugins' => [
                 'legend' => ['position' => 'bottom'],
             ],
@@ -188,6 +191,41 @@
             vertical-align: middle;
         }
 
+        .pd-chart-donut {
+            height: 290px;
+            max-width: 380px;
+            margin: 0 auto;
+        }
+
+        .pd-legal-note {
+            margin: 0.75rem;
+            padding: 0.85rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-left: 4px solid var(--pd-primary);
+            border-radius: 10px;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        }
+
+        .pd-legal-note-title {
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #0f172a;
+            margin-bottom: 0.35rem;
+        }
+
+        .pd-legal-note p {
+            margin: 0;
+            color: #334155;
+            font-size: 0.8rem;
+            line-height: 1.35;
+        }
+
+        .pd-legal-note p + p {
+            margin-top: 0.5rem;
+        }
+
         @media (max-width: 991px) {
             .partner-dashboard {
                 padding: 0.75rem;
@@ -253,14 +291,14 @@
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
             <div class="pd-kpi warn">
-                <small>Informe sem ADS</small>
+                <small>ADS tácita a vencer</small>
                 <div class="value">{{ $kpis['work_without_ads_due_soon'] ?? 0 }}</div>
                 <div class="hint">A vencer</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
             <div class="pd-kpi danger">
-                <small>Informe sem ADS vencido</small>
+                <small>ADS tácita vencida</small>
                 <div class="value">{{ $kpis['work_without_ads_overdue'] ?? 0 }}</div>
                 <div class="hint">Acima do prazo</div>
             </div>
@@ -311,7 +349,7 @@
                             <h6 class="mb-0">Status de Viabilidade</h6>
                         </div>
                         <div class="card-body" wire:ignore>
-                            <div style="min-height: 290px;">
+                            <div class="pd-chart-donut">
                                 <x-grafico.apex :chart="$viabilityChart" chartId="partner_viability_status" class="w-100" />
                             </div>
                         </div>
@@ -324,7 +362,7 @@
                             <h6 class="mb-0">Backlog Geral</h6>
                         </div>
                         <div class="card-body" wire:ignore>
-                            <div style="min-height: 290px;">
+                            <div class="pd-chart-donut">
                                 <x-grafico.apex :chart="$backlogChartData" chartId="partner_backlog" class="w-100" />
                             </div>
                         </div>
@@ -344,13 +382,13 @@
                     </div>
                 </div>
 
-                <div class="col-12">
+                <div class="col-12 col-lg-6">
                     <div class="card pd-panel" wire:ignore.self>
                         <div class="card-header">
                             <h6 class="mb-0">Motivos de rejeição de Informes</h6>
                         </div>
                         <div class="card-body" wire:ignore>
-                            <div style="min-height: 290px;">
+                            <div class="pd-chart-donut">
                                 <x-grafico.apex :chart="$rejectionChart" chartId="partner_rejection_reasons" class="w-100" />
                             </div>
                         </div>
@@ -400,7 +438,7 @@
 
             <div class="card pd-panel mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Informes sem ADS a vencer</h6>
+                    <h6 class="mb-0">ADS tácitas a vencer</h6>
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('partner.report.workedlist') }}">Ver informes</a>
                 </div>
 
@@ -418,7 +456,7 @@
                             <tbody>
                                 @foreach ($workReportsWithoutAdsDueSoon as $item)
                                     @php
-                                        $dueDate = $item->informed_at?->copy()->addDays(7);
+                                        $dueDate = $item->informed_at?->copy()->addDays(6)->endOfDay();
                                         $daysLeft = $dueDate ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false) : null;
                                     @endphp
                                     <tr>
@@ -432,8 +470,72 @@
                         </table>
                     </div>
                 @else
-                    <div class="card-body text-center text-muted">Sem informes sem ADS vencendo no horizonte atual.</div>
+                    <div class="card-body text-center text-muted">Sem ADS tácitas vencendo no horizonte atual.</div>
                 @endif
+
+                <div class="pd-legal-note">
+                    <div class="pd-legal-note-title">Base contratual</div>
+                    <p>
+                        <strong>ES.DT.PDN.02.01.006 - item 6.3.4.d</strong>: para a EDP ES, a CONTRATADA dispõe do
+                        <strong>prazo de 6 (seis) dias</strong>, contados da conclusão da obra ou serviço, para a
+                        entrega do inventário; <strong>expirado esse prazo, prevalecerá o inventário elaborado pela
+                            CONTRATANTE</strong>.
+                    </p>
+                    <p>
+                        <strong>Observação: a adoção do inventário da CONTRATANTE não exime a CONTRATADA da obrigação
+                            de entrega, permanecendo a contagem do prazo até a regularização integral da
+                            pendência.</strong>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card pd-panel mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">ADS Vencidas em Atraso</h6>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ route('partner.report.workedlist') }}">Ver informes</a>
+                </div>
+
+                @if ($tacitAdsOverdueWithoutDelivery->isNotEmpty())
+                    <div class="table-responsive pd-table">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Obra</th>
+                                    <th class="text-center">Venceu em</th>
+                                    <th class="text-center">Dias em atraso</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($tacitAdsOverdueWithoutDelivery as $item)
+                                    @php
+                                        $dueDate = $item->Adsform?->tacit_due_at;
+                                        $daysFromInform = $item->created_at
+                                            ? $item->created_at->copy()->startOfDay()->diffInDays(now()->startOfDay())
+                                            : 0;
+                                        $daysLate = max(0, $daysFromInform - 6);
+                                    @endphp
+                                    <tr>
+                                        <td class="text-center fw-bold">{{ $item->note->note ?? '-' }}</td>
+                                        <td class="text-center text-danger">{{ $dueDate?->format('d/m/Y H:i:s') }}</td>
+                                        <td class="text-center fw-bold text-danger">{{ $daysLate }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="card-body text-center text-muted">Sem ADS vencidas em atraso.</div>
+                @endif
+
+                <div class="pd-legal-note">
+                    <div class="pd-legal-note-title">Base contratual</div>
+                    <p>
+                        <strong>ES.DT.PDN.02.01.006 - item 6.8 (Penalidades)</strong>: inclui, quando aplicável,
+                        <strong>glosa de medições</strong>, <strong>impedimento de faturamento</strong> e
+                        <strong>bloqueio de pagamento das obras correntes</strong>, nos termos do
+                        <strong>item 6.3.5</strong>, até a completa regularização das pendências.
+                    </p>
+                </div>
             </div>
 
             <div class="card pd-panel">

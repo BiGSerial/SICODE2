@@ -41,10 +41,10 @@ class GenerateTacitAds extends Command
             // Log no mesmo padrão do seu BaseEP
             $log = new RegistroJson('ads_generate_tacit', $this->options());
 
-            // Regra: vence na virada para o 8º dia contado da data D (D+7 às 00:00).
-            // Ex.: criado em 16/02 -> vence em 23/02 00:00.
+            // Regra: prazo de 6 dias a partir do informe (informed_at), vencendo no fim do 6o dia.
+            // Ex.: informe em 18/02 14:00 -> vence em 24/02 23:59:59; em 25/02 00:00 ja esta vencido.
             $startAt = Carbon::parse('2026-02-01 00:00:00');
-            $cutoffDate = now()->subDays(7)->toDateString();
+            $tacitOverdueThreshold = now()->subDays(6)->startOfDay();
 
             $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
             $defaultServiceId = SystemSetting::getValue('ads_auto_default_service_id');
@@ -57,13 +57,15 @@ class GenerateTacitAds extends Command
 
             $query = WorkReport::query()
                 ->where('rejected', false)
-                ->where('created_at', '>=', $startAt)
-                ->whereDate('created_at', '<=', $cutoffDate)
+                ->whereNotNull('informed_at')
+                ->where('informed_at', '>=', $startAt)
+                ->where('informed_at', '<', $tacitOverdueThreshold)
                 ->whereHas('note.orders', function ($orderQuery) {
                     $orderQuery->where('statusSist', 'like', 'ABER%')
                         ->orWhere('statusSist', 'like', 'LIB%');
                 })
-                ->whereDoesntHave('adsform');
+                ->whereDoesntHave('adsform')
+                ->with(['note:id,note']);
 
             $adsCreated = 0;
             $requestsCreated = 0;
@@ -73,6 +75,7 @@ class GenerateTacitAds extends Command
             $skippedNoCompany = 0;
             $candidates = 0;
             $orderCostCache = [];
+            $dryPreviewRows = [];
 
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
@@ -89,7 +92,9 @@ class GenerateTacitAds extends Command
                 &$skippedNoCompany,
                 &$candidates,
                 &$orderCostCache,
+                &$dryPreviewRows,
                 $defaultRecipients,
+                $defaultServiceId,
                 $testMode,
                 $dryRun,
                 $bar
@@ -109,10 +114,10 @@ class GenerateTacitAds extends Command
                         continue;
                     }
 
-                    // Regra do prazo: criado no dia D => vence em D+7 às 00:00
-                    $dueAt = Carbon::parse($workReport->created_at)
-                        ->startOfDay()
-                        ->addDays(7);
+                    // Regra do prazo: informado no dia D => vence em D+6 às 23:59:59
+                    $dueAt = Carbon::parse($workReport->informed_at)
+                        ->addDays(6)
+                        ->endOfDay();
 
                     $recipientIds = $this->resolveRecipientsForNote(
                         noteId: (int) $workReport->note_id,
@@ -128,11 +133,12 @@ class GenerateTacitAds extends Command
                     if ($dryRun) {
                         $adsCreated++; // simulado
                         $requestsCreated += $recipientIds->count(); // simulado
-                        // espelhamento não roda em dry
-                        // Exibe algumas amostras pra conferir se o filtro tá correto
-                        if ($candidates <= 10) {
-                            $this->line("SIMULADO WR#{$workReport->id} note_id={$workReport->note_id} created_at={$workReport->created_at} due_at={$dueAt} recipients={$recipientIds->count()}");
-                        }
+                        $dryPreviewRows[] = [
+                            'nota' => (string) ($workReport->note?->note ?? $workReport->note_id),
+                            'criado_em' => optional($workReport->created_at)->format('d/m/Y H:i:s'),
+                            'venceu_em' => $dueAt->format('d/m/Y H:i:s'),
+                            'destinatarios' => (string) $recipientIds->count(),
+                        ];
                         continue;
                     }
 
@@ -236,6 +242,19 @@ class GenerateTacitAds extends Command
 
             if ($dryRun) {
                 $this->warn('DRY RUN: espelhamento no SQL Server não foi executado.');
+                if (!empty($dryPreviewRows)) {
+                    $this->newLine();
+                    $this->info('Lista simulada (nota, criado em, venceu em):');
+                    $this->table(
+                        ['Nota', 'Criado em', 'Venceu em', 'Destinatários'],
+                        array_map(fn ($row) => [
+                            $row['nota'],
+                            $row['criado_em'],
+                            $row['venceu_em'],
+                            $row['destinatarios'],
+                        ], $dryPreviewRows)
+                    );
+                }
             } else {
                 if ($testMode) {
                     $this->warn('MODO TESTE ATIVO: espelhamento no SQL Server está desabilitado por configuração.');

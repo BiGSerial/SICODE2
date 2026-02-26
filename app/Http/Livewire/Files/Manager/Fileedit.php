@@ -102,7 +102,7 @@ class Fileedit extends Component
     protected $rules = [
         'file.file_name' => 'required|string|max:255',
         'file.service_id' => 'nullable|exists:services,uuid',
-        'newFile' => 'nullable|file|mimes:jpg,jpeg,png,gif,bmp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,txt,rtf,ppt,pptx,dwg,dxf,dwf,rvt,rfa,skp|max:20480',
+        'newFile' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,txt,rtf,ppt,pptx,dwg,dxf,dwf,rvt,rfa,skp|max:20480',
         'noteNumber' => 'nullable|string|max:255',
     ];
 

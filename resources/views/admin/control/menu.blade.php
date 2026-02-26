@@ -22,6 +22,11 @@
                             <i class="bi bi-list-ul fs-5 text-edp-verde"></i> <span>CONTROLE NOTES</span>
                         </a>
                     </li>
+                    <li class="mt-1">
+                        <a href="{{ route('admin.control.workreports') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-list-ul fs-5 text-edp-verde"></i> <span>CONTROLE INFORME OBRA</span>
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>

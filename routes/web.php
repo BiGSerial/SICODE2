@@ -76,6 +76,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/d5', 'control_d5')->name('d5');
         Route::get('/viability', 'control_viability')->name('viability');
         Route::get('/notes', 'control_notes')->name('notes');
+        Route::get('/workreports', 'control_workreports')->name('workreports');
     });
 
     Route::post('/change_pass', 'change_password')->name('change_pass');
@@ -381,6 +382,7 @@ Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middlewar
 // Files Controller Manager
 Route::prefix('/files')->controller(FilesController::class)->name('files.')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::get('/files/{file}/preview', 'preview')->name('preview');
     Route::get('/files/{file}/download', 'download')->name('download');
     Route::get('/files/zip', 'zipSelected')->name('zip');
 });

@@ -107,10 +107,12 @@ class Search extends Component
 
                         // CORRETO: devoluções também usam work_report_id
                         'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at'
+                        'changes','rejected','informed_at',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
                     ]);
                 },
 
@@ -197,6 +199,35 @@ class Search extends Component
         return redirect()->route('files.download', ['file' => $file->id]);
     }
 
+    public function updatedSelectedFiles($value)
+    {
+        if (!$this->lists) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $ids = collect(is_array($value) ? $value : $this->selectedFiles)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $validIds = File::query()
+            ->where('note_id', (int) $this->lists->id)
+            ->whereIn('id', $ids->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $this->selectedFiles = $validIds;
+    }
+
     /**
      * Download ZIP via HTTP
      */
@@ -212,9 +243,48 @@ class Search extends Component
             return;
         }
 
+        $selectedIds = collect($this->selectedFiles)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SELEÇÃO INVÁLIDA OU EXPIRADA',
+                'text'     => 'Atualize a lista de arquivos e selecione novamente.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
+        $selectedIds = File::query()
+            ->where('note_id', (int) $this->lists->id)
+            ->whereIn('id', $selectedIds->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $this->selectedFiles = $selectedIds;
+
+        if (empty($selectedIds)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SELEÇÃO INVÁLIDA OU EXPIRADA',
+                'text'     => 'Atualize a lista de arquivos e selecione novamente.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
         return redirect()->route('files.zip', [
-            'ids'  => implode(',', $this->selectedFiles),
+            'ids'  => implode(',', $selectedIds),
             'note' => $this->lists->note,
+            'note_id' => (int) $this->lists->id,
         ]);
     }
 

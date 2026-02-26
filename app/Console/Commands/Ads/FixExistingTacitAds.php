@@ -14,7 +14,7 @@ class FixExistingTacitAds extends Command
         {--dry : Simula sem gravar alterações}
         {--chunk=500 : Tamanho do lote de processamento}';
 
-    protected $description = 'Corrige ADS tácitas existentes conforme regra de prazo por created_at do WorkReport (D+7 00:00).';
+    protected $description = 'Corrige ADS tácitas existentes conforme regra de prazo por informed_at do WorkReport (D+6 23:59:59).';
 
     public function handle(): int
     {
@@ -29,8 +29,9 @@ class FixExistingTacitAds extends Command
                     'af.id',
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
-                    'wr.created_at as work_created_at',
+                    'wr.informed_at as informed_at',
                 ])
+                ->whereNotNull('wr.informed_at')
                 ->orderBy('af.id');
 
             $total = (clone $query)->count();
@@ -54,16 +55,16 @@ class FixExistingTacitAds extends Command
                 foreach ($rows as $row) {
                     $processed++;
 
-                    $newDueAt = Carbon::parse($row->work_created_at)
-                        ->startOfDay()
-                        ->addDays(7);
+                    $newDueAt = Carbon::parse($row->informed_at)
+                        ->addDays(6)
+                        ->endOfDay();
 
                     $currentDueAt = $row->tacit_due_at ? Carbon::parse($row->tacit_due_at) : null;
                     $deliveredAt = $row->tacit_delivered_at ? Carbon::parse($row->tacit_delivered_at) : null;
 
                     $mustUpdateDue = !$currentDueAt || !$currentDueAt->equalTo($newDueAt);
-                    $mustClearTacitFields = $deliveredAt && $deliveredAt->lt($newDueAt);
-                    $mustDeleteAdsForm = !$deliveredAt && now()->lt($newDueAt);
+                    $mustClearTacitFields = $deliveredAt && $deliveredAt->lte($newDueAt);
+                    $mustDeleteAdsForm = !$deliveredAt && now()->lte($newDueAt);
 
                     if ($mustUpdateDue && !$mustClearTacitFields && !$mustDeleteAdsForm) {
                         $dueUpdated++;
@@ -78,7 +79,7 @@ class FixExistingTacitAds extends Command
                         if ($dryRun) {
                             $dryDeleteList[] = [
                                 'id' => (int) $row->id,
-                                'work_created_at' => Carbon::parse($row->work_created_at)->format('Y-m-d H:i:s'),
+                                'informed_at' => Carbon::parse($row->informed_at)->format('Y-m-d H:i:s'),
                                 'calculated_due_at' => $newDueAt->format('Y-m-d H:i:s'),
                             ];
                         }
@@ -118,8 +119,8 @@ class FixExistingTacitAds extends Command
             $this->info('Correção concluída.');
             $this->line('Modo: ' . ($dryRun ? 'DRY RUN (sem gravação)' : 'ATUALIZAÇÃO REAL'));
             $this->line("ADS processadas: {$processed}");
-            $this->line("Prazo tácito corrigido (D+7 00:00): {$dueUpdated}");
-            $this->line("Tácito limpo (entrega antes do prazo D+7 00:00): {$tacitCleared}");
+            $this->line("Prazo tácito corrigido (D+6 23:59:59): {$dueUpdated}");
+            $this->line("Tácito limpo (entrega ate o prazo D+6 23:59:59): {$tacitCleared}");
             $this->line("ADS removida (sem entrega e ainda no prazo): {$adsDeleted}");
 
             if ($dryRun && !empty($dryDeleteList)) {
@@ -127,7 +128,7 @@ class FixExistingTacitAds extends Command
                 $this->warn('No DRY RUN, as ADS abaixo seriam DELETADAS:');
                 foreach ($dryDeleteList as $item) {
                     $this->line(
-                        " - adsform_id={$item['id']} | work_created_at={$item['work_created_at']} | due_at={$item['calculated_due_at']}"
+                        " - adsform_id={$item['id']} | informed_at={$item['informed_at']} | due_at={$item['calculated_due_at']}"
                     );
                 }
             }
