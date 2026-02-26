@@ -31,6 +31,7 @@ class AdsRequests extends Component
     public $historySearch = '';
     public $historyCompanyId;
     public bool $sqlSyncEnabled = true;
+    public bool $isProcessingRequests = false;
 
     public function mount()
     {
@@ -210,6 +211,10 @@ class AdsRequests extends Component
 
     public function processRequests()
     {
+        if ($this->isProcessingRequests) {
+            return;
+        }
+
         $cancelNotes = $this->getCancelablePreviewNotes();
         if ($cancelNotes) {
             $this->dispatchBrowserEvent('alertar', [
@@ -226,12 +231,26 @@ class AdsRequests extends Component
             return;
         }
 
-        $this->processRequestsInternal();
+        $this->isProcessingRequests = true;
+        try {
+            $this->processRequestsInternal();
+        } finally {
+            $this->isProcessingRequests = false;
+        }
     }
 
     public function confirmProcessRequests()
     {
-        $this->processRequestsInternal(true);
+        if ($this->isProcessingRequests) {
+            return;
+        }
+
+        $this->isProcessingRequests = true;
+        try {
+            $this->processRequestsInternal(true);
+        } finally {
+            $this->isProcessingRequests = false;
+        }
     }
 
     protected function processRequestsInternal(bool $force = false): void
@@ -277,12 +296,29 @@ class AdsRequests extends Component
 
         $batchId = (string) Str::uuid();
         $created = 0;
+        $skippedDuplicates = 0;
         $mirrorFailures = [];
         $toMirror = [];
 
-        DB::transaction(function () use ($companyId, $batchId, &$created, &$toMirror) {
+        DB::transaction(function () use ($companyId, $batchId, &$created, &$skippedDuplicates, &$toMirror) {
             foreach ($this->previewItems as $item) {
                 if (!$item['can_process']) {
+                    continue;
+                }
+
+                $activeRequests = AdsRequest::query()
+                    ->where('note_id', $item['note_id'])
+                    ->where('company_id', $companyId)
+                    ->whereIn('status', $this->activeStatuses())
+                    ->lockForUpdate()
+                    ->orderByDesc('created_at')
+                    ->get();
+
+                $previousRequest = $activeRequests->first();
+                $shouldReschedule = !empty($item['will_cancel']);
+
+                if ($previousRequest && !$shouldReschedule) {
+                    $skippedDuplicates++;
                     continue;
                 }
 
@@ -290,17 +326,17 @@ class AdsRequests extends Component
                     ->where('note_id', $item['note_id'])
                     ->max('version');
 
-                $previousRequest = $this->getActiveRequestFor($item['note_id'], $companyId);
-
                 if ($previousRequest) {
-                    $previousRequest->update([
-                        'status' => AdsRequestStatus::CANCELED,
-                        'canceled_at' => now(),
-                        'superseded_by_id' => null,
-                    ]);
+                    foreach ($activeRequests as $activeRequest) {
+                        $activeRequest->update([
+                            'status' => AdsRequestStatus::CANCELED,
+                            'canceled_at' => now(),
+                            'superseded_by_id' => null,
+                        ]);
 
-                    if ($this->sqlSyncEnabled) {
-                        $this->syncCanceledToSqlServer($previousRequest);
+                        if ($this->sqlSyncEnabled) {
+                            $this->syncCanceledToSqlServer($activeRequest);
+                        }
                     }
                 }
 
@@ -343,7 +379,7 @@ class AdsRequests extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon' => 'success',
-            'title' => $created . ' solicitacao(oes) criada(s).',
+            'title' => $created . ' solicitacao(oes) criada(s).' . ($skippedDuplicates ? " {$skippedDuplicates} duplicada(s) ignorada(s)." : ''),
             'timer' => 3500,
         ]);
 

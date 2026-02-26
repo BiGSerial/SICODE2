@@ -9,6 +9,12 @@ use Illuminate\Support\Facades\DB;
 
 class AdsRequestedReportService
 {
+    private const ACTIVE_STATUSES = [
+        AdsRequestStatus::QUEUED,
+        AdsRequestStatus::IN_PROGRESS,
+        AdsRequestStatus::RETRY,
+    ];
+
     public function paginate(array $filters, int $perPage = 50): LengthAwarePaginator
     {
         $rows = $this->buildQuery($filters)->paginate($perPage);
@@ -24,6 +30,7 @@ class AdsRequestedReportService
      * @return array{
      *   opened_count:int,
      *   opened_daily_avg:float,
+     *   delivered_daily_avg:float,
      *   delivered_avg_hours:float,
      *   delivered_avg_label:string,
      *   in_progress_now_count:int
@@ -32,6 +39,7 @@ class AdsRequestedReportService
     public function summarize(array $filters): array
     {
         $openedCount = 0;
+        $deliveredTotalCount = 0;
         $deliveredTotalHours = 0.0;
         $deliveredCount = 0;
 
@@ -41,6 +49,10 @@ class AdsRequestedReportService
             $requestedAt = $this->asCarbon($row->requested_at ?? null);
             $deliveredAt = $this->resolveDeliveredAt($row);
 
+            if ($deliveredAt) {
+                $deliveredTotalCount++;
+            }
+
             if ($requestedAt && $deliveredAt && $deliveredAt->greaterThan($requestedAt)) {
                 $deliveredTotalHours += $requestedAt->diffInSeconds($deliveredAt) / 3600;
                 $deliveredCount++;
@@ -49,15 +61,20 @@ class AdsRequestedReportService
 
         $periodDays = $this->resolvePeriodDays($filters);
         $dailyAvg = $periodDays > 0 ? $openedCount / $periodDays : 0.0;
+        $deliveredDailyAvg = $periodDays > 0 ? $deliveredTotalCount / $periodDays : 0.0;
         $avgHours = $deliveredCount > 0 ? $deliveredTotalHours / $deliveredCount : 0.0;
 
-        $inProgressNowCount = $this->buildNowBaseQuery($filters)
+        $filtersForExecution = $filters;
+        $filtersForExecution['statusFilter'] = 'all';
+
+        $inProgressNowCount = $this->buildNowBaseQuery($filtersForExecution, false)
             ->where('ar.status', AdsRequestStatus::IN_PROGRESS->value)
             ->count();
 
         return [
             'opened_count' => $openedCount,
             'opened_daily_avg' => round($dailyAvg, 2),
+            'delivered_daily_avg' => round($deliveredDailyAvg, 2),
             'delivered_avg_hours' => round($avgHours, 2),
             'delivered_avg_label' => $this->formatDuration((int) round($avgHours * 3600)),
             'in_progress_now_count' => $inProgressNowCount,
@@ -69,7 +86,7 @@ class AdsRequestedReportService
         $dateIn = $filters['date_in'] ?? null;
         $dateOut = $filters['date_out'] ?? null;
 
-        $query = $this->buildNowBaseQuery($filters)
+        $query = $this->buildNowBaseQuery($filters, true)
             ->select([
                 'ar.id',
                 'ar.note_id',
@@ -80,7 +97,13 @@ class AdsRequestedReportService
                 'ar.delivered_at',
                 'n.note as note_number',
                 DB::raw('COALESCE(c.name, "—") as company_name'),
-                DB::raw('COALESCE(la.tacit, 0) as tacit_flag'),
+                DB::raw('CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM adsforms af
+                    WHERE af.note_id = ar.note_id
+                      AND af.tacit_due_at IS NOT NULL
+                      AND ar.created_at > af.tacit_due_at
+                ) THEN 1 ELSE 0 END as tacit_after_due'),
             ])
             ->orderByDesc('ar.created_at');
 
@@ -120,17 +143,15 @@ class AdsRequestedReportService
         ];
     }
 
-    private function buildNowBaseQuery(array $filters)
+    private function buildNowBaseQuery(array $filters, bool $applyStatusFilter = false)
     {
         $search = trim((string) ($filters['search'] ?? ''));
         $companyIds = $filters['companyIds'] ?? [];
+        $statusFilter = (string) ($filters['statusFilter'] ?? 'all');
 
         $query = DB::table('ads_requests as ar')
             ->leftJoin('notes as n', 'n.id', '=', 'ar.note_id')
-            ->leftJoin('companies as c', 'c.id', '=', 'ar.company_id')
-            ->leftJoinSub($this->latestAdsByNoteSubQuery(), 'la', function ($join) {
-                $join->on('la.note_id', '=', 'ar.note_id');
-            });
+            ->leftJoin('companies as c', 'c.id', '=', 'ar.company_id');
 
         if ($search !== '') {
             $query->where(function ($sub) use ($search) {
@@ -144,20 +165,27 @@ class AdsRequestedReportService
             $query->whereIn('ar.company_id', $companyIds);
         }
 
+        if ($applyStatusFilter) {
+            $this->applyStatusFilter($query, $statusFilter);
+        }
+
         return $query;
     }
 
-    private function latestAdsByNoteSubQuery()
+    private function applyStatusFilter($query, string $statusFilter): void
     {
-        $latestIds = DB::table('adsforms')
-            ->select('note_id', DB::raw('MAX(id) as max_id'))
-            ->groupBy('note_id');
+        if ($statusFilter === 'active') {
+            $query->whereIn(
+                'ar.status',
+                array_map(static fn (AdsRequestStatus $status) => $status->value, self::ACTIVE_STATUSES)
+            );
 
-        return DB::table('adsforms as af')
-            ->joinSub($latestIds, 'latest', function ($join) {
-                $join->on('latest.max_id', '=', 'af.id');
-            })
-            ->select('af.note_id', 'af.tacit');
+            return;
+        }
+
+        if ($statusFilter === 'delivered') {
+            $query->where('ar.status', AdsRequestStatus::DONE->value);
+        }
     }
 
     private function resolveDeliveredAt(object $row): ?Carbon
@@ -177,12 +205,7 @@ class AdsRequestedReportService
 
     private function resolveTacitFlag(object $row): bool
     {
-        if (!empty($row->tacit_flag)) {
-            return true;
-        }
-
-        $description = strtolower((string) ($row->description ?? ''));
-        return str_contains($description, 'tacita') || str_contains($description, 'tácita');
+        return !empty($row->tacit_after_due);
     }
 
     private function resolvePeriodDays(array $filters): int

@@ -53,6 +53,7 @@ class GenerateTacitAds extends Command
                 ->where('active', true)
                 ->pluck('user_id')
                 ->filter()
+                ->unique()
                 ->values();
 
             $query = WorkReport::query()
@@ -132,12 +133,12 @@ class GenerateTacitAds extends Command
                     // --- DRY RUN: simula contagens e mostra amostras, mas não grava nada ---
                     if ($dryRun) {
                         $adsCreated++; // simulado
-                        $requestsCreated += $recipientIds->count(); // simulado
+                        $requestsCreated++; // simulado
                         $dryPreviewRows[] = [
                             'nota' => (string) ($workReport->note?->note ?? $workReport->note_id),
                             'criado_em' => optional($workReport->created_at)->format('d/m/Y H:i:s'),
                             'venceu_em' => $dueAt->format('d/m/Y H:i:s'),
-                            'destinatarios' => (string) $recipientIds->count(),
+                            'destinatarios' => '1',
                         ];
                         continue;
                     }
@@ -195,24 +196,42 @@ class GenerateTacitAds extends Command
                             ->where('note_id', $workReport->note_id)
                             ->max('version');
 
-                        foreach ($recipientIds as $recipientUserId) {
-                            $version++;
+                        $existingActive = AdsRequest::query()
+                            ->where('note_id', $workReport->note_id)
+                            ->where('company_id', $workReport->company_id)
+                            ->whereIn('status', [
+                                AdsRequestStatus::QUEUED->value,
+                                AdsRequestStatus::IN_PROGRESS->value,
+                                AdsRequestStatus::RETRY->value,
+                            ])
+                            ->lockForUpdate()
+                            ->exists();
 
-                            $request = AdsRequest::query()->create([
-                                'requested_by' => $recipientUserId,
-                                'company_id' => $workReport->company_id,
-                                'note_id' => $workReport->note_id,
-                                'batch_id' => $batchId,
-                                'partner' => true,
-                                'completed' => false,
-                                'status' => AdsRequestStatus::QUEUED,
-                                'version' => $version,
-                                'description' => 'Solicitação automática gerada por ADS tácita.',
-                            ]);
-
-                            $createdRequests[] = $request;
-                            $requestsCreated++;
+                        if ($existingActive) {
+                            return;
                         }
+
+                        $recipientUserId = $recipientIds->first();
+                        if (!$recipientUserId) {
+                            return;
+                        }
+
+                        $version++;
+
+                        $request = AdsRequest::query()->create([
+                            'requested_by' => $recipientUserId,
+                            'company_id' => $workReport->company_id,
+                            'note_id' => $workReport->note_id,
+                            'batch_id' => $batchId,
+                            'partner' => true,
+                            'completed' => false,
+                            'status' => AdsRequestStatus::QUEUED,
+                            'version' => $version,
+                            'description' => 'Solicitação automática gerada por ADS tácita.',
+                        ]);
+
+                        $createdRequests[] = $request;
+                        $requestsCreated++;
                     });
 
                     if (!$testMode) {

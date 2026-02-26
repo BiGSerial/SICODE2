@@ -14,6 +14,7 @@ class AdsRequestedReport extends Component
     protected $paginationTheme = 'bootstrap';
 
     public int $perPage = 50;
+    public string $statusFilter = 'all';
     public ?string $date_in = null;
     public ?string $date_out = null;
     public ?string $search = null;
@@ -21,6 +22,7 @@ class AdsRequestedReport extends Component
     public $companies;
 
     protected $queryString = [
+        'statusFilter' => ['except' => 'all', 'as' => 'status'],
         'date_in' => ['except' => '', 'as' => 'din'],
         'date_out' => ['except' => '', 'as' => 'dout'],
         'search' => ['except' => '', 'as' => 'q'],
@@ -50,6 +52,7 @@ class AdsRequestedReport extends Component
 
     public function clearFilters(): void
     {
+        $this->statusFilter = 'all';
         $this->search = null;
         $this->companyIds = [];
         $this->date_in = now()->startOfMonth()->format('Y-m-d');
@@ -67,6 +70,7 @@ class AdsRequestedReport extends Component
     private function filters(): array
     {
         return [
+            'statusFilter' => $this->statusFilter,
             'date_in' => $this->date_in,
             'date_out' => $this->date_out,
             'search' => $this->search,

@@ -18,7 +18,9 @@
                     <textarea class="form-control border border-secondary" rows="3" wire:model.defer="notesInput"></textarea>
                 </div>
                 <div class="col-12 col-lg-3 d-flex gap-2">
-                    <button class="btn btn-primary w-100" wire:click.prevent="analyzeNotes">
+                    <button class="btn btn-primary w-100" wire:click.prevent="analyzeNotes"
+                        wire:loading.attr="disabled" wire:target="analyzeNotes,processRequests,confirmProcessRequests"
+                        @if ($isProcessingRequests) disabled @endif>
                         <i class="ri-search-line align-middle"></i> Pre-analisar
                     </button>
                     <button class="btn btn-outline-secondary w-100" wire:click.prevent="clearPreview">
@@ -41,8 +43,12 @@
                     @endphp
                     <span class="me-3">Aptos: {{ $processableCount }}</span>
                     <button class="btn btn-success btn-sm" wire:click.prevent="processRequests"
-                        @if ($processableCount === 0) disabled @endif>
-                        <i class="ri-check-line align-middle"></i> Processar lista
+                        wire:loading.attr="disabled" wire:target="processRequests,confirmProcessRequests"
+                        @if ($processableCount === 0 || $isProcessingRequests) disabled @endif>
+                        <span wire:loading.remove wire:target="processRequests,confirmProcessRequests">
+                            <i class="ri-check-line align-middle"></i> Processar lista
+                        </span>
+                        <span wire:loading wire:target="processRequests,confirmProcessRequests">Processando...</span>
                     </button>
                     <button class="btn btn-outline-danger btn-sm ms-2" wire:click.prevent="removeAllPreview"
                         @if (count($previewItems) === 0) disabled @endif>
