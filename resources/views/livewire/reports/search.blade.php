@@ -782,6 +782,7 @@
                                 <th class="text-center">Última Devolução</th>
                                 <th class="text-center">Status Atual</th>
                                 <th class="text-center">ADS</th>
+                                <th class="text-center">Aceite Usuario</th>
                                 <th class="text-center">Entregue Em</th>
                             </tr>
                         </thead>
@@ -823,6 +824,7 @@
                                                 <span class="badge bg-secondary text-white">DESCONHECIDO</span>
                                             @endif
                                         </td>
+                                        <td class="text-center align-middle">---</td>
                                         <td class="text-center align-middle">---</td>
                                         <td class="text-center align-middle">
                                             {{ $partial->created_at ? date('d/m/Y', strtotime($partial->created_at)) : 'Desconhecido' }}
@@ -877,6 +879,7 @@
                                             {{ $lists->RamalForm?->rejected ? 'Informe em Revisão' : 'Normal' }}
                                         </span>
                                     </td>
+                                    <td class="text-center align-middle">---</td>
                                     <td class="text-center align-middle">---</td>
                                     <td class="text-center align-middle">
                                         {{ $lists->RamalForm?->created_at ? date('d/m/Y', strtotime($lists->RamalForm?->created_at)) : 'Desconhecido' }}
@@ -956,6 +959,27 @@
                                         @endif
                                     </td>
                                     <td class="text-center align-middle">
+                                        @if ($lists->WorkForm->acceptance_accepted)
+                                            <div class="d-grid gap-1">
+                                                <span class="badge text-bg-success">ACEITO</span>
+                                                <button class="btn btn-outline-success btn-sm"
+                                                    wire:click.prevent="$emitTo('components.workform.acceptance-info', 'openAcceptanceInfo', {{ $lists->WorkForm->id }})">
+                                                    Ver aceite
+                                                </button>
+                                            </div>
+                                        @elseif($lists->WorkForm->acceptance_name || $lists->WorkForm->acceptance_at || $lists->WorkForm->acceptance_meta)
+                                            <div class="d-grid gap-1">
+                                                <span class="badge text-bg-warning">PENDENTE</span>
+                                                <button class="btn btn-outline-warning btn-sm"
+                                                    wire:click.prevent="$emitTo('components.workform.acceptance-info', 'openAcceptanceInfo', {{ $lists->WorkForm->id }})">
+                                                    Ver aceite
+                                                </button>
+                                            </div>
+                                        @else
+                                            <span class="badge bg-secondary">SEM ACEITE</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center align-middle">
                                         {{ $lists->WorkForm?->informed_at ? date('d/m/Y', strtotime($lists->WorkForm?->informed_at)) : 'Desconhecido' }}
                                     </td>
                                 </tr>
@@ -988,6 +1012,7 @@
     @livewire('btzero.view.compare-form', key('compare_form'))
     @livewire('partner.show.show-partial-info', key('partial_info'))
     @livewire('components.workform.view-reason-return', key('WorkReturnsReason'))
+    @livewire('components.workform.acceptance-info', key('WorkAcceptanceInfo'))
     @livewire('components.ramalform.view-reason-return', key('RamalReturnsReason'))
     @livewire('components.five-note.view-d5', key('view_d5'))
 </div>

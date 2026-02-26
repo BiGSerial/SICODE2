@@ -111,7 +111,8 @@ class Search extends Component
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at'
+                        'changes','rejected','informed_at',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
                     ]);
                 },
 
