@@ -34,6 +34,20 @@
             box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
         }
 
+        .iat-filter-card .form-label {
+            margin-bottom: 0.55rem;
+        }
+
+        .iat-filter-card .form-control,
+        .iat-filter-card .form-select {
+            min-height: 46px;
+            font-size: 1rem;
+        }
+
+        .iat-filter-card .iat-company-select {
+            min-height: 170px;
+        }
+
         .iat-table-card {
             background: var(--iat-surface);
             border: 1px solid var(--iat-border);
@@ -100,7 +114,7 @@
         </div>
 
         <div class="row g-3 mb-3">
-            <div class="col-12 col-lg-2">
+            <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Modo de listagem</label>
                     <select class="form-select border border-secondary" wire:model="mode">
@@ -109,32 +123,41 @@
                     </select>
                 </div>
             </div>
-            <div class="col-12 col-lg-2">
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="iat-filter-card">
+                    <label class="form-label small text-muted">Filtro de status</label>
+                    <select class="form-select border border-secondary" wire:model="openFilter">
+                        <option value="all">Todos</option>
+                        <option value="open">Somente EM ABERTO</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Data inicial (entrega do informe)</label>
                     <input type="date" class="form-control border border-secondary" wire:model.lazy="date_in"
                         max="{{ date('Y-m-d') }}">
                 </div>
             </div>
-            <div class="col-12 col-lg-2">
+            <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Data final (entrega do informe)</label>
                     <input type="date" class="form-control border border-secondary" wire:model.lazy="date_out"
                         max="{{ date('Y-m-d') }}">
                 </div>
             </div>
-            <div class="col-12 col-lg-3">
+            <div class="col-12 col-xl-6">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Empreiteira(s)</label>
-                    <select class="form-select form-select-sm border border-secondary" wire:model="companyIds" multiple
-                        size="3">
+                    <select class="form-select border border-secondary iat-company-select" wire:model="companyIds" multiple
+                        size="6">
                         @foreach ($companies as $company)
                             <option value="{{ data_get($company, 'id') }}">{{ data_get($company, 'name') }}</option>
                         @endforeach
                     </select>
                 </div>
             </div>
-            <div class="col-12 col-lg-3">
+            <div class="col-12 col-xl-6">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Busca</label>
                     <div class="input-group">
