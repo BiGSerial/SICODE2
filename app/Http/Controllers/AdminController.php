@@ -56,6 +56,11 @@ class AdminController extends Controller
         return view('admin.control.workreports');
     }
 
+    public function control_ads_requests()
+    {
+        return view('admin.control.ads_requests');
+    }
+
     public function cancellation_categories()
     {
         return view('admin.cancellation_categories');

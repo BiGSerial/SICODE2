@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Engineers\Ads;
 
+use App\Jobs\Engineers\ExportAdsSituationJob;
 use App\Models\Company;
 use App\Services\Engineers\AdsSituationService;
 use Livewire\Component;
@@ -15,6 +16,7 @@ class Status extends Component
 
     public int $perPage = 25;
     public string $statusFilter = 'disabled';
+    public string $detailStatusFilter = 'all';
     public ?string $date_in = null;
     public ?string $date_out = null;
     public ?string $search = null;
@@ -24,6 +26,7 @@ class Status extends Component
 
     protected $queryString = [
         'statusFilter' => ['except' => 'disabled', 'as' => 'status'],
+        'detailStatusFilter' => ['except' => 'all', 'as' => 'detail'],
         'date_in' => ['except' => '', 'as' => 'din'],
         'date_out' => ['except' => '', 'as' => 'dout'],
         'search' => ['except' => '', 'as' => 'q'],
@@ -55,6 +58,7 @@ class Status extends Component
     public function clearFilters(): void
     {
         $this->statusFilter = 'disabled';
+        $this->detailStatusFilter = 'all';
         $this->search = null;
         $this->companyIds = [];
         $this->date_in = now()->startOfMonth()->format('Y-m-d');
@@ -87,10 +91,45 @@ class Status extends Component
         $this->rowFineData[$workReportId] = $result;
     }
 
+    public function updatedStatusFilter(): void
+    {
+        if ($this->statusFilter !== 'atual') {
+            $this->detailStatusFilter = 'all';
+        }
+        $this->resetPage();
+    }
+
+    public function setDetailStatusFilter(string $status): void
+    {
+        if ($this->statusFilter !== 'atual') {
+            return;
+        }
+
+        $this->detailStatusFilter = $this->detailStatusFilter === $status ? 'all' : $status;
+        $this->resetPage();
+    }
+
+    public function exportReport(): void
+    {
+        ExportAdsSituationJob::dispatch($this->filters(), (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportação iniciada',
+            'html' => "<div class='card'><div class='card-body'>
+                <p>Seu arquivo está sendo gerado.</p>
+                <p class='mb-0'><strong>Você será notificado quando o download estiver disponível.</strong></p>
+            </div></div>",
+            'timer' => 5000,
+        ]);
+    }
+
     private function filters(): array
     {
         return [
             'statusFilter' => $this->statusFilter,
+            'detailStatusFilter' => $this->detailStatusFilter,
             'date_in' => $this->date_in,
             'date_out' => $this->date_out,
             'search' => $this->search,

@@ -77,6 +77,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/viability', 'control_viability')->name('viability');
         Route::get('/notes', 'control_notes')->name('notes');
         Route::get('/workreports', 'control_workreports')->name('workreports');
+        Route::get('/ads_requests', 'control_ads_requests')->name('ads_requests');
     });
 
     Route::post('/change_pass', 'change_password')->name('change_pass');

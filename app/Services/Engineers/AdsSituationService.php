@@ -6,6 +6,7 @@ use App\Models\Edp_depc\BaseCosts;
 use App\Services\Ads\TacitFineCalculator;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class AdsSituationService
@@ -27,8 +28,18 @@ class AdsSituationService
         return $rows;
     }
 
+    public function exportRows(array $filters): Collection
+    {
+        return $this->buildQuery($filters, true)
+            ->get()
+            ->map(fn ($row) => $this->enrichRow($row));
+    }
+
     public function summarize(array $filters): array
     {
+        $summaryFilters = $filters;
+        $summaryFilters['detailStatusFilter'] = 'all';
+
         $summary = [
             'total' => 0,
             'passivo' => 0,
@@ -42,7 +53,7 @@ class AdsSituationService
 
         $overdueByCompany = [];
 
-        foreach ($this->buildQuery($filters, true)->cursor() as $row) {
+        foreach ($this->buildQuery($summaryFilters, true)->cursor() as $row) {
             $enriched = $this->enrichRow($row);
 
             $summary['total']++;
@@ -74,7 +85,8 @@ class AdsSituationService
         $dateIn = $filters['date_in'] ?? null;
         $dateOut = $filters['date_out'] ?? null;
         $companyIds = $filters['companyIds'] ?? [];
-        $statusFilter = (string) ($filters['statusFilter'] ?? 'all');
+        $scopeFilter = (string) ($filters['statusFilter'] ?? 'disabled');
+        $detailStatusFilter = (string) ($filters['detailStatusFilter'] ?? 'all');
 
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
@@ -128,67 +140,85 @@ class AdsSituationService
         }
 
         if ($applyStatusFilter) {
-            $this->applyStatusFilter($query, $statusFilter);
+            $this->applyScopeFilter($query, $scopeFilter);
+            $this->applyDetailStatusFilter($query, $scopeFilter, $detailStatusFilter);
         }
 
         return $query;
     }
 
-    private function applyStatusFilter($query, string $statusFilter): void
+    private function applyScopeFilter($query, string $scopeFilter): void
     {
-        $dueExpr = $this->dueAtExpression();
-        $deliveryExpr = $this->deliveryExpression();
-
-        if ($statusFilter === 'disabled') {
+        if ($scopeFilter === 'disabled') {
             $query->whereRaw('1 = 0');
             return;
         }
 
-        if ($statusFilter === 'passivo') {
+        if ($scopeFilter === 'passivo') {
             $query->whereNull('af.id')
                 ->whereDate('wr.informed_at', '<', self::LEGACY_NO_ADS_CUTOFF);
+            $query->whereExists(function ($sub) {
+                $sub->selectRaw('1')
+                    ->from('order_work_report as owr_v')
+                    ->join('orders as o_v', 'o_v.id', '=', 'owr_v.order_id')
+                    ->whereColumn('owr_v.work_report_id', 'wr.id')
+                    ->where('o_v.canceled', false)
+                    ->where('o_v.statusSist', 'not like', 'CANC%')
+                    ->where('o_v.statusSist', 'not like', 'ENT%')
+                    ->where('o_v.statusSist', 'not like', 'ENC%');
+            });
             return;
         }
 
-        if ($statusFilter === 'atual') {
+        if ($scopeFilter === 'atual') {
             $query->where(function ($q) {
                 $q->whereNotNull('af.id')
                     ->orWhereDate('wr.informed_at', '>=', self::LEGACY_NO_ADS_CUTOFF);
             });
             return;
         }
+    }
 
-        if ($statusFilter === 'a_informar') {
+    private function applyDetailStatusFilter($query, string $scopeFilter, string $detailStatusFilter): void
+    {
+        if ($scopeFilter !== 'atual' || $detailStatusFilter === 'all') {
+            return;
+        }
+
+        $dueExpr = $this->dueAtExpression();
+        $deliveryExpr = $this->deliveryExpression();
+
+        if ($detailStatusFilter === 'a_informar') {
             $query->whereRaw("{$deliveryExpr} IS NULL");
             return;
         }
 
-        if ($statusFilter === 'no_prazo') {
+        if ($detailStatusFilter === 'no_prazo') {
             $query->whereRaw("{$deliveryExpr} IS NULL")
                 ->whereRaw("NOW() <= {$dueExpr}")
                 ->whereRaw("TIMESTAMPDIFF(DAY, NOW(), {$dueExpr}) > 3");
             return;
         }
 
-        if ($statusFilter === 'vencendo_3_dias') {
+        if ($detailStatusFilter === 'vencendo_3_dias') {
             $query->whereRaw("{$deliveryExpr} IS NULL")
                 ->whereRaw("NOW() <= {$dueExpr}")
                 ->whereRaw("TIMESTAMPDIFF(DAY, NOW(), {$dueExpr}) BETWEEN 0 AND 3");
             return;
         }
 
-        if ($statusFilter === 'vencida_sem_entrega') {
+        if ($detailStatusFilter === 'vencida_sem_entrega') {
             $query->whereRaw("{$deliveryExpr} IS NULL")
                 ->whereRaw("NOW() > {$dueExpr}");
             return;
         }
 
-        if ($statusFilter === 'com_entrega') {
+        if ($detailStatusFilter === 'com_entrega') {
             $query->whereRaw("{$deliveryExpr} IS NOT NULL");
             return;
         }
 
-        if ($statusFilter === 'entregue_atraso') {
+        if ($detailStatusFilter === 'entregue_atraso') {
             $query->whereRaw("{$deliveryExpr} IS NOT NULL")
                 ->whereRaw("{$deliveryExpr} > {$dueExpr}");
         }
@@ -199,6 +229,7 @@ class AdsSituationService
         $informedAt = $this->asCarbon($row->informed_at ?? null);
         $dueAt = $this->resolveDueAt($row);
         $deliveredAt = $this->resolveDeliveredAt($row);
+        $daysToDue = $this->resolveDaysToDue($dueAt, $deliveredAt);
 
         $hasDelivery = $deliveredAt !== null;
         $statusCode = $this->resolveStatusCode($informedAt, $dueAt, $deliveredAt);
@@ -222,6 +253,7 @@ class AdsSituationService
             'status_label' => $statusLabel,
             'status_badge' => $statusBadge,
             'delay_days' => $delayDays,
+            'days_to_due' => $daysToDue,
         ];
     }
 
@@ -326,6 +358,16 @@ class AdsSituationService
         }
 
         return 'no_prazo';
+    }
+
+    private function resolveDaysToDue(?Carbon $dueAt, ?Carbon $deliveredAt): ?int
+    {
+        if (!$dueAt || $deliveredAt) {
+            return null;
+        }
+
+        $days = now()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false);
+        return $days >= 0 ? $days : null;
     }
 
     private function resolveDueAt(object $row): ?Carbon

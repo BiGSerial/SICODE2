@@ -61,6 +61,21 @@
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
             overflow: hidden;
         }
+
+        .ads-status-summary-card.filterable {
+            cursor: pointer;
+            transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+        }
+
+        .ads-status-summary-card.filterable:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
+        }
+
+        .ads-status-summary-card.active-filter {
+            border-color: #0f766e;
+            box-shadow: 0 0 0 1px rgba(15, 118, 110, 0.15), 0 14px 26px rgba(15, 23, 42, 0.14);
+        }
     </style>
 @endpush
 
@@ -72,9 +87,18 @@
                 <h3 class="mb-1">SITUAÇÃO DE ADS</h3>
                 <div class="opacity-75">Monitoramento de prazo tácito, vencimento e passivo</div>
             </div>
-            <button class="btn btn-outline-light btn-sm" wire:click="clearFilters">
-                <i class="ri-filter-off-line me-1"></i> Limpar
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-light btn-sm text-dark" wire:click="exportReport" wire:loading.attr="disabled"
+                    wire:target="exportReport">
+                    <span wire:loading.remove wire:target="exportReport">
+                        <i class="ri-file-excel-2-line me-1"></i> Exportar
+                    </span>
+                    <span wire:loading wire:target="exportReport">Gerando...</span>
+                </button>
+                <button class="btn btn-outline-light btn-sm" wire:click="clearFilters">
+                    <i class="ri-filter-off-line me-1"></i> Limpar
+                </button>
+            </div>
         </div>
 
         <div class="row g-3 mb-3">
@@ -163,19 +187,40 @@
                 <div class="ads-status-summary-card"><div class="label">Passivo</div><div class="value">{{ $summary['passivo'] }}</div></div>
             </div>
             <div class="col-12 col-md-6 col-xl">
-                <div class="ads-status-summary-card"><div class="label">A informar</div><div class="value">{{ $summary['a_informar'] }}</div></div>
+                <div @class(['ads-status-summary-card filterable', 'active-filter' => $detailStatusFilter === 'a_informar']) wire:click="setDetailStatusFilter('a_informar')">
+                    <div class="label">A informar</div>
+                    <div class="value">{{ $summary['a_informar'] }}</div>
+                </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
-                <div class="ads-status-summary-card"><div class="label">No prazo</div><div class="value">{{ $summary['no_prazo'] }}</div></div>
+                <div @class(['ads-status-summary-card filterable', 'active-filter' => $detailStatusFilter === 'no_prazo']) wire:click="setDetailStatusFilter('no_prazo')">
+                    <div class="label">No prazo</div>
+                    <div class="value">{{ $summary['no_prazo'] }}</div>
+                </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
-                <div class="ads-status-summary-card"><div class="label">Vencendo (3 dias)</div><div class="value">{{ $summary['vencendo_3_dias'] }}</div></div>
+                <div @class(['ads-status-summary-card filterable', 'active-filter' => $detailStatusFilter === 'vencendo_3_dias']) wire:click="setDetailStatusFilter('vencendo_3_dias')">
+                    <div class="label">Vencendo (3 dias)</div>
+                    <div class="value">{{ $summary['vencendo_3_dias'] }}</div>
+                </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
-                <div class="ads-status-summary-card"><div class="label">Vencida sem entrega</div><div class="value">{{ $summary['vencida_sem_entrega'] }}</div></div>
+                <div @class(['ads-status-summary-card filterable', 'active-filter' => $detailStatusFilter === 'vencida_sem_entrega']) wire:click="setDetailStatusFilter('vencida_sem_entrega')">
+                    <div class="label">Vencida sem entrega</div>
+                    <div class="value">{{ $summary['vencida_sem_entrega'] }}</div>
+                </div>
             </div>
             <div class="col-12 col-md-6 col-xl">
-                <div class="ads-status-summary-card"><div class="label">Entregue em atraso</div><div class="value">{{ $summary['entregue_atraso'] }}</div></div>
+                <div @class(['ads-status-summary-card filterable', 'active-filter' => $detailStatusFilter === 'com_entrega']) wire:click="setDetailStatusFilter('com_entrega')">
+                    <div class="label">Com entrega</div>
+                    <div class="value">{{ $summary['com_entrega'] }}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl">
+                <div @class(['ads-status-summary-card filterable', 'active-filter' => $detailStatusFilter === 'entregue_atraso']) wire:click="setDetailStatusFilter('entregue_atraso')">
+                    <div class="label">Entregue em atraso</div>
+                    <div class="value">{{ $summary['entregue_atraso'] }}</div>
+                </div>
             </div>
         </div>
 
@@ -196,7 +241,7 @@
                                 <th>Vencimento tácito</th>
                                 <th>Entrega ADS</th>
                                 <th>Status</th>
-                                <th>Tempo vencido (dias)</th>
+                                <th>Tempo (dias)</th>
                                 <th>Base</th>
                                 <th>Multa diária</th>
                                 <th>Multa prevista</th>
@@ -213,7 +258,13 @@
                                     <td>{{ $row['due_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['delivered_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td><span class="badge {{ $row['status_badge'] }}">{{ $row['status_label'] }}</span></td>
-                                    <td class="text-center">{{ $row['delay_days'] }}</td>
+                                    <td class="text-center">
+                                        @if (in_array($row['status_code'], ['no_prazo', 'vencendo_3_dias']) && $row['days_to_due'] !== null)
+                                            {{ $row['days_to_due'] }} para vencer
+                                        @else
+                                            {{ $row['delay_days'] }}
+                                        @endif
+                                    </td>
                                     <td>
                                         @if (isset($rowFineData[$row['work_report_id']]))
                                             R$ {{ number_format($rowFineData[$row['work_report_id']]['base_amount'], 2, ',', '.') }}
