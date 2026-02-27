@@ -215,8 +215,11 @@
                                 <th>ID</th>
                                 <th>Nota</th>
                                 <th>Empreiteira</th>
+                                <th>Destinatário</th>
                                 <th>Foi tácita?</th>
                                 <th>Status</th>
+                                <th>Observação</th>
+                                <th>ADS</th>
                                 <th>Quando pediu</th>
                                 <th>Quando entregou</th>
                                 <th>Tempo</th>
@@ -228,6 +231,7 @@
                                     <td class="fw-semibold">#{{ $row['id'] }}</td>
                                     <td class="fw-semibold">{{ $row['note_number'] }}</td>
                                     <td>{{ $row['company_name'] }}</td>
+                                    <td>{{ $row['recipient_name'] }}</td>
                                     <td>
                                         @if ($row['is_tacit'])
                                             <span class="badge bg-warning text-dark">Sim</span>
@@ -237,6 +241,22 @@
                                     </td>
                                     <td>
                                         <span class="badge {{ $row['status_badge'] }}">{{ $row['status_label'] }}</span>
+                                    </td>
+                                    <td>{{ $row['description'] !== '' ? $row['description'] : '-' }}</td>
+                                    <td>
+                                        @php
+                                            $linkDate = $row['delivered_at'] ?? $row['requested_at'];
+                                            $daysSince = $linkDate ? now()->diffInDays($linkDate) : null;
+                                        @endphp
+                                        @if ($row['url'] && $daysSince !== null && $daysSince <= 3)
+                                            <a href="{{ $row['url'] }}" class="btn btn-sm btn-outline-primary" target="_self">
+                                                Baixar ADS
+                                            </a>
+                                        @elseif ($row['url'] && $daysSince !== null && $daysSince > 30)
+                                            <span class="text-muted">Link Expirado</span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
                                     </td>
                                     <td>{{ $row['requested_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['delivered_at']?->format('d/m/Y H:i') ?? '—' }}</td>

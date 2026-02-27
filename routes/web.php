@@ -77,6 +77,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/viability', 'control_viability')->name('viability');
         Route::get('/notes', 'control_notes')->name('notes');
         Route::get('/workreports', 'control_workreports')->name('workreports');
+        Route::get('/ads_requests', 'control_ads_requests')->name('ads_requests');
     });
 
     Route::post('/change_pass', 'change_password')->name('change_pass');
@@ -266,6 +267,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/ads_situation', 'adsSituation')->name('ads.situation');
     Route::get('/cancelamentos/aprovacoes', 'cancellationApprovals')->name('cancellations.index');
     Route::get('/cancelamentos/aprovacoes/historico', 'cancellationApprovalsHistory')->name('cancellations.history');
     Route::get('/cancelamentos/aprovacoes/{request}', 'cancellationApprovalShow')->whereNumber('request')->name('cancellations.show');

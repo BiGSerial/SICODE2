@@ -39,6 +39,12 @@
             gap: .75rem;
         }
 
+        .sys-specs-page .disks-grid {
+            display: grid;
+            gap: .75rem;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
         /* Para contêineres muito estreitos, permita colunas ainda menores */
         @@container (min-width: 0px)
 
@@ -53,6 +59,36 @@
         /* Fallback via media query para casos sem container queries */
         @media (max-width: 420px) {
             .sys-specs-page .auto-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 1600px) {
+            .sys-specs-page .disks-grid {
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 1400px) {
+            .sys-specs-page .disks-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .sys-specs-page .disks-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 992px) {
+            .sys-specs-page .disks-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 576px) {
+            .sys-specs-page .disks-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -309,7 +345,7 @@
             {{-- Discos em grid fluido --}}
             <div class="mt-4">
                 <h6 class="text-uppercase text-muted mb-2">Discos</h6>
-                <div class="auto-grid">
+                <div class="disks-grid">
                     @forelse($disks as $d)
                         @php $pct = $d['used_pct']; @endphp
                         <div class="card shadow-sm">

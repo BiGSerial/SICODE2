@@ -92,11 +92,14 @@ class AdsRequestedReportService
                 'ar.note_id',
                 'ar.status',
                 'ar.description',
+                'ar.url',
+                'ar.requested_by',
                 'ar.created_at as requested_at',
                 'ar.completed_at',
                 'ar.delivered_at',
                 'n.note as note_number',
                 DB::raw('COALESCE(c.name, "—") as company_name'),
+                DB::raw('COALESCE(u.name, "—") as recipient_name'),
                 DB::raw('CASE WHEN EXISTS (
                     SELECT 1
                     FROM adsforms af
@@ -132,10 +135,13 @@ class AdsRequestedReportService
             'id' => (int) $row->id,
             'note_number' => (string) ($row->note_number ?? $row->note_id ?? '—'),
             'company_name' => (string) ($row->company_name ?? '—'),
+            'recipient_name' => (string) ($row->recipient_name ?? '—'),
             'status_value' => (string) ($row->status ?? ''),
             'status_label' => $status?->label() ?? (string) ($row->status ?? '—'),
             'status_badge' => $status?->badgeClass() ?? 'text-bg-secondary',
             'is_tacit' => $this->resolveTacitFlag($row),
+            'description' => (string) ($row->description ?? '—'),
+            'url' => $row->url ?? null,
             'requested_at' => $requestedAt,
             'delivered_at' => $deliveredAt,
             'elapsed_seconds' => $seconds,
@@ -151,7 +157,8 @@ class AdsRequestedReportService
 
         $query = DB::table('ads_requests as ar')
             ->leftJoin('notes as n', 'n.id', '=', 'ar.note_id')
-            ->leftJoin('companies as c', 'c.id', '=', 'ar.company_id');
+            ->leftJoin('companies as c', 'c.id', '=', 'ar.company_id')
+            ->leftJoin('users as u', 'u.id', '=', 'ar.requested_by');
 
         if ($search !== '') {
             $query->where(function ($sub) use ($search) {
