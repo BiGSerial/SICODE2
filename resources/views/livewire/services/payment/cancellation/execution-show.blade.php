@@ -106,6 +106,117 @@
                 min-height: 120px;
                 white-space: pre-wrap;
             }
+
+            .phase-timeline {
+                border-left: 3px solid #cbd5e1;
+                margin-left: .35rem;
+                padding-left: 1rem;
+            }
+
+            .phase-item {
+                position: relative;
+                padding-bottom: .9rem;
+            }
+
+            .phase-item::before {
+                content: "";
+                position: absolute;
+                left: -1.37rem;
+                top: .2rem;
+                width: .75rem;
+                height: .75rem;
+                border-radius: 999px;
+                background: #0f766e;
+                border: 2px solid #fff;
+                box-shadow: 0 0 0 2px #0f766e22;
+            }
+
+            .phase-time {
+                font-size: .78rem;
+                color: #6b7280;
+            }
+
+            .timeline-scroll {
+                max-height: 320px;
+                overflow-y: auto;
+                padding-right: .35rem;
+            }
+
+            .status-banner {
+                border-radius: .8rem;
+                padding: .75rem 1rem;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+            }
+
+            .info-panel {
+                background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+                border: 1px solid #dbe5ef;
+                border-radius: .9rem;
+                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+                padding: 1rem;
+                height: 100%;
+            }
+
+            .info-panel-head {
+                display: flex;
+                align-items: center;
+                gap: .55rem;
+                margin-bottom: .8rem;
+                padding-bottom: .6rem;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            .info-panel-icon {
+                width: 34px;
+                height: 34px;
+                border-radius: .6rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #e6f7f2;
+                color: #0f766e;
+                font-size: 1.05rem;
+            }
+
+            .info-panel-title {
+                margin: 0;
+                font-size: .95rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+                color: #0f172a;
+            }
+
+            .info-kv {
+                display: grid;
+                gap: .45rem;
+            }
+
+            .info-kv-row {
+                display: grid;
+                grid-template-columns: 130px 1fr;
+                gap: .5rem;
+                align-items: start;
+                font-size: .93rem;
+            }
+
+            .info-kv-key {
+                color: #64748b;
+                font-weight: 600;
+            }
+
+            .info-kv-val {
+                color: #0f172a;
+                font-weight: 600;
+                word-break: break-word;
+            }
+
+            @media (max-width: 1200px) {
+                .info-kv-row {
+                    grid-template-columns: 110px 1fr;
+                }
+            }
         </style>
 
         @php
@@ -121,6 +232,30 @@
                 $ext = strtolower((string) $file->extension);
                 return !in_array($ext, $imageExts, true) && !str_starts_with((string) $file->mime, 'image/');
             });
+
+            $requestStatusValue = $cancellationRequest->status?->value ?? $cancellationRequest->status;
+            $isClosedRequest = in_array($requestStatusValue, ['DONE', 'REJECTED', 'ABORTED'], true);
+            $canManageApproval = in_array($requestStatusValue, ['ASSIGNED', 'PAUSED'], true);
+
+            $requestedTarget = $cancellationRequest->scope?->value === \App\Enum\CancellationRequestScope::NOTE_FULL->value
+                ? 'Cancelar nota inteira e todas as ordens vinculadas.'
+                : 'Cancelar somente as ordens selecionadas nesta solicitação.';
+
+            $closureType = $cancellationRequest->closure_type;
+            $executantDecision = match ($closureType) {
+                \App\Models\CancellationRequest::CLOSURE_DONE => 'Cancelamento executado',
+                \App\Models\CancellationRequest::CLOSURE_REJECTED => 'Solicitação rejeitada pelo executante',
+                \App\Models\CancellationRequest::CLOSURE_ABORTED => 'Solicitação abortada pelo executante',
+                default => 'Em execução',
+            };
+
+            $timeline = collect([
+                ['label' => 'Solicitação criada', 'time' => $cancellationRequest->submitted_at, 'user' => $cancellationRequest->Requester?->name],
+                ['label' => 'Assumida para execução', 'time' => $cancellationRequest->assigned_at, 'user' => $cancellationRequest->Assignee?->name],
+                ['label' => 'Aprovação do engenheiro solicitada', 'time' => $cancellationRequest->engineer_approval_requested_at, 'user' => $cancellationRequest->EngineerApprovalRequester?->name],
+                ['label' => 'Decisão do engenheiro', 'time' => $cancellationRequest->engineer_approval_decided_at, 'user' => $cancellationRequest->EngineerApprovalDecider?->name],
+                ['label' => 'Encerramento da solicitação', 'time' => $cancellationRequest->closed_at, 'user' => $cancellationRequest->Closer?->name],
+            ])->filter(fn ($i) => !empty($i['time']))->values();
         @endphp
 
         <div class="oexterno-header d-flex align-items-center">
@@ -132,58 +267,139 @@
         </div>
 
         <div class="oexterno-card p-3">
+            <div class="status-banner mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <div class="small text-muted text-uppercase">Status atual</div>
+                    <div class="fw-bold">
+                        {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
+                    </div>
+                </div>
+                <div>
+                    <div class="small text-muted text-uppercase">Decisão do executante</div>
+                    <div class="fw-bold">{{ $executantDecision }}</div>
+                </div>
+                <div>
+                    <div class="small text-muted text-uppercase">Aprovação engenheiro</div>
+                    <div class="fw-bold">
+                        {{ $cancellationRequest->engineer_approval_status?->label() ?? 'Não solicitada' }}
+                    </div>
+                </div>
+            </div>
+
+            @if($isClosedRequest)
+                <div class="alert alert-secondary mb-3">
+                    Fluxo encerrado em {{ optional($cancellationRequest->closed_at)->format('d/m/Y H:i') ?? '-' }}.
+                    Nenhuma ação operacional adicional está disponível.
+                </div>
+            @endif
+
             <div class="row g-3">
                 <div class="col-md-4">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Nota</div>
-                        <p class="mb-1"><strong>Número:</strong> {{ $cancellationRequest->Note->note ?? '-' }}</p>
-                        <p class="mb-1"><strong>Cliente:</strong> {{ $cancellationRequest->Note->client ?? '-' }}</p>
-                        <p class="mb-1"><strong>Status:</strong> {{ $cancellationRequest->Note->status ?? '-' }}</p>
+                    <div class="info-panel">
+                        <div class="info-panel-head">
+                            <span class="info-panel-icon"><i class="ri-file-text-line"></i></span>
+                            <h6 class="info-panel-title">Nota</h6>
+                        </div>
+                        <div class="info-kv">
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Número</div>
+                                <div class="info-kv-val">{{ $cancellationRequest->Note->note ?? '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Cliente</div>
+                                <div class="info-kv-val">{{ $cancellationRequest->Note->client ?? '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Status</div>
+                                <div class="info-kv-val">{{ $cancellationRequest->Note->status ?? '-' }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Solicitação</div>
-                        <p class="mb-1"><strong>Categoria:</strong> {{ $cancellationRequest->Category->name ?? '-' }}</p>
-                        <p class="mb-1">
-                            <strong>Escopo:</strong>
-                            <span class="badge {{ $cancellationRequest->scope?->badgeClass() ?? 'bg-secondary' }}">
-                                {{ $cancellationRequest->scope?->label() ?? $cancellationRequest->scope?->value ?? $cancellationRequest->scope }}
-                            </span>
-                        </p>
-                        <p class="mb-1">
-                            <strong>Status:</strong>
-                            <span class="badge {{ $cancellationRequest->status?->badgeClass() ?? 'bg-secondary' }}">
-                                {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
-                            </span>
-                        </p>
-                        <p class="mb-1"><strong>Solicitante:</strong> {{ $cancellationRequest->Requester->name ?? '-' }}</p>
-                        <p class="mb-1">
-                            <strong>Aprovação Eng.:</strong>
-                            @if($cancellationRequest->engineer_approval_status)
-                                <span class="badge {{ $cancellationRequest->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
-                                    {{ $cancellationRequest->engineer_approval_status?->label() ?? $cancellationRequest->engineer_approval_status }}
-                                </span>
-                            @else
-                                <span class="badge bg-secondary">Não solicitada</span>
-                            @endif
-                        </p>
-                        <p class="mb-1"><strong>Engenheiro:</strong> {{ $cancellationRequest->EngineerApprover->name ?? '-' }}</p>
+                    <div class="info-panel">
+                        <div class="info-panel-head">
+                            <span class="info-panel-icon"><i class="ri-file-list-3-line"></i></span>
+                            <h6 class="info-panel-title">Solicitação</h6>
+                        </div>
+                        <div class="info-kv">
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Categoria</div>
+                                <div class="info-kv-val">{{ $cancellationRequest->Category->name ?? '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Escopo</div>
+                                <div class="info-kv-val">
+                                    <span class="badge {{ $cancellationRequest->scope?->badgeClass() ?? 'bg-secondary' }}">
+                                        {{ $cancellationRequest->scope?->label() ?? $cancellationRequest->scope?->value ?? $cancellationRequest->scope }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Status</div>
+                                <div class="info-kv-val">
+                                    <span class="badge {{ $cancellationRequest->status?->badgeClass() ?? 'bg-secondary' }}">
+                                        {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Solicitante</div>
+                                <div class="info-kv-val">{{ $cancellationRequest->Requester->name ?? '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Aprovação Eng.</div>
+                                <div class="info-kv-val">
+                                    @if($cancellationRequest->engineer_approval_status)
+                                        <span class="badge {{ $cancellationRequest->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
+                                            {{ $cancellationRequest->engineer_approval_status?->label() ?? $cancellationRequest->engineer_approval_status }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-secondary">Não solicitada</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Engenheiro</div>
+                                <div class="info-kv-val">{{ $cancellationRequest->EngineerApprover->name ?? '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Objetivo</div>
+                                <div class="info-kv-val">{{ $requestedTarget }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Execução</div>
-                        <p class="mb-1"><strong>Assumido em:</strong> {{ optional($cancellationRequest->assigned_at)->format('d/m/Y H:i') }}</p>
-                        <p class="mb-1"><strong>Última atualização:</strong> {{ optional($cancellationRequest->updated_at)->format('d/m/Y H:i') }}</p>
-                        <p class="mb-1"><strong>Solicitada em:</strong> {{ optional($cancellationRequest->engineer_approval_requested_at)->format('d/m/Y H:i') ?? '-' }}</p>
-                        <p class="mb-1"><strong>Decidida em:</strong> {{ optional($cancellationRequest->engineer_approval_decided_at)->format('d/m/Y H:i') ?? '-' }}</p>
+                    <div class="info-panel">
+                        <div class="info-panel-head">
+                            <span class="info-panel-icon"><i class="ri-tools-line"></i></span>
+                            <h6 class="info-panel-title">Execução</h6>
+                        </div>
+                        <div class="info-kv">
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Assumido em</div>
+                                <div class="info-kv-val">{{ optional($cancellationRequest->assigned_at)->format('d/m/Y H:i') ?: '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Atualização</div>
+                                <div class="info-kv-val">{{ optional($cancellationRequest->updated_at)->format('d/m/Y H:i') ?: '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Solicitada em</div>
+                                <div class="info-kv-val">{{ optional($cancellationRequest->engineer_approval_requested_at)->format('d/m/Y H:i') ?: '-' }}</div>
+                            </div>
+                            <div class="info-kv-row">
+                                <div class="info-kv-key">Decidida em</div>
+                                <div class="info-kv-val">{{ optional($cancellationRequest->engineer_approval_decided_at)->format('d/m/Y H:i') ?: '-' }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="row mt-3">
-                <div class="col-12">
+                <div class="col-md-6">
                     <div class="oexterno-subcard">
                         <div class="section-title">Pedido do solicitante</div>
                         <div class="mb-2 text-muted small">
@@ -192,10 +408,19 @@
                         <div class="text-block">{{ $cancellationRequest->description ?: 'Sem descrição informada pelo solicitante.' }}</div>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Orientação do executante</div>
+                        <div class="mb-2 text-muted small">
+                            Justificativa registrada pelo executante para o fluxo (aprovação/encerramento).
+                        </div>
+                        <div class="text-block">{{ $cancellationRequest->closure_note ?: $cancellationRequest->engineer_approval_reason ?: 'Sem orientação registrada pelo executante.' }}</div>
+                    </div>
+                </div>
             </div>
 
-            <div class="row mt-3">
-                <div class="col-12">
+            <div class="row mt-3 g-3">
+                <div class="col-12 col-md-9">
                     <div class="oexterno-subcard">
                         <div class="section-title">Painel de Controle da Aprovação de Engenheiro</div>
                         @if($approvalPending)
@@ -212,47 +437,77 @@
                             </div>
                         @endif
 
-                        <div class="row g-2">
-                            <div class="col-md-5">
-                                <label class="form-label">Engenheiro</label>
-                                <select class="form-select" wire:model="engineerId">
-                                    <option value="">Selecione</option>
-                                    @foreach($engineers as $engineer)
-                                        <option value="{{ $engineer->id }}">{{ \Illuminate\Support\Str::title(\Illuminate\Support\Str::lower($engineer->name)) }}</option>
-                                    @endforeach
-                                </select>
-                                @error('engineerId')<span class="text-danger small">{{ $message }}</span>@enderror
+                        @if($canManageApproval && !$isClosedRequest)
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <label class="form-label">Engenheiro</label>
+                                    <select class="form-select" wire:model="engineerId">
+                                        <option value="">Selecione</option>
+                                        @foreach($engineers as $engineer)
+                                            <option value="{{ $engineer->id }}">{{ \Illuminate\Support\Str::title(\Illuminate\Support\Str::lower($engineer->name)) }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('engineerId')<span class="text-danger small">{{ $message }}</span>@enderror
+                                </div>
+                                <div class="col-md-7">
+                                    <label class="form-label">Motivo / justificativa da ação</label>
+                                    <textarea class="form-control" rows="5" wire:model.defer="engineerReason"></textarea>
+                                    @if($cancellationRequest->engineer_approval_reason)
+                                        <div class="small text-muted mt-1">
+                                            Último motivo: {{ $cancellationRequest->engineer_approval_reason }}
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
-                            <div class="col-md-7">
-                                <label class="form-label">Motivo / justificativa da ação</label>
-                                <textarea class="form-control" rows="5" wire:model.defer="engineerReason"></textarea>
-                                @if($cancellationRequest->engineer_approval_reason)
-                                    <div class="small text-muted mt-1">
-                                        Último motivo: {{ $cancellationRequest->engineer_approval_reason }}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
 
-                        <div class="control-panel mt-3">
-                            <div class="fw-semibold mb-2">Ações disponíveis</div>
-                            <div class="small text-muted mb-3">
-                                Escolha uma ação e informe a justificativa acima para registrar o histórico de forma clara.
+                            <div class="control-panel mt-3">
+                                <div class="fw-semibold mb-2">Ações disponíveis</div>
+                                <div class="small text-muted mb-3">
+                                    Escolha uma ação e informe a justificativa acima para registrar o histórico de forma clara.
+                                </div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @if(!$cancellationRequest->engineer_approval_status || in_array($cancellationRequest->engineer_approval_status?->value, ['REJECTED', 'CANCELED'], true))
+                                        <button class="btn btn-outline-primary" wire:click="requestEngineerApproval">
+                                            Solicitar Aprovação
+                                        </button>
+                                    @endif
+                                    @if($approvalPending)
+                                        <button class="btn btn-outline-warning" wire:click="changeEngineer">
+                                            Alterar Engenheiro
+                                        </button>
+                                        <button class="btn btn-outline-danger" wire:click="cancelEngineerApproval">
+                                            Cancelar Solicitação ao Engenheiro
+                                        </button>
+                                    @endif
+                                </div>
                             </div>
-                            <div class="d-flex flex-wrap gap-2">
-                                @if(!$cancellationRequest->engineer_approval_status || in_array($cancellationRequest->engineer_approval_status?->value, ['REJECTED', 'CANCELED'], true))
-                                    <button class="btn btn-outline-primary" wire:click="requestEngineerApproval">
-                                        Solicitar Aprovação
-                                    </button>
-                                @endif
-                                @if($approvalPending)
-                                    <button class="btn btn-outline-warning" wire:click="changeEngineer">
-                                        Alterar Engenheiro
-                                    </button>
-                                    <button class="btn btn-outline-danger" wire:click="cancelEngineerApproval">
-                                        Cancelar Solicitação ao Engenheiro
-                                    </button>
-                                @endif
+                        @else
+                            <div class="alert alert-light border mb-0">
+                                Painel somente leitura: a solicitação não está mais em execução ativa.
+                            </div>
+                            @if($cancellationRequest->engineer_approval_reason)
+                                <div class="mt-2 small text-muted">
+                                    <strong>Última orientação registrada:</strong> {{ $cancellationRequest->engineer_approval_reason }}
+                                </div>
+                            @endif
+                        @endif
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Linha do Tempo</div>
+                        <div class="timeline-scroll">
+                            <div class="phase-timeline">
+                                @forelse($timeline as $phase)
+                                    <div class="phase-item">
+                                        <div class="fw-semibold">{{ $phase['label'] }}</div>
+                                        <div class="phase-time">
+                                            {{ optional($phase['time'])->format('d/m/Y H:i') }} · {{ $phase['user'] ?? 'Sistema' }}
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="text-muted">Sem interações registradas até o momento.</div>
+                                @endforelse
                             </div>
                         </div>
                     </div>

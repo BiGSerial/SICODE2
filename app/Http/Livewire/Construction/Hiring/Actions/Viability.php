@@ -293,7 +293,7 @@ class Viability extends Component
 
                             if (Storage::exists($caminho)) {
 
-                                File::create([
+                                $createdFile = File::create([
                                     'note_id' => $note->id,
                                     'user_id' => Auth()->User()->id,
                                     'service_id' => null,
@@ -304,6 +304,11 @@ class Viability extends Component
                                     'suspicious' => 0,
                                     'noexists' => false,
                                 ]);
+
+                                if ($createdFile) {
+                                    // Mantem rastreabilidade do anexo pela origem da viabilidade
+                                    $viability->files()->syncWithoutDetaching([$createdFile->id]);
+                                }
                             } else {
                                 throw new Exception("Um ou mais arquivos não foram salvos corretamente", 1);
                             }
