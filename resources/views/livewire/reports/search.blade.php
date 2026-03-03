@@ -185,9 +185,200 @@
             color: #fff;
         }
 
+        .report-search-page .rs-cancel-note-btn {
+            font-weight: 700;
+            letter-spacing: .02em;
+            border-width: 2px;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
+            transform: translateY(0);
+            transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+        }
+
+        .report-search-page .rs-cancel-note-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.3);
+            filter: brightness(1.03);
+        }
+
+        .report-search-page .rs-cancel-note-btn:focus-visible {
+            outline: 3px solid rgba(255, 255, 255, 0.45);
+            outline-offset: 2px;
+        }
+
+        .report-search-page .rs-cancel-note-btn.is-inconsistent {
+            border-color: #dc2626 !important;
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25), 0 12px 24px rgba(15, 23, 42, 0.3);
+        }
+
+        .report-search-page .rs-viab-view-btn {
+            font-weight: 700;
+            border-width: 1px;
+            letter-spacing: .02em;
+        }
+
+        .report-search-page .rs-viab-modal .modal-content {
+            border: 1px solid #dbe5ef;
+            border-radius: .95rem;
+            box-shadow: 0 20px 35px rgba(15, 23, 42, 0.2);
+            background: #dfe7f1;
+        }
+
+        .report-search-page .rs-viab-modal .modal-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 78%);
+            color: #f8fafc;
+            border-bottom: 0;
+        }
+
+        .report-search-page .rs-viab-modal .modal-body {
+            background: radial-gradient(circle at 8% 0%, #cfd8e5 0%, transparent 38%),
+                        radial-gradient(circle at 95% 10%, #d6e1ee 0%, transparent 34%),
+                        #dbe4ef;
+        }
+
+        .report-search-page .rs-viab-modal .modal-footer {
+            background: #dbe4ef;
+            border-top: 1px solid #c7d2e3;
+        }
+
+        .report-search-page .rs-viab-modal .modal-title {
+            font-weight: 700;
+            letter-spacing: .02em;
+        }
+
+        .report-search-page .rs-viab-hero {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .75rem;
+            margin-bottom: .9rem;
+        }
+
+        .report-search-page .rs-viab-stat {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #dbe5ef;
+            border-radius: .75rem;
+            padding: .7rem .8rem;
+            min-height: 84px;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+        }
+
+        .report-search-page .rs-viab-stat .label {
+            display: block;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: .3rem;
+        }
+
+        .report-search-page .rs-viab-stat .value {
+            color: #0f172a;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .report-search-page .rs-viab-stat.is-result {
+            background: linear-gradient(120deg, #0f172a, #0f766e 80%);
+            border-color: #0f766e;
+            box-shadow: 0 10px 20px rgba(15, 118, 110, 0.25);
+        }
+
+        .report-search-page .rs-viab-stat.is-result .label,
+        .report-search-page .rs-viab-stat.is-result .value {
+            color: #f8fafc;
+        }
+
+        .report-search-page .rs-result-pill {
+            font-size: .95rem;
+            padding: .42rem .68rem;
+            border: 2px solid rgba(248, 250, 252, 0.4);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
+        }
+
+        .report-search-page .rs-viab-block {
+            border: 1px solid #e5e7eb;
+            border-radius: .75rem;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: .85rem;
+            height: 100%;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 12px 24px rgba(15, 23, 42, 0.16);
+        }
+
+        .report-search-page .rs-viab-block h6 {
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            font-size: .78rem;
+            color: #0f172a;
+            margin-bottom: .7rem;
+            font-weight: 700;
+        }
+
+        .report-search-page .rs-kv {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: .35rem .6rem;
+            font-size: .86rem;
+        }
+
+        .report-search-page .rs-kv .k {
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .report-search-page .rs-kv .v {
+            color: #0f172a;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .report-search-page .rs-viab-text {
+            border: 1px solid #e2e8f0;
+            border-radius: .65rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            min-height: 88px;
+            padding: .7rem;
+            white-space: pre-wrap;
+            font-size: .87rem;
+        }
+
+        .report-search-page .rs-viab-block.is-reason {
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            border-color: #fdba74;
+            box-shadow: 0 10px 22px rgba(249, 115, 22, 0.14);
+        }
+
+        .report-search-page .rs-viab-block.is-description {
+            background: linear-gradient(180deg, #ecfeff 0%, #cffafe 100%);
+            border-color: #67e8f9;
+            box-shadow: 0 10px 22px rgba(6, 182, 212, 0.16);
+        }
+
+        .report-search-page .rs-viab-block.is-reason .rs-viab-text,
+        .report-search-page .rs-viab-block.is-description .rs-viab-text {
+            border-width: 2px;
+            font-weight: 500;
+        }
+
+        .report-search-page .rs-viab-block.is-reason .rs-viab-text {
+            border-color: #fdba74;
+        }
+
+        .report-search-page .rs-viab-block.is-description .rs-viab-text {
+            border-color: #22d3ee;
+        }
+
         @media (max-width: 991px) {
             .report-search-page .rs-hero {
                 padding: 1.2rem;
+            }
+
+            .report-search-page .rs-kv {
+                grid-template-columns: 120px 1fr;
+            }
+
+            .report-search-page .rs-viab-hero {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
     </style>
@@ -260,20 +451,20 @@
 
             $noteCancelStatus = $noteCancel?->status?->value ?? $noteCancel?->status;
             $noteCancelLabel = null;
-            $noteCancelClass = 'btn-outline-secondary';
+            $noteCancelClass = 'btn-secondary';
 
             if ($noteCancelStatus === \App\Enum\CancellationRequestStatus::SUBMITTED->value) {
                 $noteCancelLabel = 'Solicitado Cancelamento';
-                $noteCancelClass = 'btn-outline-info';
+                $noteCancelClass = 'btn-info text-dark';
             } elseif (in_array($noteCancelStatus, [
                 \App\Enum\CancellationRequestStatus::ASSIGNED->value,
                 \App\Enum\CancellationRequestStatus::PAUSED->value,
             ], true)) {
                 $noteCancelLabel = 'Em Cancelamento';
-                $noteCancelClass = 'btn-outline-warning';
+                $noteCancelClass = 'btn-warning text-dark';
             } elseif ($noteCancelStatus === \App\Enum\CancellationRequestStatus::DONE->value) {
                 $noteCancelLabel = 'Cancelado';
-                $noteCancelClass = 'btn-outline-success';
+                $noteCancelClass = 'btn-success';
             }
 
             $hasSapCancel = $lists->Orders->contains(function ($order) {
@@ -298,8 +489,9 @@
                 <div class="d-flex flex-wrap gap-2">
                     @if ($noteCancel && $noteCancelLabel)
                         <a href="{{ route('cancellations.show', ['request' => $noteCancel->id]) }}"
-                            class="btn btn-sm {{ $noteCancelClass }} {{ $noteCancelInconsistent ? 'border-danger text-danger' : '' }}"
+                            class="btn btn-sm rs-cancel-note-btn {{ $noteCancelClass }} {{ $noteCancelInconsistent ? 'is-inconsistent' : '' }}"
                             target="_blank" rel="noopener">
+                            <i class="ri-alarm-warning-line me-1"></i>
                             {{ $noteCancelLabel }}
                             @if ($noteCancelInconsistent)
                                 <span class="ms-1">• Inconsistente</span>
@@ -403,7 +595,23 @@
                                     <span class="badge {{ $color }}">{{ $status }}</span>
                                 </dd>
                             @endif
-                        </dl>
+                       
+                        {{-- PROTESTOS --}}
+                        @if ($lists->Protests->count())
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">RECLAMAÇÃO</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">
+                                @foreach ($lists->Protests as $protest)
+                                    <p class="mb-1">
+                                        {{ $protest->nota }} - {{ $protest->tipoNota }}
+                                        <a href="{{ route('protests.dispatch.view_only', ['protest' => $protest->nota]) }}"
+                                            target="_blank" class="ms-2 text-primary">
+                                            <i class="ri-external-link-line"></i>
+                                        </a>
+                                    </p>
+                                @endforeach
+                            </dd>
+                        @endif
+                         </dl>
 
                         {{-- ORDENS (já vêm com Operations) --}}
                         @if ($lists->Orders->count())
@@ -703,10 +911,31 @@
                                 <th>Responsável</th>
                                 <th>Empreiteira</th>
                                 <th>Resp Informe</th>
+                                <th>Viabilidade</th>
+                                <th>Ação</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($lists->Viabilities as $v)
+                                @php
+                                    $formApproved = (bool) ($v->Form?->approved ?? false);
+                                    $formRejected = (bool) ($v->Form?->rejected ?? false);
+                                    $viabilityApproved = (bool) ($v->approved ?? false);
+                                    $viabilityRejected = (bool) ($v->rejected ?? false);
+
+                                    $approved = $formApproved || $viabilityApproved;
+                                    $rejected = $formRejected || $viabilityRejected;
+
+                                    $viabilityResultLabel = 'Em Análise';
+                                    $viabilityResultClass = 'bg-secondary';
+                                    if ($approved) {
+                                        $viabilityResultLabel = 'Aprovada';
+                                        $viabilityResultClass = 'bg-success';
+                                    } elseif ($rejected) {
+                                        $viabilityResultLabel = 'Reprovada';
+                                        $viabilityResultClass = 'bg-danger';
+                                    }
+                                @endphp
                                 <tr>
                                     <td></td>
                                     <td class="align-middle">
@@ -740,15 +969,247 @@
                                     <td class="align-middle">
                                         {{ $v->returned_at ? date('d/m/Y H:i:s', strtotime($v->returned_at)) : '---' }}
                                     </td>
-                                    <td class="align-middle">{{ $v->Engineer->name }}</td>
-                                    <td class="align-middle">{{ $v->Company->name }}</td>
-                                    <td class="align-middle">{{ $v->Form->responsible ?? '---' }}</td>
+                                    <td class="align-middle">{{ $v->Engineer->name ?? '---' }}</td>
+                                    <td class="align-middle">{{ $v->Company->name ?? '---' }}</td>
+                                    <td class="align-middle">{{ $v->Form?->responsible ?? '---' }}</td>
+                                    <td class="align-middle">
+                                        <span class="badge {{ $viabilityResultClass }}">{{ $viabilityResultLabel }}</span>
+                                    </td>
+                                    <td class="align-middle">
+                                        <button type="button" class="btn btn-sm btn-outline-primary rs-viab-view-btn"
+                                            data-bs-toggle="modal" data-bs-target="#viabilityDetailModal-{{ $v->id }}">
+                                            <i class="ri-eye-line me-1"></i> Ver
+                                        </button>
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            @foreach ($lists->Viabilities as $v)
+                @php
+                    $formApproved = (bool) ($v->Form?->approved ?? false);
+                    $formRejected = (bool) ($v->Form?->rejected ?? false);
+                    $viabilityApproved = (bool) ($v->approved ?? false);
+                    $viabilityRejected = (bool) ($v->rejected ?? false);
+                    $approved = $formApproved || $viabilityApproved;
+                    $rejected = $formRejected || $viabilityRejected;
+
+                    $viabilityResultLabel = 'Em Análise';
+                    $viabilityResultClass = 'bg-secondary';
+                    if ($approved) {
+                        $viabilityResultLabel = 'Aprovada';
+                        $viabilityResultClass = 'bg-success';
+                    } elseif ($rejected) {
+                        $viabilityResultLabel = 'Reprovada';
+                        $viabilityResultClass = 'bg-danger';
+                    }
+
+                    $statusIndex = (int) ($v->status ?? 0);
+                    if ($statusIndex < 0 || $statusIndex > 16) {
+                        $statusIndex = 0;
+                    }
+                    $statusMeta = \App\Custom\Viabilitiesstatus::status($statusIndex);
+                    $mappedStatusLabel = $statusMeta->status ?? 'Sem Status';
+                    $mappedStatusClass = $statusMeta->colorbg ?? 'text-bg-secondary';
+                    $mappedStatusIcon = $statusMeta->icon ?? 'ri-information-line';
+
+                    $formFiles = $v->Form?->Files ?? collect();
+                    $viabilityFiles = $v->Files ?? collect();
+                    $allFiles = $formFiles->merge($viabilityFiles)->unique('id')->values();
+                    $formFileIds = $formFiles->pluck('id')->all();
+                @endphp
+
+                <div class="modal fade rs-viab-modal" id="viabilityDetailModal-{{ $v->id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    Nota/OV {{ $lists->note }} · Resultado <span class="badge {{ $viabilityResultClass }} ms-2">{{ $viabilityResultLabel }}</span>
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="rs-viab-hero">
+                                    <div class="rs-viab-stat is-result">
+                                        <span class="label">Resultado da Viabilidade</span>
+                                        <div class="value">
+                                            <span class="badge {{ $viabilityResultClass }} rs-result-pill">{{ $viabilityResultLabel }}</span>
+                                            <div class="small mt-1">Registro #{{ $v->id }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="rs-viab-stat">
+                                        <span class="label">Status do Fluxo</span>
+                                        <div class="value">
+                                            <span class="badge {{ $mappedStatusClass }}">
+                                                <i class="{{ $mappedStatusIcon }} me-1"></i>{{ $mappedStatusLabel }}
+                                            </span>
+                                            <div class="small text-muted mt-1">Código: {{ $statusIndex }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="rs-viab-stat">
+                                        <span class="label">Responsável</span>
+                                        <div class="value">{{ $v->Engineer->name ?? '---' }}</div>
+                                    </div>
+                                    <div class="rs-viab-stat">
+                                        <span class="label">Empreiteira</span>
+                                        <div class="value">{{ $v->Company->name ?? '---' }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <div class="rs-viab-block">
+                                            <h6>Resumo Executivo</h6>
+                                            <div class="rs-kv">
+                                                <div class="k">Contratada</div>
+                                                <div class="v">{{ $v->hired ? 'SIM' : 'NÃO' }}</div>
+                                                <div class="k">Tácita</div>
+                                                <div class="v">{{ $v->tacit ? 'SIM' : 'NÃO' }}</div>
+                                                <div class="k">Concluída</div>
+                                                <div class="v">{{ $v->completed ? 'SIM' : 'NÃO' }}</div>
+                                                <div class="k">Cancelada</div>
+                                                <div class="v">{{ $v->canceled ? 'SIM' : 'NÃO' }}</div>
+                                                <div class="k">Valor</div>
+                                                <div class="v">{{ isset($v->value) ? number_format((float) $v->value, 2, ',', '.') : '---' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="rs-viab-block">
+                                            <h6>Responsáveis</h6>
+                                            <div class="rs-kv">
+                                                <div class="k">Contratante</div>
+                                                <div class="v">{{ $v->User->name ?? '---' }}</div>
+                                                <div class="k">Responsável</div>
+                                                <div class="v">{{ $v->Engineer->name ?? '---' }}</div>
+                                                <div class="k">Empreiteira</div>
+                                                <div class="v">{{ $v->Company->name ?? '---' }}</div>
+                                                <div class="k">Resp. informe</div>
+                                                <div class="v">{{ $v->Form?->responsible ?? '---' }}</div>
+                                                <div class="k">Usuário do form</div>
+                                                <div class="v">{{ $v->Form?->User?->name ?? '---' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="rs-viab-block">
+                                            <h6>Datas</h6>
+                                            <div class="rs-kv">
+                                                <div class="k">Início</div>
+                                                <div class="v">{{ optional($v->init_at)->format('d/m/Y H:i') ?: '---' }}</div>
+                                                <div class="k">Envio</div>
+                                                <div class="v">{{ optional($v->sended_at)->format('d/m/Y H:i') ?: '---' }}</div>
+                                                <div class="k">Retorno</div>
+                                                <div class="v">{{ optional($v->returned_at)->format('d/m/Y H:i') ?: '---' }}</div>
+                                                <div class="k">Decisão Eng.</div>
+                                                <div class="v">{{ optional($v->engineer_at)->format('d/m/Y H:i') ?: '---' }}</div>
+                                                <div class="k">Contratação</div>
+                                                <div class="v">{{ optional($v->hired_at)->format('d/m/Y H:i') ?: '---' }}</div>
+                                                <div class="k">Conclusão</div>
+                                                <div class="v">{{ optional($v->completed_at)->format('d/m/Y H:i') ?: '---' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="rs-viab-block">
+                                            <h6>Ordens Relacionadas</h6>
+                                            @if ($v->Orders->count())
+                                                @foreach ($v->Orders as $o)
+                                                    <span class="badge bg-light text-dark border me-1 mb-1">{{ $o->ordem }}</span>
+                                                @endforeach
+                                            @else
+                                                <span class="text-muted">Sem ordens vinculadas.</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="rs-viab-block">
+                                            <h6>Campos do Formulário</h6>
+                                            <div class="rs-kv">
+                                                <div class="k">Aprovado (form)</div>
+                                                <div class="v">{{ $v->Form?->approved ? 'SIM' : 'NÃO' }}</div>
+                                                <div class="k">Rejeitado (form)</div>
+                                                <div class="v">{{ $v->Form?->rejected ? 'SIM' : 'NÃO' }}</div>
+                                                <div class="k">Alterações</div>
+                                                <div class="v">{{ $v->Form?->changes ? 'SIM' : 'NÃO' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <div class="rs-viab-block is-reason">
+                                            <h6>Motivo</h6>
+                                            <div class="rs-viab-text">{{ $v->Form?->reason ?: 'Sem motivo informado.' }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="rs-viab-block is-description">
+                                            <h6>Resultado / Descrição</h6>
+                                            <div class="rs-viab-text">{{ $v->Form?->description ?: 'Sem descrição informada.' }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="rs-viab-block">
+                                            <h6>Histórico</h6>
+                                            <div class="rs-viab-text">{{ $v->Form?->historic ?: 'Sem histórico informado.' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="rs-viab-block">
+                                    <h6>Arquivos Associados à Viabilidade</h6>
+                                    @if ($allFiles->isNotEmpty())
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Arquivo</th>
+                                                        <th>Origem</th>
+                                                        <th>Ext.</th>
+                                                        <th>Enviado por</th>
+                                                        <th>Data</th>
+                                                        <th>Ação</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($allFiles as $file)
+                                                        <tr>
+                                                            <td>{{ $file->original_name ?? $file->file_name }}</td>
+                                                            <td>{{ in_array($file->id, $formFileIds, true) ? 'Formulário' : 'Viabilidade' }}</td>
+                                                            <td>{{ strtoupper($file->ext ?? '-') }}</td>
+                                                            <td>{{ $file->User->name ?? '---' }}</td>
+                                                            <td>{{ optional($file->created_at)->format('d/m/Y H:i') ?: '---' }}</td>
+                                                            <td>
+                                                                <a href="{{ route('files.download', ['file' => $file->id]) }}"
+                                                                    class="btn btn-sm btn-outline-primary">
+                                                                    Baixar
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="text-muted">Nenhum arquivo associado a esta viabilidade.</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
         @else
             <div class="card border-0 mt-3 shadow">
                 <div class="card-body">

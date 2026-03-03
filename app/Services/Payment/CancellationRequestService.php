@@ -109,6 +109,12 @@ class CancellationRequestService
 
         $request->refresh();
         $this->logEvent($request, $user, 'assigned');
+        $this->notifyRequesterAndAssignee(
+            $request,
+            'Solicitação de cancelamento assumida',
+            "A solicitação #{$request->id} foi assumida por {$user->name}.",
+            'info'
+        );
 
         return $request;
     }
@@ -135,6 +141,12 @@ class CancellationRequestService
             ]);
 
             $this->logEvent($request, $user, 'paused', ['reason' => $reason]);
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação de cancelamento pausada',
+                "A solicitação #{$request->id} foi pausada por {$user->name}. Motivo: {$reason}",
+                'warning'
+            );
 
             return $request;
         });
@@ -257,6 +269,12 @@ class CancellationRequestService
             ]);
 
             $this->notifyEngineerApprovalRequested($request, $actor, $engineer, $reason);
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação enviada para aprovação do engenheiro',
+                "A solicitação #{$request->id} foi encaminhada para {$engineer->name}. Motivo: {$reason}",
+                'info'
+            );
 
             return $request;
         });
@@ -301,6 +319,19 @@ class CancellationRequestService
             ]);
 
             $this->notifyEngineerApprovalRequested($request, $actor, $engineer, $reason);
+            $this->notifyUsersByIds(
+                [$previousEngineerId],
+                'Solicitação de aprovação transferida',
+                "Você foi removido da aprovação da solicitação #{$request->id}.",
+                route('engineers.cancellations.history'),
+                'info'
+            );
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Engenheiro alterado na aprovação',
+                "A solicitação #{$request->id} teve o engenheiro alterado para {$engineer->name}. Motivo: {$reason}",
+                'info'
+            );
 
             return $request;
         });
@@ -334,6 +365,19 @@ class CancellationRequestService
             $this->logEvent($request, $actor, 'engineer_approval_canceled', [
                 'reason' => $reason,
             ]);
+            $this->notifyUsersByIds(
+                [$request->engineer_approver_id],
+                'Solicitação de aprovação cancelada',
+                "A aprovação da solicitação #{$request->id} foi cancelada por {$actor->name}. Motivo: {$reason}",
+                route('engineers.cancellations.history'),
+                'warning'
+            );
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação ao engenheiro cancelada',
+                "A solicitação #{$request->id} teve a etapa de aprovação cancelada por {$actor->name}. Motivo: {$reason}",
+                'warning'
+            );
 
             return $request;
         });
@@ -419,6 +463,12 @@ class CancellationRequestService
             ]);
 
             $this->logEvent($request, $user, 'rejected', ['reason' => $rejectedReason]);
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação de cancelamento rejeitada',
+                "A solicitação #{$request->id} foi rejeitada por {$user->name}. Motivo: {$rejectedReason}",
+                'danger'
+            );
 
             return $request;
         });
@@ -453,6 +503,12 @@ class CancellationRequestService
             ]);
 
             $this->logEvent($request, $user, 'aborted', ['reason' => $abortReason]);
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação de cancelamento abortada',
+                "A solicitação #{$request->id} foi abortada por {$user->name}. Motivo: {$abortReason}",
+                'warning'
+            );
 
             return $request;
         });
@@ -481,6 +537,19 @@ class CancellationRequestService
                 'from' => $actor->id,
                 'to' => $target->id,
             ]);
+            $this->notifyUsersByIds(
+                [$target->id],
+                'Nova solicitação de cancelamento atribuída',
+                "A solicitação #{$request->id} foi transferida para você por {$actor->name}.",
+                route('cancellations.show', ['request' => $request->id]),
+                'info'
+            );
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação de cancelamento transferida',
+                "A solicitação #{$request->id} foi transferida por {$actor->name} para {$target->name}.",
+                'info'
+            );
 
             return $request;
         });
@@ -721,6 +790,43 @@ class CancellationRequestService
             link: route('cancellations.show', ['request' => $request->id]),
             status: 'success'
         ));
+    }
+
+    private function notifyRequesterAndAssignee(
+        CancellationRequest $request,
+        string $title,
+        string $message,
+        string $status = 'info'
+    ): void {
+        $this->notifyUsersByIds(
+            [$request->requested_by, $request->assigned_to],
+            $title,
+            $message,
+            route('cancellations.show', ['request' => $request->id]),
+            $status
+        );
+    }
+
+    private function notifyUsersByIds(
+        array $userIds,
+        string $title,
+        string $message,
+        ?string $link = null,
+        string $status = 'info'
+    ): void {
+        $ids = collect($userIds)->filter()->unique()->values()->all();
+        if (empty($ids)) {
+            return;
+        }
+
+        User::query()->whereIn('id', $ids)->get()->each(function (User $user) use ($title, $message, $link, $status) {
+            $user->notify(new SystemNotification(
+                titulo: $title,
+                mensagem: $message,
+                link: $link,
+                status: $status
+            ));
+        });
     }
 
     private function isSupervisor(User $user): bool

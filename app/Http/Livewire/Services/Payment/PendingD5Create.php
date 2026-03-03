@@ -90,36 +90,22 @@ class PendingD5Create extends Component
     {
         $this->resetBulkD5Results();
 
-        $numbers = $this->extractBulkNumbers($this->bulkD5Input ?? '');
+        $parsed = $this->extractBulkPairs($this->bulkD5Input ?? '');
+        $pairs = $parsed['pairs'];
+        $warnings = $parsed['warnings'];
 
-        if (count($numbers) < 2) {
+        if (count($pairs) < 1) {
             $this->bulkD5Invalid[] = 'Informe ao menos 2 numeros para formar pares (Nota e D5).';
             $this->bulkD5Processed = true;
             return;
         }
 
-        if (count($numbers) % 2 !== 0) {
-            $this->bulkD5Invalid[] = 'Quantidade impar de numeros. O ultimo numero foi ignorado.';
+        foreach ($warnings as $warning) {
+            $this->bulkD5Invalid[] = $warning;
         }
 
-        $pairs = [];
-        for ($i = 0; $i + 1 < count($numbers); $i += 2) {
-            $pairs[] = [
-                'note' => (string) $numbers[$i],
-                'd5' => (string) $numbers[$i + 1],
-            ];
-        }
-
-        $uniqueNotes = array_values(array_unique(array_column($pairs, 'note')));
-        $fiveNotes = FiveNote::query()
-            ->whereHas('note', function ($q) use ($uniqueNotes) {
-                $q->whereIn('note', $uniqueNotes);
-            })
-            ->with('note')
-            ->get()
-            ->keyBy(function ($five) {
-                return (string) ($five->note?->note ?? '');
-            });
+        $references = array_values(array_unique(array_column($pairs, 'note')));
+        $fiveNotes = $this->resolveFiveNotesByReference($references);
 
         $seen = [];
 
@@ -271,6 +257,101 @@ class PendingD5Create extends Component
         preg_match_all('/\d+/', $input, $matches);
 
         return $matches[0] ?? [];
+    }
+
+    private function extractBulkPairs(string $input): array
+    {
+        $pairs = [];
+        $warnings = [];
+        $raw = trim($input);
+
+        if ($raw === '') {
+            return compact('pairs', 'warnings');
+        }
+
+        $hasLineBreak = preg_match('/\R/u', $raw) === 1;
+
+        // Quando vem de planilha, processar por linha é mais confiável:
+        // 1º número = referência (Nota/Ordem), último número = D5.
+        if ($hasLineBreak) {
+            $lines = preg_split('/\R/u', $raw) ?: [];
+
+            foreach ($lines as $index => $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $numbers = $this->extractBulkNumbers($line);
+                if (count($numbers) < 2) {
+                    if (count($numbers) === 1) {
+                        $warnings[] = 'Linha '.($index + 1).' ignorada (faltou o numero da D5).';
+                    }
+                    continue;
+                }
+
+                $pairs[] = [
+                    'note' => (string) $numbers[0],
+                    'd5' => (string) $numbers[count($numbers) - 1],
+                ];
+            }
+
+            if (count($pairs) > 0) {
+                return compact('pairs', 'warnings');
+            }
+        }
+
+        // Fallback legado: sequência contínua de números em pares (Nota, D5).
+        $numbers = $this->extractBulkNumbers($raw);
+
+        if (count($numbers) % 2 !== 0) {
+            $warnings[] = 'Quantidade impar de numeros. O ultimo numero foi ignorado.';
+        }
+
+        for ($i = 0; $i + 1 < count($numbers); $i += 2) {
+            $pairs[] = [
+                'note' => (string) $numbers[$i],
+                'd5' => (string) $numbers[$i + 1],
+            ];
+        }
+
+        return compact('pairs', 'warnings');
+    }
+
+    private function resolveFiveNotesByReference(array $references)
+    {
+        $map = collect();
+
+        if (empty($references)) {
+            return $map;
+        }
+
+        $fives = FiveNote::query()
+            ->where(function ($q) use ($references) {
+                $q->whereHas('note', function ($nq) use ($references) {
+                    $nq->whereIn('note', $references);
+                })->orWhereHas('note.Orders', function ($oq) use ($references) {
+                    $oq->whereIn('ordem', $references);
+                });
+            })
+            ->with(['note.Orders'])
+            ->get();
+
+        foreach ($fives as $five) {
+            $noteNumber = (string) ($five->note?->note ?? '');
+            if ($noteNumber !== '' && !$map->has($noteNumber)) {
+                $map->put($noteNumber, $five);
+            }
+
+            foreach ($five->note?->Orders ?? [] as $order) {
+                $orderNumber = (string) ($order->ordem ?? '');
+                if ($orderNumber !== '' && !$map->has($orderNumber)) {
+                    $map->put($orderNumber, $five);
+                }
+            }
+        }
+
+        return $map;
     }
 
     private function returnFilterArray($key)

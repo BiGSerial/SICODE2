@@ -92,13 +92,22 @@ class Closeds extends Component
     }
 
     /**
-     * Jobs finalizados + confirmados.
+     * Histórico: jobs concluídos e cancelados.
      */
     protected function baseQuery()
     {
         $query = ProtestJob::query()
-            ->where('status', ProtestJobStatus::DONE->value)
-            ->where('confirmed', true)
+            ->whereIn('status', [
+                ProtestJobStatus::DONE->value,
+                ProtestJobStatus::CANCELED->value,
+            ])
+            ->where(function ($q) {
+                $q->where('status', ProtestJobStatus::CANCELED->value)
+                    ->orWhere(function ($done) {
+                        $done->where('status', ProtestJobStatus::DONE->value)
+                            ->where('confirmed', true);
+                    });
+            })
             ->with([
                 'protest.Notes',
                 'protest.medProtests',

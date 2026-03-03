@@ -57,6 +57,9 @@ class Search extends Component
                 'Orders:id,note_id,ordem,statusSist',
                 'Orders.Operations:id,order_id,operacao,descOperacao,status,cenTrab,inicioPlanejado,fimPlanejado,inicioReal,fimReal',
 
+                // Protestos
+                'Protests:id,nota,tipoNota',
+
                 // Cancelamentos
                 'CancellationRequests' => function ($q) {
                     $q->with([
@@ -87,12 +90,20 @@ class Search extends Component
                         'Orders:id,ordem',
                         'Orders.Operations:id,order_id,operacao,status',
                         'User:id,name,email',
-                        'Engineer:id,name',
+                        'Engineer:id,name,email',
                         'Company:id,name',
-                        'Form:id,viability_id,responsible',
+                        'Form:id,viability_id,user_id,reason,description,changes,responsible,rejected,approved,historic,created_at,updated_at',
+                        'Form.User:id,name,email',
+                        'Form.Files:id,file_name,original_name,path,ext,user_id,created_at',
+                        'Form.Files.User:id,name',
+                        'Files:id,file_name,original_name,path,ext,user_id,created_at',
+                        'Files.User:id,name',
                     ])->select([
                         'id','note_id','user_id','engineer_id','company_id',
-                        'hired','tacit','hired_at','sended_at','returned_at'
+                        'hired','tacit','hired_at','sended_at','returned_at',
+                        'approved','rejected','completed','canceled',
+                        'engineer','engineer_at','completed_at','status',
+                        'init_at','tacit_at','visible_partner','value',
                     ]);
                 },
 

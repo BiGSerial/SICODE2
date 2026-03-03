@@ -186,7 +186,6 @@ class WaitingFiveNotes extends Component
     private function baseQuery(): Builder
     {
         $base = FiveNote::query()
-            ->where('is_payed', true)
             ->where('is_archived', false);
 
         $base->when($this->passiveFilter === 'current', fn ($q) => $q->where('isPassive', false))

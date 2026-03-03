@@ -251,7 +251,7 @@ class Waitinghiring extends Component
 
                             if (Storage::exists($caminho)) {
 
-                                File::create([
+                                $createdFile = File::create([
                                     'note_id' => $note->id,
                                     'user_id' => Auth()->User()->id,
                                     'service_id' => null,
@@ -262,6 +262,11 @@ class Waitinghiring extends Component
                                     'suspicious' => 0,
                                     'noexists' => false,
                                 ]);
+
+                                if ($createdFile) {
+                                    // Garante que o arquivo fique associado a origem (viabilidade)
+                                    $viability->files()->syncWithoutDetaching([$createdFile->id]);
+                                }
                             } else {
                                 throw new Exception("Um ou mais arquivos não foram salvos corretamente", 1);
                             }

@@ -28,8 +28,17 @@ class ClosedProtestJobsExport implements FromQuery, WithMapping, WithHeadings, W
     public function query(): Builder
     {
         $query = ProtestJob::query()
-            ->where('status', ProtestJobStatus::DONE->value)
-            ->where('confirmed', true)
+            ->whereIn('status', [
+                ProtestJobStatus::DONE->value,
+                ProtestJobStatus::CANCELED->value,
+            ])
+            ->where(function (Builder $q) {
+                $q->where('status', ProtestJobStatus::CANCELED->value)
+                    ->orWhere(function (Builder $done) {
+                        $done->where('status', ProtestJobStatus::DONE->value)
+                            ->where('confirmed', true);
+                    });
+            })
             ->with([
                 'protest:id,nota,tipoNota,cidade,statUsuar,txtGrpCodificacao,dtAberturaNota,dtConclusaoDesej,type',
                 'protest.medProtests:id,protest_id,statusSist,protest_type',
