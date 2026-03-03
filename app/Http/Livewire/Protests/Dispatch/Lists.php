@@ -126,8 +126,9 @@ class Lists extends Component
         $today = Carbon::today();
 
         $query = MedProtest::query()
-            ->where('statusSist', 'MEDA')
-            ->whereDoesntHave('ProtestJobs');
+            ->where('statusSist', 'MEDA');
+
+        $this->applyNoValidJobsCondition($query);
 
         $this->applyBtzeroVisibilityFilter($query);
         $this->applyMedDeadlineCondition($query, $today, '=');
@@ -140,8 +141,9 @@ class Lists extends Component
         $today = Carbon::today();
 
         $query = MedProtest::query()
-            ->where('statusSist', 'MEDA')
-            ->whereDoesntHave('ProtestJobs');
+            ->where('statusSist', 'MEDA');
+
+        $this->applyNoValidJobsCondition($query);
 
         $this->applyBtzeroVisibilityFilter($query);
         $this->applyMedDeadlineCondition($query, $today, '<');
@@ -183,6 +185,21 @@ class Lists extends Component
         if ($this->hideBtzero) {
             $query->notIdentifiedAsBtzero();
         }
+    }
+
+    /**
+     * Considera "em aberto" quando a medida NÃO possui ProtestJob válido.
+     * Válido = qualquer status diferente de "canceled" (inclusive NULL).
+     * Assim, medida sem job ou com somente jobs cancelados volta para aberto.
+     */
+    protected function applyNoValidJobsCondition(Builder $query): void
+    {
+        $query->whereDoesntHave('ProtestJobs', function (Builder $jobQuery) {
+            $jobQuery->where(function (Builder $statusQuery) {
+                $statusQuery->whereNull('status')
+                    ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+            });
+        });
     }
 
     /*
@@ -394,7 +411,12 @@ class Lists extends Component
             ->with([
                 'medProtests' => function ($q) {
                     $q->where('statusSist', 'MEDA')
-                        ->whereDoesntHave('ProtestJobs')
+                        ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                            $jobQuery->where(function ($statusQuery) {
+                                $statusQuery->whereNull('status')
+                                    ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                            });
+                        })
                         ->when($this->showOnlyBtzero, function ($typeQuery) {
                             $typeQuery->identifiedAsBtzero();
                         }, function ($typeQuery) {
@@ -410,7 +432,12 @@ class Lists extends Component
 
         $query->whereHas('medProtests', function ($q) {
             $q->where('statusSist', 'MEDA')
-                ->whereDoesntHave('ProtestJobs');
+                ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                    $jobQuery->where(function ($statusQuery) {
+                        $statusQuery->whereNull('status')
+                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                    });
+                });
 
             if ($this->showOnlyBtzero) {
                 $q->identifiedAsBtzero();
@@ -422,7 +449,12 @@ class Lists extends Component
         if (!$this->showOnlyBtzero && $this->hideBtzero) {
             $query->whereDoesntHave('medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
-                    ->whereDoesntHave('ProtestJobs')
+                    ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                        $jobQuery->where(function ($statusQuery) {
+                            $statusQuery->whereNull('status')
+                                ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                        });
+                    })
                     ->identifiedAsBtzero();
             });
         }
@@ -476,13 +508,23 @@ class Lists extends Component
             if ($this->statusCardFilter === 'due_today') {
                 $query->whereHas('medProtests', function ($med) use ($today) {
                     $med->where('statusSist', 'MEDA')
-                        ->whereDoesntHave('ProtestJobs');
+                        ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                            $jobQuery->where(function ($statusQuery) {
+                                $statusQuery->whereNull('status')
+                                    ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                            });
+                        });
                     $this->applyMedDeadlineCondition($med, $today, '=');
                 });
             } elseif ($this->statusCardFilter === 'overdue') {
                 $query->whereHas('medProtests', function ($med) use ($today) {
                     $med->where('statusSist', 'MEDA')
-                        ->whereDoesntHave('ProtestJobs');
+                        ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                            $jobQuery->where(function ($statusQuery) {
+                                $statusQuery->whereNull('status')
+                                    ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                            });
+                        });
                     $this->applyMedDeadlineCondition($med, $today, '<');
                 });
             }

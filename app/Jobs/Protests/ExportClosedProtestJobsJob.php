@@ -51,7 +51,7 @@ class ExportClosedProtestJobsJob implements ShouldQueue
 
             $user->notify(new SystemNotification(
                 titulo: 'Exportação concluída!',
-                mensagem: 'O relatório de jobs fechados foi gerado e está disponível para download.',
+                mensagem: 'O relatório de histórico de jobs (concluídos e cancelados) foi gerado e está disponível para download.',
                 link: Storage::url($filePath),
                 status: 4,
                 extras: []

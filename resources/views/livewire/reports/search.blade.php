@@ -403,7 +403,23 @@
                                     <span class="badge {{ $color }}">{{ $status }}</span>
                                 </dd>
                             @endif
-                        </dl>
+                       
+                        {{-- PROTESTOS --}}
+                        @if ($lists->Protests->count())
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">RECLAMAÇÃO</dt>
+                            <dd class="col-sm-8 text-white text-uppercase">
+                                @foreach ($lists->Protests as $protest)
+                                    <p class="mb-1">
+                                        {{ $protest->nota }} - {{ $protest->tipoNota }}
+                                        <a href="{{ route('protests.dispatch.view_only', ['protest' => $protest->nota]) }}"
+                                            target="_blank" class="ms-2 text-primary">
+                                            <i class="ri-external-link-line"></i>
+                                        </a>
+                                    </p>
+                                @endforeach
+                            </dd>
+                        @endif
+                         </dl>
 
                         {{-- ORDENS (já vêm com Operations) --}}
                         @if ($lists->Orders->count())

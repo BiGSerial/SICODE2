@@ -18,6 +18,7 @@ class View extends Component
 {
     /** ===== PROPRIEDADES PRINCIPAIS ===== */
     public ?Protest $protest = null;
+    public bool $readOnly = false;
 
     // Comentários gerais do Protest
     public ?string $comment = null;
@@ -50,8 +51,10 @@ class View extends Component
     ];
 
     /** ===== LIFECYCLE ===== */
-    public function mount(Request $request): void
+    public function mount(Request $request, bool $readOnly = false): void
     {
+        $this->readOnly = $readOnly;
+
         $this->protest = Protest::where('nota', $request->route('protest'))
             ->with([
                 'medProtests',
@@ -104,6 +107,10 @@ class View extends Component
 
     public function deleteFile(EvidenceFile $file): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         try {
             $file->delete();
             $this->toast('success', 'Arquivo removido com sucesso!');
@@ -119,6 +126,10 @@ class View extends Component
 
     public function removeNoteFromProtest(int $id): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         try {
             $noteRelation = Noteable::find($id);
 
@@ -142,6 +153,10 @@ class View extends Component
 
     public function addComment(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (trim((string) $this->comment) === '') {
             session()->flash('error', 'O comentário não pode estar vazio.');
             return;
@@ -163,6 +178,10 @@ class View extends Component
 
     public function deleteComment(Comment $comment): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->deleteCommentId = $comment;
 
         if (!$this->deleteCommentId) {
@@ -182,6 +201,10 @@ class View extends Component
 
     public function removeComment(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (!$this->deleteCommentId) {
             return;
         }
@@ -203,12 +226,20 @@ class View extends Component
 
     public function editResume(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->resumeEdit     = $this->protest->resume;
         $this->showResumeEdit = true;
     }
 
     public function saveResume(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->validate([
             'resumeEdit' => 'required|string',
         ]);
@@ -226,12 +257,20 @@ class View extends Component
 
     public function editType(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->typeEdit     = $this->protest->type;
         $this->showTypeEdit = true;
     }
 
     public function saveType(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $allowedTypes = $this->allowedProtestTypeValues();
 
         $this->validate([
@@ -263,6 +302,10 @@ class View extends Component
 
     public function approveMed(MedProtest $protestTemp): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->protestTemp = $protestTemp;
 
         if (!$this->protestTemp) {
@@ -293,6 +336,10 @@ class View extends Component
 
     public function finishMedProtes(?string $result = null): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (!$this->protestTemp) {
             return;
         }
@@ -324,6 +371,10 @@ class View extends Component
 
     public function toReject(MedProtest $medProtestId): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->medProtest = $medProtestId;
 
         if (!$this->medProtest) {
@@ -345,6 +396,10 @@ class View extends Component
 
     public function rejectMed(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (!$this->medProtest) {
             $this->toast('danger', 'Medida não encontrada.');
             return;
@@ -386,6 +441,10 @@ class View extends Component
 
     public function toConfirmJob(ProtestJob $job): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->jobTemp = $job;
 
         if (!$this->jobTemp) {
@@ -417,6 +476,10 @@ class View extends Component
 
     public function confirmJob(?string $result = null): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (!$this->jobTemp) {
             return;
         }
@@ -445,6 +508,10 @@ class View extends Component
     
 public function toCancelJob(ProtestJob $job): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->jobTemp = $job;
 
         if (!$this->jobTemp) {
@@ -466,6 +533,10 @@ public function toCancelJob(ProtestJob $job): void
 
     public function cancelJob(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (!$this->jobTemp) {
             return;
         }
@@ -489,6 +560,10 @@ public function toCancelJob(ProtestJob $job): void
 
     public function toReopen(ProtestJob $job): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         $this->jobTemp = $job;
 
         if (!$this->jobTemp) {
@@ -510,6 +585,10 @@ public function toCancelJob(ProtestJob $job): void
 
     public function reopenJob(): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         if (!$this->jobTemp) {
             return;
         }
@@ -532,6 +611,10 @@ public function toCancelJob(ProtestJob $job): void
 
     public function deleteJob(int $jobId): void
     {
+        if ($this->readOnly) {
+            return;
+        }
+
         try {
             $job = ProtestJob::find($jobId);
 
@@ -557,6 +640,7 @@ public function toCancelJob(ProtestJob $job): void
     {
         return view('livewire.protests.dispatch.view', [
             'protestCategories' => SelectOptions::getProtestCategory(),
+            'readOnly' => $this->readOnly,
         ]);
     }
 }

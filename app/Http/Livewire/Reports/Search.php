@@ -57,6 +57,9 @@ class Search extends Component
                 'Orders:id,note_id,ordem,statusSist',
                 'Orders.Operations:id,order_id,operacao,descOperacao,status,cenTrab,inicioPlanejado,fimPlanejado,inicioReal,fimReal',
 
+                // Protestos
+                'Protests:id,nota,tipoNota',
+
                 // Cancelamentos
                 'CancellationRequests' => function ($q) {
                     $q->with([

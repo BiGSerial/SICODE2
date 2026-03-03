@@ -78,7 +78,7 @@
         <div class="protest-header d-flex justify-content-between align-items-center">
             <div>
                 <h4 class="mb-0">Histórico de Reclamações</h4>
-                <small class="text-white-50">Dispatch - atividades finalizadas e confirmadas</small>
+                <small class="text-white-50">Dispatch - atividades concluídas e canceladas</small>
             </div>
             <button wire:click="exportToExcel" class="btn btn-light btn-sm text-dark">
                 <i class="ri-file-excel-2-line me-1"></i> Exportar
@@ -288,7 +288,7 @@
                         <span class="badge bg-light text-muted">100%</span>
                     </div>
                     <small class="text-muted mt-2">
-                        Reclamações com job concluído e confirmado.
+                        Reclamações com job concluído ou cancelado.
                     </small>
                 </div>
             </div>
@@ -392,13 +392,13 @@
     <div class="card shadow-sm border-0">
         @if (!$lists->count())
             <div class="card-body">
-                <h4 class="text-center">SEM JOBS FECHADOS PARA OS FILTROS ATUAIS</h4>
+                <h4 class="text-center">SEM JOBS NO HISTÓRICO PARA OS FILTROS ATUAIS</h4>
             </div>
         @else
             <div class="card-header fw-bold text-bg-dark d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i class="ri-clipboard-check-line me-1"></i>
-                    JOBS DE RECLAMAÇÕES FECHADOS
+                    HISTÓRICO DE JOBS DE RECLAMAÇÕES
                 </h5>
                 <button wire:click="exportToExcel" class="btn btn-success btn-sm">
                     <i class="ri-file-excel-2-line me-2"></i>Exportar
@@ -440,6 +440,7 @@
                                 $openedAt = getApertureDateJob($item);
                                 $wishAt = getWishDateJob($item);
                                 $finishedAt = $item->finished_at;
+                                $endedAt = $item->finished_at ?? $item->closed_at;
 
                                 $slaLabel = 'SEM SLA';
                                 $slaClass = 'text-bg-secondary';
@@ -533,7 +534,7 @@
                                 </td>
 
                                 <td class="fw-bold">
-                                    {{ $finishedAt ? $finishedAt->format('d/m/Y') : '---' }}
+                                    {{ $endedAt ? $endedAt->format('d/m/Y') : '---' }}
                                 </td>
 
                                 <td>

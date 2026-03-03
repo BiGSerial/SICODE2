@@ -470,18 +470,36 @@
             }
 
             .job-body-grid {
-                display: flex;
-                flex-wrap: wrap;
-                row-gap: .75rem;
-                column-gap: 1.5rem;
+                display: grid;
+                grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+                gap: .9rem 1.2rem;
+                align-items: start;
             }
 
             .job-col-block {
-                min-width: 200px;
-                max-width: 280px;
-                flex: 1 1 200px;
                 font-size: .8rem;
                 line-height: 1.4;
+            }
+
+            .job-col-block--meta {
+                background: #f8fafc;
+                border: 1px solid #e5e7eb;
+                border-radius: .6rem;
+                padding: .6rem .7rem;
+            }
+
+            .job-col-block--content {
+                min-width: 0;
+            }
+
+            .job-result-head {
+                display: flex;
+                flex-wrap: wrap;
+                gap: .75rem 1.25rem;
+            }
+
+            .job-result-head>div {
+                min-width: 170px;
             }
 
             .job-label {
@@ -498,6 +516,59 @@
                 color: #2c3e50;
                 line-height: 1.3;
                 font-size: .8rem;
+            }
+
+            .job-resolution-text {
+                white-space: pre-line;
+                word-break: break-word;
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: .5rem;
+                padding: .65rem .75rem;
+            }
+
+            .job-meta-list {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: .35rem;
+            }
+
+            .job-meta-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: .6rem;
+                border-bottom: 1px dashed #e5e7eb;
+                padding-bottom: .2rem;
+            }
+
+            .job-meta-item:last-child {
+                border-bottom: 0;
+                padding-bottom: 0;
+            }
+
+            .job-meta-item span {
+                font-size: .7rem;
+                text-transform: uppercase;
+                color: #6b7280;
+                letter-spacing: .03em;
+                font-weight: 500;
+                white-space: nowrap;
+            }
+
+            .job-meta-item strong {
+                font-size: .78rem;
+                color: #1f2937;
+                text-align: right;
+            }
+
+            .job-actions-under-meta {
+                margin-top: .75rem;
+                padding-top: .65rem;
+                border-top: 1px dashed #d1d5db;
+                display: flex;
+                flex-wrap: wrap;
+                gap: .4rem;
             }
 
             .sla-bar-wrap-job {
@@ -537,6 +608,12 @@
             .jobs-cell {
                 background: #f8f9fa;
                 border-top: 1px solid #e9ecef;
+            }
+
+            @media (max-width: 991px) {
+                .job-body-grid {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>
     @endpush
@@ -622,61 +699,79 @@
                             <span class="text-muted small d-block">Causa:</span>
                             <span
                                 class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodCodificacao }}</span>
-                            <span class="text-muted small d-block mt-1">SubCausa:</span>
+                                <span class="text-muted small d-block mt-1">SubCausa:</span>
                             <span class="fw-medium small">{{ $protest->medProtests?->last()?->txtCodMedida }}</span>
 
-                            <div class="d-flex justify-content-between align-items-center my-1">
-                                <span class="text-muted small">Categoria do Protesto:</span>
-                                @if (!$showTypeEdit)
-                                    <button class="btn btn-sm btn-outline-primary p-1" wire:click="editType"
-                                        title="Editar categoria">
-                                        <i class="ri-pencil-line"></i>
-                                    </button>
-                                @else
-                                    <button class="btn btn-sm btn-outline-success p-1" wire:click="saveType"
-                                        title="Salvar categoria">
-                                        <i class="ri-save-line"></i>
-                                    </button>
-                                @endif
-                            </div>
-
-                            @if ($showTypeEdit)
-                                <select class="form-select form-select-sm mb-2" wire:model.defer="typeEdit">
-                                    <option value="">Selecione uma categoria</option>
-                                    @foreach ($protestCategories as $category)
-                                        <option value="{{ $category->value }}">{{ $category->reason }}</option>
-                                    @endforeach
-                                </select>
-                                @error('typeEdit')
-                                    <small class="text-danger d-block">{{ $message }}</small>
-                                @enderror
-                            @else
+                            @if ($readOnly)
+                                <div class="d-flex justify-content-between align-items-center my-1">
+                                    <span class="text-muted small">Categoria do Protesto:</span>
+                                </div>
                                 <span class="fw-medium small mb-2 d-block">
                                     {{ $protest->type ?? 'SEM CATEGORIA DEFINIDA' }}
                                 </span>
+                            @else
+                                <div class="d-flex justify-content-between align-items-center my-1">
+                                    <span class="text-muted small">Categoria do Protesto:</span>
+                                    @if (!$showTypeEdit)
+                                        <button class="btn btn-sm btn-outline-primary p-1" wire:click="editType"
+                                            title="Editar categoria">
+                                            <i class="ri-pencil-line"></i>
+                                        </button>
+                                    @else
+                                        <button class="btn btn-sm btn-outline-success p-1" wire:click="saveType"
+                                            title="Salvar categoria">
+                                            <i class="ri-save-line"></i>
+                                        </button>
+                                    @endif
+                                </div>
+
+                                @if ($showTypeEdit)
+                                    <select class="form-select form-select-sm mb-2" wire:model.defer="typeEdit">
+                                        <option value="">Selecione uma categoria</option>
+                                        @foreach ($protestCategories as $category)
+                                            <option value="{{ $category->value }}">{{ $category->reason }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('typeEdit')
+                                        <small class="text-danger d-block">{{ $message }}</small>
+                                    @enderror
+                                @else
+                                    <span class="fw-medium small mb-2 d-block">
+                                        {{ $protest->type ?? 'SEM CATEGORIA DEFINIDA' }}
+                                    </span>
+                                @endif
                             @endif
 
-                            <div class="d-flex justify-content-between align-items-center my-1">
-                                <span class="text-muted small">Descrição:</span>
-                                @if (!$showResumeEdit)
-                                    <button class="btn btn-sm btn-outline-primary p-1" wire:click="editResume"
-                                        title="Editar descrição">
-                                        <i class="ri-pencil-line"></i>
-                                    </button>
-                                @else
-                                    <button class="btn btn-sm btn-outline-success p-1" wire:click="saveResume"
-                                        title="Salvar descrição">
-                                        <i class="ri-save-line"></i>
-                                    </button>
-                                @endif
-                            </div>
-
-                            @if ($showResumeEdit)
-                                <textarea class="form-control form-control-sm" rows="6" wire:model.defer="resumeEdit"></textarea>
-                            @else
+                            @if ($readOnly)
+                                <div class="d-flex justify-content-between align-items-center my-1">
+                                    <span class="text-muted small">Descrição:</span>
+                                </div>
                                 <span class="fw-medium small" style="white-space: pre-line;">
                                     {{ $protest->resume ?? 'SEM DESCRIÇÃO PARA RECLAMAÇÃO' }}
                                 </span>
+                            @else
+                                <div class="d-flex justify-content-between align-items-center my-1">
+                                    <span class="text-muted small">Descrição:</span>
+                                    @if (!$showResumeEdit)
+                                        <button class="btn btn-sm btn-outline-primary p-1" wire:click="editResume"
+                                            title="Editar descrição">
+                                            <i class="ri-pencil-line"></i>
+                                        </button>
+                                    @else
+                                        <button class="btn btn-sm btn-outline-success p-1" wire:click="saveResume"
+                                            title="Salvar descrição">
+                                            <i class="ri-save-line"></i>
+                                        </button>
+                                    @endif
+                                </div>
+
+                                @if ($showResumeEdit)
+                                    <textarea class="form-control form-control-sm" rows="6" wire:model.defer="resumeEdit"></textarea>
+                                @else
+                                    <span class="fw-medium small" style="white-space: pre-line;">
+                                        {{ $protest->resume ?? 'SEM DESCRIÇÃO PARA RECLAMAÇÃO' }}
+                                    </span>
+                                @endif
                             @endif
                         </div>
                     </div>
@@ -824,7 +919,8 @@
     <div class="modern-card">
         <div class="modern-card-body">
             <div class="modern-card-title mb-2"><i class="ri-attachment-line me-2"></i>Anexos & Evidências</div>
-            <x-files.attachments :files="$protest->evidenceFiles" deleteAction="deleteFile" downloadAction="downloadFiles" />
+            <x-files.attachments :files="$protest->evidenceFiles" :deleteAction="$readOnly ? null : 'deleteFile'"
+                downloadAction="downloadFiles" />
         </div>
     </div>
 
@@ -833,10 +929,12 @@
         <div class="modern-card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="modern-card-title"><i class="ri-building-line me-1"></i>Obras Associadas</span>
-                <button class="btn btn-sm btn-warning"
-                    wire:click.defer="$emitTo('protests.dispatch.actions.add-notes-relation', 'openAddNotesRelation', {{ $protest->id }})">
-                    <i class="ri-add-box-fill me-1"></i>Associar
-                </button>
+                @unless ($readOnly)
+                    <button class="btn btn-sm btn-warning"
+                        wire:click.defer="$emitTo('protests.dispatch.actions.add-notes-relation', 'openAddNotesRelation', {{ $protest->id }})">
+                        <i class="ri-add-box-fill me-1"></i>Associar
+                    </button>
+                @endunless
             </div>
 
             @if ($protest->all_notes->isNotEmpty())
@@ -850,7 +948,9 @@
                                 <th>Município</th>
                                 <th>Descrição</th>
                                 <th>Status</th>
-                                <th>Ações</th>
+                                @unless ($readOnly)
+                                    <th>Ações</th>
+                                @endunless
                             </tr>
                         </thead>
                         <tbody>
@@ -871,14 +971,16 @@
                                         <span
                                             class="badge bg-info bg-opacity-10 text-info">{{ $note->type_note == 2 ? $note->nstats : $note->centerjob }}</span>
                                     </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-danger" title="Remover Associação"
-                                            data-bs-toggle="tooltip"
-                                            wire:click.prevent="removeNoteFromProtest({{ $note->pivot->id }})"
-                                            onclick="return confirm('Remover esta associação?')">
-                                            <i class="ri-delete-bin-line"></i>
-                                        </button>
-                                    </td>
+                                    @unless ($readOnly)
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-danger" title="Remover Associação"
+                                                data-bs-toggle="tooltip"
+                                                wire:click.prevent="removeNoteFromProtest({{ $note->pivot->id }})"
+                                                onclick="return confirm('Remover esta associação?')">
+                                                <i class="ri-delete-bin-line"></i>
+                                            </button>
+                                        </td>
+                                    @endunless
                                 </tr>
                             @endforeach
                         </tbody>
@@ -888,8 +990,13 @@
                 <div class="d-flex flex-column align-items-center justify-content-center py-5 text-muted">
                     <i class="ri-building-line fs-1 mb-3 opacity-50"></i>
                     <h5 class="mb-2">Nenhuma obra associada</h5>
-                    <p class="mb-0 text-center">Clique no botão "Associar" para vincular notas ou OVs a esta reclamação
-                    </p>
+                    @if ($readOnly)
+                        <p class="mb-0 text-center">Não há notas ou OVs associadas a esta reclamação.</p>
+                    @else
+                        <p class="mb-0 text-center">Clique no botão "Associar" para vincular notas ou OVs a esta
+                            reclamação
+                        </p>
+                    @endif
                 </div>
             @endif
         </div>
@@ -916,8 +1023,12 @@
                                 <th style="min-width:170px;">Data Abertura</th>
                                 <th style="min-width:170px;">Prazo da Medida</th>
                                 <th style="min-width:280px;">SLA da Atividade Atual</th>
-                                <th class="text-center" style="width:1%;">Ações</th>
-                                <th style="width:1%;"></th>
+                                @if ($readOnly)
+                                    <th style="width:1%;"></th>
+                                @else
+                                    <th class="text-center" style="width:1%;">Ações</th>
+                                    <th style="width:1%;"></th>
+                                @endif
                             </tr>
                         </thead>
 
@@ -927,7 +1038,7 @@
                                     /** @var \App\Models\ProtestJob|null $last */
                                     $last = $medProtest->LastProtestJob;
                                     $jobs = $medProtest->ProtestJobs ?? collect();
-                                    $expanded = $expandedJobs[$medProtest->id] ?? false;
+                                    $expanded = $readOnly ? ($expandedJobs[$medProtest->id] ?? true) : ($expandedJobs[$medProtest->id] ?? false);
 
                                     // === Métricas de jobs por medida ===
                                     $jobsTotal = $jobs->count();
@@ -1192,53 +1303,70 @@
                                     </td>
 
                                     {{-- Ações (somente MEDA) --}}
-                                    <td class="text-center align-top" style="white-space:nowrap;">
-                                        @if ($showActions)
-                                            <div class="d-flex align-items-center justify-content-center gap-1">
-                                                <button class="btn btn-outline-primary icon-btn-table"
-                                                    title="Gerenciar / Criar Atividade"
-                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
-                                                    <i class="ri-send-plane-line"></i>
-                                                </button>
-                                                @if ($isActiveMeasure && $last && !$finishAt && $jobs->every(fn($job) => $job->confirmed))
-                                                    <button class="btn btn-outline-success icon-btn-table"
-                                                        title="Confirmar Conclusão da Medida"
-                                                        wire:click.prevent="approveMed({{ $medProtest->id }})">
-                                                        <i class="ri-check-line"></i>
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        @else
-                                            <span class="text-muted small">—</span>
-                                        @endif
-                                    </td>
-
-                                    {{-- Expand toggle --}}
-                                    <td class="text-end align-top">
-                                        <div class="d-flex align-items-center justify-content-end gap-1">
-                                            <button class="btn btn-outline-success icon-btn-table"
-                                                title="Anexar arquivos da medida"
-                                                wire:click.prevent="$emitTo('protests.dispatch.actions.upload-med-protest-files', 'openUploader', {{ $medProtest->id }})">
-                                                <i class="ri-upload-cloud-2-line"></i>
-                                            </button>
+                                    @if ($readOnly)
+                                        <td class="text-end align-top">
                                             @if ($jobs->isNotEmpty())
                                                 <button class="btn btn-outline-secondary icon-btn-table"
                                                     wire:click="toggleJobs({{ $medProtest->id }})"
-                                                    title="Ver atividades relacionadas"
+                                                    title="Recolher/expandir atividades"
                                                     aria-expanded="{{ $expanded ? 'true' : 'false' }}"
                                                     aria-controls="jobs-{{ $medProtest->id }}">
                                                     <i
                                                         class="{{ $expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
                                                 </button>
+                                            @else
+                                                <span class="text-muted small">—</span>
                                             @endif
-                                        </div>
-                                    </td>
+                                        </td>
+                                    @else
+                                        <td class="text-center align-top" style="white-space:nowrap;">
+                                            @if ($showActions)
+                                                <div class="d-flex align-items-center justify-content-center gap-1">
+                                                    <button class="btn btn-outline-primary icon-btn-table"
+                                                        title="Gerenciar / Criar Atividade"
+                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
+                                                        <i class="ri-send-plane-line"></i>
+                                                    </button>
+                                                    @if ($isActiveMeasure && $last && !$finishAt && $jobs->every(fn($job) => $job->confirmed))
+                                                        <button class="btn btn-outline-success icon-btn-table"
+                                                            title="Confirmar Conclusão da Medida"
+                                                            wire:click.prevent="approveMed({{ $medProtest->id }})">
+                                                            <i class="ri-check-line"></i>
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-muted small">—</span>
+                                            @endif
+                                        </td>
+
+                                        {{-- Expand toggle --}}
+                                        <td class="text-end align-top">
+                                            <div class="d-flex align-items-center justify-content-end gap-1">
+                                                <button class="btn btn-outline-success icon-btn-table"
+                                                    title="Anexar arquivos da medida"
+                                                    wire:click.prevent="$emitTo('protests.dispatch.actions.upload-med-protest-files', 'openUploader', {{ $medProtest->id }})">
+                                                    <i class="ri-upload-cloud-2-line"></i>
+                                                </button>
+                                                @if ($jobs->isNotEmpty())
+                                                    <button class="btn btn-outline-secondary icon-btn-table"
+                                                        wire:click="toggleJobs({{ $medProtest->id }})"
+                                                        title="Ver atividades relacionadas"
+                                                        aria-expanded="{{ $expanded ? 'true' : 'false' }}"
+                                                        aria-controls="jobs-{{ $medProtest->id }}">
+                                                        <i
+                                                            class="{{ $expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    @endif
                                 </tr>
 
                                 {{-- ===== BLOCO DE JOBS (COLLAPSE) ===== --}}
                                 @if ($jobs->isNotEmpty() && $expanded)
                                     <tr id="jobs-{{ $medProtest->id }}">
-                                        <td colspan="7" class="jobs-cell">
+                                        <td colspan="{{ $readOnly ? 7 : 8 }}" class="jobs-cell">
                                             @foreach ($jobs->sortByDesc('created_at') as $job)
                                                 @php
                                                     // Accessors do modelo
@@ -1309,63 +1437,18 @@
                                                         </div>
 
                                                         <div class="job-right-chunk">
-                                                            <div class="job-owner text-end me-2">
-                                                                <div class="label">Responsável</div>
-                                                                <div class="value">{{ $job->owner?->name ?? '—' }}
+                                                            @unless ($readOnly)
+                                                                <div class="job-owner text-end me-2">
+                                                                    <div class="label">Responsável</div>
+                                                                    <div class="value">{{ $job->owner?->name ?? '—' }}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-
-                                                            <div class="d-flex align-items-center gap-1">
-                                                                <button class="btn btn-outline-info job-action-btn"
-                                                                    title="Visualizar atividade"
-                                                                    wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $job->id }})">
-                                                                    <i class="ri-eye-line"></i>
-                                                                </button>
-                                                                @if (!$job->confirmed && $job->status->value !== 'canceled')
-                                                                    <button
-                                                                        class="btn btn-outline-primary job-action-btn"
-                                                                        title="Editar atividade"
-                                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'openJobEditor', {{ $job->id }})"
-                                                                        @disabled($job->status->value === 'done')>
-                                                                        <i class="ri-pencil-line"></i>
-                                                                    </button>
-                                                                    <button
-                                                                        class="btn btn-outline-success job-action-btn"
-                                                                        title="Marcar como concluída"
-                                                                        wire:click.prevent="toConfirmJob({{ $job->id }})"
-                                                                        @disabled($job->status->value !== 'done')>
-                                                                        <i class="ri-check-line"></i>
-                                                                    </button>
-                                                                    <button
-                                                                        class="btn btn-outline-warning job-action-btn"
-                                                                        title="Reabrir atividade"
-                                                                        wire:click.prevent="toReopen({{ $job->id }})"
-                                                                        @disabled($job->status->value !== 'done')>
-                                                                        <i class="ri-refresh-line"></i>
-                                                                    </button>
-                                                                    <button
-                                                                        class="btn btn-outline-danger job-action-btn"
-                                                                        title="Cancelar atividade"
-                                                                        wire:click.prevent="toCancelJob({{ $job->id }})"
-                                                                        @disabled($job->status->value === 'cancelled')>
-                                                                        <i class="ri-close-line"></i>
-                                                                    </button>
-                                                                    @can('admin')
-                                                                        <button
-                                                                            class="btn btn-outline-danger job-action-btn"
-                                                                            title="Deletar atividade"
-                                                                            wire:click.prevent="deleteJob({{ $job->id }})"
-                                                                            onclick="return confirm('Tem certeza que deseja deletar esta atividade?')">
-                                                                            <i class="ri-delete-bin-line"></i>
-                                                                        </button>
-                                                                    @endcan
-                                                                @endif
-                                                            </div>
+                                                            @endunless
                                                         </div>
                                                     </div>
 
                                                     <div class="job-body-grid">
-                                                        <div class="job-col-block">
+                                                        <div class="job-col-block job-col-block--meta">
                                                             <div class="job-label job-sla-headline">
                                                                 <span>SLA / Progresso</span>
                                                                 <span
@@ -1400,27 +1483,98 @@
                                                                         {{ $jFinish?->format('d/m/Y H:i') }}</div>
                                                                 @endif
                                                             </div>
+
+                                                            <div class="job-meta-list mt-3">
+                                                                <div class="job-meta-item">
+                                                                    <span>Despachado em</span>
+                                                                    <strong>{{ ($job->sent_at ?? $job->created_at)?->format('d/m/Y H:i') ?? '—' }}</strong>
+                                                                </div>
+                                                                <div class="job-meta-item">
+                                                                    <span>Status</span>
+                                                                    <strong>{{ strtoupper($jobStatusLabel) }}</strong>
+                                                                </div>
+                                                                <div class="job-meta-item">
+                                                                    <span>Quem realizou</span>
+                                                                    <strong>{{ $job->owner?->name ?? '—' }}</strong>
+                                                                </div>
+                                                                <div class="job-meta-item">
+                                                                    <span>Finalizado em</span>
+                                                                    <strong>{{ $job->finished_at?->format('d/m/Y H:i') ?? '—' }}</strong>
+                                                                </div>
+                                                                <div class="job-meta-item">
+                                                                    <span>Finalizado por</span>
+                                                                    <strong>{{ $job->closer?->name ?? '—' }}</strong>
+                                                                </div>
+                                                            </div>
+
+                                                            @unless ($readOnly)
+                                                                <div class="job-actions-under-meta">
+                                                                    <button class="btn btn-outline-info job-action-btn"
+                                                                        title="Visualizar atividade"
+                                                                        wire:click="$emitTo('protests.dispatch.actions.view-protest-job', 'open', {{ $job->id }})">
+                                                                        <i class="ri-eye-line"></i>
+                                                                    </button>
+                                                                    @if (!$job->confirmed && $job->status->value !== 'canceled')
+                                                                        <button class="btn btn-outline-primary job-action-btn"
+                                                                            title="Editar atividade"
+                                                                            wire:click.prevent="$emitTo('protests.dispatch.actions.edit-control-med-protest', 'openJobEditor', {{ $job->id }})"
+                                                                            @disabled($job->status->value === 'done')>
+                                                                            <i class="ri-pencil-line"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-outline-success job-action-btn"
+                                                                            title="Marcar como concluída"
+                                                                            wire:click.prevent="toConfirmJob({{ $job->id }})"
+                                                                            @disabled($job->status->value !== 'done')>
+                                                                            <i class="ri-check-line"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-outline-warning job-action-btn"
+                                                                            title="Reabrir atividade"
+                                                                            wire:click.prevent="toReopen({{ $job->id }})"
+                                                                            @disabled($job->status->value !== 'done')>
+                                                                            <i class="ri-refresh-line"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-outline-danger job-action-btn"
+                                                                            title="Cancelar atividade"
+                                                                            wire:click.prevent="toCancelJob({{ $job->id }})"
+                                                                            @disabled($job->status->value === 'cancelled')>
+                                                                            <i class="ri-close-line"></i>
+                                                                        </button>
+                                                                        @can('admin')
+                                                                            <button class="btn btn-outline-danger job-action-btn"
+                                                                                title="Deletar atividade"
+                                                                                wire:click.prevent="deleteJob({{ $job->id }})"
+                                                                                onclick="return confirm('Tem certeza que deseja deletar esta atividade?')">
+                                                                                <i class="ri-delete-bin-line"></i>
+                                                                            </button>
+                                                                        @endcan
+                                                                    @endif
+                                                                </div>
+                                                            @endunless
                                                         </div>
 
-                                                        <div class="job-col-block">
-                                                            <div class="job-label">Criado em</div>
-                                                            <div class="job-value">
-                                                                {{ $jStart?->format('d/m/Y H:i') ?? '—' }}
+                                                        <div class="job-col-block job-col-block--content">
+                                                            <div class="job-label">Descrição do Pedido</div>
+                                                            <div class="job-value job-resolution-text mb-3">
+                                                                {{ $job->notes ?? '—' }}
                                                             </div>
-                                                            <div class="job-label mt-3">Observações</div>
-                                                            <div class="job-value" style="white-space:pre-line;">
-                                                                {{ $job->notes }}
-                                                            </div>
-                                                        </div>
 
-                                                        <div class="job-col-block">
-                                                            <div class="job-label">Finalizado em</div>
-                                                            <div class="job-value">
-                                                                {{ $job->finished_at?->format('d/m/Y H:i') ?? '—' }}
+                                                            <div class="job-result-head">
+                                                                <div>
+                                                                    <div class="job-label">Finalizado em</div>
+                                                                    <div class="job-value">
+                                                                        {{ $job->finished_at?->format('d/m/Y H:i') ?? '—' }}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="job-label">Avaliação</div>
+                                                                    <div class="job-value text-uppercase">
+                                                                        {{ $job->medProtest?->result ?? '—' }}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div class="job-label mt-3">Resultado</div>
-                                                            <div class="job-value" style="white-space:pre-line;">
-                                                                <p class="my-0 py-0"><strong>Avaliação:</strong> <span class="text-uppercase">{{ $job->medProtest?->result ?? '—' }}</span></p>
+
+                                                            <div class="job-label mt-3">Resolução da Atividade</div>
+                                                            <div class="job-value job-resolution-text">
                                                                 {{ $job->close_reason ?? '—' }}
                                                             </div>
                                                         </div>
@@ -1459,27 +1613,29 @@
             </div>
 
             <div class="row">
-                <div class="col-md-4">
-                    <div class="form-floating mb-3">
-                        <textarea class="form-control @error('comment') is-invalid @enderror" placeholder="Digite sua observação..."
-                            id="floatingTextarea" style="height: 200px" wire:model.defer="comment"></textarea>
+                @unless ($readOnly)
+                    <div class="col-md-4">
+                        <div class="form-floating mb-3">
+                            <textarea class="form-control @error('comment') is-invalid @enderror" placeholder="Digite sua observação..."
+                                id="floatingTextarea" style="height: 200px" wire:model.defer="comment"></textarea>
 
-                        <label for="floatingTextarea">Sua Observação</label>
+                            <label for="floatingTextarea">Sua Observação</label>
 
-                        @error('comment')
-                            <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
-                        @enderror
+                            @error('comment')
+                                <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
+                            @enderror
 
-                        <div class="d-grid mt-2">
-                            <button type="submit" class="btn btn-primary" wire:click.prevent="addComment">
-                                <i class="ri-send-plane-fill me-1"></i>
-                                Enviar Observação
-                            </button>
+                            <div class="d-grid mt-2">
+                                <button type="submit" class="btn btn-primary" wire:click.prevent="addComment">
+                                    <i class="ri-send-plane-fill me-1"></i>
+                                    Enviar Observação
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                @endunless
 
-                <div class="col-md-8">
+                <div class="{{ $readOnly ? 'col-md-12' : 'col-md-8' }}">
                     <div class="chat-container border rounded bg-light">
                         @forelse($protest->comments->sortByDesc('created_at') as $comment)
                             <div class="chat-message p-3 {{ !$loop->last ? 'border-bottom' : '' }}">
@@ -1499,7 +1655,7 @@
                                                     {{ $comment->user->name }}
                                                 </span>
 
-                                                @if ($comment->user?->email)
+                                                @if (!$readOnly && $comment->user?->email)
                                                     <button class="btn btn-sm btn-outline-primary p-1"
                                                         onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $comment->user?->email }}', '_blank')"
                                                         title="Abrir chat no Teams">
@@ -1515,9 +1671,10 @@
                                                 </small>
 
                                                 @if (
-                                                    ($comment->created_at->diffInHours() < 1 && $comment->id === $protest->comments->max('id')) ||
-                                                        auth()->user()->admin ||
-                                                        auth()->user()->superadm)
+                                                    !$readOnly &&
+                                                        (($comment->created_at->diffInHours() < 1 && $comment->id === $protest->comments->max('id')) ||
+                                                            auth()->user()->admin ||
+                                                            auth()->user()->superadm))
                                                     <button class="btn btn-sm btn-outline-danger p-1"
                                                         wire:click="deleteComment({{ $comment->id }})"
                                                         title="Excluir comentário"
@@ -1551,9 +1708,11 @@
     </div>
 
     {{-- ==== Livewire Modals ==== --}}
-    @livewire('protests.dispatch.actions.add-notes-relation', key('add-notes-relation-' . $protest->id))
-    @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest-' . $protest->id))
-    @livewire('protests.dispatch.actions.edit-control-med-protest', key('edit-control-med-protest-' . $protest->id))
-    @livewire('protests.dispatch.actions.upload-med-protest-files', key('upload-med-protest-files-' . $protest->id))
-    @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
+    @unless ($readOnly)
+        @livewire('protests.dispatch.actions.add-notes-relation', key('add-notes-relation-' . $protest->id))
+        @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest-' . $protest->id))
+        @livewire('protests.dispatch.actions.edit-control-med-protest', key('edit-control-med-protest-' . $protest->id))
+        @livewire('protests.dispatch.actions.upload-med-protest-files', key('upload-med-protest-files-' . $protest->id))
+        @livewire('protests.dispatch.actions.view-protest-job', key('view-protest-job'))
+    @endunless
 </div>
