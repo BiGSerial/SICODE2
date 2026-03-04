@@ -329,7 +329,7 @@
                                             <div class="small text-muted mb-2">
                                                 Inclua a Ficha de Viabilidade Técnica de Execução de Obras (FVTO) e documentos contratuais necessários.
                                             </div>
-                                            @livewire('files.manager.create-gen-files', ['note' => $viability->Note, 'service' => 'VIABILIDADE', 'viability' => $viability], key('FilesUploadVIability-' . $viability->id))
+                                            @livewire('files.manager.create-gen-files', ['note' => $viability->Note, 'service' => 'VIABILIDADE', 'viability_id' => $viability->id], key('FilesUploadVIability-' . $viability->id))
                                         </div>
 
                                         <div class="row g-3 align-items-end">

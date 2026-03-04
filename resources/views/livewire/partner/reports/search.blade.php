@@ -1,0 +1,2 @@
+@include('livewire.reports.search')
+

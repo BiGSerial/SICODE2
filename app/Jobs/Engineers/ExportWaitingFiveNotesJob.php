@@ -4,6 +4,7 @@ namespace App\Jobs\Engineers;
 
 use App\Exports\Partner\FiveNotesExport;
 use App\Models\FiveNote;
+use App\Models\Service;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Traits\WildcardFormmater;
@@ -59,13 +60,19 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             $query->with([
                 'note.WorkForm.Orders',
                 'note.Orders',
+                'note.Productions.User',
+                'note.Productions.Company',
                 'company',
             ]);
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-five-notes-general.xlsx';
 
             $disk->makeDirectory('exports');
-            Excel::store(new FiveNotesExport(clone $query, $this->shouldUseHistoricExport()), $filePath, 'local');
+            Excel::store(
+                new FiveNotesExport(clone $query, $this->shouldUseHistoricExport(), $this->exportOptions()),
+                $filePath,
+                'local'
+            );
 
             if (!$disk->exists($filePath)) {
                 throw new \RuntimeException('Arquivo nao foi gerado.');
@@ -231,11 +238,23 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             }
         }
 
+        $query->orderByRaw('CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END');
+        $query->orderBy('completed_at', 'asc');
         $query->orderBy('dispatch_at', 'asc');
     }
 
     protected function shouldUseHistoricExport(): bool
     {
         return ($this->params['statusFilter'] ?? '') === 'finalizado';
+    }
+
+    protected function exportOptions(): array
+    {
+        return [
+            'd5_tracking' => true,
+            'statusFilter' => (string) ($this->params['statusFilter'] ?? ''),
+            'fiscalization_service_id' => Service::whereIn('service', ['Fiscalizacao', 'Fiscalização'])->value('uuid'),
+            'payment_service_id' => Service::where('service', 'Pagamento')->value('uuid'),
+        ];
     }
 }

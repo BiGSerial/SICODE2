@@ -283,6 +283,10 @@
                     <h4 class="text-center text-muted">SEM DADOS PARA EXIBIR</h4>
                 </div>
             @else
+                @php
+                    $showAssignee =
+                        $statusFilter === 'aguardando_fiscalizacao' || $statusFilter === 'aguardando_pagamento';
+                @endphp
                 <div class="table-responsive">
                     <table class="table table-sm table-hover table-striped mb-0 align-middle">
                         <thead class="table-dark">
@@ -296,51 +300,36 @@
                                 <th>Motivo</th>
                                 <th>Cod</th>
                                 <th>Data Despacho</th>
+                                <th>Retorno Empreiteira</th>
                                 <th>Em Atividade</th>
                                 <th>Status</th>
+                                @if ($showAssignee)
+                                    <th>Atribuido</th>
+                                @endif
+                                <th>Timeline</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse ($lists as $list)
                                 @php
-                                    $activityStart = null;
+                                    $meta = $list->tracking_meta ?? [];
+                                    $activity = $meta['activity'] ?? [];
+                                    $timeline = $meta['timeline'] ?? [];
+                                    $assignee = $meta['assignee'] ?? [];
 
-                                    if ($list->is_archived) {
-                                        $activityStart = null;
-                                    } elseif ($list->is_supervisioned) {
+                                    $activityStart = null;
+                                    if (($activity['key'] ?? null) === 'aguardando_pagamento') {
                                         $activityStart = $list->supervisioned_at;
-                                    } elseif ($list->is_completed) {
+                                    } elseif (($activity['key'] ?? null) === 'aguardando_fiscalizacao') {
                                         $activityStart = $list->completed_at;
-                                    } else {
+                                    } elseif (($activity['key'] ?? null) === 'aguardando_fornecedor') {
                                         $activityStart = $list->dispatch_at;
                                     }
 
                                     $daysOverdue = $activityStart?->diffInDays();
                                     $badgeClass = 'bg-success';
-                                    $badgeText = 'Dentro do prazo';
-
-                                    $position = [
-                                        'position' => 'Aguardando Fornecedor',
-                                        'color' => 'text-bg-danger',
-                                    ];
-
-                                    if ($list->is_archived) {
-                                        $position = [
-                                            'position' => 'Finalizado',
-                                            'color' => 'text-bg-success',
-                                        ];
-                                    } elseif ($list->is_supervisioned) {
-                                        $position = [
-                                            'position' => 'Aguardando Pagamento',
-                                            'color' => 'text-bg-primary',
-                                        ];
-                                    } elseif ($list->is_completed) {
-                                        $position = [
-                                            'position' => 'Aguardando Fiscalizacao',
-                                            'color' => 'text-bg-warning',
-                                        ];
-                                    }
+                                    $badgeText = 'No prazo';
 
                                     if ($daysOverdue > 3 && $daysOverdue <= 5) {
                                         $badgeClass = 'bg-warning';
@@ -367,10 +356,18 @@
                                     <td>{{ $list->codify }}</td>
                                     <td>{{ $list->dispatch_at?->format('d/m/Y H:i') }}</td>
                                     <td>
+                                        @if ($list->completed_at)
+                                            {{ $list->completed_at->format('d/m/Y H:i') }}
+                                        @else
+                                            <span class="badge text-bg-secondary">Sem retorno</span>
+                                        @endif
+                                    </td>
+                                    <td>
                                         @if ($activityStart)
                                             <span class="badge {{ $badgeClass }}">
                                                 <i class="ri-time-line me-1"></i> {{ $daysOverdue }} dias
                                             </span>
+                                            <div class="small text-muted mt-1">{{ $badgeText }}</div>
                                         @else
                                             <span class="badge text-bg-secondary">
                                                 <i class="ri-check-line me-1"></i> Finalizado
@@ -378,9 +375,36 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="badge {{ $position['color'] }}">
-                                            {{ $position['position'] }}
+                                        <span class="badge {{ $activity['color'] ?? 'text-bg-secondary' }}">
+                                            {{ $activity['label'] ?? 'Sem status' }}
                                         </span>
+                                    </td>
+                                    @if ($showAssignee)
+                                        <td class="text-start">
+                                            @if ($assignee['has_assignee'] ?? false)
+                                                <div class="fw-semibold">{{ $assignee['name'] }}</div>
+                                                <div class="small text-muted">{{ $assignee['company'] ?? 'Sem empresa' }}</div>
+                                            @else
+                                                <span class="badge text-bg-danger">Sem atribuicao</span>
+                                            @endif
+                                        </td>
+                                    @endif
+                                    <td class="text-start small">
+                                        @foreach ($timeline as $step)
+                                            <div class="d-flex justify-content-between gap-2">
+                                                <span class="text-muted">{{ $step['label'] }}:</span>
+                                                @if ($step['at'])
+                                                    <span>
+                                                        {{ $step['at']->format('d/m/Y H:i') }}
+                                                        @if (!is_null($step['wait_days']))
+                                                            <span class="badge text-bg-light ms-1">{{ $step['wait_days'] }}d</span>
+                                                        @endif
+                                                    </span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </div>
+                                        @endforeach
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-primary p-1"
@@ -391,7 +415,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center py-5">
+                                    <td colspan="{{ $showAssignee ? 14 : 13 }}" class="text-center py-5">
                                         <i class="ri-inbox-line fs-1 d-block mb-2"></i>
                                         Nenhum registro encontrado.
                                     </td>

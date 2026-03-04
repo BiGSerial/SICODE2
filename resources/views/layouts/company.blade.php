@@ -116,7 +116,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 <!-- Scripts -->
 
 
-<body class="g-sidenav-show edp-bg-gray">
+<body class="g-sidenav-show edp-bg-gray {{ trim($__env->yieldContent('body_class')) }}">
 
 
 
@@ -147,7 +147,13 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
             <ul class="d-flex align-items-center">
 
                 {{-- ITENS DE MENU --}}
-                @include('layouts.menu_itens_company')
+                @php
+                    $topMenuPartial = trim($__env->yieldContent('top_menu_partial'));
+                    if ($topMenuPartial === '') {
+                        $topMenuPartial = 'layouts.menu_itens_company';
+                    }
+                @endphp
+                @include($topMenuPartial)
 
                 @if (!Auth()->User()->contract)
                     {{-- <li class="nav-item mx-2">

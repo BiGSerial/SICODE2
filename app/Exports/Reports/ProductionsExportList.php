@@ -80,7 +80,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
 
 
-        $wf = $row->note->workForm;
+        $wf = $row->note->workForm ?: $row->note->workFormAny;
 
         $supervisioned = '';
         $ads = null;
@@ -166,9 +166,9 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->RamalForm ? 'SIM' : 'NÃO',
             $row->Note->RamalForm?->created_at?->format('d/m/Y H:i:s'),
             $row->partial_at?->format('d/m/Y H:i:s'),
-            $row->Note->WorkForm ? 'SIM' : 'NÃO',
-            $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
-            ($row->note->workForm && $row->note->workForm->rejected) ? 'REJEITADO' : 'NORMAL',
+            $wf ? 'SIM'.($wf->canceled ? ' (CANCELADO)' : '') : 'NÃO',
+            $wf?->informed_at?->format('d/m/Y H:i:s'),
+            !$wf ? 'NORMAL' : ($wf->canceled ? 'CANCELADO' : ($wf->rejected ? 'REJEITADO' : 'NORMAL')),
             $ads ? 'SIM' : 'NÃO',
             $adsDeliveredAt?->format('d/m/Y H:i:s') ?? '',
             $adsType ?? '',

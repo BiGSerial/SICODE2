@@ -95,7 +95,7 @@ class Rejectedworkreports extends Component
         }
 
         // Iniciar a consulta de WorkReport
-        $query = WorkReport::query()
+        $query = WorkReport::query()->active()
             ->where('rejected', true)
         ->whereDoesntHave('Note', function ($q) {
             $q->whereIn('nstats', [55])

@@ -97,6 +97,13 @@
                                     <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::ORDERS_PARTIAL->value }}" id="scopePartial">
                                     <label class="form-check-label" for="scopePartial">Cancelar ordens específicas</label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value }}" id="scopeWorkForm" @if(!$hasWorkForm) disabled @endif>
+                                    <label class="form-check-label" for="scopeWorkForm">Cancelar somente WorkForm</label>
+                                </div>
+                                @if(!$hasWorkForm)
+                                    <div class="small text-muted mt-1">Esta nota não possui WorkForm para cancelamento.</div>
+                                @endif
                                 @error('scope')<span class="text-danger small">{{ $message }}</span>@enderror
                             </div>
                         </div>

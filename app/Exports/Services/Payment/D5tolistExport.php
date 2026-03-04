@@ -42,7 +42,7 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
             ->whereHas('note.fiveNote')
             ->where('user_id', $this->user_id)
             ->where('status', '!=', 5)
-            ->with(['note.WorkForm.Company', 'note.WorkForm.Orders', 'note.fiveNote']);
+            ->with(['note.WorkForm.Company', 'note.WorkForm.Orders', 'note.WorkFormAny.Company', 'note.WorkFormAny.Orders', 'note.fiveNote']);
     }
 
     public function chunkSize(): int
@@ -77,8 +77,8 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
     public function map($row): array
     {
 
-
-        $order = $row->note?->WorkForm?->Orders?->sortBy('ordem')->first();
+        $workForm = $row->note?->WorkForm ?: $row->note?->WorkFormAny;
+        $order = $workForm?->Orders?->sortBy('ordem')->first();
 
         // CORREÇÃO DE PERFORMANCE (N+1): Cacheia a consulta de cidades
         $cityCode = $row->note?->nexp;
@@ -90,14 +90,14 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
             $city = $this->cities->get($cityCode);
         }
 
-        $moa = $row->note?->WorkForm?->Orders?->sum('moaberto');
+        $moa = $workForm?->Orders?->sum('moaberto');
 
         // CORREÇÃO DE SEGURANÇA: explode()
         $reasonParts = explode('_', $row->note->fiveNote?->reason ?? '');
         $codifyParts = explode('_', $row->note->fiveNote?->codify ?? '');
 
         return [
-            $row->note?->WorkForm?->Company?->name,
+            $workForm?->Company?->name ? $workForm?->Company?->name.($workForm?->canceled ? ' (CANCELADO)' : '') : null,
             '', // Centro /Resp
             $order?->ordem, // CORREÇÃO: Usar uma propriedade, não o objeto inteiro
             $row->note?->fiveNote?->description,
