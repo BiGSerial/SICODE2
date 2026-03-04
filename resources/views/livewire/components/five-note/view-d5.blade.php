@@ -1,428 +1,342 @@
 <div>
     <x-show-loading />
-    <div class="modal fade finish finish-five" id="finishFiveModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
+
+    <div class="modal fade d5-view-modal" id="finishFiveModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
         <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content fivefx-card">
-                {{-- HEADER --}}
-                <div class="modal-header fivefx-header">
-                    <h6 class="modal-title">
-                        <i class="ri-check-double-line me-1"></i>
-                        IFORMAÇÕES
-                        {{-- Mostra o número da D5 se existir --}}
-                        @if (!empty($five))
-                            <span class="fivefx-pill ms-2">D5: {{ $five?->note_d5 ?? '—' }}</span>
-                        @endif
-                    </h6>
+            <div class="modal-content d5-modal-card">
+                <div class="modal-header d5-modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1">
+                            <i class="ri-file-list-3-line me-1"></i> Detalhes da D5
+                        </h5>
+                        <div class="small opacity-75">
+                            D5 {{ $five?->note_d5 ?? '---' }} | Nota {{ $five?->note?->note ?? '---' }}
+                        </div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Fechar"></button>
                 </div>
 
-                {{-- BODY (só mostra conteúdo se existir $five?) --}}
-                <div class="modal-body fivefx-body">
+                <div class="modal-body p-0">
                     @if (!empty($five))
-                        {{-- Resumo compacto da D5 --}}
-                        <div class="fivefx-grid mb-3">
-                            <div>
-                                <div class="fivefx-k">Local de Instalação</div>
-                                <div class="fivefx-v">{{ $five?->loc_install ?? '—' }}</div>
+                        @php
+                            $activity = $trackingMeta['activity'] ?? [];
+                            $assignee = $trackingMeta['assignee'] ?? [];
+                            $allFiles = $five?->evidenceFiles ?? collect();
+                        @endphp
+
+                        <div class="d5-overview row g-0">
+                            <div class="col-12 col-lg-8 border-end">
+                                <div class="p-3 p-lg-4">
+                                    <div class="d5-badges mb-3">
+                                        <span class="badge {{ $activity['color'] ?? 'text-bg-secondary' }}">
+                                            {{ $activity['label'] ?? 'Sem status' }}
+                                        </span>
+                                        @if ($five->isPassive)
+                                            <span class="badge text-bg-info">Passiva</span>
+                                        @endif
+                                        @if ($assignee['has_assignee'] ?? false)
+                                            <span class="badge text-bg-light border">
+                                                Responsável: {{ $assignee['name'] }}
+                                            </span>
+                                        @else
+                                            <span class="badge text-bg-danger">Sem responsável atribuído</span>
+                                        @endif
+                                    </div>
+
+                                    <div class="d5-grid mb-3">
+                                        <div class="d5-cell">
+                                            <div class="d5-k">Empreiteira</div>
+                                            <div class="d5-v">{{ $five?->company?->name ?? '---' }}</div>
+                                        </div>
+                                        <div class="d5-cell">
+                                            <div class="d5-k">Rubrica</div>
+                                            <div class="d5-v">{{ $five?->note?->rubrica ?? '---' }}</div>
+                                        </div>
+                                        <div class="d5-cell">
+                                            <div class="d5-k">Motivo</div>
+                                            <div class="d5-v">{{ $five?->reason ?? '---' }}</div>
+                                        </div>
+                                        <div class="d5-cell">
+                                            <div class="d5-k">Codificação</div>
+                                            <div class="d5-v">{{ $five?->codify ?? '---' }}</div>
+                                        </div>
+                                        <div class="d5-cell">
+                                            <div class="d5-k">Local de instalação</div>
+                                            <div class="d5-v">{{ $five?->loc_install ?? '---' }}</div>
+                                        </div>
+                                        <div class="d5-cell">
+                                            <div class="d5-k">PEP</div>
+                                            <div class="d5-v">{{ $five?->pep ?? '---' }}</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d5-desc mb-3">
+                                        {{ $five?->description ?? 'Sem descrição.' }}
+                                    </div>
+
+                                    <h6 class="d5-section-title"><i class="ri-attachment-2 me-1"></i> Arquivos da D5</h6>
+                                    <x-files.attachments :files="$allFiles" :downloadAction="'dowloadFile'" :showHeader="false"
+                                        :card="false" class="d5-attachments-lite" />
+                                </div>
                             </div>
-                            <div>
-                                <div class="fivefx-k">Conjunto</div>
-                                <div class="fivefx-v">{{ $five?->conjunto ?? '—' }}</div>
-                            </div>
-                            <div>
-                                <div class="fivefx-k">PEP</div>
-                                <div class="fivefx-v">{{ $five?->pep ?? '—' }}</div>
-                            </div>
-                            <div>
-                                <div class="fivefx-k">Empresa</div>
-                                <div class="fivefx-v">{{ $five?->company->name ?? '—' }}</div>
-                            </div>
-                            <div>
-                                <div class="fivefx-k">Motivo</div>
-                                <div class="fivefx-v">{{ $five?->reason ?? '—' }}</div>
-                            </div>
-                            <div>
-                                <div class="fivefx-k">Codificação</div>
-                                <div class="fivefx-v">{{ $five?->codify ?? '—' }}</div>
-                            </div>
-                            <div class="fivefx-col-span">
-                                <div class="fivefx-k">Detalhes</div>
-                                <div class="fivefx-long">{{ $five?->description ?? '—' }}</div>
-                            </div>
-                            <div>
-                                <div class="fivefx-k">Despachado em</div>
-                                <div class="fivefx-v">
-                                    {{ optional($five?->dispatch_at)->format('d/m/Y H:i') ?? '—' }}
+
+                            <div class="col-12 col-lg-4">
+                                <div class="p-3 p-lg-4">
+                                    <h6 class="d5-section-title">
+                                        <i class="ri-git-commit-line me-1"></i> Timeline de Eventos
+                                    </h6>
+
+                                    @if (empty($eventTimeline))
+                                        <div class="d5-empty">Sem eventos de timeline para esta D5.</div>
+                                    @else
+                                        <div class="d5-events-scroll">
+                                            @foreach ($eventTimeline as $event)
+                                                <div class="d5-event-item">
+                                                    <div class="d5-event-icon">
+                                                        <i class="{{ $event['icon'] }}"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <div class="d5-event-title">{{ $event['event'] }}</div>
+                                                        <div class="d5-event-meta">
+                                                            @php
+                                                                $eventWhen = $event['when'] ?? null;
+                                                                if ($eventWhen instanceof \Carbon\CarbonInterface) {
+                                                                    $eventWhenLabel = $eventWhen->format('d/m/Y H:i');
+                                                                } elseif (is_string($eventWhen) && trim($eventWhen) !== '') {
+                                                                    try {
+                                                                        $eventWhenLabel = \Illuminate\Support\Carbon::parse($eventWhen)->format('d/m/Y H:i');
+                                                                    } catch (\Throwable $e) {
+                                                                        $eventWhenLabel = '---';
+                                                                    }
+                                                                } else {
+                                                                    $eventWhenLabel = '---';
+                                                                }
+                                                            @endphp
+                                                            {{ $eventWhenLabel }}
+                                                            <span class="text-muted">| {{ $event['stage'] }}</span>
+                                                        </div>
+                                                        <div class="d5-event-meta">
+                                                            Responsável: {{ $event['owner'] ?? '---' }}
+                                                            @if ($event['actor'])
+                                                                <span class="text-muted">| Ação por {{ $event['actor'] }}</span>
+                                                            @endif
+                                                            @if ($event['inferred'])
+                                                                <span class="badge text-bg-warning ms-2">Inferido</span>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+
+                                    <h6 class="d5-section-title mt-4"><i class="ri-chat-1-line me-1"></i> Última observação</h6>
+                                    <div class="d5-note">
+                                        {{ $five?->comments?->last()?->message ?? 'Sem observações registradas.' }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        {{-- Evidências já anexadas --}}
-                        <div class="mb-3">
-                            <h6 class="fivefx-subtitle mb-2">
-                                <i class="ri-attachment-2 me-1"></i> Evidências anexadas
-                            </h6>
-
-                            @php $files = $five?->EvidenceFiles ?? collect(); @endphp
-                            <x-files.attachments :files="$files" :downloadAction="'dowloadFile'" :showHeader="false"
-                                :card="false" />
-                        </div>
-
-                        {{-- Área para anexar novos arquivos (plugue seu componente aqui se quiser) --}}
-                        <div class="mb-3">
-                            <h6 class="fivefx-subtitle mb-2">
-                                <i class="ri-team-line me-1"></i> Histórico de Conclusões
-                            </h6>
-
-                            <div class="fivefx-completion-list">
-                                @if ($five?->productions?->isNotEmpty())
-                                    @foreach ($five?->productions as $production)
-                                        <div class="fivefx-completion-card">
-                                            <div class="fivefx-completion-header">
-                                                <div class="fivefx-completion-user">
-                                                    <i class="ri-user-3-line fivefx-completion-avatar"></i>
-                                                    <div>
-                                                        <div class="fivefx-completion-name">
-                                                            {{ $production?->user?->name }}
-                                                            @if ($production->User?->email)
-                                                                <span class="teams-contact-icon"
-                                                                    title="Entrar em contato"
-                                                                    onclick="window.open('msteams://teams.microsoft.com/l/chat/0/0?users={{ $production->User?->email }}', '_blank')">
-                                                                    <i
-                                                                        class="bx bxl-microsoft-teams fs-4 align-middle"></i>
-                                                                </span>
-
-                                                                <style>
-                                                                    .teams-contact-icon {
-                                                                        cursor: pointer;
-                                                                        display: inline-block;
-                                                                        transition: all 0.3s ease;
-                                                                        padding: 4px;
-                                                                        border-radius: 4px;
-                                                                    }
-
-                                                                    .teams-contact-icon:hover {
-                                                                        background-color: rgba(0, 120, 212, 0.1);
-                                                                        transform: scale(1.1);
-                                                                    }
-
-                                                                    .teams-contact-icon:hover i {
-                                                                        color: #0078d4 !important;
-                                                                    }
-                                                                </style>
-                                                            @endif
-                                                        </div>
-                                                        <div class="fivefx-completion-role">
-                                                            {{ $production?->service?->service }}</div>
-                                                    </div>
-                                                </div>
-                                                <i class="ri-microsoft-line fivefx-teams-icon"></i>
-                                            </div>
-                                            <div class="fivefx-completion-body">
-                                                <div class="fivefx-completion-service">
-                                                    {{ $production?->analise?->conclusion }}</div>
-                                                <div class="five-tl-text mb-3">
-                                                    {!! nl2br($production?->analise?->info) !!}
-                                                </div>
-                                                <div class="fivefx-completion-date">
-                                                    <i class="ri-calendar-check-line me-1"></i>
-                                                    Concluído em {{ $production?->completed_at?->format('d/m/Y H:i') }}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @endif
-                            </div>
-
-                            <style>
-                                .finish-five .fivefx-completion-list {
-                                    display: flex;
-                                    flex-direction: column;
-                                    gap: 12px;
-                                }
-
-                                .finish-five .fivefx-completion-card {
-                                    background: rgba(255, 255, 255, .06);
-                                    border: 1px solid rgba(255, 255, 255, .12);
-                                    border-radius: 12px;
-                                    padding: 16px;
-                                    transition: all 0.3s ease;
-                                }
-
-                                .finish-five .fivefx-completion-card:hover {
-                                    background: rgba(255, 255, 255, .08);
-                                    transform: translateY(-2px);
-                                    box-shadow: 0 8px 25px rgba(0, 0, 0, .3);
-                                }
-
-                                .finish-five .fivefx-completion-header {
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: space-between;
-                                    margin-bottom: 12px;
-                                }
-
-                                .finish-five .fivefx-completion-user {
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 12px;
-                                }
-
-                                .finish-five .fivefx-completion-avatar {
-                                    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-                                    color: white;
-                                    width: 40px;
-                                    height: 40px;
-                                    border-radius: 50%;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 18px;
-                                }
-
-                                .finish-five .fivefx-completion-name {
-                                    color: #f3f4f6;
-                                    font-weight: 700;
-                                    font-size: 0.95rem;
-                                }
-
-                                .finish-five .fivefx-completion-role {
-                                    color: #9ca3af;
-                                    font-size: 0.82rem;
-                                    font-weight: 500;
-                                }
-
-                                .finish-five .fivefx-teams-icon {
-                                    color: #0ea5e9;
-                                    font-size: 24px;
-                                    opacity: 0.8;
-                                    transition: opacity 0.3s ease;
-                                }
-
-                                .finish-five .fivefx-completion-card:hover .fivefx-teams-icon {
-                                    opacity: 1;
-                                }
-
-                                .finish-five .fivefx-completion-service {
-                                    color: #e5e7eb;
-                                    font-weight: 600;
-                                    margin-bottom: 8px;
-                                    font-size: 0.9rem;
-                                }
-
-                                .finish-five .fivefx-completion-date {
-                                    color: #9ca3af;
-                                    font-size: 0.82rem;
-                                    font-weight: 500;
-                                    display: flex;
-                                    align-items: center;
-                                }
-                            </style>
-                        </div>
                     @else
-                        <div class="fivefx-empty text-center">Nenhuma informação carregada.</div>
-                    @endif
-
-
-                    <div class="mb-3">
-                        <label for="responsibleName" class="form-label fivefx-k">Responsável pela Informação</label>
-                        <input type="text" class="form-control" id="responsibleName" wire:model.bounce.1s="five.name"
-                            placeholder="Digite o nome do responsável"
-                            style="background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; color: #f3f4f6; padding: 10px 12px;"
-                            disabled>
-                    </div>
-                    <div class="mb-3">
-                        <label for="responsibleName" class="form-label fivefx-k">Observações da Parceira</label>
-                        <div class="fivefx-completion-card">
-                            {{ $five?->Comments?->last()?->message ?? 'Nenhuma Observação' }}
+                        <div class="p-4">
+                            <div class="d5-empty text-center">Nenhuma informação carregada.</div>
                         </div>
-                    </div>
+                    @endif
                 </div>
 
-                {{-- Campo para nome do responsável --}}
-
-
-                {{-- FOOTER --}}
-                <div class="modal-footer fivefx-footer">
-                    <button class="btn btn-outline-light fivefx-btn" data-bs-dismiss="modal">Cancelar</button>
-                    {{-- Ligue este botão ao seu método Livewire --}}
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- CSS ESCOPO EXCLUSIVO DO MODAL --}}
     <style>
-        .finish-five .fivefx-card {
-            background: linear-gradient(145deg, #1f2937, #0f172a);
-            color: #e5e7eb;
+        .d5-view-modal .modal-dialog {
+            max-width: min(1600px, 96vw);
+            margin: 1rem auto;
+        }
+
+        .d5-view-modal .d5-modal-card {
             border: 0;
-            border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .5)
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 22px 50px rgba(15, 23, 42, .26);
         }
 
-        .finish-five .fivefx-header {
-            background: rgba(31, 41, 55, .95);
-            border: 0;
-            border-top-left-radius: 14px;
-            border-top-right-radius: 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, .08)
+        .d5-view-modal .d5-modal-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 75%);
+            color: #f8fafc;
+            border-bottom: 0;
         }
 
-        .finish-five .btn-close {
-            filter: invert(1);
-            opacity: .9
+        .d5-view-modal .d5-overview {
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
         }
 
-        .finish-five .fivefx-body {
-            padding: 1rem 1.25rem
+        .d5-view-modal .d5-badges {
+            display: flex;
+            gap: .4rem;
+            flex-wrap: wrap;
         }
 
-        .finish-five .fivefx-pill {
-            display: inline-block;
-            background: #0ea5e9;
-            color: #fff;
-            padding: .15rem .5rem;
-            border-radius: 999px;
-            font-size: .77rem;
-            font-weight: 700
+        .d5-view-modal .d5-badges .badge {
+            max-width: 100%;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
-        .finish-five .fivefx-grid {
+        .d5-view-modal .d5-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px
+            gap: .75rem;
         }
 
-        .finish-five .fivefx-col-span {
-            grid-column: 1/-1
+        .d5-view-modal .d5-cell {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: .6rem .75rem;
+            background: #ffffff;
         }
 
-        .finish-five .fivefx-k {
-            color: #9ca3af;
-            font-size: .82rem;
+        .d5-view-modal .d5-k {
+            font-size: .74rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #6b7280;
+            margin-bottom: .15rem;
+        }
+
+        .d5-view-modal .d5-v {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .d5-view-modal .d5-desc,
+        .d5-view-modal .d5-note {
+            border: 1px dashed #d1d5db;
+            border-radius: 10px;
+            padding: .75rem;
+            background: #f9fafb;
+            color: #374151;
+            white-space: pre-wrap;
+        }
+
+        .d5-view-modal .d5-section-title {
+            font-size: .9rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #475569;
+            margin-bottom: .7rem;
             font-weight: 700;
-            margin-bottom: 2px
         }
 
-        .finish-five .fivefx-v {
-            color: #f3f4f6;
-            font-weight: 600
+        .d5-view-modal .d5-events-scroll {
+            max-height: 380px;
+            overflow-y: auto;
+            padding-right: .2rem;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
         }
 
-        .finish-five .fivefx-long {
-            background: rgba(255, 255, 255, .04);
-            border: 1px solid rgba(255, 255, 255, .08);
+        .d5-view-modal .d5-events-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .d5-view-modal .d5-events-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
             border-radius: 10px;
-            padding: 10px 12px;
-            color: #d1d5db;
-            white-space: pre-wrap
         }
 
-        .finish-five .fivefx-subtitle {
-            color: #f9fafb;
-            font-weight: 700
-        }
-
-        .finish-five .fivefx-filelist {
+        .d5-view-modal .d5-event-item {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            background: rgba(255, 255, 255, .04);
-            border: 1px solid rgba(255, 255, 255, .08);
+            gap: .65rem;
+            border: 1px solid #e5e7eb;
             border-radius: 10px;
-            padding: 10px
+            background: #fff;
+            padding: .55rem .6rem;
+            margin-bottom: .55rem;
         }
 
-        .finish-five .fivefx-fileitem {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #e5e7eb;
-            background: rgba(255, 255, 255, .03);
-            border: 1px dashed rgba(255, 255, 255, .08);
+        .d5-view-modal .d5-event-icon {
+            width: 26px;
+            height: 26px;
             border-radius: 8px;
-            padding: 6px 10px
+            background: #eff6ff;
+            color: #1d4ed8;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
         }
 
-        .finish-five .fivefx-meta {
-            color: #9ca3af;
-            font-size: .82rem
-        }
-
-        .finish-five .fivefx-empty {
-            color: #9ca3af;
-            background: rgba(255, 255, 255, .03);
-            border: 1px dashed rgba(255, 255, 255, .08);
-            border-radius: 10px;
-            padding: 12px
-        }
-
-        .finish-five .fivefx-dropzone {
-            background: rgba(59, 130, 246, .08);
-            border: 1px dashed rgba(59, 130, 246, .35);
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center
-        }
-
-        .finish-five .fivefx-drophint {
-            color: #e5e7eb;
-            font-weight: 600
-        }
-
-        .finish-five .fivefx-browse {
-            display: inline-block;
-            margin-top: .35rem;
-            background: #3b82f6;
-            color: #fff;
-            padding: .35rem .75rem;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 700
-        }
-
-        .finish-five .fivefx-note {
-            color: #9ca3af;
-            font-size: .82rem;
-            margin-top: .35rem
-        }
-
-        .finish-five .fivefx-muted {
-            color: #9ca3af;
-            font-weight: 500;
-            font-size: .85rem
-        }
-
-        .finish-five .fivefx-info {
-            background: rgba(255, 255, 255, .04);
-            border: 1px solid rgba(255, 255, 255, .08);
-            border-radius: 10px;
-            padding: 10px;
-            color: #d1d5db
-        }
-
-        .finish-five .fivefx-footer {
-            background: rgba(31, 41, 55, .95);
-            border: 0;
-            border-top: 1px solid rgba(255, 255, 255, .08);
-            border-bottom-left-radius: 14px;
-            border-bottom-right-radius: 14px
-        }
-
-        .finish-five .fivefx-btn {
+        .d5-view-modal .d5-event-title {
+            font-size: .86rem;
             font-weight: 700;
-            border-radius: 10px
+            color: #1f2937;
+            line-height: 1.2;
+            margin-bottom: .1rem;
         }
 
-        @media (max-width:576px) {
-            .finish-five .modal-dialog {
-                margin: .5rem
-            }
+        .d5-view-modal .d5-event-meta {
+            font-size: .76rem;
+            color: #64748b;
+            line-height: 1.25;
+        }
 
-            .finish-five .fivefx-grid {
-                grid-template-columns: 1fr
+        .d5-view-modal .d5-empty {
+            border: 1px dashed #d1d5db;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #6b7280;
+            padding: .85rem;
+        }
+
+        /* Hardening para evitar quebra de layout dentro do componente de anexos no modal */
+        .d5-view-modal .d5-attachments-lite .attachments-comp-grid {
+            gap: .75rem;
+        }
+
+        .d5-view-modal .d5-attachments-lite .attachments-comp-image-item {
+            overflow: hidden;
+        }
+
+        .d5-view-modal .d5-attachments-lite .attachments-comp-image {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            background: #f1f5f9;
+            color: transparent;
+            font-size: 0;
+            text-indent: -9999px;
+            overflow: hidden;
+            display: block;
+        }
+
+        .d5-view-modal .d5-attachments-lite .card-body {
+            min-width: 0;
+        }
+
+        .d5-view-modal .d5-attachments-lite .card-body small {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .d5-view-modal .d5-attachments-lite .attachments-comp-file-item {
+            min-width: 0;
+        }
+
+        .d5-view-modal .d5-attachments-lite .attachments-comp-file-item .text-truncate {
+            max-width: 100%;
+        }
+
+        @media (max-width: 992px) {
+            .d5-view-modal .d5-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>

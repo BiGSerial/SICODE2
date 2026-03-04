@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Production\Actions;
 
 use App\Models\Production;
+use App\Services\D5\D5WorkflowService;
 use Livewire\Component;
 
 class ToRemove extends Component
@@ -46,7 +47,19 @@ class ToRemove extends Component
 
     public function executeToRemove()
     {
+        $previousUserId = $this->production->user_id;
+        $five = $this->production->note?->FiveNote;
+
         try {
+            if ($five && $previousUserId) {
+                app(D5WorkflowService::class)->onProductionUnassigned(
+                    $five,
+                    $this->production,
+                    auth()->id(),
+                    $previousUserId
+                );
+            }
+
             $this->production->delete();
 
             $this->dispatchBrowserEvent('swal', [

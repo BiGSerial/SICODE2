@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Production\Actions;
 use App\Models\Company;
 use App\Models\Production;
 use App\Models\User;
+use App\Services\D5\D5WorkflowService;
 use Livewire\Component;
 
 class ToAssign extends Component
@@ -80,11 +81,23 @@ class ToAssign extends Component
 
     public function executeRemoveAssign()
     {
+        $previousUserId = $this->production->user_id;
+
         try {
             $this->production->update([
                 'user_id' => null,
                 'status'  => 1,
             ]);
+
+            $five = $this->production->note?->FiveNote;
+            if ($five && $previousUserId) {
+                app(D5WorkflowService::class)->onProductionUnassigned(
+                    $five,
+                    $this->production,
+                    auth()->id(),
+                    $previousUserId
+                );
+            }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -143,6 +156,8 @@ class ToAssign extends Component
 
     public function executeAssign()
     {
+        $previousUserId = $this->production->user_id;
+
         try {
             $this->production->update([
                 'user_id' => $this->userSelected,
@@ -154,6 +169,18 @@ class ToAssign extends Component
                 'status' => 2,
                 'd5' => $this->ri,
             ]);
+
+            $five = $this->production->note?->FiveNote;
+            if ($five) {
+                $five->productions()->syncWithoutDetaching([$this->production->id]);
+
+                app(D5WorkflowService::class)->onProductionAssigned(
+                    $five,
+                    $this->production,
+                    auth()->id(),
+                    $previousUserId
+                );
+            }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

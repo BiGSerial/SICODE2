@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Engineers;
 
+use App\Custom\Notestatus;
 use App\Helpers\TextFormatter;
 use App\Jobs\Engineers\ExportWaitingFiveNotesJob;
 use App\Models\FiveNote;
@@ -10,6 +11,7 @@ use App\Traits\AppliesQueryFilters;
 use App\Traits\WildcardFormmater;
 use Carbon\Carbon;
 use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -199,17 +201,31 @@ class WaitingFiveNotes extends Component
     {
         switch ($this->statusFilter) {
             case 'aguardando_fornecedor':
-                $base->where('is_completed', false)
+                $base->where('visible_partner', true)
+                    ->where('is_completed', false)
                     ->where('is_archived', false);
                 break;
             case 'aguardando_fiscalizacao':
-                $base->where('is_completed', true)
-                    ->where('is_supervisioned', false)
-                    ->where('is_archived', false);
+                $base->where(function ($query) {
+                    $query->where('is_completed', true)
+                        ->where('is_supervisioned', false)
+                        ->where('is_archived', false);
+                });
                 break;
             case 'aguardando_pagamento':
-                $base->where('is_supervisioned', true)
-                    ->where('is_archived', false);
+                $base->where(function ($query) {
+                    $query->where(function ($q) {
+                        $q->where('is_supervisioned', true)
+                            ->where('is_archived', false);
+                    })->orWhere(function ($q) {
+                        $q->where('is_archived', false)
+                            ->where('visible_partner', false)
+                            ->where(function ($d5) {
+                                $d5->whereNull('note_d5')
+                                    ->orWhere('note_d5', '');
+                            });
+                    });
+                });
                 break;
             case 'finalizado':
                 $base->where('is_archived', true);
@@ -223,7 +239,20 @@ class WaitingFiveNotes extends Component
     private function baseQuery(): Builder
     {
         $base = FiveNote::query()
-            ->where('visible_partner', true);
+            ->where(function ($query) {
+                $query->where('visible_partner', true)
+                    ->orWhere(function ($inner) {
+                        $inner->where(function ($noteD5) {
+                            $noteD5->whereNull('note_d5')
+                                ->orWhere('note_d5', '');
+                        })->whereExists(function ($exists) {
+                            $exists->select(DB::raw(1))
+                                ->from('timeline_events as te')
+                                ->whereColumn('te.five_note_id', 'five_notes.id')
+                                ->where('te.event_type', 'd5_created_from_supervision');
+                        });
+                    });
+            });
 
         $this->applyStatusFilter($base);
 
@@ -404,6 +433,10 @@ class WaitingFiveNotes extends Component
             return ['key' => 'finalizado', 'label' => 'Finalizado', 'color' => 'text-bg-success'];
         }
 
+        if ((is_null($fiveNote->note_d5) || trim((string) $fiveNote->note_d5) === '') && !$fiveNote->visible_partner) {
+            return ['key' => 'aguardando_geracao_d5', 'label' => 'Aguardando Geracao de D5', 'color' => 'text-bg-secondary'];
+        }
+
         if ($fiveNote->is_supervisioned) {
             return ['key' => 'aguardando_pagamento', 'label' => 'Aguardando Pagamento', 'color' => 'text-bg-primary'];
         }
@@ -417,8 +450,15 @@ class WaitingFiveNotes extends Component
 
     protected function resolveAssignee(FiveNote $fiveNote, string $activityKey): array
     {
-        if (!in_array($activityKey, ['aguardando_fiscalizacao', 'aguardando_pagamento'], true)) {
-            return ['name' => null, 'company' => null, 'has_assignee' => false];
+        if (!in_array($activityKey, ['aguardando_fiscalizacao', 'aguardando_pagamento', 'aguardando_geracao_d5'], true)) {
+            $statusMeta = $this->statusMetaFromProduction(null);
+            return [
+                'name' => null,
+                'company' => null,
+                'has_assignee' => false,
+                'assignment_status' => $statusMeta['label'],
+                'assignment_badge' => $statusMeta['badge'],
+            ];
         }
 
         $targetServiceId = $activityKey === 'aguardando_fiscalizacao'
@@ -426,15 +466,23 @@ class WaitingFiveNotes extends Component
             : $this->paymentServiceId();
 
         if (!$targetServiceId) {
-            return ['name' => null, 'company' => null, 'has_assignee' => false];
+            $statusMeta = $this->statusMetaFromProduction(null);
+            return [
+                'name' => null,
+                'company' => null,
+                'has_assignee' => false,
+                'assignment_status' => $statusMeta['label'],
+                'assignment_badge' => $statusMeta['badge'],
+            ];
         }
 
         $productions = $fiveNote->note?->Productions ?? collect();
         $partnerReturnAt = $fiveNote->completed_at;
+        $strictPartnerWindow = $activityKey === 'aguardando_fiscalizacao' && (bool) $partnerReturnAt;
 
-        $openForService = $productions
-            ->where('service_id', $targetServiceId)
-            ->where('completed', false);
+        $forService = $productions->where('service_id', $targetServiceId);
+
+        $openForService = $forService->where('completed', false);
 
         if ($partnerReturnAt) {
             $openForService = $openForService->filter(function ($production) use ($partnerReturnAt) {
@@ -444,14 +492,42 @@ class WaitingFiveNotes extends Component
         }
 
         $candidate = $openForService
+            ->whereNotNull('user_id')
             ->sortByDesc(function ($production) {
                 return $production->att_at ?: $production->created_at;
             })
             ->first();
 
         if (!$candidate) {
-            $candidate = $productions
-                ->where('service_id', $targetServiceId)
+            $candidate = $openForService
+                ->sortByDesc(function ($production) {
+                    return $production->att_at ?: $production->created_at;
+                })
+                ->first();
+        }
+
+        if ($strictPartnerWindow && !$candidate) {
+            $statusMeta = $this->statusMetaFromProduction(null);
+            return [
+                'name' => null,
+                'company' => null,
+                'has_assignee' => false,
+                'assignment_status' => $statusMeta['label'],
+                'assignment_badge' => $statusMeta['badge'],
+            ];
+        }
+
+        if (!$candidate) {
+            $candidate = $forService
+                ->whereNotNull('user_id')
+                ->sortByDesc(function ($production) {
+                    return $production->att_at ?: $production->created_at;
+                })
+                ->first();
+        }
+
+        if (!$candidate) {
+            $candidate = $forService
                 ->where('completed', false)
                 ->sortByDesc(function ($production) {
                     return $production->att_at ?: $production->created_at;
@@ -459,11 +535,46 @@ class WaitingFiveNotes extends Component
                 ->first();
         }
 
+        if (!$candidate) {
+            $statusMeta = $this->statusMetaFromProduction(null);
+            return [
+                'name' => null,
+                'company' => null,
+                'has_assignee' => false,
+                'assignment_status' => $statusMeta['label'],
+                'assignment_badge' => $statusMeta['badge'],
+            ];
+        }
+
+        $statusMeta = $this->statusMetaFromProduction($candidate->status);
+
         return [
-            'name' => $candidate?->User?->name,
-            'company' => $candidate?->Company?->name,
-            'has_assignee' => (bool) $candidate?->user_id,
+            'name' => $candidate->User?->name,
+            'company' => $candidate->Company?->name,
+            'has_assignee' => (bool) $candidate->user_id,
+            'assignment_status' => $statusMeta['label'],
+            'assignment_badge' => $statusMeta['badge'],
         ];
+    }
+
+    protected function statusMetaFromProduction($status): array
+    {
+        $fallback = [
+            'label' => 'Nao Atribuido',
+            'badge' => 'text-bg-secondary',
+        ];
+
+        try {
+            $statusValue = is_null($status) ? 1 : (int) $status;
+            $meta = Notestatus::status($statusValue);
+
+            return [
+                'label' => $meta->status ?? $fallback['label'],
+                'badge' => $meta->colorbg ?? $fallback['badge'],
+            ];
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
     }
 
     protected function waitDays($from, $to): ?int

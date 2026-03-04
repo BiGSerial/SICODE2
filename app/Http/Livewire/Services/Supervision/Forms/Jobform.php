@@ -8,6 +8,7 @@ use App\Models\EvidenceFile;
 use App\Models\FiveNote;
 use App\Models\Notetimeline;
 use App\Models\Production;
+use App\Services\D5\D5WorkflowService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -503,6 +504,14 @@ class Jobform extends Component
 
                     if ($fiveNote) {
                         $fiveNote->Productions()->syncWithoutDetaching([$this->production->id]);
+
+                        if ($fiveNote->wasRecentlyCreated) {
+                            app(D5WorkflowService::class)->onCreatedFromSupervision(
+                                $fiveNote,
+                                auth()->id(),
+                                $this->production
+                            );
+                        }
                     }
                 } else {
 
@@ -510,17 +519,33 @@ class Jobform extends Component
                         $this->five = $this->production->note->FiveNote;
                     }
 
+                    $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
+
                     if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
                         $this->five->update([
                             'is_completed' => false,
                             'completed_at' => null,
                             'returned'     => true,
                         ]);
+
+                        app(D5WorkflowService::class)->onReturnedWithPending(
+                            $this->five,
+                            $fromStage,
+                            auth()->id(),
+                            $this->production
+                        );
                     } else {
                         $this->five->update([
                             'is_supervisioned' => true,
                             'supervisioned_at' => now(),
                         ]);
+
+                        app(D5WorkflowService::class)->onSupervisionApproved(
+                            $this->five,
+                            $fromStage,
+                            auth()->id(),
+                            $this->production
+                        );
                     }
 
                     $this->five->Productions()->syncWithoutDetaching([$this->production->id]);

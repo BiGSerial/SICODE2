@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\Wpa;
 use App\Repositories\SupervisionRepository;
 use App\Services\Supervision\BlockEvaluator;
+use App\Services\D5\D5WorkflowService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -640,6 +641,17 @@ class Main extends Component
                             'status' => 2,
                             'productionId' => $production->id,
                         ]);
+
+                        if ($production->user_id && $note->FiveNote) {
+                            $note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
+
+                            app(D5WorkflowService::class)->onProductionAssigned(
+                                $note->FiveNote,
+                                $production,
+                                auth()->id(),
+                                null
+                            );
+                        }
                     }
 
 
